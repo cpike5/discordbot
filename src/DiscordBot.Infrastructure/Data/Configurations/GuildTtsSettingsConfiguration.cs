@@ -34,6 +34,26 @@ public class GuildTtsSettingsConfiguration : IEntityTypeConfiguration<GuildTtsSe
             .IsRequired()
             .HasDefaultValue(false);
 
+        // SSML configuration properties
+        builder.Property(s => s.SsmlEnabled)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(s => s.StrictSsmlValidation)
+            .IsRequired()
+            .HasDefaultValue(false);
+
+        builder.Property(s => s.MaxSsmlComplexity)
+            .IsRequired()
+            .HasDefaultValue(50);
+
+        builder.Property(s => s.DefaultStyle)
+            .HasMaxLength(50);
+
+        builder.Property(s => s.DefaultStyleDegree)
+            .IsRequired()
+            .HasDefaultValue(1.0);
+
         // String properties
         builder.Property(s => s.DefaultVoice)
             .IsRequired()

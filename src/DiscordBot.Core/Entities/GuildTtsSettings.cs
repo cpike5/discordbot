@@ -56,6 +56,33 @@ public class GuildTtsSettings
     public bool AnnounceJoinsLeaves { get; set; }
 
     /// <summary>
+    /// Gets or sets whether SSML markup is enabled for TTS in this guild.
+    /// </summary>
+    public bool SsmlEnabled { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether to enforce strict SSML validation.
+    /// When true, invalid SSML will be rejected rather than falling back to plain text.
+    /// </summary>
+    public bool StrictSsmlValidation { get; set; }
+
+    /// <summary>
+    /// Gets or sets the maximum SSML complexity score allowed.
+    /// Higher values allow more nested elements and prosody modifications.
+    /// </summary>
+    public int MaxSsmlComplexity { get; set; } = 50;
+
+    /// <summary>
+    /// Gets or sets the default SSML style for voices that support styles (e.g., "cheerful", "sad").
+    /// </summary>
+    public string? DefaultStyle { get; set; }
+
+    /// <summary>
+    /// Gets or sets the default style intensity (0.01 to 2.0, where 1.0 is normal).
+    /// </summary>
+    public double DefaultStyleDegree { get; set; } = 1.0;
+
+    /// <summary>
     /// Gets or sets the timestamp when these settings were created (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; }
