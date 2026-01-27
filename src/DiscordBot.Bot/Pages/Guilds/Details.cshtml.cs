@@ -173,6 +173,11 @@ public class DetailsModel : PageModel
     public int RemindersFailed { get; set; }
 
     /// <summary>
+    /// Gets the upcoming reminders for this guild (up to 5).
+    /// </summary>
+    public List<UpcomingReminderDto> UpcomingReminders { get; set; } = new();
+
+    /// <summary>
     /// Gets the total count of guild members.
     /// </summary>
     public int MembersTotalCount { get; set; }
@@ -274,6 +279,9 @@ public class DetailsModel : PageModel
         RemindersPending = remindersPending;
         RemindersDeliveredToday = remindersDeliveredToday;
         RemindersFailed = remindersFailed;
+
+        // Fetch upcoming reminders
+        UpcomingReminders = (await _reminderRepository.GetUpcomingAsync(guildId, 5, cancellationToken)).ToList();
 
         // Fetch member stats
         var memberCountQuery = new GuildMemberQueryDto { IsActive = true };

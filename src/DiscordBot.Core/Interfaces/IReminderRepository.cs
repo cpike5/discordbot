@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 
@@ -76,5 +77,18 @@ public interface IReminderRepository : IRepository<Reminder>
     /// <returns>A tuple containing total, pending, delivered today, and failed counts.</returns>
     Task<(int TotalCount, int PendingCount, int DeliveredTodayCount, int FailedCount)> GetGuildStatsAsync(
         ulong guildId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets upcoming pending reminders for a specific guild.
+    /// Returns reminders where Status is Pending and TriggerAt is in the future, ordered by TriggerAt ascending.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID to get upcoming reminders for.</param>
+    /// <param name="count">Maximum number of upcoming reminders to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of upcoming reminder DTOs with user information.</returns>
+    Task<IEnumerable<UpcomingReminderDto>> GetUpcomingAsync(
+        ulong guildId,
+        int count,
         CancellationToken cancellationToken = default);
 }
