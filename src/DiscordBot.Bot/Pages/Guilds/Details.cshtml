@@ -472,6 +472,89 @@
         }
         <partial name="Shared/Components/_DashboardWidget" model="audioWidget" />
 
+        <!-- Assistant Widget -->
+        @{
+            string assistantBody = "";
+            EmptyStateViewModel? assistantEmpty = null;
+
+            if (Model.AssistantGloballyEnabled && Model.AssistantLocallyEnabled)
+            {
+                var channelCoverage = Model.AssistantChannelCount == 0 ? "All" : Model.AssistantChannelCount.ToString();
+                var rateLimitDisplay = Model.AssistantIsRateLimitOverride
+                    ? $"{Model.AssistantRateLimit} req/{Model.AssistantRateLimitWindowMinutes}min"
+                    : "Default";
+
+                assistantBody = $@"
+                <div class='grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4'>
+                    <!-- Global Status -->
+                    <div class='bg-bg-primary rounded-lg p-3 sm:p-4'>
+                        <div class='flex items-center gap-2 mb-1'>
+                            <svg class='w-4 h-4 text-success' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M5 13l4 4L19 7' />
+                            </svg>
+                            <span class='text-xs text-text-tertiary font-medium'>Global Status</span>
+                        </div>
+                        <p class='text-sm font-bold text-success'>Enabled</p>
+                    </div>
+
+                    <!-- Channel Coverage -->
+                    <div class='bg-bg-primary rounded-lg p-3 sm:p-4'>
+                        <div class='flex items-center gap-2 mb-1'>
+                            <svg class='w-4 h-4 text-text-tertiary' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z' />
+                            </svg>
+                            <span class='text-xs text-text-tertiary font-medium'>Channel Coverage</span>
+                        </div>
+                        <p class='text-sm font-bold text-text-primary'>{channelCoverage}</p>
+                    </div>
+
+                    <!-- Rate Limit -->
+                    <div class='bg-bg-primary rounded-lg p-3 sm:p-4'>
+                        <div class='flex items-center gap-2 mb-1'>
+                            <svg class='w-4 h-4 text-accent-blue' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z' />
+                            </svg>
+                            <span class='text-xs text-text-tertiary font-medium'>Rate Limit</span>
+                        </div>
+                        <p class='text-sm font-bold text-text-primary'>{rateLimitDisplay}</p>
+                    </div>
+                </div>";
+            }
+            else if (!Model.AssistantGloballyEnabled)
+            {
+                assistantEmpty = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.Error,
+                    Title = "Service unavailable",
+                    Description = "The Assistant feature is globally disabled. Contact your administrator to enable it.",
+                    IconSvgPath = "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                };
+            }
+            else
+            {
+                assistantEmpty = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = "Assistant is disabled",
+                    Description = "Enable the Assistant to allow users to ask questions about bot features.",
+                    IconSvgPath = "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+                    PrimaryActionText = "Configure Assistant",
+                    PrimaryActionUrl = Url.Page("AssistantSettings", new { guildId = guild.Id })
+                };
+            }
+
+            var assistantWidget = new DashboardWidgetViewModel
+            {
+                Title = "Assistant",
+                IsEnabled = Model.AssistantLocallyEnabled,
+                DetailUrl = Url.Page("AssistantSettings", new { guildId = guild.Id }),
+                BodyContent = assistantBody,
+                EmptyState = assistantEmpty,
+                ColSpan = 1
+            };
+        }
+        <partial name="Shared/Components/_DashboardWidget" model="assistantWidget" />
+
         <!-- Members Widget -->
         @{
             string membersBody = "";
