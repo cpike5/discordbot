@@ -349,6 +349,89 @@
         }
         <partial name="Shared/Components/_DashboardWidget" model="remindersWidget" />
 
+        <!-- Audio Widget -->
+        @{
+            string audioBody = "";
+            EmptyStateViewModel? audioEmpty = null;
+
+            if (Model.AudioEnabled && (Model.TotalSoundCount > 0 || Model.TopSounds.Any() || !string.IsNullOrEmpty(Model.MostUsedTtsVoice)))
+            {
+                audioBody = $@"
+                <div class='grid grid-cols-2 gap-3 sm:gap-4 mb-4'>
+                    <!-- Total Sounds -->
+                    <div class='bg-bg-primary rounded-lg p-3 sm:p-4'>
+                        <div class='flex items-center gap-2 mb-1'>
+                            <svg class='w-4 h-4 text-text-tertiary' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' />
+                            </svg>
+                            <span class='text-xs text-text-tertiary font-medium'>Total Sounds</span>
+                        </div>
+                        <p class='text-2xl font-bold text-text-primary'>{Model.TotalSoundCount}</p>
+                    </div>
+
+                    <!-- Most Used TTS Voice -->
+                    <div class='bg-bg-primary rounded-lg p-3 sm:p-4'>
+                        <div class='flex items-center gap-2 mb-1'>
+                            <svg class='w-4 h-4 text-accent-blue' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z' />
+                            </svg>
+                            <span class='text-xs text-text-tertiary font-medium'>Top TTS Voice</span>
+                        </div>
+                        " + (!string.IsNullOrEmpty(Model.MostUsedTtsVoice)
+                            ? $"<p class='text-sm font-bold text-text-primary truncate' title='{System.Net.WebUtility.HtmlEncode(Model.MostUsedTtsVoice)}'>{System.Net.WebUtility.HtmlEncode(Model.MostUsedTtsVoice)}</p>"
+                            : "<p class='text-sm text-text-tertiary'>No TTS usage</p>") + @"
+                    </div>
+                </div>";
+
+                if (Model.TopSounds.Any())
+                {
+                    audioBody += @"
+                <div class='space-y-2'>
+                    <h3 class='text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-3'>Top Sounds This Week</h3>";
+
+                    foreach (var sound in Model.TopSounds)
+                    {
+                        audioBody += $@"
+                    <div class='flex items-center justify-between p-2 rounded-lg bg-bg-primary hover:bg-bg-tertiary transition-colors'>
+                        <div class='flex items-center gap-2 min-w-0 flex-1'>
+                            <svg class='w-4 h-4 text-text-tertiary flex-shrink-0' fill='none' viewBox='0 0 24 24' stroke='currentColor'>
+                                <path stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3' />
+                            </svg>
+                            <span class='text-sm font-medium text-text-primary truncate' title='{System.Net.WebUtility.HtmlEncode(sound.Name)}'>{System.Net.WebUtility.HtmlEncode(sound.Name)}</span>
+                        </div>
+                        <span class='text-sm font-bold text-accent-blue ml-2 flex-shrink-0'>{sound.PlayCount} plays</span>
+                    </div>";
+                    }
+
+                    audioBody += @"
+                </div>";
+                }
+            }
+            else
+            {
+                audioEmpty = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = Model.AudioEnabled ? "No audio activity yet" : "Audio is disabled",
+                    Description = Model.AudioEnabled ? "Upload sounds and use TTS to see stats here." : "Enable audio features in Audio settings.",
+                    IconSvgPath = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
+                    PrimaryActionText = Model.AudioEnabled ? null : "Configure Audio",
+                    PrimaryActionUrl = Model.AudioEnabled ? null : Url.Page("AudioSettings/Index", new { guildId = guild.Id })
+                };
+            }
+
+            var audioWidget = new DashboardWidgetViewModel
+            {
+                Title = "Audio",
+                IsEnabled = Model.AudioEnabled,
+                DetailUrl = Url.Page("AudioSettings/Index", new { guildId = guild.Id }),
+                BodyContent = audioBody,
+                EmptyState = audioEmpty,
+                ColSpan = 1
+            };
+        }
+        <partial name="Shared/Components/_DashboardWidget" model="audioWidget" />
+
         <!-- Members Widget -->
         @{
             string membersBody = "";
