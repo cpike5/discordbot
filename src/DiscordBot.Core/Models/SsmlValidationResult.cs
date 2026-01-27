@@ -13,17 +13,17 @@ public class SsmlValidationResult
     /// <summary>
     /// Validation errors if invalid.
     /// </summary>
-    public IReadOnlyList<string> Errors { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> Errors { get; init; } = [];
 
     /// <summary>
     /// Validation warnings (non-critical issues).
     /// </summary>
-    public IReadOnlyList<string> Warnings { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> Warnings { get; init; } = [];
 
     /// <summary>
     /// Detected voices used in the SSML.
     /// </summary>
-    public IReadOnlyList<string> DetectedVoices { get; init; } = Array.Empty<string>();
+    public IReadOnlyList<string> DetectedVoices { get; init; } = [];
 
     /// <summary>
     /// Estimated audio duration in seconds (if calculable).
