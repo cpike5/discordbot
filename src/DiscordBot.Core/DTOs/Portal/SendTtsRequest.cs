@@ -31,4 +31,23 @@ public class SendTtsRequest
     /// </summary>
     [Range(0.5, 2.0)]
     public double Pitch { get; set; } = 1.0;
+
+    /// <summary>
+    /// Gets or sets the optional voice style (e.g., "cheerful", "angry", "whispering").
+    /// If provided, the message will be synthesized with the specified style.
+    /// </summary>
+    public string? Style { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional style intensity multiplier (0.01 to 2.0).
+    /// Only applies when Style is specified.
+    /// </summary>
+    [Range(0.01, 2.0)]
+    public decimal? StyleIntensity { get; set; }
+
+    /// <summary>
+    /// Gets or sets the optional raw SSML markup.
+    /// If provided, this takes precedence over Message, Style, and other parameters.
+    /// </summary>
+    public string? Ssml { get; set; }
 }
