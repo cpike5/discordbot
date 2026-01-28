@@ -32,6 +32,8 @@ public class PortalTtsController : ControllerBase
     private readonly ISettingsService _settingsService;
     private readonly DiscordSocketClient _discordClient;
     private readonly AzureSpeechOptions _azureSpeechOptions;
+    private readonly IVoiceCapabilityProvider _voiceCapabilityProvider;
+    private readonly IStylePresetProvider _stylePresetProvider;
     private readonly ILogger<PortalTtsController> _logger;
 
     // Track current TTS message being played per guild
@@ -51,6 +53,8 @@ public class PortalTtsController : ControllerBase
     /// <param name="settingsService">The bot-level settings service.</param>
     /// <param name="discordClient">The Discord socket client.</param>
     /// <param name="azureSpeechOptions">The Azure Speech configuration options.</param>
+    /// <param name="voiceCapabilityProvider">The voice capability provider.</param>
+    /// <param name="stylePresetProvider">The style preset provider.</param>
     /// <param name="logger">The logger.</param>
     public PortalTtsController(
         ITtsService ttsService,
@@ -61,6 +65,8 @@ public class PortalTtsController : ControllerBase
         ISettingsService settingsService,
         DiscordSocketClient discordClient,
         IOptions<AzureSpeechOptions> azureSpeechOptions,
+        IVoiceCapabilityProvider voiceCapabilityProvider,
+        IStylePresetProvider stylePresetProvider,
         ILogger<PortalTtsController> logger)
     {
         _ttsService = ttsService;
@@ -71,6 +77,8 @@ public class PortalTtsController : ControllerBase
         _settingsService = settingsService;
         _discordClient = discordClient;
         _azureSpeechOptions = azureSpeechOptions.Value;
+        _voiceCapabilityProvider = voiceCapabilityProvider;
+        _stylePresetProvider = stylePresetProvider;
         _logger = logger;
     }
 
@@ -582,6 +590,63 @@ public class PortalTtsController : ControllerBase
         const int bytesPerSecond = sampleRate * bytesPerSample * channels; // 192000
 
         return audioStream.Length / (double)bytesPerSecond;
+    }
+
+    /// <summary>
+    /// Gets the capabilities of a specific TTS voice.
+    /// </summary>
+    /// <param name="voiceName">The voice name (e.g., "en-US-JennyNeural").</param>
+    /// <returns>Voice capabilities including supported styles.</returns>
+    [HttpGet("/api/portal/tts/voices/{voiceName}/capabilities")]
+    [ProducesResponseType(typeof(VoiceCapabilities), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    [AllowAnonymous]
+    public IActionResult GetVoiceCapabilities(string voiceName)
+    {
+        _logger.LogDebug("Get voice capabilities request for voice {VoiceName}", voiceName);
+
+        var capabilities = _voiceCapabilityProvider.GetCapabilities(voiceName);
+        if (capabilities == null)
+        {
+            _logger.LogDebug("Voice not found: {VoiceName}", voiceName);
+            return NotFound(new ApiErrorDto
+            {
+                Message = "Voice not found",
+                Detail = $"The voice '{voiceName}' was not found in the known voices registry.",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        return Ok(capabilities);
+    }
+
+    /// <summary>
+    /// Gets all available style presets.
+    /// </summary>
+    /// <param name="category">Optional category filter (e.g., "Emotional", "Professional").</param>
+    /// <returns>List of style presets.</returns>
+    [HttpGet("/api/portal/tts/presets")]
+    [ProducesResponseType(typeof(IReadOnlyList<StylePreset>), StatusCodes.Status200OK)]
+    [AllowAnonymous]
+    public IActionResult GetPresets([FromQuery] string? category = null)
+    {
+        _logger.LogDebug("Get presets request, category filter: {Category}", category ?? "(none)");
+
+        IReadOnlyList<StylePreset> presets;
+
+        if (!string.IsNullOrWhiteSpace(category))
+        {
+            presets = _stylePresetProvider.GetPresetsByCategory(category);
+            _logger.LogDebug("Returning {Count} presets for category {Category}", presets.Count, category);
+        }
+        else
+        {
+            presets = _stylePresetProvider.GetAllPresets();
+            _logger.LogDebug("Returning all {Count} presets", presets.Count);
+        }
+
+        return Ok(presets);
     }
 
     /// <summary>
