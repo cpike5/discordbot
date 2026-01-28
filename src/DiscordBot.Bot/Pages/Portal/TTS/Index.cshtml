@@ -1,5 +1,6 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Portal.TTS.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = Model.IsAuthenticated ? "TTS Portal" : "Verify Your Membership";
 }
@@ -1240,6 +1241,16 @@ else
             <div class="tts-panel">
                 <div class="tts-form-wrapper">
 
+                    <!-- Mode Switcher (always visible) -->
+                    <div id="portalModeSwitcherContainer" class="form-group">
+                        <partial name="../../Shared/Components/_ModeSwitcher" model="Model.ModeSwitcher" />
+                    </div>
+
+                    <!-- Preset Bar (visible in Standard and Pro modes, hidden by default) -->
+                    <div id="portalPresetBarContainer" class="form-group hidden">
+                        <partial name="../../Shared/Components/_PresetBar" model="Model.PresetBar" />
+                    </div>
+
                     <!-- Message Input -->
                     <div class="form-group">
                         <label class="form-label">
@@ -1272,6 +1283,11 @@ else
                                 </optgroup>
                             }
                         </select>
+                    </div>
+
+                    <!-- Style Selector (visible in Standard and Pro modes, hidden by default) -->
+                    <div id="portalStyleSelectorContainer" class="form-group hidden">
+                        <partial name="../../Shared/Components/_StyleSelector" model="Model.StyleSelector" />
                     </div>
 
                     <!-- Speed and Pitch Controls -->
@@ -1327,6 +1343,16 @@ else
                         </button>
                     </div>
 
+                    <!-- Emphasis Toolbar (Pro mode only, hidden by default) -->
+                    <div id="portalEmphasisToolbarContainer" class="hidden">
+                        <partial name="../../Shared/Components/_EmphasisToolbar" model="Model.EmphasisToolbar" />
+                    </div>
+
+                    <!-- SSML Preview (Pro mode only, hidden by default) -->
+                    <div id="portalSsmlPreviewContainer" class="hidden" style="margin-top: 1rem;">
+                        <partial name="../../Shared/Components/_SsmlPreview" model="Model.SsmlPreview" />
+                    </div>
+
                 </div>
             </div>
 
@@ -1334,6 +1360,9 @@ else
     </main>
 
 } @* End of IsAuthenticated else block *@
+
+<!-- Pause Modal (Pro mode only) -->
+<partial name="../../Shared/Components/_PauseModal" model="Model.PauseModal" />
 
 <!-- Toast Container -->
 <div id="portalToastContainer" class="portal-toast-container"></div>
@@ -1344,7 +1373,8 @@ else
     <script>
         // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
         window.guildId = '@Model.GuildId';
+        console.log('[PortalTTS] Scripts section rendered, guildId:', window.guildId);
     </script>
-    <script src="~/js/portal-tts.js"></script>
+    <script src="~/js/portal-tts.js" asp-append-version="true"></script>
 }
 }

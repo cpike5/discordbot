@@ -24,7 +24,10 @@
         send: (guildId) => `/api/portal/tts/${guildId}/send`,
         joinChannel: (guildId) => `/api/portal/tts/${guildId}/channel`,
         leaveChannel: (guildId) => `/api/portal/tts/${guildId}/channel`,
-        stop: (guildId) => `/api/portal/tts/${guildId}/stop`
+        stop: (guildId) => `/api/portal/tts/${guildId}/stop`,
+        voiceCapabilities: (voiceName) => `/api/portal/tts/voices/${voiceName}/capabilities`,
+        validateSsml: () => `/api/portal/tts/validate-ssml`,
+        buildSsml: () => `/api/portal/tts/build-ssml`
     };
 
     // ========================================
@@ -38,6 +41,14 @@
     let currentMessage = null;
     let selectedChannel = null;
     let maxMessageLength = 500;            // Dynamic max length from server (default: 500)
+
+    // SSML state
+    let currentMode = 'standard';
+    let currentStyle = '';
+    let currentStyleIntensity = 1.0;
+    let currentSsml = '';
+    let formattedTextState = null;
+    let ssmlDebounceTimer = null;
 
     // ========================================
     // Initialization
@@ -61,6 +72,7 @@
 
         setupEventHandlers();
         loadSavedVoice();
+        loadSavedMode();
         startStatusPolling();
     }
 
@@ -71,7 +83,14 @@
         // Message input - character counter and validation
         const messageInput = document.getElementById('ttsMessage');
         if (messageInput) {
-            messageInput.addEventListener('input', updateCharacterCount);
+            messageInput.addEventListener('input', function() {
+                updateCharacterCount();
+                // Debounced SSML preview for Pro mode
+                if (currentMode === 'pro') {
+                    clearTimeout(ssmlDebounceTimer);
+                    ssmlDebounceTimer = setTimeout(buildSsmlFromCurrentState, 500);
+                }
+            });
             messageInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
                     e.preventDefault();
@@ -117,6 +136,14 @@
             voiceSelect.addEventListener('change', function() {
                 // Save selected voice to localStorage
                 saveSelectedVoice(this.value);
+                // Reload styles for new voice
+                if (window.styleSelector_loadStyles) {
+                    window.styleSelector_loadStyles('portalStyleSelector', this.value);
+                }
+                // Rebuild SSML if in Pro mode
+                if (currentMode === 'pro') {
+                    buildSsmlFromCurrentState();
+                }
             });
         }
 
@@ -163,6 +190,27 @@
         } catch (error) {
             console.warn('[PortalTTS] Failed to save voice:', error);
         }
+    }
+
+    // ========================================
+    // Mode Persistence
+    // ========================================
+    function loadSavedMode() {
+        try {
+            const savedMode = localStorage.getItem('tts_mode_preference');
+            if (savedMode && ['simple', 'standard', 'pro'].includes(savedMode)) {
+                currentMode = savedMode;
+                console.log('[PortalTTS] Restored saved mode:', savedMode);
+            }
+        } catch (error) {
+            console.warn('[PortalTTS] Failed to load saved mode:', error);
+        }
+
+        // Always apply mode visibility on init (use requestAnimationFrame to ensure
+        // DOM is settled after component inline scripts have executed)
+        requestAnimationFrame(() => {
+            window.portalHandleModeChange(currentMode);
+        });
     }
 
     // ========================================
@@ -294,7 +342,14 @@
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ message, voice, speed, pitch })
+                body: JSON.stringify({
+                    message,
+                    voice,
+                    speed,
+                    pitch,
+                    ...(currentMode === 'standard' && currentStyle ? { style: currentStyle, styleIntensity: currentStyleIntensity } : {}),
+                    ...(currentMode === 'pro' && currentSsml ? { ssml: currentSsml } : {})
+                })
             });
 
             if (response.status === 429) {
@@ -624,6 +679,205 @@
             }
         }, 200);
     }
+
+    // ========================================
+    // SSML Support Functions
+    // ========================================
+
+    /**
+     * Build SSML from current state (Pro mode only)
+     */
+    async function buildSsmlFromCurrentState() {
+        if (currentMode !== 'pro') return;
+
+        const messageInput = document.getElementById('ttsMessage');
+        const voiceSelect = document.getElementById('voiceSelect');
+        const speedSlider = document.getElementById('speedSlider');
+        const pitchSlider = document.getElementById('pitchSlider');
+
+        const message = messageInput?.value?.trim() || '';
+        const voice = voiceSelect?.value || '';
+        const speed = parseFloat(speedSlider?.value || '1.0');
+        const pitch = parseFloat(pitchSlider?.value || '1.0');
+
+        if (!message || !voice) {
+            currentSsml = '';
+            if (window.ssmlPreview_update) {
+                window.ssmlPreview_update('portalSsmlPreview', '', 0);
+            }
+            return;
+        }
+
+        try {
+            // Build elements array from formatted text markers (emphasis, breaks, etc.)
+            // EmphasisToolbar markers use { start, end, type, level?, interpretAs?, duration? }
+            // Backend SsmlElement expects { type, text?, attributes: {} }
+            const plainText = formattedTextState?.plain || message;
+            const elements = (formattedTextState?.markers || []).map(m => {
+                switch (m.type) {
+                    case 'emphasis':
+                        return {
+                            type: 'emphasis',
+                            text: plainText.substring(m.start, m.end),
+                            attributes: { level: m.level || 'moderate' }
+                        };
+                    case 'say-as':
+                        return {
+                            type: 'say-as',
+                            text: plainText.substring(m.start, m.end),
+                            attributes: { 'interpret-as': m.interpretAs || 'cardinal' }
+                        };
+                    case 'pause':
+                        return {
+                            type: 'break',
+                            text: null,
+                            attributes: { duration: (m.duration || 500) + 'ms' }
+                        };
+                    default:
+                        return { type: m.type, text: null, attributes: {} };
+                }
+            });
+
+            // Payload must match SsmlBuildRequest: { language, segments[] }
+            // Each segment: { voice, style, rate, pitch, text, elements[] }
+            const payload = {
+                language: 'en-US',
+                segments: [{
+                    voice: voice,
+                    style: currentStyle || null,
+                    rate: speed !== CONFIG.SPEED_DEFAULT ? speed : null,
+                    pitch: pitch !== CONFIG.PITCH_DEFAULT ? pitch : null,
+                    text: message,
+                    elements: elements
+                }]
+            };
+
+            const response = await fetch('/api/portal/tts/build-ssml', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                currentSsml = data.ssml;
+                if (window.ssmlPreview_update) {
+                    window.ssmlPreview_update('portalSsmlPreview', currentSsml, message.length);
+                }
+            }
+        } catch (error) {
+            console.error('[PortalTTS] Error building SSML:', error);
+        }
+    }
+
+    // ========================================
+    // Window-Level Callbacks for Shared Components
+    // ========================================
+
+    /**
+     * Handle mode changes from ModeSelector component
+     */
+    window.portalHandleModeChange = function(mode) {
+        currentMode = mode;
+        const presetBar = document.getElementById('portalPresetBarContainer');
+        const styleSelector = document.getElementById('portalStyleSelectorContainer');
+        const emphasisToolbar = document.getElementById('portalEmphasisToolbarContainer');
+        const ssmlPreview = document.getElementById('portalSsmlPreviewContainer');
+
+        if (mode === 'simple') {
+            presetBar?.classList.add('hidden');
+            styleSelector?.classList.add('hidden');
+            emphasisToolbar?.classList.add('hidden');
+            ssmlPreview?.classList.add('hidden');
+        } else if (mode === 'standard') {
+            presetBar?.classList.remove('hidden');
+            styleSelector?.classList.remove('hidden');
+            emphasisToolbar?.classList.add('hidden');
+            ssmlPreview?.classList.add('hidden');
+        } else if (mode === 'pro') {
+            presetBar?.classList.remove('hidden');
+            styleSelector?.classList.remove('hidden');
+            emphasisToolbar?.classList.remove('hidden');
+            ssmlPreview?.classList.remove('hidden');
+            buildSsmlFromCurrentState();
+        }
+    };
+
+    /**
+     * Handle preset application from PresetBar component
+     */
+    window.portalHandlePresetApply = function(presetData) {
+        const voiceSelect = document.getElementById('voiceSelect');
+        if (voiceSelect && presetData.voice) {
+            voiceSelect.value = presetData.voice;
+        }
+
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValue = document.getElementById('speedValue');
+        if (speedSlider && presetData.speed != null) {
+            speedSlider.value = presetData.speed;
+            if (speedValue) speedValue.textContent = parseFloat(presetData.speed).toFixed(1) + 'x';
+        }
+
+        const pitchSlider = document.getElementById('pitchSlider');
+        const pitchValue = document.getElementById('pitchValue');
+        if (pitchSlider && presetData.pitch != null) {
+            pitchSlider.value = presetData.pitch;
+            if (pitchValue) pitchValue.textContent = parseFloat(presetData.pitch).toFixed(1) + 'x';
+        }
+
+        if (presetData.style) {
+            currentStyle = presetData.style;
+            // Set the select value directly and sync the StyleSelector UI
+            const styleSelect = document.getElementById('portalStyleSelector-select');
+            if (styleSelect) {
+                styleSelect.value = presetData.style;
+                if (window.styleSelector_onStyleChange) {
+                    window.styleSelector_onStyleChange('portalStyleSelector');
+                }
+            }
+        }
+
+        showToast('success', 'Applied "' + presetData.name + '" preset');
+    };
+
+    /**
+     * Handle style changes from StyleSelector component
+     */
+    window.portalHandleStyleChange = function(style) {
+        currentStyle = style;
+        if (currentMode === 'pro') buildSsmlFromCurrentState();
+    };
+
+    /**
+     * Handle intensity changes from StyleSelector component
+     */
+    window.portalHandleIntensityChange = function(intensity) {
+        currentStyleIntensity = intensity;
+        if (currentMode === 'pro') buildSsmlFromCurrentState();
+    };
+
+    /**
+     * Handle format changes from EmphasisToolbar component
+     */
+    window.portalHandleFormatChange = function(formattedText) {
+        formattedTextState = formattedText;
+        buildSsmlFromCurrentState();
+    };
+
+    /**
+     * Handle SSML copy from SsmlPreview component
+     */
+    window.portalHandleSsmlCopy = function() {
+        showToast('success', 'SSML copied to clipboard');
+    };
+
+    /**
+     * Handle pause insertion from EmphasisToolbar component
+     */
+    window.portalHandlePauseInsert = function(duration) {
+        if (currentMode === 'pro') buildSsmlFromCurrentState();
+    };
 
     // ========================================
     // Cleanup on page unload

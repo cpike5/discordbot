@@ -244,19 +244,59 @@ public class PortalTtsController : ControllerBase
             });
         }
 
-        // Create TTS options
-        var options = new TtsOptions
-        {
-            Voice = request.Voice,
-            Speed = request.Speed,
-            Pitch = request.Pitch
-        };
-
-        // Synthesize speech
+        // Synthesize speech based on request parameters
         Stream audioStream;
         try
         {
-            audioStream = await _ttsService.SynthesizeSpeechAsync(request.Message, options, cancellationToken);
+            // If SSML is provided, use SSML synthesis directly
+            if (!string.IsNullOrWhiteSpace(request.Ssml))
+            {
+                _logger.LogDebug("Using SSML synthesis for guild {GuildId}", guildId);
+                audioStream = await _ttsService.SynthesizeSpeechAsync(request.Ssml, null, SynthesisMode.Ssml, cancellationToken);
+            }
+            // If Style is provided, use SSML builder to wrap message with style
+            else if (!string.IsNullOrWhiteSpace(request.Style))
+            {
+                _logger.LogDebug("Using style '{Style}' with intensity {Intensity} for guild {GuildId}",
+                    request.Style, request.StyleIntensity ?? 1.0m, guildId);
+
+                // Build SSML with style using the ISsmlBuilder
+                var styleIntensity = request.StyleIntensity ?? 1.0m;
+                var builder = _ssmlBuilder.Reset()
+                    .BeginDocument("en-US")
+                    .WithVoice(request.Voice)
+                    .WithStyle(request.Style, (double)styleIntensity);
+
+                // Apply prosody adjustments (speed/pitch) if different from defaults
+                if (Math.Abs(request.Speed - 1.0) > 0.01 || Math.Abs(request.Pitch - 1.0) > 0.01)
+                {
+                    builder.WithProsody(rate: request.Speed, pitch: request.Pitch);
+                    builder.AddText(request.Message);
+                    builder.EndProsody();
+                }
+                else
+                {
+                    builder.AddText(request.Message);
+                }
+
+                builder.EndStyle().EndVoice();
+                var ssml = builder.Build();
+
+                _logger.LogDebug("Built SSML with style: {SsmlLength} characters", ssml.Length);
+                audioStream = await _ttsService.SynthesizeSpeechAsync(ssml, null, SynthesisMode.Ssml, cancellationToken);
+            }
+            // Otherwise, use standard TTS synthesis
+            else
+            {
+                _logger.LogDebug("Using standard TTS synthesis for guild {GuildId}", guildId);
+                var options = new TtsOptions
+                {
+                    Voice = request.Voice,
+                    Speed = request.Speed,
+                    Pitch = request.Pitch
+                };
+                audioStream = await _ttsService.SynthesizeSpeechAsync(request.Message, options, cancellationToken);
+            }
         }
         catch (InvalidOperationException ex)
         {
