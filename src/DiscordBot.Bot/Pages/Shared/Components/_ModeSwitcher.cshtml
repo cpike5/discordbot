@@ -1,0 +1,180 @@
+@model DiscordBot.Bot.ViewModels.Components.ModeSwitcherViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    string GetModeLabel(TtsMode mode) => mode switch
+    {
+        TtsMode.Simple => "Simple",
+        TtsMode.Standard => "Standard",
+        TtsMode.Pro => "Pro",
+        _ => mode.ToString()
+    };
+
+    string GetModeValue(TtsMode mode) => mode switch
+    {
+        TtsMode.Simple => "simple",
+        TtsMode.Standard => "standard",
+        TtsMode.Pro => "pro",
+        _ => mode.ToString().ToLowerInvariant()
+    };
+}
+
+@*
+    ModeSwitcher Component
+    ----------------------
+    Segmented control for switching between Simple/Standard/Pro TTS modes.
+
+    Features:
+    - Visual active state with orange accent
+    - Icon indicators for each mode
+    - localStorage persistence (key: tts_mode_preference)
+    - Optional JavaScript callback on mode change
+    - Full keyboard navigation support
+    - 200ms transition animations
+
+    Usage:
+    var model = new ModeSwitcherViewModel
+    {
+        CurrentMode = TtsMode.Standard,
+        OnModeChange = "handleModeChange"
+    };
+    @await Html.PartialAsync("Components/_ModeSwitcher", model)
+*@
+
+<div id="@Model.ContainerId"
+     class="flex gap-2 bg-bg-tertiary p-1 rounded-lg"
+     role="tablist"
+     aria-label="TTS mode selection"
+     data-current-mode="@GetModeValue(Model.CurrentMode)"
+     data-callback="@Model.OnModeChange">
+
+    @foreach (var mode in Enum.GetValues<TtsMode>())
+    {
+        var isActive = mode == Model.CurrentMode;
+        var buttonId = $"{Model.ContainerId}-mode-{GetModeValue(mode)}";
+
+        <button type="button"
+                id="@buttonId"
+                class="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-semibold text-sm transition-all duration-200 @(isActive ? "bg-accent-orange text-white shadow-md" : "bg-bg-tertiary text-text-secondary hover:text-text-primary")"
+                role="tab"
+                aria-selected="@(isActive ? "true" : "false")"
+                tabindex="@(isActive ? "0" : "-1")"
+                data-mode="@GetModeValue(mode)"
+                onclick="modeSwitcher_selectMode('@Model.ContainerId', '@GetModeValue(mode)')">
+            @{ RenderModeIcon(mode, isActive); }
+            <span>@GetModeLabel(mode)</span>
+        </button>
+    }
+</div>
+
+<script>
+    (function() {
+        const containerId = '@Model.ContainerId';
+        const container = document.getElementById(containerId);
+
+        // Restore mode from localStorage on page load
+        const savedMode = localStorage.getItem('tts_mode_preference');
+        if (savedMode && savedMode !== container.dataset.currentMode) {
+            // Update UI to match saved preference
+            modeSwitcher_selectMode(containerId, savedMode, false);
+        }
+
+        // Keyboard navigation (arrow keys)
+        container.addEventListener('keydown', function(e) {
+            const buttons = Array.from(container.querySelectorAll('[role="tab"]'));
+            const currentIndex = buttons.findIndex(btn => btn.getAttribute('aria-selected') === 'true');
+
+            let newIndex = currentIndex;
+
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                e.preventDefault();
+                newIndex = (currentIndex + 1) % buttons.length;
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                newIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+            } else if (e.key === 'Home') {
+                e.preventDefault();
+                newIndex = 0;
+            } else if (e.key === 'End') {
+                e.preventDefault();
+                newIndex = buttons.length - 1;
+            } else {
+                return; // No action for other keys
+            }
+
+            if (newIndex !== currentIndex) {
+                const newMode = buttons[newIndex].dataset.mode;
+                modeSwitcher_selectMode(containerId, newMode);
+            }
+        });
+    })();
+
+    /**
+     * Selects a mode in the mode switcher component.
+     * @@param {string} containerId - The container ID of the mode switcher
+     * @@param {string} mode - The mode to select ('simple', 'standard', or 'pro')
+     * @@param {boolean} persist - Whether to persist to localStorage (default: true)
+     */
+    function modeSwitcher_selectMode(containerId, mode, persist = true) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+
+        const buttons = container.querySelectorAll('[role="tab"]');
+
+        // Update button states
+        buttons.forEach(button => {
+            const isActive = button.dataset.mode === mode;
+
+            // Update aria-selected
+            button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            button.setAttribute('tabindex', isActive ? '0' : '-1');
+
+            // Update classes
+            if (isActive) {
+                button.classList.remove('bg-bg-tertiary', 'text-text-secondary', 'hover:text-text-primary');
+                button.classList.add('bg-accent-orange', 'text-white', 'shadow-md');
+                button.focus();
+            } else {
+                button.classList.remove('bg-accent-orange', 'text-white', 'shadow-md');
+                button.classList.add('bg-bg-tertiary', 'text-text-secondary', 'hover:text-text-primary');
+            }
+        });
+
+        // Update container data attribute
+        container.dataset.currentMode = mode;
+
+        // Persist to localStorage
+        if (persist) {
+            localStorage.setItem('tts_mode_preference', mode);
+        }
+
+        // Trigger callback if specified
+        const callback = container.dataset.callback;
+        if (callback && typeof window[callback] === 'function') {
+            window[callback](mode);
+        }
+    }
+</script>
+
+@functions {
+    private void RenderModeIcon(TtsMode mode, bool isActive)
+    {
+        string iconPath = mode switch
+        {
+            TtsMode.Simple => "M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z",
+            TtsMode.Standard => "M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 1 0-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 0 1-3 0m3 0a1.5 1.5 0 0 0-3 0m-9.75 0h9.75",
+            TtsMode.Pro => "m3.75 13.5 10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75Z",
+            _ => ""
+        };
+
+        <svg class="w-4 h-4 flex-shrink-0"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+             aria-hidden="true">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="@iconPath" />
+        </svg>
+    }
+}
