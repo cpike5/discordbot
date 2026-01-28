@@ -116,7 +116,7 @@
         align-items: center;
         gap: 0.5rem;
         box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
-        z-index: var(--z-popover);
+        z-index: var(--z-popover, 1000);
         animation: emphasisToolbar_slideUp 0.2s ease-out;
         pointer-events: auto;
     }
@@ -232,158 +232,87 @@
             return;
         }
 
-        // State tracking
-        let formattedText = {
-            plain: '',
-            markers: [] // { start, end, type, level?, duration?, interpretAs? }
-        };
+        // Regex to match all visual marker patterns for clear action
+        const MARKER_RE = /\*\*(.+?)\*\*(?!\*)|\*(?!\*)(.+?)\*(?!\*)|\[#\s(.+?)\s#\]|\[📅\s(.+?)\s📅\]|\[⏸️\s\d+ms\]/g;
 
-        let currentSelection = {
-            start: 0,
-            end: 0,
-            text: ''
-        };
+        let currentSelection = { start: 0, end: 0, text: '' };
 
-        /**
-         * Shows the toolbar positioned above the current selection.
-         */
         function showToolbar() {
             const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
-
             if (selected.length > 0) {
                 currentSelection = {
                     start: textarea.selectionStart,
                     end: textarea.selectionEnd,
                     text: selected
                 };
-
-                // Position toolbar above selection
                 const rect = textarea.getBoundingClientRect();
                 const toolbarWidth = container.offsetWidth || 300;
-
-                container.style.top = (rect.top - 60) + 'px';
+                container.style.top = Math.max(10, rect.top - 60) + 'px';
                 container.style.left = Math.max(10, (rect.left + (textarea.offsetWidth / 2) - (toolbarWidth / 2))) + 'px';
-
                 container.classList.remove('hidden');
             } else {
                 hideToolbar();
             }
         }
 
-        /**
-         * Hides the toolbar.
-         */
         function hideToolbar() {
             container.classList.add('hidden');
         }
 
         /**
+         * Fires the textarea's input event so external listeners (e.g. SSML debounce) react.
+         */
+        function fireInputEvent() {
+            textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        }
+
+        /**
          * Applies formatting to the current selection.
-         * @@param {string} action - The formatting action (emphasis, pause, say-as, clear)
-         * @@param {object} options - Additional options (level, duration, interpretAs)
+         * Only modifies textarea text and fires input event - no state tracking needed.
          */
         function applyFormatting(action, options = {}) {
-            if (currentSelection.text.length === 0 && action !== 'pause') {
-                return;
-            }
+            if (currentSelection.text.length === 0 && action !== 'pause') return;
 
             const before = textarea.value.substring(0, currentSelection.start);
             const after = textarea.value.substring(currentSelection.end);
             let newText = currentSelection.text;
-            let marker = null;
 
             switch(action) {
                 case 'emphasis':
                     const level = options.level || 'moderate';
-                    marker = {
-                        start: currentSelection.start,
-                        end: currentSelection.end,
-                        type: 'emphasis',
-                        level: level
-                    };
-                    // Visual marker in textarea (optional - can be removed if not desired)
-                    // newText = `<emphasis level="${level}">${currentSelection.text}</emphasis>`;
+                    const wrap = level === 'strong' ? '**' : '*';
+                    newText = wrap + currentSelection.text + wrap;
                     break;
 
                 case 'pause':
-                    // Insert pause at cursor position
                     const duration = options.duration || 500;
-                    const pauseMarker = ` [⏸️ ${duration}ms] `;
-                    newText = pauseMarker;
-                    marker = {
-                        start: currentSelection.start,
-                        end: currentSelection.start + pauseMarker.length,
-                        type: 'pause',
-                        duration: duration
-                    };
+                    newText = `[⏸️ ${duration}ms]`;
                     break;
 
                 case 'say-as':
                     const interpretAs = options.interpretAs || 'cardinal';
-                    marker = {
-                        start: currentSelection.start,
-                        end: currentSelection.end,
-                        type: 'say-as',
-                        interpretAs: interpretAs
-                    };
+                    if (interpretAs === 'date') {
+                        newText = '[📅 ' + currentSelection.text + ' 📅]';
+                    } else {
+                        newText = '[# ' + currentSelection.text + ' #]';
+                    }
                     break;
 
                 case 'clear':
-                    // Remove all formatting from selection
-                    removeMarkersInRange(currentSelection.start, currentSelection.end);
-                    updateCallback();
-                    hideToolbar();
-                    return;
+                    // Strip all visual markers from selected text using regex
+                    newText = currentSelection.text.replace(MARKER_RE, function(match, strong, moderate, cardinal, date) {
+                        return strong || moderate || cardinal || date || '';
+                    });
+                    break;
             }
 
-            // Update textarea value
             textarea.value = before + newText + after;
-
-            // Add marker to state
-            if (marker) {
-                formattedText.markers.push(marker);
-                formattedText.plain = textarea.value;
-            }
-
-            // Update callback
-            updateCallback();
-
+            fireInputEvent();
             hideToolbar();
         }
 
-        /**
-         * Removes all markers within the specified range.
-         * @@param {number} start - Start position
-         * @@param {number} end - End position
-         */
-        function removeMarkersInRange(start, end) {
-            formattedText.markers = formattedText.markers.filter(marker => {
-                return marker.end <= start || marker.start >= end;
-            });
-            formattedText.plain = textarea.value;
-        }
-
-        /**
-         * Triggers the callback function with current formatted text state.
-         */
-        function updateCallback() {
-            const callback = container.dataset.callback;
-            if (callback) {
-                if (typeof window[callback] === 'function') {
-                    window[callback](formattedText);
-                } else {
-                    console.warn(`EmphasisToolbar: Callback function '${callback}' is not defined on window object`);
-                }
-            }
-        }
-
-        /**
-         * Handles keyboard shortcuts.
-         * @@param {KeyboardEvent} e - The keyboard event
-         */
         function handleKeyboardShortcut(e) {
             if (!e.ctrlKey && !e.metaKey) return;
-
             switch(e.key.toLowerCase()) {
                 case 'b':
                     e.preventDefault();
@@ -410,19 +339,17 @@
             }
         }
 
-        // Event listeners for text selection
+        // Event listeners
         textarea.addEventListener('mouseup', showToolbar);
         textarea.addEventListener('keyup', showToolbar);
         textarea.addEventListener('keydown', handleKeyboardShortcut);
 
-        // Hide toolbar when clicking outside
         document.addEventListener('click', function(e) {
             if (e.target !== textarea && e.target !== container && !container.contains(e.target)) {
                 hideToolbar();
             }
         });
 
-        // Button click handlers
         container.addEventListener('click', function(e) {
             const button = e.target.closest('.emphasis-toolbar__button');
             if (!button) return;
@@ -435,27 +362,11 @@
             } else if (action === 'say-as') {
                 options.interpretAs = button.dataset.interpretAs;
             } else if (action === 'pause') {
-                // TODO: Open pause duration picker modal
-                // For now, use default 500ms
                 options.duration = 500;
             }
 
             applyFormatting(action, options);
         });
-
-        // Initialize state
-        formattedText.plain = textarea.value;
-
-        // Public API for external access (optional)
-        window[`${containerId}_getState`] = function() {
-            return formattedText;
-        };
-
-        window[`${containerId}_setState`] = function(state) {
-            formattedText = state;
-            textarea.value = state.plain;
-            updateCallback();
-        };
     })();
 </script>
 
