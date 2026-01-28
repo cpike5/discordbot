@@ -613,7 +613,7 @@ public class PortalTtsController : ControllerBase
     [ProducesResponseType(typeof(SsmlValidationResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [AllowAnonymous]
-    public IActionResult ValidateSsml([FromBody] SsmlValidationRequest request)
+    public IActionResult ValidateSsml([FromBody] Core.DTOs.Tts.SsmlValidationRequest request)
     {
         _logger.LogDebug("Validate SSML request, length: {Length}", request.Ssml.Length);
 
@@ -650,7 +650,7 @@ public class PortalTtsController : ControllerBase
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
     public async Task<IActionResult> SynthesizeSsml(
         ulong guildId,
-        [FromBody] SsmlSynthesisRequest request,
+        [FromBody] Core.DTOs.Tts.SsmlSynthesisRequest request,
         CancellationToken cancellationToken)
     {
         _logger.LogInformation("Synthesize SSML request for guild {GuildId}, PlayInVoiceChannel: {PlayInVoiceChannel}",
@@ -919,10 +919,10 @@ public class PortalTtsController : ControllerBase
     /// <param name="request">The build request containing segments and elements.</param>
     /// <returns>Built SSML with validation results.</returns>
     [HttpPost("/api/portal/tts/build-ssml")]
-    [ProducesResponseType(typeof(SsmlBuildResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(Core.DTOs.Tts.SsmlBuildResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [AllowAnonymous]
-    public IActionResult BuildSsml([FromBody] SsmlBuildRequest request)
+    public IActionResult BuildSsml([FromBody] Core.DTOs.Tts.SsmlBuildRequest request)
     {
         _logger.LogDebug("Build SSML request, language: {Language}, segments: {SegmentCount}",
             request.Language, request.Segments.Count);
@@ -1036,7 +1036,7 @@ public class PortalTtsController : ControllerBase
             // Validate the built SSML
             var validationResult = _ssmlValidator.Validate(ssml);
 
-            var response = new SsmlBuildResponse
+            var response = new Core.DTOs.Tts.SsmlBuildResponse
             {
                 Ssml = ssml,
                 IsValid = validationResult.IsValid,
