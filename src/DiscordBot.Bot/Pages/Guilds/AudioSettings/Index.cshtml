@@ -254,6 +254,93 @@
         </div>
     </section>
 
+    <!-- TTS Settings Section -->
+    <section class="settings-section mb-6">
+        <div class="settings-section-header">
+            <div class="settings-section-title">
+                <div class="settings-section-icon" style="background: var(--color-info-bg); color: var(--color-info);">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-text-primary">TTS Settings</h2>
+                    <p class="text-xs text-text-tertiary">Configure SSML and advanced TTS features</p>
+                </div>
+            </div>
+        </div>
+        <div class="settings-section-body">
+            <!-- SSML Enabled -->
+            <div class="settings-row">
+                <div class="settings-row-content">
+                    <div class="settings-row-title">Enable SSML Mode</div>
+                    <div class="settings-row-description">Allow SSML (Speech Synthesis Markup Language) for advanced voice control including prosody, emphasis, and styles</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="ssmlEnabled" @(Model.TtsSettings.SsmlEnabled ? "checked" : "") />
+                    <span class="toggle-switch-track"></span>
+                    <span class="toggle-switch-thumb"></span>
+                </label>
+            </div>
+
+            <!-- Strict SSML Validation (conditional) -->
+            <div class="settings-row ssml-conditional-field" id="strictValidationRow" style="@(Model.TtsSettings.SsmlEnabled ? "" : "display: none;")">
+                <div class="settings-row-content">
+                    <div class="settings-row-title">Strict SSML Validation</div>
+                    <div class="settings-row-description">When enabled, invalid SSML will be rejected. When disabled, invalid SSML falls back to plain text.</div>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" id="strictSsmlValidation" @(Model.TtsSettings.StrictSsmlValidation ? "checked" : "") />
+                    <span class="toggle-switch-track"></span>
+                    <span class="toggle-switch-thumb"></span>
+                </label>
+            </div>
+
+            <!-- Max SSML Complexity (conditional) -->
+            <div class="settings-row ssml-conditional-field" id="maxComplexityRow" style="@(Model.TtsSettings.SsmlEnabled ? "" : "display: none;")">
+                <div class="settings-row-content">
+                    <div class="settings-row-title">Max SSML Complexity</div>
+                    <div class="settings-row-description">Maximum complexity score for SSML elements. Higher values allow more nested elements and prosody modifications (10-200).</div>
+                </div>
+                <div class="input-with-unit">
+                    <input type="number" id="maxSsmlComplexity" value="@Model.TtsSettings.MaxSsmlComplexity" min="10" max="200" class="settings-input" />
+                </div>
+            </div>
+
+            <!-- Default Style (conditional) -->
+            <div class="settings-row ssml-conditional-field" id="defaultStyleRow" style="@(Model.TtsSettings.SsmlEnabled ? "" : "display: none;")">
+                <div class="settings-row-content">
+                    <div class="settings-row-title">Default Style</div>
+                    <div class="settings-row-description">Default speaking style for voices that support it (applies when no style is specified in SSML)</div>
+                </div>
+                @{
+                    var selectedStyle = Model.TtsSettings.DefaultStyle ?? "";
+                }
+                <select id="defaultStyle" class="settings-input" style="width: auto; min-width: 10rem;">
+                    <option value="" selected="@(string.IsNullOrEmpty(selectedStyle))">(None)</option>
+                    <option value="cheerful" selected="@(selectedStyle == "cheerful")">Cheerful</option>
+                    <option value="excited" selected="@(selectedStyle == "excited")">Excited</option>
+                    <option value="friendly" selected="@(selectedStyle == "friendly")">Friendly</option>
+                    <option value="sad" selected="@(selectedStyle == "sad")">Sad</option>
+                    <option value="angry" selected="@(selectedStyle == "angry")">Angry</option>
+                    <option value="whispering" selected="@(selectedStyle == "whispering")">Whispering</option>
+                    <option value="shouting" selected="@(selectedStyle == "shouting")">Shouting</option>
+                    <option value="newscast" selected="@(selectedStyle == "newscast")">Newscast</option>
+                </select>
+            </div>
+
+            <!-- Save TTS Settings Button -->
+            <div class="mt-6 pt-4 border-t border-border-secondary flex justify-end">
+                <button type="button" onclick="window.audioSettings.saveTtsSettings()" class="btn btn-primary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save TTS Settings
+                </button>
+            </div>
+        </div>
+    </section>
+
     <!-- Command Permissions Section -->
     <section class="settings-section mb-6">
         <div class="settings-section-header">
@@ -983,6 +1070,41 @@
                 }
             },
 
+            // Save TTS settings
+            saveTtsSettings: async function() {
+                const data = {
+                    ssmlEnabled: document.getElementById('ssmlEnabled').checked,
+                    strictSsmlValidation: document.getElementById('strictSsmlValidation').checked,
+                    maxSsmlComplexity: parseInt(document.getElementById('maxSsmlComplexity').value) || 50,
+                    defaultStyle: document.getElementById('defaultStyle').value || null
+                };
+
+                // Validate max SSML complexity
+                if (data.maxSsmlComplexity < 10 || data.maxSsmlComplexity > 200) {
+                    document.getElementById('maxSsmlComplexity').classList.add('input-error');
+                    this.showToast('Validation Error', 'Max SSML complexity must be between 10 and 200.', true);
+                    return;
+                }
+                document.getElementById('maxSsmlComplexity').classList.remove('input-error');
+
+                try {
+                    const response = await fetch(`?handler=SaveTtsSettings&guildId=${window.guildId}`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'RequestVerificationToken': this.getAntiForgeryToken()
+                        },
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+                    this.showToast(result.success ? 'Settings saved' : 'Error', result.message, !result.success);
+                } catch (error) {
+                    console.error('Error saving TTS settings:', error);
+                    this.showToast('Error', 'Failed to save settings. Please try again.', true);
+                }
+            },
+
             // Save command permissions
             saveCommandPermissions: async function(command) {
                 const tagsContainer = document.getElementById(command + '-tags');
@@ -1068,6 +1190,18 @@
             } else {
                 portalLinksRow.style.display = 'none';
             }
+        });
+
+        // Toggle SSML conditional fields visibility when SSML enabled checkbox changes
+        document.getElementById('ssmlEnabled').addEventListener('change', function() {
+            const conditionalFields = document.querySelectorAll('.ssml-conditional-field');
+            conditionalFields.forEach(field => {
+                if (this.checked) {
+                    field.style.display = '';
+                } else {
+                    field.style.display = 'none';
+                }
+            });
         });
     </script>
 }
