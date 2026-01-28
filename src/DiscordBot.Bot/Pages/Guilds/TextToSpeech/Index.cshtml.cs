@@ -90,6 +90,31 @@ public class IndexModel : PageModel
     public bool IsMemberPortalEnabled { get; set; }
 
     /// <summary>
+    /// View model for the mode switcher component.
+    /// </summary>
+    public ModeSwitcherViewModel ModeSwitcher { get; set; } = new();
+
+    /// <summary>
+    /// View model for the preset bar component.
+    /// </summary>
+    public PresetBarViewModel PresetBar { get; set; } = new();
+
+    /// <summary>
+    /// View model for the style selector component.
+    /// </summary>
+    public StyleSelectorViewModel StyleSelector { get; set; } = new();
+
+    /// <summary>
+    /// View model for the emphasis toolbar component (Pro mode only).
+    /// </summary>
+    public EmphasisToolbarViewModel EmphasisToolbar { get; set; } = new();
+
+    /// <summary>
+    /// View model for the SSML preview component (Pro mode only).
+    /// </summary>
+    public SsmlPreviewViewModel SsmlPreview { get; set; } = new();
+
+    /// <summary>
     /// Handles GET requests to display the TTS management page.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -185,6 +210,9 @@ public class IndexModel : PageModel
 
             // Build voice channel panel view model
             VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
+
+            // Build SSML component view models
+            BuildSsmlComponentViewModels(settings);
 
             return Page();
         }
@@ -368,11 +396,17 @@ public class IndexModel : PageModel
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
     /// <param name="message">The message text to synthesize and play.</param>
+    /// <param name="style">Optional voice style (e.g., "cheerful", "angry").</param>
+    /// <param name="styleIntensity">Optional style intensity (0.01 to 2.0).</param>
+    /// <param name="ssml">Optional raw SSML markup (Pro mode only).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Redirect to the index page or JSON for AJAX requests.</returns>
     public async Task<IActionResult> OnPostSendMessageAsync(
         ulong guildId,
         [FromForm] string message,
+        [FromForm] string? style = null,
+        [FromForm] decimal? styleIntensity = null,
+        [FromForm] string? ssml = null,
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("User attempting to send TTS message for guild {GuildId}", guildId);
@@ -430,6 +464,17 @@ public class IndexModel : PageModel
                 Pitch = settings.DefaultPitch,
                 Volume = settings.DefaultVolume
             };
+
+            // TODO: Integrate style and SSML parameters with TTS synthesis when backend support is added
+            // For now, we just log these values to confirm form submission works
+            if (!string.IsNullOrEmpty(style))
+            {
+                _logger.LogDebug("TTS style parameter received: {Style} with intensity {Intensity}", style, styleIntensity ?? 1.0m);
+            }
+            if (!string.IsNullOrEmpty(ssml))
+            {
+                _logger.LogDebug("TTS SSML parameter received: {SsmlLength} characters", ssml.Length);
+            }
 
             // Synthesize the speech
             using var audioStream = await _ttsService.SynthesizeSpeechAsync(message, options, cancellationToken);
@@ -627,6 +672,81 @@ public class IndexModel : PageModel
             ChannelMemberCount = channelMemberCount,
             AvailableChannels = availableChannels
             // NowPlaying and Queue will be populated via SignalR in real-time
+        };
+    }
+
+    /// <summary>
+    /// Builds the SSML component view models for the TTS page.
+    /// </summary>
+    /// <param name="settings">The guild's TTS settings.</param>
+    private void BuildSsmlComponentViewModels(GuildTtsSettings settings)
+    {
+        // Build mode switcher
+        ModeSwitcher = new ModeSwitcherViewModel
+        {
+            CurrentMode = TtsMode.Standard,
+            ContainerId = "modeSwitcher",
+            OnModeChange = "handleModeChange"
+        };
+
+        // Build preset bar with 8 default presets
+        PresetBar = new PresetBarViewModel
+        {
+            Presets = new List<PresetButtonViewModel>
+            {
+                new() { Id = "excited", Name = "Excited", Icon = "sparkles", VoiceName = "en-US-JennyNeural", Style = "cheerful", Speed = 1.2m, Pitch = 1.1m, Description = "High energy, cheerful tone" },
+                new() { Id = "announcer", Name = "Announcer", Icon = "megaphone", VoiceName = "en-US-GuyNeural", Style = "newscast", Speed = 1.0m, Pitch = 0.9m, Description = "Professional announcer voice" },
+                new() { Id = "robot", Name = "Robot", Icon = "computer-desktop", VoiceName = "en-US-AriaNeural", Style = null, Speed = 1.0m, Pitch = 0.7m, Description = "Robotic, monotone delivery" },
+                new() { Id = "friendly", Name = "Friendly", Icon = "face-smile", VoiceName = "en-US-JennyNeural", Style = "friendly", Speed = 1.0m, Pitch = 1.0m, Description = "Warm, approachable tone" },
+                new() { Id = "angry", Name = "Angry", Icon = "fire", VoiceName = "en-US-GuyNeural", Style = "angry", Speed = 1.1m, Pitch = 1.2m, Description = "Aggressive, high pitch" },
+                new() { Id = "narrator", Name = "Narrator", Icon = "microphone", VoiceName = "en-US-DavisNeural", Style = "narration-professional", Speed = 0.9m, Pitch = 1.0m, Description = "Professional narration" },
+                new() { Id = "whisper", Name = "Whisper", Icon = "speaker-x-mark", VoiceName = "en-US-JennyNeural", Style = "whispering", Speed = 0.8m, Pitch = 0.95m, Description = "Quiet, intimate tone" },
+                new() { Id = "shouting", Name = "Shouting", Icon = "speaker-wave", VoiceName = "en-US-GuyNeural", Style = "shouting", Speed = 1.15m, Pitch = 1.3m, Description = "Loud, forceful delivery" }
+            },
+            ContainerId = "presetBar",
+            OnPresetApply = "handlePresetApply"
+        };
+
+        // Build style selector with default styles
+        StyleSelector = new StyleSelectorViewModel
+        {
+            SelectedVoice = settings.DefaultVoice,
+            SelectedStyle = string.Empty,
+            StyleIntensity = 1.0m,
+            AvailableStyles = new List<StyleOption>
+            {
+                new() { Value = "", Label = "(None)", Icon = "", Description = "Natural speech", Example = "" },
+                new() { Value = "cheerful", Label = "Cheerful", Icon = "face-smile", Description = "Happy, energetic", Example = "I'm so excited to see you!" },
+                new() { Value = "excited", Label = "Excited", Icon = "sparkles", Description = "Very enthusiastic", Example = "We won the championship!" },
+                new() { Value = "friendly", Label = "Friendly", Icon = "hand-raised", Description = "Warm, approachable", Example = "Hey, great to meet you!" },
+                new() { Value = "sad", Label = "Sad", Icon = "face-frown", Description = "Sorrowful", Example = "I'm sorry for your loss." },
+                new() { Value = "angry", Label = "Angry", Icon = "fire", Description = "Frustrated", Example = "I can't believe this happened!" },
+                new() { Value = "whispering", Label = "Whispering", Icon = "speaker-x-mark", Description = "Quiet, intimate", Example = "Don't tell anyone..." },
+                new() { Value = "shouting", Label = "Shouting", Icon = "speaker-wave", Description = "Loud, urgent", Example = "Watch out!" },
+                new() { Value = "newscast", Label = "Newscast", Icon = "newspaper", Description = "Professional reporter", Example = "Breaking news tonight..." }
+            },
+            ContainerId = "styleSelector",
+            OnStyleChange = "handleStyleChange",
+            OnIntensityChange = "handleIntensityChange"
+        };
+
+        // Build emphasis toolbar (Pro mode only)
+        EmphasisToolbar = new EmphasisToolbarViewModel
+        {
+            TargetTextareaId = "messageInput",
+            ContainerId = "emphasisToolbar",
+            OnFormatChange = "handleFormatChange",
+            ShowKeyboardShortcuts = true
+        };
+
+        // Build SSML preview (Pro mode only)
+        SsmlPreview = new SsmlPreviewViewModel
+        {
+            ContainerId = "ssmlPreview",
+            InitialSsml = null,
+            StartCollapsed = true,
+            OnCopy = "handleSsmlCopy",
+            ShowCharacterCount = true
         };
     }
 }

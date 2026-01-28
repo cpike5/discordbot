@@ -41,7 +41,7 @@
         });
 
         // Process all other form inputs (text, number, select, textarea, range, etc.)
-        const inputs = form.querySelectorAll('input:not([type="checkbox"]):not([type="hidden"]), select, textarea');
+        const inputs = form.querySelectorAll('input:not([type="checkbox"]), select, textarea');
         inputs.forEach(input => {
             if (input.name && !input.name.startsWith('__')) {
                 formData.append(input.name, input.value);
