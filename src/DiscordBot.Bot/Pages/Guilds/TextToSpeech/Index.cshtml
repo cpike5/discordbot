@@ -152,8 +152,24 @@
             <!-- Message Input Section -->
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
                 <h2 class="text-sm font-semibold uppercase tracking-wider text-text-secondary mb-4">Send Message</h2>
+
+                <!-- Mode Switcher -->
+                <div class="mb-6">
+                    <partial name="Shared/Components/_ModeSwitcher" model="Model.ModeSwitcher" />
+                </div>
+
+                <!-- Preset Bar (visible in Standard and Pro modes) -->
+                <div id="presetBarContainer" class="mb-6">
+                    <partial name="Shared/Components/_PresetBar" model="Model.PresetBar" />
+                </div>
+
                 <form method="post" asp-page-handler="SendMessage" asp-route-guildId="@Model.ViewModel.GuildId"
                       id="ttsForm" onsubmit="event.preventDefault(); window.ttsPage?.sendMessage(this);">
+                    <!-- Hidden inputs for SSML UI form data -->
+                    <input type="hidden" name="style" id="hiddenStyle" value="" />
+                    <input type="hidden" name="styleIntensity" id="hiddenStyleIntensity" value="1.0" />
+                    <input type="hidden" name="ssml" id="hiddenSsml" value="" />
+
                     <div class="relative mb-4">
                         <textarea id="messageInput"
                                   name="message"
@@ -263,6 +279,11 @@
                         </select>
                     </div>
 
+                    <!-- Style Selector (visible in Standard and Pro modes) -->
+                    <div id="styleSelectorContainer" class="mb-5">
+                        <partial name="Shared/Components/_StyleSelector" model="Model.StyleSelector" />
+                    </div>
+
                     <!-- Sliders -->
                     <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-5">
                         <div>
@@ -367,6 +388,16 @@
                         </button>
                     </div>
                 </form>
+
+                <!-- Emphasis Toolbar (floating, Pro mode only) - start hidden since default is Standard -->
+                <div id="emphasisToolbarContainer" class="hidden">
+                    <partial name="Shared/Components/_EmphasisToolbar" model="Model.EmphasisToolbar" />
+                </div>
+
+                <!-- SSML Preview (collapsible, Pro mode only) - start hidden since default is Standard -->
+                <div id="ssmlPreviewContainer" class="hidden mt-6">
+                    <partial name="Shared/Components/_SsmlPreview" model="Model.SsmlPreview" />
+                </div>
             </div>
 
             <!-- Recent Messages Section -->
@@ -449,6 +480,7 @@
     </div>
 
 <!-- Delete Confirmation Modal -->
+<input type="hidden" id="delete-message-id" value="" />
 <div id="delete-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="delete-modal-title">
     <!-- Backdrop -->
     <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideDeleteModal()" aria-hidden="true"></div>
@@ -622,5 +654,112 @@
                 console.error('[TTS] Failed to connect SignalR:', error);
             }
         })();
+
+        // Mode switching handler
+        function handleModeChange(mode) {
+            console.log('[TTS] Mode changed to:', mode);
+
+            // Get container elements
+            const presetBar = document.getElementById('presetBarContainer');
+            const styleSelector = document.getElementById('styleSelectorContainer');
+            const emphasisToolbar = document.getElementById('emphasisToolbarContainer');
+            const ssmlPreview = document.getElementById('ssmlPreviewContainer');
+
+            // Update visibility based on mode
+            if (mode === 'simple') {
+                // Simple mode - hide all advanced features
+                presetBar?.classList.add('hidden');
+                styleSelector?.classList.add('hidden');
+                emphasisToolbar?.classList.add('hidden');
+                ssmlPreview?.classList.add('hidden');
+            } else if (mode === 'standard') {
+                // Standard mode - show presets and style selector
+                presetBar?.classList.remove('hidden');
+                styleSelector?.classList.remove('hidden');
+                emphasisToolbar?.classList.add('hidden');
+                ssmlPreview?.classList.add('hidden');
+            } else if (mode === 'pro') {
+                // Pro mode - show all features
+                presetBar?.classList.remove('hidden');
+                styleSelector?.classList.remove('hidden');
+                emphasisToolbar?.classList.remove('hidden');
+                ssmlPreview?.classList.remove('hidden');
+            }
+        }
+
+        // Preset application handler
+        function handlePresetApply(presetData) {
+            console.log('[TTS] Applying preset:', presetData);
+
+            // Update voice dropdown
+            const voiceSelect = document.getElementById('voiceSelect');
+            if (voiceSelect && presetData.voice) {
+                voiceSelect.value = presetData.voice;
+            }
+
+            // Update style dropdown (if available)
+            const styleSelect = document.getElementById('styleSelector-select');
+            if (styleSelect) {
+                styleSelect.value = presetData.style || '';
+                // Trigger StyleSelector UI update to sync display
+                styleSelector_onStyleChange('styleSelector');
+            }
+
+            // Update hidden form inputs
+            document.getElementById('hiddenStyle').value = presetData.style || '';
+
+            // Update speed slider
+            const speedSlider = document.getElementById('speedSlider');
+            if (speedSlider && presetData.speed) {
+                speedSlider.value = presetData.speed;
+                updateSliderValue('speed');
+            }
+
+            // Update pitch slider
+            const pitchSlider = document.getElementById('pitchSlider');
+            if (pitchSlider && presetData.pitch) {
+                pitchSlider.value = presetData.pitch;
+                updateSliderValue('pitch');
+            }
+
+            // Show toast notification
+            if (window.showToast) {
+                showToast(`Applied "${presetData.name}" preset`, 'success');
+            }
+        }
+
+        // Style change handler
+        function handleStyleChange(style) {
+            console.log('[TTS] Style changed to:', style);
+            document.getElementById('hiddenStyle').value = style || '';
+        }
+
+        // Intensity change handler
+        function handleIntensityChange(intensity) {
+            console.log('[TTS] Intensity changed to:', intensity);
+            document.getElementById('hiddenStyleIntensity').value = intensity;
+        }
+
+        // Format change handler (Pro mode)
+        function handleFormatChange(formattedText) {
+            console.log('[TTS] Format changed:', formattedText);
+        }
+
+        // SSML copy handler (Pro mode)
+        function handleSsmlCopy() {
+            console.log('[TTS] SSML copied to clipboard');
+            if (window.showToast) {
+                showToast('SSML copied to clipboard', 'success');
+            }
+        }
+
+        // Initialize mode on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            // Wait for component scripts to initialize
+            requestAnimationFrame(() => {
+                const savedMode = localStorage.getItem('tts_mode_preference') || 'standard';
+                handleModeChange(savedMode);
+            });
+        });
     </script>
 }
