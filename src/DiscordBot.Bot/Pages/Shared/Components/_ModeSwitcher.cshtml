@@ -178,3 +178,18 @@
         </svg>
     }
 }
+
+<style>
+    /* Mobile Responsive */
+    @@media (max-width: 767px) {
+        #@Model.ContainerId {
+            flex-direction: column;
+        }
+
+        #@Model.ContainerId button[role="tab"] {
+            width: 100%;
+            min-height: 44px;
+            padding: 0.75rem 1rem;
+        }
+    }
+</style>

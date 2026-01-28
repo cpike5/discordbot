@@ -324,13 +324,35 @@
     }
 
     /* Mobile Responsive */
-    @@media (max-width: 768px) {
+    @@media (max-width: 767px) {
         .style-selector {
             gap: 1.25rem;
         }
 
+        .style-selector__select {
+            min-height: 44px;
+        }
+
         .style-selector__slider-label {
             font-size: 0.625rem;
+        }
+
+        .style-selector__slider::-webkit-slider-thumb {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
+        .style-selector__slider::-moz-range-thumb {
+            width: 1.5rem;
+            height: 1.5rem;
+        }
+
+        .style-selector__slider::-webkit-slider-thumb:active {
+            transform: scale(1.2);
+        }
+
+        .style-selector__slider::-moz-range-thumb:active {
+            transform: scale(1.2);
         }
     }
 </style>
