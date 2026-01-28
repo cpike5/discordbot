@@ -1,0 +1,309 @@
+@model DiscordBot.Bot.ViewModels.Components.PauseModalViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+<!-- Pause Insertion Modal -->
+<div id="@Model.Id" class="hidden fixed inset-0 z-50" role="dialog" aria-modal="true" aria-labelledby="@(Model.Id)Title">
+    <!-- Backdrop - aria-hidden prevents screen readers from announcing this decorative element -->
+    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="window.pauseModal.close('@Model.Id')" aria-hidden="true"></div>
+
+    <!-- Modal Dialog -->
+    <div class="fixed inset-0 flex items-center justify-center p-4">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <!-- Modal Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <h2 id="@(Model.Id)Title" class="text-lg font-semibold text-text-primary">@Model.Title</h2>
+                <button type="button"
+                        onclick="window.pauseModal.close('@Model.Id')"
+                        class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-transparent hover:bg-bg-hover border-0 text-text-secondary hover:text-text-primary transition-colors text-2xl leading-none"
+                        aria-label="Close">
+                    &times;
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-6">
+                <!-- Duration Slider -->
+                <div class="mb-6">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">
+                        Pause Duration
+                    </label>
+                    <div class="flex flex-col gap-4">
+                        <div class="flex items-baseline justify-between">
+                            <div class="text-4xl font-bold text-accent-blue" id="@(Model.Id)DurationValue">@Model.DefaultDuration</div>
+                            <div class="text-sm text-text-secondary ml-2">milliseconds</div>
+                        </div>
+                        <input type="range"
+                               id="@(Model.Id)Slider"
+                               class="w-full h-2 rounded-full bg-border-primary outline-none cursor-pointer appearance-none"
+                               style="background-image: linear-gradient(to right, var(--color-accent-blue) 0%, var(--color-accent-blue) 13.79%, var(--color-border-primary) 13.79%, var(--color-border-primary) 100%);"
+                               min="@Model.MinDuration"
+                               max="@Model.MaxDuration"
+                               step="@Model.Step"
+                               value="@Model.DefaultDuration"
+                               oninput="window.pauseModal.updateDuration('@Model.Id')"
+                               aria-label="Pause duration slider">
+                    </div>
+                </div>
+
+                <!-- Quick Duration Buttons -->
+                <div class="mb-6">
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">
+                        Quick Select
+                    </label>
+                    <div class="grid grid-cols-3 gap-3">
+                        <button type="button"
+                                onclick="window.pauseModal.selectPreset('@Model.Id', 250)"
+                                class="flex flex-col items-center justify-center gap-2 p-4 bg-bg-tertiary hover:bg-bg-hover border-2 border-border-primary rounded-lg text-text-primary font-medium transition-all"
+                                data-preset-btn="250">
+                            <span class="text-sm font-semibold">250ms</span>
+                            <span class="text-xs text-text-secondary">Short</span>
+                        </button>
+                        <button type="button"
+                                onclick="window.pauseModal.selectPreset('@Model.Id', 500)"
+                                class="flex flex-col items-center justify-center gap-2 p-4 bg-bg-tertiary hover:bg-bg-hover border-2 border-accent-blue rounded-lg font-medium transition-all"
+                                data-preset-btn="500">
+                            <span class="text-sm font-semibold text-accent-blue">500ms</span>
+                            <span class="text-xs text-accent-blue">Medium</span>
+                        </button>
+                        <button type="button"
+                                onclick="window.pauseModal.selectPreset('@Model.Id', 1000)"
+                                class="flex flex-col items-center justify-center gap-2 p-4 bg-bg-tertiary hover:bg-bg-hover border-2 border-border-primary rounded-lg text-text-primary font-medium transition-all"
+                                data-preset-btn="1000">
+                            <span class="text-sm font-semibold">1000ms</span>
+                            <span class="text-xs text-text-secondary">Long</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Live Preview -->
+                <div>
+                    <label class="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">
+                        Live Preview
+                    </label>
+                    <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+                        <div class="text-sm text-text-secondary mb-3">Example text with pause:</div>
+                        <div class="bg-bg-secondary border-l-4 border-accent-blue p-3 rounded-sm font-mono text-accent-blue break-all" id="@(Model.Id)Preview">
+                            Hello <span class="text-accent-blue">[<svg class="inline align-middle mr-0.5" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>@(Model.DefaultDuration)ms]</span> World
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="flex gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                <button type="button"
+                        onclick="window.pauseModal.close('@Model.Id')"
+                        class="flex-1 px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                    @Model.CancelText
+                </button>
+                <button type="button"
+                        onclick="window.pauseModal.insert('@Model.Id')"
+                        class="flex-1 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-md transition-colors">
+                    @Model.InsertText
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    (function() {
+        const modalId = '@Model.Id';
+        const minDuration = @Model.MinDuration;
+        const maxDuration = @Model.MaxDuration;
+        const defaultDuration = @Model.DefaultDuration;
+        const callback = '@Model.OnInsertCallback';
+
+        // Store current duration
+        window['@(Model.Id)_currentDuration'] = defaultDuration;
+
+        // Initialize namespaced modal API
+        window.pauseModal = window.pauseModal || {};
+
+        // Open modal
+        window.pauseModal.open = function(id) {
+            if (id !== modalId) return;
+            const modal = document.getElementById(id);
+            const slider = document.getElementById(id + 'Slider');
+
+            modal.classList.remove('hidden');
+
+            // Focus slider after a brief delay to ensure modal is visible
+            setTimeout(() => {
+                slider?.focus();
+            }, 100);
+
+            // Set up focus trap
+            setupFocusTrap(id);
+        };
+
+        // Close modal
+        window.pauseModal.close = function(id) {
+            if (id !== modalId) return;
+            const modal = document.getElementById(id);
+            modal.classList.add('hidden');
+            removeFocusTrap(id);
+        };
+
+        // Update duration display and preview
+        window.pauseModal.updateDuration = function(id) {
+            if (id !== modalId) return;
+            const slider = document.getElementById(id + 'Slider');
+            const valueDisplay = document.getElementById(id + 'DurationValue');
+            const preview = document.getElementById(id + 'Preview');
+
+            const duration = parseInt(slider.value);
+            window[id + '_currentDuration'] = duration;
+
+            valueDisplay.textContent = duration;
+
+            // Update slider track fill
+            const percentage = ((duration - minDuration) / (maxDuration - minDuration)) * 100;
+            slider.style.backgroundImage = `linear-gradient(to right, var(--color-accent-blue) 0%, var(--color-accent-blue) ${percentage}%, var(--color-border-primary) ${percentage}%, var(--color-border-primary) 100%)`;
+
+            // Update preview
+            preview.innerHTML = `Hello <span class="text-accent-blue">[<svg class="inline align-middle mr-0.5" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>${duration}ms]</span> World`;
+
+            // Update active preset button
+            updatePresetButtons(id, duration);
+        };
+
+        // Select preset duration
+        window.pauseModal.selectPreset = function(id, duration) {
+            if (id !== modalId) return;
+            const slider = document.getElementById(id + 'Slider');
+            slider.value = duration;
+            window.pauseModal.updateDuration(id);
+        };
+
+        // Update preset button states
+        function updatePresetButtons(id, currentDuration) {
+            const modal = document.getElementById(id);
+            const buttons = modal.querySelectorAll('[data-preset-btn]');
+
+            buttons.forEach(btn => {
+                const presetValue = parseInt(btn.getAttribute('data-preset-btn'));
+                const isActive = presetValue === currentDuration;
+
+                const span1 = btn.querySelector('span:first-child');
+                const span2 = btn.querySelector('span:last-child');
+
+                if (isActive) {
+                    btn.classList.remove('border-border-primary');
+                    btn.classList.add('border-accent-blue');
+                    span1.classList.add('text-accent-blue');
+                    span2.classList.remove('text-text-secondary');
+                    span2.classList.add('text-accent-blue');
+                } else {
+                    btn.classList.remove('border-accent-blue');
+                    btn.classList.add('border-border-primary');
+                    span1.classList.remove('text-accent-blue');
+                    span2.classList.remove('text-accent-blue');
+                    span2.classList.add('text-text-secondary');
+                }
+            });
+        }
+
+        // Insert pause
+        window.pauseModal.insert = function(id) {
+            if (id !== modalId) return;
+            const duration = window[id + '_currentDuration'];
+
+            // Call the callback if provided
+            if (callback && typeof window[callback] === 'function') {
+                window[callback](duration);
+            }
+
+            window.pauseModal.close(id);
+        };
+
+        // Focus trap implementation
+        function setupFocusTrap(id) {
+            const modal = document.getElementById(id);
+            const focusableElements = modal.querySelectorAll(
+                'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+            );
+            const firstElement = focusableElements[0];
+            const lastElement = focusableElements[focusableElements.length - 1];
+
+            const trapFocus = function(e) {
+                if (e.key !== 'Tab') return;
+
+                if (e.shiftKey) {
+                    if (document.activeElement === firstElement) {
+                        lastElement.focus();
+                        e.preventDefault();
+                    }
+                } else {
+                    if (document.activeElement === lastElement) {
+                        firstElement.focus();
+                        e.preventDefault();
+                    }
+                }
+            };
+
+            modal._focusTrapHandler = trapFocus;
+            document.addEventListener('keydown', trapFocus);
+        }
+
+        function removeFocusTrap(id) {
+            const modal = document.getElementById(id);
+            if (modal._focusTrapHandler) {
+                document.removeEventListener('keydown', modal._focusTrapHandler);
+                delete modal._focusTrapHandler;
+            }
+        }
+
+        // Escape key handler
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                const modal = document.getElementById(modalId);
+                if (modal && !modal.classList.contains('hidden')) {
+                    window.pauseModal.close(modalId);
+                }
+            }
+        });
+    })();
+</script>
+
+<style>
+    /* Slider thumb styles for webkit browsers */
+    #@(Model.Id)Slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--color-accent-blue);
+        cursor: pointer;
+        transition: all 200ms ease-out;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    #@(Model.Id)Slider::-webkit-slider-thumb:hover {
+        transform: scale(1.15);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    /* Slider thumb styles for Firefox */
+    #@(Model.Id)Slider::-moz-range-thumb {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: var(--color-accent-blue);
+        cursor: pointer;
+        transition: all 200ms ease-out;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        border: none;
+    }
+
+    #@(Model.Id)Slider::-moz-range-thumb:hover {
+        transform: scale(1.15);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    }
+
+    #@(Model.Id)Slider::-moz-range-track {
+        background: transparent;
+        border: none;
+    }
+</style>
