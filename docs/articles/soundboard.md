@@ -181,6 +181,25 @@ Per-guild audio configuration.
 | `MaxSoundsPerGuild` | int | Max sounds |
 | `MaxStorageBytes` | long | Total storage limit |
 
+### SoundPlayLog
+
+Records each time a sound is played for analytics and usage tracking.
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `Id` | long | Primary key (auto-incrementing) |
+| `SoundId` | Guid | Foreign key to Sound entity |
+| `GuildId` | ulong | Discord guild ID where sound was played |
+| `UserId` | ulong | Discord user ID who played the sound |
+| `PlayedAt` | DateTime | Timestamp of play event (UTC) |
+| `Sound` | Sound? | Navigation property to Sound entity |
+
+**Notes:**
+- Play logs are automatically created when a sound is played
+- Old logs are periodically cleaned up by `SoundPlayLogRetentionService` based on retention policy
+- Provides data for analytics, usage statistics, and audit trails
+- Uses long (Int64) ID to support high-volume logging scenarios
+
 ## Services
 
 ### Core Services
@@ -193,11 +212,50 @@ Per-guild audio configuration.
 | `ISoundFileService` | File storage and audio metadata |
 | `IGuildAudioSettingsService` | Guild audio configuration |
 
+#### ISoundService Methods
+
+**CRUD Operations:**
+- `GetByIdAsync(id, guildId)` - Retrieve sound by ID with guild validation
+- `GetAllByGuildAsync(guildId)` - Get all sounds for a guild (ordered by name)
+- `GetByNameAsync(name, guildId)` - Case-insensitive sound lookup
+- `CreateSoundAsync(sound)` - Create new sound (validates unique name)
+- `DeleteSoundAsync(id, guildId)` - Delete sound with guild validation
+
+**Validation:**
+- `ValidateStorageLimitAsync(guildId, additionalBytes)` - Check storage space available
+- `ValidateSoundCountLimitAsync(guildId)` - Check if guild can add more sounds
+
+**Statistics:**
+- `GetStorageUsedAsync(guildId)` - Total bytes used by guild's sounds
+- `GetSoundCountAsync(guildId)` - Total sound count for guild
+
+**Usage Tracking:**
+- `IncrementPlayCountAsync(soundId)` - Increment play counter and update LastPlayedAt
+- `LogPlayAsync(soundId, guildId, userId)` - Create play log entry for analytics
+
+#### ISoundFileService Methods
+
+Handles physical file I/O and audio metadata extraction:
+- `GetSoundFilePath(guildId, fileName)` - Build full file system path
+- `SoundFileExists(guildId, fileName)` - Check if file exists on disk
+- `SaveSoundFileAsync(guildId, fileName, stream)` - Write audio file to disk
+- `DeleteSoundFileAsync(guildId, fileName)` - Remove file from disk
+- `GetAudioDurationAsync(filePath)` - Use FFprobe to extract duration
+- `DiscoverSoundsAsync(guildId)` - Scan directory for existing audio files
+
+#### IGuildAudioSettingsService Methods
+
+Per-guild configuration management:
+- `GetSettingsAsync(guildId)` - Retrieve guild audio settings
+- `UpdateSettingsAsync(guildId, settings)` - Update audio configuration
+- `ResetToDefaultsAsync(guildId)` - Restore default settings
+
 ### Background Services
 
 | Service | Purpose |
 |---------|---------|
 | `VoiceAutoLeaveService` | Auto-disconnects bot when alone in channel |
+| `SoundPlayLogRetentionService` | Automatically cleans up old play logs for storage efficiency |
 
 ### SignalR Notifications
 
@@ -211,6 +269,391 @@ The `IAudioNotifier` service broadcasts real-time audio status to dashboard clie
 | `PlaybackProgress` | Playback progress update |
 | `PlaybackFinished` | Sound finished playing |
 | `QueueUpdated` | Queue changed |
+
+## API Endpoints
+
+### Admin Sounds API
+
+**Base URL:** `/api/guilds/{guildId}/sounds`
+
+**Authorization:** RequireViewer policy (all endpoints)
+
+#### Download Sound
+
+Downloads a sound file from the guild's soundboard.
+
+**Endpoint:** `GET /api/guilds/{guildId}/sounds/{soundId}/download`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+- `soundId` (Guid) - The sound's unique identifier
+
+**Response:**
+- **200 OK** - Returns the sound file with appropriate content type (audio/mpeg, audio/wav, audio/ogg, audio/mp4)
+- **404 Not Found** - Sound not found or doesn't belong to guild, or file missing from storage
+
+**Example:**
+```bash
+curl -H "Authorization: Bearer {token}" \
+  "https://localhost:5001/api/guilds/123456789012345678/sounds/a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8/download"
+```
+
+**Response Headers:**
+```
+Content-Type: audio/mpeg
+Content-Disposition: attachment; filename="airhorn.mp3"
+Content-Length: 234567
+```
+
+### Portal Soundboard API
+
+**Base URL:** `/api/portal/soundboard/{guildId}`
+
+**Authorization:** PortalGuildMember policy (all endpoints)
+
+#### Get Guild Sounds
+
+Retrieves all sounds for a guild with play counts.
+
+**Endpoint:** `GET /api/portal/soundboard/{guildId}/sounds`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+
+**Query Parameters:**
+- None
+
+**Response: 200 OK**
+```json
+[
+  {
+    "id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8",
+    "name": "airhorn",
+    "duration": 2.5,
+    "fileSizeBytes": 234567,
+    "playCount": 42,
+    "uploadedAt": "2024-12-08T15:30:00Z"
+  }
+]
+```
+
+**Response Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | Guid | Sound unique identifier |
+| `name` | string | Display name |
+| `duration` | double | Audio duration in seconds |
+| `fileSizeBytes` | long | File size in bytes |
+| `playCount` | int | Number of times played |
+| `uploadedAt` | DateTime | Upload timestamp (UTC) |
+
+**Error Responses:**
+- **400 Bad Request** - Audio features globally disabled
+
+#### Upload Sound
+
+Uploads a new sound file to the guild's soundboard.
+
+**Endpoint:** `POST /api/portal/soundboard/{guildId}/sounds`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+
+**Request Body (multipart/form-data):**
+```
+file: <audio file>
+name: <optional display name, defaults to filename>
+```
+
+**Response: 200 OK**
+```json
+{
+  "id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8",
+  "name": "airhorn",
+  "duration": 2.5,
+  "fileSizeBytes": 234567,
+  "playCount": 0,
+  "uploadedAt": "2024-12-08T15:30:00Z"
+}
+```
+
+**Error Responses:**
+- **400 Bad Request** - Invalid file, exceeds limits, unsupported format, or storage limit exceeded
+- **409 Conflict** - Sound with same name already exists in guild
+
+**Validation:**
+- Supported formats: mp3, wav, ogg, m4a
+- File size must not exceed guild's max file size limit
+- Duration must not exceed guild's max duration limit
+- Total guild storage must not exceed storage limit
+- Sound count must not exceed guild's max sounds limit
+
+#### Play Sound from Portal
+
+Plays a sound in the bot's current voice channel.
+
+**Endpoint:** `POST /api/portal/soundboard/{guildId}/play/{soundId}`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+- `soundId` (Guid) - The sound's unique identifier
+
+**Request Body:**
+```json
+{
+  "filter": "None"
+}
+```
+
+**Request Fields:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `filter` | string | No | Audio filter to apply (None, Reverb, BassBoost, TrebleBoost, PitchUp, PitchDown, Nightcore, SlowMo). Default: None |
+
+**Response: 200 OK**
+```json
+{
+  "status": "playing",
+  "message": "Now playing: airhorn"
+}
+```
+
+**Error Responses:**
+- **400 Bad Request** - Audio disabled, bot not in voice channel, or sound not found
+- **404 Not Found** - Sound file missing
+
+#### List Voice Channels
+
+Gets all voice channels in the guild.
+
+**Endpoint:** `GET /api/portal/soundboard/{guildId}/channels`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+
+**Response: 200 OK**
+```json
+[
+  {
+    "id": "987654321098765432",
+    "name": "General Voice",
+    "userCount": 3
+  },
+  {
+    "id": "987654321098765433",
+    "name": "Gaming",
+    "userCount": 0
+  }
+]
+```
+
+**Response Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | ulong | Channel Discord snowflake ID |
+| `name` | string | Channel name |
+| `userCount` | int | Number of users in channel (excluding bots) |
+
+#### Join Voice Channel
+
+Joins a specific voice channel.
+
+**Endpoint:** `POST /api/portal/soundboard/{guildId}/channel`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+
+**Request Body:**
+```json
+{
+  "channelId": "987654321098765432"
+}
+```
+
+**Request Fields:**
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `channelId` | ulong | Yes | Discord channel ID to join |
+
+**Response: 200 OK**
+```json
+{
+  "status": "connected",
+  "channelId": "987654321098765432",
+  "channelName": "General Voice"
+}
+```
+
+**Error Responses:**
+- **400 Bad Request** - Bot cannot access channel or invalid channel ID
+- **404 Not Found** - Channel not found
+
+#### Leave Voice Channel
+
+Disconnects the bot from the current voice channel.
+
+**Endpoint:** `DELETE /api/portal/soundboard/{guildId}/channel`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+
+**Response: 200 OK**
+```json
+{
+  "status": "disconnected",
+  "message": "Left voice channel"
+}
+```
+
+**Error Responses:**
+- **400 Bad Request** - Bot not connected to a voice channel
+
+#### Stop Playback
+
+Stops the currently playing sound and clears the queue.
+
+**Endpoint:** `POST /api/portal/soundboard/{guildId}/stop`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+
+**Response: 200 OK**
+```json
+{
+  "status": "stopped",
+  "message": "Playback stopped"
+}
+```
+
+**Error Responses:**
+- **400 Bad Request** - Bot not playing audio
+
+#### Get Playback Status
+
+Gets the current playback status and queue information.
+
+**Endpoint:** `GET /api/portal/soundboard/{guildId}/status`
+
+**Path Parameters:**
+- `guildId` (ulong) - The guild's Discord snowflake ID
+
+**Response: 200 OK**
+```json
+{
+  "isPlaying": true,
+  "currentSoundId": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8",
+  "currentSoundName": "airhorn",
+  "position": 1.5,
+  "duration": 2.5,
+  "queueLength": 2,
+  "isConnected": true,
+  "currentChannelId": "987654321098765432"
+}
+```
+
+**Response Fields:**
+| Field | Type | Description |
+|-------|------|-------------|
+| `isPlaying` | bool | Whether audio is currently playing |
+| `currentSoundId` | Guid? | ID of currently playing sound |
+| `currentSoundName` | string? | Name of currently playing sound |
+| `position` | double | Current playback position in seconds |
+| `duration` | double | Total duration of current sound in seconds |
+| `queueLength` | int | Number of sounds in queue |
+| `isConnected` | bool | Whether bot is connected to voice channel |
+| `currentChannelId` | ulong? | ID of current voice channel |
+
+## UI Pages
+
+### Admin Soundboard Management Page
+
+**URL:** `/Guilds/Soundboard/{guildId}`
+
+**Authorization:** RequireAdmin policy
+
+**Features:**
+
+1. **Sound Library Viewer**
+   - Table showing all uploaded sounds with metadata
+   - Columns: Name, File Size, Duration, Play Count, Uploaded By, Upload Date
+   - Sortable by any column
+   - Search/filter functionality
+
+2. **Upload Sound**
+   - Drag-and-drop or file picker for audio files
+   - Validates format, size, and duration before upload
+   - Custom display name (optional, defaults to filename)
+   - Real-time validation feedback
+
+3. **Manage Sounds**
+   - Delete individual sounds
+   - Bulk delete operations
+   - Rename sounds (updates display name only)
+   - View sound details (ID, file path, upload info)
+
+4. **Discover Sounds**
+   - Scan file system for audio files in the guild's sound directory
+   - Import discovered files as new sounds
+   - Batch import with progress indication
+
+5. **Voice Channel Controls**
+   - Connect to a voice channel for testing playback
+   - List available voice channels
+   - View current connection status
+   - Test playback of sounds in real-time
+   - Monitor playback progress with status updates
+
+6. **Storage Statistics**
+   - Total storage used vs. configured limit
+   - Per-sound file size
+   - Guild-level usage summary
+   - Visual storage usage indicator
+
+### Portal Soundboard Page
+
+**URL:** `/Portal/Soundboard/{guildId}`
+
+**Authorization:** AllowAnonymous (landing page), PortalGuildMember (authenticated users)
+
+**Features:**
+
+1. **Landing Page (Unauthenticated)**
+   - Description of soundboard functionality
+   - Login prompt for guild members
+   - Information about audio features
+
+2. **Soundboard Control Panel (Authenticated)**
+   - **Sound Browser**
+     - List of all available sounds
+     - Sort by name, play count, upload date
+     - Search by sound name
+     - Audio preview for each sound
+     - Display of sound metadata (duration, file size, play count)
+
+   - **Voice Channel Navigation**
+     - List of available voice channels with member counts
+     - Current connection status indicator
+     - One-click channel switching
+     - Auto-join option for user's current voice channel
+
+   - **Playback Controls**
+     - Play button for each sound
+     - Filter selection dropdown
+     - Stop/pause controls
+     - Queue display (if queue mode enabled)
+     - Current playback status indicator
+
+   - **Real-Time Status Updates** (via SignalR)
+     - Connection status updates
+     - Playback progress indicator
+     - Queue updates
+     - Error notifications
+
+   - **Settings Display**
+     - Show active audio settings (queue mode, silent mode, timeout)
+     - Display guild storage usage
+     - Show sound count limits
+     - Display max duration and file size limits
 
 ## Preconditions
 
@@ -230,6 +673,74 @@ Ensures the user is in a voice channel before executing the command.
 ```csharp
 [RequireVoiceChannel]
 public async Task JoinAsync() { ... }
+```
+
+## Sound Play Logging and Analytics
+
+The soundboard feature includes a comprehensive play logging system for tracking sound usage.
+
+### Play Logging
+
+Every time a sound is played, a `SoundPlayLog` entry is created with:
+- Sound ID being played
+- Guild ID where it was played
+- User ID who played it
+- Timestamp (UTC)
+
+**Logging occurs automatically during playback:**
+1. User initiates playback via slash command or portal
+2. Sound playback starts successfully
+3. `LogPlayAsync()` is called to record the event
+4. Log entry is saved asynchronously (non-blocking)
+
+**Play Log Retention:**
+
+The `SoundPlayLogRetentionService` background service automatically cleans up old play logs:
+- Runs on a configurable schedule
+- Removes logs older than the configured retention period
+- Prevents database bloat from continuous logging
+- Configurable via `SoundPlayLogRetentionOptions`
+
+**Configuration:**
+```json
+{
+  "SoundPlayLogRetention": {
+    "RetentionDays": 90,
+    "CheckIntervalMinutes": 60
+  }
+}
+```
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `RetentionDays` | 90 | Keep play logs for this many days |
+| `CheckIntervalMinutes` | 60 | How often to check for expired logs |
+
+### Analytics Use Cases
+
+Play log data supports:
+- **Usage Statistics**: See which sounds are most popular
+- **User Behavior**: Track who plays which sounds and when
+- **Time Series Analysis**: Identify peak usage times
+- **Guild Trends**: Monitor soundboard engagement over time
+- **Audit Trail**: Maintain historical record of sound usage
+- **Capacity Planning**: Identify when sounds should be rotated or removed
+
+### Querying Play Data
+
+Access play logs through:
+- `ISoundService.LogPlayAsync()` - Record a new play event
+- Direct database queries via `SoundPlayLogRepository`
+- Analytics dashboards and reports
+
+**Example: Most Played Sounds**
+```csharp
+var logs = await _soundPlayLogRepository.GetByGuildIdAsync(guildId, cancellationToken);
+var mostPlayed = logs
+    .GroupBy(l => l.SoundId)
+    .OrderByDescending(g => g.Count())
+    .Take(10)
+    .Select(g => new { SoundId = g.Key, PlayCount = g.Count() });
 ```
 
 ## File System Structure
