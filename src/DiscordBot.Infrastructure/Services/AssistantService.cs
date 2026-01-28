@@ -148,6 +148,7 @@ public class AssistantService : IAssistantService
                     ChannelId = channelId,
                     MessageId = messageId
                 },
+                Model = _options.Model,
                 MaxTokens = _options.MaxTokens,
                 Temperature = _options.Temperature,
                 MaxToolCallIterations = _options.MaxToolCallsPerQuestion

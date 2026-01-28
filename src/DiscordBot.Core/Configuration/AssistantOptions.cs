@@ -79,15 +79,16 @@ public class AssistantOptions
 
     /// <summary>
     /// Gets or sets the Claude model identifier to use.
-    /// Default is "claude-3-5-sonnet-20241022".
+    /// Default is "claude-sonnet-4-20250514".
     /// </summary>
     /// <remarks>
     /// Available models:
-    /// - claude-3-5-sonnet-20241022 (recommended for balance of speed/quality)
-    /// - claude-3-opus-20240229 (highest quality, slower, more expensive)
-    /// - claude-3-haiku-20240307 (fastest, cheapest, lower quality)
+    /// - claude-sonnet-4-20250514 (recommended for balance of speed/quality)
+    /// - claude-opus-4-20250514 (highest quality, slower, more expensive)
+    /// - claude-haiku-4-20250514 (fastest, cheapest, lower quality)
+    /// If null or empty, falls back to Anthropic:DefaultModel.
     /// </remarks>
-    public string Model { get; set; } = "claude-3-5-sonnet-20241022";
+    public string Model { get; set; } = "claude-sonnet-4-20250514";
 
     /// <summary>
     /// Gets or sets the timeout for Claude API calls in milliseconds.

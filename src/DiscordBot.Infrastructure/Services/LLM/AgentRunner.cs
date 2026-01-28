@@ -62,6 +62,7 @@ public class AgentRunner : IAgentRunner
             SystemPrompt = context.SystemPrompt,
             Messages = conversationHistory,
             Tools = context.ToolRegistry?.GetEnabledTools().ToList(),
+            Model = context.Model,
             MaxTokens = context.MaxTokens,
             Temperature = context.Temperature,
             EnablePromptCaching = true
