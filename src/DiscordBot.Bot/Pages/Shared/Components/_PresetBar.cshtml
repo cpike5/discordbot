@@ -1,0 +1,352 @@
+@model DiscordBot.Bot.ViewModels.Components.PresetBarViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    PresetBar Component
+    -------------------
+    Grid of quick-access voice preset buttons for TTS configuration.
+
+    Features:
+    - 8 default presets with Heroicons
+    - 200ms highlight pulse animation on click
+    - Active preset indicator (orange border + glow)
+    - Mobile: horizontal scroll carousel
+    - Desktop: 4-column grid layout
+    - Optional JavaScript callback with preset data
+    - Toast notification support (parent handles)
+
+    Default Presets:
+    - Excited (sparkles): cheerful, high energy
+    - Announcer (megaphone): newscast, authoritative
+    - Robot (computer-desktop): monotone, low pitch
+    - Friendly (face-smile): warm, natural
+    - Angry (fire): aggressive, high pitch
+    - Narrator (microphone): professional, measured
+    - Whisper (speaker-x-mark): quiet, intimate
+    - Shouting (speaker-wave): loud, forceful
+
+    Usage:
+    var model = new PresetBarViewModel
+    {
+        Presets = GetDefaultPresets(),
+        OnPresetApply = "handlePresetApply"
+    };
+    @await Html.PartialAsync("Components/_PresetBar", model)
+*@
+
+<div id="@Model.ContainerId"
+     class="presets-bar"
+     role="group"
+     aria-label="Voice preset selection"
+     data-callback="@Model.OnPresetApply">
+
+    @{
+        var anyActive = Model.Presets.Any(p => p.IsActive);
+        var presetIndex = 0;
+    }
+
+    @foreach (var preset in Model.Presets)
+    {
+        var buttonId = $"{Model.ContainerId}-preset-{preset.Id}";
+        var isActive = preset.IsActive;
+        var isFirst = presetIndex == 0;
+        presetIndex++;
+
+        <button type="button"
+                id="@buttonId"
+                class="preset-button @(isActive ? "preset-button--active" : "")"
+                title="@preset.Description"
+                aria-pressed="@(isActive ? "true" : "false")"
+                tabindex="@(isActive || (!anyActive && isFirst) ? "0" : "-1")"
+                data-preset-id="@preset.Id"
+                data-preset-name="@preset.Name"
+                data-preset-voice="@preset.VoiceName"
+                data-preset-style="@(preset.Style ?? "")"
+                data-preset-speed="@preset.Speed"
+                data-preset-pitch="@preset.Pitch"
+                onclick="presetBar_applyPreset('@Model.ContainerId', '@preset.Id')">
+
+            @{ RenderPresetIcon(preset.Icon); }
+
+            <span class="preset-button__label">@preset.Name</span>
+
+            @if (isActive)
+            {
+                <span class="preset-button__active-badge" aria-label="Active preset">Active</span>
+            }
+        </button>
+    }
+</div>
+
+<style>
+    /* Preset Bar Container */
+    .presets-bar {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.75rem;
+    }
+
+    /* Preset Button */
+    .preset-button {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 1rem 0.75rem;
+        background: var(--color-bg-tertiary);
+        border: 2px solid var(--color-border-primary);
+        border-radius: 0.75rem;
+        color: var(--color-text-secondary);
+        font-size: 0.875rem;
+        font-weight: 500;
+        text-align: center;
+        cursor: pointer;
+        transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        position: relative;
+    }
+
+    .preset-button:hover {
+        background: var(--color-bg-hover);
+        color: var(--color-text-primary);
+        border-color: var(--color-accent-orange-muted);
+        transform: translateY(-2px);
+    }
+
+    .preset-button:active {
+        transform: translateY(0);
+    }
+
+    /* Active State */
+    .preset-button--active {
+        border-color: var(--color-accent-orange);
+        background: var(--color-accent-orange-muted);
+        color: var(--color-accent-orange);
+        box-shadow: 0 0 0 3px rgba(203, 78, 27, 0.15),
+                    0 4px 12px rgba(203, 78, 27, 0.2);
+    }
+
+    .preset-button--active:hover {
+        border-color: var(--color-accent-orange-hover);
+        color: var(--color-accent-orange-hover);
+    }
+
+    /* Icon */
+    .preset-button svg {
+        width: 1.5rem;
+        height: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    /* Label */
+    .preset-button__label {
+        display: block;
+        line-height: 1.25;
+    }
+
+    /* Active Badge */
+    .preset-button__active-badge {
+        position: absolute;
+        top: 0.375rem;
+        right: 0.375rem;
+        padding: 0.125rem 0.375rem;
+        background: var(--color-accent-orange);
+        color: white;
+        font-size: 0.625rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-radius: 0.25rem;
+    }
+
+    /* Pulse Animation (applied on click) */
+    @@keyframes preset-pulse {
+        0% {
+            box-shadow: 0 0 0 0 rgba(203, 78, 27, 0.7);
+        }
+        50% {
+            box-shadow: 0 0 0 10px rgba(203, 78, 27, 0);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(203, 78, 27, 0);
+        }
+    }
+
+    .preset-button--pulse {
+        animation: preset-pulse 200ms ease-out;
+    }
+
+    /* Mobile: Horizontal Scroll Carousel */
+    @@media (max-width: 768px) {
+        .presets-bar {
+            display: flex;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            scroll-snap-type: x mandatory;
+            gap: 0.5rem;
+            padding-bottom: 0.5rem;
+        }
+
+        .preset-button {
+            min-width: 6rem;
+            flex-shrink: 0;
+            scroll-snap-align: start;
+        }
+
+        /* Hide scrollbar but keep functionality */
+        .presets-bar::-webkit-scrollbar {
+            height: 4px;
+        }
+
+        .presets-bar::-webkit-scrollbar-track {
+            background: var(--color-bg-tertiary);
+            border-radius: 2px;
+        }
+
+        .presets-bar::-webkit-scrollbar-thumb {
+            background: var(--color-border-primary);
+            border-radius: 2px;
+        }
+
+        .presets-bar::-webkit-scrollbar-thumb:hover {
+            background: var(--color-accent-orange);
+        }
+    }
+</style>
+
+<script>
+    (function() {
+        const containerId = '@Model.ContainerId';
+        const container = document.getElementById(containerId);
+
+        // Add keyboard navigation for accessibility
+        if (container) {
+            container.addEventListener('keydown', function(e) {
+                const buttons = Array.from(container.querySelectorAll('.preset-button'));
+                const currentIndex = buttons.findIndex(btn => btn.getAttribute('aria-pressed') === 'true');
+                let newIndex = currentIndex;
+
+                if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    newIndex = (currentIndex + 1) % buttons.length;
+                } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    newIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+                } else if (e.key === 'Home') {
+                    e.preventDefault();
+                    newIndex = 0;
+                } else if (e.key === 'End') {
+                    e.preventDefault();
+                    newIndex = buttons.length - 1;
+                } else {
+                    return;
+                }
+
+                if (newIndex !== currentIndex) {
+                    const newPresetId = buttons[newIndex].dataset.presetId;
+                    presetBar_applyPreset(containerId, newPresetId);
+                }
+            });
+        }
+
+        /**
+         * Applies a preset to the TTS form.
+         * @@param {string} containerId - The container ID of the preset bar
+         * @@param {string} presetId - The preset ID to apply
+         */
+        window.presetBar_applyPreset = function(containerId, presetId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const button = container.querySelector(`[data-preset-id="${presetId}"]`);
+            if (!button) return;
+
+            // Extract preset data from button attributes
+            const presetData = {
+                id: presetId,
+                name: button.dataset.presetName,
+                voice: button.dataset.presetVoice,
+                style: button.dataset.presetStyle || null,
+                speed: parseFloat(button.dataset.presetSpeed),
+                pitch: parseFloat(button.dataset.presetPitch)
+            };
+
+            // Update active state
+            const allButtons = container.querySelectorAll('.preset-button');
+            allButtons.forEach(btn => {
+                const isThisButton = btn === button;
+
+                // Update classes and ARIA
+                if (isThisButton) {
+                    btn.classList.add('preset-button--active');
+                    btn.setAttribute('aria-pressed', 'true');
+                    btn.setAttribute('tabindex', '0');
+
+                    // Add pulse animation
+                    btn.classList.add('preset-button--pulse');
+                    btn.addEventListener('animationend', function handler() {
+                        btn.classList.remove('preset-button--pulse');
+                        btn.removeEventListener('animationend', handler);
+                    }, { once: true });
+
+                    // Focus the newly active button
+                    btn.focus();
+
+                    // Add/update active badge
+                    if (!btn.querySelector('.preset-button__active-badge')) {
+                        const badge = document.createElement('span');
+                        badge.className = 'preset-button__active-badge';
+                        badge.setAttribute('aria-label', 'Active preset');
+                        badge.textContent = 'Active';
+                        btn.appendChild(badge);
+                    }
+                } else {
+                    btn.classList.remove('preset-button--active');
+                    btn.setAttribute('aria-pressed', 'false');
+                    btn.setAttribute('tabindex', '-1');
+
+                    // Remove active badge
+                    const badge = btn.querySelector('.preset-button__active-badge');
+                    if (badge) {
+                        badge.remove();
+                    }
+                }
+            });
+
+            // Trigger callback if specified
+            const callback = container.dataset.callback;
+            if (callback && typeof window[callback] === 'function') {
+                window[callback](presetData);
+            }
+        };
+    })();
+</script>
+
+@functions {
+    private void RenderPresetIcon(string iconName)
+    {
+        // Heroicon SVG paths (outline style)
+        string iconPath = iconName switch
+        {
+            "sparkles" => "M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z",
+            "megaphone" => "M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38a.75.75 0 0 1-1.024-.272 21.37 21.37 0 0 1-1.26-2.672.747.747 0 0 1-.015-.065c-.255-.906-.47-1.834-.617-2.784m2.95 1.13c.62.057 1.246.09 1.879.09h.75a4.5 4.5 0 0 0 0-9h-.75c-.633 0-1.26.03-1.88.09m-.97 7.5v1.875c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V15.84m4.5 0V15.84",
+            "computer-desktop" => "M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25",
+            "face-smile" => "M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z",
+            "fire" => "M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z",
+            "microphone" => "M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z",
+            "speaker-x-mark" => "M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z",
+            "speaker-wave" => "M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z",
+            _ => "M12 18.75a6 6 0 0 0 6-6v-1.5m-6 7.5a6 6 0 0 1-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 0 1-3-3V4.5a3 3 0 1 1 6 0v8.25a3 3 0 0 1-3 3Z" // Default to microphone
+        };
+
+        <svg class="w-6 h-6"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+             aria-hidden="true">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="@iconPath" />
+        </svg>
+    }
+}
