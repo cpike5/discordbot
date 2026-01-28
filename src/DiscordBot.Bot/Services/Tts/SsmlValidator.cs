@@ -60,7 +60,7 @@ public partial class SsmlValidator : ISsmlValidator
     public SsmlValidator(
         ILogger<SsmlValidator> logger,
         IVoiceCapabilityProvider voiceCapabilityProvider,
-        int maxNestingDepth = 3,
+        int maxNestingDepth = 5,
         int maxDocumentLength = 5000)
     {
         _logger = logger;
@@ -149,6 +149,11 @@ public partial class SsmlValidator : ISsmlValidator
             _logger.LogDebug(
                 "SSML validation completed: IsValid={IsValid}, Errors={ErrorCount}, Warnings={WarningCount}, Voices={VoiceCount}",
                 errors.Count == 0, errors.Count, warnings.Count, detectedVoices.Count);
+
+            if (errors.Count > 0)
+            {
+                _logger.LogDebug("SSML validation errors: {Errors}", string.Join("; ", errors));
+            }
         }
         catch (Exception ex)
         {

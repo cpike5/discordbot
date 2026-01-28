@@ -9,6 +9,7 @@ using DiscordBot.Core.DTOs.Portal;
 using DiscordBot.Core.DTOs.Tts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
+using DiscordBot.Core.Exceptions;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -305,6 +306,17 @@ public class PortalTtsController : ControllerBase
             {
                 Message = "TTS service not available",
                 Detail = "The text-to-speech service is not properly configured.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+        catch (SsmlValidationException ex)
+        {
+            _logger.LogWarning(ex, "SSML validation failed for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML validation failed",
+                Detail = string.Join("; ", ex.Errors),
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
@@ -786,6 +798,17 @@ public class PortalTtsController : ControllerBase
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
+        catch (SsmlValidationException ex)
+        {
+            _logger.LogWarning(ex, "SSML validation failed for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML validation failed",
+                Detail = string.Join("; ", ex.Errors),
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
         catch (ArgumentException ex)
         {
             _logger.LogError(ex, "Invalid SSML for guild {GuildId}", guildId);
@@ -1028,6 +1051,8 @@ public class PortalTtsController : ControllerBase
 
                         case "emphasis":
                             var text = element.Text ?? "";
+                            if (string.IsNullOrWhiteSpace(text))
+                                break;
                             var level = element.Attributes.GetValueOrDefault("level", "moderate");
                             builder.AddEmphasis(text, level);
                             break;
