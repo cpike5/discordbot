@@ -1,0 +1,518 @@
+@model DiscordBot.Bot.ViewModels.Components.SsmlPreviewViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    SsmlPreview Component (Pro Mode)
+    --------------------------------
+    Collapsible, read-only preview of generated SSML markup.
+
+    Features:
+    - Syntax-highlighted XML display (tags, attributes, values, text)
+    - Character count comparison (SSML length vs plain text length)
+    - Copy button with Clipboard API integration
+    - Toast notification on successful copy
+    - Collapsible (starts collapsed by default)
+    - Smooth expand/collapse animation (200ms)
+    - Auto-update via JavaScript callback
+    - Mobile responsive (scrollable code block)
+    - Visible only in Pro TTS mode
+
+    Syntax Highlighting Colors:
+    - Tags: var(--color-accent-blue)
+    - Attributes: var(--color-accent-orange)
+    - Values: var(--color-success)
+    - Text content: var(--color-text-primary)
+
+    Usage:
+    var model = new SsmlPreviewViewModel
+    {
+        ContainerId = "ssmlPreview",
+        InitialSsml = "<speak version=\"1.0\">...</speak>",
+        StartCollapsed = true,
+        OnCopy = "handleSsmlCopy",
+        ShowCharacterCount = true
+    };
+    @await Html.PartialAsync("Components/_SsmlPreview", model)
+*@
+
+<div id="@Model.ContainerId"
+     class="ssml-preview"
+     data-collapsed="@Model.StartCollapsed.ToString().ToLower()"
+     data-callback-copy="@Model.OnCopy"
+     data-show-count="@Model.ShowCharacterCount.ToString().ToLower()">
+
+    <!-- Header -->
+    <button type="button"
+            class="ssml-preview__header"
+            onclick="ssmlPreview_toggle('@Model.ContainerId')"
+            aria-expanded="@(!Model.StartCollapsed).ToString().ToLower()"
+            aria-controls="@(Model.ContainerId)-content">
+
+        <div class="ssml-preview__header-left">
+            <!-- Chevron Icon -->
+            <svg class="ssml-preview__chevron"
+                 fill="none"
+                 viewBox="0 0 24 24"
+                 stroke="currentColor"
+                 aria-hidden="true">
+                <path stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M19 9l-7 7-7-7" />
+            </svg>
+
+            <span class="ssml-preview__title">SSML Preview (Read-only)</span>
+        </div>
+
+        @if (Model.ShowCharacterCount)
+        {
+            <span id="@(Model.ContainerId)-charCount"
+                  class="ssml-preview__char-count"
+                  role="status"
+                  aria-live="polite">
+                0 chars
+            </span>
+        }
+    </button>
+
+    <!-- Content -->
+    <div id="@(Model.ContainerId)-content"
+         class="ssml-preview__content @(Model.StartCollapsed ? "collapsed" : "")">
+
+        <!-- Code Block -->
+        <pre id="@(Model.ContainerId)-code"
+             class="ssml-preview__code"
+             role="region"
+             aria-label="SSML markup preview"
+             tabindex="0">@(Model.InitialSsml ?? "")</pre>
+
+        <!-- Copy Button -->
+        <div class="ssml-preview__footer">
+            <button type="button"
+                    id="@(Model.ContainerId)-copyBtn"
+                    class="ssml-preview__copy-btn"
+                    onclick="ssmlPreview_copy('@Model.ContainerId')"
+                    aria-label="Copy SSML to clipboard">
+                @{ RenderDocumentDuplicateIcon(); }
+                <span>Copy SSML</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* ==========================================
+       CONTAINER
+       ========================================== */
+    .ssml-preview {
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    /* ==========================================
+       HEADER
+       ========================================== */
+    .ssml-preview__header {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--color-bg-tertiary);
+        border: none;
+        cursor: pointer;
+        transition: background 150ms ease-out;
+        font-family: inherit;
+    }
+
+    .ssml-preview__header:hover {
+        background: var(--color-bg-hover);
+    }
+
+    .ssml-preview__header:focus {
+        outline: none;
+        box-shadow: inset 0 0 0 2px var(--color-accent-orange);
+    }
+
+    .ssml-preview__header-left {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    /* Chevron Icon */
+    .ssml-preview__chevron {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: var(--color-text-secondary);
+        transition: transform 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    [data-collapsed="false"] .ssml-preview__chevron {
+        transform: rotate(180deg);
+    }
+
+    /* Title */
+    .ssml-preview__title {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    /* Character Count Badge */
+    .ssml-preview__char-count {
+        font-size: 0.75rem;
+        font-weight: 500;
+        color: var(--color-text-secondary);
+        background: var(--color-bg-primary);
+        padding: 0.25rem 0.625rem;
+        border-radius: 0.375rem;
+        border: 1px solid var(--color-border-secondary);
+    }
+
+    /* ==========================================
+       CONTENT
+       ========================================== */
+    .ssml-preview__content {
+        max-height: 400px;
+        overflow: hidden;
+        transition: max-height 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    }
+
+    .ssml-preview__content.collapsed {
+        max-height: 0;
+    }
+
+    /* Code Block */
+    .ssml-preview__code {
+        margin: 0;
+        padding: 1rem;
+        background: var(--color-bg-primary);
+        color: var(--color-text-primary);
+        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        font-size: 0.8125rem;
+        line-height: 1.5;
+        white-space: pre;
+        overflow-x: auto;
+        overflow-y: auto;
+        max-height: 300px;
+        border-top: 1px solid var(--color-border-primary);
+    }
+
+    .ssml-preview__code:focus {
+        outline: 2px solid var(--color-accent-orange);
+        outline-offset: -2px;
+    }
+
+    /* Syntax Highlighting Classes */
+    .ssml-tag {
+        color: var(--color-accent-blue);
+        font-weight: 600;
+    }
+
+    .ssml-attribute {
+        color: var(--color-accent-orange);
+        font-weight: 500;
+    }
+
+    .ssml-value {
+        color: var(--color-success);
+    }
+
+    .ssml-text {
+        color: var(--color-text-primary);
+    }
+
+    /* ==========================================
+       FOOTER
+       ========================================== */
+    .ssml-preview__footer {
+        padding: 0.75rem 1rem;
+        background: var(--color-bg-secondary);
+        border-top: 1px solid var(--color-border-primary);
+        display: flex;
+        justify-content: flex-end;
+    }
+
+    /* Copy Button */
+    .ssml-preview__copy-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.5rem 1rem;
+        background: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.375rem;
+        color: var(--color-text-primary);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 150ms ease-out;
+        font-family: inherit;
+    }
+
+    .ssml-preview__copy-btn:hover {
+        background: var(--color-bg-hover);
+        border-color: var(--color-accent-orange);
+    }
+
+    .ssml-preview__copy-btn:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-accent-orange-muted);
+    }
+
+    .ssml-preview__copy-btn svg {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+    }
+
+    /* ==========================================
+       RESPONSIVE
+       ========================================== */
+    @@media (max-width: 768px) {
+        .ssml-preview__header {
+            padding: 0.625rem 0.75rem;
+        }
+
+        .ssml-preview__title {
+            font-size: 0.8125rem;
+        }
+
+        .ssml-preview__char-count {
+            font-size: 0.6875rem;
+            padding: 0.1875rem 0.5rem;
+        }
+
+        .ssml-preview__code {
+            padding: 0.75rem;
+            font-size: 0.75rem;
+            max-height: 200px;
+        }
+
+        .ssml-preview__footer {
+            padding: 0.625rem 0.75rem;
+        }
+
+        .ssml-preview__copy-btn {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+    }
+</style>
+
+<script>
+    (function() {
+        const containerId = '@Model.ContainerId';
+        const container = document.getElementById(containerId);
+
+        if (!container) {
+            console.error(`SsmlPreview: Container "${containerId}" not found`);
+            return;
+        }
+
+        // State
+        let currentSsml = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.InitialSsml ?? ""));
+        let plainTextLength = 0;
+
+        /**
+         * Toggles the collapsed state of the preview.
+         * @@param {string} containerId - The container ID of the preview
+         */
+        window.ssmlPreview_toggle = function(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const content = container.querySelector(`#${containerId}-content`);
+            const header = container.querySelector('.ssml-preview__header');
+
+            if (!content || !header) return;
+
+            const isCollapsed = container.dataset.collapsed === 'true';
+            const newCollapsed = !isCollapsed;
+
+            // Update state
+            container.dataset.collapsed = newCollapsed.toString();
+
+            // Update ARIA
+            header.setAttribute('aria-expanded', (!newCollapsed).toString());
+
+            // Toggle content
+            if (newCollapsed) {
+                content.classList.add('collapsed');
+            } else {
+                content.classList.remove('collapsed');
+            }
+        };
+
+        /**
+         * Updates the SSML preview content and character count.
+         * @@param {string} containerId - The container ID of the preview
+         * @@param {string} ssmlContent - The SSML markup to display
+         * @@param {number} newPlainTextLength - The length of the plain text (without markup)
+         */
+        window.ssmlPreview_update = function(containerId, ssmlContent, newPlainTextLength) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const codeBlock = container.querySelector(`#${containerId}-code`);
+            const charCount = container.querySelector(`#${containerId}-charCount`);
+
+            if (!codeBlock) return;
+
+            // Update state
+            currentSsml = ssmlContent;
+            plainTextLength = newPlainTextLength || plainTextLength;
+
+            // Apply syntax highlighting
+            const highlighted = ssmlPreview_highlightSyntax(ssmlContent);
+            codeBlock.innerHTML = highlighted;
+
+            // Update character count
+            if (charCount && container.dataset.showCount === 'true') {
+                const ssmlLength = ssmlContent.length;
+                const overhead = plainTextLength > 0
+                    ? Math.round(((ssmlLength - plainTextLength) / plainTextLength) * 100)
+                    : 0;
+
+                charCount.textContent = ssmlLength > 0
+                    ? `${ssmlLength} chars (${plainTextLength} plain text, +${overhead}% markup)`
+                    : '0 chars';
+            }
+        };
+
+        /**
+         * Copies the current SSML content to the clipboard.
+         * @@param {string} containerId - The container ID of the preview
+         */
+        window.ssmlPreview_copy = async function(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const codeBlock = container.querySelector(`#${containerId}-code`);
+            if (!codeBlock) return;
+
+            try {
+                // Get raw SSML (not the highlighted HTML)
+                const ssmlText = currentSsml || codeBlock.textContent;
+
+                // Copy to clipboard
+                await navigator.clipboard.writeText(ssmlText);
+
+                // Show toast notification
+                if (typeof showToast === 'function') {
+                    showToast('info', 'SSML copied to clipboard');
+                } else {
+                    console.log('SSML copied to clipboard');
+                }
+
+                // Trigger callback if specified
+                const callback = container.dataset.callbackCopy;
+                if (callback && typeof window[callback] === 'function') {
+                    window[callback]();
+                }
+            } catch (error) {
+                console.error('Failed to copy SSML:', error);
+                if (typeof showToast === 'function') {
+                    showToast('error', 'Failed to copy SSML');
+                }
+            }
+        };
+
+        /**
+         * Gets the current SSML content.
+         * @@param {string} containerId - The container ID of the preview
+         * @@returns {string} The current SSML markup
+         */
+        window.ssmlPreview_getSsml = function(containerId) {
+            return currentSsml;
+        };
+
+        /**
+         * Applies syntax highlighting to SSML/XML content.
+         * @@param {string} ssml - The SSML markup to highlight
+         * @@returns {string} HTML string with syntax highlighting
+         */
+        window.ssmlPreview_highlightSyntax = function(ssml) {
+            if (!ssml) return '';
+
+            try {
+                // Escape HTML entities first
+                const escapeHtml = (str) => {
+                    const div = document.createElement('div');
+                    div.textContent = str;
+                    return div.innerHTML;
+                };
+
+                // Split by XML tags and process
+                const parts = ssml.split(/(<[^>]+>)/g);
+                const highlighted = parts.map(part => {
+                    if (!part) return '';
+
+                    // Check if this is a tag
+                    if (part.startsWith('<')) {
+                        // Extract tag parts
+                        const tagMatch = part.match(/^<(\/?)(\w+)(.*?)(\/?)>$/);
+                        if (tagMatch) {
+                            const [, closingSlash, tagName, attributes, selfClosing] = tagMatch;
+
+                            // Highlight tag brackets and name
+                            let highlighted = `<span class="ssml-tag">&lt;${closingSlash}${tagName}</span>`;
+
+                            // Highlight attributes
+                            if (attributes) {
+                                const attrHighlighted = attributes.replace(
+                                    /(\s+)([\w:-]+)(=)("([^"]*)"|'([^']*)')/g,
+                                    (match, space, attrName, equals, quotedValue) => {
+                                        const value = quotedValue.substring(1, quotedValue.length - 1);
+                                        const quote = quotedValue[0];
+                                        return `${space}<span class="ssml-attribute">${attrName}</span>${equals}${quote}<span class="ssml-value">${escapeHtml(value)}</span>${quote}`;
+                                    }
+                                );
+                                highlighted += attrHighlighted;
+                            }
+
+                            highlighted += `<span class="ssml-tag">${selfClosing}&gt;</span>`;
+                            return highlighted;
+                        }
+
+                        // Fallback for malformed tags
+                        return `<span class="ssml-tag">${escapeHtml(part)}</span>`;
+                    } else {
+                        // Text content between tags
+                        return `<span class="ssml-text">${escapeHtml(part)}</span>`;
+                    }
+                }).join('');
+
+                return highlighted;
+            } catch (error) {
+                console.error('SSML highlighting error:', error);
+                // Fallback to plain escaped text
+                const div = document.createElement('div');
+                div.textContent = ssml;
+                return div.innerHTML;
+            }
+        };
+
+        // Initialize with initial SSML if provided
+        if (currentSsml) {
+            const codeBlock = container.querySelector(`#${containerId}-code`);
+            if (codeBlock) {
+                const highlighted = ssmlPreview_highlightSyntax(currentSsml);
+                codeBlock.innerHTML = highlighted;
+            }
+        }
+    })();
+</script>
+
+@functions {
+    private void RenderDocumentDuplicateIcon()
+    {
+        // Heroicon: document-duplicate (outline)
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7v8a2 2 0 0 0 2 2h6M8 7V5a2 2 0 0 1 2-2h4.586a1 1 0 0 1 .707.293l4.414 4.414a1 1 0 0 1 .293.707V15a2 2 0 0 1-2 2h-2M8 7H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2" />
+        </svg>
+    }
+}
