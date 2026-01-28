@@ -94,9 +94,9 @@ See implementations in Command Logs, Audit Logs, Member Directory, RatWatch, Rem
 
 Files exceeding standard read limits - search for specific methods instead of full read:
 
-**Services (500+ lines):** `RatWatchService.cs` (1,159), `UserManagementService.cs` (995), `PlaybackService.cs` (918), `UserDataExportService.cs` (762), `SearchService.cs` (749), `ScheduledMessageService.cs` (669), `TimeParsingService.cs` (598), `BotHostedService.cs` (587)
+**Services (500+ lines):** `RatWatch/RatWatchService.cs` (1,159), `UserManagementService.cs` (995), `SearchService.cs` (919), `PlaybackService.cs` (918), `UserDataExportService.cs` (762), `BotHostedService.cs` (739), `ScheduledMessageService.cs` (702), `TimeParsingService.cs` (598)
 
-**Controllers (500+ lines):** `PerformanceMetricsController.cs` (1,111), `AnalyticsController.cs` (698), `PortalSoundboardController.cs` (652)
+**Controllers (500+ lines):** `PerformanceMetricsController.cs` (1,173), `AnalyticsController.cs` (698), `PortalSoundboardController.cs` (652)
 
 **Documentation:** `api-endpoints.md`, `design-system.md`
 
