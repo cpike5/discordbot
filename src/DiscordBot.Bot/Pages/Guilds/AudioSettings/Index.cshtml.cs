@@ -25,6 +25,7 @@ public class IndexModel : PageModel
     private readonly DiscordSocketClient _discordClient;
     private readonly SoundboardOptions _soundboardOptions;
     private readonly ISettingsService _settingsService;
+    private readonly ITtsSettingsService _ttsSettingsService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -34,6 +35,7 @@ public class IndexModel : PageModel
         DiscordSocketClient discordClient,
         IOptions<SoundboardOptions> soundboardOptions,
         ISettingsService settingsService,
+        ITtsSettingsService ttsSettingsService,
         ILogger<IndexModel> logger)
     {
         _audioSettingsService = audioSettingsService;
@@ -42,6 +44,7 @@ public class IndexModel : PageModel
         _discordClient = discordClient;
         _soundboardOptions = soundboardOptions.Value;
         _settingsService = settingsService;
+        _ttsSettingsService = ttsSettingsService;
         _logger = logger;
     }
 
@@ -64,6 +67,11 @@ public class IndexModel : PageModel
     /// Gets or sets the current audio settings.
     /// </summary>
     public GuildAudioSettings Settings { get; set; } = new();
+
+    /// <summary>
+    /// Gets or sets the current TTS settings.
+    /// </summary>
+    public GuildTtsSettings TtsSettings { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the available roles in the guild.
@@ -143,6 +151,9 @@ public class IndexModel : PageModel
 
         // Load audio settings
         Settings = await _audioSettingsService.GetSettingsAsync(GuildId, cancellationToken);
+
+        // Load TTS settings
+        TtsSettings = await _ttsSettingsService.GetOrCreateSettingsAsync(GuildId, cancellationToken);
 
         // Load guild roles from Discord
         var discordGuild = _discordClient.GetGuild(GuildId);
@@ -237,6 +248,43 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to save limit settings for guild {GuildId}", GuildId);
+            return new JsonResult(new { success = false, message = "Failed to save settings." }) { StatusCode = 500 };
+        }
+    }
+
+    /// <summary>
+    /// Handles POST requests to save TTS settings.
+    /// </summary>
+    public async Task<IActionResult> OnPostSaveTtsSettingsAsync(
+        [FromBody] TtsSettingsDto request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Saving TTS settings for guild {GuildId}", GuildId);
+
+        try
+        {
+            // Validate inputs
+            if (request.MaxSsmlComplexity < 10 || request.MaxSsmlComplexity > 200)
+            {
+                return new JsonResult(new { success = false, message = "Max SSML complexity must be between 10 and 200." }) { StatusCode = 400 };
+            }
+
+            // Load current settings and update them
+            var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(GuildId, cancellationToken);
+            settings.SsmlEnabled = request.SsmlEnabled;
+            settings.StrictSsmlValidation = request.StrictSsmlValidation;
+            settings.MaxSsmlComplexity = request.MaxSsmlComplexity;
+            settings.DefaultStyle = string.IsNullOrWhiteSpace(request.DefaultStyle) ? null : request.DefaultStyle;
+            settings.UpdatedAt = DateTime.UtcNow;
+
+            await _ttsSettingsService.UpdateSettingsAsync(settings, cancellationToken);
+
+            _logger.LogInformation("TTS settings saved for guild {GuildId}", GuildId);
+            return new JsonResult(new { success = true, message = "TTS settings saved successfully." });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save TTS settings for guild {GuildId}", GuildId);
             return new JsonResult(new { success = false, message = "Failed to save settings." }) { StatusCode = 500 };
         }
     }
@@ -355,6 +403,17 @@ public class IndexModel : PageModel
     {
         public string CommandName { get; set; } = string.Empty;
         public List<ulong> RoleIds { get; set; } = new();
+    }
+
+    /// <summary>
+    /// DTO for TTS settings update.
+    /// </summary>
+    public class TtsSettingsDto
+    {
+        public bool SsmlEnabled { get; set; }
+        public bool StrictSsmlValidation { get; set; }
+        public int MaxSsmlComplexity { get; set; }
+        public string? DefaultStyle { get; set; }
     }
 
     /// <summary>
