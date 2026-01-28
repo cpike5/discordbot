@@ -97,7 +97,8 @@ public class AzureTtsService : ITtsService
             throw new ArgumentException("Input cannot be null or empty.", nameof(input));
         }
 
-        if (input.Length > _options.MaxTextLength)
+        // Only enforce MaxTextLength for plain text; SSML length is validated by SsmlValidator
+        if (mode != Core.Enums.SynthesisMode.Ssml && input.Length > _options.MaxTextLength)
         {
             throw new ArgumentException($"Input length ({input.Length}) exceeds maximum allowed length ({_options.MaxTextLength}).", nameof(input));
         }
@@ -127,7 +128,8 @@ public class AzureTtsService : ITtsService
             var validationResult = _ssmlValidator.Validate(input);
             if (!validationResult.IsValid)
             {
-                _logger.LogWarning("SSML validation failed with {ErrorCount} errors", validationResult.Errors.Count);
+                _logger.LogWarning("SSML validation failed with {ErrorCount} errors: {Errors}",
+                    validationResult.Errors.Count, string.Join("; ", validationResult.Errors));
                 throw new Core.Exceptions.SsmlValidationException(
                     "SSML validation failed. See Errors property for details.",
                     validationResult.Errors,
