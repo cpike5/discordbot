@@ -1,0 +1,494 @@
+@model DiscordBot.Bot.ViewModels.Components.EmphasisToolbarViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    EmphasisToolbar Component (Pro Mode)
+    ------------------------------------
+    Floating toolbar that appears when text is selected in message textarea.
+
+    Features:
+    - Appears above text selection (centered, 10px gap)
+    - Strong emphasis (B) - orange highlight, maps to <emphasis level="strong">
+    - Moderate emphasis (⚡) - blue highlight, maps to <emphasis level="moderate">
+    - Pause button - insert break marker, opens pause duration picker
+    - Say-as number (#) - <say-as interpret-as="cardinal">
+    - Say-as date (📅) - <say-as interpret-as="date">
+    - Clear formatting (✕) - remove all formatting from selection
+    - Visual indicators: orange/blue underlines, gray pause markers [⏸️ 500ms]
+    - Keyboard shortcuts: Ctrl+B (strong), Ctrl+E (moderate)
+    - Auto-hide when clicking outside or deselecting text
+    - Visible only in Pro TTS mode
+
+    Usage:
+    var model = new EmphasisToolbarViewModel
+    {
+        TargetTextareaId = "messageInput",
+        ContainerId = "emphasisToolbar",
+        OnFormatChange = "handleFormatChange",
+        ShowKeyboardShortcuts = true
+    };
+    @await Html.PartialAsync("Components/_EmphasisToolbar", model)
+*@
+
+<div id="@Model.ContainerId"
+     class="emphasis-toolbar hidden"
+     role="toolbar"
+     aria-label="Text formatting toolbar"
+     data-target="@Model.TargetTextareaId"
+     data-callback="@Model.OnFormatChange">
+
+    <!-- Strong Emphasis -->
+    <button type="button"
+            class="emphasis-toolbar__button emphasis-toolbar__button--strong"
+            title="Strong Emphasis@(Model.ShowKeyboardShortcuts ? " (Ctrl+B)" : "")"
+            data-action="emphasis"
+            data-level="strong"
+            aria-label="Apply strong emphasis to selected text">
+        <strong>B</strong>
+    </button>
+
+    <!-- Moderate Emphasis -->
+    <button type="button"
+            class="emphasis-toolbar__button emphasis-toolbar__button--moderate"
+            title="Moderate Emphasis@(Model.ShowKeyboardShortcuts ? " (Ctrl+E)" : "")"
+            data-action="emphasis"
+            data-level="moderate"
+            aria-label="Apply moderate emphasis to selected text">
+        @{ RenderBoltIcon(); }
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <!-- Insert Pause -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Insert Pause"
+            data-action="pause"
+            aria-label="Insert pause at cursor position">
+        @{ RenderPauseIcon(); }
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <!-- Say-as Number -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Say as Number"
+            data-action="say-as"
+            data-interpret-as="cardinal"
+            aria-label="Format selected text as number">
+        <strong>#</strong>
+    </button>
+
+    <!-- Say-as Date -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Say as Date"
+            data-action="say-as"
+            data-interpret-as="date"
+            aria-label="Format selected text as date">
+        @{ RenderCalendarIcon(); }
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <!-- Clear Formatting -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Clear Formatting"
+            data-action="clear"
+            aria-label="Remove formatting from selected text">
+        @{ RenderXMarkIcon(); }
+    </button>
+</div>
+
+<style>
+    /* ==========================================
+       FLOATING TOOLBAR CONTAINER
+       ========================================== */
+    .emphasis-toolbar {
+        position: fixed;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        z-index: var(--z-popover);
+        animation: emphasisToolbar_slideUp 0.2s ease-out;
+        pointer-events: auto;
+    }
+
+    .emphasis-toolbar.hidden {
+        display: none;
+        pointer-events: none;
+    }
+
+    @@keyframes emphasisToolbar_slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    /* ==========================================
+       TOOLBAR BUTTONS
+       ========================================== */
+    .emphasis-toolbar__button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 36px;
+        height: 36px;
+        border-radius: 0.375rem;
+        background: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-primary);
+        color: var(--color-text-primary);
+        cursor: pointer;
+        transition: all 150ms ease-out;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .emphasis-toolbar__button:hover {
+        background: var(--color-bg-hover);
+        border-color: var(--color-accent-orange);
+    }
+
+    .emphasis-toolbar__button:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-accent-orange-muted);
+    }
+
+    /* Strong Emphasis Button - Orange */
+    .emphasis-toolbar__button--strong {
+        color: var(--color-accent-orange);
+    }
+
+    .emphasis-toolbar__button--strong:hover {
+        background: var(--color-accent-orange-muted);
+        border-color: var(--color-accent-orange);
+    }
+
+    /* Moderate Emphasis Button - Blue */
+    .emphasis-toolbar__button--moderate {
+        color: var(--color-accent-blue);
+    }
+
+    .emphasis-toolbar__button--moderate:hover {
+        background: var(--color-accent-blue-muted);
+        border-color: var(--color-accent-blue);
+    }
+
+    /* Button Icons */
+    .emphasis-toolbar__button svg {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+    }
+
+    /* ==========================================
+       SEPARATOR
+       ========================================== */
+    .emphasis-toolbar__separator {
+        width: 1px;
+        height: 24px;
+        background: var(--color-border-secondary);
+        margin: 0 0.25rem;
+    }
+
+    /* ==========================================
+       RESPONSIVE
+       ========================================== */
+    @@media (max-width: 768px) {
+        .emphasis-toolbar {
+            width: calc(100% - 2rem);
+            flex-wrap: wrap;
+            position: absolute !important;
+        }
+
+        .emphasis-toolbar__button {
+            width: 32px;
+            height: 32px;
+        }
+    }
+</style>
+
+<script>
+    (function() {
+        const containerId = '@Model.ContainerId';
+        const targetTextareaId = '@Model.TargetTextareaId';
+        const container = document.getElementById(containerId);
+        const textarea = document.getElementById(targetTextareaId);
+
+        if (!container || !textarea) {
+            console.error(`EmphasisToolbar: Target textarea "${targetTextareaId}" not found`);
+            return;
+        }
+
+        // State tracking
+        let formattedText = {
+            plain: '',
+            markers: [] // { start, end, type, level?, duration?, interpretAs? }
+        };
+
+        let currentSelection = {
+            start: 0,
+            end: 0,
+            text: ''
+        };
+
+        /**
+         * Shows the toolbar positioned above the current selection.
+         */
+        function showToolbar() {
+            const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
+
+            if (selected.length > 0) {
+                currentSelection = {
+                    start: textarea.selectionStart,
+                    end: textarea.selectionEnd,
+                    text: selected
+                };
+
+                // Position toolbar above selection
+                const rect = textarea.getBoundingClientRect();
+                const toolbarWidth = container.offsetWidth || 300;
+
+                container.style.top = (rect.top - 60) + 'px';
+                container.style.left = Math.max(10, (rect.left + (textarea.offsetWidth / 2) - (toolbarWidth / 2))) + 'px';
+
+                container.classList.remove('hidden');
+            } else {
+                hideToolbar();
+            }
+        }
+
+        /**
+         * Hides the toolbar.
+         */
+        function hideToolbar() {
+            container.classList.add('hidden');
+        }
+
+        /**
+         * Applies formatting to the current selection.
+         * @@param {string} action - The formatting action (emphasis, pause, say-as, clear)
+         * @@param {object} options - Additional options (level, duration, interpretAs)
+         */
+        function applyFormatting(action, options = {}) {
+            if (currentSelection.text.length === 0 && action !== 'pause') {
+                return;
+            }
+
+            const before = textarea.value.substring(0, currentSelection.start);
+            const after = textarea.value.substring(currentSelection.end);
+            let newText = currentSelection.text;
+            let marker = null;
+
+            switch(action) {
+                case 'emphasis':
+                    const level = options.level || 'moderate';
+                    marker = {
+                        start: currentSelection.start,
+                        end: currentSelection.end,
+                        type: 'emphasis',
+                        level: level
+                    };
+                    // Visual marker in textarea (optional - can be removed if not desired)
+                    // newText = `<emphasis level="${level}">${currentSelection.text}</emphasis>`;
+                    break;
+
+                case 'pause':
+                    // Insert pause at cursor position
+                    const duration = options.duration || 500;
+                    const pauseMarker = ` [⏸️ ${duration}ms] `;
+                    newText = pauseMarker;
+                    marker = {
+                        start: currentSelection.start,
+                        end: currentSelection.start + pauseMarker.length,
+                        type: 'pause',
+                        duration: duration
+                    };
+                    break;
+
+                case 'say-as':
+                    const interpretAs = options.interpretAs || 'cardinal';
+                    marker = {
+                        start: currentSelection.start,
+                        end: currentSelection.end,
+                        type: 'say-as',
+                        interpretAs: interpretAs
+                    };
+                    break;
+
+                case 'clear':
+                    // Remove all formatting from selection
+                    removeMarkersInRange(currentSelection.start, currentSelection.end);
+                    updateCallback();
+                    hideToolbar();
+                    return;
+            }
+
+            // Update textarea value
+            textarea.value = before + newText + after;
+
+            // Add marker to state
+            if (marker) {
+                formattedText.markers.push(marker);
+                formattedText.plain = textarea.value;
+            }
+
+            // Update callback
+            updateCallback();
+
+            hideToolbar();
+        }
+
+        /**
+         * Removes all markers within the specified range.
+         * @@param {number} start - Start position
+         * @@param {number} end - End position
+         */
+        function removeMarkersInRange(start, end) {
+            formattedText.markers = formattedText.markers.filter(marker => {
+                return marker.end <= start || marker.start >= end;
+            });
+            formattedText.plain = textarea.value;
+        }
+
+        /**
+         * Triggers the callback function with current formatted text state.
+         */
+        function updateCallback() {
+            const callback = container.dataset.callback;
+            if (callback) {
+                if (typeof window[callback] === 'function') {
+                    window[callback](formattedText);
+                } else {
+                    console.warn(`EmphasisToolbar: Callback function '${callback}' is not defined on window object`);
+                }
+            }
+        }
+
+        /**
+         * Handles keyboard shortcuts.
+         * @@param {KeyboardEvent} e - The keyboard event
+         */
+        function handleKeyboardShortcut(e) {
+            if (!e.ctrlKey && !e.metaKey) return;
+
+            switch(e.key.toLowerCase()) {
+                case 'b':
+                    e.preventDefault();
+                    if (textarea.selectionStart !== textarea.selectionEnd) {
+                        currentSelection = {
+                            start: textarea.selectionStart,
+                            end: textarea.selectionEnd,
+                            text: textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
+                        };
+                        applyFormatting('emphasis', { level: 'strong' });
+                    }
+                    break;
+                case 'e':
+                    e.preventDefault();
+                    if (textarea.selectionStart !== textarea.selectionEnd) {
+                        currentSelection = {
+                            start: textarea.selectionStart,
+                            end: textarea.selectionEnd,
+                            text: textarea.value.substring(textarea.selectionStart, textarea.selectionEnd)
+                        };
+                        applyFormatting('emphasis', { level: 'moderate' });
+                    }
+                    break;
+            }
+        }
+
+        // Event listeners for text selection
+        textarea.addEventListener('mouseup', showToolbar);
+        textarea.addEventListener('keyup', showToolbar);
+        textarea.addEventListener('keydown', handleKeyboardShortcut);
+
+        // Hide toolbar when clicking outside
+        document.addEventListener('click', function(e) {
+            if (e.target !== textarea && e.target !== container && !container.contains(e.target)) {
+                hideToolbar();
+            }
+        });
+
+        // Button click handlers
+        container.addEventListener('click', function(e) {
+            const button = e.target.closest('.emphasis-toolbar__button');
+            if (!button) return;
+
+            const action = button.dataset.action;
+            const options = {};
+
+            if (action === 'emphasis') {
+                options.level = button.dataset.level;
+            } else if (action === 'say-as') {
+                options.interpretAs = button.dataset.interpretAs;
+            } else if (action === 'pause') {
+                // TODO: Open pause duration picker modal
+                // For now, use default 500ms
+                options.duration = 500;
+            }
+
+            applyFormatting(action, options);
+        });
+
+        // Initialize state
+        formattedText.plain = textarea.value;
+
+        // Public API for external access (optional)
+        window[`${containerId}_getState`] = function() {
+            return formattedText;
+        };
+
+        window[`${containerId}_setState`] = function(state) {
+            formattedText = state;
+            textarea.value = state.plain;
+            updateCallback();
+        };
+    })();
+</script>
+
+@functions {
+    private void RenderBoltIcon()
+    {
+        // Heroicon: bolt (outline)
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+    }
+
+    private void RenderPauseIcon()
+    {
+        // Heroicon: pause (outline)
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4v16m12-16v16" />
+        </svg>
+    }
+
+    private void RenderCalendarIcon()
+    {
+        // Heroicon: calendar (outline)
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+        </svg>
+    }
+
+    private void RenderXMarkIcon()
+    {
+        // Heroicon: x-mark (outline)
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+    }
+}
