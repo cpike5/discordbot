@@ -23,6 +23,12 @@ public class AgentContext
     public ToolContext ExecutionContext { get; set; } = new();
 
     /// <summary>
+    /// The model identifier to use for this agent run.
+    /// If null, falls back to provider default.
+    /// </summary>
+    public string? Model { get; set; }
+
+    /// <summary>
     /// Maximum tokens to generate.
     /// </summary>
     public int MaxTokens { get; set; } = 2048;
