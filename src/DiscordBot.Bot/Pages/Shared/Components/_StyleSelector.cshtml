@@ -1,0 +1,555 @@
+@model DiscordBot.Bot.ViewModels.Components.StyleSelectorViewModel
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    StyleSelector Component
+    -----------------------
+    Dropdown selector for TTS speaking styles with intensity slider.
+
+    Features:
+    - Dropdown with Heroicons for each style
+    - Auto-filter styles based on selected voice capabilities
+    - Intensity slider (0.5 - 2.0, step 0.1)
+    - Three labeled intensity markers: Subtle / Moderate / Intense
+    - Disabled intensity slider when style is "(None)"
+    - Example phrase tooltips for each style
+    - Visible only in Standard and Pro TTS modes
+
+    Available Styles:
+    - (None): Natural speech
+    - cheerful: Happy, energetic
+    - excited: Very enthusiastic
+    - friendly: Warm, approachable
+    - sad: Sorrowful
+    - angry: Frustrated
+    - whispering: Quiet, intimate
+    - shouting: Loud, urgent
+    - newscast: Professional
+
+    Usage:
+    var model = new StyleSelectorViewModel
+    {
+        SelectedVoice = "en-US-JennyNeural",
+        SelectedStyle = "cheerful",
+        StyleIntensity = 1.2m,
+        AvailableStyles = GetDefaultStyles(),
+        OnStyleChange = "handleStyleChange",
+        OnIntensityChange = "handleIntensityChange"
+    };
+    @await Html.PartialAsync("Components/_StyleSelector", model)
+*@
+
+<div id="@Model.ContainerId"
+     class="style-selector"
+     data-voice="@Model.SelectedVoice"
+     data-style="@Model.SelectedStyle"
+     data-intensity="@Model.StyleIntensity"
+     data-callback-style="@Model.OnStyleChange"
+     data-callback-intensity="@Model.OnIntensityChange">
+
+    <!-- Style Dropdown -->
+    <div class="style-selector__group">
+        <label for="@(Model.ContainerId)-select" class="style-selector__label">
+            Speaking Style
+        </label>
+        <div class="style-selector__select-wrapper">
+            <select id="@(Model.ContainerId)-select"
+                    class="style-selector__select"
+                    aria-label="Select speaking style"
+                    onchange="styleSelector_onStyleChange('@Model.ContainerId')">
+                @foreach (var style in Model.AvailableStyles)
+                {
+                    <option value="@style.Value"
+                            title="@style.Example"
+                            data-icon="@style.Icon"
+                            data-description="@style.Description"
+                            data-example="@style.Example"
+                            disabled="@style.IsDisabled"
+                            selected="@(style.Value == Model.SelectedStyle)">
+                        @style.Label@(!string.IsNullOrEmpty(style.Description) ? $" - {style.Description}" : "")
+                    </option>
+                }
+            </select>
+            <div class="style-selector__select-icon">
+                @{ RenderStyleIcon(Model.SelectedStyle); }
+            </div>
+        </div>
+        <p class="style-selector__help-text"
+           title="Example phrase"
+           role="status"
+           aria-live="polite"
+           style="@(string.IsNullOrEmpty(Model.SelectedStyle) ? "display: none;" : "")">
+            @{
+                var selectedStyleOption = Model.AvailableStyles.FirstOrDefault(s => s.Value == Model.SelectedStyle);
+                @(selectedStyleOption?.Example ?? "")
+            }
+        </p>
+    </div>
+
+    <!-- Intensity Slider -->
+    <div class="style-selector__group">
+        <label for="@(Model.ContainerId)-slider" class="style-selector__label">
+            Style Intensity
+        </label>
+        <div class="style-selector__slider-wrapper">
+            <input type="range"
+                   id="@(Model.ContainerId)-slider"
+                   class="style-selector__slider"
+                   min="0.5"
+                   max="2.0"
+                   step="0.1"
+                   value="@Model.StyleIntensity"
+                   disabled="@(string.IsNullOrEmpty(Model.SelectedStyle))"
+                   aria-label="Adjust style intensity"
+                   aria-valuemin="0.5"
+                   aria-valuemax="2.0"
+                   aria-valuenow="@Model.StyleIntensity"
+                   oninput="styleSelector_onIntensityChange('@Model.ContainerId')" />
+            <div class="style-selector__slider-labels">
+                <span class="style-selector__slider-label">Subtle</span>
+                <span class="style-selector__slider-label">Moderate</span>
+                <span class="style-selector__slider-label">Intense</span>
+            </div>
+        </div>
+        <div class="style-selector__intensity-value">
+            <span id="@(Model.ContainerId)-intensity-display">@Model.StyleIntensity.ToString("0.0")</span>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Container */
+    .style-selector {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+    }
+
+    /* Group */
+    .style-selector__group {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    /* Label */
+    .style-selector__label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    /* Select Wrapper */
+    .style-selector__select-wrapper {
+        position: relative;
+        display: flex;
+        align-items: center;
+    }
+
+    /* Select */
+    .style-selector__select {
+        width: 100%;
+        padding: 0.625rem 2.5rem 0.625rem 0.75rem;
+        background: var(--color-bg-primary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        color: var(--color-text-primary);
+        font-size: 0.875rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        appearance: none;
+    }
+
+    .style-selector__select:hover {
+        border-color: var(--color-accent-orange-muted);
+        background: var(--color-bg-hover);
+    }
+
+    .style-selector__select:focus {
+        outline: none;
+        border-color: var(--color-accent-orange);
+        box-shadow: 0 0 0 3px var(--color-accent-orange-muted);
+    }
+
+    .style-selector__select option:disabled {
+        color: var(--color-text-tertiary);
+        opacity: 0.5;
+    }
+
+    /* Select Icon */
+    .style-selector__select-icon {
+        position: absolute;
+        right: 0.75rem;
+        pointer-events: none;
+        color: var(--color-text-secondary);
+        display: flex;
+        align-items: center;
+    }
+
+    .style-selector__select-icon svg {
+        width: 1.25rem;
+        height: 1.25rem;
+    }
+
+    /* Help Text */
+    .style-selector__help-text {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        font-style: italic;
+        margin: 0;
+    }
+
+    /* Slider Wrapper */
+    .style-selector__slider-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    /* Slider */
+    .style-selector__slider {
+        width: 100%;
+        height: 0.5rem;
+        background: var(--color-bg-tertiary);
+        border-radius: 0.25rem;
+        outline: none;
+        cursor: pointer;
+        transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        -webkit-appearance: none;
+        appearance: none;
+    }
+
+    .style-selector__slider::-webkit-slider-track {
+        width: 100%;
+        height: 0.5rem;
+        background: var(--color-bg-tertiary);
+        border-radius: 0.25rem;
+    }
+
+    .style-selector__slider::-moz-range-track {
+        width: 100%;
+        height: 0.5rem;
+        background: var(--color-bg-tertiary);
+        border-radius: 0.25rem;
+    }
+
+    .style-selector__slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 1.25rem;
+        height: 1.25rem;
+        background: var(--color-accent-orange);
+        border: 2px solid white;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .style-selector__slider::-moz-range-thumb {
+        width: 1.25rem;
+        height: 1.25rem;
+        background: var(--color-accent-orange);
+        border: 2px solid white;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .style-selector__slider:hover::-webkit-slider-thumb {
+        background: var(--color-accent-orange-hover);
+        transform: scale(1.1);
+    }
+
+    .style-selector__slider:hover::-moz-range-thumb {
+        background: var(--color-accent-orange-hover);
+        transform: scale(1.1);
+    }
+
+    .style-selector__slider:focus::-webkit-slider-thumb {
+        box-shadow: 0 0 0 4px var(--color-accent-orange-muted),
+                    0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .style-selector__slider:focus::-moz-range-thumb {
+        box-shadow: 0 0 0 4px var(--color-accent-orange-muted),
+                    0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .style-selector__slider:disabled {
+        cursor: not-allowed;
+    }
+
+    .style-selector__slider:disabled::-webkit-slider-track {
+        opacity: 0.5;
+    }
+
+    .style-selector__slider:disabled::-moz-range-track {
+        opacity: 0.5;
+    }
+
+    .style-selector__slider:disabled::-webkit-slider-thumb {
+        background: var(--color-text-tertiary);
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    .style-selector__slider:disabled::-moz-range-thumb {
+        background: var(--color-text-tertiary);
+        cursor: not-allowed;
+        opacity: 0.5;
+    }
+
+    /* Slider Labels */
+    .style-selector__slider-labels {
+        display: flex;
+        justify-content: space-between;
+        padding: 0 0.25rem;
+    }
+
+    .style-selector__slider-label {
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        font-weight: 500;
+    }
+
+    /* Intensity Value Display */
+    .style-selector__intensity-value {
+        text-align: center;
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-accent-orange);
+    }
+
+    /* Mobile Responsive */
+    @@media (max-width: 768px) {
+        .style-selector {
+            gap: 1.25rem;
+        }
+
+        .style-selector__slider-label {
+            font-size: 0.625rem;
+        }
+    }
+</style>
+
+<script>
+    (function() {
+        const containerId = '@Model.ContainerId';
+        const container = document.getElementById(containerId);
+
+        /**
+         * Handles style change event.
+         * @@param {string} containerId - The container ID of the style selector
+         */
+        window.styleSelector_onStyleChange = function(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const select = container.querySelector(`#${containerId}-select`);
+            const slider = container.querySelector(`#${containerId}-slider`);
+            const iconWrapper = container.querySelector('.style-selector__select-icon');
+            const helpTextWrapper = container.querySelector('.style-selector__help-text');
+
+            if (!select || !slider) return;
+
+            const selectedValue = select.value;
+            const selectedOption = select.options[select.selectedIndex];
+
+            // Update container data attribute
+            container.dataset.style = selectedValue;
+
+            // Update icon
+            if (iconWrapper) {
+                iconWrapper.innerHTML = styleSelector_getIconSvg(selectedValue);
+            }
+
+            // Update help text
+            const example = selectedOption.dataset.example || '';
+            if (helpTextWrapper) {
+                if (example && selectedValue) {
+                    helpTextWrapper.textContent = example;
+                    helpTextWrapper.style.display = 'block';
+                } else {
+                    helpTextWrapper.style.display = 'none';
+                }
+            }
+
+            // Enable/disable intensity slider
+            if (selectedValue === '') {
+                slider.disabled = true;
+            } else {
+                slider.disabled = false;
+            }
+
+            // Trigger callback if specified
+            const callback = container.dataset.callbackStyle;
+            if (callback && typeof window[callback] === 'function') {
+                window[callback](selectedValue);
+            }
+        };
+
+        /**
+         * Handles intensity change event.
+         * @@param {string} containerId - The container ID of the style selector
+         */
+        window.styleSelector_onIntensityChange = function(containerId) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const slider = container.querySelector(`#${containerId}-slider`);
+            const display = container.querySelector(`#${containerId}-intensity-display`);
+
+            if (!slider || !display) return;
+
+            const value = parseFloat(slider.value);
+
+            // Update display
+            display.textContent = value.toFixed(1);
+
+            // Update container data attribute
+            container.dataset.intensity = value;
+
+            // Update ARIA
+            slider.setAttribute('aria-valuenow', value);
+
+            // Trigger callback if specified
+            const callback = container.dataset.callbackIntensity;
+            if (callback && typeof window[callback] === 'function') {
+                window[callback](value);
+            }
+        };
+
+        /**
+         * Loads voice capabilities and updates available styles.
+         * @@param {string} containerId - The container ID of the style selector
+         * @@param {string} voiceName - The voice name to fetch capabilities for
+         */
+        window.styleSelector_loadStyles = async function(containerId, voiceName) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+
+            const select = container.querySelector(`#${containerId}-select`);
+            if (!select) return;
+
+            try {
+                // Fetch voice capabilities
+                const response = await fetch(`/api/portal/tts/voices/${encodeURIComponent(voiceName)}/capabilities`);
+                if (!response.ok) {
+                    console.warn('Failed to fetch voice capabilities:', response.statusText);
+                    return;
+                }
+
+                const data = await response.json();
+                const supportedStyles = data.supportedStyles || [];
+
+                // Update option disabled states
+                const options = select.querySelectorAll('option');
+                options.forEach(option => {
+                    const styleValue = option.value;
+
+                    if (styleValue === '') {
+                        // "(None)" is always enabled
+                        option.disabled = false;
+                    } else {
+                        // Enable only if supported by voice
+                        option.disabled = !supportedStyles.includes(styleValue);
+                    }
+                });
+
+                // Check if current selection is still valid
+                const currentStyle = container.dataset.style || '';
+                if (currentStyle !== '') {
+                    const isSupported = supportedStyles.includes(currentStyle);
+                    if (!isSupported) {
+                        // Reset to "(None)"
+                        select.value = '';
+                        styleSelector_onStyleChange(containerId);
+                    }
+                }
+
+                // Update container data attribute
+                container.dataset.voice = voiceName;
+            } catch (error) {
+                console.error('Error loading voice capabilities:', error);
+            }
+        };
+
+        /**
+         * Gets the SVG markup for a style icon.
+         * @@param {string} styleValue - The style value
+         * @@returns {string} SVG HTML string
+         */
+        window.styleSelector_getIconSvg = function(styleValue) {
+            const iconPath = styleSelector_getIconPath(styleValue);
+            if (!iconPath) return '';
+
+            return `<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${iconPath}" />
+                    </svg>`;
+        };
+
+        /**
+         * Gets the Heroicon path for a style value.
+         * @@param {string} styleValue - The style value
+         * @@returns {string} SVG path data
+         */
+        window.styleSelector_getIconPath = function(styleValue) {
+            const iconMap = {
+                'cheerful': 'M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z',
+                'excited': 'M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z',
+                'friendly': 'M10.05 4.575a1.575 1.575 0 1 0-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 0 1 3.15 0v1.5m-3.15 0 .075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 0 1 3.15 0V15M6.9 7.575a1.575 1.575 0 1 0-3.15 0v8.175a6.75 6.75 0 0 0 6.75 6.75h2.018a5.25 5.25 0 0 0 3.712-1.538l1.732-1.732a5.25 5.25 0 0 0 1.538-3.712l.003-2.024a.668.668 0 0 1 .198-.471 1.575 1.575 0 1 0-2.228-2.228 3.818 3.818 0 0 0-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0 1 16.35 15',
+                'sad': 'M15.182 16.318A4.486 4.486 0 0 0 12.016 15a4.486 4.486 0 0 0-3.198 1.318M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9.75-3.75h.008v.008h-.008V8.25Zm6 0h.008v.008h-.008V8.25Z',
+                'angry': 'M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z',
+                'whispering': 'M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z',
+                'shouting': 'M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z',
+                'newscast': 'M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z'
+            };
+
+            return iconMap[styleValue] || '';
+        };
+
+        // Auto-load styles if voice is already set
+        const initialVoice = container.dataset.voice;
+        if (initialVoice) {
+            styleSelector_loadStyles(containerId, initialVoice);
+        }
+    })();
+</script>
+
+@functions {
+    private void RenderStyleIcon(string styleValue)
+    {
+        // Heroicon SVG paths (outline style)
+        string iconPath = styleValue switch
+        {
+            "cheerful" => "M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z",
+            "excited" => "M9.813 15.904 9 18.75l-.813-2.846a4.5 4.5 0 0 0-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 0 0 3.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 0 0 3.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 0 0-3.09 3.09ZM18.259 8.715 18 9.75l-.259-1.035a3.375 3.375 0 0 0-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 0 0 2.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 0 0 2.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 0 0-2.456 2.456ZM16.894 20.567 16.5 21.75l-.394-1.183a2.25 2.25 0 0 0-1.423-1.423L13.5 18.75l1.183-.394a2.25 2.25 0 0 0 1.423-1.423l.394-1.183.394 1.183a2.25 2.25 0 0 0 1.423 1.423l1.183.394-1.183.394a2.25 2.25 0 0 0-1.423 1.423Z",
+            "friendly" => "M10.05 4.575a1.575 1.575 0 1 0-3.15 0v3m3.15-3v-1.5a1.575 1.575 0 0 1 3.15 0v1.5m-3.15 0 .075 5.925m3.075.75V4.575m0 0a1.575 1.575 0 0 1 3.15 0V15M6.9 7.575a1.575 1.575 0 1 0-3.15 0v8.175a6.75 6.75 0 0 0 6.75 6.75h2.018a5.25 5.25 0 0 0 3.712-1.538l1.732-1.732a5.25 5.25 0 0 0 1.538-3.712l.003-2.024a.668.668 0 0 1 .198-.471 1.575 1.575 0 1 0-2.228-2.228 3.818 3.818 0 0 0-1.12 2.687M6.9 7.575V12m6.27 4.318A4.49 4.49 0 0 1 16.35 15",
+            "sad" => "M15.182 16.318A4.486 4.486 0 0 0 12.016 15a4.486 4.486 0 0 0-3.198 1.318M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9.75-3.75h.008v.008h-.008V8.25Zm6 0h.008v.008h-.008V8.25Z",
+            "angry" => "M15.362 5.214A8.252 8.252 0 0 1 12 21 8.25 8.25 0 0 1 6.038 7.047 8.287 8.287 0 0 0 9 9.601a8.983 8.983 0 0 1 3.361-6.867 8.21 8.21 0 0 0 3 2.48Z",
+            "whispering" => "M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z",
+            "shouting" => "M19.114 5.636a9 9 0 0 1 0 12.728M16.463 8.288a5.25 5.25 0 0 1 0 7.424M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z",
+            "newscast" => "M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z",
+            _ => "" // No icon for "(None)"
+        };
+
+        if (string.IsNullOrEmpty(iconPath))
+        {
+            return;
+        }
+
+        <svg class="w-5 h-5"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+             aria-hidden="true">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="@iconPath" />
+        </svg>
+    }
+}
