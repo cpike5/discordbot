@@ -54,6 +54,10 @@
       href: permissions.md
     - name: AI Assistant
       href: ai-assistant.md
+    - name: TTS Support
+      href: tts-support.md
+    - name: SSML Support
+      href: ssml-support.md
 - name: Operations
   items:
     - name: Metrics
