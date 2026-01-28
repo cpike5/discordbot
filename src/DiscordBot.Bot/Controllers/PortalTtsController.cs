@@ -6,7 +6,9 @@ using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Portal;
+using DiscordBot.Core.DTOs.Tts;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -34,6 +36,8 @@ public class PortalTtsController : ControllerBase
     private readonly AzureSpeechOptions _azureSpeechOptions;
     private readonly IVoiceCapabilityProvider _voiceCapabilityProvider;
     private readonly IStylePresetProvider _stylePresetProvider;
+    private readonly ISsmlValidator _ssmlValidator;
+    private readonly ISsmlBuilder _ssmlBuilder;
     private readonly ILogger<PortalTtsController> _logger;
 
     // Track current TTS message being played per guild
@@ -41,6 +45,8 @@ public class PortalTtsController : ControllerBase
 
     // Track whether TTS is currently playing per guild
     private static readonly ConcurrentDictionary<ulong, bool> _ttsPlaybackState = new();
+
+    private const int MaxDisplayMessageLength = 50;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PortalTtsController"/> class.
@@ -55,6 +61,8 @@ public class PortalTtsController : ControllerBase
     /// <param name="azureSpeechOptions">The Azure Speech configuration options.</param>
     /// <param name="voiceCapabilityProvider">The voice capability provider.</param>
     /// <param name="stylePresetProvider">The style preset provider.</param>
+    /// <param name="ssmlValidator">The SSML validator.</param>
+    /// <param name="ssmlBuilder">The SSML builder.</param>
     /// <param name="logger">The logger.</param>
     public PortalTtsController(
         ITtsService ttsService,
@@ -67,6 +75,8 @@ public class PortalTtsController : ControllerBase
         IOptions<AzureSpeechOptions> azureSpeechOptions,
         IVoiceCapabilityProvider voiceCapabilityProvider,
         IStylePresetProvider stylePresetProvider,
+        ISsmlValidator ssmlValidator,
+        ISsmlBuilder ssmlBuilder,
         ILogger<PortalTtsController> logger)
     {
         _ttsService = ttsService;
@@ -79,6 +89,8 @@ public class PortalTtsController : ControllerBase
         _azureSpeechOptions = azureSpeechOptions.Value;
         _voiceCapabilityProvider = voiceCapabilityProvider;
         _stylePresetProvider = stylePresetProvider;
+        _ssmlValidator = ssmlValidator;
+        _ssmlBuilder = ssmlBuilder;
         _logger = logger;
     }
 
@@ -272,9 +284,9 @@ public class PortalTtsController : ControllerBase
         // Calculate duration from audio stream
         var durationSeconds = CalculateAudioDuration(audioStream);
 
-        // Update current message tracking (truncate to 50 characters)
-        var truncatedMessage = request.Message.Length > 50
-            ? request.Message.Substring(0, 50)
+        // Update current message tracking (truncate to MaxDisplayMessageLength characters)
+        var truncatedMessage = request.Message.Length > MaxDisplayMessageLength
+            ? request.Message.Substring(0, MaxDisplayMessageLength)
             : request.Message;
         _currentMessages.AddOrUpdate(guildId, truncatedMessage, (k, v) => truncatedMessage);
 
@@ -590,6 +602,475 @@ public class PortalTtsController : ControllerBase
         const int bytesPerSecond = sampleRate * bytesPerSample * channels; // 192000
 
         return audioStream.Length / (double)bytesPerSecond;
+    }
+
+    /// <summary>
+    /// Validates SSML markup without synthesizing audio.
+    /// </summary>
+    /// <param name="request">The validation request containing SSML markup.</param>
+    /// <returns>Validation result with errors, warnings, and detected voices.</returns>
+    [HttpPost("/api/portal/tts/validate-ssml")]
+    [ProducesResponseType(typeof(SsmlValidationResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [AllowAnonymous]
+    public IActionResult ValidateSsml([FromBody] SsmlValidationRequest request)
+    {
+        _logger.LogDebug("Validate SSML request, length: {Length}", request.Ssml.Length);
+
+        if (string.IsNullOrWhiteSpace(request.Ssml))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML cannot be empty",
+                Detail = "Please provide SSML markup to validate.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        var validationResult = _ssmlValidator.Validate(request.Ssml);
+
+        _logger.LogInformation("SSML validation completed. Valid: {IsValid}, Errors: {ErrorCount}, Warnings: {WarningCount}",
+            validationResult.IsValid, validationResult.Errors.Count, validationResult.Warnings.Count);
+
+        return Ok(validationResult);
+    }
+
+    /// <summary>
+    /// Synthesizes SSML markup to audio. Optionally plays it in the bot's current voice channel.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="request">The synthesis request containing SSML markup.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Synthesis result with audio ID, duration, and voices used.</returns>
+    [HttpPost("synthesize-ssml")]
+    [Authorize(Policy = "ModeratorAccess")]
+    [ProducesResponseType(typeof(SsmlSynthesisResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> SynthesizeSsml(
+        ulong guildId,
+        [FromBody] SsmlSynthesisRequest request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Synthesize SSML request for guild {GuildId}, PlayInVoiceChannel: {PlayInVoiceChannel}",
+            guildId, request.PlayInVoiceChannel);
+
+        // Check if SSML is empty
+        if (string.IsNullOrWhiteSpace(request.Ssml))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML cannot be empty",
+                Detail = "Please provide SSML markup to synthesize.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        // Get guild TTS settings
+        var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+
+        // Check if SSML is enabled for this guild
+        if (!settings.SsmlEnabled)
+        {
+            _logger.LogWarning("SSML not enabled for guild {GuildId}", guildId);
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorDto
+            {
+                Message = "SSML is not enabled for this guild",
+                Detail = "Contact a server administrator to enable SSML features in guild TTS settings.",
+                StatusCode = StatusCodes.Status403Forbidden,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        // Check if audio is globally enabled when PlayInVoiceChannel is true
+        if (request.PlayInVoiceChannel && !await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting SynthesizeSsml with PlayInVoiceChannel for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        // Validate SSML
+        var validationResult = _ssmlValidator.Validate(request.Ssml);
+
+        // If strict validation is enabled and SSML is invalid, reject
+        if (settings.StrictSsmlValidation && !validationResult.IsValid)
+        {
+            _logger.LogWarning("SSML validation failed for guild {GuildId}. Errors: {Errors}",
+                guildId, string.Join(", ", validationResult.Errors));
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML validation failed",
+                Detail = $"Validation errors: {string.Join("; ", validationResult.Errors)}",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        // Check SSML complexity
+        var complexity = CalculateSsmlComplexity(request.Ssml);
+        if (complexity > settings.MaxSsmlComplexity)
+        {
+            _logger.LogWarning("SSML complexity {Complexity} exceeds limit {MaxComplexity} for guild {GuildId}",
+                complexity, settings.MaxSsmlComplexity, guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML complexity exceeds limit",
+                Detail = $"The SSML complexity ({complexity}) exceeds the guild limit ({settings.MaxSsmlComplexity}). Simplify the markup or contact an administrator to increase the limit.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        // Synthesize the SSML
+        Stream audioStream;
+        try
+        {
+            audioStream = await _ttsService.SynthesizeSpeechAsync(request.Ssml, null, SynthesisMode.Ssml, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "TTS service not configured for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "TTS service not available",
+                Detail = "The text-to-speech service is not properly configured.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogError(ex, "Invalid SSML for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid SSML",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        try
+        {
+            // Calculate duration
+            var durationSeconds = CalculateAudioDuration(audioStream);
+            var audioId = Guid.NewGuid();
+
+            // If PlayInVoiceChannel is true, stream to voice channel
+            if (request.PlayInVoiceChannel)
+            {
+                // Check if bot is connected to voice
+                if (!_audioService.IsConnected(guildId))
+                {
+                    _logger.LogWarning("Bot not connected to voice channel in guild {GuildId}", guildId);
+                    return BadRequest(new ApiErrorDto
+                    {
+                        Message = "Not connected to voice channel",
+                        Detail = "The bot must be connected to a voice channel to play SSML audio.",
+                        StatusCode = StatusCodes.Status400BadRequest,
+                        TraceId = HttpContext.GetCorrelationId()
+                    });
+                }
+
+                // Track playback
+                var plainText = _ssmlValidator.ExtractPlainText(request.Ssml);
+                var truncatedMessage = plainText.Length > MaxDisplayMessageLength
+                    ? plainText.Substring(0, MaxDisplayMessageLength)
+                    : plainText;
+                _currentMessages.AddOrUpdate(guildId, truncatedMessage, (k, v) => truncatedMessage);
+                _ttsPlaybackState.AddOrUpdate(guildId, true, (k, v) => true);
+
+                // Get PCM stream
+                var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
+                if (pcmStream == null)
+                {
+                    _logger.LogError("Failed to get PCM stream for guild {GuildId}", guildId);
+                    _currentMessages.TryRemove(guildId, out _);
+                    _ttsPlaybackState.TryRemove(guildId, out _);
+                    return BadRequest(new ApiErrorDto
+                    {
+                        Message = "Failed to get audio stream",
+                        Detail = "Please try reconnecting to the voice channel.",
+                        StatusCode = StatusCodes.Status400BadRequest,
+                        TraceId = HttpContext.GetCorrelationId()
+                    });
+                }
+
+                // Stream to voice channel
+                try
+                {
+                    using var streamActivity = BotActivitySource.StartDiscordAudioStreamActivity(
+                        guildId: guildId,
+                        durationSeconds: durationSeconds);
+
+                    try
+                    {
+                        // Reset stream position if seekable, otherwise copy to MemoryStream
+                        if (audioStream.CanSeek)
+                        {
+                            audioStream.Position = 0;
+                        }
+                        else
+                        {
+                            // Stream is not seekable, copy to MemoryStream and dispose original
+                            var memoryStream = new MemoryStream();
+                            await audioStream.CopyToAsync(memoryStream, cancellationToken);
+                            memoryStream.Position = 0;
+                            await audioStream.DisposeAsync();
+                            audioStream = memoryStream;
+                        }
+
+                        var bytesWritten = 0L;
+                        var buffer = new byte[3840];
+                        int bytesRead;
+
+                        while ((bytesRead = await audioStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
+                        {
+                            await pcmStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
+                            bytesWritten += bytesRead;
+                        }
+
+                        await pcmStream.FlushAsync(cancellationToken);
+
+                        BotActivitySource.RecordAudioStreamMetrics(
+                            streamActivity,
+                            bytesWritten: bytesWritten,
+                            bufferCount: (int)(bytesWritten / 3840));
+
+                        _audioService.UpdateLastActivity(guildId);
+
+                        _logger.LogInformation("Successfully played SSML audio for guild {GuildId}. Bytes written: {BytesWritten}",
+                            guildId, bytesWritten);
+
+                        BotActivitySource.SetSuccess(streamActivity);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogError(ex, "Failed to stream SSML audio for guild {GuildId}", guildId);
+                        BotActivitySource.RecordException(streamActivity, ex);
+                        throw;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to play SSML audio for guild {GuildId}", guildId);
+                    _currentMessages.TryRemove(guildId, out _);
+                    _ttsPlaybackState.TryRemove(guildId, out _);
+                    return BadRequest(new ApiErrorDto
+                    {
+                        Message = "Failed to play SSML audio",
+                        Detail = "An error occurred while streaming audio to Discord.",
+                        StatusCode = StatusCodes.Status400BadRequest,
+                        TraceId = HttpContext.GetCorrelationId()
+                    });
+                }
+                finally
+                {
+                    _ttsPlaybackState.TryRemove(guildId, out _);
+                    _currentMessages.TryRemove(guildId, out _);
+                }
+
+                // Log to database
+                var userId = User.GetDiscordUserId();
+                var ttsMessage = new TtsMessage
+                {
+                    Id = audioId,
+                    GuildId = guildId,
+                    UserId = userId,
+                    Username = User.Identity?.Name ?? "Portal User",
+                    Message = plainText,
+                    Voice = validationResult.DetectedVoices.FirstOrDefault() ?? "SSML (multiple voices)",
+                    DurationSeconds = durationSeconds,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _ttsMessageRepository.AddAsync(ttsMessage, cancellationToken);
+            }
+
+            var response = new SsmlSynthesisResponse
+            {
+                AudioId = audioId,
+                DurationSeconds = durationSeconds,
+                VoicesUsed = validationResult.DetectedVoices.ToList()
+            };
+
+            _logger.LogInformation("SSML synthesis completed for guild {GuildId}. Audio ID: {AudioId}, Duration: {Duration}s",
+                guildId, audioId, durationSeconds);
+
+            return Ok(response);
+        }
+        finally
+        {
+            // Dispose the audio stream when done
+            audioStream.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Builds SSML markup from structured segments.
+    /// </summary>
+    /// <param name="request">The build request containing segments and elements.</param>
+    /// <returns>Built SSML with validation results.</returns>
+    [HttpPost("/api/portal/tts/build-ssml")]
+    [ProducesResponseType(typeof(SsmlBuildResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [AllowAnonymous]
+    public IActionResult BuildSsml([FromBody] SsmlBuildRequest request)
+    {
+        _logger.LogDebug("Build SSML request, language: {Language}, segments: {SegmentCount}",
+            request.Language, request.Segments.Count);
+
+        if (request.Segments.Count == 0)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "No segments provided",
+                Detail = "Please provide at least one SSML segment to build.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        try
+        {
+            // Build SSML using the builder
+            var builder = _ssmlBuilder.Reset().BeginDocument(request.Language);
+
+            foreach (var segment in request.Segments)
+            {
+                // Add voice if specified
+                if (!string.IsNullOrWhiteSpace(segment.Voice))
+                {
+                    builder.WithVoice(segment.Voice);
+                }
+
+                // Add style if specified
+                if (!string.IsNullOrWhiteSpace(segment.Style))
+                {
+                    builder.WithStyle(segment.Style);
+                }
+
+                // Add prosody if specified
+                if (segment.Rate.HasValue || segment.Pitch.HasValue)
+                {
+                    builder.WithProsody(rate: segment.Rate, pitch: segment.Pitch);
+                }
+
+                // Add plain text if specified
+                if (!string.IsNullOrWhiteSpace(segment.Text))
+                {
+                    builder.AddText(segment.Text);
+                }
+
+                // Add elements
+                foreach (var element in segment.Elements)
+                {
+                    switch (element.Type.ToLowerInvariant())
+                    {
+                        case "break":
+                            var duration = element.Attributes.GetValueOrDefault("duration", "medium");
+                            builder.AddBreak(duration);
+                            break;
+
+                        case "emphasis":
+                            var text = element.Text ?? "";
+                            var level = element.Attributes.GetValueOrDefault("level", "moderate");
+                            builder.AddEmphasis(text, level);
+                            break;
+
+                        case "say-as":
+                            var sayAsText = element.Text ?? "";
+                            var interpretAs = element.Attributes.GetValueOrDefault("interpret-as", "");
+                            var format = element.Attributes.GetValueOrDefault("format");
+                            builder.AddSayAs(sayAsText, interpretAs, format);
+                            break;
+
+                        case "phoneme":
+                            var phonemeText = element.Text ?? "";
+                            var alphabet = element.Attributes.GetValueOrDefault("alphabet", "ipa");
+                            var ph = element.Attributes.GetValueOrDefault("ph", "");
+                            builder.AddPhoneme(phonemeText, alphabet, ph);
+                            break;
+
+                        case "sub":
+                        case "substitution":
+                            var alias = element.Attributes.GetValueOrDefault("alias", "");
+                            var subText = element.Text ?? "";
+                            builder.AddSubstitution(alias, subText);
+                            break;
+
+                        default:
+                            _logger.LogWarning("Unknown SSML element type: {Type}", element.Type);
+                            break;
+                    }
+                }
+
+                // Close prosody if it was opened
+                if (segment.Rate.HasValue || segment.Pitch.HasValue)
+                {
+                    builder.EndProsody();
+                }
+
+                // Close style if it was opened
+                if (!string.IsNullOrWhiteSpace(segment.Style))
+                {
+                    builder.EndStyle();
+                }
+
+                // Close voice if it was opened
+                if (!string.IsNullOrWhiteSpace(segment.Voice))
+                {
+                    builder.EndVoice();
+                }
+            }
+
+            var ssml = builder.Build();
+
+            // Validate the built SSML
+            var validationResult = _ssmlValidator.Validate(ssml);
+
+            var response = new SsmlBuildResponse
+            {
+                Ssml = ssml,
+                IsValid = validationResult.IsValid,
+                Errors = validationResult.Errors,
+                Warnings = validationResult.Warnings
+            };
+
+            _logger.LogInformation("SSML build completed. Valid: {IsValid}, Length: {Length}",
+                response.IsValid, ssml.Length);
+
+            return Ok(response);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to build SSML");
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Failed to build SSML",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+    }
+
+    /// <summary>
+    /// Calculates the complexity of SSML by counting XML elements.
+    /// </summary>
+    /// <param name="ssml">SSML markup to analyze.</param>
+    /// <returns>Complexity score.</returns>
+    private static int CalculateSsmlComplexity(string ssml)
+    {
+        // Count opening tags as a rough approximation of complexity
+        return ssml.Split('<').Length - 1;
     }
 
     /// <summary>
