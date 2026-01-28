@@ -1014,6 +1014,13 @@ public class PortalTtsController : ControllerBase
                 {
                     switch (element.Type.ToLowerInvariant())
                     {
+                        case "text":
+                            if (!string.IsNullOrEmpty(element.Text))
+                            {
+                                builder.AddText(element.Text);
+                            }
+                            break;
+
                         case "break":
                             var duration = element.Attributes.GetValueOrDefault("duration", "medium");
                             builder.AddBreak(duration);

@@ -47,7 +47,7 @@
     let currentStyle = '';
     let currentStyleIntensity = 1.0;
     let currentSsml = '';
-    let formattedTextState = null;
+    // formattedTextState removed - SSML builder parses visual markers directly from textarea
     let ssmlDebounceTimer = null;
 
     // ========================================
@@ -709,37 +709,40 @@
         }
 
         try {
-            // Build elements array from formatted text markers (emphasis, breaks, etc.)
-            // EmphasisToolbar markers use { start, end, type, level?, interpretAs?, duration? }
-            // Backend SsmlElement expects { type, text?, attributes: {} }
-            const plainText = formattedTextState?.plain || message;
-            const elements = (formattedTextState?.markers || []).map(m => {
-                switch (m.type) {
-                    case 'emphasis':
-                        return {
-                            type: 'emphasis',
-                            text: plainText.substring(m.start, m.end),
-                            attributes: { level: m.level || 'moderate' }
-                        };
-                    case 'say-as':
-                        return {
-                            type: 'say-as',
-                            text: plainText.substring(m.start, m.end),
-                            attributes: { 'interpret-as': m.interpretAs || 'cardinal' }
-                        };
-                    case 'pause':
-                        return {
-                            type: 'break',
-                            text: null,
-                            attributes: { duration: (m.duration || 500) + 'ms' }
-                        };
-                    default:
-                        return { type: m.type, text: null, attributes: {} };
-                }
-            });
+            // Parse visual markers directly from textarea text (single source of truth).
+            // Patterns: **text** (strong), *text* (moderate), [# text #] (cardinal),
+            //           [📅 text 📅] (date), [⏸️ Nms] (break)
+            const MARKER_RE = /\*\*(.+?)\*\*(?!\*)|\*(?!\*)(.+?)\*(?!\*)|\[#\s(.+?)\s#\]|\[📅\s(.+?)\s📅\]|\[⏸️\s(\d+)ms\]/g;
+            const elements = [];
+            let cursor = 0;
 
-            // Payload must match SsmlBuildRequest: { language, segments[] }
-            // Each segment: { voice, style, rate, pitch, text, elements[] }
+            for (const match of message.matchAll(MARKER_RE)) {
+                // Plain text before this match
+                if (match.index > cursor) {
+                    elements.push({ type: 'text', text: message.substring(cursor, match.index), attributes: {} });
+                }
+
+                if (match[1] != null) {
+                    elements.push({ type: 'emphasis', text: match[1], attributes: { level: 'strong' } });
+                } else if (match[2] != null) {
+                    elements.push({ type: 'emphasis', text: match[2], attributes: { level: 'moderate' } });
+                } else if (match[3] != null) {
+                    elements.push({ type: 'say-as', text: match[3], attributes: { 'interpret-as': 'cardinal' } });
+                } else if (match[4] != null) {
+                    elements.push({ type: 'say-as', text: match[4], attributes: { 'interpret-as': 'date' } });
+                } else if (match[5] != null) {
+                    elements.push({ type: 'break', text: null, attributes: { duration: match[5] + 'ms' } });
+                }
+
+                cursor = match.index + match[0].length;
+            }
+
+            // Remaining text after last match
+            if (cursor < message.length) {
+                elements.push({ type: 'text', text: message.substring(cursor), attributes: {} });
+            }
+
+            // Payload: text is null, all content is interleaved in elements array
             const payload = {
                 language: 'en-US',
                 segments: [{
@@ -747,7 +750,7 @@
                     style: currentStyle || null,
                     rate: speed !== CONFIG.SPEED_DEFAULT ? speed : null,
                     pitch: pitch !== CONFIG.PITCH_DEFAULT ? pitch : null,
-                    text: message,
+                    text: null,
                     elements: elements
                 }]
             };
@@ -857,13 +860,8 @@
         if (currentMode === 'pro') buildSsmlFromCurrentState();
     };
 
-    /**
-     * Handle format changes from EmphasisToolbar component
-     */
-    window.portalHandleFormatChange = function(formattedText) {
-        formattedTextState = formattedText;
-        buildSsmlFromCurrentState();
-    };
+    // portalHandleFormatChange removed - SSML builder parses textarea directly.
+    // The toolbar fires the textarea 'input' event which triggers the existing debounced rebuild.
 
     /**
      * Handle SSML copy from SsmlPreview component
