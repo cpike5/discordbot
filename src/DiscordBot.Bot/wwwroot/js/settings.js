@@ -508,7 +508,7 @@
         // Update section visibility
         const sections = document.querySelectorAll('.settings-section');
         sections.forEach(section => {
-            if (section.id === `${category.toLowerCase()}-settings`) {
+            if (section.id === `${category.replace(/([a-z])([A-Z])/g, '$1-$2').toLowerCase()}-settings`) {
                 section.classList.add('active');
             } else {
                 section.classList.remove('active');
