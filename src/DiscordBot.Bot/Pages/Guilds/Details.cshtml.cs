@@ -395,14 +395,15 @@ public class DetailsModel : PageModel
             GuildIconUrl = guild.IconUrl,
             PageTitle = guild.Name,
             PageDescription = $"ID: {guild.Id}",
+            StatusBadge = new BadgeViewModel
+            {
+                Text = guild.IsActive ? "Active" : "Inactive",
+                Variant = guild.IsActive ? BadgeVariant.Success : BadgeVariant.Error,
+                Style = BadgeStyle.Subtle,
+                IconLeft = "M10 18a8 8 0 100-16 8 8 0 000 16z"
+            },
             Actions = ViewModel.CanEdit ? new List<HeaderAction>
             {
-                new()
-                {
-                    Label = "Active",
-                    Url = "#",
-                    Style = HeaderActionStyle.Secondary
-                },
                 new()
                 {
                     Label = "Sync",

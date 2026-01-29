@@ -35,6 +35,11 @@ public record GuildHeaderViewModel
     /// Optional list of action buttons to display in the header.
     /// </summary>
     public List<HeaderAction>? Actions { get; init; }
+
+    /// <summary>
+    /// Optional status badge displayed in the header (separate from action buttons).
+    /// </summary>
+    public BadgeViewModel? StatusBadge { get; init; }
 }
 
 /// <summary>
