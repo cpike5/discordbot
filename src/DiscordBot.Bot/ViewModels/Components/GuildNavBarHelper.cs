@@ -25,8 +25,7 @@ public static class GuildNavBarHelper
                 Id = item.Id,
                 Label = item.Label,
                 Href = item.GetUrl(guildId),
-                IconPathOutline = item.IconOutline,
-                IconPathSolid = item.IconSolid
+                IconPathOutline = item.IconOutline
             })
             .ToList();
 

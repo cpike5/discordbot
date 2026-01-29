@@ -265,6 +265,11 @@
     flex-shrink: 0;
 }
 
+/* Active state icon has slightly thicker stroke for emphasis */
+.tab-panel-tab .tab-icon-active {
+    stroke-width: 2.5;
+}
+
 /* ===== Tab Labels ===== */
 /* Long/short label switching for responsive design */
 .tab-panel-tab .tab-label-short {

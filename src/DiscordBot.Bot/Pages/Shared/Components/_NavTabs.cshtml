@@ -72,9 +72,7 @@
                    aria-selected="@(isActive ? "true" : "false")"
                    aria-disabled="@(tab.Disabled ? "true" : null)"
                    tabindex="@(isActive ? "0" : "-1")"
-                   data-tab-id="@tab.Id"
-                   data-icon-outline="@tab.IconPathOutline"
-                   data-icon-solid="@tab.IconPathSolid">
+                   data-tab-id="@tab.Id">
                     @{ RenderTabContent(tab, isActive); }
                 </a>
             }
@@ -90,9 +88,7 @@
                         disabled="@(tab.Disabled ? true : null)"
                         aria-disabled="@(tab.Disabled ? "true" : null)"
                         data-tab-id="@tab.Id"
-                        data-ajax-url="@tab.Href"
-                        data-icon-outline="@tab.IconPathOutline"
-                        data-icon-solid="@tab.IconPathSolid">
+                        data-ajax-url="@tab.Href">
                     @{ RenderTabContent(tab, isActive); }
                 </button>
             }
@@ -107,9 +103,7 @@
                         tabindex="@(isActive ? "0" : "-1")"
                         disabled="@(tab.Disabled ? true : null)"
                         aria-disabled="@(tab.Disabled ? "true" : null)"
-                        data-tab-id="@tab.Id"
-                        data-icon-outline="@tab.IconPathOutline"
-                        data-icon-solid="@tab.IconPathSolid">
+                        data-tab-id="@tab.Id">
                     @{ RenderTabContent(tab, isActive); }
                 </button>
             }
@@ -122,18 +116,9 @@
     {
         if (tab.HasIcon)
         {
-            if (isActive && !string.IsNullOrEmpty(tab.IconPathSolid))
-            {
-                <svg class="nav-tabs-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="@tab.IconPathSolid" />
-                </svg>
-            }
-            else
-            {
-                <svg class="nav-tabs-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
-                </svg>
-            }
+            <svg class="nav-tabs-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
+            </svg>
         }
 
         if (!string.IsNullOrEmpty(tab.ShortLabel))

@@ -133,12 +133,6 @@ public record TabItemViewModel
     public string? IconPathOutline { get; init; }
 
     /// <summary>
-    /// Optional SVG icon path (solid version) to display when tab is active.
-    /// If not provided, IconPathOutline is used for both states.
-    /// </summary>
-    public string? IconPathSolid { get; init; }
-
-    /// <summary>
     /// Optional badge count to display on the tab (e.g., notification count).
     /// </summary>
     public int? BadgeCount { get; init; }

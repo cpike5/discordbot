@@ -67,7 +67,7 @@ public record PerformanceShellViewModel
 
     /// <summary>
     /// Gets the tab definitions for navigation.
-    /// Uses outline icons for inactive state, solid icons for active state.
+    /// Uses outline icons for all states for consistent visual weight.
     /// </summary>
     public static IReadOnlyList<TabDefinition> Tabs { get; } = new List<TabDefinition>
     {
@@ -117,9 +117,10 @@ public record PerformanceShellViewModel
 /// <param name="Id">The unique tab identifier.</param>
 /// <param name="Label">The full tab label.</param>
 /// <param name="Hash">The URL hash for this tab (without #).</param>
-/// <param name="IconPath">The SVG path for the tab icon (outline version).</param>
-/// <param name="IconPathSolid">The SVG path for the tab icon (solid version for active state).</param>
+/// <param name="IconPath">The SVG path for the tab icon (outline version, used for all states).</param>
+/// <param name="IconPathSolid">Legacy parameter - kept for backward compatibility but not used.</param>
 /// <param name="ShortLabel">Optional short label for mobile display.</param>
+[Obsolete("IconPathSolid parameter is deprecated. Use IconPath for all states.")]
 public record TabDefinition(
     string Id,
     string Label,

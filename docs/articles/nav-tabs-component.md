@@ -141,7 +141,6 @@ The `_NavTabs.cshtml` partial requires the CSS and JavaScript to be loaded:
 | `ShortLabel` | `string?` | No | Abbreviated label for mobile devices |
 | `Href` | `string?` | Conditional | URL for PageNavigation and AJAX modes |
 | `IconPathOutline` | `string?` | No | SVG path data for outline icon |
-| `IconPathSolid` | `string?` | No | SVG path data for solid (active) icon |
 | `Disabled` | `bool` | No | Whether tab can be selected |
 | `HasIcon` | `bool` (readonly) | N/A | Helper property indicating icon presence |
 
@@ -520,14 +519,12 @@ var model = new NavTabsViewModel
             // Outline version (inactive state)
             IconPathOutline = "M3 12a9 9 0 110-18 9 9 0 010 18z",
             // Solid version (active state)
-            IconPathSolid = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
         },
         new NavTabItem
         {
             Id = "settings",
             Label = "Settings",
             IconPathOutline = "M12 8c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0 2c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0 6c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2z",
-            IconPathSolid = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.62l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.48.1.62l2.03 1.58c-.05.3-.07.62-.07.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.62l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.48-.12-.62l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"
         }
     },
     ActiveTabId = "overview"
@@ -795,7 +792,6 @@ public class PerformanceModel : PageModel
                     Label = "Overview",
                     Href = "/api/performance/overview",
                     IconPathOutline = "M3 12a9 9 0 110-18 9 9 0 010 18z",
-                    IconPathSolid = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"
                 },
                 new NavTabItem
                 {
@@ -804,7 +800,6 @@ public class PerformanceModel : PageModel
                     Href = "/api/performance/health",
                     ShortLabel = "Health",
                     IconPathOutline = "M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z",
-                    IconPathSolid = "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
                 },
                 new NavTabItem
                 {
@@ -870,7 +865,6 @@ public class AudioModel : PageModel
                     Label = "Soundboard",
                     ShortLabel = "Sounds",
                     IconPathOutline = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
-                    IconPathSolid = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
                 },
                 new NavTabItem
                 {
