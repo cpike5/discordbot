@@ -699,7 +699,7 @@
 }
 
 .config-table tbody tr:hover {
-    background: rgba(47, 51, 54, 0.5);
+    background: rgba(9, 142, 207, 0.05);
 }
 
 .config-table input[type="number"] {
