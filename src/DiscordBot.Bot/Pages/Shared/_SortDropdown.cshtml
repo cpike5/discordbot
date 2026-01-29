@@ -44,7 +44,7 @@
                         <span>@option.Label</span>
                         @if (isSelected)
                         {
-                            <svg class="w-4 h-4 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-4 h-4 text-success sort-checkmark" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
                         }
@@ -62,7 +62,7 @@
                         <span>@option.Label</span>
                         @if (isSelected)
                         {
-                            <svg class="w-4 h-4 text-accent-green" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="w-4 h-4 text-success sort-checkmark" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
                             </svg>
                         }
@@ -144,6 +144,49 @@
 
                 const sortValue = this.dataset.sortValue;
 
+                // Update dropdown visual state
+                const selectedTextSpan = document.getElementById(toggleId.replace('Toggle', 'SelectedText'));
+                if (selectedTextSpan) {
+                    selectedTextSpan.textContent = this.querySelector('span').textContent;
+                }
+
+                // Update all options: remove checkmark, styling from old; add to new
+                const allOptions = dropdown.querySelectorAll('[role="option"]');
+                allOptions.forEach(opt => {
+                    if (opt.dataset.sortValue === sortValue) {
+                        // This is the newly selected option
+                        opt.setAttribute('aria-selected', 'true');
+                        opt.classList.add('bg-bg-hover', 'font-medium');
+
+                        // Add checkmark if not present
+                        const flexDiv = opt.querySelector('div');
+                        if (flexDiv && !flexDiv.querySelector('svg.sort-checkmark')) {
+                            const checkmark = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                            checkmark.setAttribute('class', 'w-4 h-4 text-success sort-checkmark');
+                            checkmark.setAttribute('fill', 'none');
+                            checkmark.setAttribute('viewBox', '0 0 24 24');
+                            checkmark.setAttribute('stroke', 'currentColor');
+                            const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                            path.setAttribute('stroke-linecap', 'round');
+                            path.setAttribute('stroke-linejoin', 'round');
+                            path.setAttribute('stroke-width', '2');
+                            path.setAttribute('d', 'M5 13l4 4L19 7');
+                            checkmark.appendChild(path);
+                            flexDiv.appendChild(checkmark);
+                        }
+                    } else {
+                        // Old selection
+                        opt.setAttribute('aria-selected', 'false');
+                        opt.classList.remove('bg-bg-hover', 'font-medium');
+
+                        // Remove checkmark if present
+                        const checkmark = opt.querySelector('svg.sort-checkmark');
+                        if (checkmark) {
+                            checkmark.remove();
+                        }
+                    }
+                });
+
                 // Close dropdown
                 toggle.setAttribute('aria-expanded', 'false');
                 dropdown.classList.add('hidden');
@@ -222,6 +265,8 @@
                 opt.classList.add('bg-bg-hover');
                 opt.scrollIntoView({ block: 'nearest' });
             } else if (opt.getAttribute('aria-selected') !== 'true') {
+                // Note: Selected items retain bg-bg-hover class during keyboard navigation
+                // This ensures the selected state remains visually distinct from focused state
                 opt.classList.remove('bg-bg-hover');
             }
         });
