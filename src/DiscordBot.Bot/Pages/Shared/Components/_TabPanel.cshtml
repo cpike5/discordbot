@@ -84,9 +84,7 @@
                    aria-selected="@(isActive ? "true" : "false")"
                    aria-disabled="@(tab.Disabled ? "true" : null)"
                    tabindex="@(tab.Disabled ? "-1" : null)"
-                   data-tab-id="@tab.Id"
-                   data-icon-outline="@tab.IconPathOutline"
-                   data-icon-solid="@tab.IconPathSolid">
+                   data-tab-id="@tab.Id">
                     @{ RenderTabContent(tab, isActive); }
                 </a>
             }
@@ -102,9 +100,7 @@
                         tabindex="@(isActive ? "0" : "-1")"
                         disabled="@(tab.Disabled ? true : null)"
                         aria-disabled="@(tab.Disabled ? "true" : null)"
-                        data-tab-id="@tab.Id"
-                        data-icon-outline="@tab.IconPathOutline"
-                        data-icon-solid="@tab.IconPathSolid">
+                        data-tab-id="@tab.Id">
                     @{ RenderTabContent(tab, isActive); }
                 </button>
             }
@@ -126,18 +122,10 @@
     {
         if (tab.HasIcon)
         {
-            if (isActive && !string.IsNullOrEmpty(tab.IconPathSolid))
-            {
-                <svg class="tab-icon" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                    <path d="@tab.IconPathSolid" />
-                </svg>
-            }
-            else
-            {
-                <svg class="tab-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
-                </svg>
-            }
+            var iconClass = isActive ? "tab-icon tab-icon-active" : "tab-icon";
+            <svg class="@iconClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
+            </svg>
         }
 
         if (!string.IsNullOrEmpty(tab.ShortLabel))

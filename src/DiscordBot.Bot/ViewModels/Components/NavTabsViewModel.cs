@@ -393,16 +393,15 @@ public record NavTabItem
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Provides the SVG path data for the outline (inactive) state of the icon.
+    /// Provides the SVG path data for the icon.
     /// When this property is set, <see cref="HasIcon"/> returns true and an SVG icon is rendered.
     /// </para>
     /// <para>
     /// Icon Guidelines:
-    /// - Use Heroicons-style 24x24 SVG paths
+    /// - Use Heroicons-style 24x24 outline SVG paths
     /// - Must be a valid SVG path data string (the "d" attribute of a &lt;path&gt; element)
-    /// - Used for all states unless <see cref="IconPathSolid"/> is also provided
-    /// - If both outline and solid are provided, outline is used for inactive state
     /// - Icons are rendered with <c>aria-hidden="true"</c> for accessibility
+    /// - The outline style is used for both active and inactive states for consistent visual weight
     /// </para>
     /// <para>
     /// Example outline icon for "Overview" (from Heroicons):
@@ -413,43 +412,12 @@ public record NavTabItem
     /// 1. Find the icon in https://heroicons.com
     /// 2. Copy the outline path data
     /// 3. Set <see cref="IconPathOutline"/>
-    /// 4. Optionally set <see cref="IconPathSolid"/> for active state variation
     /// </para>
     /// <para>
     /// Icons are positioned before the label and styled with CSS class "nav-tabs-icon".
     /// </para>
     /// </remarks>
     public string? IconPathOutline { get; init; }
-
-    /// <summary>
-    /// Gets the optional SVG icon path (solid version) to display when the tab is active.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Provides the SVG path data for the solid (active) state of the icon.
-    /// When set, this icon is displayed instead of <see cref="IconPathOutline"/> when the tab is active,
-    /// allowing for visual differentiation between active and inactive states.
-    /// </para>
-    /// <para>
-    /// If not provided, <see cref="IconPathOutline"/> is used for both active and inactive states.
-    /// </para>
-    /// <para>
-    /// This is useful when you want:
-    /// - Outline icon for inactive tabs (lighter appearance)
-    /// - Solid icon for active tab (heavier, more prominent appearance)
-    /// </para>
-    /// <para>
-    /// Example icon pair (Overview from Heroicons):
-    /// <code>
-    /// IconPathOutline = "M3 12a9 9 0 110-18 9 9 0 010 18z"  // Outline circle
-    /// IconPathSolid = "M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"  // Solid circle
-    /// </code>
-    /// </para>
-    /// <para>
-    /// Note: This only has effect if <see cref="IconPathOutline"/> is also set.
-    /// </para>
-    /// </remarks>
-    public string? IconPathSolid { get; init; }
 
     /// <summary>
     /// Gets a value indicating whether this tab is disabled and cannot be selected.
@@ -499,8 +467,8 @@ public record NavTabItem
     /// Example usage in partial:
     /// <code>
     /// @if (tab.HasIcon) {
-    ///     &lt;svg class="nav-tabs-icon"&gt;
-    ///         &lt;path d="@(isActive &amp;&amp; !string.IsNullOrEmpty(tab.IconPathSolid) ? tab.IconPathSolid : tab.IconPathOutline)" /&gt;
+    ///     &lt;svg class="nav-tabs-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"&gt;
+    ///         &lt;path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" /&gt;
     ///     &lt;/svg&gt;
     /// }
     /// </code>

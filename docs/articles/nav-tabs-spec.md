@@ -210,7 +210,6 @@ public static class GuildNavBarHelper
                     Label = item.Label,
                     Href = item.GetUrl(guildId),
                     IconPathOutline = item.IconOutline,
-                    IconPathSolid = item.IconSolid
                 })
                 .ToList(),
             ActiveTabId = activeTab,
@@ -472,8 +471,6 @@ public record GuildNavItem
         // Icon rendering
         if (tab.HasIcon)
         {
-            var iconPath = isActive && !string.IsNullOrEmpty(tab.IconPathSolid) ? tab.IconPathSolid : tab.IconPathOutline;
-            var isSolid = isActive && !string.IsNullOrEmpty(tab.IconPathSolid);
             <svg class="tab-icon" viewBox="0 0 24 24" fill="@(isSolid ? "currentColor" : "none")" stroke="@(isSolid ? "none" : "currentColor")" aria-hidden="true">
                 @if (!isSolid)
                 {
@@ -799,12 +796,6 @@ PerformanceTabsViewModel = new TabPanelViewModel
     AjaxContentTarget = "#performanceContent",
     Tabs = new List<TabItemViewModel>
     {
-        new() { Id = "overview", Label = "Overview", IconPathOutline = "...", IconPathSolid = "..." },
-        new() { Id = "health", LongLabel = "Health Metrics", ShortLabel = "Health", IconPathOutline = "...", IconPathSolid = "..." },
-        new() { Id = "commands", Label = "Commands", IconPathOutline = "...", IconPathSolid = "..." },
-        new() { Id = "api", LongLabel = "API & Rate Limits", ShortLabel = "API", IconPathOutline = "...", IconPathSolid = "..." },
-        new() { Id = "system", LongLabel = "System Health", ShortLabel = "System", IconPathOutline = "...", IconPathSolid = "..." },
-        new() { Id = "alerts", Label = "Alerts", IconPathOutline = "...", IconPathSolid = "...", BadgeCount = Model.ActiveAlertCount, BadgeVariant = TabBadgeVariant.Warning }
     },
     ActiveTabId = "overview",
     AriaLabel = "Performance sections",
@@ -872,9 +863,6 @@ AudioTabsViewModel = new TabPanelViewModel
     NavigationMode = TabNavigationMode.PageNavigation,
     Tabs = new List<TabItemViewModel>
     {
-        new() { Id = "soundboard", Label = "Soundboard", Href = $"/Guilds/Soundboard/{guildId}", IconPathOutline = "...", IconPathSolid = "...", BadgeCount = soundCount },
-        new() { Id = "tts", Label = "Text-to-Speech", Href = $"/Guilds/TextToSpeech/{guildId}", IconPathOutline = "...", IconPathSolid = "..." },
-        new() { Id = "settings", Label = "Settings", Href = $"/Guilds/AudioSettings/{guildId}", IconPathOutline = "...", IconPathSolid = "..." }
     },
     ActiveTabId = "soundboard",
     AriaLabel = "Audio sections"

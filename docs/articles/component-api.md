@@ -1417,8 +1417,7 @@ Unified tabbed navigation component with support for page navigation, in-page pa
 | `Label` | `string` | `""` | Display text for the tab (required) |
 | `ShortLabel` | `string?` | `null` | Shorter label for mobile displays |
 | `Href` | `string?` | `null` | Navigation URL (required for Page mode) |
-| `IconPathOutline` | `string?` | `null` | SVG path for outline icon |
-| `IconPathSolid` | `string?` | `null` | SVG path for solid icon (active state) |
+| `IconPathOutline` | `string?` | `null` | SVG path for outline icon (used for all states) |
 | `Disabled` | `bool` | `false` | Whether the tab is disabled |
 
 ### Enums
@@ -1485,16 +1484,14 @@ var navTabs = new NavTabsViewModel
             Label = "Soundboard",
             ShortLabel = "Sounds",
             Href = "/audio/soundboard",
-            IconPathOutline = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
-            IconPathSolid = "M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"
+            IconPathOutline = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
         },
         new()
         {
             Id = "queue",
             Label = "Queue",
             Href = "/audio/queue",
-            IconPathOutline = "M4 6h16M4 10h16M4 14h16M4 18h16",
-            IconPathSolid = "M3 5h18v2H3V5zm0 4h18v2H3V9zm0 4h18v2H3v-2zm0 4h18v2H3v-2z"
+            IconPathOutline = "M4 6h16M4 10h16M4 14h16M4 18h16"
         }
     },
     ActiveTabId = "soundboard",
