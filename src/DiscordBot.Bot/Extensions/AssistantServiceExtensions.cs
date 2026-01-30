@@ -69,6 +69,7 @@ public static class AssistantServiceExtensions
             // Register built-in tool providers (scoped to support scoped dependencies like ICommandMetadataService)
             services.AddScoped<IToolProvider, DocumentationToolProvider>();
             services.AddScoped<IToolProvider, UserGuildInfoToolProvider>();
+            services.AddScoped<IToolProvider, RatWatchToolProvider>();
 
             // Register tool registry as scoped (auto-registers injected IToolProvider instances)
             services.AddScoped<IToolRegistry, ToolRegistry>();
