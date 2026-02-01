@@ -21,35 +21,35 @@ public class IndexModel : PageModel
 {
     private readonly ISoundService _soundService;
     private readonly ISoundFileService _soundFileService;
+    private readonly ISoundboardOrchestrationService _orchestrationService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly ISoundPlayLogRepository _soundPlayLogRepository;
     private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IAudioService _audioService;
-    private readonly IAudioNotifier _audioNotifier;
     private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         ISoundService soundService,
         ISoundFileService soundFileService,
+        ISoundboardOrchestrationService orchestrationService,
         IGuildAudioSettingsRepository audioSettingsRepository,
         ISoundPlayLogRepository soundPlayLogRepository,
         IGuildService guildService,
         DiscordSocketClient discordClient,
         IAudioService audioService,
-        IAudioNotifier audioNotifier,
         ISettingsService settingsService,
         ILogger<IndexModel> logger)
     {
         _soundService = soundService;
         _soundFileService = soundFileService;
+        _orchestrationService = orchestrationService;
         _audioSettingsRepository = audioSettingsRepository;
         _soundPlayLogRepository = soundPlayLogRepository;
         _guildService = guildService;
         _discordClient = discordClient;
         _audioService = audioService;
-        _audioNotifier = audioNotifier;
         _settingsService = settingsService;
         _logger = logger;
     }
@@ -302,59 +302,21 @@ public class IndexModel : PageModel
         Guid soundId,
         CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("User attempting to delete sound {SoundId} for guild {GuildId}",
-            soundId, guildId);
+        // Delegate to orchestration service
+        var result = await _orchestrationService.DeleteSoundAsync(guildId, soundId, cancellationToken);
 
-        try
+        if (result.Success)
         {
-            // Get sound to verify it exists and get filename
-            var sound = await _soundService.GetByIdAsync(soundId, guildId, cancellationToken);
-            if (sound == null)
-            {
-                _logger.LogWarning("Sound {SoundId} not found for guild {GuildId}", soundId, guildId);
-                ErrorMessage = "Sound not found.";
-                return RedirectToPage("Index", new { guildId, sort = Sort });
-            }
-
-            // Delete the physical file first
-            var fileDeleted = await _soundFileService.DeleteSoundFileAsync(
-                guildId,
-                sound.FileName,
-                cancellationToken);
-
-            if (!fileDeleted)
-            {
-                _logger.LogWarning("File {FileName} not found on disk for sound {SoundId}",
-                    sound.FileName, soundId);
-            }
-
-            // Delete the database record
-            var dbDeleted = await _soundService.DeleteSoundAsync(soundId, guildId, cancellationToken);
-
-            if (dbDeleted)
-            {
-                _logger.LogInformation("Successfully deleted sound {SoundId} ({Name})",
-                    soundId, sound.Name);
-                SuccessMessage = "Sound deleted successfully.";
-
-                // Broadcast deletion to portal viewers via SignalR
-                await _audioNotifier.NotifySoundDeletedAsync(guildId, soundId, cancellationToken);
-            }
-            else
-            {
-                _logger.LogWarning("Failed to delete sound {SoundId} from database", soundId);
-                ErrorMessage = "Failed to delete sound from database.";
-            }
-
-            return RedirectToPage("Index", new { guildId, sort = Sort });
+            SuccessMessage = result.FileDeleted
+                ? "Sound deleted successfully."
+                : "Sound deleted successfully (file was already missing).";
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogError(ex, "Error deleting sound {SoundId} for guild {GuildId}",
-                soundId, guildId);
-            ErrorMessage = "An error occurred while deleting the sound. Please try again.";
-            return RedirectToPage("Index", new { guildId, sort = Sort });
+            ErrorMessage = result.ErrorMessage ?? "Failed to delete sound.";
         }
+
+        return RedirectToPage("Index", new { guildId, sort = Sort });
     }
 
     /// <summary>
@@ -371,110 +333,54 @@ public class IndexModel : PageModel
     {
         _logger.LogInformation("User attempting to upload sound file for guild {GuildId}", guildId);
 
-        try
+        // Validate file exists
+        if (file == null || file.Length == 0)
         {
-            // Validate file exists
-            if (file == null || file.Length == 0)
-            {
-                ErrorMessage = "Please select a file to upload.";
-                return RedirectToPage("Index", new { guildId, sort = Sort });
-            }
-
-            // Validate file extension
-            if (!_soundFileService.IsValidAudioFormat(file.FileName))
-            {
-                ErrorMessage = "Invalid file format. Supported formats: MP3, WAV, OGG, M4A.";
-                return RedirectToPage("Index", new { guildId, sort = Sort });
-            }
-
-            // Get settings for validation
-            var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
-
-            // Validate file size
-            if (file.Length > settings.MaxFileSizeBytes)
-            {
-                var maxSizeMB = settings.MaxFileSizeBytes / (1024.0 * 1024.0);
-                ErrorMessage = $"File size exceeds the maximum allowed size of {maxSizeMB:F1} MB.";
-                return RedirectToPage("Index", new { guildId, sort = Sort });
-            }
-
-            // Validate storage limit
-            var storageValid = await _soundService.ValidateStorageLimitAsync(
-                guildId,
-                file.Length,
-                cancellationToken);
-
-            if (!storageValid)
-            {
-                ErrorMessage = "Adding this file would exceed the guild's storage limit.";
-                return RedirectToPage("Index", new { guildId, sort = Sort });
-            }
-
-            // Validate sound count limit
-            var countValid = await _soundService.ValidateSoundCountLimitAsync(
-                guildId,
-                cancellationToken);
-
-            if (!countValid)
-            {
-                ErrorMessage = $"Guild has reached the maximum limit of {settings.MaxSoundsPerGuild} sounds.";
-                return RedirectToPage("Index", new { guildId, sort = Sort });
-            }
-
-            // Generate unique filename to avoid conflicts
-            var fileExtension = Path.GetExtension(file.FileName);
-            var generatedFileName = $"{Guid.NewGuid()}{fileExtension}";
-
-            // Save file to disk
-            await using (var stream = file.OpenReadStream())
-            {
-                await _soundFileService.SaveSoundFileAsync(
-                    guildId,
-                    generatedFileName,
-                    stream,
-                    cancellationToken);
-            }
-
-            _logger.LogDebug("Saved sound file {FileName} to disk for guild {GuildId}",
-                generatedFileName, guildId);
-
-            // Extract audio duration using FFprobe
-            var filePath = _soundFileService.GetSoundFilePath(guildId, generatedFileName);
-            var duration = await _soundFileService.GetAudioDurationAsync(filePath, cancellationToken);
-
-            // Create Sound entity
-            var sound = new Sound
-            {
-                Id = Guid.NewGuid(),
-                GuildId = guildId,
-                Name = Path.GetFileNameWithoutExtension(file.FileName),
-                FileName = generatedFileName,
-                FileSizeBytes = file.Length,
-                DurationSeconds = duration,
-                UploadedAt = DateTime.UtcNow
-            };
-
-            // Save to database
-            await _soundService.CreateSoundAsync(sound, cancellationToken);
-
-            _logger.LogInformation("Successfully uploaded sound {Name} for guild {GuildId}",
-                sound.Name, guildId);
-            SuccessMessage = $"Sound '{sound.Name}' uploaded successfully.";
-
+            ErrorMessage = "Please select a file to upload.";
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
-        catch (InvalidOperationException ex) when (ex.Message.Contains("already exists"))
+
+        // Validate file extension early (before opening stream)
+        if (!_soundFileService.IsValidAudioFormat(file.FileName))
         {
-            _logger.LogWarning(ex, "Duplicate sound name for guild {GuildId}", guildId);
-            ErrorMessage = "A sound with this name already exists.";
+            ErrorMessage = "Invalid file format. Supported formats: MP3, WAV, OGG, M4A.";
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
-        catch (Exception ex)
+
+        // Get settings for client-side validation
+        var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
+
+        // Validate file size early
+        if (file.Length > settings.MaxFileSizeBytes)
         {
-            _logger.LogError(ex, "Error uploading sound for guild {GuildId}", guildId);
-            ErrorMessage = "An error occurred while uploading the sound. Please try again.";
+            var maxSizeMB = settings.MaxFileSizeBytes / (1024.0 * 1024.0);
+            ErrorMessage = $"File size exceeds the maximum allowed size of {maxSizeMB:F1} MB.";
             return RedirectToPage("Index", new { guildId, sort = Sort });
         }
+
+        // Extract sound name from filename
+        var soundName = Path.GetFileNameWithoutExtension(file.FileName);
+
+        // Delegate to orchestration service
+        await using var stream = file.OpenReadStream();
+        var result = await _orchestrationService.UploadSoundAsync(
+            guildId,
+            file.FileName,
+            soundName,
+            stream,
+            file.Length,
+            cancellationToken);
+
+        if (result.Success)
+        {
+            SuccessMessage = $"Sound '{result.Sound!.Name}' uploaded successfully.";
+        }
+        else
+        {
+            ErrorMessage = result.ErrorMessage ?? "Failed to upload sound.";
+        }
+
+        return RedirectToPage("Index", new { guildId, sort = Sort });
     }
 
     /// <summary>

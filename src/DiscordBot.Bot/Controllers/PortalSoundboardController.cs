@@ -20,12 +20,11 @@ namespace DiscordBot.Bot.Controllers;
 public class PortalSoundboardController : ControllerBase
 {
     private readonly ISoundService _soundService;
-    private readonly ISoundFileService _soundFileService;
+    private readonly ISoundboardOrchestrationService _orchestrationService;
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ISettingsService _settingsService;
-    private readonly IAudioNotifier _audioNotifier;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<PortalSoundboardController> _logger;
 
@@ -33,32 +32,29 @@ public class PortalSoundboardController : ControllerBase
     /// Initializes a new instance of the <see cref="PortalSoundboardController"/> class.
     /// </summary>
     /// <param name="soundService">The sound service for metadata operations.</param>
-    /// <param name="soundFileService">The sound file service for file operations.</param>
+    /// <param name="orchestrationService">The soundboard orchestration service.</param>
     /// <param name="audioService">The audio service for voice connections.</param>
     /// <param name="playbackService">The playback service for audio control.</param>
     /// <param name="audioSettingsService">The audio settings service.</param>
     /// <param name="settingsService">The bot-level settings service.</param>
-    /// <param name="audioNotifier">The audio notifier for real-time updates.</param>
     /// <param name="discordClient">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
     public PortalSoundboardController(
         ISoundService soundService,
-        ISoundFileService soundFileService,
+        ISoundboardOrchestrationService orchestrationService,
         IAudioService audioService,
         IPlaybackService playbackService,
         IGuildAudioSettingsService audioSettingsService,
         ISettingsService settingsService,
-        IAudioNotifier audioNotifier,
         DiscordSocketClient discordClient,
         ILogger<PortalSoundboardController> logger)
     {
         _soundService = soundService;
-        _soundFileService = soundFileService;
+        _orchestrationService = orchestrationService;
         _audioService = audioService;
         _playbackService = playbackService;
         _audioSettingsService = audioSettingsService;
         _settingsService = settingsService;
-        _audioNotifier = audioNotifier;
         _discordClient = discordClient;
         _logger = logger;
     }
@@ -148,35 +144,6 @@ public class PortalSoundboardController : ControllerBase
         [FromForm] string name,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Upload sound request for guild {GuildId}, name {SoundName}", guildId, name);
-
-        // Check if audio is globally enabled at the bot level
-        if (!await IsAudioGloballyEnabledAsync())
-        {
-            _logger.LogWarning("Audio features globally disabled - rejecting UploadSound for guild {GuildId}", guildId);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Audio features disabled",
-                Detail = "Audio features have been disabled by an administrator.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Check if audio is enabled for this guild
-        var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
-        if (audioSettings == null || !audioSettings.AudioEnabled)
-        {
-            _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Audio is not enabled for this guild",
-                Detail = "Enable audio in the guild settings before uploading sounds.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
         // Validate file is provided
         if (file == null || file.Length == 0)
         {
@@ -203,112 +170,35 @@ public class PortalSoundboardController : ControllerBase
             });
         }
 
-        // Validate audio format
-        if (!_soundFileService.IsValidAudioFormat(file.FileName))
-        {
-            _logger.LogWarning("Invalid audio format {FileName} for guild {GuildId}", file.FileName, guildId);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Invalid audio format",
-                Detail = "Supported formats: .mp3, .wav, .ogg, .m4a",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Check sound count limit
-        if (!await _soundService.ValidateSoundCountLimitAsync(guildId, cancellationToken))
-        {
-            var currentCount = await _soundService.GetSoundCountAsync(guildId, cancellationToken);
-            _logger.LogWarning("Sound count limit reached for guild {GuildId} (current: {CurrentCount}, max: {MaxSounds})",
-                guildId, currentCount, audioSettings.MaxSoundsPerGuild);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Sound limit reached",
-                Detail = $"This guild has reached the maximum number of sounds ({audioSettings.MaxSoundsPerGuild}). Please delete some sounds before adding new ones.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Check storage limit
-        if (!await _soundService.ValidateStorageLimitAsync(guildId, file.Length, cancellationToken))
-        {
-            var currentStorage = await _soundService.GetStorageUsedAsync(guildId, cancellationToken);
-            var maxStorageMB = audioSettings.MaxStorageBytes / (1024 * 1024);
-            var currentStorageMB = currentStorage / (1024.0 * 1024.0);
-            _logger.LogWarning("Storage limit would be exceeded for guild {GuildId} (current: {CurrentMB:F2} MB, file: {FileMB:F2} MB, max: {MaxMB} MB)",
-                guildId, currentStorageMB, file.Length / (1024.0 * 1024.0), maxStorageMB);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Storage limit exceeded",
-                Detail = $"Adding this file would exceed the storage limit of {maxStorageMB} MB. Current usage: {currentStorageMB:F2} MB.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Check for duplicate name
-        var existingSound = await _soundService.GetByNameAsync(name, guildId, cancellationToken);
-        if (existingSound != null)
-        {
-            _logger.LogWarning("Duplicate sound name {SoundName} for guild {GuildId}", name, guildId);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Duplicate sound name",
-                Detail = $"A sound with the name '{name}' already exists in this guild.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Generate unique filename with extension
-        var extension = Path.GetExtension(file.FileName);
-        var fileName = $"{Guid.NewGuid()}{extension}";
-
-        // Save file to disk
-        await _soundFileService.EnsureGuildDirectoryExistsAsync(guildId, cancellationToken);
-        using (var stream = file.OpenReadStream())
-        {
-            await _soundFileService.SaveSoundFileAsync(guildId, fileName, stream, cancellationToken);
-        }
-
-        // Get audio duration
-        var filePath = _soundFileService.GetSoundFilePath(guildId, fileName);
-        var duration = await _soundFileService.GetAudioDurationAsync(filePath, cancellationToken);
-
-        // Create sound entity
-        var sound = new Sound
-        {
-            GuildId = guildId,
-            Name = name,
-            FileName = fileName,
-            FileSizeBytes = file.Length,
-            DurationSeconds = duration,
-            UploadedAt = DateTime.UtcNow
-        };
-
-        var createdSound = await _soundService.CreateSoundAsync(sound, cancellationToken);
-
-        _logger.LogInformation("Successfully uploaded sound {SoundName} ({SoundId}) for guild {GuildId}",
-            createdSound.Name, createdSound.Id, guildId);
-
-        // Broadcast to other portal viewers via SignalR
-        await _audioNotifier.NotifySoundUploadedAsync(
+        // Delegate to orchestration service
+        using var stream = file.OpenReadStream();
+        var result = await _orchestrationService.UploadSoundAsync(
             guildId,
-            createdSound.Id,
-            createdSound.Name,
-            createdSound.PlayCount,
+            file.FileName,
+            name,
+            stream,
+            file.Length,
             cancellationToken);
+
+        if (!result.Success)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Upload failed",
+                Detail = result.ErrorMessage ?? "Unknown error occurred during upload.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         return CreatedAtAction(
             nameof(GetSounds),
             new { guildId },
             new
             {
-                id = createdSound.Id.ToString(),
-                name = createdSound.Name,
-                playCount = createdSound.PlayCount
+                id = result.Sound!.Id.ToString(),
+                name = result.Sound.Name,
+                playCount = result.Sound.PlayCount
             });
     }
 
@@ -330,94 +220,38 @@ public class PortalSoundboardController : ControllerBase
         Guid soundId,
         CancellationToken cancellationToken)
     {
-        _logger.LogInformation("Play sound request for sound {SoundId} in guild {GuildId}", soundId, guildId);
-
-        // Check if audio is globally enabled at the bot level
-        if (!await IsAudioGloballyEnabledAsync())
-        {
-            _logger.LogWarning("Audio features globally disabled - rejecting PlaySound for guild {GuildId}", guildId);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Audio features disabled",
-                Detail = "Audio features have been disabled by an administrator.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Check if audio is enabled for this guild
+        // Get audio settings to check queue configuration
         var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
-        if (audioSettings == null || !audioSettings.AudioEnabled)
+        var queueEnabled = audioSettings?.QueueEnabled ?? false;
+
+        // Get user ID from claims (default to 0 if not found, which indicates portal/API play)
+        var userIdClaim = User.FindFirst("discord_id")?.Value;
+        var userId = userIdClaim != null && ulong.TryParse(userIdClaim, out var parsed) ? parsed : 0UL;
+
+        // Delegate to orchestration service
+        var result = await _orchestrationService.PlaySoundAsync(
+            guildId,
+            soundId,
+            userId,
+            queueEnabled,
+            cancellationToken: cancellationToken);
+
+        if (!result.Success)
         {
-            _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
-            return BadRequest(new ApiErrorDto
+            var statusCode = result.ErrorMessage?.Contains("not found") == true
+                ? StatusCodes.Status404NotFound
+                : StatusCodes.Status400BadRequest;
+
+            return StatusCode(statusCode, new ApiErrorDto
             {
-                Message = "Audio is not enabled for this guild",
-                Detail = "Enable audio in the guild settings before playing sounds.",
-                StatusCode = StatusCodes.Status400BadRequest,
+                Message = result.Success ? "Playing sound" : "Failed to play sound",
+                Detail = result.ErrorMessage ?? "Unknown error occurred during playback.",
+                StatusCode = statusCode,
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
 
-        // Check if bot is connected to voice
-        if (!_audioService.IsConnected(guildId))
-        {
-            _logger.LogWarning("Bot not connected to voice channel in guild {GuildId}", guildId);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Not connected to voice channel",
-                Detail = "The bot must be connected to a voice channel before playing sounds.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Get sound metadata
-        var sound = await _soundService.GetByIdAsync(soundId, guildId, cancellationToken);
-        if (sound == null)
-        {
-            _logger.LogWarning("Sound {SoundId} not found in guild {GuildId}", soundId, guildId);
-            return NotFound(new ApiErrorDto
-            {
-                Message = "Sound not found",
-                Detail = "The requested sound does not exist or does not belong to this guild.",
-                StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Verify file exists on disk
-        if (!_soundFileService.SoundFileExists(guildId, sound.FileName))
-        {
-            _logger.LogError("Sound file missing for sound {SoundId} in guild {GuildId}", soundId, guildId);
-            return NotFound(new ApiErrorDto
-            {
-                Message = "Sound file not found",
-                Detail = "The sound exists in the database but the file is missing from storage.",
-                StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Play the sound (queueEnabled: false for immediate playback)
-        try
-        {
-            await _playbackService.PlayAsync(guildId, sound, queueEnabled: false, cancellationToken: cancellationToken);
-            _logger.LogInformation("Successfully started playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
-                sound.Name, sound.Id, guildId);
-            return Ok(new { Message = "Playing sound", SoundName = sound.Name, SoundId = soundId });
-        }
-        catch (InvalidOperationException ex)
-        {
-            _logger.LogError(ex, "Failed to play sound {SoundId} in guild {GuildId}", soundId, guildId);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Failed to play sound",
-                Detail = ex.Message,
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
+        return Ok(new { Message = "Playing sound", SoundName = result.Sound!.Name, SoundId = soundId });
     }
 
     /// <summary>
