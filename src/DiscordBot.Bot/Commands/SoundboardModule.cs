@@ -22,6 +22,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
     private readonly ISoundService _soundService;
+    private readonly ISoundboardOrchestrationService _orchestrationService;
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ILogger<SoundboardModule> _logger;
 
@@ -32,12 +33,14 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
         IAudioService audioService,
         IPlaybackService playbackService,
         ISoundService soundService,
+        ISoundboardOrchestrationService orchestrationService,
         IGuildAudioSettingsService audioSettingsService,
         ILogger<SoundboardModule> logger)
     {
         _audioService = audioService;
         _playbackService = playbackService;
         _soundService = soundService;
+        _orchestrationService = orchestrationService;
         _audioSettingsService = audioSettingsService;
         _logger = logger;
     }
@@ -116,44 +119,35 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
             }
 
             // Check if bot needs to connect or switch channels
-            var isConnected = _audioService.IsConnected(guildId);
-            if (!isConnected)
-            {
-                _logger.LogDebug(
-                    "Bot not connected to voice in guild {GuildId}, connecting to channel {ChannelId}",
-                    guildId,
-                    voiceChannel.Id);
-
-                await _audioService.JoinChannelAsync(guildId, voiceChannel.Id);
-            }
-            else
-            {
-                // Check if connected to a different channel
-                var currentChannelId = _audioService.GetConnectedChannelId(guildId);
-                if (currentChannelId.HasValue && currentChannelId.Value != voiceChannel.Id)
-                {
-                    _logger.LogDebug(
-                        "Bot connected to different channel in guild {GuildId}, switching from {CurrentChannelId} to {NewChannelId}",
-                        guildId,
-                        currentChannelId.Value,
-                        voiceChannel.Id);
-
-                    await _audioService.LeaveChannelAsync(guildId);
-                    await _audioService.JoinChannelAsync(guildId, voiceChannel.Id);
-                }
-            }
+            await EnsureBotInVoiceChannelAsync(guildId, voiceChannel.Id);
 
             // Get audio settings to check if queueing is enabled and silent playback
             var settings = await _audioSettingsService.GetSettingsAsync(guildId);
             var queueEnabled = settings?.QueueEnabled ?? false;
             var silentPlayback = settings?.SilentPlayback ?? false;
 
-            // Get current queue length before playing (to determine if sound will be queued)
-            var wasPlaying = _playbackService.IsPlaying(guildId);
-            var queueLengthBefore = _playbackService.GetQueueLength(guildId);
+            // Delegate to orchestration service
+            var result = await _orchestrationService.PlaySoundAsync(
+                guildId,
+                sound.Id,
+                userId,
+                queueEnabled,
+                filter);
 
-            // Play the sound
-            await _playbackService.PlayAsync(guildId, sound, queueEnabled, filter);
+            if (!result.Success)
+            {
+                _logger.LogError("Failed to play sound '{SoundName}': {ErrorMessage}", soundName, result.ErrorMessage);
+
+                var errorEmbed = new EmbedBuilder()
+                    .WithTitle("Playback Failed")
+                    .WithDescription(result.ErrorMessage ?? "An unknown error occurred.")
+                    .WithColor(Color.Red)
+                    .WithCurrentTimestamp()
+                    .Build();
+
+                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                return;
+            }
 
             // Get filter display text for embed
             var filterText = filter != AudioFilter.None && AudioFilters.Definitions.TryGetValue(filter, out var filterDef)
@@ -161,15 +155,14 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 : string.Empty;
 
             // Determine response based on whether sound was queued or playing immediately
-            if (queueEnabled && wasPlaying)
+            if (result.WasQueued)
             {
-                var queuePosition = queueLengthBefore + 1;
                 _logger.LogInformation(
                     "Sound '{SoundName}' queued for guild {GuildId} by user {UserId} at position {QueuePosition}, Filter: {Filter}",
                     soundName,
                     guildId,
                     userId,
-                    queuePosition,
+                    result.QueuePosition,
                     filter);
 
                 // Silent playback: acknowledge without visible response
@@ -182,7 +175,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 {
                     var queuedEmbed = new EmbedBuilder()
                         .WithTitle("Sound Queued")
-                        .WithDescription($"Queued: **{sound.Name}**{filterText} (position: {queuePosition})")
+                        .WithDescription($"Queued: **{sound.Name}**{filterText} (position: {result.QueuePosition})")
                         .WithColor(Color.Blue)
                         .WithCurrentTimestamp()
                         .Build();
@@ -217,9 +210,6 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                     await RespondAsync(embed: playingEmbed, ephemeral: true);
                 }
             }
-
-            // Log play event (fire-and-forget - don't block on logging)
-            _ = _soundService.LogPlayAsync(sound.Id, guildId, userId);
         }
         catch (FileNotFoundException)
         {
@@ -414,6 +404,42 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 .Build();
 
             await RespondAsync(embed: errorEmbed, ephemeral: true);
+        }
+    }
+
+    /// <summary>
+    /// Ensures the bot is connected to the specified voice channel.
+    /// If already connected to a different channel, switches to the target channel.
+    /// </summary>
+    /// <param name="guildId">Discord guild snowflake ID.</param>
+    /// <param name="targetChannelId">Target voice channel ID.</param>
+    private async Task EnsureBotInVoiceChannelAsync(ulong guildId, ulong targetChannelId)
+    {
+        var isConnected = _audioService.IsConnected(guildId);
+        if (!isConnected)
+        {
+            _logger.LogDebug(
+                "Bot not connected to voice in guild {GuildId}, connecting to channel {ChannelId}",
+                guildId,
+                targetChannelId);
+
+            await _audioService.JoinChannelAsync(guildId, targetChannelId);
+        }
+        else
+        {
+            // Check if connected to a different channel
+            var currentChannelId = _audioService.GetConnectedChannelId(guildId);
+            if (currentChannelId.HasValue && currentChannelId.Value != targetChannelId)
+            {
+                _logger.LogDebug(
+                    "Bot connected to different channel in guild {GuildId}, switching from {CurrentChannelId} to {NewChannelId}",
+                    guildId,
+                    currentChannelId.Value,
+                    targetChannelId);
+
+                await _audioService.LeaveChannelAsync(guildId);
+                await _audioService.JoinChannelAsync(guildId, targetChannelId);
+            }
         }
     }
 }

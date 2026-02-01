@@ -46,6 +46,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IBulkPurgeService, BulkPurgeService>();
         services.AddScoped<IThemeService, ThemeService>();
         services.AddScoped<ITtsPlaybackService, TtsPlaybackService>();
+        services.AddScoped<ISoundboardOrchestrationService, SoundboardOrchestrationService>();
 
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();
