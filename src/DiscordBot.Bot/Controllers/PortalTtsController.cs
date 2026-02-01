@@ -32,6 +32,7 @@ public class PortalTtsController : ControllerBase
     private readonly ITtsMessageRepository _ttsMessageRepository;
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
+    private readonly ITtsPlaybackService _ttsPlaybackService;
     private readonly ISettingsService _settingsService;
     private readonly DiscordSocketClient _discordClient;
     private readonly AzureSpeechOptions _azureSpeechOptions;
@@ -57,6 +58,7 @@ public class PortalTtsController : ControllerBase
     /// <param name="ttsMessageRepository">The TTS message repository.</param>
     /// <param name="audioService">The audio service for voice connections.</param>
     /// <param name="playbackService">The playback service for audio control.</param>
+    /// <param name="ttsPlaybackService">The TTS playback service for orchestrating playback.</param>
     /// <param name="settingsService">The bot-level settings service.</param>
     /// <param name="discordClient">The Discord socket client.</param>
     /// <param name="azureSpeechOptions">The Azure Speech configuration options.</param>
@@ -71,6 +73,7 @@ public class PortalTtsController : ControllerBase
         ITtsMessageRepository ttsMessageRepository,
         IAudioService audioService,
         IPlaybackService playbackService,
+        ITtsPlaybackService ttsPlaybackService,
         ISettingsService settingsService,
         DiscordSocketClient discordClient,
         IOptions<AzureSpeechOptions> azureSpeechOptions,
@@ -85,6 +88,7 @@ public class PortalTtsController : ControllerBase
         _ttsMessageRepository = ttsMessageRepository;
         _audioService = audioService;
         _playbackService = playbackService;
+        _ttsPlaybackService = ttsPlaybackService;
         _settingsService = settingsService;
         _discordClient = discordClient;
         _azureSpeechOptions = azureSpeechOptions.Value;
@@ -333,9 +337,6 @@ public class PortalTtsController : ControllerBase
             });
         }
 
-        // Calculate duration from audio stream
-        var durationSeconds = CalculateAudioDuration(audioStream);
-
         // Update current message tracking (truncate to MaxDisplayMessageLength characters)
         var truncatedMessage = request.Message.Length > MaxDisplayMessageLength
             ? request.Message.Substring(0, MaxDisplayMessageLength)
@@ -345,77 +346,18 @@ public class PortalTtsController : ControllerBase
         // Mark TTS as playing
         _ttsPlaybackState.AddOrUpdate(guildId, true, (k, v) => true);
 
-        // Get the PCM stream for playback
-        var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
-        if (pcmStream == null)
-        {
-            _logger.LogError("Failed to get PCM stream for guild {GuildId}", guildId);
-            _currentMessages.TryRemove(guildId, out _);
-            _ttsPlaybackState.TryRemove(guildId, out _);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Failed to get audio stream",
-                Detail = "Please try reconnecting to the voice channel.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
-        }
-
-        // Stream the audio to Discord
+        // Play the audio using the TTS playback service
+        TtsPlaybackResult playbackResult;
         try
         {
-            // Start activity for Discord audio streaming
-            using var streamActivity = BotActivitySource.StartDiscordAudioStreamActivity(
-                guildId: guildId,
-                durationSeconds: durationSeconds);
-
-            try
-            {
-                var bytesWritten = 0L;
-                var buffer = new byte[3840]; // Match PlaybackService buffer size (20ms at 48kHz stereo 16-bit)
-                int bytesRead;
-
-                while ((bytesRead = await audioStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
-                {
-                    await pcmStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
-                    bytesWritten += bytesRead;
-                }
-
-                await pcmStream.FlushAsync(cancellationToken);
-
-                // Record streaming metrics
-                BotActivitySource.RecordAudioStreamMetrics(
-                    streamActivity,
-                    bytesWritten: bytesWritten,
-                    bufferCount: (int)(bytesWritten / 3840));
-
-                // Update activity to prevent auto-leave
-                _audioService.UpdateLastActivity(guildId);
-
-                _logger.LogInformation("Successfully played TTS message for guild {GuildId}. Bytes written: {BytesWritten}",
-                    guildId, bytesWritten);
-
-                BotActivitySource.SetSuccess(streamActivity);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
-                BotActivitySource.RecordException(streamActivity, ex);
-                throw;
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
-            _currentMessages.TryRemove(guildId, out _);
-            _ttsPlaybackState.TryRemove(guildId, out _);
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Failed to play TTS",
-                Detail = "An error occurred while streaming audio to Discord.",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
-            });
+            playbackResult = await _ttsPlaybackService.PlayAsync(
+                guildId,
+                userId,
+                User.Identity?.Name ?? "Portal User",
+                request.Message,
+                request.Voice,
+                audioStream,
+                cancellationToken);
         }
         finally
         {
@@ -424,22 +366,20 @@ public class PortalTtsController : ControllerBase
             _currentMessages.TryRemove(guildId, out _);
         }
 
-        // Log to database
-        var ttsMessage = new TtsMessage
+        if (!playbackResult.Success)
         {
-            Id = Guid.NewGuid(),
-            GuildId = guildId,
-            UserId = userId,
-            Username = User.Identity?.Name ?? "Portal User",
-            Message = request.Message,
-            Voice = request.Voice,
-            DurationSeconds = durationSeconds,
-            CreatedAt = DateTime.UtcNow
-        };
-        await _ttsMessageRepository.AddAsync(ttsMessage, cancellationToken);
+            _logger.LogWarning("TTS playback failed for guild {GuildId}: {ErrorMessage}", guildId, playbackResult.ErrorMessage);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Failed to play TTS",
+                Detail = playbackResult.ErrorMessage ?? "An error occurred while streaming audio to Discord.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
 
         _logger.LogInformation("Successfully sent TTS message for guild {GuildId}", guildId);
-        return Ok(new { Message = "TTS message sent successfully", DurationSeconds = durationSeconds });
+        return Ok(new { Message = "TTS message sent successfully", DurationSeconds = playbackResult.DurationSeconds });
     }
 
     /// <summary>
@@ -641,22 +581,6 @@ public class PortalTtsController : ControllerBase
     }
 
     /// <summary>
-    /// Calculates the duration of an audio stream in seconds.
-    /// Assumes 48kHz sample rate, 16-bit samples, stereo (Discord standard PCM format).
-    /// </summary>
-    /// <param name="audioStream">The audio stream to measure.</param>
-    /// <returns>Duration in seconds.</returns>
-    private static double CalculateAudioDuration(Stream audioStream)
-    {
-        const int sampleRate = 48000;
-        const int bytesPerSample = 2; // 16-bit
-        const int channels = 2; // stereo
-        const int bytesPerSecond = sampleRate * bytesPerSample * channels; // 192000
-
-        return audioStream.Length / (double)bytesPerSecond;
-    }
-
-    /// <summary>
     /// Validates SSML markup without synthesizing audio.
     /// </summary>
     /// <param name="request">The validation request containing SSML markup.</param>
@@ -823,9 +747,8 @@ public class PortalTtsController : ControllerBase
 
         try
         {
-            // Calculate duration
-            var durationSeconds = CalculateAudioDuration(audioStream);
             var audioId = Guid.NewGuid();
+            double durationSeconds;
 
             // If PlayInVoiceChannel is true, stream to voice channel
             if (request.PlayInVoiceChannel)
@@ -843,7 +766,7 @@ public class PortalTtsController : ControllerBase
                     });
                 }
 
-                // Track playback
+                // Extract plain text for display and tracking
                 var plainText = _ssmlValidator.ExtractPlainText(request.Ssml);
                 var truncatedMessage = plainText.Length > MaxDisplayMessageLength
                     ? plainText.Substring(0, MaxDisplayMessageLength)
@@ -851,89 +774,34 @@ public class PortalTtsController : ControllerBase
                 _currentMessages.AddOrUpdate(guildId, truncatedMessage, (k, v) => truncatedMessage);
                 _ttsPlaybackState.AddOrUpdate(guildId, true, (k, v) => true);
 
-                // Get PCM stream
-                var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
-                if (pcmStream == null)
+                // Reset stream position if seekable, otherwise copy to MemoryStream
+                if (audioStream.CanSeek)
                 {
-                    _logger.LogError("Failed to get PCM stream for guild {GuildId}", guildId);
-                    _currentMessages.TryRemove(guildId, out _);
-                    _ttsPlaybackState.TryRemove(guildId, out _);
-                    return BadRequest(new ApiErrorDto
-                    {
-                        Message = "Failed to get audio stream",
-                        Detail = "Please try reconnecting to the voice channel.",
-                        StatusCode = StatusCodes.Status400BadRequest,
-                        TraceId = HttpContext.GetCorrelationId()
-                    });
+                    audioStream.Position = 0;
+                }
+                else
+                {
+                    // Stream is not seekable, copy to MemoryStream and dispose original
+                    var memoryStream = new MemoryStream();
+                    await audioStream.CopyToAsync(memoryStream, cancellationToken);
+                    memoryStream.Position = 0;
+                    await audioStream.DisposeAsync();
+                    audioStream = memoryStream;
                 }
 
-                // Stream to voice channel
+                // Play the audio using the TTS playback service
+                var userId = User.GetDiscordUserId();
+                TtsPlaybackResult playbackResult;
                 try
                 {
-                    using var streamActivity = BotActivitySource.StartDiscordAudioStreamActivity(
-                        guildId: guildId,
-                        durationSeconds: durationSeconds);
-
-                    try
-                    {
-                        // Reset stream position if seekable, otherwise copy to MemoryStream
-                        if (audioStream.CanSeek)
-                        {
-                            audioStream.Position = 0;
-                        }
-                        else
-                        {
-                            // Stream is not seekable, copy to MemoryStream and dispose original
-                            var memoryStream = new MemoryStream();
-                            await audioStream.CopyToAsync(memoryStream, cancellationToken);
-                            memoryStream.Position = 0;
-                            await audioStream.DisposeAsync();
-                            audioStream = memoryStream;
-                        }
-
-                        var bytesWritten = 0L;
-                        var buffer = new byte[3840];
-                        int bytesRead;
-
-                        while ((bytesRead = await audioStream.ReadAsync(buffer, 0, buffer.Length, cancellationToken)) > 0)
-                        {
-                            await pcmStream.WriteAsync(buffer, 0, bytesRead, cancellationToken);
-                            bytesWritten += bytesRead;
-                        }
-
-                        await pcmStream.FlushAsync(cancellationToken);
-
-                        BotActivitySource.RecordAudioStreamMetrics(
-                            streamActivity,
-                            bytesWritten: bytesWritten,
-                            bufferCount: (int)(bytesWritten / 3840));
-
-                        _audioService.UpdateLastActivity(guildId);
-
-                        _logger.LogInformation("Successfully played SSML audio for guild {GuildId}. Bytes written: {BytesWritten}",
-                            guildId, bytesWritten);
-
-                        BotActivitySource.SetSuccess(streamActivity);
-                    }
-                    catch (Exception ex)
-                    {
-                        _logger.LogError(ex, "Failed to stream SSML audio for guild {GuildId}", guildId);
-                        BotActivitySource.RecordException(streamActivity, ex);
-                        throw;
-                    }
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogError(ex, "Failed to play SSML audio for guild {GuildId}", guildId);
-                    _currentMessages.TryRemove(guildId, out _);
-                    _ttsPlaybackState.TryRemove(guildId, out _);
-                    return BadRequest(new ApiErrorDto
-                    {
-                        Message = "Failed to play SSML audio",
-                        Detail = "An error occurred while streaming audio to Discord.",
-                        StatusCode = StatusCodes.Status400BadRequest,
-                        TraceId = HttpContext.GetCorrelationId()
-                    });
+                    playbackResult = await _ttsPlaybackService.PlayAsync(
+                        guildId,
+                        userId,
+                        User.Identity?.Name ?? "Portal User",
+                        plainText,
+                        validationResult.DetectedVoices.FirstOrDefault() ?? "SSML (multiple voices)",
+                        audioStream,
+                        cancellationToken);
                 }
                 finally
                 {
@@ -941,20 +809,25 @@ public class PortalTtsController : ControllerBase
                     _currentMessages.TryRemove(guildId, out _);
                 }
 
-                // Log to database
-                var userId = User.GetDiscordUserId();
-                var ttsMessage = new TtsMessage
+                if (!playbackResult.Success)
                 {
-                    Id = audioId,
-                    GuildId = guildId,
-                    UserId = userId,
-                    Username = User.Identity?.Name ?? "Portal User",
-                    Message = plainText,
-                    Voice = validationResult.DetectedVoices.FirstOrDefault() ?? "SSML (multiple voices)",
-                    DurationSeconds = durationSeconds,
-                    CreatedAt = DateTime.UtcNow
-                };
-                await _ttsMessageRepository.AddAsync(ttsMessage, cancellationToken);
+                    _logger.LogWarning("SSML playback failed for guild {GuildId}: {ErrorMessage}", guildId, playbackResult.ErrorMessage);
+                    return BadRequest(new ApiErrorDto
+                    {
+                        Message = "Failed to play SSML audio",
+                        Detail = playbackResult.ErrorMessage ?? "An error occurred while streaming audio to Discord.",
+                        StatusCode = StatusCodes.Status400BadRequest,
+                        TraceId = HttpContext.GetCorrelationId()
+                    });
+                }
+
+                // Use duration from playback result
+                durationSeconds = playbackResult.DurationSeconds;
+            }
+            else
+            {
+                // Calculate duration for non-playback response (48kHz, 16-bit, stereo PCM)
+                durationSeconds = audioStream.Length / 192000.0;
             }
 
             var response = new SsmlSynthesisResponse
