@@ -25,6 +25,7 @@ public class IndexModel : PageModel
     private readonly ITtsSettingsService _ttsSettingsService;
     private readonly ITtsService _ttsService;
     private readonly IAudioService _audioService;
+    private readonly ITtsPlaybackService _ttsPlaybackService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IGuildService _guildService;
     private readonly ISettingsService _settingsService;
@@ -36,6 +37,7 @@ public class IndexModel : PageModel
         ITtsSettingsService ttsSettingsService,
         ITtsService ttsService,
         IAudioService audioService,
+        ITtsPlaybackService ttsPlaybackService,
         DiscordSocketClient discordClient,
         IGuildService guildService,
         ISettingsService settingsService,
@@ -46,6 +48,7 @@ public class IndexModel : PageModel
         _ttsSettingsService = ttsSettingsService;
         _ttsService = ttsService;
         _audioService = audioService;
+        _ttsPlaybackService = ttsPlaybackService;
         _discordClient = discordClient;
         _guildService = guildService;
         _settingsService = settingsService;
@@ -479,40 +482,28 @@ public class IndexModel : PageModel
             // Synthesize the speech
             using var audioStream = await _ttsService.SynthesizeSpeechAsync(message, options, cancellationToken);
 
-            // Get the PCM stream for playback
-            var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
-            if (pcmStream == null)
+            // Play the audio using the TTS playback service
+            var playbackResult = await _ttsPlaybackService.PlayAsync(
+                guildId,
+                User.GetDiscordUserId(),
+                User.Identity?.Name ?? "Admin UI",
+                message,
+                options.Voice ?? string.Empty,
+                audioStream,
+                cancellationToken);
+
+            if (!playbackResult.Success)
             {
-                var errorMsg = "Failed to get audio stream. Please try reconnecting to the voice channel.";
+                _logger.LogWarning("TTS playback failed for guild {GuildId}: {ErrorMessage}", guildId, playbackResult.ErrorMessage);
                 if (isAjax)
                 {
-                    return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
+                    return new JsonResult(new { success = false, message = playbackResult.ErrorMessage }) { StatusCode = 400 };
                 }
-                ErrorMessage = errorMsg;
+                ErrorMessage = playbackResult.ErrorMessage;
                 return RedirectToPage("Index", new { guildId });
             }
 
-            // Stream the audio to Discord
-            await audioStream.CopyToAsync(pcmStream, cancellationToken);
-            await pcmStream.FlushAsync(cancellationToken);
-
-            // Update activity to prevent auto-leave
-            _audioService.UpdateLastActivity(guildId);
-
-            // Record in history
-            var ttsMessage = new TtsMessage
-            {
-                Id = Guid.NewGuid(),
-                GuildId = guildId,
-                UserId = User.GetDiscordUserId(),
-                Username = User.Identity?.Name ?? "Admin UI",
-                Message = message,
-                Voice = options.Voice ?? string.Empty,
-                DurationSeconds = CalculateAudioDuration(audioStream),
-                CreatedAt = DateTime.UtcNow
-            };
-            await _ttsHistoryService.LogMessageAsync(ttsMessage, cancellationToken);
-
+            var ttsMessage = playbackResult.LoggedMessage!;
             _logger.LogInformation("Successfully played TTS message for guild {GuildId}", guildId);
 
             if (isAjax)
@@ -569,25 +560,6 @@ public class IndexModel : PageModel
             ErrorMessage = errorMsg;
             return RedirectToPage("Index", new { guildId });
         }
-    }
-
-    /// <summary>
-    /// Calculates the duration of PCM audio stream in seconds.
-    /// </summary>
-    /// <param name="audioStream">The audio stream (48kHz, 16-bit, stereo PCM).</param>
-    /// <returns>Duration in seconds.</returns>
-    /// <remarks>
-    /// PCM format: 48kHz sample rate, 16-bit (2 bytes per sample), stereo (2 channels).
-    /// Bytes per second = 48000 samples/sec * 2 bytes/sample * 2 channels = 192000 bytes/sec.
-    /// </remarks>
-    private static double CalculateAudioDuration(Stream audioStream)
-    {
-        const int sampleRate = 48000;
-        const int bytesPerSample = 2; // 16-bit
-        const int channels = 2; // stereo
-        const int bytesPerSecond = sampleRate * bytesPerSample * channels; // 192000
-
-        return audioStream.Length / (double)bytesPerSecond;
     }
 
     /// <summary>
