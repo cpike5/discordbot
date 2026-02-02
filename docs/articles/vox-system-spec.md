@@ -1,9 +1,9 @@
 # VOX System Specification
 
-**Version:** 1.0
+**Version:** 2.0
 **Date:** 2026-02-02
 **Status:** Design Document
-**Target Framework:** .NET 8, Discord.Net, Azure Cognitive Services Speech
+**Target Framework:** .NET 8, Discord.Net
 
 ---
 
@@ -11,17 +11,15 @@
 
 1. [Overview](#overview)
 2. [Architecture](#architecture)
-3. [Data Model](#data-model)
-4. [Word Bank System](#word-bank-system)
-5. [Audio Pipeline](#audio-pipeline)
-6. [Slash Commands](#slash-commands)
-7. [Configuration](#configuration)
-8. [Dependency Injection](#dependency-injection)
-9. [Database Schema](#database-schema)
-10. [API Endpoints](#api-endpoints)
-11. [Security & Rate Limiting](#security--rate-limiting)
-12. [Cost Management](#cost-management)
-13. [Related Documentation](#related-documentation)
+3. [Clip Library](#clip-library)
+4. [Audio Pipeline](#audio-pipeline)
+5. [Slash Commands](#slash-commands)
+6. [Configuration](#configuration)
+7. [Dependency Injection](#dependency-injection)
+8. [API Endpoints](#api-endpoints)
+9. [Security & Rate Limiting](#security--rate-limiting)
+10. [Future Expansion](#future-expansion)
+11. [Related Documentation](#related-documentation)
 
 ---
 
@@ -29,37 +27,45 @@
 
 ### What is VOX?
 
-VOX is a Half-Life-style concatenated word-clip announcement system for Discord bots. Instead of synthesizing full sentences with natural prosody (like traditional TTS), VOX:
+VOX is a Half-Life-style concatenated clip announcement system for Discord. It plays pre-recorded word clips in sequence to create robotic, word-by-word announcements - the iconic PA system sound from Half-Life 1.
+
+Unlike the existing soundboard (which plays one clip at a time), VOX:
 
 1. **Parses input text** into individual word tokens
-2. **Generates/retrieves word clips** via Azure TTS, cached in a per-guild word bank
-3. **Concatenates clips** with configurable silence gaps between words
-4. **Applies PA-system audio filters** (bandpass, compression, distortion) via FFmpeg
-5. **Streams the result** to Discord voice channels with the iconic robotic, word-by-word announcer sound
+2. **Looks up pre-built audio clips** from a static library organized in 3 groups
+3. **Concatenates matching clips** with configurable silence gaps between words
+4. **Streams the result** to Discord voice channels
 
-### How VOX Differs from TTS
+### How VOX Differs from the Soundboard
 
-| Feature | TTS Portal | VOX Portal |
-|---------|-----------|-----------|
-| **Input Mode** | Free-form text | Words parsed into tokens; two input modes (free text & sentence builder) |
-| **Generation Strategy** | Real-time synthesis per message | Word-by-word with persistent cache |
-| **Audio Output** | Smooth, natural speech | Robotic, concatenated word clips |
-| **Audio Processing** | None (or basic volume) | PA-system filters (bandpass, compression, distortion) |
-| **Reusability** | No caching (regenerated each time) | Full word bank with persistent cache (generate once, play many) |
-| **Cost Impact** | Higher (synthesized per use) | Lower (amortized across uses) |
-| **Visual Feedback** | Character counter | Token preview strip with cache status (green/orange/red) |
+| Feature | Soundboard | VOX |
+|---------|-----------|-----|
+| **Input** | Select one sound by name | Type a sentence of multiple words |
+| **Playback** | Single clip at a time | Concatenated sequence of clips |
+| **Sound Source** | Per-guild uploaded files (DB-tracked) | Global static clip library (filesystem) |
+| **Management** | Upload/delete per guild | Pre-built, ships with bot |
+| **Audio Processing** | Optional filters | Word gap insertion + concatenation |
+| **Commands** | `/play <sound>` | `/vox`, `/fvox`, `/hgrunt` |
+
+### Clip Groups
+
+Three independent libraries of pre-recorded MP3 clips, each corresponding to a Half-Life sound set:
+
+| Group | Folder | Command | Description | Estimated Clips |
+|-------|--------|---------|-------------|-----------------|
+| **VOX** | `sounds/vox/` | `/vox` | Half-Life VOX announcement system clips | 100-200 |
+| **FVOX** | `sounds/fvox/` | `/fvox` | Half-Life HEV suit (female VOX) clips | 100-200 |
+| **HGrunt** | `sounds/hgrunt/` | `/hgrunt` | Half-Life military grunt radio clips | 100-200 |
 
 ### Key Capabilities
 
-- **Free Text Mode** - Type natural text; VOX automatically tokenizes it into words
-- **Sentence Builder Mode** - Drag-and-drop composition of predefined word clips; add manual pauses between words
-- **Word Bank Caching** - Persistent per-guild cache of individual word clips (stored on disk, tracked in database)
-- **Predefined Word Packs** - Common English 500, NATO Phonetic, Numbers 0-100, Half-Life Classic VOX phrases
-- **PA Filter Presets** - Off, Light, Heavy (classic Half-Life sound), or Custom with manual filter parameters
-- **Word Gap Control** - 20-200ms configurable silence between words
-- **Real-time Token Preview** - See which words are cached (green), will be generated (orange), or invalid (red)
-- **Bulk Word Generation** - Generate entire word packs at once for cost optimization
-- **Import/Export** - Share word banks between guilds as ZIP files
+- **3 clip groups** with dedicated slash commands
+- **Text-to-clip-sequence** - Type words, matching clips are concatenated
+- **Configurable word gap** - 20-200ms silence between clips
+- **Autocomplete** - Slash command parameter suggests available clip names
+- **Clip browser UI** - Portal page with search, grid, and autocomplete input
+- **Unknown word handling** - Words without matching clips are skipped with feedback
+- **Reuses existing PlaybackService** - Same audio streaming infrastructure as soundboard
 
 ---
 
@@ -67,776 +73,356 @@ VOX is a Half-Life-style concatenated word-clip announcement system for Discord 
 
 ### Overview
 
-VOX follows the three-layer clean architecture of the bot:
+VOX follows the existing bot architecture, reusing services where possible:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│ Bot Layer (UI/Orchestration)                        │
-├─────────────────────────────────────────────────────┤
-│ IVoxService (orchestrator)                          │
-│ IVoxWordBankService (cache management)              │
-│ IVoxTokenizer (text parsing)                        │
-│ IVoxConcatenationService (audio joining)            │
-│ IVoxFilterService (audio processing)                │
-├─────────────────────────────────────────────────────┤
-│ Infrastructure Layer (Data Access)                  │
-├─────────────────────────────────────────────────────┤
-│ IVoxWordRepository (word bank persistence)          │
-│ IVoxMessageRepository (audit log persistence)       │
-│ IGuildVoxSettingsRepository (settings persistence)  │
-├─────────────────────────────────────────────────────┤
-│ Core Layer (Domain Models)                          │
-├─────────────────────────────────────────────────────┤
-│ Entities: GuildVoxSettings, VoxWord, VoxMessage    │
-│ DTOs: VoxOptions, VoxToken, VoxClip, VoxComposition│
-│ Enums: PaFilterPreset, TokenStatus                  │
-└─────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────┐
+│ Bot Layer (Commands + UI)                            │
+├──────────────────────────────────────────────────────┤
+│ VoxModule / FvoxModule / HgruntModule (slash cmds)   │
+│ VoxController (portal API)                           │
+│ Portal/VOX Razor Page                                │
+├──────────────────────────────────────────────────────┤
+│ Services                                             │
+├──────────────────────────────────────────────────────┤
+│ IVoxService (orchestrator)                           │
+│ IVoxClipLibrary (clip inventory + file access)       │
+│ IVoxConcatenationService (audio joining via FFmpeg)  │
+│ IPlaybackService (existing - streams to Discord)     │
+└──────────────────────────────────────────────────────┘
 ```
+
+No new database tables are required. Clip inventory is built by scanning the filesystem at startup and held in memory.
 
 ### Service Responsibilities
 
-#### IVoxService / VoxService
+#### IVoxClipLibrary / VoxClipLibrary
 
-**Purpose**: Main orchestrator coordinating the entire VOX pipeline.
+**Purpose**: Manages the static clip inventory. Scans clip folders at startup, provides lookup and search.
 
-**Lifetime**: Singleton (manages connection state and caches)
-
-**Key Methods**:
+**Lifetime**: Singleton (loads once, holds inventory in memory)
 
 ```csharp
-public interface IVoxService
+public interface IVoxClipLibrary
 {
     /// <summary>
-    /// Synthesize VOX audio from free text.
-    /// Parses text → tokenizes → looks up/generates word clips → concatenates → filters
+    /// Initialize by scanning clip folders. Called at startup.
     /// </summary>
-    Task<byte[]> SynthesizeVoxAsync(
-        ulong guildId,
-        string text,
-        VoxOptions options,
-        IProgress<VoxGenerationProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+    Task InitializeAsync(CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Synthesize VOX audio from manually composed word sequence.
-    /// Uses pre-selected words and pauses (from sentence builder)
+    /// Get all available clip names for a group.
     /// </summary>
-    Task<byte[]> SynthesizeVoxAsync(
-        ulong guildId,
-        VoxComposition composition,
-        VoxOptions options,
-        IProgress<VoxGenerationProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+    IReadOnlyList<VoxClipInfo> GetClips(VoxClipGroup group);
 
     /// <summary>
-    /// Get current configuration for a guild.
+    /// Look up a single clip by name within a group.
+    /// Returns null if no matching clip exists.
     /// </summary>
-    Task<GuildVoxSettings> GetSettingsAsync(ulong guildId, CancellationToken cancellationToken = default);
+    VoxClipInfo? GetClip(VoxClipGroup group, string clipName);
 
     /// <summary>
-    /// Update configuration for a guild.
+    /// Search clips by prefix/substring for autocomplete.
+    /// Returns up to maxResults matches.
     /// </summary>
-    Task UpdateSettingsAsync(
-        ulong guildId,
-        GuildVoxSettings settings,
-        CancellationToken cancellationToken = default);
+    IReadOnlyList<VoxClipInfo> SearchClips(VoxClipGroup group, string query, int maxResults = 25);
+
+    /// <summary>
+    /// Get the full file path for a clip.
+    /// </summary>
+    string GetClipFilePath(VoxClipGroup group, string clipName);
+
+    /// <summary>
+    /// Get clip count per group.
+    /// </summary>
+    int GetClipCount(VoxClipGroup group);
 }
 ```
 
-**Responsibilities**:
-- Coordinate text parsing → word lookup → **parallel generation** → concatenation → filtering
-- Dispatch uncached words to `IVoxWordBankService` for parallel synthesis before concatenation
-- Validate input and rate limits
-- Log VOX messages to audit trail
-- Handle partial generation failures gracefully (skip failed words, continue with available clips)
-- Implement progress reporting for multi-word generation
-
----
-
-#### IVoxWordBankService / VoxWordBankService
-
-**Purpose**: Manages cached word clips (lookup, generation, bulk operations, import/export).
-
-**Lifetime**: Singleton (manages disk I/O and database caching)
-
-**Key Methods**:
+**Data Structures**:
 
 ```csharp
-public interface IVoxWordBankService
+public enum VoxClipGroup
 {
-    /// <summary>
-    /// Get cached word clip (PCM bytes) if available.
-    /// Returns null if not cached.
-    /// </summary>
-    Task<byte[]?> GetClipAsync(ulong guildId, string word, string voice, CancellationToken cancellationToken = default);
+    Vox,
+    Fvox,
+    Hgrunt
+}
 
-    /// <summary>
-    /// Generate a word clip via Azure TTS and cache it.
-    /// </summary>
-    Task<byte[]> GenerateClipAsync(
-        ulong guildId,
-        string word,
-        string voice,
-        CancellationToken cancellationToken = default);
+public record VoxClipInfo
+{
+    /// <summary>Clip name (filename without extension, e.g. "warning").</summary>
+    public string Name { get; init; } = "";
 
-    /// <summary>
-    /// Bulk generate multiple words with progress reporting.
-    /// Words are synthesized in parallel using SemaphoreSlim to limit
-    /// concurrency (default: WordGenerationConcurrency = 3).
-    /// </summary>
-    Task<BulkGenerateResult> GenerateBulkAsync(
-        ulong guildId,
-        IEnumerable<string> words,
-        string voice,
-        IProgress<BulkGenerationProgress>? progress = null,
-        CancellationToken cancellationToken = default);
+    /// <summary>Which group this clip belongs to.</summary>
+    public VoxClipGroup Group { get; init; }
 
-    /// <summary>
-    /// Check cache status for a list of words.
-    /// Returns dictionary mapping word -> TokenStatus (Cached, WillGenerate, Error)
-    /// </summary>
-    Task<Dictionary<string, TokenStatus>> GetCacheStatusAsync(
-        ulong guildId,
-        IEnumerable<string> words,
-        string voice,
-        CancellationToken cancellationToken = default);
+    /// <summary>File size in bytes.</summary>
+    public long FileSizeBytes { get; init; }
 
-    /// <summary>
-    /// Delete a single cached word clip.
-    /// </summary>
-    Task DeleteClipAsync(ulong guildId, Guid wordId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Purge all cached words for a voice (or entire cache if voice is null).
-    /// </summary>
-    Task<int> PurgeCacheAsync(ulong guildId, string? voice = null, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Get word bank statistics (total words, size, voices used).
-    /// </summary>
-    Task<WordBankStats> GetStatsAsync(ulong guildId, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Import word bank from ZIP file (extracted to disk, added to database).
-    /// </summary>
-    Task<ImportResult> ImportAsync(ulong guildId, Stream zipStream, CancellationToken cancellationToken = default);
-
-    /// <summary>
-    /// Export word bank as ZIP file (all clips for a voice, or all if voice is null).
-    /// </summary>
-    Task<Stream> ExportAsync(ulong guildId, string? voice = null, CancellationToken cancellationToken = default);
+    /// <summary>Audio duration in seconds (extracted via FFprobe at startup).</summary>
+    public double DurationSeconds { get; init; }
 }
 ```
 
-**Responsibilities**:
-- Cache storage at `sounds/vox/{guildId}/{voice}/`
-- Database tracking of word metadata (filename, size, duration)
-- Azure TTS integration for individual word synthesis
-- **Parallel word generation** using `SemaphoreSlim` to throttle concurrent Azure TTS calls
-- Import/export ZIP file handling
-- Disk space management and cleanup
+**Initialization**:
+- On startup, scan `sounds/vox/`, `sounds/fvox/`, `sounds/hgrunt/`
+- For each `.mp3` file found, extract name (filename without extension) and duration (via FFprobe)
+- Store in `Dictionary<VoxClipGroup, Dictionary<string, VoxClipInfo>>`
+- Log clip counts per group
+- Duration extraction can be parallelized for startup performance
 
-**Parallel Generation Strategy**:
-
-Both bulk generation and on-demand missing-word generation process words concurrently. A `SemaphoreSlim` (sized to `WordGenerationConcurrency`, default 3) gates Azure TTS calls to avoid rate-limit errors while maximizing throughput.
-
-```csharp
-// Parallel generation implementation pattern
-public async Task<BulkGenerateResult> GenerateBulkAsync(
-    ulong guildId,
-    IEnumerable<string> words,
-    string voice,
-    IProgress<BulkGenerationProgress>? progress = null,
-    CancellationToken cancellationToken = default)
-{
-    var semaphore = new SemaphoreSlim(_options.Value.WordGenerationConcurrency);
-    var results = new ConcurrentBag<WordGenerationResult>();
-
-    var tasks = words.Select(async word =>
-    {
-        await semaphore.WaitAsync(cancellationToken);
-        try
-        {
-            var clip = await GenerateClipAsync(guildId, word, voice, cancellationToken);
-            results.Add(new WordGenerationResult(word, Success: true));
-            progress?.Report(new BulkGenerationProgress { /* ... */ });
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to generate word '{Word}'", word);
-            results.Add(new WordGenerationResult(word, Success: false));
-        }
-        finally
-        {
-            semaphore.Release();
-        }
-    });
-
-    await Task.WhenAll(tasks);
-    return new BulkGenerateResult(results);
-}
-```
-
-The same pattern applies during `SynthesizeVoxAsync` when the tokenizer identifies uncached words -- they are generated in parallel before concatenation begins.
-
-**Word Clip Storage Format**:
-- **Location**: `sounds/vox/{guildId}/{voice}/{word-hash}.pcm`
-- **Format**: PCM 48kHz, 16-bit, stereo (mono converted to stereo like TTS)
-- **Filename**: Derived from word hash to avoid filesystem issues with special characters
-- **Metadata**: Stored in database (`VoxWord` entity)
-
----
-
-#### IVoxTokenizer / VoxTokenizer
-
-**Purpose**: Parse free-form text into word tokens with pause handling.
-
-**Lifetime**: Transient (stateless, thread-safe)
-
-**Key Methods**:
-
-```csharp
-public interface IVoxTokenizer
-{
-    /// <summary>
-    /// Tokenize text into words and pause tokens.
-    /// Whitespace-separated words, punctuation maps to pauses.
-    /// </summary>
-    List<VoxToken> Tokenize(string text);
-}
-
-public record VoxToken
-{
-    public string Word { get; init; } = ""; // Word text (lowercase, trimmed)
-    public TokenType Type { get; init; } = TokenType.Word;
-    public int PauseDurationMs { get; init; } = 0; // For Pause type only
-}
-
-public enum TokenType
-{
-    Word,  // Regular word
-    Pause  // Silence gap (period, ellipsis, comma, etc.)
-}
-```
-
-**Responsibilities**:
-- Split input text by whitespace
-- Trim and lowercase words
-- Detect punctuation and insert pause tokens:
-  - `.` (period) = 200ms pause
-  - `,` (comma) = 150ms pause
-  - `...` (ellipsis) = 250ms pause
-  - `-` (dash) = 100ms pause
-- Validate words (alphanumeric only, max 30 chars)
-- Number-to-word expansion (optional: "123" → "one two three" or keep as-is based on config)
-- Handle contractions (e.g., "don't" → "don t" or normalize to "dont")
+**Search**:
+- Prefix match first (clips starting with query), then substring match
+- Case-insensitive
+- Used by both slash command autocomplete and portal UI
 
 ---
 
 #### IVoxConcatenationService / VoxConcatenationService
 
-**Purpose**: Join multiple word clips into a single audio stream with silence gaps.
+**Purpose**: Concatenate multiple MP3 clips into a single audio stream with silence gaps.
 
-**Lifetime**: Singleton (stateless, pure computation)
-
-**Key Methods**:
+**Lifetime**: Singleton (stateless)
 
 ```csharp
 public interface IVoxConcatenationService
 {
     /// <summary>
-    /// Concatenate word clips with silence gaps.
+    /// Concatenate a sequence of clips with silence gaps between them.
+    /// Returns a temporary file path to the concatenated audio.
     /// </summary>
-    Task<byte[]> ConcatenateAsync(
-        IEnumerable<VoxClip> clips,
+    Task<string> ConcatenateAsync(
+        IReadOnlyList<string> clipFilePaths,
         int wordGapMs,
         CancellationToken cancellationToken = default);
 }
-
-public record VoxClip
-{
-    public string Word { get; init; } = "";
-    public byte[] PcmData { get; init; } = Array.Empty<byte>();
-    public double DurationSeconds { get; init; } = 0;
-}
 ```
 
-**Responsibilities**:
-- Receive ordered list of word clips (PCM byte arrays)
-- Insert silence (zero bytes) between clips based on `wordGapMs`
-- Handle variable-length clips
-- Return concatenated PCM data (48kHz, 16-bit, stereo)
+**Implementation**: Uses FFmpeg to:
+1. Decode each MP3 clip
+2. Insert silence (zero samples) between clips based on `wordGapMs`
+3. Output concatenated result as a temporary file (PCM or MP3)
 
-**Silence Gap Calculation**:
+**FFmpeg Approach** - Use the `concat` demuxer or filter_complex with `adelay`/`apad`:
+
 ```
-Silence bytes = gapMs * 48000 * 2 (bytes per sample) * 2 (stereo) / 1000
+ffmpeg -f concat -safe 0 -i filelist.txt -af "apad=pad_dur={gapMs}ms" -f s16le -ar 48000 -ac 2 output.pcm
+```
+
+Or build a filter graph that intersperses silence:
+```
+ffmpeg -i clip1.mp3 -i clip2.mp3 -i clip3.mp3 \
+  -filter_complex "[0:a]apad=pad_dur=50ms[a0];[1:a]apad=pad_dur=50ms[a1];[2:a][a0][a1]concat=n=3:v=0:a=1" \
+  -f s16le -ar 48000 -ac 2 output.pcm
+```
+
+The simplest reliable approach: generate a concat file list with silence entries, or append silence bytes programmatically between decoded PCM segments.
+
+**Silence Gap Calculation** (for raw PCM 48kHz, 16-bit, stereo):
+```
+Silence bytes = gapMs * 48000 * 2 (bytes/sample) * 2 (channels) / 1000
               = gapMs * 192
-
-Example: 50ms gap = 50 * 192 = 9,600 bytes of zeros
 ```
 
 ---
 
-#### IVoxFilterService / VoxFilterService
+#### IVoxService / VoxService
 
-**Purpose**: Apply PA-system audio effects (bandpass, compression, distortion) via FFmpeg.
+**Purpose**: Main orchestrator. Parses input, resolves clips, concatenates, and plays.
 
-**Lifetime**: Singleton (manages FFmpeg process pool)
-
-**Key Methods**:
+**Lifetime**: Scoped (per-request, coordinates the pipeline)
 
 ```csharp
-public interface IVoxFilterService
+public interface IVoxService
 {
     /// <summary>
-    /// Apply preset filter (Off, Light, Heavy).
+    /// Process a VOX message: tokenize, resolve clips, concatenate, and play.
+    /// Returns result with details about which words were found/skipped.
     /// </summary>
-    Task<byte[]> ApplyFilterAsync(
-        byte[] pcmData,
-        PaFilterPreset preset,
+    Task<VoxPlaybackResult> PlayAsync(
+        ulong guildId,
+        string message,
+        VoxClipGroup group,
+        VoxPlaybackOptions options,
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Apply custom filter with manual parameters.
+    /// Parse a message and return token info (for UI preview without playing).
     /// </summary>
-    Task<byte[]> ApplyFilterAsync(
-        byte[] pcmData,
-        CustomFilterSettings settings,
-        CancellationToken cancellationToken = default);
+    VoxTokenPreview TokenizePreview(string message, VoxClipGroup group);
 }
+```
 
-public enum PaFilterPreset
+**Data Structures**:
+
+```csharp
+public record VoxPlaybackOptions
 {
-    Off,     // No processing (passthrough)
-    Light,   // Subtle PA effect (mild bandpass)
-    Heavy,   // Classic Half-Life sound (full effect)
-    Custom   // User-defined settings
+    /// <summary>Word gap in milliseconds (20-200).</summary>
+    public int WordGapMs { get; init; } = 50;
 }
 
-public record CustomFilterSettings
+public record VoxPlaybackResult
 {
-    public int HighpassHz { get; init; } = 300;
-    public int LowpassHz { get; init; } = 3400;
-    public float CompressionRatio { get; init; } = 4.0f;
-    public float Distortion { get; init; } = 0.2f; // 0.0-1.0
+    public bool Success { get; init; }
+    public string? ErrorMessage { get; init; }
+    public List<string> MatchedWords { get; init; } = new();
+    public List<string> SkippedWords { get; init; } = new();
+    public double EstimatedDurationSeconds { get; init; }
+}
+
+public record VoxTokenPreview
+{
+    public List<VoxTokenInfo> Tokens { get; init; } = new();
+    public int MatchedCount { get; init; }
+    public int SkippedCount { get; init; }
+    public double EstimatedDurationSeconds { get; init; }
+}
+
+public record VoxTokenInfo
+{
+    public string Word { get; init; } = "";
+    public bool HasClip { get; init; }
+    public double DurationSeconds { get; init; }
 }
 ```
 
-**Responsibilities**:
-- Pipe PCM audio through FFmpeg filter chain
-- Support preset configurations
-- Allow custom filter parameters
-
-**Filter Chain for "Heavy" Preset** (Half-Life classic sound):
-```
-highpass=f=300,lowpass=f=3400,acompressor=threshold=-20dB:ratio=4:attack=5:release=50,volume=1.2
-```
-
-**Preset Configurations**:
-
-| Preset | Highpass | Lowpass | Compression | Distortion |
-|--------|----------|---------|-------------|------------|
-| **Off** | None | None | None | None |
-| **Light** | 200 Hz | 5000 Hz | 2.0:1 | 0.1 (10%) |
-| **Heavy** | 300 Hz | 3400 Hz | 4.0:1 | 0.2 (20%) |
+**Pipeline**:
+1. Tokenize input (split on whitespace, lowercase, strip punctuation)
+2. Look up each token in `IVoxClipLibrary` for the requested group
+3. Collect file paths for matched clips; track skipped words
+4. Call `IVoxConcatenationService.ConcatenateAsync()` with matched clip paths
+5. Create a temporary `Sound`-like object from the concatenated file
+6. Call `IPlaybackService.PlayAsync()` to stream to Discord
+7. Clean up temporary file
+8. Return result with matched/skipped word lists
 
 ---
 
 ### Integration with Existing Services
 
-#### PlaybackService (Unchanged)
+#### PlaybackService (Reused As-Is)
 
-VOX will use the existing `IPlaybackService.PlayAsync()` method to stream final PCM audio to Discord.
-
-```csharp
-// VOX will call:
-await _playbackService.PlayAsync(
-    guildId,
-    sound,                  // Synthesized VOX audio as Sound object
-    queueEnabled: true,
-    cancellationToken
-);
-```
-
-#### AudioService (Unchanged)
-
-Voice channel connection management remains unchanged. VOX uses existing `IAudioService` to manage voice connections.
-
-#### AzureTtsService (Reused)
-
-VOX will call `ITtsService.SynthesizeSpeechAsync()` for individual word synthesis with flat-prosody SSML:
+VOX calls the existing `IPlaybackService.PlayAsync()` to stream concatenated audio to Discord. The concatenated output is wrapped in a `Sound` object:
 
 ```csharp
-var ssml = @"<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis'>
-  <voice name='en-US-GuyNeural'>
-    <prosody rate='-10%' pitch='-5%' volume='loud'>
-      word
-    </prosody>
-  </voice>
-</speak>";
+// Create a transient Sound object for the concatenated audio
+var voxSound = new Sound
+{
+    Id = Guid.NewGuid(),
+    GuildId = guildId,
+    Name = $"vox-{DateTime.UtcNow:yyyyMMddHHmmss}",
+    FileName = concatenatedFilePath,
+    FileSizeBytes = new FileInfo(concatenatedFilePath).Length,
+    DurationSeconds = estimatedDuration
+};
 
-var stream = await _ttsService.SynthesizeSpeechAsync(ssml, options, SynthesisMode.Ssml);
+await _playbackService.PlayAsync(guildId, voxSound, queueEnabled: false, cancellationToken: cancellationToken);
 ```
+
+Note: The `FileName` here would be an absolute path to the temp file. This may require minor adaptation if `PlaybackService` assumes files are in the guild sounds directory. An alternative is to have the concatenation service output to a known temp location that `PlaybackService` can access.
+
+#### AudioService (Reused As-Is)
+
+Voice channel connection management is unchanged. VOX uses the existing audio connection.
 
 ---
 
-## Data Model
+## Clip Library
 
-### Database Entities
+### Folder Structure
 
-#### GuildVoxSettings
-
-Per-guild VOX configuration (analogous to `GuildTtsSettings`).
-
-```csharp
-public class GuildVoxSettings
-{
-    /// <summary>Primary key: Discord guild ID.</summary>
-    public ulong GuildId { get; set; }
-
-    /// <summary>Whether VOX is enabled for this guild.</summary>
-    public bool VoxEnabled { get; set; } = false;
-
-    /// <summary>Default voice identifier (e.g., "en-US-GuyNeural").</summary>
-    public string DefaultVoice { get; set; } = "en-US-GuyNeural";
-
-    /// <summary>Default PA filter preset (Off, Light, Heavy, Custom).</summary>
-    public string DefaultPaFilter { get; set; } = "Heavy";
-
-    /// <summary>Default word gap in milliseconds (20-200).</summary>
-    public int DefaultWordGapMs { get; set; } = 50;
-
-    /// <summary>Maximum words per message (prevents spam).</summary>
-    public int MaxMessageWords { get; set; } = 50;
-
-    /// <summary>Max VOX messages per user per minute (rate limiting).</summary>
-    public int RateLimitPerMinute { get; set; } = 5;
-
-    /// <summary>Auto-generate uncached words when needed (vs. skip them).</summary>
-    public bool AutoGenerateMissingWords { get; set; } = true;
-
-    /// <summary>When settings were created (UTC).</summary>
-    public DateTime CreatedAt { get; set; }
-
-    /// <summary>When settings were last updated (UTC).</summary>
-    public DateTime UpdatedAt { get; set; }
-
-    // Navigation
-    public Guild? Guild { get; set; }
-}
-```
-
-#### VoxWord
-
-Metadata for cached word clips (actual audio stored on disk).
-
-```csharp
-public class VoxWord
-{
-    /// <summary>Primary key: Unique identifier for this word clip.</summary>
-    public Guid Id { get; set; }
-
-    /// <summary>Guild ID this word is cached for (per-guild cache).</summary>
-    public ulong GuildId { get; set; }
-
-    /// <summary>The word text (lowercase, alphanumeric only).</summary>
-    public string Word { get; set; } = string.Empty;
-
-    /// <summary>Voice identifier used for this clip (e.g., "en-US-GuyNeural").</summary>
-    public string Voice { get; set; } = string.Empty;
-
-    /// <summary>File path relative to cache root (e.g., "en-US-GuyNeural/attention.pcm").</summary>
-    public string FilePath { get; set; } = string.Empty;
-
-    /// <summary>File size in bytes.</summary>
-    public long FileSizeBytes { get; set; }
-
-    /// <summary>Audio duration in seconds (derived from file size and sample rate).</summary>
-    public double DurationSeconds { get; set; }
-
-    /// <summary>When this word was cached (UTC).</summary>
-    public DateTime CreatedAt { get; set; }
-
-    // Navigation
-    public Guild? Guild { get; set; }
-}
-```
-
-**Database Index**: `(GuildId, Word, Voice)` for fast lookups during tokenization.
-
-#### VoxMessage
-
-Audit log of VOX messages sent (analogous to `TtsMessage`).
-
-```csharp
-public class VoxMessage
-{
-    /// <summary>Primary key: Unique identifier.</summary>
-    public Guid Id { get; set; }
-
-    /// <summary>Guild ID where message was sent.</summary>
-    public ulong GuildId { get; set; }
-
-    /// <summary>User ID who sent the message.</summary>
-    public ulong UserId { get; set; }
-
-    /// <summary>Username at time of sending (for display, since usernames change).</summary>
-    public string Username { get; set; } = string.Empty;
-
-    /// <summary>The original message text (or composition description).</summary>
-    public string Message { get; set; } = string.Empty;
-
-    /// <summary>Number of words in the announcement.</summary>
-    public int WordCount { get; set; }
-
-    /// <summary>Total audio duration in seconds.</summary>
-    public double DurationSeconds { get; set; }
-
-    /// <summary>Voice used.</summary>
-    public string Voice { get; set; } = string.Empty;
-
-    /// <summary>PA filter applied (Heavy, Light, Off, Custom).</summary>
-    public string PaFilter { get; set; } = "Heavy";
-
-    /// <summary>When the message was sent (UTC).</summary>
-    public DateTime CreatedAt { get; set; }
-
-    // Navigation
-    public Guild? Guild { get; set; }
-}
-```
-
-### DTOs and Models
-
-#### VoxOptions
-
-Configuration for VOX synthesis (analogous to `TtsOptions`).
-
-```csharp
-public record VoxOptions
-{
-    /// <summary>Voice identifier (e.g., "en-US-GuyNeural").</summary>
-    public string Voice { get; init; } = "en-US-GuyNeural";
-
-    /// <summary>Word gap in milliseconds (20-200).</summary>
-    public int WordGapMs { get; init; } = 50;
-
-    /// <summary>PA filter preset or custom.</summary>
-    public PaFilterPreset PaFilter { get; init; } = PaFilterPreset.Heavy;
-
-    /// <summary>Custom filter settings (only if PaFilter = Custom).</summary>
-    public CustomFilterSettings? CustomFilterSettings { get; init; }
-
-    /// <summary>Speech speed multiplier (0.75-1.5).</summary>
-    public float Speed { get; init; } = 1.0f;
-}
-```
-
-#### VoxComposition
-
-Word sequence from sentence builder mode.
-
-```csharp
-public record VoxComposition
-{
-    /// <summary>List of words and pauses in order.</summary>
-    public List<CompositionItem> Items { get; init; } = new();
-}
-
-public record CompositionItem
-{
-    /// <summary>Unique ID for drag-drop reordering.</summary>
-    public string Id { get; init; } = "";
-
-    /// <summary>Type: Word or Pause.</summary>
-    public CompositionItemType Type { get; init; }
-
-    /// <summary>Word text (if Type = Word).</summary>
-    public string Word { get; init; } = "";
-
-    /// <summary>Pause duration in ms (if Type = Pause).</summary>
-    public int PauseDurationMs { get; init; } = 100;
-}
-
-public enum CompositionItemType
-{
-    Word,
-    Pause
-}
-```
-
-#### VoxGenerationProgress
-
-Progress reporting during multi-word generation.
-
-```csharp
-public record VoxGenerationProgress
-{
-    /// <summary>Total words to generate.</summary>
-    public int TotalWords { get; init; }
-
-    /// <summary>Words generated so far.</summary>
-    public int GeneratedWords { get; init; }
-
-    /// <summary>Words already cached (no generation needed).</summary>
-    public int CachedWords { get; init; }
-
-    /// <summary>Words that failed to generate.</summary>
-    public int FailedWords { get; init; }
-
-    /// <summary>Current stage (Tokenizing, CheckingCache, Generating, Concatenating, Filtering).</summary>
-    public GenerationStage Stage { get; init; }
-}
-
-public enum GenerationStage
-{
-    Tokenizing,
-    CheckingCache,
-    Generating,
-    Concatenating,
-    Filtering
-}
-```
-
-#### Enums
-
-```csharp
-public enum TokenStatus
-{
-    Cached,        // Word clip is cached
-    WillGenerate,  // Will be generated on-demand
-    Error          // Cannot synthesize (invalid word)
-}
-
-public enum PaFilterPreset
-{
-    Off,    // No audio processing
-    Light,  // Subtle PA effect
-    Heavy,  // Classic Half-Life sound
-    Custom  // User-defined parameters
-}
-```
-
----
-
-## Word Bank System
-
-### Storage Architecture
-
-**Cache Location**: `sounds/vox/{guildId}/{voice}/`
-
-**File Structure**:
 ```
 sounds/
-  vox/
-    123456789012345678/          # Guild ID
-      en-US-GuyNeural/           # Voice identifier
-        attention.pcm            # Word clips (48kHz, 16-bit, stereo PCM)
-        all.pcm
-        personnel.pcm
-        warning.pcm
-        ...
-      en-US-AriaNeural/
-        attention.pcm
-        ...
+  vox/                          # Half-Life VOX announcements
+    warning.mp3
+    alert.mp3
+    attention.mp3
+    all.mp3
+    personnel.mp3
+    security.mp3
+    breach.mp3
+    detected.mp3
+    in.mp3
+    sector.mp3
+    ...
+  fvox/                         # HEV suit (female VOX)
+    health.mp3
+    critical.mp3
+    morphine.mp3
+    administered.mp3
+    seek.mp3
+    medical.mp3
+    attention.mp3
+    ...
+  hgrunt/                       # Military grunt radio
+    copy.mp3
+    roger.mp3
+    affirmative.mp3
+    negative.mp3
+    target.mp3
+    eliminated.mp3
+    move.mp3
+    ...
 ```
 
-**File Naming**: Word → filename mapping (sanitized for filesystem):
-- Lowercase word text
-- Replace invalid characters with underscores
-- Hash for collision avoidance
-- Example: "don't" → "dont.pcm" or "dont_hash.pcm"
+### File Naming Convention
 
-### Word Synthesis via Azure TTS
+- Filenames = clip name + `.mp3` extension
+- Lowercase, alphanumeric + hyphens/underscores
+- No spaces (use hyphens or underscores)
+- Examples: `warning.mp3`, `all-clear.mp3`, `sector_seven.mp3`
+- The clip name used in commands/UI is the filename without extension
 
-Individual words are synthesized using flat-prosody SSML to ensure emotionless, robotic delivery:
+### Clip Discovery
 
-```xml
-<speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis">
-  <voice name="en-US-GuyNeural">
-    <prosody rate="-10%" pitch="-5%" volume="loud">
-      {word}
-    </prosody>
-  </voice>
-</speak>
+At application startup, `VoxClipLibrary` scans each folder:
+
+```csharp
+// Pseudocode for initialization
+foreach (var group in Enum.GetValues<VoxClipGroup>())
+{
+    var folderPath = Path.Combine(_options.BasePath, group.ToString().ToLowerInvariant());
+    if (!Directory.Exists(folderPath)) continue;
+
+    var mp3Files = Directory.GetFiles(folderPath, "*.mp3");
+    foreach (var file in mp3Files)
+    {
+        var name = Path.GetFileNameWithoutExtension(file).ToLowerInvariant();
+        var duration = await GetDurationAsync(file); // FFprobe
+        var size = new FileInfo(file).Length;
+
+        _clips[group][name] = new VoxClipInfo
+        {
+            Name = name,
+            Group = group,
+            FileSizeBytes = size,
+            DurationSeconds = duration
+        };
+    }
+}
 ```
 
-**Settings**:
-- **Rate**: -10% (slower speech) for clarity
-- **Pitch**: -5% (lower pitch) for authoritative tone
-- **Volume**: loud (emphasis)
+### Tokenization Rules
 
-**Output Format**: PCM 48kHz, 16-bit, stereo (mono converted to stereo like existing TTS)
+Input text is parsed into tokens for clip lookup:
 
-### Predefined Word Packs
+1. Split on whitespace
+2. Convert to lowercase
+3. Strip leading/trailing punctuation (periods, commas, exclamation marks, etc.)
+4. Each token is looked up in the clip library for the active group
+5. Tokens with no matching clip are skipped (not an error - just omitted from output)
+6. Empty input or zero matched clips returns an error
 
-Four standard packs available for bulk generation:
+**Examples**:
 
-| Pack | Word Count | Contents | Use Case |
-|------|-----------|----------|----------|
-| **Common English 500** | ~500 | Most frequent English words (the, a, is, that, etc.) | General announcements |
-| **NATO Phonetic** | 26 | Alpha through Zulu | Code/ID announcements |
-| **Numbers 0-100** | 101 | Zero through one hundred | Numeric announcements |
-| **Half-Life Classic** | ~87 | Iconic HL1 VOX phrases | Themed announcements |
-
-**Half-Life Pack Contents** (examples):
-- Alerts: `warning`, `alert`, `caution`, `attention`
-- Locations: `sector`, `area`, `level`, `facility`, `chamber`, `lab`
-- Status: `containment`, `lockdown`, `evacuation`, `emergency`, `hazard`
-- Technical: `system`, `failure`, `malfunction`, `reactor`, `core`, `power`
-- Actions: `detected`, `initiated`, `commence`, `complete`, `terminated`
-- Personnel: `personnel`, `employee`, `scientist`, `security`, `intruder`
-
-### Unknown Word Handling
-
-When a word is not in the cache:
-
-1. **If `AutoGenerateMissingWords = true`**:
-   - Generate clip on-demand via Azure TTS
-   - Cache for future use
-   - Include in output
-   - Cost: Incurred at message time
-
-2. **If `AutoGenerateMissingWords = false`**:
-   - Skip the word (omit from output)
-   - Log a warning
-   - Continue processing remaining words
-   - Cost: Zero
-
-3. **If word is invalid** (special characters, too long, etc.):
-   - Return error status
-   - Skip the word
-   - Log validation error
-
-### Import/Export
-
-**Export Format**: ZIP file containing PCM clips and metadata
-
-```
-vox-export-en-US-GuyNeural.zip
-├── metadata.json
-│   {
-│     "voice": "en-US-GuyNeural",
-│     "exportDate": "2026-02-02T10:30:00Z",
-│     "wordCount": 1247,
-│     "totalSizeBytes": 25698304,
-│     "words": [
-│       { "word": "attention", "size": 18648, "duration": 0.8 }
-│     ]
-│   }
-├── clips/
-│   ├── attention.pcm
-│   ├── all.pcm
-│   ├── personnel.pcm
-│   └── ...
-```
-
-**Import Process**:
-1. Extract ZIP
-2. Validate metadata
-3. Write clips to `sounds/vox/{guildId}/{voice}/`
-4. Add entries to `VoxWord` table
-5. Report results (imported, skipped, errors)
+| Input | Tokens | Matched (assuming vox group) |
+|-------|--------|------------------------------|
+| `"warning security breach"` | `[warning, security, breach]` | All matched |
+| `"attention all personnel!"` | `[attention, all, personnel]` | All matched |
+| `"hello world"` | `[hello, world]` | Depends on clip availability |
+| `"sector 7"` | `[sector, 7]` | `sector` matched, `7` skipped if no `7.mp3` |
 
 ---
 
@@ -845,111 +431,56 @@ vox-export-en-US-GuyNeural.zip
 ### Complete Flow
 
 ```
-User: /vox "warning, biohazard detected in sector c"
-  │
-  ▼
-1. VoxModule validates input
-   ├─ VOX enabled? ✓
-   ├─ User in voice channel? ✓
-   ├─ Rate limit OK? ✓
-   └─ Message length valid? ✓
-  │
-  ▼
-2. VoxTokenizer.Tokenize()
-   "warning, biohazard detected in sector c"
-   → [warning, _pause(150ms), biohazard, detected, in, sector, c]
-  │
-  ▼
-3. VoxWordBankService.GetCacheStatusAsync()
-   Check which words are cached:
-   ├─ warning → Cached ✓
-   ├─ biohazard → WillGenerate ⚠
-   ├─ detected → Cached ✓
-   ├─ in → Cached ✓
-   ├─ sector → Cached ✓
-   └─ c → Cached ✓
-  │
-  ▼
-4. VoxWordBankService — Generate missing words IN PARALLEL
-   ├─ Partition words into cached vs. uncached
-   ├─ Acquire SemaphoreSlim (concurrency = WordGenerationConcurrency)
-   ├─ Launch Task.WhenAll() for all uncached words:
-   │   ├─ Build SSML with flat prosody
-   │   ├─ Call AzureTtsService
-   │   ├─ Get PCM stream
-   │   ├─ Save to sounds/vox/{guildId}/{voice}/
-   │   ├─ Record in VoxWord table
-   │   └─ Report progress (thread-safe increment)
-   └─ Await all tasks; collect results
-  │
-  ▼
-5. VoxWordBankService.GetClipAsync() for all words
-   Return ordered list of VoxClip:
-   ├─ VoxClip("warning", pcmBytes[1], 0.6s)
-   ├─ VoxClip("biohazard", pcmBytes[2], 0.9s)
-   ├─ VoxClip("detected", pcmBytes[3], 0.5s)
-   ├─ VoxClip("in", pcmBytes[4], 0.2s)
-   ├─ VoxClip("sector", pcmBytes[5], 0.6s)
-   └─ VoxClip("c", pcmBytes[6], 0.3s)
-  │
-  ▼
-6. VoxConcatenationService.ConcatenateAsync()
-   Join clips with 50ms silence gaps:
-   ├─ warning[0.6s]
-   ├─ [silence 50ms]
-   ├─ 150ms pause from comma
-   ├─ [silence 150ms]
-   ├─ biohazard[0.9s]
-   ├─ [silence 50ms]
-   ├─ detected[0.5s]
-   ├─ [silence 50ms]
-   ├─ in[0.2s]
-   ├─ [silence 50ms]
-   ├─ sector[0.6s]
-   ├─ [silence 50ms]
-   └─ c[0.3s]
-   → Concatenated PCM bytes (~4.5 seconds total)
-  │
-  ▼
-7. VoxFilterService.ApplyFilterAsync()
-   Pipe concatenated PCM through FFmpeg:
-   ├─ highpass=f=300
-   ├─ lowpass=f=3400
-   ├─ acompressor=threshold=-20dB:ratio=4:attack=5:release=50
-   ├─ volume=1.2
-   → Filtered PCM bytes
-  │
-  ▼
-8. PlaybackService.PlayAsync()
-   ├─ Create temporary Sound object from filtered PCM
-   ├─ Stream to Discord via AudioOutStream
-   ├─ Emit playback events (started, progress, finished)
-  │
-  ▼
-9. VoxMessage logged to database
-   ├─ GuildId, UserId, Username, Message
-   ├─ WordCount, DurationSeconds, Voice, PaFilter
-   ├─ CreatedAt
-  │
-  ▼
-Success! User sees toast notification
+User: /vox message:"warning security breach detected in sector c"
+  |
+  v
+1. VoxModule receives command
+   - User in voice channel? Check
+   - Rate limit OK? Check
+   |
+   v
+2. VoxService.PlayAsync()
+   |
+   v
+3. Tokenize: "warning security breach detected in sector c"
+   -> [warning, security, breach, detected, in, sector, c]
+   |
+   v
+4. VoxClipLibrary.GetClip() for each token (vox group)
+   - warning   -> sounds/vox/warning.mp3   (found)
+   - security  -> sounds/vox/security.mp3  (found)
+   - breach    -> sounds/vox/breach.mp3    (found)
+   - detected  -> sounds/vox/detected.mp3  (found)
+   - in        -> sounds/vox/in.mp3        (found)
+   - sector    -> sounds/vox/sector.mp3    (found)
+   - c         -> sounds/vox/c.mp3         (found)
+   |
+   v
+5. VoxConcatenationService.ConcatenateAsync()
+   Concatenate 7 MP3 clips with 50ms silence gaps:
+   [warning.mp3][50ms gap][security.mp3][50ms gap]...
+   -> Temporary concatenated audio file
+   |
+   v
+6. PlaybackService.PlayAsync()
+   Stream concatenated audio to Discord via FFmpeg -> Opus
+   |
+   v
+7. Clean up temporary file
 
+8. Return result:
+   { matched: [warning,security,breach,detected,in,sector,c], skipped: [] }
 ```
 
 ### Performance Characteristics
 
 | Operation | Time | Notes |
 |-----------|------|-------|
-| Tokenization | <10ms | Local parsing |
-| Cache lookup | ~50-100ms | Batch DB query for all tokens |
-| Word generation (per word) | 500-2000ms | Azure TTS latency per call |
-| Parallel generation (N words, C concurrency) | ~ceil(N/C) * 1s | e.g. 6 words at concurrency 3 ≈ 2 batches ≈ 2s |
-| Bulk generation (500 words, concurrency 3) | ~2.5-5 min | Parallel with SemaphoreSlim throttle |
-| Concatenation | 10-50ms | In-memory byte array join |
-| Filtering (FFmpeg) | 100-500ms | Depends on audio length and filters |
-| **Total (all cached)** | ~200-300ms | Fastest path |
-| **Total (3 uncached, concurrency 3)** | ~1.5-3s | Single parallel batch + pipeline |
-| **Total (10 uncached, concurrency 3)** | ~3-8s | ~4 parallel batches + pipeline |
+| Tokenization | <1ms | String split + lookup |
+| Clip resolution | <1ms | Dictionary lookup per token |
+| Concatenation (FFmpeg) | 100-500ms | Depends on clip count and sizes |
+| Playback start | ~100ms | Existing PlaybackService latency |
+| **Total** | ~200-600ms | From command to first audio |
 
 ---
 
@@ -957,120 +488,142 @@ Success! User sees toast notification
 
 ### /vox
 
-Send a VOX announcement.
+Play a VOX announcement using clips from the `vox` group.
 
-**Module**: `VoxModule` (Discord.Commands)
-
-**Command Definition**:
 ```csharp
+[SlashCommand("vox", "Play a VOX announcement (Half-Life PA system)")]
 [RequireGuildActive]
-[RequireVoxEnabled]
+[RequireAudioEnabled]
 [RequireVoiceChannel]
 [RateLimit(5, 10)]
 public async Task VoxAsync(
-    [Summary("message", "Announcement text")] string message,
-    [Summary("voice", "Voice preset")] string? voice = null,
-    [Summary("filter", "PA filter (off/light/heavy)")] string? filter = null,
-    [Summary("gap", "Word gap in ms (20-200)")] int? gap = null)
+    [Summary("message", "Words to announce (space-separated)")]
+    [MaxLength(500)]
+    string message,
+
+    [Summary("gap", "Silence between words in ms (20-200, default 50)")]
+    [MinValue(20)]
+    [MaxValue(200)]
+    int? gap = null)
+```
+
+### /fvox
+
+Play a FVOX announcement using clips from the `fvox` group.
+
+```csharp
+[SlashCommand("fvox", "Play a FVOX announcement (Half-Life HEV suit)")]
+[RequireGuildActive]
+[RequireAudioEnabled]
+[RequireVoiceChannel]
+[RateLimit(5, 10)]
+public async Task FvoxAsync(
+    [Summary("message", "Words to announce (space-separated)")]
+    [MaxLength(500)]
+    string message,
+
+    [Summary("gap", "Silence between words in ms (20-200, default 50)")]
+    [MinValue(20)]
+    [MaxValue(200)]
+    int? gap = null)
+```
+
+### /hgrunt
+
+Play an HGrunt announcement using clips from the `hgrunt` group.
+
+```csharp
+[SlashCommand("hgrunt", "Play an HGrunt announcement (Half-Life military radio)")]
+[RequireGuildActive]
+[RequireAudioEnabled]
+[RequireVoiceChannel]
+[RateLimit(5, 10)]
+public async Task HgruntAsync(
+    [Summary("message", "Words to announce (space-separated)")]
+    [MaxLength(500)]
+    string message,
+
+    [Summary("gap", "Silence between words in ms (20-200, default 50)")]
+    [MinValue(20)]
+    [MaxValue(200)]
+    int? gap = null)
+```
+
+### Autocomplete
+
+Each command's `message` parameter uses an autocomplete handler that suggests available clip names as the user types. Since Discord autocomplete fires on partial input, the handler provides word-level suggestions for the last word being typed.
+
+```csharp
+public class VoxAutocompleteHandler : AutocompleteHandler
 {
-    // Implementation
+    private readonly IVoxClipLibrary _clipLibrary;
+    private readonly VoxClipGroup _group;
+
+    public override async Task<AutocompletionResult> GenerateSuggestionsAsync(
+        IInteractionContext context,
+        IAutocompleteInteraction interaction,
+        IParameterInfo parameter,
+        IServiceProvider services)
+    {
+        var currentInput = interaction.Data.Current.Value?.ToString() ?? "";
+
+        // Get the last word being typed (for mid-sentence autocomplete)
+        var words = currentInput.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        var lastWord = words.LastOrDefault() ?? "";
+        var prefix = words.Length > 1
+            ? string.Join(' ', words.Take(words.Length - 1)) + " "
+            : "";
+
+        var suggestions = _clipLibrary.SearchClips(_group, lastWord, 25)
+            .Select(clip => new AutocompleteResult(
+                $"{prefix}{clip.Name}",     // Full text with suggestion appended
+                $"{prefix}{clip.Name}"))
+            .ToList();
+
+        return AutocompletionResult.FromSuccess(suggestions);
+    }
 }
 ```
 
-**Parameters**:
+Three derived autocomplete handlers (one per group), or a single handler with group resolution based on the command name.
 
-| Parameter | Type | Required | Default | Description |
-|-----------|------|----------|---------|-------------|
-| `message` | string | Yes | - | Announcement text (max 500 chars, validated for word count) |
-| `voice` | string | No | Guild default | Voice identifier with autocomplete |
-| `filter` | choice | No | Guild default | `off`, `light`, `heavy` |
-| `gap` | int | No | Guild default | Word gap 20-200ms |
+### Module Structure
 
-**Autocomplete**:
-- `voice` parameter suggests available Azure voices
-
-**Preconditions**:
-- `[RequireGuildActive]` - Guild must be active (bot is in server)
-- `[RequireVoxEnabled]` - VOX enabled for guild (settings check)
-- `[RequireVoiceChannel]` - User must be in a voice channel
-- `[RateLimit(5, 10)]` - Command-level: 5 invocations per 10 seconds + guild-level per-minute
-
-**Behavior**:
-1. Validate parameters
-2. Check rate limits (command + guild level)
-3. Auto-join user's voice channel if needed
-4. Tokenize message
-5. Check cache status
-6. Generate missing words (if auto-generate enabled)
-7. Concatenate and filter
-8. Stream to Discord
-9. Log to audit trail
-10. Return ephemeral success/error message
-
-**Example Usage**:
-```
-/vox message:"attention all personnel security breach detected"
-/vox message:"sector seven lockdown initiated" voice:en-US-AriaNeural filter:heavy gap:75
-```
-
-### /vox-admin (Admin Only)
-
-Administrative commands for VOX configuration and word bank management.
-
-**Module**: `VoxAdminModule`
-
-**Precondition**: `[RequireAdmin]` policy
-
-#### /vox-admin config
-
-View/edit VOX settings for guild.
+All three commands can live in a single module or separate modules. Single module approach:
 
 ```csharp
-[SlashCommand("config", "View or edit VOX configuration")]
-public async Task ConfigAsync() { ... }
+[Group("vox")]  // Not actually grouped - each is a top-level command
+public class VoxModule : InteractionModuleBase<SocketInteractionContext>
+{
+    private readonly IVoxService _voxService;
+
+    // Each method delegates to a shared helper with the appropriate group
+    private async Task PlayVoxAsync(string message, VoxClipGroup group, int? gap)
+    {
+        var options = new VoxPlaybackOptions
+        {
+            WordGapMs = gap ?? 50
+        };
+
+        await DeferAsync();
+
+        var result = await _voxService.PlayAsync(
+            Context.Guild.Id, message, group, options);
+
+        if (result.Success)
+        {
+            var response = $"Playing: {string.Join(" ", result.MatchedWords)}";
+            if (result.SkippedWords.Any())
+                response += $"\nSkipped (no clip): {string.Join(", ", result.SkippedWords)}";
+            await FollowupAsync(response, ephemeral: true);
+        }
+        else
+        {
+            await FollowupAsync($"Error: {result.ErrorMessage}", ephemeral: true);
+        }
+    }
+}
 ```
-
-Opens a modal or ephemeral embed showing current settings with edit buttons (triggers separate commands or slash command groups).
-
-#### /vox-admin wordbank-status
-
-Show word bank statistics.
-
-```csharp
-[SlashCommand("wordbank-status", "Show word bank statistics")]
-public async Task WordBankStatusAsync() { ... }
-```
-
-**Response** (ephemeral embed):
-```
-📊 VOX Word Bank Statistics
-━━━━━━━━━━━━━━━━━━━━━━━━
-Total Words: 1,247
-Total Size: 24.5 MB
-Voices: 3
-  • en-US-GuyNeural: 450 words
-  • en-US-AriaNeural: 500 words
-  • en-GB-RyanNeural: 297 words
-```
-
-#### /vox-admin generate-pack
-
-Bulk generate a predefined word pack.
-
-```csharp
-[SlashCommand("generate-pack", "Generate a word pack")]
-public async Task GeneratePackAsync(
-    [Summary("pack", "Word pack to generate")]
-    [Choice("Common English 500", "common-500")]
-    [Choice("NATO Phonetic", "nato-phonetic")]
-    [Choice("Numbers 0-100", "numbers")]
-    [Choice("Half-Life Classic", "halflife-classic")]
-    string packId,
-    [Summary("voice", "Voice to use")] string? voice = null)
-{ ... }
-```
-
-Shows progress modal during generation.
 
 ---
 
@@ -1081,47 +634,32 @@ Shows progress modal during generation.
 ```json
 {
   "Vox": {
-    "DefaultVoice": "en-US-GuyNeural",
+    "BasePath": "./sounds",
     "DefaultWordGapMs": 50,
-    "DefaultPaFilter": "Heavy",
-    "MaxWordLength": 30,
     "MaxMessageWords": 50,
-    "CachePath": "./sounds/vox",
-    "SupportedFormats": ["pcm"],
-    "AutoGenerateMissingWords": true,
-    "WordGenerationConcurrency": 3
+    "MaxMessageLength": 500
   }
 }
 ```
 
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
-| `DefaultVoice` | string | `"en-US-GuyNeural"` | Default voice for new guilds |
-| `DefaultWordGapMs` | int | `50` | Default silence between words (ms) |
-| `DefaultPaFilter` | string | `"Heavy"` | Default PA filter preset |
-| `MaxWordLength` | int | `30` | Maximum characters per word |
-| `MaxMessageWords` | int | `50` | Default max words per message |
-| `CachePath` | string | `"./sounds/vox"` | Base directory for word cache |
-| `SupportedFormats` | array | `["pcm"]` | Audio format types |
-| `AutoGenerateMissingWords` | bool | `true` | Generate words on-demand by default |
-| `WordGenerationConcurrency` | int | `3` | Parallel word generation limit |
+| `BasePath` | string | `"./sounds"` | Base directory containing `vox/`, `fvox/`, `hgrunt/` folders |
+| `DefaultWordGapMs` | int | `50` | Default silence between clips (ms) |
+| `MaxMessageWords` | int | `50` | Maximum words per message |
+| `MaxMessageLength` | int | `500` | Maximum characters per message |
 
-### Binding to Options Pattern
+### Options Class
 
 ```csharp
 public class VoxOptions
 {
     public const string SectionName = "Vox";
 
-    public string DefaultVoice { get; set; } = "en-US-GuyNeural";
+    public string BasePath { get; set; } = "./sounds";
     public int DefaultWordGapMs { get; set; } = 50;
-    public string DefaultPaFilter { get; set; } = "Heavy";
-    public int MaxWordLength { get; set; } = 30;
     public int MaxMessageWords { get; set; } = 50;
-    public string CachePath { get; set; } = "./sounds/vox";
-    public List<string> SupportedFormats { get; set; } = new() { "pcm" };
-    public bool AutoGenerateMissingWords { get; set; } = true;
-    public int WordGenerationConcurrency { get; set; } = 3;
+    public int MaxMessageLength { get; set; } = 500;
 }
 ```
 
@@ -1131,133 +669,55 @@ public class VoxOptions
 
 ### Registration Extension
 
-Create `src/DiscordBot.Bot/Extensions/VoxServiceExtensions.cs`:
-
 ```csharp
-using DiscordBot.Bot.Interfaces;
-using DiscordBot.Bot.Services;
-using DiscordBot.Core.Configuration;
-using DiscordBot.Core.Interfaces;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-
-namespace DiscordBot.Bot.Extensions;
-
-/// <summary>
-/// Extension methods for registering VOX services.
-/// </summary>
 public static class VoxServiceExtensions
 {
-    /// <summary>
-    /// Adds all VOX-related services to the service collection.
-    /// </summary>
     public static IServiceCollection AddVox(
         this IServiceCollection services,
         IConfiguration configuration)
     {
-        // Bind configuration
         services.Configure<VoxOptions>(
             configuration.GetSection(VoxOptions.SectionName));
 
-        // Core VOX orchestrator (singleton - manages state)
-        services.AddSingleton<IVoxService, VoxService>();
+        // Clip library (singleton - loaded once at startup, held in memory)
+        services.AddSingleton<IVoxClipLibrary, VoxClipLibrary>();
 
-        // Word bank manager (singleton - manages disk I/O and cache)
-        services.AddSingleton<IVoxWordBankService, VoxWordBankService>();
-
-        // Audio processing (singleton - stateless)
+        // Concatenation service (singleton - stateless FFmpeg operations)
         services.AddSingleton<IVoxConcatenationService, VoxConcatenationService>();
-        services.AddSingleton<IVoxFilterService, VoxFilterService>();
 
-        // Text tokenization (transient - thread-safe, stateless)
-        services.AddTransient<IVoxTokenizer, VoxTokenizer>();
-
-        // Data services (scoped - per-request)
-        services.AddScoped<IVoxSettingsService, VoxSettingsService>();
-        services.AddScoped<IVoxHistoryService, VoxHistoryService>();
+        // VOX orchestrator (scoped - per-request pipeline coordination)
+        services.AddScoped<IVoxService, VoxService>();
 
         return services;
     }
 }
 ```
 
-### Registration in Program.cs
+### Startup Initialization
 
 ```csharp
-// In Program.cs, after voice support:
+// In Program.cs
 builder.Services.AddVox(builder.Configuration);
+
+// After app.Build(), initialize the clip library
+var clipLibrary = app.Services.GetRequiredService<IVoxClipLibrary>();
+await clipLibrary.InitializeAsync();
 ```
 
----
+Or use `IHostedService` to initialize during startup:
 
-## Database Schema
+```csharp
+public class VoxClipLibraryInitializer : IHostedService
+{
+    private readonly IVoxClipLibrary _clipLibrary;
 
-### EF Core Migrations
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        await _clipLibrary.InitializeAsync(cancellationToken);
+    }
 
-Create migration:
-```bash
-dotnet ef migrations add AddVoxSystem \
-  --project src/DiscordBot.Infrastructure \
-  --startup-project src/DiscordBot.Bot
-```
-
-### Table Definitions
-
-#### GuildVoxSettings
-```sql
-CREATE TABLE GuildVoxSettings (
-    GuildId BIGINT PRIMARY KEY,
-    VoxEnabled BIT NOT NULL DEFAULT 0,
-    DefaultVoice NVARCHAR(100) NOT NULL DEFAULT 'en-US-GuyNeural',
-    DefaultPaFilter NVARCHAR(20) NOT NULL DEFAULT 'Heavy',
-    DefaultWordGapMs INT NOT NULL DEFAULT 50,
-    MaxMessageWords INT NOT NULL DEFAULT 50,
-    RateLimitPerMinute INT NOT NULL DEFAULT 5,
-    AutoGenerateMissingWords BIT NOT NULL DEFAULT 1,
-    CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    UpdatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    FOREIGN KEY (GuildId) REFERENCES Guilds(Id)
-);
-```
-
-#### VoxWords
-```sql
-CREATE TABLE VoxWords (
-    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    GuildId BIGINT NOT NULL,
-    Word NVARCHAR(100) NOT NULL,
-    Voice NVARCHAR(100) NOT NULL,
-    FilePath NVARCHAR(500) NOT NULL,
-    FileSizeBytes BIGINT NOT NULL,
-    DurationSeconds FLOAT NOT NULL,
-    CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    FOREIGN KEY (GuildId) REFERENCES Guilds(Id),
-    UNIQUE INDEX IX_VoxWords_GuildIdWordVoice (GuildId, Word, Voice)
-);
-
-CREATE INDEX IX_VoxWords_GuildId ON VoxWords(GuildId);
-CREATE INDEX IX_VoxWords_Voice ON VoxWords(Voice);
-```
-
-#### VoxMessages
-```sql
-CREATE TABLE VoxMessages (
-    Id UNIQUEIDENTIFIER PRIMARY KEY DEFAULT NEWID(),
-    GuildId BIGINT NOT NULL,
-    UserId BIGINT NOT NULL,
-    Username NVARCHAR(255) NOT NULL,
-    Message NVARCHAR(MAX) NOT NULL,
-    WordCount INT NOT NULL,
-    DurationSeconds FLOAT NOT NULL,
-    Voice NVARCHAR(100) NOT NULL,
-    PaFilter NVARCHAR(20) NOT NULL,
-    CreatedAt DATETIME2 NOT NULL DEFAULT GETUTCDATE(),
-    FOREIGN KEY (GuildId) REFERENCES Guilds(Id)
-);
-
-CREATE INDEX IX_VoxMessages_GuildId ON VoxMessages(GuildId);
-CREATE INDEX IX_VoxMessages_UserId ON VoxMessages(UserId);
-CREATE INDEX IX_VoxMessages_CreatedAt ON VoxMessages(CreatedAt);
+    public Task StopAsync(CancellationToken cancellationToken) => Task.CompletedTask;
+}
 ```
 
 ---
@@ -1266,41 +726,60 @@ CREATE INDEX IX_VoxMessages_CreatedAt ON VoxMessages(CreatedAt);
 
 ### Portal VOX Endpoints
 
-Portal pages reference the [vox-ui-spec.md](vox-ui-spec.md) for full request/response schemas.
+#### `GET /api/portal/vox/{guildId}/clips`
 
-#### `GET /api/portal/vox/{guildId}/status`
+Get available clips for a group with optional search.
 
-Get current VOX system status for a guild.
+**Query Parameters**:
+- `group` (required): `vox`, `fvox`, or `hgrunt`
+- `search` (optional): Filter clips by name
 
 **Response**:
 ```json
 {
-  "isConnected": true,
-  "currentChannelId": "123456789012345678",
-  "currentChannelName": "General Voice",
-  "isPlaying": false,
-  "currentMessage": null,
-  "maxMessageWords": 50,
-  "rateLimitPerMinute": 5,
-  "defaultVoice": "en-US-GuyNeural",
-  "defaultPaFilter": "heavy",
-  "defaultWordGapMs": 50
+  "group": "vox",
+  "clips": [
+    { "name": "attention", "durationSeconds": 0.8, "fileSizeBytes": 12800 },
+    { "name": "warning", "durationSeconds": 0.6, "fileSizeBytes": 9600 },
+    { "name": "all", "durationSeconds": 0.3, "fileSizeBytes": 4800 }
+  ],
+  "totalClips": 187
 }
 ```
 
-#### `POST /api/portal/vox/{guildId}/send`
+#### `GET /api/portal/vox/{guildId}/preview`
 
-Send a VOX announcement.
+Parse a message and return token preview (which words have clips, which don't).
+
+**Query Parameters**:
+- `message` (required): Text to tokenize
+- `group` (required): `vox`, `fvox`, or `hgrunt`
+
+**Response**:
+```json
+{
+  "tokens": [
+    { "word": "attention", "hasClip": true, "durationSeconds": 0.8 },
+    { "word": "all", "hasClip": true, "durationSeconds": 0.3 },
+    { "word": "personnel", "hasClip": true, "durationSeconds": 1.1 },
+    { "word": "hello", "hasClip": false, "durationSeconds": 0.0 }
+  ],
+  "matchedCount": 3,
+  "skippedCount": 1,
+  "estimatedDurationSeconds": 2.35
+}
+```
+
+#### `POST /api/portal/vox/{guildId}/play`
+
+Play a VOX announcement.
 
 **Request**:
 ```json
 {
-  "mode": "freetext",
-  "message": "attention all personnel security breach in sector c",
-  "voice": "en-US-GuyNeural",
-  "wordGapMs": 50,
-  "paFilter": "heavy",
-  "customFilterSettings": null
+  "message": "attention all personnel security breach",
+  "group": "vox",
+  "wordGapMs": 50
 }
 ```
 
@@ -1308,47 +787,15 @@ Send a VOX announcement.
 ```json
 {
   "success": true,
-  "message": "VOX announcement queued",
-  "generatedWords": ["security", "breach"],
-  "cachedWords": ["attention", "all", "personnel", "in", "sector", "c"],
-  "estimatedDurationSeconds": 4.2
-}
-```
-
-#### `GET /api/portal/vox/{guildId}/token-preview`
-
-Parse a message and return token preview with cache status.
-
-**Query Parameters**:
-- `message` (required): Text to parse
-- `voice` (optional): Voice to check cache against
-
-**Response**:
-```json
-{
-  "tokens": [
-    {
-      "word": "attention",
-      "status": "cached",
-      "durationSeconds": 0.8
-    },
-    {
-      "word": "security",
-      "status": "will_generate",
-      "durationSeconds": 0.0
-    }
-  ],
-  "totalWords": 7,
-  "cachedWords": 5,
-  "willGenerate": 1,
-  "errorWords": 0,
-  "estimatedDurationSeconds": 4.2
+  "matchedWords": ["attention", "all", "personnel", "security", "breach"],
+  "skippedWords": [],
+  "estimatedDurationSeconds": 3.5
 }
 ```
 
 #### `POST /api/portal/vox/{guildId}/stop`
 
-Stop current VOX playback.
+Stop current playback (delegates to existing PlaybackService stop).
 
 **Response**:
 ```json
@@ -1358,132 +805,6 @@ Stop current VOX playback.
 }
 ```
 
-### Admin VOX Endpoints
-
-#### `GET /api/guilds/{guildId}/vox/config`
-
-Get VOX configuration.
-
-**Response**:
-```json
-{
-  "isEnabled": true,
-  "defaultVoice": "en-US-GuyNeural",
-  "defaultPaFilter": "heavy",
-  "defaultWordGapMs": 50,
-  "maxMessageWords": 50,
-  "rateLimitPerMinute": 5,
-  "autoGenerateMissingWords": true
-}
-```
-
-#### `PUT /api/guilds/{guildId}/vox/config`
-
-Update VOX configuration.
-
-**Request**: Same as GET response.
-
-#### `GET /api/guilds/{guildId}/vox/wordbank`
-
-Get word bank with pagination and search.
-
-**Query Parameters**:
-- `page` (default 1)
-- `pageSize` (default 50)
-- `search` (optional)
-- `voice` (optional)
-- `sort` (default "dateAdded")
-- `order` (default "desc")
-
-**Response**:
-```json
-{
-  "stats": {
-    "totalWords": 1247,
-    "totalSizeBytes": 25698304,
-    "voicesUsed": 3
-  },
-  "words": [
-    {
-      "id": "uuid-here",
-      "word": "attention",
-      "voice": "en-US-GuyNeural",
-      "fileSizeBytes": 18648,
-      "durationSeconds": 0.8,
-      "dateAdded": "2026-01-15T10:30:00Z"
-    }
-  ],
-  "pagination": {
-    "currentPage": 1,
-    "totalPages": 25,
-    "totalItems": 1247,
-    "pageSize": 50
-  }
-}
-```
-
-#### `POST /api/guilds/{guildId}/vox/wordbank/generate`
-
-Bulk generate words.
-
-**Request**:
-```json
-{
-  "words": ["attention", "all", "personnel"],
-  "voice": "en-US-GuyNeural",
-  "packId": null
-}
-```
-
-Or use predefined pack:
-```json
-{
-  "words": null,
-  "voice": "en-US-GuyNeural",
-  "packId": "common-500"
-}
-```
-
-**Response**:
-```json
-{
-  "success": true,
-  "message": "Generated 453 words",
-  "generated": 453,
-  "alreadyCached": 47,
-  "failed": 0
-}
-```
-
-#### `DELETE /api/guilds/{guildId}/vox/wordbank/{wordId}`
-
-Delete a word from word bank.
-
-#### `POST /api/guilds/{guildId}/vox/wordbank/purge`
-
-Purge word bank cache.
-
-**Request**:
-```json
-{
-  "voice": "en-US-GuyNeural",
-  "all": false
-}
-```
-
-#### `POST /api/guilds/{guildId}/vox/wordbank/import`
-
-Import word bank from ZIP file.
-
-**Request**: `multipart/form-data` with file field.
-
-#### `GET /api/guilds/{guildId}/vox/wordbank/export`
-
-Export word bank as ZIP file.
-
-**Query Parameters**:
-- `voice` (optional): Export specific voice
-
 ---
 
 ## Security & Rate Limiting
@@ -1491,117 +812,57 @@ Export word bank as ZIP file.
 ### Authorization
 
 **Portal Pages**:
-- `[Authorize(Policy = "PortalGuildMember")]`
-- Guild membership verified via Discord API
+- `[Authorize(Policy = "PortalGuildMember")]` - Guild membership required
 - Rate limiting enforced per-user
 
-**Admin Pages**:
-- `[Authorize(Policy = "RequireAdmin")]`
-- Admin role required
-- No rate limiting (admins can bulk generate)
+**Slash Commands**:
+- `[RequireGuildActive]` - Guild must be active
+- `[RequireAudioEnabled]` - Audio must be enabled for guild
+- `[RequireVoiceChannel]` - User must be in voice channel
 
 ### Rate Limiting
 
-**Command-Level**:
 ```csharp
-[RateLimit(5, 10)]  // 5 invocations per 10 seconds
-public async Task VoxAsync(...) { ... }
+[RateLimit(5, 10)]  // 5 invocations per 10 seconds (matches existing soundboard)
 ```
-
-**Guild-Level**:
-- Key: `vox:{guildId}:{userId}`
-- Value: `GuildVoxSettings.RateLimitPerMinute` (default: 5)
-- Duration: 1 minute sliding window
-- Enforced at API endpoint level
 
 ### Input Validation
 
 | Input | Validation | Error |
 |-------|-----------|-------|
 | Message text | Max 500 chars, max 50 words | 400 Bad Request |
-| Word text | Alphanumeric only, max 30 chars | Error token status |
-| Voice identifier | Must exist in Azure voices | 400 Bad Request |
 | Word gap | 20-200 ms | 400 Bad Request |
-| Filter preset | Off/Light/Heavy/Custom | 400 Bad Request |
+| Group | Must be `vox`, `fvox`, or `hgrunt` | 400 Bad Request |
+| Empty message | At least 1 word required | 400 Bad Request |
+| Zero matched clips | At least 1 clip must match | 400 (with list of unmatched words) |
 
-### File Path Sanitization
+### Filesystem Safety
 
-Word clips stored in `sounds/vox/{guildId}/{voice}/`:
-- Sanitize word text (alphanumeric + underscore)
-- Use hash for collision avoidance
-- Never allow directory traversal (`../`, `..\\`)
-- Restrict to PCM format only
-
-### Azure Speech Key Protection
-
-- Never commit `AzureSpeech:SubscriptionKey` to source control
-- Use user secrets for local development
-- Use environment variables or Azure Key Vault for production
+Clip names are derived from filenames at startup (not user input), so path traversal is not a risk for clip resolution. User input is only used as dictionary keys for lookup - never directly in file paths.
 
 ---
 
-## Cost Management
+## Future Expansion
 
-### Azure Speech Pricing (as of 2026)
+The simplified design leaves room for the following enhancements (see v1.0 spec for detailed designs):
 
-- **Neural Voices**: ~$16 per 1 million characters
-- **Free Tier**: 0.5 million characters free per month
-
-### Cost Optimization Strategies
-
-1. **Word Bank Caching**
-   - Generate once, play many times
-   - Reuse common words across messages
-   - Example: "attention" generated once, used 100 times = 0.1% cost of non-cached
-
-2. **Bulk Generation**
-   - Generate popular word packs upfront
-   - Example: Generate 500-word pack once during off-hours
-   - Cost: ~$8 for 500 words = much cheaper than generating on-demand
-
-3. **Rate Limiting**
-   - Enforce per-minute limits to prevent spam
-   - Default: 5 messages per user per minute
-   - Prevent bot abuse
-
-4. **Max Message Words**
-   - Default: 50 words max per message
-   - Limits generation cost per message
-   - Configurable per guild
-
-5. **Monitoring**
-   - Track usage via `VoxMessage` table
-   - Alert on unusual spikes
-   - Disable VOX for inactive guilds
-
-### Usage Monitoring Query
-
-```sql
-SELECT
-    GuildId,
-    COUNT(*) AS MessageCount,
-    SUM(WordCount) AS TotalWords,
-    SUM(DurationSeconds) AS TotalDurationSeconds,
-    COUNT(DISTINCT UserId) AS UniqueUsers
-FROM VoxMessages
-WHERE CreatedAt >= CAST(CAST(GETUTCDATE() AS DATE) - 30 AS DATETIME2)
-GROUP BY GuildId
-ORDER BY TotalWords DESC;
-```
+- **PA System Filters** - FFmpeg bandpass/compression/distortion filter chain for authentic Half-Life sound (Off/Light/Heavy presets)
+- **Azure TTS word generation** - Generate new clips on-demand for words not in the static library
+- **Per-guild custom clips** - Allow guilds to upload/generate their own word clips
+- **Sentence Builder UI** - Drag-and-drop composition interface
+- **Word bank management** - Admin UI for bulk generation, import/export
+- **Custom filter parameter UI** - Sliders for highpass, lowpass, compression, distortion
+- **VoxMessage audit logging** - Database tracking of VOX usage
 
 ---
 
 ## Related Documentation
 
-- **[vox-ui-spec.md](vox-ui-spec.md)** - VOX Portal UI/UX design and component specifications
-- **[tts-support.md](tts-support.md)** - Existing TTS system (VOX builds on this)
+- **[vox-ui-spec.md](vox-ui-spec.md)** - VOX Portal UI/UX design
+- **[tts-support.md](tts-support.md)** - Existing TTS system
 - **[audio-dependencies.md](audio-dependencies.md)** - FFmpeg, libsodium, opus setup
-- **[database-schema.md](database-schema.md)** - Entity relationships and schema patterns
 - **[component-api.md](component-api.md)** - Razor UI components
 - **[design-system.md](design-system.md)** - Design tokens and colors
-- **[authorization-policies.md](authorization-policies.md)** - Role-based access control
-- **[Azure Speech Service Documentation](https://learn.microsoft.com/azure/ai-services/speech-service/)** - Official Azure docs
-- **[FFmpeg Documentation](https://ffmpeg.org/documentation.html)** - Audio filter documentation
 
 ---
 
@@ -1609,47 +870,22 @@ ORDER BY TotalWords DESC;
 
 ### Phased Rollout
 
-**Phase 1**: Core services (tokenizer, word bank, concatenation, filter)
-**Phase 2**: Portal UI (free text mode, then sentence builder)
-**Phase 3**: Admin UI (settings, word bank management)
-**Phase 4**: Slash commands and public API
-**Phase 5**: Polish, testing, documentation
+**Phase 1**: Core services (clip library, concatenation, VoxService) + slash commands
+**Phase 2**: Portal UI (clip browser, autocomplete input, playback)
+**Phase 3**: Polish (error handling edge cases, performance tuning)
 
 ### Testing Strategy
 
 **Unit Tests**:
-- Tokenizer (punctuation, validation, edge cases)
-- Filter service (FFmpeg integration mocks)
+- Tokenization (whitespace splitting, punctuation stripping, edge cases)
+- Clip library search (prefix match, substring match, case insensitivity)
 - Options validation
 
 **Integration Tests**:
-- Word generation via Azure TTS
-- Word bank caching (write, read, delete)
-- Concatenation with various clip lengths
-- Full pipeline with real audio
-
-**E2E Tests**:
-- Slash command execution
-- Portal page workflow
-- Admin operations
-
-### Known Limitations & Future Enhancements
-
-**Current Scope**:
-- English text only (extensible to other languages)
-- PCM 48kHz 16-bit stereo only
-- FFmpeg-based filtering (can add more effects)
-- Per-guild word banks (not shared across guilds)
-
-**Future Enhancements**:
-- Multi-language support
-- Custom voice cloning
-- Advanced effect chains (reverb, echo, distortion plugins)
-- Shared community word packs
-- VOX message scheduling
-- VOX template library (e.g., "Security Alert: {location}")
+- Concatenation with real MP3 files via FFmpeg
+- Full pipeline: tokenize -> resolve -> concatenate -> verify output audio
 
 ---
 
 **Last Updated**: 2026-02-02
-**Version**: 1.0
+**Version**: 2.0 (Simplified from v1.0 - static clip library, no TTS generation)

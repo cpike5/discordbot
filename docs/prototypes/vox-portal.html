@@ -3,53 +3,28 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>VOX Portal - Discord Bot Management</title>
+  <title>VOX Portal v2.0 Prototype</title>
   <style>
     /* ==========================================
-       DESIGN SYSTEM TOKENS
+       DESIGN SYSTEM TOKENS (v2.0)
        ========================================== */
     :root {
-      /* Backgrounds */
       --color-bg-primary: #1d2022;
       --color-bg-secondary: #262a2d;
       --color-bg-tertiary: #2f3336;
       --color-bg-hover: #363a3e;
-
-      /* Text */
       --color-text-primary: #d7d3d0;
       --color-text-secondary: #a8a5a3;
       --color-text-tertiary: #7a7876;
-
-      /* Accents */
       --color-accent-orange: #cb4e1b;
       --color-accent-orange-hover: #e5591f;
       --color-accent-blue: #098ecf;
       --color-accent-blue-hover: #0ba3ea;
-
-      /* Semantic */
       --color-success: #10b981;
       --color-warning: #f59e0b;
       --color-error: #ef4444;
       --color-info: #06b6d4;
-
-      /* Borders */
       --color-border-primary: #3f4447;
-
-      /* VOX-specific */
-      --color-token-cached: #10b981;
-      --color-token-cached-bg: rgba(16, 185, 129, 0.15);
-      --color-token-cached-border: rgba(16, 185, 129, 0.4);
-      --color-token-generate: #f59e0b;
-      --color-token-generate-bg: rgba(245, 158, 11, 0.15);
-      --color-token-generate-border: rgba(245, 158, 11, 0.4);
-      --color-token-error: #ef4444;
-      --color-token-error-bg: rgba(239, 68, 68, 0.15);
-      --color-token-error-border: rgba(239, 68, 68, 0.4);
-      --color-filter-active: #3b82f6;
-      --color-filter-active-bg: rgba(59, 130, 246, 0.15);
-      --color-gap-indicator: #7a7876;
-
-      /* Typography */
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
       --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, monospace;
     }
@@ -103,7 +78,7 @@
     }
 
     /* ==========================================
-       FOCUS VISIBLE
+       FOCUS & ANIMATIONS
        ========================================== */
     *:focus-visible {
       outline: 2px solid var(--color-accent-blue);
@@ -114,23 +89,14 @@
       outline: none;
     }
 
-    /* ==========================================
-       PREFERS REDUCED MOTION
-       ========================================== */
     @media (prefers-reduced-motion: reduce) {
-      *,
-      *::before,
-      *::after {
+      *, *::before, *::after {
         animation-duration: 0.01ms !important;
         animation-iteration-count: 1 !important;
         transition-duration: 0.01ms !important;
-        scroll-behavior: auto !important;
       }
     }
 
-    /* ==========================================
-       ANIMATIONS
-       ========================================== */
     @keyframes fadeIn {
       from { opacity: 0; }
       to { opacity: 1; }
@@ -146,14 +112,9 @@
       to { transform: translateX(0); opacity: 1; }
     }
 
-    @keyframes toastSlideIn {
-      from { transform: translateX(100%); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-
-    @keyframes toastSlideOut {
-      from { transform: translateX(0); opacity: 1; }
-      to { transform: translateX(100%); opacity: 0; }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
     }
 
     @keyframes spin {
@@ -161,18 +122,14 @@
       to { transform: rotate(360deg); }
     }
 
-    @keyframes pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.5; }
-    }
-
-    @keyframes tokenPillAppear {
-      from { opacity: 0; transform: scale(0.8); }
-      to { opacity: 1; transform: scale(1); }
+    @keyframes tileClick {
+      0% { transform: scale(1); }
+      50% { transform: scale(0.95); }
+      100% { transform: scale(1); }
     }
 
     /* ==========================================
-       LAYOUT
+       MAIN LAYOUT (Two-column: 300px sidebar + flex main)
        ========================================== */
     .vox-container {
       display: flex;
@@ -181,6 +138,9 @@
       background-color: var(--color-bg-primary);
     }
 
+    /* ==========================================
+       HEADER
+       ========================================== */
     .vox-header {
       background-color: var(--color-bg-secondary);
       border-bottom: 1px solid var(--color-border-primary);
@@ -188,85 +148,65 @@
       display: flex;
       align-items: center;
       justify-content: space-between;
+      gap: 1.5rem;
       animation: fadeIn 0.3s ease-out;
     }
 
     .vox-header-left {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.75rem;
     }
 
     .vox-guild-icon {
-      width: 48px;
-      height: 48px;
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      background-color: var(--color-bg-tertiary);
+      background-color: var(--color-accent-orange);
       border: 2px solid var(--color-border-primary);
       display: flex;
       align-items: center;
       justify-content: center;
       font-weight: bold;
       font-size: 1.25rem;
+      flex-shrink: 0;
     }
 
     .vox-guild-info {
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
+      gap: 0.1rem;
     }
 
     .vox-guild-name {
-      font-size: 1rem;
+      font-size: 0.95rem;
       font-weight: 600;
       color: var(--color-text-primary);
     }
 
     .vox-guild-label {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: var(--color-text-tertiary);
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
 
-    .vox-status-badge {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.375rem 0.75rem;
-      background-color: var(--color-bg-tertiary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      font-size: 0.875rem;
-      color: var(--color-text-primary);
-    }
-
-    .vox-status-dot {
-      width: 8px;
-      height: 8px;
-      border-radius: 50%;
-      background-color: var(--color-success);
-      animation: pulse 2s ease-in-out infinite;
-    }
-
-    /* Navigation Tabs */
+    /* Nav Tabs (Soundboard, TTS, VOX) */
     .vox-nav-tabs {
       display: flex;
-      gap: 0;
+      gap: 0.5rem;
       margin-left: auto;
-      border-bottom: 2px solid transparent;
     }
 
     .vox-nav-tab {
-      padding: 0.75rem 1.5rem;
+      padding: 0.5rem 1rem;
       background: none;
       border: none;
       color: var(--color-text-secondary);
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
-      transition: all 0.2s ease-out;
-      border-bottom: 2px solid transparent;
+      transition: color 0.15s ease-out;
       position: relative;
     }
 
@@ -276,10 +216,33 @@
 
     .vox-nav-tab.active {
       color: var(--color-accent-orange);
-      border-bottom-color: var(--color-accent-orange);
     }
 
-    /* Main Content */
+    /* Online Status Badge */
+    .vox-status-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.375rem 0.75rem;
+      background-color: var(--color-bg-tertiary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.375rem;
+      font-size: 0.75rem;
+      color: var(--color-text-secondary);
+      flex-shrink: 0;
+    }
+
+    .vox-status-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background-color: var(--color-success);
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    /* ==========================================
+       MAIN CONTENT AREA (Two-column layout)
+       ========================================== */
     .vox-main {
       flex: 1;
       display: flex;
@@ -288,7 +251,7 @@
       overflow: hidden;
     }
 
-    /* Sidebar */
+    /* LEFT SIDEBAR (300px fixed) */
     .vox-sidebar {
       width: 300px;
       display: flex;
@@ -296,8 +259,10 @@
       gap: 1rem;
       animation: slideInLeft 0.3s ease-out 0.1s both;
       overflow-y: auto;
+      flex-shrink: 0;
     }
 
+    /* Panel (Voice Channel, Now Playing, Clip Stats) */
     .vox-panel {
       background-color: var(--color-bg-secondary);
       border: 1px solid var(--color-border-primary);
@@ -309,7 +274,7 @@
     }
 
     .vox-panel-title {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.05em;
@@ -322,8 +287,8 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      font-size: 0.875rem;
-      padding: 0.5rem 0;
+      font-size: 0.85rem;
+      padding: 0.25rem 0;
     }
 
     .vox-voice-dot {
@@ -344,7 +309,7 @@
       border: 1px solid var(--color-border-primary);
       border-radius: 0.375rem;
       color: var(--color-text-primary);
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       font-family: var(--font-sans);
       cursor: pointer;
       transition: all 0.15s ease-out;
@@ -371,7 +336,7 @@
       border: 1px solid var(--color-border-primary);
       border-radius: 0.375rem;
       color: var(--color-text-primary);
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s ease-out;
@@ -398,7 +363,7 @@
       cursor: not-allowed;
     }
 
-    /* Now Playing */
+    /* Now Playing Section */
     .vox-now-playing {
       display: flex;
       flex-direction: column;
@@ -407,18 +372,18 @@
 
     .vox-now-playing-message {
       font-family: var(--font-mono);
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       color: var(--color-text-primary);
       padding: 0.75rem;
       background-color: var(--color-bg-primary);
       border: 1px solid var(--color-border-primary);
       border-radius: 0.375rem;
-      min-height: 2.5rem;
-      word-wrap: break-word;
+      min-height: 2rem;
       display: flex;
       align-items: center;
-      text-overflow: ellipsis;
+      word-wrap: break-word;
       overflow: hidden;
+      text-overflow: ellipsis;
       white-space: nowrap;
     }
 
@@ -427,17 +392,55 @@
       font-style: italic;
     }
 
-    .vox-playing-dot {
-      display: inline-block;
-      width: 6px;
-      height: 6px;
-      background-color: var(--color-success);
-      border-radius: 50%;
-      margin-right: 0.5rem;
-      animation: pulse 1s ease-in-out infinite;
+    .vox-stop-btn {
+      padding: 0.5rem 1rem;
+      background-color: var(--color-error);
+      border: 1px solid var(--color-error);
+      border-radius: 0.375rem;
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease-out;
+      display: none;
     }
 
-    /* Main Panel */
+    .vox-stop-btn.visible {
+      display: block;
+    }
+
+    .vox-stop-btn:hover {
+      background-color: #dc2626;
+      border-color: #dc2626;
+    }
+
+    /* Clip Stats Panel */
+    .vox-clip-stats {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .vox-clip-stat {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+
+    .vox-clip-stat-label {
+      color: var(--color-text-secondary);
+    }
+
+    .vox-clip-stat-count {
+      font-weight: 600;
+      color: var(--color-accent-orange);
+      font-family: var(--font-mono);
+    }
+
+    /* ==========================================
+       RIGHT MAIN PANEL (Flexible)
+       ========================================== */
     .vox-panel-main {
       flex: 1;
       display: flex;
@@ -447,65 +450,128 @@
       overflow-y: auto;
     }
 
-    /* Mode Tabs */
-    .vox-mode-tabs {
+    /* Group Tabs (VOX, FVOX, HGRUNT) - Pill style */
+    .vox-group-tabs {
       display: flex;
       gap: 0.5rem;
-      border-bottom: 1px solid var(--color-border-primary);
-      padding-bottom: 1rem;
+      flex-shrink: 0;
     }
 
-    .vox-mode-tab {
-      padding: 0.5rem 1rem;
+    .vox-group-tab {
+      padding: 0.5rem 1.25rem;
       background-color: transparent;
       border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
+      border-radius: 9999px;
       color: var(--color-text-secondary);
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s ease-out;
     }
 
-    .vox-mode-tab:hover {
+    .vox-group-tab:hover {
       background-color: var(--color-bg-hover);
       border-color: var(--color-accent-blue);
     }
 
-    .vox-mode-tab.active {
+    .vox-group-tab.active {
       background-color: var(--color-accent-orange);
       border-color: var(--color-accent-orange);
       color: white;
     }
 
-    /* Free Text Mode */
-    .vox-freetext-mode {
+    /* Message Input with Autocomplete */
+    .vox-input-section {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.5rem;
+      flex-shrink: 0;
     }
 
-    .vox-textarea {
+    .vox-input-label {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--color-text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .vox-input-wrapper {
+      position: relative;
+    }
+
+    .vox-message-input {
       width: 100%;
-      height: 6rem;
       padding: 0.75rem;
       background-color: var(--color-bg-primary);
       border: 1px solid var(--color-border-primary);
-      border-radius: 0.5rem;
+      border-radius: 0.375rem;
       color: var(--color-text-primary);
+      font-size: 0.9rem;
       font-family: var(--font-sans);
-      font-size: 0.875rem;
-      resize: vertical;
       transition: all 0.15s ease-out;
     }
 
-    .vox-textarea:focus {
+    .vox-message-input:focus {
       outline: none;
       border-color: var(--color-accent-orange);
-      box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.2);
+      box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.15);
     }
 
-    .vox-textarea::placeholder {
+    .vox-message-input::placeholder {
+      color: var(--color-text-tertiary);
+    }
+
+    /* Autocomplete Dropdown */
+    .vox-autocomplete {
+      position: absolute;
+      top: 100%;
+      left: 0;
+      right: 0;
+      background-color: var(--color-bg-secondary);
+      border: 1px solid var(--color-border-primary);
+      border-top: none;
+      border-radius: 0 0 0.375rem 0.375rem;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      z-index: 100;
+    }
+
+    .vox-autocomplete.visible {
+      display: block;
+    }
+
+    .vox-autocomplete-item {
+      padding: 0.5rem 0.75rem;
+      color: var(--color-text-primary);
+      cursor: pointer;
+      font-size: 0.85rem;
+      border-bottom: 1px solid var(--color-border-primary);
+      transition: background-color 0.1s ease-out;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .vox-autocomplete-item:last-child {
+      border-bottom: none;
+    }
+
+    .vox-autocomplete-item:hover,
+    .vox-autocomplete-item.highlighted {
+      background-color: var(--color-bg-hover);
+    }
+
+    .vox-autocomplete-duration {
+      font-size: 0.75rem;
+      color: var(--color-text-tertiary);
+      font-family: var(--font-mono);
+    }
+
+    /* Input help text */
+    .vox-input-help {
+      font-size: 0.75rem;
       color: var(--color-text-tertiary);
     }
 
@@ -513,17 +579,16 @@
     .vox-token-preview {
       background-color: var(--color-bg-tertiary);
       border: 1px solid var(--color-border-primary);
-      border-radius: 0.5rem;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
+      border-radius: 0.375rem;
+      padding: 0.75rem;
+      flex-shrink: 0;
     }
 
     .vox-token-label {
       font-size: 0.75rem;
       color: var(--color-text-secondary);
       font-weight: 500;
+      margin-bottom: 0.5rem;
     }
 
     .vox-token-pills {
@@ -536,332 +601,42 @@
     .vox-token-pill {
       display: inline-flex;
       align-items: center;
-      gap: 0.375rem;
-      padding: 0.375rem 0.75rem;
-      background-color: var(--color-token-cached-bg);
-      border: 1px solid var(--color-token-cached-border);
-      color: var(--color-token-cached);
+      padding: 0.35rem 0.7rem;
+      background-color: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #10b981;
       border-radius: 9999px;
-      font-size: 0.875rem;
+      font-size: 0.8rem;
       font-weight: 500;
-      transition: all 0.15s ease-in-out;
-      animation: tokenPillAppear 0.2s ease-out;
+      animation: fadeIn 0.2s ease-out;
     }
 
-    .vox-token-pill:hover {
-      transform: scale(1.05);
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-    }
-
-    .vox-token-pill.generate {
-      background-color: var(--color-token-generate-bg);
-      border-color: var(--color-token-generate-border);
-      color: var(--color-token-generate);
-    }
-
-    .vox-token-pill.error {
-      background-color: var(--color-token-error-bg);
-      border-color: var(--color-token-error-border);
-      color: var(--color-token-error);
+    .vox-token-pill.skipped {
+      background-color: rgba(239, 68, 68, 0.15);
+      border-color: rgba(239, 68, 68, 0.4);
+      color: #ef4444;
+      text-decoration: line-through;
     }
 
     .vox-token-gap {
-      color: var(--color-gap-indicator);
-      font-size: 1.25rem;
-    }
-
-    /* Sentence Builder Mode */
-    .vox-builder-mode {
-      display: none;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .vox-builder-mode.active {
-      display: flex;
-    }
-
-    .vox-word-bank {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-      max-height: 350px;
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.5rem;
-      padding: 0.75rem;
-      background-color: var(--color-bg-tertiary);
-      overflow-y: auto;
-    }
-
-    .vox-word-bank-header {
-      display: flex;
-      gap: 0.5rem;
-      flex-shrink: 0;
-    }
-
-    .vox-word-bank-search {
-      flex: 1;
-      padding: 0.5rem 0.75rem;
-      background-color: var(--color-bg-primary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      color: var(--color-text-primary);
-      font-size: 0.75rem;
-      transition: all 0.15s ease-out;
-    }
-
-    .vox-word-bank-search:focus {
-      outline: none;
-      border-color: var(--color-accent-blue);
-    }
-
-    .vox-word-bank-category {
-      min-width: 120px;
-      padding: 0.5rem 0.75rem;
-      background-color: var(--color-bg-primary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      color: var(--color-text-primary);
-      font-size: 0.75rem;
-      cursor: pointer;
-    }
-
-    .vox-word-bank-content {
-      flex: 1;
-      overflow-y: auto;
-      padding-right: 0.25rem;
-    }
-
-    .vox-word-category {
-      margin-bottom: 1rem;
-    }
-
-    .vox-word-category-title {
-      font-size: 0.75rem;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      color: var(--color-text-secondary);
-      margin-bottom: 0.5rem;
-    }
-
-    .vox-word-tiles {
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
-      gap: 0.5rem;
-    }
-
-    .vox-word-tile {
-      padding: 0.5rem;
-      background-color: var(--color-bg-secondary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      color: var(--color-text-primary);
-      font-size: 0.875rem;
-      font-weight: 500;
-      cursor: pointer;
-      transition: all 0.15s ease-out;
-      text-align: center;
-      position: relative;
-    }
-
-    .vox-word-tile:hover {
-      background-color: var(--color-bg-hover);
-      border-color: var(--color-accent-blue);
-      transform: translateY(-2px);
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    }
-
-    .vox-word-tile.cached::before {
-      content: '';
-      position: absolute;
-      top: 0.375rem;
-      right: 0.375rem;
-      width: 6px;
-      height: 6px;
-      border-radius: 50%;
-      background-color: var(--color-success);
-    }
-
-    /* Composition Strip */
-    .vox-composition-strip {
-      background-color: var(--color-bg-tertiary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.5rem;
-      padding: 1rem;
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .vox-composition-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .vox-composition-label {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--color-text-primary);
-    }
-
-    .vox-composition-clear {
-      padding: 0.375rem 0.75rem;
-      background-color: transparent;
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      color: var(--color-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease-out;
-    }
-
-    .vox-composition-clear:hover {
-      background-color: var(--color-error);
-      border-color: var(--color-error);
-      color: white;
-    }
-
-    .vox-composition-items {
-      display: flex;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 0.5rem;
-      min-height: 3rem;
-      padding: 0.75rem;
-      background-color: var(--color-bg-primary);
-      border-radius: 0.375rem;
-    }
-
-    .vox-composition-word {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.5rem;
-      padding: 0.5rem 0.75rem;
-      background-color: var(--color-bg-secondary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.5rem;
-      cursor: grab;
-      transition: all 0.15s ease-out;
-    }
-
-    .vox-composition-word:hover {
-      border-color: var(--color-accent-blue);
-      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-    }
-
-    .vox-composition-word-text {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--color-text-primary);
-    }
-
-    .vox-composition-remove {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 1rem;
-      height: 1rem;
-      padding: 0;
-      background: none;
-      border: none;
       color: var(--color-text-tertiary);
-      cursor: pointer;
-      font-size: 1.25rem;
-      transition: color 0.15s;
+      font-size: 1rem;
     }
 
-    .vox-composition-remove:hover {
-      color: var(--color-error);
-    }
-
-    .vox-composition-gap {
-      width: 1.5rem;
-      height: 1.5rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: none;
-      border: none;
-      color: var(--color-gap-indicator);
-      cursor: pointer;
-      font-size: 1.25rem;
-      transition: all 0.15s;
-    }
-
-    .vox-composition-gap:hover {
-      color: var(--color-accent-blue);
-    }
-
-    .vox-composition-pause {
-      display: inline-flex;
-      align-items: center;
-      gap: 0.375rem;
-      padding: 0.5rem 0.75rem;
-      background-color: var(--color-bg-secondary);
-      border: 1px dashed var(--color-border-primary);
-      border-radius: 0.5rem;
-      cursor: grab;
-    }
-
-    .vox-composition-pause-duration {
-      font-size: 0.75rem;
-      font-family: var(--font-mono);
-      color: var(--color-text-secondary);
-    }
-
-    .vox-composition-empty {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      width: 100%;
-      padding: 1.5rem;
-      color: var(--color-text-tertiary);
-      text-align: center;
-    }
-
-    .vox-composition-empty-icon {
-      font-size: 2rem;
-      opacity: 0.5;
-    }
-
-    /* Quick Add */
-    .vox-quick-add {
-      display: flex;
-      gap: 0.5rem;
-    }
-
-    .vox-quick-add-input {
-      flex: 1;
-      padding: 0.5rem 0.75rem;
-      background-color: var(--color-bg-primary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      color: var(--color-text-primary);
-      font-size: 0.875rem;
-    }
-
-    .vox-quick-add-input:focus {
-      outline: none;
-      border-color: var(--color-accent-orange);
-    }
-
-    /* Settings Section */
+    /* Settings Section (Collapsible) */
     .vox-settings {
       background-color: var(--color-bg-tertiary);
       border: 1px solid var(--color-border-primary);
-      border-radius: 0.5rem;
+      border-radius: 0.375rem;
       overflow: hidden;
+      flex-shrink: 0;
     }
 
     .vox-settings-header {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      padding: 1rem;
+      padding: 0.75rem;
       cursor: pointer;
       transition: all 0.15s ease-out;
     }
@@ -871,16 +646,17 @@
     }
 
     .vox-settings-title {
-      font-size: 0.875rem;
+      font-size: 0.85rem;
       font-weight: 600;
       color: var(--color-text-primary);
     }
 
     .vox-settings-chevron {
-      width: 1.25rem;
-      height: 1.25rem;
+      width: 1rem;
+      height: 1rem;
       color: var(--color-text-secondary);
       transition: transform 0.3s ease-out;
+      stroke-width: 2;
     }
 
     .vox-settings-chevron.rotated {
@@ -888,11 +664,11 @@
     }
 
     .vox-settings-content {
-      max-height: 1000px;
+      max-height: 500px;
       overflow: hidden;
       transition: max-height 0.3s ease-out;
-      padding: 0 1rem;
       border-top: 1px solid var(--color-border-primary);
+      padding: 0.75rem;
     }
 
     .vox-settings-content.collapsed {
@@ -901,53 +677,10 @@
       border: none;
     }
 
-    .vox-settings-fields {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
-      padding: 1rem 0;
-    }
-
-    .vox-form-group {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-    }
-
-    .vox-form-label {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--color-text-primary);
-    }
-
-    .vox-form-input,
-    .vox-form-select {
-      padding: 0.5rem 0.75rem;
-      background-color: var(--color-bg-primary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      color: var(--color-text-primary);
-      font-family: var(--font-sans);
-      font-size: 0.875rem;
-      transition: all 0.15s ease-out;
-    }
-
-    .vox-form-input:focus,
-    .vox-form-select:focus {
-      outline: none;
-      border-color: var(--color-accent-blue);
-    }
-
-    .vox-form-hint {
-      font-size: 0.75rem;
-      color: var(--color-text-tertiary);
-    }
-
-    /* Slider */
     .vox-slider-group {
       display: flex;
       flex-direction: column;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
 
     .vox-slider-header {
@@ -956,17 +689,23 @@
       justify-content: space-between;
     }
 
+    .vox-slider-label {
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--color-text-primary);
+    }
+
     .vox-slider-value {
       font-family: var(--font-mono);
-      font-weight: 600;
+      font-size: 0.75rem;
       color: var(--color-accent-orange);
-      font-size: 0.875rem;
+      font-weight: 600;
     }
 
     input[type="range"] {
       width: 100%;
-      height: 6px;
-      border-radius: 3px;
+      height: 5px;
+      border-radius: 2px;
       background: var(--color-border-primary);
       outline: none;
       -webkit-appearance: none;
@@ -976,232 +715,187 @@
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       appearance: none;
-      width: 18px;
-      height: 18px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       background: var(--color-accent-orange);
       cursor: pointer;
-      transition: all 0.15s ease-out;
+      transition: transform 0.15s ease-out;
     }
 
     input[type="range"]::-webkit-slider-thumb:hover {
-      transform: scale(1.2);
+      transform: scale(1.15);
     }
 
     input[type="range"]::-moz-range-thumb {
-      width: 18px;
-      height: 18px;
+      width: 14px;
+      height: 14px;
       border-radius: 50%;
       background: var(--color-accent-orange);
       cursor: pointer;
       border: none;
-      transition: all 0.15s ease-out;
+      transition: transform 0.15s ease-out;
     }
 
     input[type="range"]::-moz-range-thumb:hover {
-      transform: scale(1.2);
+      transform: scale(1.15);
     }
 
-    /* Word Gap Indicator */
-    .vox-gap-indicator {
+    .vox-gap-hints {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      padding: 0.75rem;
-      background-color: var(--color-bg-primary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
+      justify-content: space-between;
+      font-size: 0.7rem;
+      color: var(--color-text-tertiary);
+      margin-top: 0.25rem;
     }
 
-    .vox-gap-word {
-      font-size: 0.875rem;
-      font-weight: 500;
-      color: var(--color-text-primary);
-      font-family: var(--font-mono);
-    }
-
-    .vox-gap-visual {
-      flex: 0 0 auto;
+    /* Play Button */
+    .vox-play-section {
       display: flex;
-      align-items: center;
-      justify-content: center;
-      height: 2px;
-      background: repeating-linear-gradient(
-        to right,
-        var(--color-gap-indicator) 0px,
-        var(--color-gap-indicator) 4px,
-        transparent 4px,
-        transparent 8px
-      );
-      transition: width 0.2s ease-out;
-      min-width: 20px;
-      max-width: 200px;
-      margin: 0 0.5rem;
-    }
-
-    /* Preset Buttons */
-    .vox-preset-buttons {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
-      gap: 0.5rem;
-    }
-
-    .vox-preset-btn {
-      padding: 0.375rem 0.75rem;
-      background-color: transparent;
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      color: var(--color-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease-out;
-    }
-
-    .vox-preset-btn:hover {
-      background-color: var(--color-bg-hover);
-      border-color: var(--color-accent-blue);
-      color: var(--color-accent-blue);
-    }
-
-    .vox-preset-btn.active {
-      background-color: var(--color-accent-orange);
-      border-color: var(--color-accent-orange);
-      color: white;
-    }
-
-    /* PA Filter */
-    .vox-pa-custom {
-      display: none;
       flex-direction: column;
-      gap: 1rem;
-      padding: 1rem;
-      background-color: var(--color-bg-primary);
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-    }
-
-    .vox-pa-custom.active {
-      display: flex;
-    }
-
-    .vox-pa-reset {
-      padding: 0.5rem 1rem;
-      background-color: transparent;
-      border: 1px solid var(--color-border-primary);
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      color: var(--color-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease-out;
-    }
-
-    .vox-pa-reset:hover {
-      background-color: var(--color-bg-hover);
-      border-color: var(--color-accent-blue);
-      color: var(--color-accent-blue);
-    }
-
-    /* Filter Status */
-    .vox-filter-status {
-      display: none;
-      align-items: center;
       gap: 0.5rem;
-      padding: 0.75rem 1rem;
-      background-color: var(--color-filter-active-bg);
-      border: 1px solid rgba(59, 130, 246, 0.3);
-      border-radius: 0.375rem;
-      font-size: 0.75rem;
-      color: var(--color-text-secondary);
+      flex-shrink: 0;
     }
 
-    .vox-filter-status.active {
-      display: flex;
-    }
-
-    .vox-filter-status strong {
-      color: var(--color-filter-active);
-      font-weight: 600;
-    }
-
-    /* Send Button */
-    .vox-send-section {
-      display: flex;
-      gap: 1rem;
-      margin-top: 1rem;
-    }
-
-    .vox-send-btn {
-      flex: 1;
+    .vox-play-btn {
+      width: 100%;
       padding: 0.75rem 1.5rem;
       background-color: var(--color-accent-orange);
       border: none;
-      border-radius: 0.5rem;
+      border-radius: 0.375rem;
       color: white;
-      font-size: 0.875rem;
+      font-size: 0.9rem;
       font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease-out;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 0.75rem;
+      gap: 0.5rem;
     }
 
-    .vox-send-btn:hover:not(:disabled) {
+    .vox-play-btn:hover:not(:disabled) {
       background-color: var(--color-accent-orange-hover);
-      box-shadow: 0 4px 12px rgba(203, 78, 27, 0.4);
+      box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
     }
 
-    .vox-send-btn:active:not(:disabled) {
+    .vox-play-btn:active:not(:disabled) {
       transform: scale(0.98);
     }
 
-    .vox-send-btn:disabled {
+    .vox-play-btn:disabled {
       opacity: 0.5;
       cursor: not-allowed;
     }
 
-    .vox-send-btn.loading {
+    .vox-play-btn.loading {
       animation: pulse 1.5s ease-in-out infinite;
     }
 
     .vox-spinner {
-      width: 1rem;
-      height: 1rem;
+      width: 0.9rem;
+      height: 0.9rem;
       border: 2px solid rgba(255, 255, 255, 0.3);
       border-top-color: white;
       border-radius: 50%;
       animation: spin 0.6s linear infinite;
     }
 
-    /* Toast */
-    .vox-toast {
-      position: fixed;
-      bottom: 1rem;
-      right: 1rem;
-      max-width: 400px;
-      padding: 1rem;
+    /* Clip Browser */
+    .vox-clip-browser {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      flex: 1;
+      min-height: 200px;
+      overflow: hidden;
+    }
+
+    .vox-clip-search-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .vox-clip-search {
+      flex: 1;
+      padding: 0.5rem 0.75rem;
+      background-color: var(--color-bg-primary);
+      border: 1px solid var(--color-border-primary);
+      border-radius: 0.375rem;
+      color: var(--color-text-primary);
+      font-size: 0.85rem;
+      transition: all 0.15s ease-out;
+    }
+
+    .vox-clip-search:focus {
+      outline: none;
+      border-color: var(--color-accent-orange);
+    }
+
+    .vox-clip-search::placeholder {
+      color: var(--color-text-tertiary);
+    }
+
+    .vox-clip-badge {
+      background-color: var(--color-accent-orange);
+      color: white;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      flex-shrink: 0;
+    }
+
+    .vox-clip-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+      gap: 0.75rem;
+      overflow-y: auto;
+      max-height: 400px;
+      padding-right: 0.25rem;
+    }
+
+    .vox-clip-tile {
+      padding: 0.75rem;
       background-color: var(--color-bg-secondary);
       border: 1px solid var(--color-border-primary);
-      border-left: 4px solid var(--color-success);
-      border-radius: 0.5rem;
+      border-radius: 0.375rem;
       color: var(--color-text-primary);
-      font-size: 0.875rem;
-      animation: toastSlideIn 0.3s ease-out;
-      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-      z-index: 1300;
+      cursor: pointer;
+      transition: all 0.15s ease-out;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      text-align: center;
     }
 
-    .vox-toast.error {
-      border-left-color: var(--color-error);
+    .vox-clip-tile:hover {
+      background-color: var(--color-bg-hover);
+      border-color: var(--color-accent-orange);
+      transform: translateY(-2px);
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     }
 
-    .vox-toast.dismissing {
-      animation: toastSlideOut 0.2s ease-in forwards;
+    .vox-clip-tile.clicked {
+      animation: tileClick 0.3s ease-out;
     }
 
-    /* Responsive */
+    .vox-clip-name {
+      font-weight: 600;
+      font-size: 0.85rem;
+      word-break: break-word;
+    }
+
+    .vox-clip-duration {
+      font-size: 0.7rem;
+      color: var(--color-text-tertiary);
+      font-family: var(--font-mono);
+    }
+
+    /* ==========================================
+       RESPONSIVE
+       ========================================== */
     @media (max-width: 1024px) {
       .vox-main {
         flex-direction: column;
@@ -1210,14 +904,12 @@
 
       .vox-sidebar {
         width: 100%;
+        flex-direction: row;
+        flex-shrink: 0;
       }
 
-      .vox-builder-mode {
-        display: none !important;
-      }
-
-      .vox-mode-tab:nth-child(2) {
-        display: none;
+      .vox-panel {
+        flex: 1;
       }
     }
 
@@ -1225,7 +917,7 @@
       .vox-header {
         padding: 0.75rem 1rem;
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.75rem;
         align-items: flex-start;
       }
 
@@ -1235,55 +927,58 @@
 
       .vox-main {
         padding: 1rem;
-        gap: 1rem;
+        gap: 0.75rem;
       }
 
       .vox-sidebar {
         width: 100%;
+        flex-direction: column;
       }
 
-      .vox-settings-content.collapsed {
-        max-height: 0;
+      .vox-group-tabs {
+        flex-wrap: wrap;
       }
 
-      .vox-send-btn {
-        width: 100%;
+      .vox-clip-grid {
+        grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
       }
     }
   </style>
 </head>
 <body>
   <div class="vox-container">
-    <!-- Portal Header -->
+    <!-- HEADER -->
     <header class="vox-header">
       <div class="vox-header-left">
-        <div class="vox-guild-icon">👾</div>
+        <div class="vox-guild-icon">V</div>
         <div class="vox-guild-info">
           <div class="vox-guild-name">Test Guild</div>
           <div class="vox-guild-label">Portal</div>
         </div>
       </div>
-      <div class="vox-status-badge">
-        <div class="vox-status-dot"></div>
-        <span>Online</span>
-      </div>
+
       <nav class="vox-nav-tabs">
         <button class="vox-nav-tab">Soundboard</button>
         <button class="vox-nav-tab">TTS</button>
         <button class="vox-nav-tab active">VOX</button>
       </nav>
+
+      <div class="vox-status-badge">
+        <div class="vox-status-dot"></div>
+        <span>Online</span>
+      </div>
     </header>
 
-    <!-- Main Content -->
+    <!-- MAIN CONTENT -->
     <main class="vox-main">
-      <!-- Left Sidebar -->
+      <!-- LEFT SIDEBAR (300px) -->
       <aside class="vox-sidebar">
         <!-- Voice Channel Panel -->
         <div class="vox-panel">
           <div class="vox-panel-title">Voice Channel</div>
           <div class="vox-voice-status">
-            <div class="vox-voice-dot" id="connectionDot"></div>
-            <span id="connectionStatus">Connected</span>
+            <div class="vox-voice-dot" id="voiceDot"></div>
+            <span id="voiceStatus">Connected</span>
           </div>
           <select class="vox-voice-dropdown" id="channelSelect">
             <option value="general">General Voice</option>
@@ -1299,809 +994,482 @@
         <!-- Now Playing Section -->
         <div class="vox-panel">
           <div class="vox-panel-title">Now Playing</div>
-          <div class="vox-now-playing">
-            <div class="vox-now-playing-message empty" id="nowPlayingMsg">
-              No message playing
+          <div class="vox-now-playing-message empty" id="nowPlaying">No message playing</div>
+          <button class="vox-stop-btn" id="stopBtn">Stop</button>
+        </div>
+
+        <!-- Clip Stats Panel -->
+        <div class="vox-panel">
+          <div class="vox-panel-title">Clip Stats</div>
+          <div class="vox-clip-stats">
+            <div class="vox-clip-stat">
+              <span class="vox-clip-stat-label">VOX</span>
+              <span class="vox-clip-stat-count">187</span>
             </div>
-            <button class="vox-btn" id="stopBtn" style="display: none; background-color: var(--color-error); border-color: var(--color-error); color: white;">
-              Stop
-            </button>
+            <div class="vox-clip-stat">
+              <span class="vox-clip-stat-label">FVOX</span>
+              <span class="vox-clip-stat-count">156</span>
+            </div>
+            <div class="vox-clip-stat">
+              <span class="vox-clip-stat-label">HGrunt</span>
+              <span class="vox-clip-stat-count">94</span>
+            </div>
           </div>
         </div>
       </aside>
 
-      <!-- Right Main Panel -->
+      <!-- RIGHT MAIN PANEL -->
       <section class="vox-panel-main">
-        <!-- Mode Tabs -->
-        <div class="vox-mode-tabs">
-          <button class="vox-mode-tab active" data-mode="freetext">Free Text</button>
-          <button class="vox-mode-tab" data-mode="builder">Sentence Builder</button>
+        <!-- Group Tabs -->
+        <div class="vox-group-tabs">
+          <button class="vox-group-tab active" data-group="vox">VOX</button>
+          <button class="vox-group-tab" data-group="fvox">FVOX</button>
+          <button class="vox-group-tab" data-group="hgrunt">HGRUNT</button>
         </div>
 
-        <!-- Free Text Mode -->
-        <div class="vox-freetext-mode active" id="freetextPanel">
-          <textarea
-            class="vox-textarea"
-            id="messageInput"
-            placeholder="Type your VOX message...">attention all personnel security breach in sector c</textarea>
-
-          <!-- Token Preview -->
-          <div class="vox-token-preview">
-            <div class="vox-token-label" id="tokenLabel">Token Preview (7 words, ~4.2s):</div>
-            <div class="vox-token-pills" id="tokenPills"></div>
-          </div>
-        </div>
-
-        <!-- Sentence Builder Mode -->
-        <div class="vox-builder-mode" id="builderPanel">
-          <!-- Word Bank -->
-          <div class="vox-word-bank" id="wordBank">
-            <div class="vox-word-bank-header">
-              <input
-                type="text"
-                class="vox-word-bank-search"
-                placeholder="Search words..."
-                id="wordSearch">
-              <select class="vox-word-bank-category" id="categoryFilter">
-                <option value="all">All</option>
-                <option value="common">Common</option>
-                <option value="numbers">Numbers</option>
-                <option value="nato">NATO</option>
-                <option value="locations">Locations</option>
-                <option value="warnings">Warnings</option>
-              </select>
-            </div>
-            <div class="vox-word-bank-content" id="wordBankContent"></div>
-          </div>
-
-          <!-- Composition Strip -->
-          <div class="vox-composition-strip">
-            <div class="vox-composition-header">
-              <span class="vox-composition-label" id="compositionLabel">Composition (4 / 50):</span>
-              <button class="vox-composition-clear" id="compositionClear">Clear All</button>
-            </div>
-            <div class="vox-composition-items" id="compositionItems">
-              <!-- Pre-populated -->
-              <div class="vox-composition-word" data-word="attention">
-                <span class="vox-composition-word-text">attention</span>
-                <button class="vox-composition-remove" type="button">×</button>
-              </div>
-              <div class="vox-composition-gap">·</div>
-              <div class="vox-composition-word" data-word="all">
-                <span class="vox-composition-word-text">all</span>
-                <button class="vox-composition-remove" type="button">×</button>
-              </div>
-              <div class="vox-composition-gap">·</div>
-              <div class="vox-composition-pause" data-pause="150">
-                <span>⏸</span>
-                <span class="vox-composition-pause-duration">150ms</span>
-                <button class="vox-composition-remove" type="button">×</button>
-              </div>
-              <div class="vox-composition-gap">·</div>
-              <div class="vox-composition-word" data-word="personnel">
-                <span class="vox-composition-word-text">personnel</span>
-                <button class="vox-composition-remove" type="button">×</button>
-              </div>
-            </div>
-          </div>
-
-          <!-- Quick Add -->
-          <div class="vox-quick-add">
+        <!-- Message Input -->
+        <div class="vox-input-section">
+          <label class="vox-input-label">Message</label>
+          <div class="vox-input-wrapper">
             <input
               type="text"
-              class="vox-quick-add-input"
-              placeholder="Type word + Enter"
-              id="quickAddInput">
+              class="vox-message-input"
+              id="messageInput"
+              placeholder="Type words to announce..."
+              value="attention all personnel security breach">
+            <div class="vox-autocomplete" id="autocomplete"></div>
           </div>
+          <div class="vox-input-help">Type words separated by spaces. Click clips below to append.</div>
         </div>
 
-        <!-- Settings Section -->
+        <!-- Token Preview -->
+        <div class="vox-token-preview">
+          <div class="vox-token-label" id="tokenLabel">Preview: 0/0 matched, ~0s</div>
+          <div class="vox-token-pills" id="tokenPills"></div>
+        </div>
+
+        <!-- Settings (Collapsible) -->
         <div class="vox-settings">
           <div class="vox-settings-header" id="settingsHeader">
             <span class="vox-settings-title">Settings</span>
-            <svg class="vox-settings-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <svg class="vox-settings-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor">
               <polyline points="6 9 12 15 18 9"></polyline>
             </svg>
           </div>
-          <div class="vox-settings-content" id="settingsContent">
-            <div class="vox-settings-fields">
-              <!-- Voice Preset -->
-              <div class="vox-form-group">
-                <label class="vox-form-label">Voice Preset</label>
-                <select class="vox-form-select" id="voiceSelect">
-                  <optgroup label="Male">
-                    <option value="en-US-GuyNeural" selected>Guy Neural</option>
-                    <option value="en-US-DavisNeural">Davis Neural</option>
-                  </optgroup>
-                  <optgroup label="Female">
-                    <option value="en-US-JennyNeural">Jenny Neural</option>
-                    <option value="en-US-AriaNeural">Aria Neural</option>
-                  </optgroup>
-                </select>
+          <div class="vox-settings-content collapsed" id="settingsContent">
+            <div class="vox-slider-group">
+              <div class="vox-slider-header">
+                <label class="vox-slider-label">Word Gap</label>
+                <span class="vox-slider-value" id="gapValue">50 ms</span>
               </div>
-
-              <!-- Word Gap -->
-              <div class="vox-slider-group">
-                <div class="vox-slider-header">
-                  <label class="vox-form-label">Word Gap</label>
-                  <span class="vox-slider-value" id="gapValue">50ms</span>
-                </div>
-                <input
-                  type="range"
-                  id="wordGapSlider"
-                  min="20"
-                  max="200"
-                  step="10"
-                  value="50">
-                <div class="vox-gap-indicator">
-                  <span class="vox-gap-word">word</span>
-                  <div class="vox-gap-visual" id="gapVisual" style="width: 50px;"></div>
-                  <span class="vox-gap-word">word</span>
-                </div>
-                <div class="vox-preset-buttons">
-                  <button class="vox-preset-btn" data-gap="20">Fast (20ms)</button>
-                  <button class="vox-preset-btn" data-gap="50">Normal (50ms)</button>
-                  <button class="vox-preset-btn active" data-gap="100">Slow (100ms)</button>
-                  <button class="vox-preset-btn" data-gap="200">Very Slow (200ms)</button>
-                </div>
-              </div>
-
-              <!-- PA Filter -->
-              <div class="vox-form-group">
-                <label class="vox-form-label">PA System Filter</label>
-                <select class="vox-form-select" id="paFilterSelect">
-                  <option value="off">Off (No Processing)</option>
-                  <option value="light">Light (Subtle PA Effect)</option>
-                  <option value="heavy" selected>Heavy (Classic Half-Life)</option>
-                  <option value="custom">Custom (Manual Settings)</option>
-                </select>
-
-                <!-- Custom PA Controls -->
-                <div class="vox-pa-custom" id="paCustom">
-                  <div class="vox-form-group">
-                    <div class="vox-slider-header">
-                      <label class="vox-form-label">Highpass Filter</label>
-                      <span class="vox-slider-value" id="highpassValue">300 Hz</span>
-                    </div>
-                    <input
-                      type="range"
-                      id="highpassSlider"
-                      min="100"
-                      max="1000"
-                      step="50"
-                      value="300">
-                    <div class="vox-form-hint">Removes low rumble</div>
-                  </div>
-
-                  <div class="vox-form-group">
-                    <div class="vox-slider-header">
-                      <label class="vox-form-label">Lowpass Filter</label>
-                      <span class="vox-slider-value" id="lowpassValue">3000 Hz</span>
-                    </div>
-                    <input
-                      type="range"
-                      id="lowpassSlider"
-                      min="1000"
-                      max="8000"
-                      step="100"
-                      value="3000">
-                    <div class="vox-form-hint">Cuts high frequencies</div>
-                  </div>
-
-                  <div class="vox-form-group">
-                    <div class="vox-slider-header">
-                      <label class="vox-form-label">Compression</label>
-                      <span class="vox-slider-value" id="compressionValue">4.0:1</span>
-                    </div>
-                    <input
-                      type="range"
-                      id="compressionSlider"
-                      min="1"
-                      max="10"
-                      step="0.5"
-                      value="4">
-                    <div class="vox-form-hint">Reduces dynamic range</div>
-                  </div>
-
-                  <div class="vox-form-group">
-                    <div class="vox-slider-header">
-                      <label class="vox-form-label">Distortion</label>
-                      <span class="vox-slider-value" id="distortionValue">20%</span>
-                    </div>
-                    <input
-                      type="range"
-                      id="distortionSlider"
-                      min="0"
-                      max="1"
-                      step="0.05"
-                      value="0.2">
-                    <div class="vox-form-hint">Adds grit and character</div>
-                  </div>
-
-                  <button class="vox-pa-reset" id="paReset">Reset to Heavy Preset</button>
-                </div>
-
-                <!-- Filter Status -->
-                <div class="vox-filter-status active" id="filterStatus">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon>
-                  </svg>
-                  <span id="filterStatusText">PA Filter: <strong>Heavy</strong> (300Hz-3kHz, 4:1 compression)</span>
-                </div>
-              </div>
-
-              <!-- Speed -->
-              <div class="vox-slider-group">
-                <div class="vox-slider-header">
-                  <label class="vox-form-label">Speed</label>
-                  <span class="vox-slider-value" id="speedValue">1.0x</span>
-                </div>
-                <input
-                  type="range"
-                  id="speedSlider"
-                  min="0.75"
-                  max="1.5"
-                  step="0.1"
-                  value="1.0">
+              <input type="range" id="wordGapSlider" min="20" max="200" step="10" value="50">
+              <div class="vox-gap-hints">
+                <span>20ms (fast)</span>
+                <span>200ms (slow)</span>
               </div>
             </div>
           </div>
         </div>
 
-        <!-- Send Button -->
-        <div class="vox-send-section">
-          <button class="vox-send-btn" id="sendBtn">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <polygon points="13 2 3 14 12 14 12 22 21 14 12 14 2 2"></polygon>
-            </svg>
-            <span id="sendBtnText">Send VOX Message (7 words, ~4.2s)</span>
+        <!-- Play Button -->
+        <div class="vox-play-section">
+          <button class="vox-play-btn" id="playBtn">
+            <span id="playBtnText">Play VOX Announcement</span>
           </button>
+        </div>
+
+        <!-- Clip Browser -->
+        <div class="vox-clip-browser">
+          <div class="vox-clip-search-group">
+            <input
+              type="text"
+              class="vox-clip-search"
+              id="clipSearch"
+              placeholder="Search clips...">
+            <span class="vox-clip-badge" id="clipCount">0</span>
+          </div>
+          <div class="vox-clip-grid" id="clipGrid"></div>
         </div>
       </section>
     </main>
   </div>
 
   <script>
-    // ==========================================
-    // STATE MANAGEMENT
-    // ==========================================
+    /* ==========================================
+       CLIP DATA (v2.0 spec)
+       ========================================== */
+    const clipData = {
+      vox: [
+        { name: 'attention', duration: 0.8 }, { name: 'alert', duration: 0.4 },
+        { name: 'all', duration: 0.3 }, { name: 'breach', duration: 0.5 },
+        { name: 'code', duration: 0.4 }, { name: 'caution', duration: 0.6 },
+        { name: 'containment', duration: 0.9 }, { name: 'danger', duration: 0.5 },
+        { name: 'detected', duration: 0.7 }, { name: 'emergency', duration: 0.8 },
+        { name: 'evacuate', duration: 0.7 }, { name: 'facility', duration: 0.7 },
+        { name: 'in', duration: 0.2 }, { name: 'is', duration: 0.2 },
+        { name: 'level', duration: 0.4 }, { name: 'lockdown', duration: 0.6 },
+        { name: 'now', duration: 0.3 }, { name: 'personnel', duration: 0.9 },
+        { name: 'please', duration: 0.4 }, { name: 'proceed', duration: 0.5 },
+        { name: 'radiation', duration: 0.7 }, { name: 'remaining', duration: 0.6 },
+        { name: 'report', duration: 0.5 }, { name: 'sector', duration: 0.5 },
+        { name: 'security', duration: 0.7 }, { name: 'to', duration: 0.2 },
+        { name: 'warning', duration: 0.6 }, { name: 'zone', duration: 0.4 }
+      ],
+      fvox: [
+        { name: 'health', duration: 0.5 }, { name: 'critical', duration: 0.6 },
+        { name: 'morphine', duration: 0.6 }, { name: 'administered', duration: 0.9 },
+        { name: 'seek', duration: 0.4 }, { name: 'medical', duration: 0.6 },
+        { name: 'attention', duration: 0.7 }, { name: 'armor', duration: 0.5 },
+        { name: 'compromised', duration: 0.8 }, { name: 'danger', duration: 0.5 },
+        { name: 'evacuate', duration: 0.7 }, { name: 'immediately', duration: 0.8 },
+        { name: 'major', duration: 0.5 }, { name: 'minor', duration: 0.4 },
+        { name: 'near', duration: 0.3 }, { name: 'power', duration: 0.4 },
+        { name: 'restored', duration: 0.5 }, { name: 'warning', duration: 0.5 }
+      ],
+      hgrunt: [
+        { name: 'affirmative', duration: 0.7 }, { name: 'copy', duration: 0.4 },
+        { name: 'cover', duration: 0.4 }, { name: 'eliminated', duration: 0.7 },
+        { name: 'enemy', duration: 0.5 }, { name: 'fire', duration: 0.4 },
+        { name: 'go', duration: 0.3 }, { name: 'grenade', duration: 0.5 },
+        { name: 'move', duration: 0.4 }, { name: 'negative', duration: 0.6 },
+        { name: 'position', duration: 0.6 }, { name: 'roger', duration: 0.4 },
+        { name: 'squad', duration: 0.4 }, { name: 'target', duration: 0.5 }
+      ]
+    };
+
+    /* ==========================================
+       STATE
+       ========================================== */
     const state = {
-      mode: 'freetext',
+      activeGroup: 'vox',
       isConnected: true,
       isPlaying: false,
-      tokens: [],
-      compositionItems: [],
-      voicePreset: 'en-US-GuyNeural',
       wordGap: 50,
-      paFilter: 'heavy',
-      speed: 1.0,
-      paCustom: {
-        highpass: 300,
-        lowpass: 3000,
-        compression: 4.0,
-        distortion: 0.2
-      }
+      autocompleteHighlighted: -1
     };
 
-    const wordBankData = {
-      common: ['attention', 'alert', 'warning', 'caution', 'all', 'personnel', 'security', 'medical', 'breach', 'code', 'evacuation', 'lockdown', 'detected', 'activated', 'deactivated', 'initiated'],
-      numbers: ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten'],
-      nato: ['alpha', 'bravo', 'charlie', 'delta', 'echo', 'foxtrot', 'golf', 'hotel', 'india', 'juliet'],
-      locations: ['sector', 'level', 'area', 'zone', 'facility', 'corridor', 'entrance', 'exit', 'chamber', 'chamber'],
-      warnings: ['danger', 'critical', 'emergency', 'contamination', 'biohazard', 'radiation', 'intruder', 'alert', 'hazard', 'virus']
-    };
-
-    const willGenerateWords = ['security', 'breach'];
-    const cachedWords = new Set(
-      Object.values(wordBankData).flat()
-    );
-
-    // ==========================================
-    // DOM ELEMENTS
-    // ==========================================
-    const elements = {
+    /* ==========================================
+       DOM ELEMENTS
+       ========================================== */
+    const els = {
       messageInput: document.getElementById('messageInput'),
-      tokenPills: document.getElementById('tokenPills'),
       tokenLabel: document.getElementById('tokenLabel'),
-      modeButtons: document.querySelectorAll('.vox-mode-tab'),
-      freetextPanel: document.getElementById('freetextPanel'),
-      builderPanel: document.getElementById('builderPanel'),
-      wordBankContent: document.getElementById('wordBankContent'),
-      categoryFilter: document.getElementById('categoryFilter'),
-      wordSearch: document.getElementById('wordSearch'),
-      compositionItems: document.getElementById('compositionItems'),
-      compositionLabel: document.getElementById('compositionLabel'),
-      compositionClear: document.getElementById('compositionClear'),
-      quickAddInput: document.getElementById('quickAddInput'),
-      sendBtn: document.getElementById('sendBtn'),
-      sendBtnText: document.getElementById('sendBtnText'),
+      tokenPills: document.getElementById('tokenPills'),
+      groupTabs: document.querySelectorAll('[data-group]'),
+      autocomplete: document.getElementById('autocomplete'),
+      clipSearch: document.getElementById('clipSearch'),
+      clipCount: document.getElementById('clipCount'),
+      clipGrid: document.getElementById('clipGrid'),
+      playBtn: document.getElementById('playBtn'),
+      playBtnText: document.getElementById('playBtnText'),
       settingsHeader: document.getElementById('settingsHeader'),
       settingsContent: document.getElementById('settingsContent'),
       settingsChevron: document.querySelector('.vox-settings-chevron'),
-      voiceSelect: document.getElementById('voiceSelect'),
       wordGapSlider: document.getElementById('wordGapSlider'),
       gapValue: document.getElementById('gapValue'),
-      gapVisual: document.getElementById('gapVisual'),
-      gapPresets: document.querySelectorAll('[data-gap]'),
-      paFilterSelect: document.getElementById('paFilterSelect'),
-      paCustom: document.getElementById('paCustom'),
-      highpassSlider: document.getElementById('highpassSlider'),
-      lowpassSlider: document.getElementById('lowpassSlider'),
-      compressionSlider: document.getElementById('compressionSlider'),
-      distortionSlider: document.getElementById('distortionSlider'),
-      highpassValue: document.getElementById('highpassValue'),
-      lowpassValue: document.getElementById('lowpassValue'),
-      compressionValue: document.getElementById('compressionValue'),
-      distortionValue: document.getElementById('distortionValue'),
-      paReset: document.getElementById('paReset'),
-      filterStatus: document.getElementById('filterStatus'),
-      filterStatusText: document.getElementById('filterStatusText'),
-      speedSlider: document.getElementById('speedSlider'),
-      speedValue: document.getElementById('speedValue'),
       joinBtn: document.getElementById('joinBtn'),
       leaveBtn: document.getElementById('leaveBtn'),
-      connectionDot: document.getElementById('connectionDot'),
-      connectionStatus: document.getElementById('connectionStatus'),
-      nowPlayingMsg: document.getElementById('nowPlayingMsg'),
+      voiceDot: document.getElementById('voiceDot'),
+      voiceStatus: document.getElementById('voiceStatus'),
+      nowPlaying: document.getElementById('nowPlaying'),
       stopBtn: document.getElementById('stopBtn')
     };
 
-    // ==========================================
-    // TOKEN PARSING
-    // ==========================================
-    function parseTokens(text) {
-      const words = text
-        .toLowerCase()
-        .match(/\b[\w]+\b/g) || [];
-
-      return words.map(word => ({
-        word,
-        status: getTokenStatus(word)
-      }));
+    /* ==========================================
+       INITIALIZATION
+       ========================================== */
+    function init() {
+      renderClipGrid();
+      updateTokenPreview();
+      attachGroupTabListeners();
+      attachSettingsListener();
+      attachMessageInputListeners();
+      attachClipSearchListener();
+      attachVoiceChannelListeners();
+      attachPlayButtonListener();
     }
 
-    function getTokenStatus(word) {
-      if (/\d/.test(word)) return 'error';
-      if (willGenerateWords.includes(word)) return 'generate';
-      if (cachedWords.has(word)) return 'cached';
-      return 'error';
+    /* ==========================================
+       GROUP TABS
+       ========================================== */
+    function attachGroupTabListeners() {
+      els.groupTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          els.groupTabs.forEach(t => t.classList.remove('active'));
+          tab.classList.add('active');
+          state.activeGroup = tab.dataset.group;
+          els.messageInput.value = '';
+          els.autocomplete.classList.remove('visible');
+          renderClipGrid();
+          updateTokenPreview();
+        });
+      });
     }
 
+    /* ==========================================
+       MESSAGE INPUT & AUTOCOMPLETE
+       ========================================== */
+    function attachMessageInputListeners() {
+      els.messageInput.addEventListener('input', () => {
+        updateTokenPreview();
+        updateAutocomplete();
+      });
+
+      els.messageInput.addEventListener('keydown', (e) => {
+        if (!els.autocomplete.classList.contains('visible')) return;
+
+        const items = Array.from(els.autocomplete.querySelectorAll('.vox-autocomplete-item'));
+        if (items.length === 0) return;
+
+        switch (e.key) {
+          case 'ArrowDown':
+            e.preventDefault();
+            state.autocompleteHighlighted = Math.min(state.autocompleteHighlighted + 1, items.length - 1);
+            updateAutocompleteHighlight(items);
+            break;
+          case 'ArrowUp':
+            e.preventDefault();
+            state.autocompleteHighlighted = Math.max(state.autocompleteHighlighted - 1, -1);
+            updateAutocompleteHighlight(items);
+            break;
+          case 'Enter':
+          case 'Tab':
+            e.preventDefault();
+            if (state.autocompleteHighlighted >= 0 && state.autocompleteHighlighted < items.length) {
+              items[state.autocompleteHighlighted].click();
+            }
+            break;
+          case 'Escape':
+            e.preventDefault();
+            els.autocomplete.classList.remove('visible');
+            state.autocompleteHighlighted = -1;
+            break;
+        }
+      });
+
+      els.messageInput.addEventListener('blur', () => {
+        setTimeout(() => {
+          els.autocomplete.classList.remove('visible');
+        }, 100);
+      });
+    }
+
+    function updateAutocomplete() {
+      const text = els.messageInput.value.toLowerCase();
+      const words = text.split(/\s+/);
+      const lastWord = words[words.length - 1] || '';
+
+      if (lastWord.length === 0) {
+        els.autocomplete.classList.remove('visible');
+        state.autocompleteHighlighted = -1;
+        return;
+      }
+
+      const clips = clipData[state.activeGroup];
+      const matches = clips.filter(clip => clip.name.startsWith(lastWord)).slice(0, 15);
+
+      if (matches.length === 0) {
+        els.autocomplete.classList.remove('visible');
+        state.autocompleteHighlighted = -1;
+        return;
+      }
+
+      els.autocomplete.classList.add('visible');
+      state.autocompleteHighlighted = -1;
+
+      els.autocomplete.innerHTML = matches.map((clip, idx) => `
+        <div class="vox-autocomplete-item" data-name="${clip.name}">
+          <span>${clip.name}</span>
+          <span class="vox-autocomplete-duration">${clip.duration.toFixed(1)}s</span>
+        </div>
+      `).join('');
+
+      els.autocomplete.querySelectorAll('.vox-autocomplete-item').forEach(item => {
+        item.addEventListener('click', () => {
+          appendWord(item.dataset.name);
+        });
+      });
+    }
+
+    function updateAutocompleteHighlight(items) {
+      items.forEach((item, idx) => {
+        item.classList.toggle('highlighted', idx === state.autocompleteHighlighted);
+      });
+      if (state.autocompleteHighlighted >= 0) {
+        items[state.autocompleteHighlighted].scrollIntoView({ block: 'nearest' });
+      }
+    }
+
+    function appendWord(word) {
+      const text = els.messageInput.value;
+      const words = text.split(/\s+/).filter(w => w.length > 0);
+      words[words.length - 1] = word;
+      els.messageInput.value = words.join(' ') + ' ';
+      els.messageInput.focus();
+      els.autocomplete.classList.remove('visible');
+      state.autocompleteHighlighted = -1;
+      updateTokenPreview();
+    }
+
+    /* ==========================================
+       TOKEN PREVIEW
+       ========================================== */
     function updateTokenPreview() {
-      state.tokens = parseTokens(elements.messageInput.value);
+      const text = els.messageInput.value.toLowerCase();
+      const words = text.split(/\s+/).filter(w => w.length > 0);
+      const clips = clipData[state.activeGroup];
+      const clipNames = new Set(clips.map(c => c.name));
 
-      const html = state.tokens
-        .map((token, idx) => {
-          const html = `<div class="vox-token-pill ${token.status}" title="${token.word}">${token.word}</div>`;
-          const gap = idx < state.tokens.length - 1 ? '<div class="vox-token-gap">·</div>' : '';
-          return html + gap;
-        })
-        .join('');
+      let matched = 0;
+      let totalDuration = 0;
 
-      elements.tokenPills.innerHTML = html || '<div style="color: var(--color-text-tertiary);">No tokens</div>';
-      updateSendButtonText();
-      updateTokenLabel();
-    }
-
-    function updateTokenLabel() {
-      const total = state.tokens.length;
-      const cached = state.tokens.filter(t => t.status === 'cached').length;
-      const willGen = state.tokens.filter(t => t.status === 'generate').length;
-      const estDuration = (total * 0.6).toFixed(1);
-      elements.tokenLabel.textContent = `Token Preview (${total} words, ~${estDuration}s): ${cached} cached, ${willGen} generating`;
-    }
-
-    // ==========================================
-    // MODE SWITCHING
-    // ==========================================
-    elements.modeButtons.forEach(btn => {
-      btn.addEventListener('click', () => {
-        state.mode = btn.dataset.mode;
-
-        elements.modeButtons.forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-
-        elements.freetextPanel.classList.toggle('active', state.mode === 'freetext');
-        elements.builderPanel.classList.toggle('active', state.mode === 'builder');
-
-        if (state.mode === 'builder') {
-          renderWordBank();
+      const pillsHtml = words.map((word, idx) => {
+        const isMatched = clipNames.has(word);
+        if (isMatched) {
+          const clip = clips.find(c => c.name === word);
+          totalDuration += clip.duration;
+          matched++;
+          return `<div class="vox-token-pill">${word}</div>`;
+        } else {
+          return `<div class="vox-token-pill skipped">${word}</div>`;
         }
-      });
-    });
+      }).reduce((acc, pill, idx) => {
+        if (idx > 0) acc += '<div class="vox-token-gap">·</div>';
+        return acc + pill;
+      }, '');
 
-    // ==========================================
-    // WORD BANK
-    // ==========================================
-    function renderWordBank() {
-      let selectedCategory = elements.categoryFilter.value;
-      const searchQuery = elements.wordSearch.value.toLowerCase();
+      els.tokenLabel.textContent = `Preview: ${matched}/${words.length} matched, ~${totalDuration.toFixed(1)}s`;
+      els.tokenPills.innerHTML = pillsHtml || '<div style="color: var(--color-text-tertiary);">No words</div>';
 
-      let wordsToShow = {};
+      updatePlayButton();
+    }
 
-      if (selectedCategory === 'all') {
-        Object.keys(wordBankData).forEach(cat => {
-          wordsToShow[cat] = wordBankData[cat];
-        });
-      } else {
-        wordsToShow[selectedCategory] = wordBankData[selectedCategory];
-      }
+    /* ==========================================
+       CLIP GRID & SEARCH
+       ========================================== */
+    function renderClipGrid() {
+      const clips = clipData[state.activeGroup];
+      const searchTerm = els.clipSearch.value.toLowerCase();
+      const filtered = clips.filter(c => c.name.includes(searchTerm));
 
-      if (searchQuery) {
-        Object.keys(wordsToShow).forEach(cat => {
-          wordsToShow[cat] = wordsToShow[cat].filter(w => w.includes(searchQuery));
-        });
-      }
+      els.clipCount.textContent = filtered.length;
+      els.clipGrid.innerHTML = filtered.map(clip => `
+        <button class="vox-clip-tile" data-name="${clip.name}">
+          <div class="vox-clip-name">${clip.name}</div>
+          <div class="vox-clip-duration">${clip.duration.toFixed(1)}s</div>
+        </button>
+      `).join('');
 
-      let html = '';
-      Object.entries(wordsToShow).forEach(([category, words]) => {
-        if (words.length === 0) return;
-
-        const categoryTitle = category.charAt(0).toUpperCase() + category.slice(1);
-        html += `<div class="vox-word-category">
-          <div class="vox-word-category-title">${categoryTitle}</div>
-          <div class="vox-word-tiles">`;
-
-        words.forEach(word => {
-          const isCached = cachedWords.has(word) ? 'cached' : '';
-          html += `<button class="vox-word-tile ${isCached}" data-word="${word}">${word}</button>`;
-        });
-
-        html += `</div></div>`;
-      });
-
-      elements.wordBankContent.innerHTML = html;
-
-      document.querySelectorAll('.vox-word-tile').forEach(tile => {
+      els.clipGrid.querySelectorAll('.vox-clip-tile').forEach(tile => {
         tile.addEventListener('click', () => {
-          addCompositionItem('word', tile.dataset.word);
-          showToast(`Added "${tile.dataset.word}" to composition`);
+          appendWord(tile.dataset.name);
+          tile.classList.add('clicked');
+          setTimeout(() => tile.classList.remove('clicked'), 300);
         });
       });
     }
 
-    elements.categoryFilter.addEventListener('change', renderWordBank);
-    elements.wordSearch.addEventListener('input', renderWordBank);
-
-    // ==========================================
-    // COMPOSITION STRIP
-    // ==========================================
-    function addCompositionItem(type, value, duration = 150) {
-      if (type === 'word') {
-        state.compositionItems.push({ id: Date.now(), type: 'word', word: value });
-      } else if (type === 'pause') {
-        state.compositionItems.push({ id: Date.now(), type: 'pause', duration });
-      }
-      renderComposition();
-      updateSendButtonText();
+    function attachClipSearchListener() {
+      els.clipSearch.addEventListener('input', renderClipGrid);
     }
 
-    function removeCompositionItem(id) {
-      state.compositionItems = state.compositionItems.filter(item => item.id !== id);
-      renderComposition();
-      updateSendButtonText();
-    }
-
-    function renderComposition() {
-      if (state.compositionItems.length === 0) {
-        elements.compositionItems.innerHTML = `
-          <div class="vox-composition-empty">
-            <div class="vox-composition-empty-icon">🎵</div>
-            <div>Click words from the Word Bank to build your announcement</div>
-          </div>`;
-        return;
-      }
-
-      let html = '';
-      state.compositionItems.forEach((item, idx) => {
-        if (item.type === 'word') {
-          html += `
-            <div class="vox-composition-word" data-id="${item.id}">
-              <span class="vox-composition-word-text">${item.word}</span>
-              <button class="vox-composition-remove" type="button">×</button>
-            </div>`;
-        } else if (item.type === 'pause') {
-          html += `
-            <div class="vox-composition-pause" data-id="${item.id}">
-              <span>⏸</span>
-              <span class="vox-composition-pause-duration">${item.duration}ms</span>
-              <button class="vox-composition-remove" type="button">×</button>
-            </div>`;
-        }
-
-        if (idx < state.compositionItems.length - 1) {
-          html += `<button class="vox-composition-gap" data-after-id="${item.id}">·</button>`;
-        }
+    /* ==========================================
+       SETTINGS
+       ========================================== */
+    function attachSettingsListener() {
+      els.settingsHeader.addEventListener('click', () => {
+        els.settingsContent.classList.toggle('collapsed');
+        els.settingsChevron.classList.toggle('rotated');
       });
 
-      elements.compositionItems.innerHTML = html;
-
-      document.querySelectorAll('.vox-composition-remove').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const item = e.target.closest('[data-id]');
-          removeCompositionItem(parseInt(item.dataset.id));
-        });
-      });
-
-      document.querySelectorAll('.vox-composition-gap').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-          const afterId = parseInt(e.target.dataset.afterId);
-          const idx = state.compositionItems.findIndex(item => item.id === afterId);
-          state.compositionItems.splice(idx + 1, 0, { id: Date.now(), type: 'pause', duration: 150 });
-          renderComposition();
-          showToast('Added 150ms pause');
-        });
-      });
-
-      updateCompositionLabel();
-    }
-
-    function updateCompositionLabel() {
-      const count = state.compositionItems.length;
-      elements.compositionLabel.textContent = `Composition (${count} / 50):`;
-    }
-
-    elements.compositionClear.addEventListener('click', () => {
-      state.compositionItems = [];
-      renderComposition();
-      showToast('Composition cleared');
-    });
-
-    elements.quickAddInput.addEventListener('keypress', (e) => {
-      if (e.key === 'Enter' && e.target.value) {
-        addCompositionItem('word', e.target.value.toLowerCase());
-        e.target.value = '';
-        showToast(`Added "${e.target.value}" to composition`);
-      }
-    });
-
-    // ==========================================
-    // SETTINGS
-    // ==========================================
-    elements.settingsHeader.addEventListener('click', () => {
-      elements.settingsContent.classList.toggle('collapsed');
-      elements.settingsChevron.classList.toggle('rotated');
-    });
-
-    // Word Gap Slider
-    elements.wordGapSlider.addEventListener('input', (e) => {
-      state.wordGap = parseInt(e.target.value);
-      elements.gapValue.textContent = state.wordGap + 'ms';
-      elements.gapVisual.style.width = state.wordGap + 'px';
-      updateGapPresets();
-      updateSendButtonText();
-    });
-
-    elements.gapPresets.forEach(btn => {
-      btn.addEventListener('click', (e) => {
-        const gap = parseInt(e.target.dataset.gap);
-        state.wordGap = gap;
-        elements.wordGapSlider.value = gap;
-        elements.gapValue.textContent = gap + 'ms';
-        elements.gapVisual.style.width = gap + 'px';
-        updateGapPresets();
-      });
-    });
-
-    function updateGapPresets() {
-      elements.gapPresets.forEach(btn => {
-        btn.classList.toggle('active', parseInt(btn.dataset.gap) === state.wordGap);
+      els.wordGapSlider.addEventListener('input', (e) => {
+        state.wordGap = parseInt(e.target.value);
+        els.gapValue.textContent = state.wordGap + ' ms';
       });
     }
 
-    // PA Filter
-    elements.paFilterSelect.addEventListener('change', (e) => {
-      state.paFilter = e.target.value;
-      elements.paCustom.classList.toggle('active', e.target.value === 'custom');
-      updateFilterStatus();
-      updateSendButtonText();
-    });
+    /* ==========================================
+       VOICE CHANNEL
+       ========================================== */
+    function attachVoiceChannelListeners() {
+      els.joinBtn.addEventListener('click', () => {
+        state.isConnected = true;
+        updateVoiceStatus();
+        updatePlayButton();
+      });
 
-    elements.highpassSlider.addEventListener('input', (e) => {
-      state.paCustom.highpass = parseInt(e.target.value);
-      elements.highpassValue.textContent = state.paCustom.highpass + ' Hz';
-      updateFilterStatus();
-    });
-
-    elements.lowpassSlider.addEventListener('input', (e) => {
-      state.paCustom.lowpass = parseInt(e.target.value);
-      elements.lowpassValue.textContent = state.paCustom.lowpass + ' Hz';
-      updateFilterStatus();
-    });
-
-    elements.compressionSlider.addEventListener('input', (e) => {
-      state.paCustom.compression = parseFloat(e.target.value);
-      elements.compressionValue.textContent = state.paCustom.compression.toFixed(1) + ':1';
-      updateFilterStatus();
-    });
-
-    elements.distortionSlider.addEventListener('input', (e) => {
-      state.paCustom.distortion = parseFloat(e.target.value);
-      elements.distortionValue.textContent = Math.round(state.paCustom.distortion * 100) + '%';
-      updateFilterStatus();
-    });
-
-    elements.paReset.addEventListener('click', () => {
-      state.paCustom = { highpass: 300, lowpass: 3000, compression: 4.0, distortion: 0.2 };
-      elements.highpassSlider.value = 300;
-      elements.lowpassSlider.value = 3000;
-      elements.compressionSlider.value = 4.0;
-      elements.distortionSlider.value = 0.2;
-      elements.highpassValue.textContent = '300 Hz';
-      elements.lowpassValue.textContent = '3000 Hz';
-      elements.compressionValue.textContent = '4.0:1';
-      elements.distortionValue.textContent = '20%';
-      updateFilterStatus();
-      showToast('Reset to Heavy preset');
-    });
-
-    function updateFilterStatus() {
-      if (state.paFilter === 'off') {
-        elements.filterStatus.classList.remove('active');
-        return;
-      }
-
-      elements.filterStatus.classList.add('active');
-
-      let statusText = '';
-      if (state.paFilter === 'light') {
-        statusText = 'PA Filter: <strong>Light</strong> (200Hz-5kHz, 2:1 compression)';
-      } else if (state.paFilter === 'heavy') {
-        statusText = 'PA Filter: <strong>Heavy</strong> (300Hz-3kHz, 4:1 compression)';
-      } else if (state.paFilter === 'custom') {
-        statusText = `PA Filter: <strong>Custom</strong> (${state.paCustom.highpass}Hz-${state.paCustom.lowpass}Hz, ${state.paCustom.compression.toFixed(1)}:1 compression)`;
-      }
-
-      elements.filterStatusText.innerHTML = statusText;
+      els.leaveBtn.addEventListener('click', () => {
+        state.isConnected = false;
+        updateVoiceStatus();
+        updatePlayButton();
+        state.isPlaying = false;
+        els.nowPlaying.textContent = 'No message playing';
+        els.nowPlaying.classList.add('empty');
+        els.stopBtn.classList.remove('visible');
+      });
     }
 
-    // Speed Slider
-    elements.speedSlider.addEventListener('input', (e) => {
-      state.speed = parseFloat(e.target.value);
-      elements.speedValue.textContent = state.speed.toFixed(2) + 'x';
-      updateSendButtonText();
-    });
-
-    // Voice Preset
-    elements.voiceSelect.addEventListener('change', (e) => {
-      state.voicePreset = e.target.value;
-    });
-
-    // ==========================================
-    // SEND BUTTON
-    // ==========================================
-    function updateSendButtonText() {
-      let wordCount = 0;
-      let duration = 0;
-
-      if (state.mode === 'freetext') {
-        wordCount = state.tokens.length;
-        duration = wordCount * 0.6;
-      } else {
-        wordCount = state.compositionItems.filter(i => i.type === 'word').length;
-        duration = wordCount * 0.6;
-        state.compositionItems.forEach(item => {
-          if (item.type === 'pause') duration += item.duration / 1000;
-        });
-      }
-
-      const enabled = wordCount > 0 && state.isConnected;
-      elements.sendBtn.disabled = !enabled;
-      elements.sendBtnText.textContent = `Send VOX Message (${wordCount} words, ~${duration.toFixed(1)}s)`;
-    }
-
-    elements.sendBtn.addEventListener('click', async () => {
-      if (elements.sendBtn.disabled) return;
-
-      elements.sendBtn.classList.add('loading');
-      elements.sendBtnText.innerHTML = '<span class="vox-spinner"></span> Generating 2 words...';
-
-      // Simulate generation delay
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
-      elements.sendBtnText.innerHTML = '<span class="vox-spinner"></span> Sending...';
-
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      elements.sendBtn.classList.remove('loading');
-      updateSendButtonText();
-
-      // Show now playing
-      let message = '';
-      if (state.mode === 'freetext') {
-        message = elements.messageInput.value;
-      } else {
-        message = state.compositionItems
-          .map(item => item.type === 'word' ? item.word : '[pause]')
-          .join(' ');
-      }
-
-      startPlaying(message);
-      showToast(`VOX announcement sent (${state.tokens.length} words, ~4.2s)`);
-    });
-
-    // ==========================================
-    // VOICE CHANNEL
-    // ==========================================
-    elements.joinBtn.addEventListener('click', () => {
-      state.isConnected = true;
-      updateConnectionStatus();
-      showToast(`Connected to ${elements.channelSelect.options[elements.channelSelect.selectedIndex].text}`);
-      updateSendButtonText();
-    });
-
-    elements.leaveBtn.addEventListener('click', () => {
-      state.isConnected = false;
-      updateConnectionStatus();
-      state.isPlaying = false;
-      elements.nowPlayingMsg.textContent = 'No message playing';
-      elements.nowPlayingMsg.classList.add('empty');
-      elements.stopBtn.style.display = 'none';
-      showToast('Disconnected from voice channel');
-      updateSendButtonText();
-    });
-
-    function updateConnectionStatus() {
+    function updateVoiceStatus() {
       const connected = state.isConnected;
-      elements.connectionDot.classList.toggle('disconnected', !connected);
-      elements.connectionStatus.textContent = connected ? 'Connected' : 'Disconnected';
+      els.voiceDot.classList.toggle('disconnected', !connected);
+      els.voiceStatus.textContent = connected ? 'Connected' : 'Disconnected';
     }
 
-    // ==========================================
-    // NOW PLAYING
-    // ==========================================
+    /* ==========================================
+       PLAY BUTTON
+       ========================================== */
+    function updatePlayButton() {
+      const text = els.messageInput.value.toLowerCase();
+      const words = text.split(/\s+/).filter(w => w.length > 0);
+      const clips = clipData[state.activeGroup];
+      const clipNames = new Set(clips.map(c => c.name));
+      const matchedCount = words.filter(w => clipNames.has(w)).length;
+
+      const canPlay = matchedCount > 0 && state.isConnected;
+      els.playBtn.disabled = !canPlay;
+    }
+
+    function attachPlayButtonListener() {
+      els.playBtn.addEventListener('click', async () => {
+        if (els.playBtn.disabled) return;
+
+        els.playBtn.classList.add('loading');
+        els.playBtnText.innerHTML = '<span class="vox-spinner"></span> Playing...';
+
+        const text = els.messageInput.value;
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        els.playBtn.classList.remove('loading');
+        updatePlayButton();
+
+        startPlaying(text);
+      });
+
+      els.stopBtn.addEventListener('click', () => {
+        state.isPlaying = false;
+        els.nowPlaying.textContent = 'No message playing';
+        els.nowPlaying.classList.add('empty');
+        els.stopBtn.classList.remove('visible');
+      });
+    }
+
     function startPlaying(message) {
       state.isPlaying = true;
-      elements.nowPlayingMsg.textContent = message;
-      elements.nowPlayingMsg.classList.remove('empty');
-      elements.nowPlayingMsg.innerHTML = `<span class="vox-playing-dot"></span>${message}`;
-      elements.stopBtn.style.display = 'block';
+      els.nowPlaying.textContent = message;
+      els.nowPlaying.classList.remove('empty');
+      els.stopBtn.classList.add('visible');
 
       setTimeout(() => {
         state.isPlaying = false;
-        elements.nowPlayingMsg.textContent = 'No message playing';
-        elements.nowPlayingMsg.classList.add('empty');
-        elements.stopBtn.style.display = 'none';
-      }, 4200);
+        els.nowPlaying.textContent = 'No message playing';
+        els.nowPlaying.classList.add('empty');
+        els.stopBtn.classList.remove('visible');
+      }, 3000);
     }
 
-    elements.stopBtn.addEventListener('click', () => {
-      state.isPlaying = false;
-      elements.nowPlayingMsg.textContent = 'No message playing';
-      elements.nowPlayingMsg.classList.add('empty');
-      elements.stopBtn.style.display = 'none';
-      showToast('Playback stopped');
-    });
-
-    // ==========================================
-    // TOASTS
-    // ==========================================
-    function showToast(message) {
-      const toast = document.createElement('div');
-      toast.className = 'vox-toast';
-      toast.textContent = message;
-      document.body.appendChild(toast);
-
-      setTimeout(() => {
-        toast.classList.add('dismissing');
-        setTimeout(() => toast.remove(), 200);
-      }, 5000);
-    }
-
-    // ==========================================
-    // INITIALIZATION
-    // ==========================================
-    function init() {
-      updateTokenPreview();
-      updateGapPresets();
-      updateFilterStatus();
-      updateConnectionStatus();
-      updateSendButtonText();
-      renderComposition();
-
-      elements.messageInput.addEventListener('input', updateTokenPreview);
-    }
-
+    /* ==========================================
+       START
+       ========================================== */
     init();
   </script>
 </body>
