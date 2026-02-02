@@ -190,9 +190,20 @@
                             PartialUrl = $"/Guilds/Soundboard/{Model.ViewModel.GuildId}?handler=Partial"
                         }' />
                     </div>
-                    <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-accent-blue bg-accent-blue/20 rounded-full">
-                        @Model.ViewModel.Stats.TotalSounds @(Model.ViewModel.Stats.TotalSounds == 1 ? "sound" : "sounds")
-                    </span>
+                    <div class="flex items-center gap-3">
+                        <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+                        {
+                            Text = "Export All",
+                            Variant = ButtonVariant.Secondary,
+                            Size = ButtonSize.Small,
+                            IconLeft = "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4",
+                            OnClick = "exportAllSounds()",
+                            IsDisabled = Model.ViewModel.Stats.TotalSounds == 0
+                        })" />
+                        <span class="inline-flex items-center justify-center px-2.5 py-1 text-xs font-semibold text-accent-blue bg-accent-blue/20 rounded-full">
+                            @Model.ViewModel.Stats.TotalSounds @(Model.ViewModel.Stats.TotalSounds == 1 ? "sound" : "sounds")
+                        </span>
+                    </div>
                 </div>
 
                 <!-- Sounds List Container (AJAX target) -->
@@ -516,6 +527,11 @@
         function downloadSound(soundId, fileName) {
             document.querySelectorAll('[id^="menu-"]').forEach(m => m.classList.add('hidden'));
             window.location.href = `/api/guilds/${window.guildId}/sounds/${soundId}/download`;
+        }
+
+        // Export all sounds as zip
+        function exportAllSounds() {
+            window.location.href = `/api/guilds/${window.guildId}/sounds/export`;
         }
 
         // File upload handling
