@@ -1,0 +1,1845 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>VOX Configuration - Discord Bot Admin</title>
+    <style>
+        :root {
+            /* Backgrounds */
+            --color-bg-primary: #1d2022;
+            --color-bg-secondary: #262a2d;
+            --color-bg-tertiary: #2f3336;
+            --color-bg-hover: #363a3e;
+
+            /* Text */
+            --color-text-primary: #d7d3d0;
+            --color-text-secondary: #a8a5a3;
+            --color-text-tertiary: #7a7876;
+
+            /* Accents */
+            --color-accent-orange: #cb4e1b;
+            --color-accent-orange-hover: #e5591f;
+            --color-accent-blue: #098ecf;
+            --color-accent-blue-hover: #0ba3ea;
+
+            /* Semantic */
+            --color-success: #10b981;
+            --color-warning: #f59e0b;
+            --color-error: #ef4444;
+            --color-info: #06b6d4;
+
+            /* Borders */
+            --color-border-primary: #3f4447;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+            background-color: var(--color-bg-primary);
+            color: var(--color-text-primary);
+            min-height: 100vh;
+            line-height: 1.5;
+        }
+
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: var(--color-bg-primary);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: var(--color-border-primary);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: var(--color-bg-hover);
+        }
+
+        /* Navigation */
+        nav {
+            background-color: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border-primary);
+            position: sticky;
+            top: 0;
+            z-index: 40;
+        }
+
+        nav .nav-container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 64px;
+        }
+
+        nav .logo {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        nav .logo-icon {
+            width: 32px;
+            height: 32px;
+            background-color: var(--color-accent-orange);
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        nav .logo-text {
+            font-size: 1.125rem;
+            font-weight: bold;
+        }
+
+        nav .nav-links {
+            display: flex;
+            align-items: center;
+            gap: 0.25rem;
+            margin-left: 2rem;
+        }
+
+        nav a {
+            padding: 0.5rem 0.75rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-secondary);
+            text-decoration: none;
+            border-radius: 0.375rem;
+            transition: all 0.2s ease;
+        }
+
+        nav a:hover {
+            color: var(--color-text-primary);
+            background-color: var(--color-bg-hover);
+        }
+
+        nav a.active {
+            color: var(--color-accent-orange);
+            background-color: rgba(203, 78, 27, 0.1);
+        }
+
+        /* Main content */
+        main {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 2rem 1rem;
+        }
+
+        .breadcrumb {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .breadcrumb-item {
+            color: var(--color-text-secondary);
+        }
+
+        .breadcrumb-separator {
+            color: var(--color-text-tertiary);
+            margin: 0 0.25rem;
+        }
+
+        .page-header {
+            margin-bottom: 2rem;
+        }
+
+        .page-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: 0.5rem;
+        }
+
+        .page-subtitle {
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid var(--color-border-primary);
+            margin-bottom: 2rem;
+            gap: 0;
+        }
+
+        .tab-button {
+            padding: 1rem 1.5rem;
+            background: none;
+            border: none;
+            color: var(--color-text-secondary);
+            font-size: 0.95rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            position: relative;
+            padding-bottom: 1rem;
+        }
+
+        .tab-button:hover {
+            color: var(--color-text-primary);
+        }
+
+        .tab-button.active {
+            color: var(--color-accent-orange);
+        }
+
+        .tab-button.active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background-color: var(--color-accent-orange);
+        }
+
+        .tab-content {
+            display: none;
+        }
+
+        .tab-content.active {
+            display: block;
+        }
+
+        /* Card */
+        .card {
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .card-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        /* Form elements */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+
+        .form-label {
+            display: block;
+            font-size: 0.875rem;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            color: var(--color-text-primary);
+        }
+
+        .form-helper {
+            font-size: 0.8rem;
+            color: var(--color-text-secondary);
+            margin-top: 0.25rem;
+        }
+
+        .form-section {
+            margin-bottom: 2rem;
+        }
+
+        .form-section:not(:last-child) {
+            padding-bottom: 2rem;
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin-bottom: 1rem;
+        }
+
+        /* Toggle switch */
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .toggle-input {
+            appearance: none;
+            width: 48px;
+            height: 24px;
+            border-radius: 12px;
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .toggle-input::before {
+            content: '';
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background-color: var(--color-text-secondary);
+            top: 2px;
+            left: 2px;
+            transition: all 0.3s ease;
+        }
+
+        .toggle-input:checked {
+            background-color: var(--color-accent-orange);
+            border-color: var(--color-accent-orange);
+        }
+
+        .toggle-input:checked::before {
+            left: 26px;
+            background-color: white;
+        }
+
+        .toggle-input:focus {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(203, 78, 27, 0.15);
+        }
+
+        /* Select dropdown */
+        .form-select, .form-input {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            font-family: inherit;
+            transition: all 0.2s ease;
+        }
+
+        .form-select:hover, .form-input:hover {
+            border-color: var(--color-border-primary);
+        }
+
+        .form-select:focus, .form-input:focus {
+            outline: none;
+            border-color: var(--color-accent-blue);
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        .form-select {
+            appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23a8a5a3'%3E%3Cpath fill-rule='evenodd' d='M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z' clip-rule='evenodd'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 0.5rem center;
+            background-size: 1.5rem;
+            padding-right: 2.5rem;
+        }
+
+        /* Slider */
+        .slider-container {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .form-slider {
+            flex: 1;
+            height: 6px;
+            border-radius: 3px;
+            background: linear-gradient(to right, var(--color-accent-orange) 0%, var(--color-accent-orange) var(--slider-value), var(--color-bg-tertiary) var(--slider-value), var(--color-bg-tertiary) 100%);
+            appearance: none;
+            border: none;
+            cursor: pointer;
+            outline: none;
+        }
+
+        .form-slider::-webkit-slider-thumb {
+            appearance: none;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: var(--color-accent-orange);
+            cursor: pointer;
+            border: 2px solid var(--color-bg-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .form-slider::-webkit-slider-thumb:hover {
+            background-color: var(--color-accent-orange-hover);
+            box-shadow: 0 0 0 6px rgba(203, 78, 27, 0.15);
+        }
+
+        .form-slider::-moz-range-thumb {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: var(--color-accent-orange);
+            cursor: pointer;
+            border: 2px solid var(--color-bg-secondary);
+            transition: all 0.2s ease;
+        }
+
+        .form-slider::-moz-range-thumb:hover {
+            background-color: var(--color-accent-orange-hover);
+            box-shadow: 0 0 0 6px rgba(203, 78, 27, 0.15);
+        }
+
+        .slider-value {
+            min-width: 60px;
+            padding: 0.5rem 0.75rem;
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            color: var(--color-accent-orange);
+            text-align: right;
+        }
+
+        /* Buttons */
+        .button {
+            padding: 0.625rem 1rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .button-primary {
+            background-color: var(--color-accent-orange);
+            color: white;
+        }
+
+        .button-primary:hover {
+            background-color: var(--color-accent-orange-hover);
+        }
+
+        .button-primary:active {
+            background-color: #b04517;
+        }
+
+        .button-secondary {
+            background-color: transparent;
+            color: var(--color-accent-blue);
+            border: 1px solid var(--color-accent-blue);
+        }
+
+        .button-secondary:hover {
+            background-color: rgba(9, 142, 207, 0.1);
+            border-color: var(--color-accent-blue-hover);
+            color: var(--color-accent-blue-hover);
+        }
+
+        .button-danger {
+            background-color: transparent;
+            color: var(--color-error);
+            border: 1px solid var(--color-error);
+        }
+
+        .button-danger:hover {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-color: var(--color-error);
+        }
+
+        .button-ghost {
+            background-color: transparent;
+            color: var(--color-text-secondary);
+            border: none;
+            padding: 0.25rem 0.5rem;
+        }
+
+        .button-ghost:hover {
+            color: var(--color-text-primary);
+        }
+
+        .button-sm {
+            padding: 0.375rem 0.75rem;
+            font-size: 0.8125rem;
+        }
+
+        .button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Save button container */
+        .form-actions {
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+            margin-top: 2rem;
+            padding-top: 2rem;
+            border-top: 1px solid var(--color-border-primary);
+        }
+
+        /* Stats grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .stat-card {
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: var(--color-accent-orange);
+            margin-bottom: 0.25rem;
+        }
+
+        .stat-label {
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Toolbar */
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .toolbar-group {
+            display: flex;
+            gap: 0.75rem;
+        }
+
+        /* Word pack selector */
+        .word-pack-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+
+        .pack-card {
+            background-color: var(--color-bg-tertiary);
+            border: 2px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 1.5rem;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .pack-card:hover {
+            border-color: var(--color-accent-orange);
+            background-color: var(--color-bg-hover);
+        }
+
+        .pack-card.selected {
+            border-color: var(--color-accent-orange);
+            background-color: rgba(203, 78, 27, 0.1);
+        }
+
+        .pack-title {
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+
+        .pack-description {
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary);
+            margin-bottom: 1rem;
+        }
+
+        .pack-count {
+            font-size: 0.8125rem;
+            color: var(--color-accent-orange);
+            font-weight: 500;
+        }
+
+        /* Textarea */
+        .form-textarea {
+            width: 100%;
+            padding: 0.625rem 0.75rem;
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+            min-height: 8rem;
+            transition: all 0.2s ease;
+        }
+
+        .form-textarea:focus {
+            outline: none;
+            border-color: var(--color-accent-blue);
+            box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+        }
+
+        /* Table */
+        .table-container {
+            overflow-x: auto;
+            margin-bottom: 1.5rem;
+        }
+
+        .table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .table thead {
+            background-color: var(--color-bg-tertiary);
+        }
+
+        .table th {
+            padding: 1rem 0.75rem;
+            text-align: left;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .table td {
+            padding: 1rem 0.75rem;
+            border-bottom: 1px solid var(--color-border-primary);
+            font-size: 0.875rem;
+        }
+
+        .table tbody tr {
+            transition: background-color 0.15s ease;
+        }
+
+        .table tbody tr:hover {
+            background-color: var(--color-bg-hover);
+        }
+
+        .table tbody tr.deleted {
+            animation: slideOut 0.3s ease forwards;
+        }
+
+        @keyframes slideOut {
+            from {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            to {
+                opacity: 0;
+                transform: translateX(100%);
+            }
+        }
+
+        .table tbody tr.playing {
+            animation: playHighlight 0.6s ease;
+        }
+
+        @keyframes playHighlight {
+            0% {
+                background-color: rgba(6, 182, 212, 0.2);
+            }
+            100% {
+                background-color: transparent;
+            }
+        }
+
+        .word-col {
+            font-family: 'Courier New', monospace;
+            color: var(--color-text-primary);
+        }
+
+        .voice-col {
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary);
+        }
+
+        .actions-col {
+            display: flex;
+            gap: 0.5rem;
+            align-items: center;
+        }
+
+        /* Search and sort toolbar */
+        .search-sort-toolbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .search-input {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        /* Pagination */
+        .pagination {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        .pagination-info {
+            color: var(--color-text-secondary);
+            margin-right: 1rem;
+        }
+
+        .pagination-button {
+            width: 32px;
+            height: 32px;
+            border-radius: 0.375rem;
+            border: 1px solid var(--color-border-primary);
+            background-color: var(--color-bg-secondary);
+            color: var(--color-text-primary);
+            cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.875rem;
+            font-weight: 500;
+        }
+
+        .pagination-button:hover:not(:disabled) {
+            background-color: var(--color-bg-hover);
+            border-color: var(--color-accent-orange);
+        }
+
+        .pagination-button.active {
+            background-color: var(--color-accent-orange);
+            color: white;
+            border-color: var(--color-accent-orange);
+        }
+
+        .pagination-button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.6);
+            z-index: 50;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-overlay.active {
+            display: flex;
+        }
+
+        .modal {
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            max-width: 500px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5);
+            animation: modalSlideIn 0.3s ease;
+        }
+
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        .modal-header {
+            padding: 1.5rem;
+            border-bottom: 1px solid var(--color-border-primary);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .modal-header.danger {
+            background-color: rgba(239, 68, 68, 0.1);
+            border-bottom-color: var(--color-error);
+        }
+
+        .modal-title {
+            font-size: 1.125rem;
+            font-weight: 600;
+        }
+
+        .modal-close {
+            background: none;
+            border: none;
+            color: var(--color-text-secondary);
+            cursor: pointer;
+            font-size: 1.5rem;
+            padding: 0;
+            width: 32px;
+            height: 32px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: color 0.2s ease;
+        }
+
+        .modal-close:hover {
+            color: var(--color-text-primary);
+        }
+
+        .modal-body {
+            padding: 1.5rem;
+        }
+
+        .modal-footer {
+            padding: 1.5rem;
+            border-top: 1px solid var(--color-border-primary);
+            display: flex;
+            justify-content: flex-end;
+            gap: 1rem;
+        }
+
+        /* Progress bar */
+        .progress-bar-container {
+            width: 100%;
+            height: 8px;
+            background-color: var(--color-bg-tertiary);
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 1rem;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, var(--color-accent-orange), var(--color-accent-orange-hover));
+            background-size: 200% 100%;
+            animation: shimmer 1.5s infinite;
+            transition: width 0.3s ease;
+            width: 0%;
+        }
+
+        @keyframes shimmer {
+            0% {
+                background-position: 200% 0;
+            }
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 1.5rem;
+            right: 1.5rem;
+            background-color: var(--color-success);
+            color: white;
+            padding: 1rem 1.5rem;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            animation: toastSlideIn 0.3s ease forwards;
+            z-index: 60;
+        }
+
+        .toast.error {
+            background-color: var(--color-error);
+        }
+
+        .toast.info {
+            background-color: var(--color-info);
+        }
+
+        @keyframes toastSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px) translateX(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0) translateX(0);
+            }
+        }
+
+        /* Confirmation dialog */
+        .confirm-text {
+            margin-bottom: 1rem;
+            color: var(--color-text-secondary);
+        }
+
+        .confirm-text strong {
+            color: var(--color-text-primary);
+        }
+
+        .confirm-stats {
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            font-size: 0.875rem;
+        }
+
+        /* Dropdown for buttons */
+        .dropdown-wrapper {
+            position: relative;
+            display: inline-block;
+        }
+
+        .dropdown-menu {
+            position: absolute;
+            top: 100%;
+            right: 0;
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            min-width: 150px;
+            margin-top: 0.5rem;
+            display: none;
+            z-index: 50;
+            animation: dropdownSlideDown 0.2s ease;
+        }
+
+        .dropdown-menu.active {
+            display: block;
+        }
+
+        @keyframes dropdownSlideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .dropdown-item {
+            padding: 0.75rem 1rem;
+            color: var(--color-text-primary);
+            text-decoration: none;
+            display: block;
+            font-size: 0.875rem;
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+            border: none;
+            background: none;
+            width: 100%;
+            text-align: left;
+        }
+
+        .dropdown-item:hover {
+            background-color: var(--color-bg-hover);
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            main {
+                padding: 1rem;
+            }
+
+            .page-title {
+                font-size: 1.5rem;
+            }
+
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+
+            .toolbar {
+                flex-direction: column;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            .modal {
+                width: 95%;
+            }
+
+            .search-sort-toolbar {
+                flex-direction: column;
+            }
+
+            .search-input {
+                min-width: 100%;
+            }
+        }
+
+        /* Prefers reduced motion */
+        @media (prefers-reduced-motion: reduce) {
+            * {
+                animation-duration: 0.01ms !important;
+                animation-iteration-count: 1 !important;
+                transition-duration: 0.01ms !important;
+            }
+        }
+
+        /* Icon helpers */
+        .icon {
+            display: inline-block;
+            width: 1em;
+            height: 1em;
+            vertical-align: -0.125em;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <div style="display: flex; align-items: center; gap: 2rem;">
+                <div class="logo">
+                    <div class="logo-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                            <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03z"/>
+                        </svg>
+                    </div>
+                    <span class="logo-text">Bot Admin</span>
+                </div>
+                <div class="nav-links">
+                    <a href="#">Dashboard</a>
+                    <a href="#">Servers</a>
+                    <a href="#" class="active">VOX</a>
+                    <a href="#">Settings</a>
+                </div>
+            </div>
+            <div style="width: 32px; height: 32px; border-radius: 50%; background-color: var(--color-accent-blue); display: flex; align-items: center; justify-content: center; color: white; font-weight: bold; font-size: 0.875rem;">A</div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main>
+        <!-- Breadcrumb -->
+        <div class="breadcrumb">
+            <span class="breadcrumb-item">Example Guild</span>
+            <span class="breadcrumb-separator">/</span>
+            <span class="breadcrumb-item">VOX Configuration</span>
+        </div>
+
+        <!-- Page Header -->
+        <div class="page-header">
+            <h1 class="page-title">VOX Configuration</h1>
+            <p class="page-subtitle">Configure Half-Life style VOX announcements for this guild</p>
+        </div>
+
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-button active" data-tab="settings">Settings</button>
+            <button class="tab-button" data-tab="wordbank">Word Bank</button>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings" class="tab-content active">
+            <div class="card">
+                <div class="form-section">
+                    <div class="section-title">General</div>
+
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div class="form-label">Enable VOX</div>
+                                <div class="form-helper">When enabled, members can send VOX messages via /vox command and the portal</div>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" class="toggle-input" id="enableVox" checked>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <div style="display: flex; justify-content: space-between; align-items: start;">
+                            <div>
+                                <div class="form-label">Auto-Generate Missing Words</div>
+                                <div class="form-helper">Automatically generate uncached words when members send messages</div>
+                            </div>
+                            <div class="toggle-switch">
+                                <input type="checkbox" class="toggle-input" id="autoGenerate" checked>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-title">Defaults</div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="defaultVoice">Default Voice Preset</label>
+                        <select id="defaultVoice" class="form-select">
+                            <optgroup label="Male">
+                                <option value="en-US-GuyNeural" selected>Guy (en-US)</option>
+                                <option value="en-US-DavisNeural">Davis (en-US)</option>
+                            </optgroup>
+                            <optgroup label="Female">
+                                <option value="en-US-JennyNeural">Jenny (en-US)</option>
+                                <option value="en-US-AriaNeural">Aria (en-US)</option>
+                            </optgroup>
+                        </select>
+                        <div class="form-helper">Voice used when members don't specify one</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="defaultFilter">Default PA Filter</label>
+                        <select id="defaultFilter" class="form-select">
+                            <option value="off" selected>Off</option>
+                            <option value="light">Light</option>
+                            <option value="heavy">Heavy</option>
+                        </select>
+                        <div class="form-helper">Audio filter applied to all announcements by default</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label">Default Word Gap</label>
+                        <div class="slider-container">
+                            <input type="range" id="wordGap" class="form-slider" min="20" max="200" value="50" style="--slider-value: 25%;">
+                            <div class="slider-value" id="wordGapValue">50ms</div>
+                        </div>
+                        <div class="form-helper">Silence duration between concatenated words</div>
+                    </div>
+                </div>
+
+                <div class="form-section">
+                    <div class="section-title">Limits</div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="maxWordCount">Max Message Word Count</label>
+                        <input type="number" id="maxWordCount" class="form-input" value="50" min="1" max="200">
+                        <div class="form-helper">Maximum words per VOX message</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="rateLimit">Rate Limit</label>
+                        <input type="number" id="rateLimit" class="form-input" value="5" min="1" max="30">
+                        <div class="form-helper">Maximum VOX messages per minute per user</div>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button class="button button-primary" id="saveSettings">Save Settings</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Word Bank Tab -->
+        <div id="wordbank" class="tab-content">
+            <!-- Statistics Row -->
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-value">1,247</div>
+                    <div class="stat-label">Words Cached</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">24.5 MB</div>
+                    <div class="stat-label">Disk Usage</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">3</div>
+                    <div class="stat-label">Voice Presets</div>
+                </div>
+            </div>
+
+            <!-- Bulk Operations -->
+            <div class="card">
+                <div class="card-title">Bulk Operations</div>
+
+                <div class="toolbar">
+                    <div class="dropdown-wrapper">
+                        <button class="button button-secondary" id="generatePackBtn">
+                            <span>Generate Word Pack</span>
+                            <span style="font-size: 1.2em; line-height: 0.8;">▼</span>
+                        </button>
+                        <div class="dropdown-menu" id="packDropdown">
+                            <button class="dropdown-item" data-pack="common">Common English 500</button>
+                            <button class="dropdown-item" data-pack="nato">NATO Phonetic</button>
+                            <button class="dropdown-item" data-pack="numbers">Numbers 0-100</button>
+                            <button class="dropdown-item" data-pack="halflife">Half-Life Classic</button>
+                        </div>
+                    </div>
+                    <button class="button button-secondary" id="importZipBtn">
+                        <span>📥 Import ZIP</span>
+                    </button>
+                    <button class="button button-secondary" id="exportAllBtn">
+                        <span>📥 Export All</span>
+                    </button>
+                    <button class="button button-danger" id="purgeCacheBtn">
+                        <span>🗑️ Purge Cache</span>
+                    </button>
+                </div>
+
+                <!-- Word Pack Generator -->
+                <div style="margin-top: 2rem;">
+                    <div class="form-label" style="margin-bottom: 1rem;">Select or Create Word Pack</div>
+                    <div class="word-pack-grid" id="packGrid">
+                        <div class="pack-card" data-pack-id="common">
+                            <div class="pack-title">Common English 500</div>
+                            <div class="pack-description">Most frequently used English words</div>
+                            <div class="pack-count">500 words</div>
+                        </div>
+                        <div class="pack-card" data-pack-id="nato">
+                            <div class="pack-title">NATO Phonetic</div>
+                            <div class="pack-description">Alpha, Bravo, Charlie...</div>
+                            <div class="pack-count">26 words</div>
+                        </div>
+                        <div class="pack-card" data-pack-id="numbers">
+                            <div class="pack-title">Numbers 0-100</div>
+                            <div class="pack-description">Zero through one hundred</div>
+                            <div class="pack-count">101 words</div>
+                        </div>
+                        <div class="pack-card" data-pack-id="halflife">
+                            <div class="pack-title">Half-Life Classic</div>
+                            <div class="pack-description">Iconic HL1 VOX announcements</div>
+                            <div class="pack-count">87 words</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Custom Word List -->
+                <div style="margin-top: 2rem;">
+                    <div class="form-label" style="margin-bottom: 1rem;">Or Create Custom Pack</div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="customWords">Words</label>
+                        <textarea id="customWords" class="form-textarea" placeholder="Enter words, one per line...">attention
+all
+personnel
+security
+breach</textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label class="form-label" for="customVoice">Voice</label>
+                        <select id="customVoice" class="form-select">
+                            <optgroup label="Male">
+                                <option value="en-US-GuyNeural" selected>Guy (en-US)</option>
+                                <option value="en-US-DavisNeural">Davis (en-US)</option>
+                            </optgroup>
+                            <optgroup label="Female">
+                                <option value="en-US-JennyNeural">Jenny (en-US)</option>
+                                <option value="en-US-AriaNeural">Aria (en-US)</option>
+                            </optgroup>
+                        </select>
+                    </div>
+
+                    <button class="button button-primary" id="generateWordsBtn">Generate Words</button>
+                </div>
+            </div>
+
+            <!-- Word Bank Table -->
+            <div class="card">
+                <div class="card-title">Word Bank</div>
+
+                <div class="search-sort-toolbar">
+                    <input type="text" class="form-input search-input" id="searchWords" placeholder="Search words...">
+                    <select id="sortBy" class="form-select" style="max-width: 200px;">
+                        <option value="date-desc">Date Added (Newest)</option>
+                        <option value="word-asc">Word (A-Z)</option>
+                        <option value="word-desc">Word (Z-A)</option>
+                        <option value="size-desc">File Size</option>
+                        <option value="duration-desc">Duration</option>
+                    </select>
+                </div>
+
+                <div class="table-container">
+                    <table class="table">
+                        <thead>
+                            <tr>
+                                <th>Word</th>
+                                <th>Voice</th>
+                                <th>Size</th>
+                                <th>Duration</th>
+                                <th>Date Added</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="wordTable">
+                            <tr class="table-row">
+                                <td class="word-col">attention</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>18.2 KB</td>
+                                <td>0.8s</td>
+                                <td>Jan 15, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="attention">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">all</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>12.1 KB</td>
+                                <td>0.4s</td>
+                                <td>Jan 15, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="all">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">personnel</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>24.7 KB</td>
+                                <td>1.1s</td>
+                                <td>Jan 15, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="personnel">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">security</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>19.3 KB</td>
+                                <td>0.9s</td>
+                                <td>Jan 16, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="security">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">breach</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>14.8 KB</td>
+                                <td>0.6s</td>
+                                <td>Jan 16, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="breach">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">warning</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>16.4 KB</td>
+                                <td>0.7s</td>
+                                <td>Jan 17, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="warning">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">detected</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>18.9 KB</td>
+                                <td>0.8s</td>
+                                <td>Jan 17, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="detected">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">sector</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>15.1 KB</td>
+                                <td>0.7s</td>
+                                <td>Jan 17, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="sector">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">alert</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>13.5 KB</td>
+                                <td>0.5s</td>
+                                <td>Jan 18, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="alert">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">intruder</td>
+                                <td class="voice-col">en-US-GuyNeural</td>
+                                <td>20.2 KB</td>
+                                <td>0.9s</td>
+                                <td>Jan 18, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="intruder">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">evacuation</td>
+                                <td class="voice-col">en-US-DavisNeural</td>
+                                <td>28.3 KB</td>
+                                <td>1.3s</td>
+                                <td>Jan 20, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="evacuation">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">contamination</td>
+                                <td class="voice-col">en-US-DavisNeural</td>
+                                <td>31.7 KB</td>
+                                <td>1.4s</td>
+                                <td>Jan 20, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="contamination">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">biohazard</td>
+                                <td class="voice-col">en-US-DavisNeural</td>
+                                <td>22.6 KB</td>
+                                <td>1.0s</td>
+                                <td>Jan 20, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="biohazard">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">lockdown</td>
+                                <td class="voice-col">en-US-JennyNeural</td>
+                                <td>17.8 KB</td>
+                                <td>0.8s</td>
+                                <td>Jan 22, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="lockdown">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                            <tr class="table-row">
+                                <td class="word-col">emergency</td>
+                                <td class="voice-col">en-US-JennyNeural</td>
+                                <td>23.1 KB</td>
+                                <td>1.0s</td>
+                                <td>Jan 22, 2026</td>
+                                <td class="actions-col">
+                                    <button class="button button-ghost button-sm play-btn" data-word="emergency">▶</button>
+                                    <button class="button button-ghost button-sm delete-btn">🗑️</button>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Pagination -->
+                <div class="pagination">
+                    <span class="pagination-info">Showing 1-15 of 1,247</span>
+                    <button class="pagination-button" disabled>&lt;</button>
+                    <button class="pagination-button active">1</button>
+                    <button class="pagination-button">2</button>
+                    <button class="pagination-button">3</button>
+                    <button class="pagination-button" style="margin: 0 0.25rem;">...</button>
+                    <button class="pagination-button">83</button>
+                    <button class="pagination-button">&gt;</button>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Progress Modal -->
+    <div class="modal-overlay" id="progressModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Generating Words</div>
+            </div>
+            <div class="modal-body">
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar"></div>
+                </div>
+                <p style="text-align: center; margin-bottom: 1rem;">Generating <span id="progressCount">0</span> of <span id="progressTotal">12</span> words...</p>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-ghost" id="progressCancel">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirm Delete Modal -->
+    <div class="modal-overlay" id="deleteModal">
+        <div class="modal">
+            <div class="modal-header">
+                <div class="modal-title">Delete Word</div>
+                <button class="modal-close" id="deleteClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="confirm-text">Delete <strong id="deleteWordName">word</strong>? This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-ghost" id="deleteCancel">Cancel</button>
+                <button class="button button-danger" id="deleteConfirm">Delete</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Purge Cache Modal -->
+    <div class="modal-overlay" id="purgeModal">
+        <div class="modal">
+            <div class="modal-header danger">
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span style="font-size: 1.5rem;">⚠️</span>
+                    <div class="modal-title">Purge Word Bank Cache</div>
+                </div>
+                <button class="modal-close" id="purgeClose">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p class="confirm-text">This will permanently delete all cached word clips. This action cannot be undone.</p>
+
+                <div class="form-group">
+                    <label class="form-label" for="purgeVoiceFilter">Voice Filter</label>
+                    <select id="purgeVoiceFilter" class="form-select">
+                        <option value="all" selected>All Voices</option>
+                        <option value="en-US-GuyNeural">Guy (en-US)</option>
+                        <option value="en-US-DavisNeural">Davis (en-US)</option>
+                        <option value="en-US-JennyNeural">Jenny (en-US)</option>
+                        <option value="en-US-AriaNeural">Aria (en-US)</option>
+                    </select>
+                </div>
+
+                <div class="confirm-stats">
+                    <strong>Estimated deletion:</strong> 1,247 words (24.5 MB)
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="button button-ghost" id="purgeCancel">Cancel</button>
+                <button class="button button-danger" id="purgeConfirm">Purge All</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === UTILITY FUNCTIONS ===
+        function showToast(message, type = 'success') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+
+            setTimeout(() => {
+                toast.style.animation = 'toastSlideIn 0.3s ease reverse';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function closeModal(modal) {
+            modal.classList.remove('active');
+        }
+
+        function openModal(modal) {
+            modal.classList.add('active');
+        }
+
+        // === TABS ===
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabName = button.dataset.tab;
+
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+
+                button.classList.add('active');
+                document.getElementById(tabName).classList.add('active');
+            });
+        });
+
+        // === SLIDER ===
+        const slider = document.getElementById('wordGap');
+        const sliderValue = document.getElementById('wordGapValue');
+
+        slider.addEventListener('input', (e) => {
+            const value = e.target.value;
+            sliderValue.textContent = value + 'ms';
+            const percent = ((value - slider.min) / (slider.max - slider.min)) * 100;
+            slider.style.setProperty('--slider-value', percent + '%');
+        });
+
+        // === TOGGLE SWITCHES ===
+        const toggles = document.querySelectorAll('.toggle-input');
+        toggles.forEach(toggle => {
+            toggle.addEventListener('change', (e) => {
+                console.log(`Toggle ${e.target.id} is now ${e.target.checked}`);
+            });
+        });
+
+        // === SAVE SETTINGS ===
+        const saveBtn = document.getElementById('saveSettings');
+        saveBtn.addEventListener('click', () => {
+            saveBtn.disabled = true;
+            saveBtn.textContent = 'Saving...';
+
+            setTimeout(() => {
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Settings';
+                showToast('Settings saved successfully!', 'success');
+            }, 800);
+        });
+
+        // === WORD PACK SELECTION ===
+        const packCards = document.querySelectorAll('.pack-card');
+        packCards.forEach(card => {
+            card.addEventListener('click', () => {
+                packCards.forEach(c => c.classList.remove('selected'));
+                card.classList.add('selected');
+            });
+        });
+
+        // === GENERATE WORDS BUTTON ===
+        const generateWordsBtn = document.getElementById('generateWordsBtn');
+        const progressModal = document.getElementById('progressModal');
+        const progressBar = document.getElementById('progressBar');
+        const progressCount = document.getElementById('progressCount');
+        const progressTotal = document.getElementById('progressTotal');
+        const progressCancel = document.getElementById('progressCancel');
+
+        generateWordsBtn.addEventListener('click', () => {
+            const words = document.getElementById('customWords').value.trim().split('\n').filter(w => w.trim());
+            const wordCount = words.length;
+
+            if (wordCount === 0) {
+                showToast('Please enter at least one word', 'info');
+                return;
+            }
+
+            progressTotal.textContent = wordCount;
+            progressCount.textContent = '0';
+            progressBar.style.width = '0%';
+            openModal(progressModal);
+
+            let current = 0;
+            const interval = setInterval(() => {
+                current += Math.random() * (wordCount * 0.5);
+                if (current >= wordCount) {
+                    current = wordCount;
+                    clearInterval(interval);
+                    progressBar.style.width = '100%';
+                    progressCount.textContent = wordCount;
+
+                    setTimeout(() => {
+                        progressModal.innerHTML = `
+                            <div class="modal">
+                                <div class="modal-header">
+                                    <div class="modal-title">✓ Complete</div>
+                                </div>
+                                <div class="modal-body">
+                                    <p style="text-align: center;">Generated ${wordCount} words successfully!</p>
+                                </div>
+                                <div class="modal-footer">
+                                    <button class="button button-primary" id="completeBtn">Close</button>
+                                </div>
+                            </div>
+                        `;
+                        document.getElementById('completeBtn').addEventListener('click', () => {
+                            closeModal(progressModal);
+                            showToast(`Generated ${wordCount} words successfully!`, 'success');
+                        });
+                    }, 1000);
+                    return;
+                }
+                progressCount.textContent = Math.floor(current);
+                progressBar.style.width = (current / wordCount) * 100 + '%';
+            }, 200);
+        });
+
+        progressCancel.addEventListener('click', () => {
+            closeModal(progressModal);
+        });
+
+        // === GENERATE PACK DROPDOWN ===
+        const generatePackBtn = document.getElementById('generatePackBtn');
+        const packDropdown = document.getElementById('packDropdown');
+
+        generatePackBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            packDropdown.classList.toggle('active');
+        });
+
+        document.addEventListener('click', () => {
+            packDropdown.classList.remove('active');
+        });
+
+        packDropdown.querySelectorAll('.dropdown-item').forEach(item => {
+            item.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const packType = item.dataset.pack;
+                packDropdown.classList.remove('active');
+                showToast(`Selected ${packType} pack`, 'info');
+            });
+        });
+
+        // === IMPORT ZIP ===
+        const importZipBtn = document.getElementById('importZipBtn');
+        importZipBtn.addEventListener('click', () => {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.zip';
+            input.addEventListener('change', (e) => {
+                if (e.target.files.length > 0) {
+                    showToast(`Importing ${e.target.files[0].name}...`, 'info');
+                }
+            });
+            input.click();
+        });
+
+        // === EXPORT ALL ===
+        const exportAllBtn = document.getElementById('exportAllBtn');
+        exportAllBtn.addEventListener('click', () => {
+            showToast('Exporting word bank... (1,247 words)', 'info');
+        });
+
+        // === PLAY BUTTON ===
+        const playBtns = document.querySelectorAll('.play-btn');
+        playBtns.forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const row = e.target.closest('tr');
+                const word = row.querySelector('.word-col').textContent;
+                row.classList.add('playing');
+                setTimeout(() => row.classList.remove('playing'), 600);
+                showToast(`Playing: ${word}`, 'info');
+            });
+        });
+
+        // === DELETE BUTTON ===
+        const deleteModal = document.getElementById('deleteModal');
+        const deleteWordName = document.getElementById('deleteWordName');
+        const deleteCancel = document.getElementById('deleteCancel');
+        const deleteClose = document.getElementById('deleteClose');
+        const deleteConfirm = document.getElementById('deleteConfirm');
+        let deleteTargetRow = null;
+
+        document.querySelectorAll('.delete-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const row = e.target.closest('tr');
+                const word = row.querySelector('.word-col').textContent;
+                deleteWordName.textContent = word;
+                deleteTargetRow = row;
+                openModal(deleteModal);
+            });
+        });
+
+        deleteCancel.addEventListener('click', () => closeModal(deleteModal));
+        deleteClose.addEventListener('click', () => closeModal(deleteModal));
+
+        deleteConfirm.addEventListener('click', () => {
+            if (deleteTargetRow) {
+                deleteTargetRow.classList.add('deleted');
+                setTimeout(() => {
+                    deleteTargetRow.remove();
+                    closeModal(deleteModal);
+                    showToast('Word deleted successfully', 'success');
+                }, 300);
+            }
+        });
+
+        // === SEARCH ===
+        const searchInput = document.getElementById('searchWords');
+        const tableRows = document.querySelectorAll('#wordTable tr');
+
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            tableRows.forEach(row => {
+                const word = row.querySelector('.word-col').textContent.toLowerCase();
+                row.style.display = word.includes(query) ? '' : 'none';
+            });
+        });
+
+        // === SORT ===
+        const sortSelect = document.getElementById('sortBy');
+        const wordTable = document.getElementById('wordTable');
+
+        sortSelect.addEventListener('change', (e) => {
+            const sortType = e.target.value;
+            const rows = Array.from(tableRows);
+
+            rows.sort((a, b) => {
+                const wordA = a.querySelector('.word-col').textContent;
+                const wordB = b.querySelector('.word-col').textContent;
+
+                if (sortType === 'word-asc') {
+                    return wordA.localeCompare(wordB);
+                } else if (sortType === 'word-desc') {
+                    return wordB.localeCompare(wordA);
+                }
+                return 0;
+            });
+
+            rows.forEach(row => wordTable.appendChild(row));
+            showToast(`Sorted by ${sortSelect.options[sortSelect.selectedIndex].text}`, 'info');
+        });
+
+        // === PAGINATION ===
+        const paginationBtns = document.querySelectorAll('.pagination-button');
+        paginationBtns.forEach((btn, index) => {
+            btn.addEventListener('click', (e) => {
+                if (btn.textContent === '<' || btn.textContent === '>') return;
+                if (btn.disabled) return;
+
+                paginationBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                showToast(`Navigated to page ${btn.textContent}`, 'info');
+            });
+        });
+
+        // === PURGE CACHE ===
+        const purgeCacheBtn = document.getElementById('purgeCacheBtn');
+        const purgeModal = document.getElementById('purgeModal');
+        const purgeCancel = document.getElementById('purgeCancel');
+        const purgeClose = document.getElementById('purgeClose');
+        const purgeConfirm = document.getElementById('purgeConfirm');
+
+        purgeCacheBtn.addEventListener('click', () => {
+            openModal(purgeModal);
+        });
+
+        purgeCancel.addEventListener('click', () => closeModal(purgeModal));
+        purgeClose.addEventListener('click', () => closeModal(purgeModal));
+
+        purgeConfirm.addEventListener('click', () => {
+            purgeConfirm.disabled = true;
+            purgeConfirm.textContent = 'Purging...';
+
+            setTimeout(() => {
+                closeModal(purgeModal);
+                purgeConfirm.disabled = false;
+                purgeConfirm.textContent = 'Purge All';
+                showToast('Word bank cache purged successfully (1,247 words deleted)', 'success');
+            }, 1200);
+        });
+
+        // === PREFERS REDUCED MOTION ===
+        const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+        if (prefersReducedMotion) {
+            document.documentElement.style.setProperty('--duration', '0.01ms');
+        }
+    </script>
+</body>
+</html>
