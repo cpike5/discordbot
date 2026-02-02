@@ -23,7 +23,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
     private readonly IAudioService _audioService;
     private readonly ITtsService _ttsService;
     private readonly ITtsSettingsService _ttsSettingsService;
-    private readonly ITtsHistoryService _ttsHistoryService;
+    private readonly ITtsPlaybackService _ttsPlaybackService;
     private readonly ISsmlBuilder _ssmlBuilder;
     private readonly IStylePresetProvider _stylePresetProvider;
     private readonly ILogger<TtsModule> _logger;
@@ -35,7 +35,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
         IAudioService audioService,
         ITtsService ttsService,
         ITtsSettingsService ttsSettingsService,
-        ITtsHistoryService ttsHistoryService,
+        ITtsPlaybackService ttsPlaybackService,
         ISsmlBuilder ssmlBuilder,
         IStylePresetProvider stylePresetProvider,
         ILogger<TtsModule> logger)
@@ -43,7 +43,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
         _audioService = audioService;
         _ttsService = ttsService;
         _ttsSettingsService = ttsSettingsService;
-        _ttsHistoryService = ttsHistoryService;
+        _ttsPlaybackService = ttsPlaybackService;
         _ssmlBuilder = ssmlBuilder;
         _stylePresetProvider = stylePresetProvider;
         _logger = logger;
@@ -214,7 +214,6 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 guildId,
                 effectiveVoice);
 
-            var startTime = DateTime.UtcNow;
             Stream audioStream;
             try
             {
@@ -235,60 +234,44 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            // Play the audio
-            var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
-            if (pcmStream == null)
-            {
-                _logger.LogError("Failed to get PCM stream for guild {GuildId}", guildId);
-
-                var streamErrorEmbed = new EmbedBuilder()
-                    .WithTitle("Playback Error")
-                    .WithDescription("Failed to connect to voice channel. Please try again.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await FollowupAsync(embed: streamErrorEmbed, ephemeral: true);
-                return;
-            }
-
-            // Stream the audio to Discord
+            // Play the audio using the TTS playback service
             _logger.LogInformation(
                 "Playing TTS audio in guild {GuildId} for user {UserId}",
                 guildId,
                 userId);
 
-            _audioService.UpdateLastActivity(guildId);
-
+            Core.DTOs.Tts.TtsPlaybackResult playbackResult;
             await using (audioStream)
             {
-                await audioStream.CopyToAsync(pcmStream);
-                await pcmStream.FlushAsync();
+                playbackResult = await _ttsPlaybackService.PlayAsync(
+                    guildId,
+                    userId,
+                    username,
+                    message,
+                    effectiveVoice,
+                    audioStream);
             }
 
-            var endTime = DateTime.UtcNow;
-            var durationSeconds = (endTime - startTime).TotalSeconds;
-
-            // Log the TTS message to history
-            var ttsMessage = new TtsMessage
+            if (!playbackResult.Success)
             {
-                Id = Guid.NewGuid(),
-                GuildId = guildId,
-                UserId = userId,
-                Username = username,
-                Message = message,
-                Voice = effectiveVoice,
-                DurationSeconds = durationSeconds,
-                CreatedAt = DateTime.UtcNow
-            };
+                _logger.LogError("TTS playback failed for guild {GuildId}: {ErrorMessage}", guildId, playbackResult.ErrorMessage);
 
-            await _ttsHistoryService.LogMessageAsync(ttsMessage);
+                var playbackErrorEmbed = new EmbedBuilder()
+                    .WithTitle("Playback Error")
+                    .WithDescription(playbackResult.ErrorMessage ?? "Failed to play audio. Please try again.")
+                    .WithColor(Color.Red)
+                    .WithCurrentTimestamp()
+                    .Build();
+
+                await FollowupAsync(embed: playbackErrorEmbed, ephemeral: true);
+                return;
+            }
 
             _logger.LogInformation(
                 "TTS playback completed for user {UserId} in guild {GuildId}, duration: {Duration:F2}s",
                 userId,
                 guildId,
-                durationSeconds);
+                playbackResult.DurationSeconds);
 
             // Success response
             var successEmbed = new EmbedBuilder()
@@ -562,7 +545,6 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 selectedPreset.VoiceName,
                 selectedPreset.Style);
 
-            var startTime = DateTime.UtcNow;
             Stream audioStream;
             try
             {
@@ -583,61 +565,45 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 return;
             }
 
-            // Play the audio
-            var pcmStream = _audioService.GetOrCreatePcmStream(guildId);
-            if (pcmStream == null)
-            {
-                _logger.LogError("Failed to get PCM stream for guild {GuildId}", guildId);
-
-                var streamErrorEmbed = new EmbedBuilder()
-                    .WithTitle("Playback Error")
-                    .WithDescription("Failed to connect to voice channel. Please try again.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await FollowupAsync(embed: streamErrorEmbed, ephemeral: true);
-                return;
-            }
-
-            // Stream the audio to Discord
+            // Play the audio using the TTS playback service
             _logger.LogInformation(
                 "Playing styled TTS audio in guild {GuildId} for user {UserId}",
                 guildId,
                 userId);
 
-            _audioService.UpdateLastActivity(guildId);
-
+            Core.DTOs.Tts.TtsPlaybackResult playbackResult;
             await using (audioStream)
             {
-                await audioStream.CopyToAsync(pcmStream);
-                await pcmStream.FlushAsync();
+                playbackResult = await _ttsPlaybackService.PlayAsync(
+                    guildId,
+                    userId,
+                    username,
+                    message,
+                    selectedPreset.VoiceName,
+                    audioStream);
             }
 
-            var endTime = DateTime.UtcNow;
-            var durationSeconds = (endTime - startTime).TotalSeconds;
-
-            // Log the TTS message to history
-            var ttsMessage = new TtsMessage
+            if (!playbackResult.Success)
             {
-                Id = Guid.NewGuid(),
-                GuildId = guildId,
-                UserId = userId,
-                Username = username,
-                Message = message,
-                Voice = selectedPreset.VoiceName,
-                DurationSeconds = durationSeconds,
-                CreatedAt = DateTime.UtcNow
-            };
+                _logger.LogError("TTS playback failed for guild {GuildId}: {ErrorMessage}", guildId, playbackResult.ErrorMessage);
 
-            await _ttsHistoryService.LogMessageAsync(ttsMessage);
+                var playbackErrorEmbed = new EmbedBuilder()
+                    .WithTitle("Playback Error")
+                    .WithDescription(playbackResult.ErrorMessage ?? "Failed to play audio. Please try again.")
+                    .WithColor(Color.Red)
+                    .WithCurrentTimestamp()
+                    .Build();
+
+                await FollowupAsync(embed: playbackErrorEmbed, ephemeral: true);
+                return;
+            }
 
             _logger.LogInformation(
                 "TTS-styled playback completed for user {UserId} in guild {GuildId}, preset: {PresetId}, duration: {Duration:F2}s",
                 userId,
                 guildId,
                 selectedPreset.PresetId,
-                durationSeconds);
+                playbackResult.DurationSeconds);
 
             // Success response
             var successEmbed = new EmbedBuilder()

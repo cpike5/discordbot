@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -44,6 +45,8 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IUserDataExportService, UserDataExportService>();
         services.AddScoped<IBulkPurgeService, BulkPurgeService>();
         services.AddScoped<IThemeService, ThemeService>();
+        services.AddScoped<ITtsPlaybackService, TtsPlaybackService>();
+        services.AddScoped<ISoundboardOrchestrationService, SoundboardOrchestrationService>();
 
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();
