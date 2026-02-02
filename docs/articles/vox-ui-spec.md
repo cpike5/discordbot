@@ -1,6 +1,6 @@
 # VOX UI/UX Design Specification
 
-**Version:** 1.0
+**Version:** 1.1
 **Last Updated:** 2026-02-02
 **Target Framework:** .NET 8 Razor Pages with Tailwind CSS
 **Related Systems:** [Design System](design-system.md) | [Component API](component-api.md)
@@ -291,7 +291,25 @@ Member-facing page for composing and sending VOX announcements.
 ##### Left Sidebar (300px Fixed Width)
 
 **Voice Channel Panel** (reuse existing `_VoiceChannelPanel.cshtml` component):
-- Connection status badge
+
+Connection status indicator using `StatusIndicatorViewModel`:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new StatusIndicatorViewModel {
+    Status = Model.IsConnected ? StatusType.Online : StatusType.Offline,
+    Text = Model.IsConnected ? "Connected" : "Disconnected",
+    DisplayStyle = StatusDisplayStyle.DotWithText,
+    Size = StatusSize.Medium
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_StatusIndicator" model="Model.ConnectionStatus" />
+```
+
 - Channel dropdown selector
 - Join/Leave buttons
 - Styled with `bg-bg-secondary`, `border-border-primary`, `rounded-lg`, `p-5`
@@ -299,22 +317,45 @@ Member-facing page for composing and sending VOX announcements.
 **Now Playing Section**:
 - Container: `bg-bg-primary`, `rounded-lg`, `p-4`
 - Message display: `text-sm`, `font-mono`, `text-text-primary`, truncate at 100 chars
-- Stop button: `bg-error`, `hover:bg-red-600`, `w-8 h-8`, `rounded-md`
+- Stop button: Use `ButtonViewModel` with `Variant = ButtonVariant.Danger`, `IsIconOnly = true`, `AriaLabel = "Stop playback"`
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new ButtonViewModel {
+    Variant = ButtonVariant.Danger,
+    IsIconOnly = true,
+    AriaLabel = "Stop playback",
+    IconRight = "..." // Stop/X icon
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_Button" model="Model.StopButton" />
+```
 
 ##### Right Panel (Flexible Width)
 
-**Mode Tabs** (use `_TabPanel` component with `TabStyleVariant.Pills`):
+**Mode Tabs** (use `NavTabs` component with `NavTabStyle.Pills`):
 ```csharp
-new TabPanelViewModel {
-    Id = "voxModeTabs",
-    StyleVariant = TabStyleVariant.Pills,
-    NavigationMode = TabNavigationMode.ClientSide, // No page reload
-    Tabs = new List<TabItemViewModel> {
+@using DiscordBot.Bot.ViewModels.Components
+
+new NavTabsViewModel {
+    ContainerId = "voxModeTabs",
+    StyleVariant = NavTabStyle.Pills,
+    NavigationMode = NavMode.InPage, // Client-side tab switching without page reload
+    Tabs = new List<NavTabItem> {
         new() { Id = "freetext", Label = "Free Text", IconPathOutline = "..." },
         new() { Id = "builder", Label = "Sentence Builder", IconPathOutline = "..." }
     },
     ActiveTabId = "freetext"
 }
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_NavTabs" model="Model.ModeTabs" />
 ```
 
 **Free Text Input** (default mode):
@@ -336,9 +377,31 @@ new TabPanelViewModel {
 - Content: `space-y-4`, `mt-4`
 
 **Voice Preset Dropdown**:
-- Label: `text-sm`, `font-medium`, `text-text-primary`, `mb-2`
-- Select: Standard `form-select` class (matches TTS portal)
-- Options grouped by voice category (Male, Female, Neural)
+
+Use `FormSelectViewModel`:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new FormSelectViewModel {
+    Id = "voicePreset",
+    Name = "VoicePreset",
+    Label = "Voice Preset",
+    SelectedValue = Model.SelectedVoice ?? "en-US-GuyNeural",
+    Size = InputSize.Medium,
+    Options = new List<SelectOption> {
+        new() { Value = "en-US-GuyNeural", Text = "Guy - Male (Neural)" },
+        new() { Value = "en-US-AriaNeural", Text = "Aria - Female (Neural)" },
+        new() { Value = "en-US-GuyNeural", Text = "Guy - Male (Neural)" },
+        // More voice options...
+    }
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_FormSelect" model="Model.VoicePreset" />
+```
 
 **Word Gap Slider**:
 - Label: `text-sm`, `font-medium`, `text-text-primary`, `mb-2`
@@ -361,16 +424,83 @@ new TabPanelViewModel {
 - Display value: `text-xs`, `text-accent-orange`, "1.0x"
 
 **Send Button**:
+
+Use `ButtonViewModel` with `Variant = ButtonVariant.Primary`:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new ButtonViewModel {
+    Text = "Send VOX Message (7 words, ~4.2s)",
+    Variant = ButtonVariant.Primary,
+    Size = ButtonSize.Large,
+    Type = "submit",
+    IconLeft = "broadcast", // Megaphone/broadcast icon
+    IsDisabled = !Model.IsConnected || Model.Tokens.Count == 0,
+    IsLoading = Model.IsSending,
+    AdditionalAttributes = new Dictionary<string, object> {
+        { "class", "w-full" }
+    }
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_Button" model="Model.SendButton" />
+```
+
+Styling (in CSS):
 - Container: `w-full`, `mt-6`
 - Button: `bg-accent-orange`, `hover:bg-accent-orange-hover`, `text-white`
 - Padding: `py-3`, `px-6`, `rounded-lg`
 - Font: `text-base`, `font-semibold`
-- Text: "Send VOX Message (X words, ~Xs)"
-- Icon: Broadcast/megaphone icon on left
 - States:
   - Disabled: `opacity-50`, `cursor-not-allowed` (when not connected or no words)
   - Loading: Show spinner, text "Generating..."
   - Progress: Show progress bar during multi-word generation
+
+### Alerts and Feedback
+
+Use `AlertViewModel` for success/error messages:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+// Settings save success
+new AlertViewModel {
+    Variant = AlertVariant.Success,
+    Title = "Settings Saved",
+    Message = "VOX configuration updated successfully",
+    IsDismissible = true,
+    ShowIcon = true
+};
+
+// Rate limit warning
+new AlertViewModel {
+    Variant = AlertVariant.Warning,
+    Title = "Rate Limit Warning",
+    Message = "User has reached 5 messages per minute",
+    IsDismissible = true,
+    ShowIcon = true
+};
+
+// Generation error
+new AlertViewModel {
+    Variant = AlertVariant.Error,
+    Title = "Generation Failed",
+    Message = "Failed to synthesize word 'xyz123': invalid characters",
+    IsDismissible = true,
+    ShowIcon = true
+};
+```
+
+Render via:
+```razor
+@if (Model.Alert != null)
+{
+  <partial name="Shared/Components/_Alert" model="Model.Alert" />
+}
+```
 
 #### Interaction States
 
@@ -438,6 +568,28 @@ Administrator page for VOX configuration and word bank management.
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ (Tab Content Below)                                                         │
 └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+Use `NavTabs` component for the Settings/Word Bank tabs:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new NavTabsViewModel {
+    ContainerId = "voxAdminTabs",
+    StyleVariant = NavTabStyle.Underline,
+    NavigationMode = NavMode.InPage,
+    Tabs = new List<NavTabItem> {
+        new() { Id = "settings", Label = "Settings", Href = "#settingsPanel" },
+        new() { Id = "wordbank", Label = "Word Bank", Href = "#wordbankPanel" }
+    },
+    ActiveTabId = "settings"
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_NavTabs" model="Model.AdminTabs" />
 ```
 
 #### ASCII Wireframe (Settings Tab)
@@ -550,29 +702,144 @@ Administrator page for VOX configuration and word bank management.
 - Padding: `p-6`
 - Spacing: `space-y-6`
 
-**Form Controls** (use existing `_FormInput`, `_FormSelect` components):
+**Form Controls**:
+
+Use `FormInputViewModel` for numeric settings:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+// Max Message Word Count
+new FormInputViewModel {
+    Id = "maxWordCount",
+    Name = "MaxMessageWords",
+    Label = "Max Message Word Count",
+    Type = "number",
+    Value = Model.MaxMessageWords.ToString(),
+    Size = InputSize.Medium,
+    HelpText = "Prevent excessive message length"
+};
+
+// Rate Limit
+new FormInputViewModel {
+    Id = "rateLimit",
+    Name = "RateLimitPerMinute",
+    Label = "Rate Limit",
+    Type = "number",
+    Value = Model.RateLimitPerMinute.ToString(),
+    Size = InputSize.Medium,
+    HelpText = "Messages per minute per user"
+};
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_FormInput" model="Model.MaxWordCountInput" />
+<partial name="Shared/Components/_FormInput" model="Model.RateLimitInput" />
+```
+
 - Toggle switches: Custom component with `bg-accent-orange` when ON
-- Number inputs: `type="number"`, `min`, `max` attributes
 - Sliders: `form-range` class matching VOX portal
-- Dropdowns: `form-select` class
+- Dropdowns: Use `FormSelectViewModel`
 
 **Save Button**:
-- Style: `bg-accent-orange`, `hover:bg-accent-orange-hover`
-- Position: Bottom right of form
-- Size: `px-6`, `py-2.5`, `rounded-lg`
+
+Use `ButtonViewModel`:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new ButtonViewModel {
+    Text = "Save Settings",
+    Variant = ButtonVariant.Primary,
+    Size = ButtonSize.Medium,
+    Type = "submit",
+    IsLoading = Model.IsSaving
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_Button" model="Model.SaveButton" />
+```
 
 ##### Word Bank Tab
 
 **Statistics Cards** (similar to Soundboard stats):
+
+Use `CardViewModel` for each statistic:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new CardViewModel {
+    Title = "Total Words",
+    BodyContent = "1,247",
+    Variant = CardVariant.Default
+}
+```
+
+Grid layout with 3 columns:
+```razor
+<div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+  @foreach (var stat in Model.Statistics)
+  {
+    <partial name="Shared/Components/_Card" model="stat" />
+  }
+</div>
+```
+
+Styling:
 - Grid: `grid-cols-1 md:grid-cols-3`, `gap-4`
 - Card: `bg-bg-secondary`, `border-border-primary`, `rounded-lg`, `p-4`
 - Stat value: `text-2xl`, `font-bold`, `text-text-primary`
 - Label: `text-xs`, `text-text-secondary`
 
 **Bulk Operations Toolbar**:
-- Container: `flex`, `flex-wrap`, `gap-3`, `mb-6`
-- Buttons: `btn-secondary` variant
-- Icons: Hero Icons (download, upload, trash, plus)
+
+Use `ButtonViewModel` for each toolbar action:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+var generateButton = new ButtonViewModel {
+    Text = "Generate Word Pack",
+    Variant = ButtonVariant.Secondary,
+    IconRight = "chevron-down",
+    Size = ButtonSize.Medium
+};
+
+var importButton = new ButtonViewModel {
+    Text = "Import ZIP",
+    Variant = ButtonVariant.Secondary,
+    IconLeft = "upload",
+    Size = ButtonSize.Medium
+};
+
+var exportButton = new ButtonViewModel {
+    Text = "Export All",
+    Variant = ButtonVariant.Secondary,
+    IconLeft = "download",
+    Size = ButtonSize.Medium
+};
+
+var purgeButton = new ButtonViewModel {
+    Text = "Purge Cache",
+    Variant = ButtonVariant.Danger,
+    IconLeft = "trash",
+    Size = ButtonSize.Medium
+};
+```
+
+Render in toolbar:
+```razor
+<div class="flex flex-wrap gap-3 mb-6">
+  <partial name="Shared/Components/_Button" model="Model.GenerateButton" />
+  <partial name="Shared/Components/_Button" model="Model.ImportButton" />
+  <partial name="Shared/Components/_Button" model="Model.ExportButton" />
+  <partial name="Shared/Components/_Button" model="Model.PurgeButton" />
+</div>
+```
 
 **Word Pack Selector**:
 - Dropdown: `form-select`, `mb-4`
@@ -584,23 +851,80 @@ Administrator page for VOX configuration and word bank management.
 - Background: `bg-bg-primary`
 - Placeholder: "Enter words, one per line..."
 
+**Word Bank Search**:
+
+Use `FormInputViewModel`:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new FormInputViewModel {
+    Id = "wordSearch",
+    Name = "search",
+    Placeholder = "Search words...",
+    Type = "text",
+    Size = InputSize.Medium,
+    IconLeft = "search"
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_FormInput" model="Model.SearchInput" />
+```
+
+**Word Bank Sort Dropdown**:
+
+Use `SortDropdownViewModel` for the sort selector:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new SortDropdownViewModel {
+    Id = "wordBankSort",
+    CurrentSort = "dateAdded",
+    ParameterName = "sort",
+    SortOptions = new List<SortOption> {
+        new() { Value = "dateAdded", Label = "Date Added" },
+        new() { Value = "word", Label = "Word (A-Z)" },
+        new() { Value = "voice", Label = "Voice" },
+        new() { Value = "size", Label = "File Size" },
+        new() { Value = "duration", Label = "Duration" }
+    }
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/_SortDropdown" model="Model.SortDropdown" />
+```
+
 **Word Bank Table** (reuse existing table styles):
 - Container: `overflow-x-auto`
 - Table: `min-w-full`, `divide-y`, `divide-border-primary`
 - Header: `bg-bg-tertiary`, `text-text-secondary`, `text-xs`, `font-semibold`, `uppercase`
 - Rows: `hover:bg-bg-hover`, `transition-colors`
-- Play button: `btn-ghost` with play icon
+- Play button: `ButtonViewModel` with `Variant = ButtonVariant.Ghost` and play icon
 - Delete button: `text-error`, `hover:text-red-600`
 
-**Pagination** (use existing `_Pagination` component):
+**Pagination** (use existing `PaginationViewModel` component):
 ```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
 new PaginationViewModel {
     CurrentPage = 1,
     TotalPages = 25,
     TotalItems = 1247,
     PageSize = 50,
-    ShowPageNumbers = true
+    ShowItemCount = true,
+    ShowFirstLast = true,
+    Style = PaginationStyle.Full
 }
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_Pagination" model="Model.Pagination" />
 ```
 
 #### Interaction States
@@ -1049,10 +1373,7 @@ public enum CompositionItemType
     <!-- Empty state -->
     @if (!Model.Items.Any())
     {
-      <div class="composition-empty">
-        <svg><!-- Music note icon --></svg>
-        <span>Click words from the Word Bank to build your announcement</span>
-      </div>
+      <partial name="Shared/Components/_EmptyState" model="Model.EmptyState" />
     }
   </div>
 </div>
@@ -1255,6 +1576,160 @@ public enum CompositionItemType
 - Arrow keys to move focus
 - Enter/Space to select/activate
 - Delete key to remove focused item
+
+---
+
+### Component: Empty State
+
+Use `EmptyStateViewModel` for empty composition strip and no results scenarios.
+
+#### Props
+
+```csharp
+public record EmptyStateViewModel
+{
+    public EmptyStateType Type { get; init; } = EmptyStateType.NoData;
+    public string Title { get; init; } = "";
+    public string Description { get; init; } = "";
+    public EmptyStateSize Size { get; init; } = EmptyStateSize.Default;
+    public string? PrimaryActionText { get; init; }
+    public string? PrimaryActionUrl { get; init; }
+}
+
+public enum EmptyStateType
+{
+    NoData,        // No items added yet
+    NoResults,     // Search returned no results
+    FirstTime,     // Welcome message for new users
+    Error,         // Error occurred
+    NoPermission,  // Permission denied
+    Offline        // Connection lost
+}
+
+public enum EmptyStateSize
+{
+    Compact,
+    Default,
+    Large
+}
+```
+
+#### Usage Examples
+
+**Composition Strip Empty**:
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new EmptyStateViewModel {
+    Type = EmptyStateType.NoData,
+    Title = "No words yet",
+    Description = "Click words from the Word Bank to build your announcement",
+    Size = EmptyStateSize.Default,
+    PrimaryActionText = "Browse Word Bank",
+    PrimaryActionUrl = "#wordBankPanel"
+}
+```
+
+**Word Bank Search No Results**:
+```csharp
+new EmptyStateViewModel {
+    Type = EmptyStateType.NoResults,
+    Title = "No words found",
+    Description = $"No words match '{searchQuery}'. Try a different search.",
+    Size = EmptyStateSize.Compact
+}
+```
+
+**Word Bank Empty**:
+```csharp
+new EmptyStateViewModel {
+    Type = EmptyStateType.FirstTime,
+    Title = "Word Bank is empty",
+    Description = "Generate some words to get started. Choose a word pack or upload a custom list.",
+    Size = EmptyStateSize.Large,
+    PrimaryActionText = "Generate Words",
+    PrimaryActionUrl = "#bulkOperations"
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_EmptyState" model="Model.EmptyState" />
+```
+
+---
+
+### Component: Badge
+
+Use `BadgeViewModel` for status displays and word statistics.
+
+#### Props
+
+```csharp
+public record BadgeViewModel
+{
+    public string Text { get; init; } = "";
+    public BadgeVariant Variant { get; init; } = BadgeVariant.Default;
+    public BadgeSize Size { get; init; } = BadgeSize.Medium;
+    public BadgeStyle Style { get; init; } = BadgeStyle.Filled;
+    public string? IconLeft { get; init; }
+    public bool IsRemovable { get; init; } = false;
+}
+
+public enum BadgeVariant
+{
+    Default, Orange, Blue, Success, Warning, Error, Info
+}
+
+public enum BadgeSize
+{
+    Small, Medium, Large
+}
+
+public enum BadgeStyle
+{
+    Filled,
+    Outline
+}
+```
+
+#### Usage Examples
+
+**Cached Word Status**:
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+new BadgeViewModel {
+    Text = "Cached",
+    Variant = BadgeVariant.Success,
+    Size = BadgeSize.Small,
+    Style = BadgeStyle.Filled
+}
+```
+
+**Word Statistics in Word Bank**:
+```csharp
+// Will generate status
+new BadgeViewModel {
+    Text = "Will Generate",
+    Variant = BadgeVariant.Warning,
+    Size = BadgeSize.Small,
+    Style = BadgeStyle.Filled
+};
+
+// Error status
+new BadgeViewModel {
+    Text = "Error",
+    Variant = BadgeVariant.Error,
+    Size = BadgeSize.Small,
+    Style = BadgeStyle.Filled
+}
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_Badge" model="Model.StatusBadge" />
+```
 
 ---
 
@@ -1832,6 +2307,37 @@ function updateActivePreset(gapMs) {
 ```
 
 ### Loading States
+
+**Loading Spinner**:
+
+Use `LoadingSpinnerViewModel` for overlay loading and page transitions:
+
+```csharp
+@using DiscordBot.Bot.ViewModels.Components
+
+// Page load overlay
+new LoadingSpinnerViewModel {
+    Variant = SpinnerVariant.Pulse,
+    Size = SpinnerSize.Large,
+    Message = "Loading VOX portal...",
+    SubMessage = "Initializing voice connection",
+    Color = SpinnerColor.Blue,
+    IsOverlay = true
+};
+
+// Inline loading (during word generation)
+new LoadingSpinnerViewModel {
+    Variant = SpinnerVariant.Dots,
+    Size = SpinnerSize.Medium,
+    Message = "Generating words...",
+    IsOverlay = false
+};
+```
+
+Render via:
+```razor
+<partial name="Shared/Components/_LoadingSpinner" model="Model.LoadingSpinner" />
+```
 
 **Word Generation Progress Bar**:
 ```html
@@ -2517,6 +3023,7 @@ Or use predefined pack:
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.1 | 2026-02-02 | Aligned component references with component API; replaced raw HTML/CSS with concrete ViewModel examples for Button, Badge, StatusIndicator, Card, FormInput, FormSelect, Alert, LoadingSpinner, EmptyState, Pagination, NavTabs, and SortDropdown components |
 | 1.0 | 2026-02-02 | Initial specification created |
 
 ---
