@@ -2,6 +2,7 @@ using System.IO.Compression;
 using System.Text.Json;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.DTOs.Soundboard;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -140,7 +141,7 @@ public class SoundsController : ControllerBase
         {
             // Track used filenames for duplicate handling
             var usedFileNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var soundManifestEntries = new List<object>();
+            var soundManifestEntries = new List<ExportedSoundDto>();
             long totalSizeBytes = 0;
 
             // Create ZIP archive directly
@@ -203,17 +204,17 @@ public class SoundsController : ControllerBase
                     totalSizeBytes += sound.FileSizeBytes;
 
                     // Add to manifest
-                    soundManifestEntries.Add(new
+                    soundManifestEntries.Add(new ExportedSoundDto
                     {
-                        id = sound.Id.ToString(),
-                        name = sound.Name,
-                        fileName = exportFileName,
-                        originalFileName = sound.FileName,
-                        durationSeconds = sound.DurationSeconds,
-                        fileSizeBytes = sound.FileSizeBytes,
-                        playCount = sound.PlayCount,
-                        uploadedById = sound.UploadedById?.ToString(),
-                        uploadedAt = sound.UploadedAt.ToString("O")
+                        Id = sound.Id.ToString(),
+                        Name = sound.Name,
+                        FileName = exportFileName,
+                        OriginalFileName = sound.FileName,
+                        DurationSeconds = sound.DurationSeconds,
+                        FileSizeBytes = sound.FileSizeBytes,
+                        PlayCount = sound.PlayCount,
+                        UploadedById = sound.UploadedById?.ToString(),
+                        UploadedAt = sound.UploadedAt.ToString("O")
                     });
                 }
 
@@ -231,17 +232,21 @@ public class SoundsController : ControllerBase
                 }
 
                 // Create manifest.json
-                var manifest = new
+                var manifest = new SoundboardExportManifestDto
                 {
-                    exportedAt = DateTime.UtcNow.ToString("O"),
-                    guildId = guildId.ToString(),
-                    guildName = sounds.FirstOrDefault()?.Guild?.Name ?? guildId.ToString(),
-                    totalSounds = soundManifestEntries.Count,
-                    totalSizeBytes,
-                    sounds = soundManifestEntries
+                    ExportedAt = DateTime.UtcNow.ToString("O"),
+                    GuildId = guildId.ToString(),
+                    GuildName = sounds.FirstOrDefault()?.Guild?.Name ?? guildId.ToString(),
+                    TotalSounds = soundManifestEntries.Count,
+                    TotalSizeBytes = totalSizeBytes,
+                    Sounds = soundManifestEntries
                 };
 
-                var jsonOptions = new JsonSerializerOptions { WriteIndented = true };
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                };
                 var manifestJson = JsonSerializer.Serialize(manifest, jsonOptions);
                 var manifestEntry = zipArchive.CreateEntry("manifest.json", CompressionLevel.Optimal);
                 using var manifestStream = manifestEntry.Open();
