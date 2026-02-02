@@ -71,6 +71,10 @@ Build and serve locally: `.\build-docs.ps1 -Serve`
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy (SuperAdmin > Admin > Moderator > Viewer) |
 | [form-implementation-standards.md](docs/articles/form-implementation-standards.md) | Razor Pages form patterns and validation |
 | [audit-log-system.md](docs/articles/audit-log-system.md) | Audit logging fluent builder API |
+| [soundboard.md](docs/articles/soundboard.md) | Soundboard feature, playback, portal, API, export |
+| [tts-support.md](docs/articles/tts-support.md) | Text-to-Speech with Azure Cognitive Services |
+| [vox-system-spec.md](docs/articles/vox-system-spec.md) | VOX/FVOX/HGRUNT clip library architecture |
+| [vox-ui-spec.md](docs/articles/vox-ui-spec.md) | VOX Portal UI/UX specification |
 | [database-schema.md](docs/articles/database-schema.md) | Entity relationships and schema |
 | [testing-guide.md](docs/articles/testing-guide.md) | Testing patterns and fixtures |
 

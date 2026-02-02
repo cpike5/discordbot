@@ -2,7 +2,7 @@
 
 Auto-generated lookup tables for Discord bot management system. Regenerate with `/update-instructions tables`.
 
-**Last updated:** 2026-01-25
+**Last updated:** 2026-02-02
 
 ## Configuration Options
 
@@ -77,6 +77,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | Assistant Metrics | `/Guilds/AssistantMetrics/{guildId:long}` | AI assistant usage metrics |
 | Text-to-Speech | `/Guilds/TextToSpeech/{guildId:long}` | Guild TTS message management |
 | TTS Portal | `/Portal/TTS/{guildId:long}` | TTS message composer for guild members (OAuth required) |
+| Soundboard Portal | `/Portal/Soundboard/{guildId:long}` | Soundboard player for guild members (OAuth required) |
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
 | Global Rat Watch Analytics | `/Admin/RatWatchAnalytics` | Cross-guild Rat Watch metrics (Admin+) |
 | Performance Dashboard | `/Admin/Performance` | Performance overview dashboard |
@@ -211,16 +212,21 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [settings-page.md](docs/articles/settings-page.md) | Settings page and real-time updates |
 | [signalr-realtime.md](docs/articles/signalr-realtime.md) | SignalR real-time updates |
 | [soundboard.md](docs/articles/soundboard.md) | Soundboard feature |
+| [soundboard-export-feature.md](docs/specs/soundboard-export-feature.md) | Soundboard export/import specification |
 | [testing-guide.md](docs/articles/testing-guide.md) | Testing patterns and fixtures |
 | [timezone-handling.md](docs/articles/timezone-handling.md) | Timezone handling |
 | [tracing.md](docs/articles/tracing.md) | Distributed tracing |
 | [troubleshooting-guide.md](docs/articles/troubleshooting-guide.md) | Common issues and solutions |
 | [tts-support.md](docs/articles/tts-support.md) | Text-to-Speech with Azure Cognitive Services |
+| [tts-portal.md](docs/requirements/tts-portal.md) | TTS Portal requirements and design |
+| [tts-portal-implementation-plan.md](docs/requirements/tts-portal-implementation-plan.md) | TTS Portal implementation plan (4 phases) |
 | [unified-command-pages.md](docs/articles/unified-command-pages.md) | Unified command pages architecture |
 | [user-management.md](docs/articles/user-management.md) | User management system |
 | [utility-commands.md](docs/articles/utility-commands.md) | Utility commands (/userinfo, /serverinfo, /roleinfo) |
 | [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning and release process |
 | [voice-favorites-spec.md](docs/articles/voice-favorites-spec.md) | Voice favorites specification |
+| [vox-system-spec.md](docs/articles/vox-system-spec.md) | VOX/FVOX/HGRUNT clip library architecture (v2.0) |
+| [vox-ui-spec.md](docs/articles/vox-ui-spec.md) | VOX Portal UI/UX specification (v2.0) |
 | [welcome-system.md](docs/articles/welcome-system.md) | Welcome message configuration |
 
 ## HTML Prototypes
