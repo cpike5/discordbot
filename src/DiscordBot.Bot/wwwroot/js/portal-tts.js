@@ -105,7 +105,12 @@
             sendBtn.addEventListener('click', sendTtsMessage);
         }
 
-        // Note: Voice channel controls (join/leave/stop) are now handled by voice-channel-panel.js
+        // Note: Voice channel join/leave are handled by voice-channel-panel.js
+        // TTS stop button (stops TTS playback specifically)
+        const stopBtn = document.getElementById('stopBtn');
+        if (stopBtn) {
+            stopBtn.addEventListener('click', stopPlayback);
+        }
 
         // Voice selection
         const voiceSelect = document.getElementById('voiceSelect');
