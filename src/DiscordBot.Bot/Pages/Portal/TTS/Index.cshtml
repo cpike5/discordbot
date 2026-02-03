@@ -1300,7 +1300,12 @@ else
         }
 
         // Sync mobile and desktop controls
-        document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('DOMContentLoaded', async function() {
+            // Connect to SignalR hub for voice channel panel updates
+            if (typeof DashboardHub !== 'undefined') {
+                await DashboardHub.connect();
+            }
+
             // Sync voice selection
             const voiceSelect = document.getElementById('voiceSelect');
             const voiceSelectMobile = document.getElementById('voiceSelectMobile');
