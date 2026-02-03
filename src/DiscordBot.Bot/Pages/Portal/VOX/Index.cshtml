@@ -496,6 +496,7 @@
             overflow-y: auto;
             padding-right: 0.25rem;
             align-content: start;
+            position: relative; /* Ensures offsetTop calculations are relative to grid */
         }
 
         .vox-clip-tile {
@@ -550,7 +551,153 @@
             font-family: var(--font-mono);
         }
 
-        /* Responsive for VOX composer */
+        /* ==========================================
+           A-Z INDEX RAIL
+           ========================================== */
+
+        /* Container for grid + A-Z rail */
+        .vox-clip-browser-container {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            gap: 0.5rem;
+        }
+
+        /* A-Z Index Rail */
+        .vox-az-rail {
+            width: 28px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.25rem 0;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            align-self: flex-start;
+            position: sticky;
+            top: 0;
+        }
+
+        .vox-az-letter {
+            width: 22px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            background: transparent;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.1s ease-out;
+            padding: 0;
+        }
+
+        .vox-az-letter:hover:not(:disabled) {
+            color: var(--color-text-primary);
+            background-color: var(--color-bg-hover);
+            transform: scale(1.1);
+        }
+
+        .vox-az-letter.active {
+            color: var(--color-accent-orange);
+            background-color: rgba(203, 78, 27, 0.2);
+            font-weight: 700;
+        }
+
+        .vox-az-letter:disabled {
+            color: var(--color-text-tertiary);
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .vox-az-letter:focus-visible {
+            outline: 2px solid var(--color-border-focus);
+            outline-offset: 1px;
+        }
+
+        /* ==========================================
+           STICKY SECTION HEADERS
+           ========================================== */
+
+        .vox-section-header {
+            grid-column: 1 / -1;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.75rem;
+            background-color: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border-primary);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--color-accent-orange);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: box-shadow 0.15s ease-out;
+        }
+
+        .vox-section-header:first-child {
+            margin-top: 0;
+        }
+
+        .vox-section-header.stuck {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ==========================================
+           SCROLL POSITION INDICATOR
+           ========================================== */
+
+        .vox-scroll-letter {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-accent-orange);
+            background-color: var(--color-bg-tertiary);
+            border: 2px solid var(--color-accent-orange);
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+            z-index: 100;
+        }
+
+        .vox-scroll-letter.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ==========================================
+           ENHANCED FOCUS STATES (Keyboard Nav)
+           ========================================== */
+
+        .vox-clip-tile:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--color-bg-primary),
+                        0 0 0 4px var(--color-accent-orange);
+            z-index: 1;
+            transform: translateY(-2px);
+        }
+
+        /* ==========================================
+           RESPONSIVE STYLES
+           ========================================== */
+
         @@media (max-width: 1024px) {
             .vox-clip-grid {
                 grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
@@ -561,15 +708,43 @@
             .vox-clip-grid {
                 grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
             }
+
+            /* Hide A-Z rail on mobile */
+            .vox-az-rail {
+                display: none;
+            }
+
+            .vox-clip-browser-container {
+                display: block;
+            }
+
+            .vox-section-header {
+                padding: 0.375rem 0.5rem;
+                font-size: 0.8rem;
+            }
         }
 
         @@media (prefers-reduced-motion: reduce) {
             .vox-clip-tile,
             .vox-token,
             .vox-autocomplete-item,
-            .vox-play-btn {
+            .vox-play-btn,
+            .vox-az-letter,
+            .vox-section-header {
                 transition: none;
                 animation: none;
+            }
+
+            .vox-scroll-letter {
+                display: none;
+            }
+
+            .vox-az-letter:hover:not(:disabled) {
+                transform: none;
+            }
+
+            .vox-clip-tile:focus-visible {
+                transform: none;
             }
         }
 
@@ -606,7 +781,14 @@
             clipCache: { vox: [], fvox: [], hgrunt: [] },
             highlightedIndex: -1,
             isLoading: false,
-            wordGapMs: 50
+            wordGapMs: 50,
+            // A-Z navigation state
+            activeLetter: null,
+            availableLetters: new Set(),
+            focusedTileIndex: -1,
+            scrollIndicatorTimeout: null,
+            sectionObserver: null,
+            sectionPositions: new Map() // Stores scroll positions for each section letter
         };
 
         // DOM Elements
@@ -620,7 +802,10 @@
             playBtnText: null,
             clipSearch: null,
             clipCount: null,
-            clipGrid: null
+            clipGrid: null,
+            // A-Z navigation elements
+            azRail: null,
+            scrollLetter: null
         };
 
         // Debounce utility
@@ -684,6 +869,9 @@
             voxEls.clipSearch = document.getElementById(`${prefix}-clip-search`);
             voxEls.clipCount = document.getElementById(`${prefix}-clip-count`);
             voxEls.clipGrid = document.getElementById(`${prefix}-clip-grid`);
+            // A-Z navigation elements
+            voxEls.azRail = document.getElementById(`${prefix}-az-rail`);
+            voxEls.scrollLetter = document.getElementById(`${prefix}-scroll-letter`);
 
             // Attach event listeners
             if (voxEls.messageInput) {
@@ -707,7 +895,15 @@
 
             if (voxEls.clipGrid) {
                 voxEls.clipGrid.addEventListener('click', handleClipTileClick);
+                voxEls.clipGrid.addEventListener('keydown', handleGridKeyDown);
             }
+
+            // Initialize A-Z rail
+            initializeAZRail();
+
+            // Reset navigation state on tab switch
+            voxState.activeLetter = null;
+            voxState.focusedTileIndex = -1;
         }
 
         // Load clips from API
@@ -980,7 +1176,7 @@
             }
         }
 
-        // Clip Grid
+        // Clip Grid with A-Z Section Headers
         function renderClipGrid() {
             if (!voxEls.clipGrid) return;
 
@@ -1001,15 +1197,80 @@
                 voxEls.clipGrid.innerHTML = searchTerm
                     ? `<div class="vox-token-empty">No clips match '${escapedQuery}'</div>`
                     : '<div class="vox-token-empty">No clips found</div>';
+                updateAZRail(new Set());
                 return;
             }
 
-            voxEls.clipGrid.innerHTML = filtered.map(clip => `
-                <button class="vox-clip-tile" data-clip-name="${escapeHtml(clip.name)}">
-                    <div class="vox-clip-name">${escapeHtml(clip.name)}</div>
-                    <div class="vox-clip-duration">${clip.durationSeconds.toFixed(1)}s</div>
-                </button>
-            `).join('');
+            // Group clips by first letter
+            const grouped = new Map();
+            filtered.forEach(clip => {
+                const letter = clip.name.charAt(0).toUpperCase();
+                if (!grouped.has(letter)) {
+                    grouped.set(letter, []);
+                }
+                grouped.get(letter).push(clip);
+            });
+
+            // Sort letters alphabetically
+            const sortedLetters = Array.from(grouped.keys()).sort();
+            voxState.availableLetters = new Set(sortedLetters);
+
+            // Build HTML with section headers
+            let html = '';
+            let tileIndex = 0;
+
+            sortedLetters.forEach(letter => {
+                const letterClips = grouped.get(letter);
+
+                // Section header
+                html += `<div class="vox-section-header" data-letter="${letter}" id="section-${voxState.activeGroup}-${letter}">${letter}</div>`;
+
+                // Clip tiles for this section
+                letterClips.forEach(clip => {
+                    html += `
+                        <button class="vox-clip-tile"
+                                data-clip-name="${escapeHtml(clip.name)}"
+                                data-tile-index="${tileIndex}"
+                                role="gridcell"
+                                tabindex="-1">
+                            <div class="vox-clip-name">${escapeHtml(clip.name)}</div>
+                            <div class="vox-clip-duration">${clip.durationSeconds.toFixed(1)}s</div>
+                        </button>
+                    `;
+                    tileIndex++;
+                });
+            });
+
+            voxEls.clipGrid.innerHTML = html;
+
+            // Update A-Z rail
+            updateAZRail(voxState.availableLetters);
+
+            // Store section positions BEFORE any scrolling (sticky headers would affect getBoundingClientRect)
+            storeSectionPositions();
+
+            // Setup section observers for sticky header tracking
+            setupSectionObservers();
+
+            // Reset focused tile
+            voxState.focusedTileIndex = -1;
+        }
+
+        function storeSectionPositions() {
+            if (!voxEls.clipGrid) return;
+
+            // Clear previous positions
+            voxState.sectionPositions.clear();
+
+            // Get all section headers and store their offsetTop
+            const headers = voxEls.clipGrid.querySelectorAll('.vox-section-header');
+            headers.forEach(header => {
+                const letter = header.dataset.letter;
+                // offsetTop gives position relative to offsetParent (the grid with position: relative)
+                voxState.sectionPositions.set(letter, header.offsetTop);
+            });
+
+            console.log('[storeSectionPositions] Stored:', Object.fromEntries(voxState.sectionPositions));
         }
 
         function filterClipGrid() {
@@ -1030,9 +1291,302 @@
             tile.classList.add('clicked');
             setTimeout(() => tile.classList.remove('clicked'), 200);
 
+            // Update focused tile index
+            const tiles = Array.from(voxEls.clipGrid.querySelectorAll('.vox-clip-tile'));
+            voxState.focusedTileIndex = tiles.indexOf(tile);
+
             // Update preview and focus
             updateTokenPreview();
             voxEls.messageInput.focus();
+        }
+
+        // ==========================================
+        // A-Z INDEX RAIL FUNCTIONS
+        // ==========================================
+
+        function initializeAZRail() {
+            if (!voxEls.azRail) return;
+
+            // Generate 26 letter buttons
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+            voxEls.azRail.innerHTML = letters.map(letter => `
+                <button class="vox-az-letter"
+                        data-letter="${letter}"
+                        disabled
+                        aria-label="Jump to ${letter}">
+                    ${letter}
+                </button>
+            `).join('');
+
+            // Event delegation for letter clicks
+            voxEls.azRail.addEventListener('click', (e) => {
+                const btn = e.target.closest('.vox-az-letter');
+                if (!btn || btn.disabled) return;
+
+                const letter = btn.dataset.letter;
+                scrollToSection(letter);
+            });
+        }
+
+        function updateAZRail(availableLetters) {
+            if (!voxEls.azRail) return;
+
+            const buttons = voxEls.azRail.querySelectorAll('.vox-az-letter');
+            buttons.forEach(btn => {
+                const letter = btn.dataset.letter;
+                const isAvailable = availableLetters.has(letter);
+                btn.disabled = !isAvailable;
+                btn.classList.toggle('active', letter === voxState.activeLetter && isAvailable);
+            });
+        }
+
+        function scrollToSection(letter) {
+            if (!voxEls.clipGrid) return;
+
+            // Use stored position (calculated before sticky behavior affects positions)
+            const targetScroll = voxState.sectionPositions.get(letter);
+
+            console.log('[scrollToSection]', { letter, targetScroll, hasPosition: targetScroll !== undefined });
+
+            if (targetScroll === undefined) return;
+
+            // Check for reduced motion preference
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            voxEls.clipGrid.scrollTo({
+                top: targetScroll,
+                behavior: prefersReducedMotion ? 'auto' : 'smooth'
+            });
+
+            // Show floating indicator
+            showScrollIndicator(letter);
+
+            // Update active state
+            setActiveLetter(letter);
+        }
+
+        function setActiveLetter(letter) {
+            voxState.activeLetter = letter;
+
+            // Update A-Z rail active state
+            if (voxEls.azRail) {
+                const buttons = voxEls.azRail.querySelectorAll('.vox-az-letter');
+                buttons.forEach(btn => {
+                    const isActive = btn.dataset.letter === letter && !btn.disabled;
+                    btn.classList.toggle('active', isActive);
+                });
+            }
+        }
+
+        // ==========================================
+        // SCROLL POSITION INDICATOR
+        // ==========================================
+
+        function showScrollIndicator(letter) {
+            if (!voxEls.scrollLetter) return;
+
+            // Check reduced motion preference
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (prefersReducedMotion) return;
+
+            voxEls.scrollLetter.textContent = letter;
+            voxEls.scrollLetter.classList.add('visible');
+
+            // Clear existing timeout
+            if (voxState.scrollIndicatorTimeout) {
+                clearTimeout(voxState.scrollIndicatorTimeout);
+            }
+
+            // Hide after 600ms of no scroll activity
+            voxState.scrollIndicatorTimeout = setTimeout(() => {
+                voxEls.scrollLetter.classList.remove('visible');
+            }, 600);
+        }
+
+        // ==========================================
+        // INTERSECTION OBSERVER FOR SECTION TRACKING
+        // ==========================================
+
+        function setupSectionObservers() {
+            // Clean up existing observer
+            if (voxState.sectionObserver) {
+                voxState.sectionObserver.disconnect();
+            }
+
+            if (!voxEls.clipGrid) return;
+
+            const headers = voxEls.clipGrid.querySelectorAll('.vox-section-header');
+            if (headers.length === 0) return;
+
+            // Create observer for tracking which section is visible
+            voxState.sectionObserver = new IntersectionObserver((entries) => {
+                // Find the topmost visible section
+                let topmostHeader = null;
+                let topmostTop = Infinity;
+
+                entries.forEach(entry => {
+                    const header = entry.target;
+                    const rect = header.getBoundingClientRect();
+
+                    // Track headers that are at or above the grid's top
+                    if (entry.isIntersecting || rect.top < 50) {
+                        if (rect.top < topmostTop) {
+                            topmostTop = rect.top;
+                            topmostHeader = header;
+                        }
+                    }
+
+                    // Add/remove stuck class
+                    header.classList.toggle('stuck', rect.top <= 1);
+                });
+
+                // Also check for the header closest to the top when scrolling
+                const gridRect = voxEls.clipGrid.getBoundingClientRect();
+                headers.forEach(header => {
+                    const rect = header.getBoundingClientRect();
+                    if (rect.top <= gridRect.top + 10 && rect.bottom > gridRect.top) {
+                        topmostHeader = header;
+                    }
+                });
+
+                if (topmostHeader) {
+                    const letter = topmostHeader.dataset.letter;
+                    if (letter !== voxState.activeLetter) {
+                        setActiveLetter(letter);
+                    }
+                }
+            }, {
+                root: voxEls.clipGrid,
+                threshold: [0, 0.1, 0.5, 1],
+                rootMargin: '0px 0px -80% 0px'
+            });
+
+            headers.forEach(header => {
+                voxState.sectionObserver.observe(header);
+            });
+
+            // Also track scroll for real-time updates
+            voxEls.clipGrid.addEventListener('scroll', handleGridScroll, { passive: true });
+        }
+
+        function handleGridScroll() {
+            if (!voxEls.clipGrid) return;
+
+            const headers = voxEls.clipGrid.querySelectorAll('.vox-section-header');
+            const gridRect = voxEls.clipGrid.getBoundingClientRect();
+
+            let currentLetter = null;
+
+            // Find the header that's at or just above the top of the grid
+            headers.forEach(header => {
+                const rect = header.getBoundingClientRect();
+                if (rect.top <= gridRect.top + 20) {
+                    currentLetter = header.dataset.letter;
+                }
+
+                // Update stuck class
+                header.classList.toggle('stuck', rect.top <= gridRect.top + 1);
+            });
+
+            if (currentLetter && currentLetter !== voxState.activeLetter) {
+                setActiveLetter(currentLetter);
+                showScrollIndicator(currentLetter);
+            }
+        }
+
+        // ==========================================
+        // KEYBOARD NAVIGATION
+        // ==========================================
+
+        function handleGridKeyDown(e) {
+            const tiles = Array.from(voxEls.clipGrid.querySelectorAll('.vox-clip-tile'));
+            if (tiles.length === 0) return;
+
+            // Only handle navigation if a tile is focused or grid itself
+            if (!voxEls.clipGrid.contains(document.activeElement)) return;
+
+            // Calculate approximate columns from grid width
+            const gridStyle = window.getComputedStyle(voxEls.clipGrid);
+            const gridWidth = voxEls.clipGrid.clientWidth;
+            const tileWidth = tiles[0] ? tiles[0].offsetWidth + 12 : 120; // Include gap
+            const columns = Math.max(1, Math.floor(gridWidth / tileWidth));
+
+            let newIndex = voxState.focusedTileIndex;
+
+            switch (e.key) {
+                case 'ArrowRight':
+                    e.preventDefault();
+                    newIndex = Math.min(newIndex + 1, tiles.length - 1);
+                    if (newIndex < 0) newIndex = 0;
+                    break;
+
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    newIndex = Math.max(newIndex - 1, 0);
+                    break;
+
+                case 'ArrowDown':
+                    e.preventDefault();
+                    newIndex = Math.min(newIndex + columns, tiles.length - 1);
+                    if (newIndex < 0) newIndex = 0;
+                    break;
+
+                case 'ArrowUp':
+                    e.preventDefault();
+                    newIndex = Math.max(newIndex - columns, 0);
+                    break;
+
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    if (voxState.focusedTileIndex >= 0 && tiles[voxState.focusedTileIndex]) {
+                        tiles[voxState.focusedTileIndex].click();
+                    }
+                    return;
+
+                case 'Escape':
+                    e.preventDefault();
+                    // Return focus to message input
+                    if (voxEls.messageInput) {
+                        voxEls.messageInput.focus();
+                    }
+                    voxState.focusedTileIndex = -1;
+                    tiles.forEach(t => t.setAttribute('tabindex', '-1'));
+                    return;
+
+                case 'Home':
+                    e.preventDefault();
+                    newIndex = 0;
+                    break;
+
+                case 'End':
+                    e.preventDefault();
+                    newIndex = tiles.length - 1;
+                    break;
+
+                default:
+                    return; // Don't handle other keys
+            }
+
+            // Update focus
+            if (newIndex !== voxState.focusedTileIndex && newIndex >= 0) {
+                voxState.focusedTileIndex = newIndex;
+
+                // Update tabindex
+                tiles.forEach((tile, idx) => {
+                    tile.setAttribute('tabindex', idx === newIndex ? '0' : '-1');
+                });
+
+                // Focus the tile
+                tiles[newIndex].focus();
+
+                // Scroll into view if needed
+                const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                tiles[newIndex].scrollIntoView({
+                    block: 'nearest',
+                    behavior: prefersReducedMotion ? 'auto' : 'smooth'
+                });
+            }
         }
     </script>
 }
@@ -1243,11 +1797,19 @@ else
                                    aria-label="Search @groupName clips" />
                             <span class="vox-clip-badge" id="@(prefix)-clip-count">0</span>
                         </div>
-                        <div class="vox-clip-grid" id="@(prefix)-clip-grid">
-                            <!-- Clips populated dynamically by JavaScript -->
-                            <span class="vox-token-empty">Loading clips...</span>
+                        <div class="vox-clip-browser-container">
+                            <div class="vox-clip-grid" id="@(prefix)-clip-grid" role="grid" aria-label="@groupName clip library" tabindex="0">
+                                <!-- Clips populated dynamically by JavaScript -->
+                                <span class="vox-token-empty">Loading clips...</span>
+                            </div>
+                            <nav class="vox-az-rail" id="@(prefix)-az-rail" aria-label="Alphabetical navigation">
+                                <!-- A-Z letters populated by JavaScript -->
+                            </nav>
                         </div>
                     </div>
+
+                    <!-- Scroll position indicator -->
+                    <div class="vox-scroll-letter" id="@(prefix)-scroll-letter" aria-hidden="true"></div>
                 </div>
             }
             </div>
