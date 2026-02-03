@@ -137,6 +137,9 @@ public static class VoiceServiceExtensions
         // VOX clip library (singleton for shared state and performance)
         services.AddSingleton<IVoxClipLibrary, VoxClipLibrary>();
 
+        // VOX concatenation service (singleton for stateless processing)
+        services.AddSingleton<IVoxConcatenationService, VoxConcatenationService>();
+
         return services;
     }
 }
