@@ -1,0 +1,312 @@
+@page "/Portal/VOX/{guildId:long}"
+@model DiscordBot.Bot.Pages.Portal.VOX.IndexModel
+@using DiscordBot.Bot.ViewModels.Portal
+@using DiscordBot.Bot.ViewModels.Components
+
+@{
+    ViewData["Title"] = $"VOX - {Model.GuildName}";
+    Layout = "_PortalLayout";
+
+    // Build portal header view model
+    var portalHeader = new PortalHeaderViewModel
+    {
+        GuildId = Model.GuildId,
+        GuildName = Model.GuildName,
+        GuildIconUrl = Model.GuildIconUrl,
+        IsOnline = Model.IsOnline,
+        ActiveTab = "vox"
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/nav-tabs.css" asp-append-version="true" />
+    <style>
+        /* Two-column layout */
+        .vox-portal-layout {
+            display: flex;
+            gap: 1.5rem;
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem;
+        }
+
+        .vox-sidebar {
+            width: 300px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .vox-main-panel {
+            flex: 1;
+            min-width: 0;
+        }
+
+        /* Sidebar panels */
+        .vox-now-playing {
+            background-color: var(--color-bg-primary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .vox-stats {
+            background-color: var(--color-bg-secondary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .vox-now-playing h3,
+        .vox-stats h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0 0 0.75rem 0;
+        }
+
+        .now-playing-message {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .now-playing-empty {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+            font-style: italic;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+        }
+
+        .stat-item:not(:last-child) {
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .stat-label {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .stat-value {
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .stop-btn {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: var(--color-error);
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .stop-btn:hover {
+            background-color: var(--color-error);
+            filter: brightness(0.9);
+            transform: scale(1.02);
+        }
+
+        .stop-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Group tabs container */
+        .vox-group-tabs-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .vox-clip-browser-placeholder {
+            background-color: var(--color-bg-secondary);
+            border: 2px dashed var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .placeholder-text {
+            color: var(--color-text-tertiary);
+            font-size: 0.875rem;
+        }
+
+        /* Responsive */
+        @@media (max-width: 768px) {
+            .vox-portal-layout {
+                flex-direction: column;
+            }
+
+            .vox-sidebar {
+                width: 100%;
+            }
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+}
+
+@await Html.PartialAsync("../Shared/_PortalHeader", portalHeader)
+
+@if (!Model.IsAuthenticated)
+{
+    <!-- Landing page for unauthenticated users -->
+    <div class="portal-landing">
+        <div class="landing-content">
+            <div class="landing-header">
+                <h1>VOX Audio Clips</h1>
+                <p>Access the VOX, FVOX, and HGrunt audio clip library</p>
+            </div>
+
+            <div class="landing-features">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                    </div>
+                    <h3>Browse Clips</h3>
+                    <p>Search and preview audio clips from Half-Life's VOX system</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                    </div>
+                    <h3>Play in Voice</h3>
+                    <p>Play clips directly to voice channels with queue support</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                    </div>
+                    <h3>Three Groups</h3>
+                    <p>Access VOX, FVOX (female), and HGrunt (military) voice sets</p>
+                </div>
+            </div>
+
+            <div class="landing-cta">
+                <a href="@Model.LoginUrl" class="btn-primary">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                    </svg>
+                    Sign in with Discord
+                </a>
+                <p class="landing-hint">You must be a member of @Model.GuildName to access this portal</p>
+            </div>
+        </div>
+    </div>
+}
+else if (!Model.IsAuthorized)
+{
+    <!-- User is authenticated but not a guild member -->
+    <div class="portal-unauthorized">
+        <div class="unauthorized-content">
+            <div class="unauthorized-icon">
+                <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h2>Access Restricted</h2>
+            <p>You must be a member of <strong>@Model.GuildName</strong> to access this portal.</p>
+            <a href="/" class="btn-secondary">Return Home</a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Full VOX Portal for authorized users -->
+    <div class="vox-portal-layout">
+        <!-- Sidebar -->
+        <aside class="vox-sidebar">
+            <!-- Voice Channel Panel -->
+            @if (Model.VoicePanel != null)
+            {
+                @await Html.PartialAsync("../../Shared/Components/_VoiceChannelPanel", Model.VoicePanel)
+            }
+
+            <!-- Now Playing -->
+            <div class="vox-now-playing">
+                <h3>Now Playing</h3>
+                @if (!string.IsNullOrEmpty(Model.NowPlayingMessage))
+                {
+                    <div class="now-playing-message">
+                        @Model.NowPlayingMessage
+                    </div>
+                    <button type="button" class="stop-btn" id="stop-playback-btn" aria-label="Stop VOX playback">
+                        Stop
+                    </button>
+                }
+                else
+                {
+                    <div class="now-playing-empty">
+                        No audio playing
+                    </div>
+                }
+            </div>
+
+            <!-- Clip Stats -->
+            <div class="vox-stats">
+                <h3>Clip Library</h3>
+                <div class="stat-item">
+                    <span class="stat-label">VOX</span>
+                    <span class="stat-value">@Model.VoxClipCount clips</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">FVOX</span>
+                    <span class="stat-value">@Model.FvoxClipCount clips</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">HGrunt</span>
+                    <span class="stat-value">@Model.HgruntClipCount clips</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Panel -->
+        <main class="vox-main-panel">
+            <!-- Group Tabs -->
+            <div class="vox-group-tabs-section">
+                @if (Model.GroupTabs != null)
+                {
+                    @await Html.PartialAsync("../../Shared/Components/_NavTabs", Model.GroupTabs)
+                }
+            </div>
+
+            <!-- Tab Content Panels (placeholder for now) -->
+            <div data-nav-panel-for="voxGroupTabs" data-tab-id="vox">
+                <div class="vox-clip-browser-placeholder">
+                    <p class="placeholder-text">VOX clip browser will be implemented in issue #1465</p>
+                </div>
+            </div>
+
+            <div data-nav-panel-for="voxGroupTabs" data-tab-id="fvox" hidden>
+                <div class="vox-clip-browser-placeholder">
+                    <p class="placeholder-text">FVOX clip browser will be implemented in issue #1465</p>
+                </div>
+            </div>
+
+            <div data-nav-panel-for="voxGroupTabs" data-tab-id="hgrunt" hidden>
+                <div class="vox-clip-browser-placeholder">
+                    <p class="placeholder-text">HGrunt clip browser will be implemented in issue #1465</p>
+                </div>
+            </div>
+        </main>
+    </div>
+}
