@@ -24,6 +24,7 @@ public class PortalVoxController : ControllerBase
     private readonly IVoxClipLibrary _voxClipLibrary;
     private readonly IPlaybackService _playbackService;
     private readonly IAudioService _audioService;
+    private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ISettingsService _settingsService;
     private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<PortalVoxController> _logger;
@@ -41,6 +42,7 @@ public class PortalVoxController : ControllerBase
     /// <param name="voxClipLibrary">The VOX clip library for clip retrieval.</param>
     /// <param name="playbackService">The playback service for audio control.</param>
     /// <param name="audioService">The audio service for voice connections.</param>
+    /// <param name="audioSettingsService">The audio settings service.</param>
     /// <param name="settingsService">The bot-level settings service.</param>
     /// <param name="discordClient">The Discord socket client.</param>
     /// <param name="logger">The logger.</param>
@@ -49,6 +51,7 @@ public class PortalVoxController : ControllerBase
         IVoxClipLibrary voxClipLibrary,
         IPlaybackService playbackService,
         IAudioService audioService,
+        IGuildAudioSettingsService audioSettingsService,
         ISettingsService settingsService,
         DiscordSocketClient discordClient,
         ILogger<PortalVoxController> logger)
@@ -57,6 +60,7 @@ public class PortalVoxController : ControllerBase
         _voxClipLibrary = voxClipLibrary;
         _playbackService = playbackService;
         _audioService = audioService;
+        _audioSettingsService = audioSettingsService;
         _settingsService = settingsService;
         _discordClient = discordClient;
         _logger = logger;
@@ -244,6 +248,20 @@ public class PortalVoxController : ControllerBase
             {
                 Message = "Audio features disabled",
                 Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId()
+            });
+        }
+
+        // Check if audio is enabled for this guild
+        var audioSettings = await _audioSettingsService.GetSettingsAsync(guildId, cancellationToken);
+        if (audioSettings == null || !audioSettings.AudioEnabled)
+        {
+            _logger.LogWarning("Audio not enabled for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio is not enabled for this guild",
+                Detail = "Enable audio in the guild settings before using VOX features.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId()
             });
