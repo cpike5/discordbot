@@ -855,5 +855,5 @@ Reuse the existing portal status polling pattern to show Now Playing state and v
 
 ---
 
-**Last Updated**: 2026-02-02
-**Version**: 2.0
+**Last Updated**: 2026-02-03
+**Version**: 2.0 (Implemented)

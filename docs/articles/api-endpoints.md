@@ -6840,10 +6840,248 @@ curl -X GET "http://localhost:5000/api/autocomplete/channels?search=general&guil
 
 ---
 
+## VOX Portal API
+
+The VOX Portal API provides endpoints for the VOX announcement system, allowing guild members to browse clips, preview messages, and play Half-Life style announcements in voice channels.
+
+**Base URL:** `/api/portal/vox/{guildId}`
+
+**Authorization:** Requires `PortalGuildMember` policy (OAuth-authenticated guild members)
+
+### GET /api/portal/vox/{guildId}/clips
+
+Get available VOX clips for a specific group with optional search filtering.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `group` | string | No | `vox` | Clip group: `vox`, `fvox`, or `hgrunt` |
+| `search` | string | No | - | Filter clips by name (prefix/substring match) |
+
+**Example Request:**
+
+```bash
+GET /api/portal/vox/123456789012345678/clips?group=vox&search=warning
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "group": "vox",
+  "clips": [
+    { "name": "warning", "durationSeconds": 0.6, "fileSizeBytes": 9600 },
+    { "name": "warning2", "durationSeconds": 0.8, "fileSizeBytes": 12800 }
+  ],
+  "totalClips": 2
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `group` | string | The clip group name |
+| `clips` | array | List of matching clips |
+| `clips[].name` | string | Clip filename without extension |
+| `clips[].durationSeconds` | number | Audio duration in seconds |
+| `clips[].fileSizeBytes` | number | File size in bytes |
+| `totalClips` | number | Total number of clips returned |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Invalid group name (must be vox, fvox, or hgrunt) |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | User is not a member of the guild |
+| 404 Not Found | Guild not found or bot is not a member |
+
+---
+
+### GET /api/portal/vox/{guildId}/preview
+
+Parse a message and return a preview showing which words have matching clips.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `message` | string | Yes | - | Message text to tokenize and preview |
+| `group` | string | No | `vox` | Clip group: `vox`, `fvox`, or `hgrunt` |
+
+**Example Request:**
+
+```bash
+GET /api/portal/vox/123456789012345678/preview?message=attention%20all%20personnel&group=vox
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "tokens": [
+    { "word": "attention", "hasClip": true, "durationSeconds": 0.8 },
+    { "word": "all", "hasClip": true, "durationSeconds": 0.3 },
+    { "word": "personnel", "hasClip": true, "durationSeconds": 1.1 }
+  ],
+  "matchedCount": 3,
+  "skippedCount": 0,
+  "estimatedDurationSeconds": 2.3
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tokens` | array | List of parsed word tokens |
+| `tokens[].word` | string | The parsed word (lowercase, punctuation stripped) |
+| `tokens[].hasClip` | boolean | Whether a matching clip exists |
+| `tokens[].durationSeconds` | number | Clip duration (0 if no match) |
+| `matchedCount` | number | Number of words with matching clips |
+| `skippedCount` | number | Number of words without matching clips |
+| `estimatedDurationSeconds` | number | Estimated total playback duration |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Message is empty, too long (>500 chars), or invalid group |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | User is not a member of the guild |
+| 404 Not Found | Guild not found or bot is not a member |
+
+---
+
+### POST /api/portal/vox/{guildId}/play
+
+Play a VOX announcement in the bot's current voice channel.
+
+**Request Body:**
+
+```json
+{
+  "message": "attention all personnel security breach",
+  "group": "vox",
+  "wordGapMs": 50
+}
+```
+
+**Request Fields:**
+
+| Field | Type | Required | Default | Description |
+|-------|------|----------|---------|-------------|
+| `message` | string | Yes | - | Message to announce (max 500 chars, 50 words) |
+| `group` | string | No | `vox` | Clip group: `vox`, `fvox`, or `hgrunt` |
+| `wordGapMs` | number | No | 50 | Silence between clips in milliseconds (20-200) |
+
+**Response: 200 OK**
+
+```json
+{
+  "success": true,
+  "matchedWords": ["attention", "all", "personnel", "security", "breach"],
+  "skippedWords": [],
+  "estimatedDurationSeconds": 3.5
+}
+```
+
+**Response Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `success` | boolean | Whether playback was initiated |
+| `matchedWords` | array | Words that had matching clips |
+| `skippedWords` | array | Words that were skipped (no clip) |
+| `estimatedDurationSeconds` | number | Estimated playback duration |
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Message empty, too long, invalid group, invalid wordGapMs, no matching clips, audio disabled, or bot not in voice channel |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | User is not a member of the guild |
+| 404 Not Found | Guild not found or bot is not a member |
+
+**Notes:**
+- Bot must be connected to a voice channel before calling this endpoint
+- Audio must be enabled both globally and for the guild
+- At least one word must have a matching clip
+
+---
+
+### POST /api/portal/vox/{guildId}/stop
+
+Stop the currently playing audio in the guild.
+
+**Request Body:** None required
+
+**Response: 200 OK**
+
+```json
+{
+  "success": true,
+  "message": "Playback stopped"
+}
+```
+
+**Error Responses:**
+
+| Status | Condition |
+|--------|-----------|
+| 400 Bad Request | Bot is not connected to a voice channel |
+| 401 Unauthorized | Not authenticated |
+| 403 Forbidden | User is not a member of the guild |
+| 404 Not Found | Guild not found or bot is not a member |
+
+---
+
+### VOX API Integration Examples
+
+**Example: Get All VOX Clips**
+
+```bash
+curl -X GET "https://localhost:5001/api/portal/vox/123456789012345678/clips?group=vox" \
+  -H "accept: application/json" \
+  -H "Cookie: .AspNetCore.Identity.Application=your-auth-cookie"
+```
+
+**Example: Preview a Message**
+
+```bash
+curl -X GET "https://localhost:5001/api/portal/vox/123456789012345678/preview?message=warning+security+breach&group=vox" \
+  -H "accept: application/json" \
+  -H "Cookie: .AspNetCore.Identity.Application=your-auth-cookie"
+```
+
+**Example: Play a VOX Announcement**
+
+```bash
+curl -X POST "https://localhost:5001/api/portal/vox/123456789012345678/play" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Cookie: .AspNetCore.Identity.Application=your-auth-cookie" \
+  -d '{"message": "attention all personnel", "group": "vox", "wordGapMs": 50}'
+```
+
+**Example: Stop Playback**
+
+```bash
+curl -X POST "https://localhost:5001/api/portal/vox/123456789012345678/stop" \
+  -H "accept: application/json" \
+  -H "Cookie: .AspNetCore.Identity.Application=your-auth-cookie"
+```
+
+---
+
 ## Version History
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 1.6 | 2026-02-03 | Added VOX Portal API documentation (Issue #1471) |
 | 1.5 | 2026-01-02 | Added Autocomplete API documentation (Issue #554) |
 | 1.4 | 2025-12-30 | Added Welcome, Scheduled Messages, and Audit Log endpoint documentation (Issue #308) |
 | 1.3 | 2025-12-24 | Added Message Log endpoints documentation (Issue #140) |
@@ -6862,7 +7100,9 @@ curl -X GET "http://localhost:5000/api/autocomplete/channels?search=general&guil
 - [Repository Pattern](repository-pattern.md) - Data access implementation
 - [Admin Commands](admin-commands.md) - Discord slash command reference
 - [Authorization Policies](authorization-policies.md) - Role-based authorization
+- [VOX System Spec](vox-system-spec.md) - VOX clip library architecture and slash commands
+- [VOX UI Spec](vox-ui-spec.md) - VOX Portal UI/UX specification
 
 ---
 
-*Last Updated: January 2, 2026*
+*Last Updated: February 3, 2026*
