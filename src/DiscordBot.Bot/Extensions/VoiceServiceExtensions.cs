@@ -143,6 +143,9 @@ public static class VoiceServiceExtensions
         // VOX orchestration service (scoped for per-request pipeline coordination)
         services.AddScoped<IVoxService, VoxService>();
 
+        // VOX clip library initialization (hosted service for startup initialization)
+        services.AddHostedService<VoxClipLibraryInitializer>();
+
         return services;
     }
 }
