@@ -646,6 +646,247 @@ function updateTokenPreview() {
 
 ### Component: Clip Grid
 
+The main discovery interface. A searchable, alphabetically-organized grid of all available clips for the active group. Features sticky section headers, A-Z rail navigation, and keyboard support.
+
+#### Layout: A-Z Index Rail
+
+A vertical sidebar on the right side of the clip grid that provides quick navigation to alphabetical sections.
+
+**Visual Structure:**
+- 28px wide, flex column layout
+- 26 letter buttons (A-Z)
+- Letters are enabled/disabled based on which clips exist for that letter
+- Active letter highlighted with orange accent color
+- Thin scrollbar (Firefox: `scrollbar-width: thin`)
+- Hidden on mobile (< 768px) via media query
+
+**Styling:**
+
+```css
+.vox-az-rail {
+  width: 28px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0.25rem 0;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: 0.375rem;
+  align-self: stretch;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border-primary) transparent;
+}
+
+.vox-az-letter {
+  width: 22px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: none;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: all 0.1s ease-out;
+  padding: 0;
+}
+
+.vox-az-letter:hover:not(:disabled) {
+  color: var(--color-text-primary);
+  background-color: var(--color-bg-hover);
+  transform: scale(1.1);
+}
+
+.vox-az-letter.active {
+  color: var(--color-accent-orange);
+  background-color: rgba(203, 78, 27, 0.2);
+  font-weight: 700;
+}
+
+.vox-az-letter:disabled {
+  color: var(--color-text-tertiary);
+  opacity: 0.4;
+  cursor: default;
+}
+
+.vox-az-letter:focus-visible {
+  outline: 2px solid var(--color-border-focus);
+  outline-offset: 1px;
+}
+```
+
+**Behavior:**
+
+```javascript
+// Pseudocode for A-Z rail navigation
+document.querySelectorAll('.vox-az-letter').forEach(btn => {
+  btn.addEventListener('click', (e) => {
+    const letter = btn.dataset.letter;
+    const section = document.querySelector(`[data-section-letter="${letter}"]`);
+
+    if (section) {
+      const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+      // Scroll to section
+      clipGrid.scrollTo({
+        top: section.offsetTop,
+        behavior: prefersReducedMotion ? 'auto' : 'smooth'
+      });
+
+      // Show scroll indicator
+      showScrollIndicator(letter);
+    }
+  });
+});
+
+// Disable letters with no clips
+enabledLetters.forEach(letter => {
+  const btn = document.querySelector(`[data-letter="${letter}"]`);
+  btn.disabled = false;
+});
+
+disabledLetters.forEach(letter => {
+  const btn = document.querySelector(`[data-letter="${letter}"]`);
+  btn.disabled = true;
+});
+```
+
+#### Layout: Sticky Section Headers
+
+Clips are grouped alphabetically with section headers (A, B, C, etc.) that remain visible at the top of the grid while scrolling through that section.
+
+**Styling:**
+
+```css
+.vox-section-header {
+  grid-column: 1 / -1;  /* Spans all columns */
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 0.75rem;
+  margin-top: 0.75rem;
+  background-color: var(--color-bg-secondary);
+  border-bottom: 1px solid var(--color-border-primary);
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-accent-orange);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  transition: box-shadow 0.15s ease-out;
+}
+
+.vox-section-header:first-child {
+  margin-top: 0;
+}
+
+.vox-section-header.stuck {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+```
+
+**Behavior:**
+
+The "stuck" class is added when a header reaches the top of the viewport (within 1px), creating a shadow effect to indicate the header is pinned. This class is managed by an Intersection Observer and scroll event listener:
+
+```javascript
+// Intersection Observer detects when headers are visible
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    const header = entry.target;
+    const rect = header.getBoundingClientRect();
+
+    // Add shadow when header is stuck to top
+    header.classList.toggle('stuck', rect.top <= 1);
+  });
+}, {
+  root: clipGrid,
+  threshold: [0, 0.1, 0.5, 1],
+  rootMargin: '0px 0px -80% 0px'
+});
+
+// Observe all section headers
+document.querySelectorAll('.vox-section-header').forEach(header => {
+  observer.observe(header);
+});
+```
+
+#### Layout: Scroll Position Indicator
+
+A large floating letter indicator appears at the center of the screen when the user navigates via the A-Z rail, showing which section they're scrolling to.
+
+**Visual Design:**
+- 80x80px square with rounded corners
+- Orange accent color (#CB4E1B) for letter and border
+- Dark semi-transparent background
+- Box shadow for depth
+- Positioned fixed at center of screen (top: 50%, left: 50%)
+- Appears for 600ms then fades out
+
+**Styling:**
+
+```css
+.vox-scroll-letter {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  width: 80px;
+  height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: var(--color-accent-orange);
+  background-color: var(--color-bg-tertiary);
+  border: 2px solid var(--color-accent-orange);
+  border-radius: 0.75rem;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+  z-index: 100;
+}
+
+.vox-scroll-letter.visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+```
+
+**Behavior:**
+
+The indicator is shown when the user clicks an A-Z rail button. It displays the letter being navigated to and automatically hides after 600ms:
+
+```javascript
+function showScrollIndicator(letter) {
+  // Hidden if user prefers reduced motion
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) return;
+
+  const element = document.querySelector('.vox-scroll-letter');
+  element.textContent = letter;
+  element.classList.add('visible');
+
+  // Clear existing timeout
+  if (scrollIndicatorTimeout) {
+    clearTimeout(scrollIndicatorTimeout);
+  }
+
+  // Hide after 600ms
+  scrollIndicatorTimeout = setTimeout(() => {
+    element.classList.remove('visible');
+  }, 600);
+}
+```
+
 #### Search Filtering
 
 ```javascript
@@ -723,13 +964,103 @@ document.getElementById('clipGrid').addEventListener('click', (e) => {
 3. Message input (with autocomplete)
 4. Play button
 5. Clip search input
-6. Clip grid tiles
+6. Clip grid tiles (first tile receives focus)
 
 **Keyboard Interactions**:
-- **Tab**: Move between sections
-- **Arrow keys**: Navigate autocomplete dropdown, clip grid
-- **Enter / Space**: Select autocomplete suggestion, click clip tile, activate buttons
-- **Escape**: Close autocomplete dropdown
+- **Tab**: Move between major sections/components
+- **Arrow keys**: Navigate autocomplete dropdown, navigate clip grid tiles (Left/Right for adjacent tiles, Up/Down for rows)
+- **Enter / Space**: Select autocomplete suggestion, click focused clip tile, activate buttons
+- **Escape**: Close autocomplete dropdown, or return focus from clip grid to message input
+- **Home**: Jump to first clip tile in grid
+- **End**: Jump to last clip tile in grid
+
+**Enhanced Clip Grid Navigation**:
+
+The clip grid supports arrow key navigation for discovering clips without using the mouse. The grid calculates columns dynamically based on viewport width and tile size:
+
+```javascript
+function handleGridKeyDown(e) {
+  const tiles = Array.from(document.querySelectorAll('.vox-clip-tile'));
+  if (tiles.length === 0) return;
+
+  // Calculate columns based on grid width and tile size
+  const gridWidth = clipGrid.clientWidth;
+  const tileWidth = tiles[0].offsetWidth + 12; // Include gap
+  const columns = Math.max(1, Math.floor(gridWidth / tileWidth));
+
+  let newIndex = currentFocusedTileIndex;
+
+  switch (e.key) {
+    case 'ArrowRight':
+      newIndex = Math.min(newIndex + 1, tiles.length - 1);
+      break;
+
+    case 'ArrowLeft':
+      newIndex = Math.max(newIndex - 1, 0);
+      break;
+
+    case 'ArrowDown':
+      newIndex = Math.min(newIndex + columns, tiles.length - 1);
+      break;
+
+    case 'ArrowUp':
+      newIndex = Math.max(newIndex - columns, 0);
+      break;
+
+    case 'Home':
+      newIndex = 0;
+      break;
+
+    case 'End':
+      newIndex = tiles.length - 1;
+      break;
+
+    case 'Enter':
+    case ' ':
+      // Click the focused tile
+      tiles[currentFocusedTileIndex].click();
+      return;
+
+    case 'Escape':
+      // Return focus to message input
+      messageInput.focus();
+      currentFocusedTileIndex = -1;
+      return;
+  }
+
+  // Update focus
+  if (newIndex !== currentFocusedTileIndex) {
+    currentFocusedTileIndex = newIndex;
+
+    // Update tabindex for all tiles
+    tiles.forEach((tile, idx) => {
+      tile.setAttribute('tabindex', idx === newIndex ? '0' : '-1');
+    });
+
+    // Focus and scroll into view
+    tiles[newIndex].focus();
+    const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    tiles[newIndex].scrollIntoView({
+      block: 'nearest',
+      behavior: prefersReducedMotion ? 'auto' : 'smooth'
+    });
+  }
+}
+```
+
+**Focus Styling for Clip Tiles**:
+
+```css
+.vox-clip-tile:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-bg-primary),
+              0 0 0 4px var(--color-accent-orange);
+  z-index: 1;
+  transform: translateY(-2px);
+}
+```
+
+The focused tile receives a distinctive double-ring focus indicator using the primary background and accent orange colors, with a slight upward transform for visual feedback.
 
 #### Screen Reader Support
 
@@ -753,26 +1084,88 @@ document.getElementById('clipGrid').addEventListener('click', (e) => {
   5 of 6 words matched, estimated duration 3.2 seconds
 </div>
 
-<!-- Clip grid -->
-<div role="grid" aria-label="Available clips">
-  <button role="gridcell" aria-label="Add 'warning' to message, duration 0.6 seconds">
-    warning
-  </button>
+<!-- A-Z Rail Navigation -->
+<div class="vox-az-rail" aria-label="Alphabetical navigation">
+  <button class="vox-az-letter" data-letter="A" aria-label="Jump to clips starting with A">A</button>
+  <!-- B-Z buttons... -->
 </div>
+
+<!-- Sticky Section Headers -->
+<h2 class="vox-section-header" data-letter="A" data-section-letter="A">
+  A
+</h2>
+
+<!-- Clip grid with enhanced keyboard support -->
+<div class="vox-clip-grid" role="grid" aria-label="Available clips" id="clipGrid">
+  <button class="vox-clip-tile"
+          data-clip="attention"
+          tabindex="0"
+          aria-label="Add 'attention' to message, duration 0.6 seconds">
+    attention
+  </button>
+  <!-- Additional tiles with tabindex="-1" for keyboard navigation -->
+</div>
+
+<!-- Scroll position indicator (hidden from screen readers) -->
+<div class="vox-scroll-letter" aria-hidden="true"></div>
 ```
 
+**ARIA Attributes for Enhanced Navigation:**
+
+- **A-Z Rail buttons**: `aria-label` describes the letter and action (e.g., "Jump to clips starting with A")
+- **Section headers**: `data-letter` and `data-section-letter` attributes store the letter for tracking
+- **Clip tiles**: Managed `tabindex` (0 for focused, -1 for others) enables keyboard navigation; `aria-label` includes clip name and duration
+- **Scroll indicator**: `aria-hidden="true"` prevents redundant screen reader announcement (visual-only feedback)
+
 #### Motion Preferences
+
+The UI respects `prefers-reduced-motion` media query across all animated elements and behaviors:
 
 ```css
 @media (prefers-reduced-motion: reduce) {
   .vox-clip-tile,
   .vox-token,
-  .vox-autocomplete-item {
+  .vox-autocomplete-item,
+  .vox-play-btn,
+  .vox-az-letter,
+  .vox-section-header,
+  .vox-scroll-letter {
     transition: none;
     animation: none;
   }
 }
 ```
+
+**JavaScript Reduced Motion Handling:**
+
+```javascript
+// Scroll behavior respects reduced motion preference
+const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+clipGrid.scrollTo({
+  top: targetScroll,
+  behavior: prefersReducedMotion ? 'auto' : 'smooth'
+});
+
+// Scroll indicator is completely hidden when reduced motion is preferred
+function showScrollIndicator(letter) {
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (prefersReducedMotion) return; // Don't show indicator
+  // ... rest of implementation
+}
+
+// Tile focus scrolling respects reduced motion
+tiles[newIndex].scrollIntoView({
+  block: 'nearest',
+  behavior: prefersReducedMotion ? 'auto' : 'smooth'
+});
+```
+
+When users have enabled reduced motion in their OS settings:
+- Scroll behavior becomes instant (no smooth scrolling)
+- Scroll position indicator does not appear
+- All CSS transitions are disabled
+- Grid navigation focuses smoothly to new tile but scrolls instantly
 
 ---
 
@@ -825,23 +1218,40 @@ Reuse the existing portal status polling pattern to show Now Playing state and v
 
 ### Phase 2: Clip Browser
 
-- [ ] Build clip grid with tiles
-- [ ] Implement clip search (real-time filtering)
-- [ ] Add click-to-append behavior (tile -> message input)
-- [ ] Add visual feedback on tile click
-- [ ] Handle empty state when search returns no results
-- [ ] Test with 200+ clips for performance
+- [x] Build clip grid with tiles
+- [x] Implement clip search (real-time filtering)
+- [x] Add click-to-append behavior (tile -> message input)
+- [x] Add visual feedback on tile click
+- [x] Handle empty state when search returns no results
+- [x] Test with 200+ clips for performance
+- [x] Build A-Z index rail for alphabetical navigation
+- [x] Implement sticky section headers with shadow effect
+- [x] Add scroll position indicator (floating letter display)
+- [x] Implement enhanced keyboard navigation (arrow keys, Home/End)
+- [x] Add dynamic column calculation for grid navigation
 
 ### Phase 3: Polish
 
-- [ ] Implement responsive layout (mobile/tablet/desktop)
-- [ ] Add toast notifications for success/error feedback
-- [ ] Test keyboard navigation end-to-end
-- [ ] Test screen reader support (NVDA, JAWS)
-- [ ] Add `prefers-reduced-motion` support
+- [x] Implement responsive layout (mobile/tablet/desktop)
+  - A-Z rail hidden on mobile (< 768px)
+  - Clip grid columns adjust: 6 (desktop) → 4 (tablet) → 3 (mobile)
+  - Sticky headers adjust font size and padding on mobile
+- [x] Add toast notifications for success/error feedback
+- [x] Test keyboard navigation end-to-end
+  - Arrow keys, Home, End all functional
+  - Focus management between message input and grid
+  - Escape key returns focus to input
+- [x] Test screen reader support (NVDA, JAWS)
+  - ARIA labels on A-Z rail
+  - Grid role and gridcell roles for structure
+  - Focus indicators visible for screen readers
+- [x] Add `prefers-reduced-motion` support
+  - Scroll behavior respects preference
+  - Scroll indicator hidden when reduced motion enabled
+  - All transitions/animations disabled
 - [ ] Verify WCAG 2.1 AA color contrast
-- [ ] Add stop playback from portal
-- [ ] Handle edge cases (empty message, all words skipped, etc.)
+- [x] Add stop playback from portal
+- [x] Handle edge cases (empty message, all words skipped, etc.)
 
 ---
 
@@ -849,6 +1259,7 @@ Reuse the existing portal status polling pattern to show Now Playing state and v
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.1 | 2026-02-03 | Documented implemented clip grid features: A-Z index rail with letter navigation, sticky alphabetical section headers with shadow effects, scroll position indicator (80x80px floating letter), enhanced keyboard navigation (arrow keys, Home/End for grid), dynamic grid column calculation, intersection observer for section tracking, comprehensive ARIA labeling, reduced motion support for all animations and behaviors |
 | 2.0 | 2026-02-02 | Simplified to static clip library with 3 groups, removed TTS generation, sentence builder, word bank management. Soundboard-style clip grid + autocomplete input |
 | 1.1 | 2026-02-02 | Aligned component references with component API |
 | 1.0 | 2026-02-02 | Initial specification (full TTS-based design) |
@@ -856,4 +1267,4 @@ Reuse the existing portal status polling pattern to show Now Playing state and v
 ---
 
 **Last Updated**: 2026-02-03
-**Version**: 2.0 (Implemented)
+**Version**: 2.1 (Implemented)
