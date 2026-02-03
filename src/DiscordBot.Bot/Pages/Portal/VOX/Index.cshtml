@@ -563,7 +563,7 @@
 
         .vox-clip-tile:hover {
             background-color: var(--color-bg-hover);
-            border-color: var(--color-accent-orange);
+            border-color: var(--color-accent-blue);
             transform: translateY(-2px);
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
         }
@@ -572,14 +572,19 @@
             transform: scale(0.97);
         }
 
+        .vox-clip-tile:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent-orange);
+        }
+
         @@keyframes tileClick {
             0% { transform: scale(1); }
-            50% { transform: scale(0.95); }
+            50% { transform: scale(0.93); }
             100% { transform: scale(1); }
         }
 
         .vox-clip-tile.clicked {
-            animation: tileClick 0.3s ease-out;
+            animation: tileClick 0.2s ease-out;
         }
 
         .vox-clip-name {
@@ -759,7 +764,7 @@
             }
 
             if (voxEls.clipSearch) {
-                voxEls.clipSearch.addEventListener('input', debounce(filterClipGrid, 100));
+                voxEls.clipSearch.addEventListener('input', debounce(filterClipGrid, 150));
             }
 
             if (voxEls.clipGrid) {
@@ -1038,14 +1043,21 @@
 
             const clips = voxState.clipCache[voxState.activeGroup] || [];
             const searchTerm = voxEls.clipSearch ? voxEls.clipSearch.value.toLowerCase() : '';
-            const filtered = clips.filter(c => c.name.includes(searchTerm));
+
+            // Filter with prefix matches first, then substring matches
+            const prefixMatches = clips.filter(c => c.name.startsWith(searchTerm));
+            const substringMatches = clips.filter(c => !c.name.startsWith(searchTerm) && c.name.includes(searchTerm));
+            const filtered = [...prefixMatches, ...substringMatches];
 
             if (voxEls.clipCount) {
-                voxEls.clipCount.textContent = filtered.length;
+                voxEls.clipCount.textContent = searchTerm ? `${filtered.length} matching` : `${filtered.length} clips`;
             }
 
             if (filtered.length === 0) {
-                voxEls.clipGrid.innerHTML = '<div class="vox-token-empty">No clips found</div>';
+                const escapedQuery = escapeHtml(searchTerm);
+                voxEls.clipGrid.innerHTML = searchTerm
+                    ? `<div class="vox-token-empty">No clips match '${escapedQuery}'</div>`
+                    : '<div class="vox-token-empty">No clips found</div>';
                 return;
             }
 
@@ -1073,7 +1085,7 @@
 
             // Visual feedback
             tile.classList.add('clicked');
-            setTimeout(() => tile.classList.remove('clicked'), 300);
+            setTimeout(() => tile.classList.remove('clicked'), 200);
 
             // Update preview and focus
             updateTokenPreview();
