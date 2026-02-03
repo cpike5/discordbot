@@ -73,9 +73,16 @@ const VoiceChannelPanel = (function() {
         // Connect to SignalR if DashboardHub is available
         if (typeof DashboardHub !== 'undefined') {
             setupSignalRHandlers();
+        } else {
+            console.warn('[VoiceChannelPanel] DashboardHub not available!');
         }
 
-        console.log('[VoiceChannelPanel] Initialized for guild:', guildId);
+        console.log('[VoiceChannelPanel] Initialized for guild:', guildId, {
+            guildIdType: typeof guildId,
+            isConnected,
+            connectedChannelId,
+            dashboardHubAvailable: typeof DashboardHub !== 'undefined'
+        });
     }
 
     /**
@@ -113,18 +120,23 @@ const VoiceChannelPanel = (function() {
      * Sets up SignalR event handlers for real-time updates.
      */
     function setupSignalRHandlers() {
+        console.log('[VoiceChannelPanel] Setting up SignalR handlers, DashboardHub.isConnected():', DashboardHub.isConnected());
+
         // Connection state handlers
         DashboardHub.on('connected', function() {
+            console.log('[VoiceChannelPanel] SignalR connected event received');
             isHubConnected = true;
             joinGuildAudioGroup();
         });
 
         DashboardHub.on('reconnected', function() {
+            console.log('[VoiceChannelPanel] SignalR reconnected event received');
             isHubConnected = true;
             joinGuildAudioGroup();
         });
 
         DashboardHub.on('disconnected', function() {
+            console.log('[VoiceChannelPanel] SignalR disconnected event received');
             isHubConnected = false;
         });
 
@@ -136,10 +148,15 @@ const VoiceChannelPanel = (function() {
         DashboardHub.on('PlaybackFinished', handlePlaybackFinished);
         DashboardHub.on('QueueUpdated', handleQueueUpdated);
 
+        console.log('[VoiceChannelPanel] Audio event handlers registered');
+
         // If already connected, join the guild audio group
         if (DashboardHub.isConnected()) {
+            console.log('[VoiceChannelPanel] DashboardHub already connected, joining audio group');
             isHubConnected = true;
             joinGuildAudioGroup();
+        } else {
+            console.log('[VoiceChannelPanel] DashboardHub not yet connected, waiting for connected event');
         }
     }
 
@@ -147,10 +164,19 @@ const VoiceChannelPanel = (function() {
      * Joins the guild-specific audio group for SignalR events.
      */
     async function joinGuildAudioGroup() {
-        if (!isHubConnected || !guildId) return;
+        console.log('[VoiceChannelPanel] joinGuildAudioGroup called', { isHubConnected, guildId });
+
+        if (!isHubConnected) {
+            console.warn('[VoiceChannelPanel] Cannot join audio group: hub not connected');
+            return;
+        }
+        if (!guildId) {
+            console.warn('[VoiceChannelPanel] Cannot join audio group: no guildId');
+            return;
+        }
 
         try {
-            await DashboardHub.joinGuildGroup(guildId);
+            await DashboardHub.joinGuildAudioGroup(guildId);
             console.log('[VoiceChannelPanel] Joined guild audio group:', guildId);
         } catch (error) {
             console.error('[VoiceChannelPanel] Failed to join guild audio group:', error);
@@ -162,25 +188,39 @@ const VoiceChannelPanel = (function() {
      */
     async function handleChannelSelect(e) {
         const selectedChannelId = e.target.value;
-        if (!selectedChannelId || !guildId) return;
+        console.log('[VoiceChannelPanel] Channel selected:', selectedChannelId, 'guildId:', guildId);
+
+        if (!selectedChannelId || !guildId) {
+            console.log('[VoiceChannelPanel] Skipping - no channel or guild ID');
+            return;
+        }
 
         try {
             setChannelSelectorLoading(true);
 
-            const response = await fetch(`/api/guilds/${guildId}/audio/join/${selectedChannelId}`, {
+            const url = `/api/guilds/${guildId}/audio/join/${selectedChannelId}`;
+            console.log('[VoiceChannelPanel] Calling API:', url);
+
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 }
             });
 
+            console.log('[VoiceChannelPanel] API response status:', response.status);
+
             if (!response.ok) {
                 const error = await response.json();
+                console.error('[VoiceChannelPanel] API error:', error);
                 showToast(error.message || 'Failed to join channel', 'error');
                 // Reset selector to previous value
                 channelSelector.value = connectedChannelId || '';
+            } else {
+                const result = await response.json();
+                console.log('[VoiceChannelPanel] API success:', result);
+                console.log('[VoiceChannelPanel] Waiting for AudioConnected SignalR event...');
             }
-            // Success will be handled by AudioConnected SignalR event
         } catch (error) {
             console.error('[VoiceChannelPanel] Error joining channel:', error);
             showToast('Failed to join channel', 'error');
@@ -275,9 +315,10 @@ const VoiceChannelPanel = (function() {
      * @param {object} data - Event data with guildId, channelId, channelName.
      */
     function handleAudioConnected(data) {
-        if (data.guildId !== guildId) return;
+        // Compare as strings - guildId from dataset is string, data.guildId from SignalR is string (serialized from ulong)
+        if (String(data.guildId) !== guildId) return;
 
-        console.log('[VoiceChannelPanel] Audio connected:', data);
+        console.log('[VoiceChannelPanel] Processing AudioConnected for this guild');
 
         isConnected = true;
         connectedChannelId = data.channelId;
@@ -294,6 +335,8 @@ const VoiceChannelPanel = (function() {
         if (leaveButton) {
             leaveButton.classList.remove('hidden');
         }
+
+        console.log('[VoiceChannelPanel] UI updated successfully');
     }
 
     /**
@@ -301,7 +344,7 @@ const VoiceChannelPanel = (function() {
      * @param {object} data - Event data with guildId, reason.
      */
     function handleAudioDisconnected(data) {
-        if (data.guildId !== guildId) return;
+        if (String(data.guildId) !== guildId) return;
 
         console.log('[VoiceChannelPanel] Audio disconnected:', data);
 
@@ -333,7 +376,7 @@ const VoiceChannelPanel = (function() {
      * @param {object} data - Event data with guildId, soundId, name, durationSeconds.
      */
     function handlePlaybackStarted(data) {
-        if (data.guildId !== guildId) return;
+        if (String(data.guildId) !== guildId) return;
 
         console.log('[VoiceChannelPanel] Playback started:', data);
 
@@ -350,7 +393,7 @@ const VoiceChannelPanel = (function() {
      * @param {object} data - Event data with guildId, soundId, positionSeconds, durationSeconds.
      */
     function handlePlaybackProgress(data) {
-        if (data.guildId !== guildId) return;
+        if (String(data.guildId) !== guildId) return;
 
         updatePlaybackProgress(data.positionSeconds, data.durationSeconds);
     }
@@ -360,7 +403,7 @@ const VoiceChannelPanel = (function() {
      * @param {object} data - Event data with guildId, soundId.
      */
     function handlePlaybackFinished(data) {
-        if (data.guildId !== guildId) return;
+        if (String(data.guildId) !== guildId) return;
 
         console.log('[VoiceChannelPanel] Playback finished:', data);
 
@@ -372,7 +415,7 @@ const VoiceChannelPanel = (function() {
      * @param {object} data - Event data with guildId, queue array.
      */
     function handleQueueUpdated(data) {
-        if (data.guildId !== guildId) return;
+        if (String(data.guildId) !== guildId) return;
 
         console.log('[VoiceChannelPanel] Queue updated:', data);
 

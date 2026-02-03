@@ -874,7 +874,12 @@
 
 
         // Initialize VOX Portal
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
+            // Connect to SignalR hub for voice channel panel updates
+            if (typeof DashboardHub !== 'undefined') {
+                await DashboardHub.connect();
+            }
+
             // Initialize DOM references for active tab
             initializeVoxElements('vox');
 
