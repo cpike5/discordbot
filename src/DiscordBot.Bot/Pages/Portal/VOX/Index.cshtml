@@ -150,11 +150,936 @@
                 width: 100%;
             }
         }
+
+        /* ==========================================
+           VOX COMPOSER STYLES
+           ========================================== */
+
+        /* Message Input with Autocomplete */
+        .vox-message-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .vox-message-label {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .vox-autocomplete-wrapper {
+            position: relative;
+        }
+
+        .vox-message-input {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--color-bg-primary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            font-size: 0.9rem;
+            font-family: var(--font-sans);
+            transition: all 0.15s ease-out;
+        }
+
+        .vox-message-input:focus {
+            outline: none;
+            border-color: var(--color-accent-orange);
+            box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.15);
+        }
+
+        .vox-message-input::placeholder {
+            color: var(--color-text-tertiary);
+        }
+
+        .vox-message-help {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+        }
+
+        /* Autocomplete Dropdown */
+        .vox-autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            max-height: 240px;
+            overflow-y: auto;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-top: none;
+            border-radius: 0 0 0.375rem 0.375rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+
+        .vox-autocomplete-dropdown.active {
+            display: block;
+        }
+
+        .vox-autocomplete-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.1s ease-out;
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .vox-autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .vox-autocomplete-item:hover,
+        .vox-autocomplete-item.highlighted {
+            background-color: var(--color-bg-hover);
+        }
+
+        .vox-autocomplete-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .vox-autocomplete-duration {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            font-family: var(--font-mono);
+        }
+
+        /* Token Preview Strip */
+        .vox-token-preview {
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            padding: 0.75rem;
+        }
+
+        .vox-token-label {
+            font-size: 0.75rem;
+            color: var(--color-text-secondary);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            display: block;
+        }
+
+        .vox-token-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            align-items: center;
+        }
+
+        .vox-token {
+            display: inline-flex;
+            padding: 0.35rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid;
+        }
+
+        .vox-token.matched {
+            background-color: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #10b981;
+        }
+
+        .vox-token.skipped {
+            background-color: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+            text-decoration: line-through;
+        }
+
+        .vox-token-gap {
+            color: var(--color-text-tertiary);
+            font-size: 0.875rem;
+        }
+
+        .vox-token-empty {
+            color: var(--color-text-tertiary);
+            font-style: italic;
+        }
+
+        /* Settings Panel (Collapsible) */
+        .vox-settings {
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            overflow: hidden;
+        }
+
+        .vox-settings-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.75rem;
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+        }
+
+        .vox-settings-header:hover {
+            background-color: var(--color-bg-hover);
+        }
+
+        .vox-settings-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+        }
+
+        .vox-settings-chevron {
+            width: 1rem;
+            height: 1rem;
+            color: var(--color-text-secondary);
+            transition: transform 0.3s ease-out;
+            stroke-width: 2;
+        }
+
+        .vox-settings-chevron.rotated {
+            transform: rotate(180deg);
+        }
+
+        .vox-settings-content {
+            max-height: 500px;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+            border-top: 1px solid var(--color-border-primary);
+            padding: 0.75rem;
+        }
+
+        .vox-settings-content.collapsed {
+            max-height: 0;
+            padding: 0;
+            border: none;
+        }
+
+        .vox-slider-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .vox-slider-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .vox-slider-label {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .vox-slider-value {
+            font-family: var(--font-mono);
+            font-size: 0.75rem;
+            color: var(--color-accent-orange);
+            font-weight: 600;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            height: 5px;
+            border-radius: 2px;
+            background: var(--color-border-primary);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--color-accent-orange);
+            cursor: pointer;
+            transition: transform 0.15s ease-out;
+        }
+
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--color-accent-orange);
+            cursor: pointer;
+            border: none;
+            transition: transform 0.15s ease-out;
+        }
+
+        input[type="range"]::-moz-range-thumb:hover {
+            transform: scale(1.15);
+        }
+
+        .vox-gap-hints {
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.7rem;
+            color: var(--color-text-tertiary);
+            margin-top: 0.25rem;
+        }
+
+        /* Play Button */
+        .vox-play-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .vox-play-btn {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--color-accent-orange);
+            border: none;
+            border-radius: 0.375rem;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .vox-play-btn:hover:not(:disabled) {
+            background-color: var(--color-accent-orange-hover);
+            box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
+        }
+
+        .vox-play-btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .vox-play-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .vox-play-btn.loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @@keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @@keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .vox-spinner {
+            width: 0.9rem;
+            height: 0.9rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+        }
+
+        /* Clip Browser */
+        .vox-clip-browser {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            min-height: 200px;
+        }
+
+        .vox-clip-search-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .vox-clip-search {
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            background-color: var(--color-bg-primary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            transition: all 0.15s ease-out;
+        }
+
+        .vox-clip-search:focus {
+            outline: none;
+            border-color: var(--color-accent-orange);
+        }
+
+        .vox-clip-search::placeholder {
+            color: var(--color-text-tertiary);
+        }
+
+        .vox-clip-badge {
+            background-color: var(--color-accent-orange);
+            color: white;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .vox-clip-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 0.75rem;
+            overflow-y: auto;
+            max-height: 400px;
+            padding-right: 0.25rem;
+        }
+
+        .vox-clip-tile {
+            padding: 0.75rem;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            text-align: center;
+        }
+
+        .vox-clip-tile:hover {
+            background-color: var(--color-bg-hover);
+            border-color: var(--color-accent-orange);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .vox-clip-tile:active {
+            transform: scale(0.97);
+        }
+
+        @@keyframes tileClick {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        .vox-clip-tile.clicked {
+            animation: tileClick 0.3s ease-out;
+        }
+
+        .vox-clip-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+            word-break: break-word;
+        }
+
+        .vox-clip-duration {
+            font-size: 0.7rem;
+            color: var(--color-text-tertiary);
+            font-family: var(--font-mono);
+        }
+
+        /* Responsive for VOX composer */
+        @@media (max-width: 1024px) {
+            .vox-clip-grid {
+                grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+            }
+        }
+
+        @@media (max-width: 768px) {
+            .vox-clip-grid {
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            }
+        }
+
+        @@media (prefers-reduced-motion: reduce) {
+            .vox-clip-tile,
+            .vox-token,
+            .vox-autocomplete-item,
+            .vox-play-btn,
+            .vox-settings-chevron,
+            .vox-settings-content {
+                transition: none;
+                animation: none;
+            }
+        }
+
+        /* Screen reader only content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
     </style>
 }
 
 @section Scripts {
     <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+    <script>
+        // Store guildId as string to avoid JS precision issues with Discord snowflake IDs
+        window.guildId = '@Model.GuildId';
+
+        // VOX State
+        const voxState = {
+            activeGroup: 'vox',
+            clipCache: { vox: [], fvox: [], hgrunt: [] },
+            highlightedIndex: -1,
+            isLoading: false,
+            wordGapMs: 50
+        };
+
+        // DOM Elements
+        const voxEls = {
+            messageInput: null,
+            autocompleteDropdown: null,
+            autocompleteStatus: null,
+            tokenLabel: null,
+            tokenPills: null,
+            playBtn: null,
+            playBtnText: null,
+            settingsHeader: null,
+            settingsContent: null,
+            settingsChevron: null,
+            wordGapSlider: null,
+            gapValue: null,
+            clipSearch: null,
+            clipCount: null,
+            clipGrid: null
+        };
+
+        // Debounce utility
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // HTML escape utility to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        // Initialize VOX Portal
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize DOM references for active tab
+            initializeVoxElements('vox');
+
+            // Load clips for initial group
+            loadClipsForGroup('vox');
+
+            // Listen for tab switches
+            document.addEventListener('navTabChanged', (e) => {
+                if (e.detail.containerId === 'voxGroupTabs') {
+                    const newGroup = e.detail.tabId;
+                    voxState.activeGroup = newGroup;
+
+                    // Re-initialize elements for the new tab
+                    initializeVoxElements(newGroup);
+
+                    // Clear input and reload clips
+                    if (voxEls.messageInput) {
+                        voxEls.messageInput.value = '';
+                    }
+                    hideAutocomplete();
+                    updateTokenPreview();
+                    loadClipsForGroup(newGroup);
+                }
+            });
+        });
+
+        function initializeVoxElements(group) {
+            const prefix = `vox-${group}`;
+            voxEls.messageInput = document.getElementById(`${prefix}-message-input`);
+            voxEls.autocompleteDropdown = document.getElementById(`${prefix}-autocomplete`);
+            voxEls.autocompleteStatus = document.getElementById(`${prefix}-autocomplete-status`);
+            voxEls.tokenLabel = document.getElementById(`${prefix}-token-label`);
+            voxEls.tokenPills = document.getElementById(`${prefix}-token-pills`);
+            voxEls.playBtn = document.getElementById(`${prefix}-play-btn`);
+            voxEls.playBtnText = document.getElementById(`${prefix}-play-btn-text`);
+            voxEls.settingsHeader = document.getElementById(`${prefix}-settings-header`);
+            voxEls.settingsContent = document.getElementById(`${prefix}-settings-content`);
+            voxEls.settingsChevron = document.getElementById(`${prefix}-settings-chevron`);
+            voxEls.wordGapSlider = document.getElementById(`${prefix}-word-gap-slider`);
+            voxEls.gapValue = document.getElementById(`${prefix}-gap-value`);
+            voxEls.clipSearch = document.getElementById(`${prefix}-clip-search`);
+            voxEls.clipCount = document.getElementById(`${prefix}-clip-count`);
+            voxEls.clipGrid = document.getElementById(`${prefix}-clip-grid`);
+
+            // Attach event listeners
+            if (voxEls.messageInput) {
+                voxEls.messageInput.addEventListener('input', debounce(handleInputChange, 100));
+                voxEls.messageInput.addEventListener('keydown', handleKeyDown);
+                voxEls.messageInput.addEventListener('blur', (e) => {
+                    // Only hide if focus moved outside the autocomplete dropdown
+                    if (!voxEls.autocompleteDropdown.contains(e.relatedTarget)) {
+                        hideAutocomplete();
+                    }
+                });
+            }
+
+            if (voxEls.settingsHeader) {
+                voxEls.settingsHeader.addEventListener('click', toggleSettings);
+            }
+
+            if (voxEls.wordGapSlider) {
+                voxEls.wordGapSlider.addEventListener('input', handleGapChange);
+            }
+
+            if (voxEls.playBtn) {
+                voxEls.playBtn.addEventListener('click', handlePlay);
+            }
+
+            if (voxEls.clipSearch) {
+                voxEls.clipSearch.addEventListener('input', debounce(filterClipGrid, 100));
+            }
+
+            if (voxEls.clipGrid) {
+                voxEls.clipGrid.addEventListener('click', handleClipTileClick);
+            }
+        }
+
+        // Load clips from API
+        async function loadClipsForGroup(group) {
+            try {
+                const response = await fetch(`/api/portal/vox/${window.guildId}/clips?group=${group}`);
+                if (!response.ok) throw new Error('Failed to load clips');
+
+                const data = await response.json();
+                voxState.clipCache[group] = data.clips || [];
+
+                renderClipGrid();
+                updateTokenPreview();
+            } catch (error) {
+                console.error('Error loading clips:', error);
+                // Show error state in clip grid
+                if (voxEls.clipGrid) {
+                    voxEls.clipGrid.innerHTML = '<div class="vox-token-empty">Failed to load clips</div>';
+                }
+            }
+        }
+
+        // Autocomplete handling
+        function handleInputChange() {
+            updateTokenPreview();
+            updateAutocomplete();
+        }
+
+        function updateAutocomplete() {
+            if (!voxEls.messageInput || !voxEls.autocompleteDropdown) return;
+
+            const text = voxEls.messageInput.value.toLowerCase();
+            const words = text.split(/\s+/);
+            const lastWord = words[words.length - 1] || '';
+
+            if (lastWord.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+
+            const clips = voxState.clipCache[voxState.activeGroup] || [];
+            const prefix = `vox-${voxState.activeGroup}`;
+
+            // Prefix matches first, then substring matches
+            const prefixMatches = clips.filter(c => c.name.startsWith(lastWord));
+            const substringMatches = clips.filter(c => !c.name.startsWith(lastWord) && c.name.includes(lastWord));
+            const matches = [...prefixMatches, ...substringMatches].slice(0, 15);
+
+            if (matches.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+
+            voxState.highlightedIndex = -1;
+            voxEls.autocompleteDropdown.innerHTML = matches.map((clip, idx) => `
+                <div class="vox-autocomplete-item" role="option" id="${prefix}-option-${idx}" data-clip-name="${escapeHtml(clip.name)}" data-index="${idx}">
+                    <span class="vox-autocomplete-name">${escapeHtml(clip.name)}</span>
+                    <span class="vox-autocomplete-duration">${clip.durationSeconds.toFixed(1)}s</span>
+                </div>
+            `).join('');
+
+            voxEls.autocompleteDropdown.classList.add('active');
+            voxEls.messageInput.setAttribute('aria-expanded', 'true');
+
+            // Announce to screen readers
+            if (voxEls.autocompleteStatus) {
+                voxEls.autocompleteStatus.textContent = `${matches.length} suggestions available`;
+            }
+
+            // Attach mousedown handlers (not click) to prevent focus loss race condition
+            voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item').forEach(item => {
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // Prevent focus loss
+                    selectSuggestion(item.dataset.clipName);
+                });
+            });
+        }
+
+        function hideAutocomplete() {
+            if (voxEls.autocompleteDropdown) {
+                voxEls.autocompleteDropdown.classList.remove('active');
+            }
+            if (voxEls.messageInput) {
+                voxEls.messageInput.setAttribute('aria-expanded', 'false');
+                voxEls.messageInput.removeAttribute('aria-activedescendant');
+            }
+            if (voxEls.autocompleteStatus) {
+                voxEls.autocompleteStatus.textContent = '';
+            }
+            voxState.highlightedIndex = -1;
+        }
+
+        function handleKeyDown(e) {
+            if (!voxEls.autocompleteDropdown || !voxEls.autocompleteDropdown.classList.contains('active')) return;
+
+            const items = Array.from(voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item'));
+            if (items.length === 0) return;
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    voxState.highlightedIndex = Math.min(voxState.highlightedIndex + 1, items.length - 1);
+                    updateHighlight(items);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    voxState.highlightedIndex = Math.max(voxState.highlightedIndex - 1, -1);
+                    updateHighlight(items);
+                    break;
+                case 'Enter':
+                case 'Tab':
+                    e.preventDefault();
+                    if (voxState.highlightedIndex >= 0) {
+                        selectSuggestion(items[voxState.highlightedIndex].dataset.clipName);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    hideAutocomplete();
+                    break;
+            }
+        }
+
+        function updateHighlight(items) {
+            items.forEach((item, idx) => {
+                item.classList.toggle('highlighted', idx === voxState.highlightedIndex);
+            });
+
+            // Update aria-activedescendant for screen readers
+            if (voxState.highlightedIndex >= 0 && voxEls.messageInput) {
+                voxEls.messageInput.setAttribute('aria-activedescendant', items[voxState.highlightedIndex].id);
+                items[voxState.highlightedIndex].scrollIntoView({ block: 'nearest' });
+            } else if (voxEls.messageInput) {
+                voxEls.messageInput.removeAttribute('aria-activedescendant');
+            }
+        }
+
+        function selectSuggestion(clipName) {
+            if (!voxEls.messageInput) return;
+
+            const text = voxEls.messageInput.value;
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            words[words.length - 1] = clipName;
+            voxEls.messageInput.value = words.join(' ') + ' ';
+
+            hideAutocomplete();
+            voxEls.messageInput.focus();
+            updateTokenPreview();
+        }
+
+        // Token preview
+        function updateTokenPreview() {
+            if (!voxEls.messageInput || !voxEls.tokenPills || !voxEls.tokenLabel) return;
+
+            const text = voxEls.messageInput.value.toLowerCase();
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            const clips = voxState.clipCache[voxState.activeGroup] || [];
+            const clipMap = new Map(clips.map(c => [c.name, c]));
+
+            let matchedCount = 0;
+            let totalDuration = 0;
+
+            if (words.length === 0) {
+                voxEls.tokenPills.innerHTML = '<span class="vox-token-empty">No words</span>';
+                voxEls.tokenLabel.textContent = 'Preview: 0/0 matched, ~0s';
+                updatePlayButton(false);
+                return;
+            }
+
+            const pillsHtml = words.map((word, idx) => {
+                const clip = clipMap.get(word);
+                const isMatched = !!clip;
+
+                if (isMatched) {
+                    matchedCount++;
+                    totalDuration += clip.durationSeconds;
+                }
+
+                const tokenClass = isMatched ? 'matched' : 'skipped';
+                const gap = idx < words.length - 1 ? '<span class="vox-token-gap">·</span>' : '';
+                return `<span class="vox-token ${tokenClass}">${word}</span>${gap}`;
+            }).join('');
+
+            // Add word gap duration
+            if (matchedCount > 1) {
+                totalDuration += (matchedCount - 1) * (voxState.wordGapMs / 1000);
+            }
+
+            voxEls.tokenPills.innerHTML = pillsHtml;
+            voxEls.tokenLabel.textContent = `Preview: ${matchedCount}/${words.length} matched, ~${totalDuration.toFixed(1)}s`;
+
+            updatePlayButton(matchedCount > 0);
+        }
+
+        function updatePlayButton(canPlay) {
+            if (!voxEls.playBtn) return;
+            voxEls.playBtn.disabled = !canPlay || voxState.isLoading;
+        }
+
+        // Settings
+        function toggleSettings() {
+            if (!voxEls.settingsContent || !voxEls.settingsChevron || !voxEls.settingsHeader) return;
+
+            voxEls.settingsContent.classList.toggle('collapsed');
+            voxEls.settingsChevron.classList.toggle('rotated');
+
+            const isNowExpanded = !voxEls.settingsContent.classList.contains('collapsed');
+            voxEls.settingsHeader.setAttribute('aria-expanded', isNowExpanded ? 'true' : 'false');
+        }
+
+        function handleGapChange(e) {
+            voxState.wordGapMs = parseInt(e.target.value);
+            if (voxEls.gapValue) {
+                voxEls.gapValue.textContent = `${voxState.wordGapMs} ms`;
+            }
+            updateTokenPreview();
+        }
+
+        // Play
+        async function handlePlay() {
+            if (!voxEls.messageInput || voxState.isLoading) return;
+
+            const message = voxEls.messageInput.value.trim();
+            if (!message) return;
+
+            voxState.isLoading = true;
+            voxEls.playBtn.classList.add('loading');
+            voxEls.playBtn.disabled = true;
+            voxEls.playBtnText.innerHTML = '<span class="vox-spinner"></span> Playing...';
+
+            try {
+                const response = await fetch(`/api/portal/vox/${window.guildId}/play`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        group: voxState.activeGroup,
+                        wordGapMs: voxState.wordGapMs
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to play VOX message');
+                }
+
+                // Success feedback
+                console.log('VOX message sent successfully');
+            } catch (error) {
+                console.error('Error playing VOX:', error);
+                // Display error inline instead of alert
+                if (voxEls.playBtnText) {
+                    voxEls.playBtnText.textContent = 'Error: ' + (error.message || 'Failed to play').substring(0, 50);
+                    setTimeout(() => {
+                        if (voxEls.playBtnText) {
+                            voxEls.playBtnText.textContent = 'Play VOX Announcement';
+                        }
+                    }, 3000);
+                }
+            } finally {
+                voxState.isLoading = false;
+                voxEls.playBtn.classList.remove('loading');
+                voxEls.playBtnText.textContent = 'Play VOX Announcement';
+                updateTokenPreview();
+            }
+        }
+
+        // Clip Grid
+        function renderClipGrid() {
+            if (!voxEls.clipGrid) return;
+
+            const clips = voxState.clipCache[voxState.activeGroup] || [];
+            const searchTerm = voxEls.clipSearch ? voxEls.clipSearch.value.toLowerCase() : '';
+            const filtered = clips.filter(c => c.name.includes(searchTerm));
+
+            if (voxEls.clipCount) {
+                voxEls.clipCount.textContent = filtered.length;
+            }
+
+            if (filtered.length === 0) {
+                voxEls.clipGrid.innerHTML = '<div class="vox-token-empty">No clips found</div>';
+                return;
+            }
+
+            voxEls.clipGrid.innerHTML = filtered.map(clip => `
+                <button class="vox-clip-tile" data-clip-name="${escapeHtml(clip.name)}">
+                    <div class="vox-clip-name">${escapeHtml(clip.name)}</div>
+                    <div class="vox-clip-duration">${clip.durationSeconds.toFixed(1)}s</div>
+                </button>
+            `).join('');
+        }
+
+        function filterClipGrid() {
+            renderClipGrid();
+        }
+
+        function handleClipTileClick(e) {
+            const tile = e.target.closest('.vox-clip-tile');
+            if (!tile || !voxEls.messageInput) return;
+
+            const clipName = tile.dataset.clipName;
+            const currentValue = voxEls.messageInput.value;
+
+            // Append clip name with space
+            voxEls.messageInput.value = currentValue + (currentValue.endsWith(' ') || currentValue === '' ? '' : ' ') + clipName + ' ';
+
+            // Visual feedback
+            tile.classList.add('clicked');
+            setTimeout(() => tile.classList.remove('clicked'), 300);
+
+            // Update preview and focus
+            updateTokenPreview();
+            voxEls.messageInput.focus();
+        }
+    </script>
 }
 
 @await Html.PartialAsync("../Shared/_PortalHeader", portalHeader)
@@ -289,24 +1214,112 @@ else
                 }
             </div>
 
-            <!-- Tab Content Panels (placeholder for now) -->
-            <div data-nav-panel-for="voxGroupTabs" data-tab-id="vox">
-                <div class="vox-clip-browser-placeholder">
-                    <p class="placeholder-text">VOX clip browser will be implemented in issue #1465</p>
-                </div>
-            </div>
+            <!-- Tab Content Panels -->
+            @foreach (var group in new[] { "vox", "fvox", "hgrunt" })
+            {
+                var isActive = group == "vox";
+                var prefix = $"vox-{group}";
+                var groupName = group == "vox" ? "VOX" : (group == "fvox" ? "FVOX" : "HGrunt");
 
-            <div data-nav-panel-for="voxGroupTabs" data-tab-id="fvox" hidden>
-                <div class="vox-clip-browser-placeholder">
-                    <p class="placeholder-text">FVOX clip browser will be implemented in issue #1465</p>
-                </div>
-            </div>
+                <div data-nav-panel-for="voxGroupTabs" data-tab-id="@group" style="@(isActive ? "" : "display:none")">
+                    <!-- Message Input Section -->
+                    <div class="vox-message-section">
+                        <label class="vox-message-label" for="@(prefix)-message-input">Message</label>
+                        <div class="vox-autocomplete-wrapper">
+                            <input type="text"
+                                   id="@(prefix)-message-input"
+                                   class="vox-message-input"
+                                   placeholder="Type words to announce..."
+                                   autocomplete="off"
+                                   aria-label="@groupName message"
+                                   aria-expanded="false"
+                                   aria-controls="@(prefix)-autocomplete"
+                                   aria-describedby="@(prefix)-message-help" />
 
-            <div data-nav-panel-for="voxGroupTabs" data-tab-id="hgrunt" hidden>
-                <div class="vox-clip-browser-placeholder">
-                    <p class="placeholder-text">HGrunt clip browser will be implemented in issue #1465</p>
+                            <!-- Autocomplete Dropdown -->
+                            <div class="vox-autocomplete-dropdown"
+                                 id="@(prefix)-autocomplete"
+                                 role="listbox">
+                                <!-- Populated dynamically by JavaScript -->
+                            </div>
+
+                            <!-- Screen reader announcement region -->
+                            <div aria-live="polite" aria-atomic="true" class="sr-only" id="@(prefix)-autocomplete-status"></div>
+                        </div>
+                        <span id="@(prefix)-message-help" class="vox-message-help">
+                            Type words separated by spaces. Click clips below to append.
+                        </span>
+                    </div>
+
+                    <!-- Token Preview Strip -->
+                    <div class="vox-token-preview">
+                        <span class="vox-token-label" id="@(prefix)-token-label">Preview: 0/0 matched, ~0s</span>
+                        <div class="vox-token-pills" id="@(prefix)-token-pills">
+                            <span class="vox-token-empty">No words</span>
+                        </div>
+                    </div>
+
+                    <!-- Settings Panel (Collapsible) -->
+                    <div class="vox-settings">
+                        <div class="vox-settings-header"
+                             id="@(prefix)-settings-header"
+                             role="button"
+                             aria-expanded="false"
+                             aria-controls="@(prefix)-settings-content">
+                            <span class="vox-settings-title">Settings</span>
+                            <svg class="vox-settings-chevron" id="@(prefix)-settings-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                                <polyline points="6 9 12 15 18 9"></polyline>
+                            </svg>
+                        </div>
+                        <div class="vox-settings-content collapsed" id="@(prefix)-settings-content">
+                            <div class="vox-slider-group">
+                                <div class="vox-slider-header">
+                                    <label class="vox-slider-label" for="@(prefix)-word-gap-slider">Word Gap</label>
+                                    <span class="vox-slider-value" id="@(prefix)-gap-value">50 ms</span>
+                                </div>
+                                <input type="range"
+                                       id="@(prefix)-word-gap-slider"
+                                       min="20"
+                                       max="200"
+                                       step="10"
+                                       value="50"
+                                       aria-label="Word gap in milliseconds" />
+                                <div class="vox-gap-hints">
+                                    <span>20ms (fast)</span>
+                                    <span>200ms (slow)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Play Button -->
+                    <div class="vox-play-section">
+                        <button type="button"
+                                class="vox-play-btn"
+                                id="@(prefix)-play-btn"
+                                disabled
+                                aria-label="Play @groupName announcement">
+                            <span id="@(prefix)-play-btn-text">Play @groupName Announcement</span>
+                        </button>
+                    </div>
+
+                    <!-- Clip Browser -->
+                    <div class="vox-clip-browser">
+                        <div class="vox-clip-search-group">
+                            <input type="text"
+                                   class="vox-clip-search"
+                                   id="@(prefix)-clip-search"
+                                   placeholder="Search clips..."
+                                   aria-label="Search @groupName clips" />
+                            <span class="vox-clip-badge" id="@(prefix)-clip-count">0</span>
+                        </div>
+                        <div class="vox-clip-grid" id="@(prefix)-clip-grid">
+                            <!-- Clips populated dynamically by JavaScript -->
+                            <span class="vox-token-empty">Loading clips...</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
+            }
         </main>
     </div>
 }
