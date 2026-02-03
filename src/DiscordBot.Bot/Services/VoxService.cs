@@ -274,13 +274,19 @@ public class VoxService : IVoxService
 
     /// <summary>
     /// Tokenizes a message into individual words.
-    /// Splits on whitespace and converts to lowercase.
-    /// Preserves punctuation like ! and ? that may be part of clip names (e.g., "request!").
+    /// Converts punctuation to timing tokens (comma -> _comma, period -> _period),
+    /// then splits on whitespace and converts to lowercase.
+    /// Preserves other punctuation like ! and ? that may be part of clip names (e.g., "request!").
     /// </summary>
     private List<string> TokenizeMessage(string message)
     {
+        // Replace punctuation with spaced tokens to ensure they become separate tokens
+        var processed = message
+            .Replace(",", " _comma ")
+            .Replace(".", " _period ");
+
         // Split on whitespace
-        var rawTokens = message.Split(
+        var rawTokens = processed.Split(
             new[] { ' ', '\t', '\n', '\r' },
             StringSplitOptions.RemoveEmptyEntries);
 
