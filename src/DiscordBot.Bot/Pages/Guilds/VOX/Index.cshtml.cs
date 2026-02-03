@@ -222,6 +222,7 @@ public class IndexModel : PageModel
                     new() { Label = "Home", Url = "/" },
                     new() { Label = "Servers", Url = "/Guilds" },
                     new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                    new() { Label = "Audio", Url = $"/Guilds/Soundboard/{guild.Id}" },
                     new() { Label = "VOX", IsCurrent = true }
                 }
             };
@@ -238,7 +239,7 @@ public class IndexModel : PageModel
             Navigation = new GuildNavBarViewModel
             {
                 GuildId = guild.Id,
-                ActiveTab = "vox",
+                ActiveTab = "audio",
                 Tabs = GuildNavigationConfig.GetTabs().ToList()
             };
 
