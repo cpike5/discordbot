@@ -113,6 +113,19 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 
 **Note:** Use `Guilds/` not `Servers/` for guild-related pages (Discord API terminology).
 
+## Portal API Endpoints (VOX)
+
+REST API for VOX Portal functionality. All endpoints require `[Authorize(Policy = "PortalGuildMember")]`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/portal/vox/{guildId}/clips` | GET | Get clips for a group (`?group=vox\|fvox\|hgrunt&search=`) |
+| `/api/portal/vox/{guildId}/preview` | GET | Tokenize message and show clip matches (`?message=&group=`) |
+| `/api/portal/vox/{guildId}/play` | POST | Play announcement (`{message, group, wordGapMs}`) |
+| `/api/portal/vox/{guildId}/stop` | POST | Stop current playback |
+
+**Controller:** `PortalVoxController.cs`
+
 ## Discord Command Modules
 
 Using Discord.NET 3.18.0 - slash commands only, registered via `InteractionHandler`.
