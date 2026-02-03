@@ -12,6 +12,12 @@ public record VoiceChannelPanelViewModel
     public required ulong GuildId { get; init; }
 
     /// <summary>
+    /// When true, renders the panel in compact mode for sidebar/widget use.
+    /// Stacks controls vertically, reduces padding, and hides queue/now-playing sections.
+    /// </summary>
+    public bool IsCompact { get; init; }
+
+    /// <summary>
     /// Whether the bot is currently connected to a voice channel.
     /// </summary>
     public bool IsConnected { get; init; }

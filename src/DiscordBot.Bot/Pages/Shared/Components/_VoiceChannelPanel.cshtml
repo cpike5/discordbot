@@ -3,10 +3,95 @@
     var statusClass = Model.IsConnected ? "text-success" : "text-text-tertiary";
     var statusText = Model.IsConnected ? "Connected" : "Disconnected";
     var statusBgClass = Model.IsConnected ? "bg-success/20" : "bg-bg-tertiary";
+    var panelClass = Model.IsCompact ? "voice-panel-compact" : "";
+}
+
+@if (Model.IsCompact)
+{
+    <style>
+        /* Compact Voice Channel Panel Styles */
+        .voice-panel-compact {
+            border: none !important;
+            background-color: transparent !important;
+        }
+
+        .voice-panel-compact > div {
+            padding: 0.75rem 0 !important;
+            border-left: none !important;
+            border-right: none !important;
+        }
+
+        .voice-panel-compact > div:first-child {
+            padding-top: 0 !important;
+        }
+
+        .voice-panel-compact h3 {
+            font-size: 0.8rem !important;
+        }
+
+        .voice-panel-compact #connection-status-badge {
+            font-size: 0.65rem !important;
+            padding: 0.125rem 0.375rem !important;
+        }
+
+        .voice-panel-compact #connection-status-dot {
+            width: 1px !important;
+            height: 1px !important;
+        }
+
+        .voice-panel-compact #connected-channel-info {
+            font-size: 0.8rem !important;
+        }
+
+        .voice-panel-compact #connected-channel-info svg {
+            width: 0.875rem !important;
+            height: 0.875rem !important;
+        }
+
+        .voice-panel-compact label {
+            font-size: 0.7rem !important;
+            margin-bottom: 0.25rem !important;
+        }
+
+        /* Stack channel control vertically */
+        .voice-panel-compact .voice-channel-controls {
+            flex-direction: column !important;
+            gap: 0.5rem !important;
+        }
+
+        .voice-panel-compact #channel-selector {
+            width: 100% !important;
+            flex: none !important;
+            padding: 0.375rem 0.5rem !important;
+            font-size: 0.8rem !important;
+        }
+
+        .voice-panel-compact #leave-channel-btn {
+            width: 100% !important;
+            justify-content: center !important;
+            padding: 0.375rem 0.75rem !important;
+            font-size: 0.75rem !important;
+        }
+
+        .voice-panel-compact #leave-channel-btn svg {
+            width: 0.875rem !important;
+            height: 0.875rem !important;
+        }
+
+        /* Hide Now Playing and Queue sections in compact mode */
+        .voice-panel-compact #now-playing-section,
+        .voice-panel-compact .voice-queue-section {
+            display: none !important;
+        }
+
+        .voice-panel-compact h4 {
+            font-size: 0.65rem !important;
+        }
+    </style>
 }
 
 <div id="voice-channel-panel"
-     class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden"
+     class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden @panelClass"
      data-guild-id="@Model.GuildId"
      data-connected="@Model.IsConnected.ToString().ToLower()"
      data-channel-id="@Model.ConnectedChannelId">
@@ -51,7 +136,7 @@
         <label for="channel-selector" class="block text-xs font-medium text-text-secondary mb-1.5">
             Select Channel
         </label>
-        <div class="flex items-center gap-2">
+        <div class="flex items-center gap-2 voice-channel-controls">
             <select id="channel-selector"
                     class="flex-1 bg-bg-tertiary border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent">
                 <option value="">-- Select a channel --</option>
@@ -137,7 +222,7 @@
     </div>
 
     <!-- Queue Section -->
-    <div class="px-4 py-3">
+    <div class="px-4 py-3 voice-queue-section">
         <div class="flex items-center justify-between mb-3">
             <h4 class="text-xs font-medium text-text-secondary uppercase tracking-wider">Queue</h4>
             <span id="queue-count-badge" class="text-xs text-text-tertiary">
