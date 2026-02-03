@@ -105,30 +105,7 @@
             sendBtn.addEventListener('click', sendTtsMessage);
         }
 
-        // Channel selection
-        const channelSelect = document.getElementById('channelSelect');
-        if (channelSelect) {
-            channelSelect.addEventListener('change', function() {
-                selectedChannel = this.value;
-            });
-        }
-
-        // Voice channel controls
-        const joinBtn = document.getElementById('joinBtn');
-        if (joinBtn) {
-            joinBtn.addEventListener('click', joinChannel);
-        }
-
-        const leaveBtn = document.getElementById('leaveBtn');
-        if (leaveBtn) {
-            leaveBtn.addEventListener('click', leaveChannel);
-        }
-
-        // Stop button
-        const stopBtn = document.getElementById('stopBtn');
-        if (stopBtn) {
-            stopBtn.addEventListener('click', stopPlayback);
-        }
+        // Note: Voice channel controls (join/leave/stop) are now handled by voice-channel-panel.js
 
         // Voice selection
         const voiceSelect = document.getElementById('voiceSelect');

@@ -43,19 +43,9 @@ public class IndexModel : PortalPageModelBase
     }
 
     /// <summary>
-    /// Gets the list of voice channels in the guild.
+    /// Gets the voice channel panel view model.
     /// </summary>
-    public List<VoiceChannelInfo> VoiceChannels { get; set; } = new();
-
-    /// <summary>
-    /// Gets the ID of the voice channel the bot is currently connected to.
-    /// </summary>
-    public ulong? CurrentChannelId { get; set; }
-
-    /// <summary>
-    /// Gets whether the bot is connected to a voice channel in this guild.
-    /// </summary>
-    public bool IsConnected { get; set; }
+    public VoiceChannelPanelViewModel? VoicePanel { get; set; }
 
     /// <summary>
     /// Gets the list of available TTS voices grouped by locale.
@@ -139,9 +129,41 @@ public class IndexModel : PortalPageModelBase
             }
 
             // User is authorized - load full TTS interface
-            VoiceChannels = BuildVoiceChannelList(context!.SocketGuild);
-            CurrentChannelId = _audioService.GetConnectedChannelId(guildId);
-            IsConnected = _audioService.IsConnected(guildId);
+
+            // Build voice channel panel data
+            var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
+            var isConnected = _audioService.IsConnected(guildId);
+            string? connectedChannelName = null;
+            int? channelMemberCount = null;
+
+            if (isConnected && connectedChannelId.HasValue)
+            {
+                var connectedChannel = context!.SocketGuild.GetVoiceChannel(connectedChannelId.Value);
+                if (connectedChannel != null)
+                {
+                    connectedChannelName = connectedChannel.Name;
+                    channelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
+                }
+            }
+
+            VoicePanel = new VoiceChannelPanelViewModel
+            {
+                GuildId = guildId,
+                IsCompact = true,
+                IsConnected = isConnected,
+                ConnectedChannelId = connectedChannelId,
+                ConnectedChannelName = connectedChannelName,
+                ChannelMemberCount = channelMemberCount,
+                AvailableChannels = BuildVoiceChannelList(context!.SocketGuild)
+                    .Select(c => new DiscordBot.Bot.ViewModels.Components.VoiceChannelInfo
+                    {
+                        Id = c.Id,
+                        Name = c.Name,
+                        MemberCount = c.MemberCount
+                    }).ToList(),
+                NowPlaying = null,
+                Queue = []
+            };
 
             // Get TTS settings and build SSML component view models
             var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
