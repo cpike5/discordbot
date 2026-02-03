@@ -3,6 +3,8 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Interfaces.Vox;
+using DiscordBot.Infrastructure.Services.Vox;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -16,7 +18,7 @@ public static class VoiceServiceExtensions
 {
     /// <summary>
     /// Adds all voice-related services to the service collection.
-    /// This is a composite method that calls AddVoiceCore, AddSoundboard, and AddTts.
+    /// This is a composite method that calls AddVoiceCore, AddSoundboard, AddTts, and AddVox.
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
     /// <param name="configuration">The application configuration.</param>
@@ -26,6 +28,7 @@ public static class VoiceServiceExtensions
         services.AddVoiceCore(configuration);
         services.AddSoundboard(configuration);
         services.AddTts(configuration);
+        services.AddVox(configuration);
 
         return services;
     }
@@ -115,6 +118,24 @@ public static class VoiceServiceExtensions
 
         // Azure Speech TTS service (singleton for connection pooling)
         services.AddSingleton<ITtsService, AzureTtsService>();
+
+        return services;
+    }
+
+    /// <summary>
+    /// Adds VOX clip library services for Half-Life style audio synthesis.
+    /// </summary>
+    /// <param name="services">The service collection to add services to.</param>
+    /// <param name="configuration">The application configuration.</param>
+    /// <returns>The service collection for chaining.</returns>
+    public static IServiceCollection AddVox(this IServiceCollection services, IConfiguration configuration)
+    {
+        // Bind options
+        services.Configure<VoxOptions>(
+            configuration.GetSection(VoxOptions.SectionName));
+
+        // VOX clip library (singleton for shared state and performance)
+        services.AddSingleton<IVoxClipLibrary, VoxClipLibrary>();
 
         return services;
     }
