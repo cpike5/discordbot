@@ -87,3 +87,47 @@ public class VoxClipAutocompleteHandler : AutocompleteHandler
         return Task.FromResult(AutocompletionResult.FromSuccess(results));
     }
 }
+
+/// <summary>
+/// Provides autocomplete suggestions for FVOX clip names in the /fvox command.
+/// Searches the FVOX clip library based on the last word being typed.
+/// </summary>
+public class FvoxClipAutocompleteHandler : VoxClipAutocompleteHandler
+{
+    /// <inheritdoc />
+    public override Task<AutocompletionResult> GenerateSuggestionsAsync(
+        IInteractionContext context,
+        IAutocompleteInteraction autocompleteInteraction,
+        IParameterInfo parameter,
+        IServiceProvider services)
+    {
+        return GenerateSuggestionsForGroup(
+            context,
+            autocompleteInteraction,
+            parameter,
+            services,
+            VoxClipGroup.Fvox);
+    }
+}
+
+/// <summary>
+/// Provides autocomplete suggestions for HGRUNT clip names in the /hgrunt command.
+/// Searches the HGRUNT clip library based on the last word being typed.
+/// </summary>
+public class HgruntClipAutocompleteHandler : VoxClipAutocompleteHandler
+{
+    /// <inheritdoc />
+    public override Task<AutocompletionResult> GenerateSuggestionsAsync(
+        IInteractionContext context,
+        IAutocompleteInteraction autocompleteInteraction,
+        IParameterInfo parameter,
+        IServiceProvider services)
+    {
+        return GenerateSuggestionsForGroup(
+            context,
+            autocompleteInteraction,
+            parameter,
+            services,
+            VoxClipGroup.Hgrunt);
+    }
+}
