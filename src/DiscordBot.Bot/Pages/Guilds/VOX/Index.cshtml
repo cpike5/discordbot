@@ -1,0 +1,361 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.VOX.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = $"VOX - {Model.GuildName}";
+    Layout = "_GuildLayout";
+}
+
+<!-- VOX Tabs Navigation -->
+<partial name="Shared/Components/_TabPanel" model='new TabPanelViewModel {
+    Id = "voxTabs",
+    StyleVariant = TabStyleVariant.Pills,
+    NavigationMode = TabNavigationMode.InPage,
+    Tabs = new List<TabItemViewModel>
+    {
+        new() {
+            Id = "settings",
+            Label = "Settings",
+            IconPathOutline = "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+        },
+        new() {
+            Id = "library",
+            Label = "Clip Library",
+            BadgeCount = Model.TotalClipCount,
+            BadgeVariant = TabBadgeVariant.Info,
+            IconPathOutline = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+        }
+    },
+    ActiveTabId = "settings",
+    AriaLabel = "VOX sections"
+}' />
+
+<!-- Success Message -->
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Success,
+            Message = Model.SuccessMessage,
+            IsDismissible = true
+        }" />
+    </div>
+}
+
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Error,
+            Message = Model.ErrorMessage,
+            IsDismissible = true
+        }" />
+    </div>
+}
+
+<!-- Settings Tab Content -->
+<div id="settings-content" class="tab-content">
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">VOX Configuration</h2>
+        <p class="text-sm text-text-secondary mb-6">
+            Configure VOX announcement system settings. These settings are currently global and apply to all guilds.
+        </p>
+
+        <!-- Settings Form Sections -->
+        <div class="space-y-6">
+            <!-- General Settings -->
+            <div class="border-b border-border-primary pb-6">
+                <h3 class="text-md font-semibold text-text-primary mb-4">General Settings</h3>
+                <div class="space-y-4">
+                    <!-- VOX Enabled (Note: Currently global, per-guild not implemented yet) -->
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label class="text-sm font-medium text-text-primary">VOX Enabled</label>
+                            <p class="text-xs text-text-tertiary">Enable or disable VOX announcement commands</p>
+                        </div>
+                        <div class="flex items-center">
+                            <span class="text-sm text-success font-medium">Enabled</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Word Gap Settings -->
+            <div class="border-b border-border-primary pb-6">
+                <h3 class="text-md font-semibold text-text-primary mb-4">Word Gap Settings</h3>
+                <div class="space-y-4">
+                    <div>
+                        <label class="text-sm font-medium text-text-primary">Default Word Gap</label>
+                        <p class="text-xs text-text-tertiary mb-2">Silence between clips in milliseconds (20-200ms)</p>
+                        <div class="flex items-center gap-4">
+                            <input type="range" min="20" max="200" value="@Model.Settings.DefaultWordGapMs"
+                                   class="flex-1 h-2 bg-bg-tertiary rounded-lg appearance-none cursor-pointer slider"
+                                   disabled readonly>
+                            <span class="text-sm font-semibold text-text-primary w-16 text-right">@Model.Settings.DefaultWordGapMs ms</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Limits -->
+            <div class="border-b border-border-primary pb-6">
+                <h3 class="text-md font-semibold text-text-primary mb-4">Message Limits</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="text-sm font-medium text-text-primary">Max Word Count</label>
+                        <p class="text-xs text-text-tertiary mb-2">Maximum words per VOX message</p>
+                        <input type="number" value="@Model.Settings.MaxMessageWords" min="1" max="200"
+                               class="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm"
+                               disabled readonly>
+                    </div>
+                    <div>
+                        <label class="text-sm font-medium text-text-primary">Max Message Length</label>
+                        <p class="text-xs text-text-tertiary mb-2">Maximum characters per VOX message</p>
+                        <input type="number" value="@Model.Settings.MaxMessageLength" min="1" max="1000"
+                               class="w-full px-3 py-2 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm"
+                               disabled readonly>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Info Alert -->
+            <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                Variant = AlertVariant.Info,
+                Title = "Global Settings",
+                Message = "VOX settings are currently configured globally in appsettings.json. Per-guild settings will be available in a future update.",
+                IsDismissible = false
+            }' />
+        </div>
+    </div>
+</div>
+
+<!-- Clip Library Tab Content -->
+<div id="library-content" class="tab-content hidden">
+    <!-- Info Banner -->
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+            Variant = AlertVariant.Info,
+            Title = "Static Clip Library",
+            Message = "VOX clips are static audio files that ship with the bot. These clips cannot be edited or deleted. Use the search and filter to explore available clips.",
+            IsDismissible = false
+        }' />
+    </div>
+
+    <!-- Stats Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+        @foreach (VoxClipGroup group in Enum.GetValues<VoxClipGroup>())
+        {
+            var count = Model.ClipCountsByGroup.ContainsKey(group) ? Model.ClipCountsByGroup[group] : 0;
+            var groupName = group.ToString().ToUpperInvariant();
+            var (bgClass, textClass) = group switch
+            {
+                VoxClipGroup.Vox => ("bg-accent-blue/20", "text-accent-blue"),
+                VoxClipGroup.Fvox => ("bg-accent-orange/20", "text-accent-orange"),
+                VoxClipGroup.Hgrunt => ("bg-accent-green/20", "text-accent-green"),
+                _ => ("bg-accent-blue/20", "text-accent-blue")
+            };
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-5 hover:border-border-focus transition-colors">
+                <div class="flex items-start justify-between mb-4">
+                    <div>
+                        <p class="text-text-secondary text-sm mb-1">@groupName</p>
+                        <p class="text-3xl font-bold text-text-primary">@count</p>
+                    </div>
+                    <div class="w-10 h-10 @bgClass rounded-lg flex items-center justify-center @textClass">
+                        <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
+                            <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+                        </svg>
+                    </div>
+                </div>
+                <p class="text-xs text-text-tertiary">clips</p>
+            </div>
+        }
+    </div>
+
+    <!-- Clip Browser Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <!-- Group Filter Tabs -->
+        <div class="px-6 pt-4 pb-2 border-b border-border-primary">
+            <div class="flex items-center gap-2 flex-wrap">
+                <a href="?guildId=@Model.GuildId&groupFilter=all&searchQuery=@Model.SearchQuery&pageNumber=1"
+                   class="px-4 py-2 rounded-full text-sm font-medium transition-colors @(Model.GroupFilter.Equals("all", StringComparison.OrdinalIgnoreCase) ? "bg-accent-blue text-white" : "bg-bg-tertiary text-text-secondary hover:bg-bg-hover")">
+                    All Groups
+                </a>
+                @foreach (VoxClipGroup group in Enum.GetValues<VoxClipGroup>())
+                {
+                    var groupName = group.ToString().ToUpperInvariant();
+                    var isActive = Model.GroupFilter.Equals(group.ToString(), StringComparison.OrdinalIgnoreCase);
+                    <a href="?guildId=@Model.GuildId&groupFilter=@group&searchQuery=@Model.SearchQuery&pageNumber=1"
+                       class="px-4 py-2 rounded-full text-sm font-medium transition-colors @(isActive ? "bg-accent-blue text-white" : "bg-bg-tertiary text-text-secondary hover:bg-bg-hover")">
+                        @groupName
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="px-6 py-4 border-b border-border-primary flex items-center justify-between gap-4">
+            <!-- Search -->
+            <form method="get" class="flex-1 max-w-md">
+                <input type="hidden" name="guildId" value="@Model.GuildId" />
+                <input type="hidden" name="groupFilter" value="@Model.GroupFilter" />
+                <input type="hidden" name="pageNumber" value="1" />
+                <div class="relative">
+                    <input type="text" name="searchQuery" value="@Model.SearchQuery" placeholder="Search clips..."
+                           aria-label="Search clips"
+                           class="w-full px-4 py-2 pl-10 bg-bg-tertiary border border-border-primary rounded-lg text-text-primary text-sm focus:outline-none focus:ring-2 focus:ring-accent-blue">
+                    <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                </div>
+            </form>
+
+            <!-- Rescan Button -->
+            <form method="post" asp-page-handler="Rescan" asp-route-guildId="@Model.GuildId">
+                <partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+                {
+                    Text = "Rescan Clips",
+                    Variant = ButtonVariant.Secondary,
+                    Size = ButtonSize.Small,
+                    IconLeft = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+                    Type = "submit"
+                })" />
+            </form>
+        </div>
+
+        <!-- Clips Table -->
+        @if (Model.FilteredClips.Count > 0)
+        {
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <caption class="sr-only">VOX clip library</caption>
+                    <thead class="bg-bg-tertiary border-b border-border-primary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Clip Name</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Group</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Duration</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">File Size</th>
+                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var clip in Model.FilteredClips)
+                        {
+                            var groupBadgeColor = clip.Group switch
+                            {
+                                VoxClipGroup.Vox => "bg-accent-blue/20 text-accent-blue",
+                                VoxClipGroup.Fvox => "bg-accent-orange/20 text-accent-orange",
+                                VoxClipGroup.Hgrunt => "bg-accent-green/20 text-accent-green",
+                                _ => "bg-accent-blue/20 text-accent-blue"
+                            };
+
+                            <tr class="hover:bg-bg-hover transition-colors">
+                                <td class="px-6 py-4">
+                                    <span class="text-sm font-medium text-text-primary">@clip.Name</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @groupBadgeColor">
+                                        @clip.Group.ToString().ToUpperInvariant()
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm text-text-secondary">@clip.DurationSeconds.ToString("F2")s</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <span class="text-sm text-text-secondary">@FormatFileSize(clip.FileSizeBytes)</span>
+                                </td>
+                                <td class="px-6 py-4">
+                                    <button type="button" onclick="playClip('@clip.Group', '@clip.Name')"
+                                            class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-orange hover:bg-accent-orange-hover text-white text-sm font-medium rounded-lg transition-colors">
+                                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M8 5v14l11-7z"/>
+                                        </svg>
+                                        Play
+                                    </button>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (Model.TotalPages > 1)
+            {
+                <div class="px-6 py-4 border-t border-border-primary flex items-center justify-between">
+                    <div class="text-sm text-text-secondary">
+                        Showing @((Model.PageNumber - 1) * IndexModel.PageSize + 1) to @Math.Min(Model.PageNumber * IndexModel.PageSize, Model.TotalClipCount) of @Model.TotalClipCount clips
+                    </div>
+                    <div class="flex items-center gap-2">
+                        @if (Model.PageNumber > 1)
+                        {
+                            <a href="?guildId=@Model.GuildId&groupFilter=@Model.GroupFilter&searchQuery=@Model.SearchQuery&pageNumber=@(Model.PageNumber - 1)"
+                               class="px-3 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary rounded-lg text-sm font-medium transition-colors">
+                                Previous
+                            </a>
+                        }
+                        <span class="text-sm text-text-secondary">Page @Model.PageNumber of @Model.TotalPages</span>
+                        @if (Model.PageNumber < Model.TotalPages)
+                        {
+                            <a href="?guildId=@Model.GuildId&groupFilter=@Model.GroupFilter&searchQuery=@Model.SearchQuery&pageNumber=@(Model.PageNumber + 1)"
+                               class="px-3 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary rounded-lg text-sm font-medium transition-colors">
+                                Next
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+        }
+        else
+        {
+            <div class="px-6 py-12 text-center">
+                <svg class="w-12 h-12 mx-auto mb-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p class="text-text-secondary text-sm">No clips found matching your search.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+}
+
+@section Scripts {
+    <script src="~/js/tab-panel.js" asp-append-version="true"></script>
+    <script>
+        // Guild ID for API calls (as string to preserve precision)
+        window.guildId = '@Model.GuildId';
+
+        // Audio playback handling (simple browser playback for preview)
+        const audioPlayer = new Audio();
+
+        function playClip(group, clipName) {
+            // Note: This will require an API endpoint to serve clip audio
+            // For now, this is a placeholder
+            console.log(`[VOX] Playing clip: ${group}/${clipName}`);
+            // audioPlayer.src = `/api/vox/clips/${group}/${clipName}`;
+            // audioPlayer.play();
+        }
+    </script>
+}
+
+@functions {
+    private string FormatFileSize(long bytes)
+    {
+        string[] sizes = { "B", "KB", "MB", "GB" };
+        int order = 0;
+        double size = bytes;
+
+        while (size >= 1024 && order < sizes.Length - 1)
+        {
+            order++;
+            size /= 1024;
+        }
+
+        return $"{size:F2} {sizes[order]}";
+    }
+}

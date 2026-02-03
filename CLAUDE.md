@@ -58,6 +58,33 @@ window.guildId = '@Model.GuildId';
 
 FFmpeg required for audio features. On Windows, `libsodium.dll` and `opus.dll` must be in build output. See [audio-dependencies.md](docs/articles/audio-dependencies.md).
 
+### VOX System
+
+Half-Life style concatenated clip announcements. Three clip groups: **VOX** (scientist), **FVOX** (female scientist), **HGRUNT** (military radio).
+
+**Configuration** (`appsettings.json` → `Vox` section):
+```json
+{
+  "Vox": {
+    "BasePath": "./sounds",
+    "DefaultWordGapMs": 50,
+    "MaxMessageWords": 50,
+    "MaxMessageLength": 500
+  }
+}
+```
+
+**Service Architecture:**
+- `IVoxClipLibrary` (Singleton) - Clip inventory, scanned at startup via `VoxClipLibraryInitializer`
+- `IVoxConcatenationService` (Singleton) - FFmpeg-based audio joining with configurable silence gaps
+- `IVoxService` (Scoped) - Orchestrates tokenization → clip lookup → concatenation → playback
+
+**DI Registration:** `services.AddVox()` in `VoiceServiceExtensions.cs`
+
+**Slash Commands:** `/vox`, `/fvox`, `/hgrunt` with `message` and optional `gap` (20-200ms) parameters. Rate limited: 5 per 10 seconds.
+
+**Preconditions:** `[RequireGuildActive]`, `[RequireAudioEnabled]`, `[RequireVoiceChannel]`
+
 ## Key Documentation
 
 Build and serve locally: `.\build-docs.ps1 -Serve`

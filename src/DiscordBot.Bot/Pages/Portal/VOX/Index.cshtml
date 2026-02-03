@@ -1,0 +1,1865 @@
+@page "/Portal/VOX/{guildId:long}"
+@model DiscordBot.Bot.Pages.Portal.VOX.IndexModel
+@using DiscordBot.Bot.ViewModels.Portal
+@using DiscordBot.Bot.ViewModels.Components
+
+@{
+    ViewData["Title"] = $"VOX - {Model.GuildName}";
+    Layout = "_PortalLayout";
+
+    // Build portal header view model
+    var portalHeader = new PortalHeaderViewModel
+    {
+        GuildId = Model.GuildId,
+        GuildName = Model.GuildName,
+        GuildIconUrl = Model.GuildIconUrl,
+        IsOnline = Model.IsOnline,
+        ActiveTab = "vox"
+    };
+}
+
+@section Styles {
+    <link rel="stylesheet" href="~/css/nav-tabs.css" asp-append-version="true" />
+    <style>
+        :root {
+            --portal-header-height: 70px;
+        }
+
+        /* Prevent body/html scroll - portal pages fill viewport exactly */
+        html.portal-page,
+        html.portal-page body {
+            overflow: hidden;
+            height: 100%;
+        }
+
+        /* Header - single row layout matching TTS/Soundboard */
+        .portal-header {
+            background-color: var(--color-bg-primary);
+            border-bottom: 1px solid var(--color-border-primary);
+            padding: 1rem 1.5rem;
+        }
+
+        .portal-header .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0;
+        }
+
+        .portal-header .header-top {
+            margin-bottom: 0;
+        }
+
+        /* Main layout - matches TTS/Soundboard portal pages */
+        .main-container {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 1.5rem;
+            height: calc(100vh - var(--portal-header-height));
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .portal-content {
+            display: flex;
+            gap: 1.5rem;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+
+        .sidebar {
+            width: 300px;
+            flex: 0 0 300px;
+            min-height: 0;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .vox-panel {
+            flex: 1;
+            min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Tab content panels need to fill space and be flex containers */
+        .vox-panel > [data-nav-panel-for] {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow: hidden;
+        }
+
+        /* Respect hidden attribute on tab panels */
+        .vox-panel > [data-nav-panel-for][hidden] {
+            display: none;
+        }
+
+        /* Sidebar panels */
+        .vox-now-playing {
+            background-color: var(--color-bg-primary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .vox-stats {
+            background-color: var(--color-bg-secondary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+        }
+
+        .vox-now-playing h3,
+        .vox-stats h3 {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            margin: 0 0 0.75rem 0;
+        }
+
+        .now-playing-message {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .now-playing-empty {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+            font-style: italic;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+        }
+
+        .stat-item:not(:last-child) {
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .stat-label {
+            color: var(--color-text-secondary);
+            font-size: 0.875rem;
+        }
+
+        .stat-value {
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            font-weight: 600;
+        }
+
+        .stop-btn {
+            width: 100%;
+            padding: 0.5rem;
+            background-color: var(--color-error);
+            color: white;
+            border: none;
+            border-radius: 0.375rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .stop-btn:hover {
+            background-color: var(--color-error);
+            filter: brightness(0.9);
+            transform: scale(1.02);
+        }
+
+        .stop-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Group tabs container */
+        .vox-group-tabs-section {
+            flex-shrink: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Prevent composer sections from growing */
+        .vox-message-section,
+        .vox-token-preview,
+        .vox-play-section {
+            flex-shrink: 0;
+        }
+
+        .vox-clip-browser-placeholder {
+            background-color: var(--color-bg-secondary);
+            border: 2px dashed var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 3rem 2rem;
+            text-align: center;
+        }
+
+        .placeholder-text {
+            color: var(--color-text-tertiary);
+            font-size: 0.875rem;
+        }
+
+        /* Responsive */
+        @@media (max-width: 768px) {
+            .portal-content {
+                flex-direction: column;
+            }
+
+            .sidebar {
+                width: 100%;
+                flex: none;
+            }
+        }
+
+        /* ==========================================
+           VOX COMPOSER STYLES
+           ========================================== */
+
+        /* Unified Message Composer Container */
+        .vox-composer {
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
+        /* Message Input with Autocomplete */
+        .vox-message-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .vox-autocomplete-wrapper {
+            position: relative;
+        }
+
+        .vox-message-input {
+            width: 100%;
+            padding: 0.75rem;
+            background-color: var(--color-bg-primary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            font-size: 0.9rem;
+            font-family: var(--font-sans);
+            transition: all 0.15s ease-out;
+        }
+
+        .vox-message-input:focus {
+            outline: none;
+            border-color: var(--color-accent-orange);
+            box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.15);
+        }
+
+        .vox-message-input::placeholder {
+            color: var(--color-text-tertiary);
+        }
+
+
+        /* Autocomplete Dropdown */
+        .vox-autocomplete-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            max-height: 240px;
+            overflow-y: auto;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-top: none;
+            border-radius: 0 0 0.375rem 0.375rem;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+            display: none;
+        }
+
+        .vox-autocomplete-dropdown.active {
+            display: block;
+        }
+
+        .vox-autocomplete-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.5rem 0.75rem;
+            cursor: pointer;
+            transition: background-color 0.1s ease-out;
+            border-bottom: 1px solid var(--color-border-primary);
+        }
+
+        .vox-autocomplete-item:last-child {
+            border-bottom: none;
+        }
+
+        .vox-autocomplete-item:hover,
+        .vox-autocomplete-item.highlighted {
+            background-color: var(--color-bg-hover);
+        }
+
+        .vox-autocomplete-name {
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--color-text-primary);
+        }
+
+        .vox-autocomplete-duration {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            font-family: var(--font-mono);
+        }
+
+        /* Token Preview (integrated in composer) */
+        .vox-token-preview {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .vox-preview-stats {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            text-align: right;
+        }
+
+        .vox-token-pills {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.375rem;
+            align-items: center;
+        }
+
+        .vox-token {
+            display: inline-flex;
+            padding: 0.35rem 0.7rem;
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border: 1px solid;
+        }
+
+        .vox-token.matched {
+            background-color: rgba(16, 185, 129, 0.15);
+            border-color: rgba(16, 185, 129, 0.4);
+            color: #10b981;
+        }
+
+        .vox-token.skipped {
+            background-color: rgba(239, 68, 68, 0.15);
+            border-color: rgba(239, 68, 68, 0.4);
+            color: #ef4444;
+            text-decoration: line-through;
+        }
+
+        .vox-token-gap {
+            color: var(--color-text-tertiary);
+            font-size: 0.875rem;
+        }
+
+        .vox-token-empty {
+            color: var(--color-text-tertiary);
+            font-style: italic;
+        }
+
+        /* Play Button */
+        .vox-play-section {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .vox-play-btn {
+            width: 100%;
+            padding: 0.75rem 1.5rem;
+            background-color: var(--color-accent-orange);
+            border: none;
+            border-radius: 0.375rem;
+            color: white;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .vox-play-btn:hover:not(:disabled) {
+            background-color: var(--color-accent-orange-hover);
+            box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
+        }
+
+        .vox-play-btn:active:not(:disabled) {
+            transform: scale(0.98);
+        }
+
+        .vox-play-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .vox-play-btn.loading {
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+
+        @@keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+
+        @@keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        .vox-spinner {
+            display: inline-block;
+            width: 0.9rem;
+            height: 0.9rem;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-top-color: white;
+            border-radius: 50%;
+            vertical-align: middle;
+            animation: spin 0.6s linear infinite;
+        }
+
+        /* Clip Browser */
+        .vox-clip-browser {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
+        }
+
+        .vox-clip-search-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .vox-clip-search {
+            flex: 1;
+            padding: 0.5rem 0.75rem;
+            background-color: var(--color-bg-primary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            font-size: 0.875rem;
+            transition: all 0.15s ease-out;
+        }
+
+        .vox-clip-search:focus {
+            outline: none;
+            border-color: var(--color-accent-orange);
+        }
+
+        .vox-clip-search::placeholder {
+            color: var(--color-text-tertiary);
+        }
+
+        .vox-clip-badge {
+            background-color: var(--color-accent-orange);
+            color: white;
+            padding: 0.25rem 0.6rem;
+            border-radius: 9999px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .vox-clip-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+            gap: 0.75rem;
+            flex: 1;
+            min-height: 0;
+            overflow-y: auto;
+            padding-right: 0.25rem;
+            padding-bottom: 0.5rem;
+            align-content: start;
+            position: relative; /* Ensures offsetTop calculations are relative to grid */
+            /* Thin scrollbar - Firefox */
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-border-primary) transparent;
+        }
+
+        /* Thin scrollbar - Webkit (Chrome, Safari, Edge) */
+        .vox-clip-grid::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .vox-clip-grid::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .vox-clip-grid::-webkit-scrollbar-thumb {
+            background: var(--color-border-primary);
+            border-radius: 3px;
+        }
+
+        .vox-clip-grid::-webkit-scrollbar-thumb:hover {
+            background: var(--color-text-tertiary);
+        }
+
+        .vox-clip-tile {
+            padding: 0.75rem;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            color: var(--color-text-primary);
+            cursor: pointer;
+            transition: all 0.15s ease-out;
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+            text-align: center;
+        }
+
+        .vox-clip-tile:hover {
+            background-color: var(--color-bg-hover);
+            border-color: var(--color-accent-blue);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .vox-clip-tile:active {
+            transform: scale(0.97);
+        }
+
+        .vox-clip-tile:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--color-bg-primary), 0 0 0 4px var(--color-accent-orange);
+        }
+
+        @@keyframes tileClick {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.93); }
+            100% { transform: scale(1); }
+        }
+
+        .vox-clip-tile.clicked {
+            animation: tileClick 0.2s ease-out;
+        }
+
+        .vox-clip-name {
+            font-weight: 600;
+            font-size: 0.875rem;
+            word-break: break-word;
+        }
+
+        .vox-clip-duration {
+            font-size: 0.7rem;
+            color: var(--color-text-tertiary);
+            font-family: var(--font-mono);
+        }
+
+        /* ==========================================
+           A-Z INDEX RAIL
+           ========================================== */
+
+        /* Container for grid + A-Z rail */
+        .vox-clip-browser-container {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+            gap: 0.5rem;
+            margin-bottom: 1.5em;
+            padding-bottom: 1em;
+        }
+
+        /* A-Z Index Rail */
+        .vox-az-rail {
+            width: 28px;
+            flex-shrink: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 0.25rem 0;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.375rem;
+            align-self: stretch;
+            overflow-y: auto;
+            /* Thin scrollbar - Firefox */
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-border-primary) transparent;
+        }
+
+        /* Thin scrollbar - Webkit (Chrome, Safari, Edge) */
+        .vox-az-rail::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .vox-az-rail::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .vox-az-rail::-webkit-scrollbar-thumb {
+            background: var(--color-border-primary);
+            border-radius: 2px;
+        }
+
+        .vox-az-rail::-webkit-scrollbar-thumb:hover {
+            background: var(--color-text-tertiary);
+        }
+
+        .vox-az-letter {
+            width: 22px;
+            height: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.65rem;
+            font-weight: 600;
+            color: var(--color-text-secondary);
+            background: transparent;
+            border: none;
+            border-radius: 2px;
+            cursor: pointer;
+            transition: all 0.1s ease-out;
+            padding: 0;
+        }
+
+        .vox-az-letter:hover:not(:disabled) {
+            color: var(--color-text-primary);
+            background-color: var(--color-bg-hover);
+            transform: scale(1.1);
+        }
+
+        .vox-az-letter.active {
+            color: var(--color-accent-orange);
+            background-color: rgba(203, 78, 27, 0.2);
+            font-weight: 700;
+        }
+
+        .vox-az-letter:disabled {
+            color: var(--color-text-tertiary);
+            opacity: 0.4;
+            cursor: default;
+        }
+
+        .vox-az-letter:focus-visible {
+            outline: 2px solid var(--color-border-focus);
+            outline-offset: 1px;
+        }
+
+        /* ==========================================
+           STICKY SECTION HEADERS
+           ========================================== */
+
+        .vox-section-header {
+            grid-column: 1 / -1;
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 0.75rem;
+            margin-top: 0.75rem;
+            background-color: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border-primary);
+            font-size: 0.875rem;
+            font-weight: 700;
+            color: var(--color-accent-orange);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: box-shadow 0.15s ease-out;
+        }
+
+        .vox-section-header:first-child {
+            margin-top: 0;
+        }
+
+        .vox-section-header.stuck {
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        /* ==========================================
+           SCROLL POSITION INDICATOR
+           ========================================== */
+
+        .vox-scroll-letter {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) scale(0.8);
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5rem;
+            font-weight: 700;
+            color: var(--color-accent-orange);
+            background-color: var(--color-bg-tertiary);
+            border: 2px solid var(--color-accent-orange);
+            border-radius: 0.75rem;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.15s ease-out, transform 0.15s ease-out;
+            z-index: 100;
+        }
+
+        .vox-scroll-letter.visible {
+            opacity: 1;
+            transform: translate(-50%, -50%) scale(1);
+        }
+
+        /* ==========================================
+           ENHANCED FOCUS STATES (Keyboard Nav)
+           ========================================== */
+
+        .vox-clip-tile:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--color-bg-primary),
+                        0 0 0 4px var(--color-accent-orange);
+            z-index: 1;
+            transform: translateY(-2px);
+        }
+
+        /* ==========================================
+           RESPONSIVE STYLES
+           ========================================== */
+
+        @@media (max-width: 1024px) {
+            .vox-clip-grid {
+                grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
+            }
+        }
+
+        @@media (max-width: 768px) {
+            .vox-clip-grid {
+                grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+            }
+
+            /* Hide A-Z rail on mobile */
+            .vox-az-rail {
+                display: none;
+            }
+
+            .vox-clip-browser-container {
+                display: block;
+            }
+
+            .vox-section-header {
+                padding: 0.375rem 0.5rem;
+                font-size: 0.8rem;
+            }
+        }
+
+        @@media (prefers-reduced-motion: reduce) {
+            .vox-clip-tile,
+            .vox-token,
+            .vox-autocomplete-item,
+            .vox-play-btn,
+            .vox-az-letter,
+            .vox-section-header {
+                transition: none;
+                animation: none;
+            }
+
+            .vox-scroll-letter {
+                display: none;
+            }
+
+            .vox-az-letter:hover:not(:disabled) {
+                transform: none;
+            }
+
+            .vox-clip-tile:focus-visible {
+                transform: none;
+            }
+        }
+
+        /* Screen reader only content */
+        .sr-only {
+            position: absolute;
+            width: 1px;
+            height: 1px;
+            padding: 0;
+            margin: -1px;
+            overflow: hidden;
+            clip: rect(0, 0, 0, 0);
+            white-space: nowrap;
+            border-width: 0;
+        }
+    </style>
+}
+
+@section Scripts {
+    <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+
+    <!-- Voice Channel Panel Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    <script src="~/js/voice-channel-panel.js" asp-append-version="true"></script>
+
+    <script>
+        // Store guildId as string to avoid JS precision issues with Discord snowflake IDs
+        window.guildId = '@Model.GuildId';
+
+        // VOX State
+        const voxState = {
+            activeGroup: 'vox',
+            clipCache: { vox: [], fvox: [], hgrunt: [] },
+            highlightedIndex: -1,
+            isLoading: false,
+            wordGapMs: 50,
+            // A-Z navigation state
+            activeLetter: null,
+            availableLetters: new Set(),
+            focusedTileIndex: -1,
+            scrollIndicatorTimeout: null,
+            sectionObserver: null,
+            sectionPositions: new Map() // Stores scroll positions for each section letter
+        };
+
+        // DOM Elements
+        const voxEls = {
+            messageInput: null,
+            autocompleteDropdown: null,
+            autocompleteStatus: null,
+            tokenPills: null,
+            previewStats: null,
+            playBtn: null,
+            playBtnText: null,
+            clipSearch: null,
+            clipCount: null,
+            clipGrid: null,
+            // A-Z navigation elements
+            azRail: null,
+            scrollLetter: null
+        };
+
+        // Debounce utility
+        function debounce(func, wait) {
+            let timeout;
+            return function executedFunction(...args) {
+                const later = () => {
+                    clearTimeout(timeout);
+                    func(...args);
+                };
+                clearTimeout(timeout);
+                timeout = setTimeout(later, wait);
+            };
+        }
+
+        // HTML escape utility to prevent XSS
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+
+        // Initialize VOX Portal
+        document.addEventListener('DOMContentLoaded', () => {
+            // Initialize DOM references for active tab
+            initializeVoxElements('vox');
+
+            // Load clips for initial group
+            loadClipsForGroup('vox');
+
+            // Listen for tab switches (nav-tabs.js dispatches 'navtabchange')
+            document.addEventListener('navtabchange', (e) => {
+                if (e.detail.containerId === 'voxGroupTabs') {
+                    const newGroup = e.detail.tabId;
+                    voxState.activeGroup = newGroup;
+
+                    // Re-initialize elements for the new tab
+                    initializeVoxElements(newGroup);
+
+                    // Clear input and reload clips
+                    if (voxEls.messageInput) {
+                        voxEls.messageInput.value = '';
+                    }
+                    hideAutocomplete();
+                    updateTokenPreview();
+                    loadClipsForGroup(newGroup);
+                }
+            });
+        });
+
+        function initializeVoxElements(group) {
+            const prefix = `vox-${group}`;
+            voxEls.messageInput = document.getElementById(`${prefix}-message-input`);
+            voxEls.autocompleteDropdown = document.getElementById(`${prefix}-autocomplete`);
+            voxEls.autocompleteStatus = document.getElementById(`${prefix}-autocomplete-status`);
+            voxEls.tokenPills = document.getElementById(`${prefix}-token-pills`);
+            voxEls.previewStats = document.getElementById(`${prefix}-preview-stats`);
+            voxEls.playBtn = document.getElementById(`${prefix}-play-btn`);
+            voxEls.playBtnText = document.getElementById(`${prefix}-play-btn-text`);
+            voxEls.clipSearch = document.getElementById(`${prefix}-clip-search`);
+            voxEls.clipCount = document.getElementById(`${prefix}-clip-count`);
+            voxEls.clipGrid = document.getElementById(`${prefix}-clip-grid`);
+            // A-Z navigation elements
+            voxEls.azRail = document.getElementById(`${prefix}-az-rail`);
+            voxEls.scrollLetter = document.getElementById(`${prefix}-scroll-letter`);
+
+            // Attach event listeners
+            if (voxEls.messageInput) {
+                voxEls.messageInput.addEventListener('input', debounce(handleInputChange, 200));
+                voxEls.messageInput.addEventListener('keydown', handleKeyDown);
+                voxEls.messageInput.addEventListener('blur', (e) => {
+                    // Only hide if focus moved outside the autocomplete dropdown
+                    if (!voxEls.autocompleteDropdown.contains(e.relatedTarget)) {
+                        hideAutocomplete();
+                    }
+                });
+            }
+
+            if (voxEls.playBtn) {
+                voxEls.playBtn.addEventListener('click', handlePlay);
+            }
+
+            if (voxEls.clipSearch) {
+                voxEls.clipSearch.addEventListener('input', debounce(filterClipGrid, 150));
+            }
+
+            if (voxEls.clipGrid) {
+                voxEls.clipGrid.addEventListener('click', handleClipTileClick);
+                voxEls.clipGrid.addEventListener('keydown', handleGridKeyDown);
+            }
+
+            // Initialize A-Z rail
+            initializeAZRail();
+
+            // Reset navigation state on tab switch
+            voxState.activeLetter = null;
+            voxState.focusedTileIndex = -1;
+        }
+
+        // Load clips from API
+        async function loadClipsForGroup(group) {
+            try {
+                const response = await fetch(`/api/portal/vox/${window.guildId}/clips?group=${group}`);
+                if (!response.ok) throw new Error('Failed to load clips');
+
+                const data = await response.json();
+                voxState.clipCache[group] = data.clips || [];
+
+                renderClipGrid();
+                updateTokenPreview();
+            } catch (error) {
+                console.error('Error loading clips:', error);
+                // Show error state in clip grid
+                if (voxEls.clipGrid) {
+                    voxEls.clipGrid.innerHTML = '<div class="vox-token-empty">Failed to load clips</div>';
+                }
+            }
+        }
+
+        // Autocomplete handling
+        function handleInputChange() {
+            updateTokenPreview();
+            updateAutocomplete();
+        }
+
+        function updateAutocomplete() {
+            if (!voxEls.messageInput || !voxEls.autocompleteDropdown) return;
+
+            const text = voxEls.messageInput.value.toLowerCase();
+            const words = text.split(/\s+/);
+            const lastWord = words[words.length - 1] || '';
+
+            if (lastWord.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+
+            const clips = voxState.clipCache[voxState.activeGroup] || [];
+            const prefix = `vox-${voxState.activeGroup}`;
+
+            // Prefix matches first, then substring matches
+            const prefixMatches = clips.filter(c => c.name.startsWith(lastWord));
+            const substringMatches = clips.filter(c => !c.name.startsWith(lastWord) && c.name.includes(lastWord));
+            const matches = [...prefixMatches, ...substringMatches].slice(0, 15);
+
+            if (matches.length === 0) {
+                hideAutocomplete();
+                return;
+            }
+
+            voxState.highlightedIndex = -1;
+            voxEls.autocompleteDropdown.innerHTML = matches.map((clip, idx) => `
+                <div class="vox-autocomplete-item" role="option" id="${prefix}-option-${idx}" data-clip-name="${escapeHtml(clip.name)}" data-index="${idx}">
+                    <span class="vox-autocomplete-name">${escapeHtml(clip.name)}</span>
+                    <span class="vox-autocomplete-duration">${clip.durationSeconds.toFixed(1)}s</span>
+                </div>
+            `).join('');
+
+            voxEls.autocompleteDropdown.classList.add('active');
+            voxEls.messageInput.setAttribute('aria-expanded', 'true');
+
+            // Announce to screen readers
+            if (voxEls.autocompleteStatus) {
+                voxEls.autocompleteStatus.textContent = `${matches.length} suggestions available`;
+            }
+
+            // Attach mousedown handlers (not click) to prevent focus loss race condition
+            voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item').forEach(item => {
+                item.addEventListener('mousedown', (e) => {
+                    e.preventDefault(); // Prevent focus loss
+                    selectSuggestion(item.dataset.clipName);
+                });
+            });
+        }
+
+        function hideAutocomplete() {
+            if (voxEls.autocompleteDropdown) {
+                voxEls.autocompleteDropdown.classList.remove('active');
+            }
+            if (voxEls.messageInput) {
+                voxEls.messageInput.setAttribute('aria-expanded', 'false');
+                voxEls.messageInput.removeAttribute('aria-activedescendant');
+            }
+            if (voxEls.autocompleteStatus) {
+                voxEls.autocompleteStatus.textContent = '';
+            }
+            voxState.highlightedIndex = -1;
+        }
+
+        function handleKeyDown(e) {
+            const isAutocompleteActive = voxEls.autocompleteDropdown &&
+                                          voxEls.autocompleteDropdown.classList.contains('active');
+
+            // Handle Enter key - either select suggestion or play message
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (isAutocompleteActive) {
+                    const items = Array.from(voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item'));
+                    if (voxState.highlightedIndex >= 0 && items[voxState.highlightedIndex]) {
+                        selectSuggestion(items[voxState.highlightedIndex].dataset.clipName);
+                    } else if (items.length > 0) {
+                        selectSuggestion(items[0].dataset.clipName);
+                    }
+                } else {
+                    // Autocomplete not open - send the message
+                    handlePlay();
+                }
+                return;
+            }
+
+            // Rest of key handling only applies when autocomplete is active
+            if (!isAutocompleteActive) return;
+
+            const items = Array.from(voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item'));
+            if (items.length === 0) return;
+
+            switch (e.key) {
+                case 'ArrowDown':
+                    e.preventDefault();
+                    voxState.highlightedIndex = Math.min(voxState.highlightedIndex + 1, items.length - 1);
+                    updateHighlight(items);
+                    break;
+                case 'ArrowUp':
+                    e.preventDefault();
+                    voxState.highlightedIndex = Math.max(voxState.highlightedIndex - 1, -1);
+                    updateHighlight(items);
+                    break;
+                case 'Tab':
+                    e.preventDefault();
+                    if (voxState.highlightedIndex >= 0) {
+                        selectSuggestion(items[voxState.highlightedIndex].dataset.clipName);
+                    } else if (items.length > 0) {
+                        selectSuggestion(items[0].dataset.clipName);
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    hideAutocomplete();
+                    break;
+            }
+        }
+
+        function updateHighlight(items) {
+            items.forEach((item, idx) => {
+                item.classList.toggle('highlighted', idx === voxState.highlightedIndex);
+            });
+
+            // Update aria-activedescendant for screen readers
+            if (voxState.highlightedIndex >= 0 && voxEls.messageInput) {
+                voxEls.messageInput.setAttribute('aria-activedescendant', items[voxState.highlightedIndex].id);
+                items[voxState.highlightedIndex].scrollIntoView({ block: 'nearest' });
+            } else if (voxEls.messageInput) {
+                voxEls.messageInput.removeAttribute('aria-activedescendant');
+            }
+        }
+
+        function selectSuggestion(clipName) {
+            if (!voxEls.messageInput) return;
+
+            const text = voxEls.messageInput.value;
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            words[words.length - 1] = clipName;
+            voxEls.messageInput.value = words.join(' ') + ' ';
+
+            hideAutocomplete();
+            voxEls.messageInput.focus();
+            updateTokenPreview();
+        }
+
+        // Token preview
+        function updateTokenPreview() {
+            if (!voxEls.messageInput || !voxEls.tokenPills || !voxEls.previewStats) return;
+
+            // Parse punctuation as timing tokens (must match server-side TokenizeMessage)
+            const text = voxEls.messageInput.value.toLowerCase()
+                .replace(/,/g, ' _comma ')
+                .replace(/\./g, ' _period ');
+            const words = text.split(/\s+/).filter(w => w.length > 0);
+            const clips = voxState.clipCache[voxState.activeGroup] || [];
+            const clipMap = new Map(clips.map(c => [c.name, c]));
+
+            let matchedCount = 0;
+            let totalDuration = 0;
+
+            if (words.length === 0) {
+                voxEls.tokenPills.innerHTML = '<span class="vox-token-empty">No words</span>';
+                voxEls.previewStats.textContent = '';
+                updatePlayButton(false);
+                return;
+            }
+
+            const pillsHtml = words.map((word, idx) => {
+                const clip = clipMap.get(word);
+                const isMatched = !!clip;
+
+                if (isMatched) {
+                    matchedCount++;
+                    totalDuration += clip.durationSeconds;
+                }
+
+                const tokenClass = isMatched ? 'matched' : 'skipped';
+                const gap = idx < words.length - 1 ? '<span class="vox-token-gap">·</span>' : '';
+                return `<span class="vox-token ${tokenClass}">${escapeHtml(word)}</span>${gap}`;
+            }).join('');
+
+            // Add word gap duration
+            if (matchedCount > 1) {
+                totalDuration += (matchedCount - 1) * (voxState.wordGapMs / 1000);
+            }
+
+            voxEls.tokenPills.innerHTML = pillsHtml;
+            voxEls.previewStats.textContent = `${matchedCount}/${words.length} clips, ~${totalDuration.toFixed(1)}s`;
+
+            updatePlayButton(matchedCount > 0);
+        }
+
+        function updatePlayButton(canPlay) {
+            if (!voxEls.playBtn) return;
+            voxEls.playBtn.disabled = !canPlay || voxState.isLoading;
+        }
+
+        // Play
+        async function handlePlay() {
+            if (!voxEls.messageInput || voxState.isLoading) return;
+
+            const message = voxEls.messageInput.value.trim();
+            if (!message) return;
+
+            voxState.isLoading = true;
+            voxEls.playBtn.classList.add('loading');
+            voxEls.playBtn.disabled = true;
+            voxEls.playBtnText.innerHTML = '<span class="vox-spinner"></span> Playing...';
+
+            try {
+                const response = await fetch(`/api/portal/vox/${window.guildId}/play`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        message: message,
+                        group: voxState.activeGroup,
+                        wordGapMs: voxState.wordGapMs
+                    })
+                });
+
+                if (!response.ok) {
+                    const error = await response.json();
+                    throw new Error(error.message || 'Failed to play VOX message');
+                }
+
+                // Success - clear the message input
+                voxEls.messageInput.value = '';
+                updateTokenPreview();
+                console.log('VOX message sent successfully');
+            } catch (error) {
+                console.error('Error playing VOX:', error);
+                // Display error inline instead of alert
+                if (voxEls.playBtnText) {
+                    voxEls.playBtnText.textContent = 'Error: ' + (error.message || 'Failed to play').substring(0, 50);
+                    setTimeout(() => {
+                        if (voxEls.playBtnText) {
+                            voxEls.playBtnText.textContent = 'Play VOX Announcement';
+                        }
+                    }, 3000);
+                }
+            } finally {
+                voxState.isLoading = false;
+                voxEls.playBtn.classList.remove('loading');
+                voxEls.playBtnText.textContent = 'Play VOX Announcement';
+                updateTokenPreview();
+            }
+        }
+
+        // Clip Grid with A-Z Section Headers
+        function renderClipGrid() {
+            if (!voxEls.clipGrid) return;
+
+            const clips = voxState.clipCache[voxState.activeGroup] || [];
+            const searchTerm = voxEls.clipSearch ? voxEls.clipSearch.value.toLowerCase() : '';
+
+            // Filter with prefix matches first, then substring matches
+            const prefixMatches = clips.filter(c => c.name.startsWith(searchTerm));
+            const substringMatches = clips.filter(c => !c.name.startsWith(searchTerm) && c.name.includes(searchTerm));
+            const filtered = [...prefixMatches, ...substringMatches];
+
+            if (voxEls.clipCount) {
+                voxEls.clipCount.textContent = searchTerm ? `${filtered.length} matching` : `${filtered.length} clips`;
+            }
+
+            if (filtered.length === 0) {
+                const escapedQuery = escapeHtml(searchTerm);
+                voxEls.clipGrid.innerHTML = searchTerm
+                    ? `<div class="vox-token-empty">No clips match '${escapedQuery}'</div>`
+                    : '<div class="vox-token-empty">No clips found</div>';
+                updateAZRail(new Set());
+                return;
+            }
+
+            // Group clips by first letter
+            const grouped = new Map();
+            filtered.forEach(clip => {
+                const letter = clip.name.charAt(0).toUpperCase();
+                if (!grouped.has(letter)) {
+                    grouped.set(letter, []);
+                }
+                grouped.get(letter).push(clip);
+            });
+
+            // Sort letters alphabetically
+            const sortedLetters = Array.from(grouped.keys()).sort();
+            voxState.availableLetters = new Set(sortedLetters);
+
+            // Build HTML with section headers
+            let html = '';
+            let tileIndex = 0;
+
+            sortedLetters.forEach(letter => {
+                const letterClips = grouped.get(letter);
+
+                // Section header
+                html += `<div class="vox-section-header" data-letter="${letter}" id="section-${voxState.activeGroup}-${letter}">${letter}</div>`;
+
+                // Clip tiles for this section
+                letterClips.forEach(clip => {
+                    html += `
+                        <button class="vox-clip-tile"
+                                data-clip-name="${escapeHtml(clip.name)}"
+                                data-tile-index="${tileIndex}"
+                                role="gridcell"
+                                tabindex="-1">
+                            <div class="vox-clip-name">${escapeHtml(clip.name)}</div>
+                            <div class="vox-clip-duration">${clip.durationSeconds.toFixed(1)}s</div>
+                        </button>
+                    `;
+                    tileIndex++;
+                });
+            });
+
+            voxEls.clipGrid.innerHTML = html;
+
+            // Update A-Z rail
+            updateAZRail(voxState.availableLetters);
+
+            // Store section positions BEFORE any scrolling (sticky headers would affect getBoundingClientRect)
+            storeSectionPositions();
+
+            // Setup section observers for sticky header tracking
+            setupSectionObservers();
+
+            // Reset focused tile
+            voxState.focusedTileIndex = -1;
+        }
+
+        function storeSectionPositions() {
+            if (!voxEls.clipGrid) return;
+
+            // Clear previous positions
+            voxState.sectionPositions.clear();
+
+            // Get all section headers and store their offsetTop
+            const headers = voxEls.clipGrid.querySelectorAll('.vox-section-header');
+            headers.forEach(header => {
+                const letter = header.dataset.letter;
+                // offsetTop gives position relative to offsetParent (the grid with position: relative)
+                voxState.sectionPositions.set(letter, header.offsetTop);
+            });
+
+            console.log('[storeSectionPositions] Stored:', Object.fromEntries(voxState.sectionPositions));
+        }
+
+        function filterClipGrid() {
+            renderClipGrid();
+        }
+
+        function handleClipTileClick(e) {
+            const tile = e.target.closest('.vox-clip-tile');
+            if (!tile || !voxEls.messageInput) return;
+
+            const clipName = tile.dataset.clipName;
+            const currentValue = voxEls.messageInput.value;
+
+            // Append clip name with space
+            voxEls.messageInput.value = currentValue + (currentValue.endsWith(' ') || currentValue === '' ? '' : ' ') + clipName + ' ';
+
+            // Visual feedback
+            tile.classList.add('clicked');
+            setTimeout(() => tile.classList.remove('clicked'), 200);
+
+            // Update focused tile index
+            const tiles = Array.from(voxEls.clipGrid.querySelectorAll('.vox-clip-tile'));
+            voxState.focusedTileIndex = tiles.indexOf(tile);
+
+            // Update preview and focus
+            updateTokenPreview();
+            voxEls.messageInput.focus();
+        }
+
+        // ==========================================
+        // A-Z INDEX RAIL FUNCTIONS
+        // ==========================================
+
+        function initializeAZRail() {
+            if (!voxEls.azRail) return;
+
+            // Generate 26 letter buttons
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+            voxEls.azRail.innerHTML = letters.map(letter => `
+                <button class="vox-az-letter"
+                        data-letter="${letter}"
+                        disabled
+                        aria-label="Jump to ${letter}">
+                    ${letter}
+                </button>
+            `).join('');
+
+            // Event delegation for letter clicks
+            voxEls.azRail.addEventListener('click', (e) => {
+                const btn = e.target.closest('.vox-az-letter');
+                if (!btn || btn.disabled) return;
+
+                const letter = btn.dataset.letter;
+                scrollToSection(letter);
+            });
+        }
+
+        function updateAZRail(availableLetters) {
+            if (!voxEls.azRail) return;
+
+            const buttons = voxEls.azRail.querySelectorAll('.vox-az-letter');
+            buttons.forEach(btn => {
+                const letter = btn.dataset.letter;
+                const isAvailable = availableLetters.has(letter);
+                btn.disabled = !isAvailable;
+                btn.classList.toggle('active', letter === voxState.activeLetter && isAvailable);
+            });
+        }
+
+        function scrollToSection(letter) {
+            if (!voxEls.clipGrid) return;
+
+            // Use stored position (calculated before sticky behavior affects positions)
+            const targetScroll = voxState.sectionPositions.get(letter);
+
+            console.log('[scrollToSection]', { letter, targetScroll, hasPosition: targetScroll !== undefined });
+
+            if (targetScroll === undefined) return;
+
+            // Check for reduced motion preference
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+            voxEls.clipGrid.scrollTo({
+                top: targetScroll,
+                behavior: prefersReducedMotion ? 'auto' : 'smooth'
+            });
+
+            // Show floating indicator
+            showScrollIndicator(letter);
+
+            // Update active state
+            setActiveLetter(letter);
+        }
+
+        function setActiveLetter(letter) {
+            voxState.activeLetter = letter;
+
+            // Update A-Z rail active state
+            if (voxEls.azRail) {
+                const buttons = voxEls.azRail.querySelectorAll('.vox-az-letter');
+                buttons.forEach(btn => {
+                    const isActive = btn.dataset.letter === letter && !btn.disabled;
+                    btn.classList.toggle('active', isActive);
+                });
+            }
+        }
+
+        // ==========================================
+        // SCROLL POSITION INDICATOR
+        // ==========================================
+
+        function showScrollIndicator(letter) {
+            if (!voxEls.scrollLetter) return;
+
+            // Check reduced motion preference
+            const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (prefersReducedMotion) return;
+
+            voxEls.scrollLetter.textContent = letter;
+            voxEls.scrollLetter.classList.add('visible');
+
+            // Clear existing timeout
+            if (voxState.scrollIndicatorTimeout) {
+                clearTimeout(voxState.scrollIndicatorTimeout);
+            }
+
+            // Hide after 600ms of no scroll activity
+            voxState.scrollIndicatorTimeout = setTimeout(() => {
+                voxEls.scrollLetter.classList.remove('visible');
+            }, 600);
+        }
+
+        // ==========================================
+        // INTERSECTION OBSERVER FOR SECTION TRACKING
+        // ==========================================
+
+        function setupSectionObservers() {
+            // Clean up existing observer
+            if (voxState.sectionObserver) {
+                voxState.sectionObserver.disconnect();
+            }
+
+            if (!voxEls.clipGrid) return;
+
+            const headers = voxEls.clipGrid.querySelectorAll('.vox-section-header');
+            if (headers.length === 0) return;
+
+            // Create observer for tracking which section is visible
+            voxState.sectionObserver = new IntersectionObserver((entries) => {
+                // Find the topmost visible section
+                let topmostHeader = null;
+                let topmostTop = Infinity;
+
+                entries.forEach(entry => {
+                    const header = entry.target;
+                    const rect = header.getBoundingClientRect();
+
+                    // Track headers that are at or above the grid's top
+                    if (entry.isIntersecting || rect.top < 50) {
+                        if (rect.top < topmostTop) {
+                            topmostTop = rect.top;
+                            topmostHeader = header;
+                        }
+                    }
+
+                    // Add/remove stuck class
+                    header.classList.toggle('stuck', rect.top <= 1);
+                });
+
+                // Also check for the header closest to the top when scrolling
+                const gridRect = voxEls.clipGrid.getBoundingClientRect();
+                headers.forEach(header => {
+                    const rect = header.getBoundingClientRect();
+                    if (rect.top <= gridRect.top + 10 && rect.bottom > gridRect.top) {
+                        topmostHeader = header;
+                    }
+                });
+
+                if (topmostHeader) {
+                    const letter = topmostHeader.dataset.letter;
+                    if (letter !== voxState.activeLetter) {
+                        setActiveLetter(letter);
+                    }
+                }
+            }, {
+                root: voxEls.clipGrid,
+                threshold: [0, 0.1, 0.5, 1],
+                rootMargin: '0px 0px -80% 0px'
+            });
+
+            headers.forEach(header => {
+                voxState.sectionObserver.observe(header);
+            });
+
+            // Also track scroll for real-time updates
+            voxEls.clipGrid.addEventListener('scroll', handleGridScroll, { passive: true });
+        }
+
+        function handleGridScroll() {
+            if (!voxEls.clipGrid) return;
+
+            const headers = voxEls.clipGrid.querySelectorAll('.vox-section-header');
+            const gridRect = voxEls.clipGrid.getBoundingClientRect();
+
+            let currentLetter = null;
+
+            // Find the header that's at or just above the top of the grid
+            headers.forEach(header => {
+                const rect = header.getBoundingClientRect();
+                if (rect.top <= gridRect.top + 20) {
+                    currentLetter = header.dataset.letter;
+                }
+
+                // Update stuck class
+                header.classList.toggle('stuck', rect.top <= gridRect.top + 1);
+            });
+
+            if (currentLetter && currentLetter !== voxState.activeLetter) {
+                setActiveLetter(currentLetter);
+                showScrollIndicator(currentLetter);
+            }
+        }
+
+        // ==========================================
+        // KEYBOARD NAVIGATION
+        // ==========================================
+
+        function handleGridKeyDown(e) {
+            const tiles = Array.from(voxEls.clipGrid.querySelectorAll('.vox-clip-tile'));
+            if (tiles.length === 0) return;
+
+            // Only handle navigation if a tile is focused or grid itself
+            if (!voxEls.clipGrid.contains(document.activeElement)) return;
+
+            // Calculate approximate columns from grid width
+            const gridStyle = window.getComputedStyle(voxEls.clipGrid);
+            const gridWidth = voxEls.clipGrid.clientWidth;
+            const tileWidth = tiles[0] ? tiles[0].offsetWidth + 12 : 120; // Include gap
+            const columns = Math.max(1, Math.floor(gridWidth / tileWidth));
+
+            let newIndex = voxState.focusedTileIndex;
+
+            switch (e.key) {
+                case 'ArrowRight':
+                    e.preventDefault();
+                    newIndex = Math.min(newIndex + 1, tiles.length - 1);
+                    if (newIndex < 0) newIndex = 0;
+                    break;
+
+                case 'ArrowLeft':
+                    e.preventDefault();
+                    newIndex = Math.max(newIndex - 1, 0);
+                    break;
+
+                case 'ArrowDown':
+                    e.preventDefault();
+                    newIndex = Math.min(newIndex + columns, tiles.length - 1);
+                    if (newIndex < 0) newIndex = 0;
+                    break;
+
+                case 'ArrowUp':
+                    e.preventDefault();
+                    newIndex = Math.max(newIndex - columns, 0);
+                    break;
+
+                case 'Enter':
+                case ' ':
+                    e.preventDefault();
+                    if (voxState.focusedTileIndex >= 0 && tiles[voxState.focusedTileIndex]) {
+                        tiles[voxState.focusedTileIndex].click();
+                    }
+                    return;
+
+                case 'Escape':
+                    e.preventDefault();
+                    // Return focus to message input
+                    if (voxEls.messageInput) {
+                        voxEls.messageInput.focus();
+                    }
+                    voxState.focusedTileIndex = -1;
+                    tiles.forEach(t => t.setAttribute('tabindex', '-1'));
+                    return;
+
+                case 'Home':
+                    e.preventDefault();
+                    newIndex = 0;
+                    break;
+
+                case 'End':
+                    e.preventDefault();
+                    newIndex = tiles.length - 1;
+                    break;
+
+                default:
+                    return; // Don't handle other keys
+            }
+
+            // Update focus
+            if (newIndex !== voxState.focusedTileIndex && newIndex >= 0) {
+                voxState.focusedTileIndex = newIndex;
+
+                // Update tabindex
+                tiles.forEach((tile, idx) => {
+                    tile.setAttribute('tabindex', idx === newIndex ? '0' : '-1');
+                });
+
+                // Focus the tile
+                tiles[newIndex].focus();
+
+                // Scroll into view if needed
+                const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+                tiles[newIndex].scrollIntoView({
+                    block: 'nearest',
+                    behavior: prefersReducedMotion ? 'auto' : 'smooth'
+                });
+            }
+        }
+    </script>
+}
+
+@if (!Model.IsAuthenticated)
+{
+    <!-- Landing page for unauthenticated users -->
+    <div class="portal-landing">
+        <div class="landing-content">
+            <div class="landing-header">
+                <h1>VOX Audio Clips</h1>
+                <p>Access the VOX, FVOX, and HGrunt audio clip library</p>
+            </div>
+
+            <div class="landing-features">
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                        </svg>
+                    </div>
+                    <h3>Browse Clips</h3>
+                    <p>Search and preview audio clips from Half-Life's VOX system</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                        </svg>
+                    </div>
+                    <h3>Play in Voice</h3>
+                    <p>Play clips directly to voice channels with queue support</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                        </svg>
+                    </div>
+                    <h3>Three Groups</h3>
+                    <p>Access VOX, FVOX (female), and HGrunt (military) voice sets</p>
+                </div>
+            </div>
+
+            <div class="landing-cta">
+                <a href="@Model.LoginUrl" class="btn-primary">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994a.076.076 0 00-.041-.106 13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                    </svg>
+                    Sign in with Discord
+                </a>
+                <p class="landing-hint">You must be a member of @Model.GuildName to access this portal</p>
+            </div>
+        </div>
+    </div>
+}
+else if (!Model.IsAuthorized)
+{
+    <!-- User is authenticated but not a guild member -->
+    <div class="portal-unauthorized">
+        <div class="unauthorized-content">
+            <div class="unauthorized-icon">
+                <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h2>Access Restricted</h2>
+            <p>You must be a member of <strong>@Model.GuildName</strong> to access this portal.</p>
+            <a href="/" class="btn-secondary">Return Home</a>
+        </div>
+    </div>
+}
+else
+{
+    <!-- Full VOX Portal for authorized users -->
+
+    <!-- Portal Header with Navigation -->
+    <partial name="../Shared/_PortalHeader" model='new DiscordBot.Bot.ViewModels.Portal.PortalHeaderViewModel {
+        GuildId = Model.GuildId,
+        GuildName = Model.GuildName,
+        GuildIconUrl = Model.GuildIconUrl,
+        IsOnline = Model.IsOnline,
+        ActiveTab = "vox"
+    }' />
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <div class="portal-content">
+            <!-- LEFT: Sidebar -->
+            <div class="sidebar">
+            <!-- Voice Channel Panel -->
+            @if (Model.VoicePanel != null)
+            {
+                @await Html.PartialAsync("../../Shared/Components/_VoiceChannelPanel", Model.VoicePanel)
+            }
+
+            <!-- Now Playing -->
+            <div class="vox-now-playing">
+                <h3>Now Playing</h3>
+                @if (!string.IsNullOrEmpty(Model.NowPlayingMessage))
+                {
+                    <div class="now-playing-message">
+                        @Model.NowPlayingMessage
+                    </div>
+                    <button type="button" class="stop-btn" id="stop-playback-btn" aria-label="Stop VOX playback">
+                        Stop
+                    </button>
+                }
+                else
+                {
+                    <div class="now-playing-empty">
+                        No audio playing
+                    </div>
+                }
+            </div>
+
+            <!-- Clip Stats -->
+            <div class="vox-stats">
+                <h3>Clip Library</h3>
+                <div class="stat-item">
+                    <span class="stat-label">VOX</span>
+                    <span class="stat-value">@Model.VoxClipCount clips</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">FVOX</span>
+                    <span class="stat-value">@Model.FvoxClipCount clips</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">HGrunt</span>
+                    <span class="stat-value">@Model.HgruntClipCount clips</span>
+                </div>
+            </div>
+            </div>
+
+            <!-- RIGHT: Main Panel -->
+            <div class="vox-panel">
+            <!-- Group Tabs -->
+            <div class="vox-group-tabs-section">
+                @if (Model.GroupTabs != null)
+                {
+                    @await Html.PartialAsync("../../Shared/Components/_NavTabs", Model.GroupTabs)
+                }
+            </div>
+
+            <!-- Tab Content Panels -->
+            @foreach (var group in new[] { "vox", "fvox", "hgrunt" })
+            {
+                var isActive = group == "vox";
+                var prefix = $"vox-{group}";
+                var groupName = group == "vox" ? "VOX" : (group == "fvox" ? "FVOX" : "HGrunt");
+
+                <div data-nav-panel-for="voxGroupTabs" data-tab-id="@group" @(isActive ? "" : "hidden")>
+                    <!-- Consolidated Message Composer -->
+                    <div class="vox-composer">
+                        <!-- Message Input -->
+                        <div class="vox-message-section">
+                            <div class="vox-autocomplete-wrapper">
+                                <input type="text"
+                                       id="@(prefix)-message-input"
+                                       class="vox-message-input"
+                                       placeholder="Type words to announce..."
+                                       autocomplete="off"
+                                       aria-label="@groupName message"
+                                       aria-expanded="false"
+                                       aria-controls="@(prefix)-autocomplete" />
+
+                                <!-- Autocomplete Dropdown -->
+                                <div class="vox-autocomplete-dropdown"
+                                     id="@(prefix)-autocomplete"
+                                     role="listbox">
+                                    <!-- Populated dynamically by JavaScript -->
+                                </div>
+
+                                <!-- Screen reader announcement region -->
+                                <div aria-live="polite" aria-atomic="true" class="sr-only" id="@(prefix)-autocomplete-status"></div>
+                            </div>
+                        </div>
+
+                        <!-- Token Preview -->
+                        <div class="vox-token-preview">
+                            <div class="vox-token-pills" id="@(prefix)-token-pills">
+                                <span class="vox-token-empty">No words</span>
+                            </div>
+                            <div class="vox-preview-stats" id="@(prefix)-preview-stats"></div>
+                        </div>
+                    </div>
+
+                    <!-- Play Button -->
+                    <div class="vox-play-section">
+                        <button type="button"
+                                class="vox-play-btn"
+                                id="@(prefix)-play-btn"
+                                disabled
+                                aria-label="Play @groupName announcement">
+                            <span id="@(prefix)-play-btn-text">Play @groupName Announcement</span>
+                        </button>
+                    </div>
+
+                    <!-- Clip Browser -->
+                    <div class="vox-clip-browser">
+                        <div class="vox-clip-search-group">
+                            <input type="text"
+                                   class="vox-clip-search"
+                                   id="@(prefix)-clip-search"
+                                   placeholder="Search clips..."
+                                   aria-label="Search @groupName clips" />
+                            <span class="vox-clip-badge" id="@(prefix)-clip-count">0</span>
+                        </div>
+                        <div class="vox-clip-browser-container">
+                            <div class="vox-clip-grid" id="@(prefix)-clip-grid" role="grid" aria-label="@groupName clip library" tabindex="0">
+                                <!-- Clips populated dynamically by JavaScript -->
+                                <span class="vox-token-empty">Loading clips...</span>
+                            </div>
+                            <nav class="vox-az-rail" id="@(prefix)-az-rail" aria-label="Alphabetical navigation">
+                                <!-- A-Z letters populated by JavaScript -->
+                            </nav>
+                        </div>
+                    </div>
+
+                    <!-- Scroll position indicator -->
+                    <div class="vox-scroll-letter" id="@(prefix)-scroll-letter" aria-hidden="true"></div>
+                </div>
+            }
+            </div>
+        </div>
+    </main>
+}

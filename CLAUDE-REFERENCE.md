@@ -2,7 +2,7 @@
 
 Auto-generated lookup tables for Discord bot management system. Regenerate with `/update-instructions tables`.
 
-**Last updated:** 2026-02-02
+**Last updated:** 2026-02-03
 
 ## Configuration Options
 
@@ -42,6 +42,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | `UserActivityEventRetentionOptions` | `UserActivityEventRetention` | Anonymous activity event retention (consent-free analytics) |
 | `VerificationOptions` | `Verification` | Verification code generation settings |
 | `VoiceChannelOptions` | `VoiceChannel` | Voice channel auto-leave settings (timeout, check interval) |
+| `VoxOptions` | `Vox` | VOX clip library settings (base path, word gap, message limits) |
 | `ElasticApm:*` | `ElasticApm` | Elastic APM distributed tracing configuration (see appsettings.json for full options) |
 
 ## UI Page Routes
@@ -78,6 +79,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | Text-to-Speech | `/Guilds/TextToSpeech/{guildId:long}` | Guild TTS message management |
 | TTS Portal | `/Portal/TTS/{guildId:long}` | TTS message composer for guild members (OAuth required) |
 | Soundboard Portal | `/Portal/Soundboard/{guildId:long}` | Soundboard player for guild members (OAuth required) |
+| VOX Portal | `/Portal/VOX/{guildId:long}` | VOX announcement composer for guild members (OAuth required) |
 | Public Leaderboard | `/Guilds/{guildId:long}/Leaderboard` | Public Rat Watch leaderboard (no auth) |
 | Global Rat Watch Analytics | `/Admin/RatWatchAnalytics` | Cross-guild Rat Watch metrics (Admin+) |
 | Performance Dashboard | `/Admin/Performance` | Performance overview dashboard |
@@ -111,6 +113,19 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 
 **Note:** Use `Guilds/` not `Servers/` for guild-related pages (Discord API terminology).
 
+## Portal API Endpoints (VOX)
+
+REST API for VOX Portal functionality. All endpoints require `[Authorize(Policy = "PortalGuildMember")]`.
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/portal/vox/{guildId}/clips` | GET | Get clips for a group (`?group=vox\|fvox\|hgrunt&search=`) |
+| `/api/portal/vox/{guildId}/preview` | GET | Tokenize message and show clip matches (`?message=&group=`) |
+| `/api/portal/vox/{guildId}/play` | POST | Play announcement (`{message, group, wordGapMs}`) |
+| `/api/portal/vox/{guildId}/stop` | POST | Stop current playback |
+
+**Controller:** `PortalVoxController.cs`
+
 ## Discord Command Modules
 
 Using Discord.NET 3.18.0 - slash commands only, registered via `InteractionHandler`.
@@ -137,6 +152,7 @@ Using Discord.NET 3.18.0 - slash commands only, registered via `InteractionHandl
 | `TtsModule` | `/tts <message> [voice]` |
 | `SoundboardModule` | `/play <sound>`, `/sounds`, `/stop` |
 | `VoiceModule` | `/join`, `/join-channel <channel>`, `/leave` |
+| `VoxModule` | `/vox <message> [gap]`, `/fvox <message> [gap]`, `/hgrunt <message> [gap]` |
 
 ### Interactive Components Pattern
 
