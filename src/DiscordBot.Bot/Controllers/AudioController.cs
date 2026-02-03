@@ -85,7 +85,7 @@ public class AudioController : ControllerBase
         }
 
         _logger.LogInformation("Successfully joined channel {ChannelId} in guild {GuildId}", channelId, guildId);
-        return Ok(new { Message = "Joined voice channel", GuildId = guildId, ChannelId = channelId });
+        return Ok(new { Message = "Joined voice channel", GuildId = guildId.ToString(), ChannelId = channelId.ToString() });
     }
 
     /// <summary>
@@ -130,7 +130,7 @@ public class AudioController : ControllerBase
         }
 
         _logger.LogInformation("Successfully left voice channel in guild {GuildId}", guildId);
-        return Ok(new { Message = "Left voice channel", GuildId = guildId });
+        return Ok(new { Message = "Left voice channel", GuildId = guildId.ToString() });
     }
 
     /// <summary>
@@ -161,7 +161,7 @@ public class AudioController : ControllerBase
         await _playbackService.StopAsync(guildId, cancellationToken);
 
         _logger.LogInformation("Successfully stopped playback in guild {GuildId}", guildId);
-        return Ok(new { Message = "Playback stopped", GuildId = guildId });
+        return Ok(new { Message = "Playback stopped", GuildId = guildId.ToString() });
     }
 
     /// <summary>
@@ -220,6 +220,6 @@ public class AudioController : ControllerBase
         }
 
         _logger.LogInformation("Successfully removed item at position {Position} from queue in guild {GuildId}", position, guildId);
-        return Ok(new { Message = position == 0 ? "Skipped current sound" : "Removed from queue", GuildId = guildId, Position = position });
+        return Ok(new { Message = position == 0 ? "Skipped current sound" : "Removed from queue", GuildId = guildId.ToString(), Position = position });
     }
 }

@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DiscordBot.Core.DTOs;
 
 /// <summary>
@@ -8,11 +10,13 @@ public class AudioConnectedDto
     /// <summary>
     /// Gets or sets the guild ID where the bot connected.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
     /// Gets or sets the voice channel ID the bot connected to.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong ChannelId { get; set; }
 
     /// <summary>
@@ -39,11 +43,13 @@ public class VoiceChannelMemberCountUpdatedDto
     /// <summary>
     /// Gets or sets the guild ID.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
     /// Gets or sets the voice channel ID.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong ChannelId { get; set; }
 
     /// <summary>
@@ -70,6 +76,7 @@ public class AudioDisconnectedDto
     /// <summary>
     /// Gets or sets the guild ID where the bot disconnected.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -91,6 +98,7 @@ public class PlaybackStartedDto
     /// <summary>
     /// Gets or sets the guild ID where playback started.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -122,6 +130,7 @@ public class PlaybackProgressDto
     /// <summary>
     /// Gets or sets the guild ID where playback is occurring.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -153,6 +162,7 @@ public class PlaybackFinishedDto
     /// <summary>
     /// Gets or sets the guild ID where playback finished.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -205,6 +215,7 @@ public class QueueUpdatedDto
     /// <summary>
     /// Gets or sets the guild ID where the queue changed.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -226,6 +237,7 @@ public class SoundUploadedDto
     /// <summary>
     /// Gets or sets the guild ID where the sound was uploaded.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -257,6 +269,7 @@ public class SoundDeletedDto
     /// <summary>
     /// Gets or sets the guild ID where the sound was deleted.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -278,6 +291,7 @@ public class AudioStatusDto
     /// <summary>
     /// Gets or sets the guild ID.
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GuildId { get; set; }
 
     /// <summary>
@@ -288,6 +302,7 @@ public class AudioStatusDto
     /// <summary>
     /// Gets or sets the connected voice channel ID (null if not connected).
     /// </summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? ChannelId { get; set; }
 
     /// <summary>
