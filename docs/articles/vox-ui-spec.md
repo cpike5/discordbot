@@ -34,7 +34,6 @@ Unlike the existing soundboard (single clip playback), VOX concatenates multiple
 - **Search/autocomplete** is the primary interaction (100-200 clips per group)
 - **Clip grid browser** for visual discovery of available clips
 - **Real-time token preview** showing which typed words have matching clips
-- **Minimal settings** - just word gap control
 
 ---
 
@@ -98,12 +97,12 @@ Member-facing page for composing and playing VOX announcements.
 |  |           |   |  |  green    green   green    red(skipped)     |  |
 |  | [Stop]    |   |  +--------------------------------------------+  |
 |  +-----------+   |                                                  |
-|                  |  +--------------------------------------------+  |
-|  +-----------+   |  | Settings (collapsible)                     |  |
-|  | Stats     |   |  | Word Gap: [----*---------] 50ms            |  |
-|  | VOX: 187  |   |  +--------------------------------------------+  |
+|                  |  [Play VOX Announcement] button                  |
+|  +-----------+   |                                                  |
+|  | Stats     |   |                                                  |
+|  | VOX: 187  |   |                                                  |
 |  | FVOX: 156 |   |                                                  |
-|  | HG: 94    |   |  [Play VOX Announcement] button                  |
+|  | HG: 94    |   |                                                  |
 |  +-----------+   |                                                  |
 |                  |  +--------------------------------------------+  |
 |                  |  | Clip Browser                                |  |
@@ -339,36 +338,6 @@ Appears below the message input. Shows each word from the input with a visual in
 
 **Token Preview Updates**: Debounced (200ms) as the user types. Calls the preview API endpoint or performs client-side lookup against a cached clip name list.
 
-**Settings Panel** (collapsible):
-
-Minimal settings - just word gap control.
-
-```html
-<div class="vox-settings">
-  <button class="vox-settings-toggle" aria-expanded="false">
-    <span>Settings</span>
-    <svg class="chevron"><!-- chevron icon --></svg>
-  </button>
-
-  <div class="vox-settings-content" hidden>
-    <div class="vox-word-gap">
-      <label class="form-label">
-        Word Gap
-        <span class="text-accent-orange font-mono font-semibold" id="wordGapValue">50 ms</span>
-      </label>
-      <input type="range" class="form-range"
-             id="wordGapSlider"
-             min="20" max="200" step="10" value="50"
-             aria-label="Word gap in milliseconds">
-      <div class="flex justify-between text-xs text-text-tertiary">
-        <span>20ms (fast)</span>
-        <span>200ms (slow)</span>
-      </div>
-    </div>
-  </div>
-</div>
-```
-
 **Play Button**:
 
 ```csharp
@@ -510,10 +479,9 @@ Each clip is a clickable tile. Clicking appends the clip name to the message inp
 2. User types in message input - autocomplete suggests clips
 3. Or user browses the clip grid below, clicking tiles to append words
 4. Token preview updates in real-time showing matched/unmatched words
-5. User adjusts word gap if desired
-6. User clicks "Play VOX Announcement"
-7. Response shows matched words and any skipped words
-8. Audio plays in Discord voice channel
+5. User clicks "Play VOX Announcement"
+6. Response shows matched words and any skipped words
+7. Audio plays in Discord voice channel
 
 **Error States**:
 - **Not connected**: Play button disabled, tooltip "Join a voice channel first"
@@ -531,12 +499,10 @@ Each clip is a clickable tile. Clicking appends the clip name to the message inp
 **Tablet (768px-1023px)**:
 - Sidebar stacks above main panel
 - Clip grid shows 4 columns
-- Settings collapsed by default
 
 **Mobile (< 768px)**:
 - Single column layout
 - Clip grid shows 3 columns
-- Settings collapsed by default
 - Play button sticky at bottom
 
 ---
@@ -665,8 +631,8 @@ function updateTokenPreview() {
     }
   });
 
-  // Add word gap durations
-  const wordGapMs = parseInt(document.getElementById('wordGapSlider').value);
+  // Add word gap durations (default 50ms between clips)
+  const wordGapMs = 50;
   const gapDuration = (matchedCount - 1) * wordGapMs / 1000;
   totalDuration += Math.max(0, gapDuration);
 
@@ -755,10 +721,9 @@ document.getElementById('clipGrid').addEventListener('click', (e) => {
 1. Voice channel selector / Join / Leave
 2. Group tabs (VOX / FVOX / HGRUNT)
 3. Message input (with autocomplete)
-4. Settings toggle / Word gap slider
-5. Play button
-6. Clip search input
-7. Clip grid tiles
+4. Play button
+5. Clip search input
+6. Clip grid tiles
 
 **Keyboard Interactions**:
 - **Tab**: Move between sections
@@ -854,7 +819,6 @@ Reuse the existing portal status polling pattern to show Now Playing state and v
 - [ ] Build message input with autocomplete
 - [ ] Implement autocomplete dropdown with keyboard navigation
 - [ ] Create token preview strip (matched/skipped indicators)
-- [ ] Add word gap slider in collapsible settings
 - [ ] Create Play button with disabled/loading states
 - [ ] Add API endpoint: `POST /api/portal/vox/{guildId}/play`
 - [ ] Implement status polling for Now Playing updates

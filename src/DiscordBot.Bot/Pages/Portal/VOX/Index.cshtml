@@ -196,7 +196,6 @@
         /* Prevent composer sections from growing */
         .vox-message-section,
         .vox-token-preview,
-        .vox-settings,
         .vox-play-section {
             flex-shrink: 0;
         }
@@ -230,19 +229,22 @@
            VOX COMPOSER STYLES
            ========================================== */
 
+        /* Unified Message Composer Container */
+        .vox-composer {
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+        }
+
         /* Message Input with Autocomplete */
         .vox-message-section {
             display: flex;
             flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .vox-message-label {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--color-text-secondary);
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
+            gap: 0;
         }
 
         .vox-autocomplete-wrapper {
@@ -271,10 +273,6 @@
             color: var(--color-text-tertiary);
         }
 
-        .vox-message-help {
-            font-size: 0.75rem;
-            color: var(--color-text-tertiary);
-        }
 
         /* Autocomplete Dropdown */
         .vox-autocomplete-dropdown {
@@ -328,20 +326,17 @@
             font-family: var(--font-mono);
         }
 
-        /* Token Preview Strip */
+        /* Token Preview (integrated in composer) */
         .vox-token-preview {
-            background-color: var(--color-bg-tertiary);
-            border: 1px solid var(--color-border-primary);
-            border-radius: 0.375rem;
-            padding: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
         }
 
-        .vox-token-label {
+        .vox-preview-stats {
             font-size: 0.75rem;
-            color: var(--color-text-secondary);
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            display: block;
+            color: var(--color-text-tertiary);
+            text-align: right;
         }
 
         .vox-token-pills {
@@ -381,131 +376,6 @@
         .vox-token-empty {
             color: var(--color-text-tertiary);
             font-style: italic;
-        }
-
-        /* Settings Panel (Collapsible) */
-        .vox-settings {
-            background-color: var(--color-bg-tertiary);
-            border: 1px solid var(--color-border-primary);
-            border-radius: 0.375rem;
-            overflow: hidden;
-        }
-
-        .vox-settings-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0.75rem;
-            cursor: pointer;
-            transition: all 0.15s ease-out;
-        }
-
-        .vox-settings-header:hover {
-            background-color: var(--color-bg-hover);
-        }
-
-        .vox-settings-title {
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--color-text-primary);
-        }
-
-        .vox-settings-chevron {
-            width: 1rem;
-            height: 1rem;
-            color: var(--color-text-secondary);
-            transition: transform 0.3s ease-out;
-            stroke-width: 2;
-        }
-
-        .vox-settings-chevron.rotated {
-            transform: rotate(180deg);
-        }
-
-        .vox-settings-content {
-            max-height: 500px;
-            overflow: hidden;
-            transition: max-height 0.3s ease-out;
-            border-top: 1px solid var(--color-border-primary);
-            padding: 0.75rem;
-        }
-
-        .vox-settings-content.collapsed {
-            max-height: 0;
-            padding: 0;
-            border: none;
-        }
-
-        .vox-slider-group {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-        }
-
-        .vox-slider-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .vox-slider-label {
-            font-size: 0.875rem;
-            font-weight: 500;
-            color: var(--color-text-primary);
-        }
-
-        .vox-slider-value {
-            font-family: var(--font-mono);
-            font-size: 0.75rem;
-            color: var(--color-accent-orange);
-            font-weight: 600;
-        }
-
-        input[type="range"] {
-            width: 100%;
-            height: 5px;
-            border-radius: 2px;
-            background: var(--color-border-primary);
-            outline: none;
-            -webkit-appearance: none;
-            appearance: none;
-        }
-
-        input[type="range"]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            appearance: none;
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: var(--color-accent-orange);
-            cursor: pointer;
-            transition: transform 0.15s ease-out;
-        }
-
-        input[type="range"]::-webkit-slider-thumb:hover {
-            transform: scale(1.15);
-        }
-
-        input[type="range"]::-moz-range-thumb {
-            width: 14px;
-            height: 14px;
-            border-radius: 50%;
-            background: var(--color-accent-orange);
-            cursor: pointer;
-            border: none;
-            transition: transform 0.15s ease-out;
-        }
-
-        input[type="range"]::-moz-range-thumb:hover {
-            transform: scale(1.15);
-        }
-
-        .vox-gap-hints {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            color: var(--color-text-tertiary);
-            margin-top: 0.25rem;
         }
 
         /* Play Button */
@@ -697,9 +567,7 @@
             .vox-clip-tile,
             .vox-token,
             .vox-autocomplete-item,
-            .vox-play-btn,
-            .vox-settings-chevron,
-            .vox-settings-content {
+            .vox-play-btn {
                 transition: none;
                 animation: none;
             }
@@ -746,15 +614,10 @@
             messageInput: null,
             autocompleteDropdown: null,
             autocompleteStatus: null,
-            tokenLabel: null,
             tokenPills: null,
+            previewStats: null,
             playBtn: null,
             playBtnText: null,
-            settingsHeader: null,
-            settingsContent: null,
-            settingsChevron: null,
-            wordGapSlider: null,
-            gapValue: null,
             clipSearch: null,
             clipCount: null,
             clipGrid: null
@@ -814,15 +677,10 @@
             voxEls.messageInput = document.getElementById(`${prefix}-message-input`);
             voxEls.autocompleteDropdown = document.getElementById(`${prefix}-autocomplete`);
             voxEls.autocompleteStatus = document.getElementById(`${prefix}-autocomplete-status`);
-            voxEls.tokenLabel = document.getElementById(`${prefix}-token-label`);
             voxEls.tokenPills = document.getElementById(`${prefix}-token-pills`);
+            voxEls.previewStats = document.getElementById(`${prefix}-preview-stats`);
             voxEls.playBtn = document.getElementById(`${prefix}-play-btn`);
             voxEls.playBtnText = document.getElementById(`${prefix}-play-btn-text`);
-            voxEls.settingsHeader = document.getElementById(`${prefix}-settings-header`);
-            voxEls.settingsContent = document.getElementById(`${prefix}-settings-content`);
-            voxEls.settingsChevron = document.getElementById(`${prefix}-settings-chevron`);
-            voxEls.wordGapSlider = document.getElementById(`${prefix}-word-gap-slider`);
-            voxEls.gapValue = document.getElementById(`${prefix}-gap-value`);
             voxEls.clipSearch = document.getElementById(`${prefix}-clip-search`);
             voxEls.clipCount = document.getElementById(`${prefix}-clip-count`);
             voxEls.clipGrid = document.getElementById(`${prefix}-clip-grid`);
@@ -837,14 +695,6 @@
                         hideAutocomplete();
                     }
                 });
-            }
-
-            if (voxEls.settingsHeader) {
-                voxEls.settingsHeader.addEventListener('click', toggleSettings);
-            }
-
-            if (voxEls.wordGapSlider) {
-                voxEls.wordGapSlider.addEventListener('input', handleGapChange);
             }
 
             if (voxEls.playBtn) {
@@ -1032,7 +882,7 @@
 
         // Token preview
         function updateTokenPreview() {
-            if (!voxEls.messageInput || !voxEls.tokenPills || !voxEls.tokenLabel) return;
+            if (!voxEls.messageInput || !voxEls.tokenPills || !voxEls.previewStats) return;
 
             const text = voxEls.messageInput.value.toLowerCase();
             const words = text.split(/\s+/).filter(w => w.length > 0);
@@ -1044,7 +894,7 @@
 
             if (words.length === 0) {
                 voxEls.tokenPills.innerHTML = '<span class="vox-token-empty">No words</span>';
-                voxEls.tokenLabel.textContent = 'Preview: 0/0 matched, ~0s';
+                voxEls.previewStats.textContent = '';
                 updatePlayButton(false);
                 return;
             }
@@ -1069,7 +919,7 @@
             }
 
             voxEls.tokenPills.innerHTML = pillsHtml;
-            voxEls.tokenLabel.textContent = `Preview: ${matchedCount}/${words.length} matched, ~${totalDuration.toFixed(1)}s`;
+            voxEls.previewStats.textContent = `${matchedCount}/${words.length} clips, ~${totalDuration.toFixed(1)}s`;
 
             updatePlayButton(matchedCount > 0);
         }
@@ -1077,25 +927,6 @@
         function updatePlayButton(canPlay) {
             if (!voxEls.playBtn) return;
             voxEls.playBtn.disabled = !canPlay || voxState.isLoading;
-        }
-
-        // Settings
-        function toggleSettings() {
-            if (!voxEls.settingsContent || !voxEls.settingsChevron || !voxEls.settingsHeader) return;
-
-            voxEls.settingsContent.classList.toggle('collapsed');
-            voxEls.settingsChevron.classList.toggle('rotated');
-
-            const isNowExpanded = !voxEls.settingsContent.classList.contains('collapsed');
-            voxEls.settingsHeader.setAttribute('aria-expanded', isNowExpanded ? 'true' : 'false');
-        }
-
-        function handleGapChange(e) {
-            voxState.wordGapMs = parseInt(e.target.value);
-            if (voxEls.gapValue) {
-                voxEls.gapValue.textContent = `${voxState.wordGapMs} ms`;
-            }
-            updateTokenPreview();
         }
 
         // Play
@@ -1356,73 +1187,38 @@ else
                 var groupName = group == "vox" ? "VOX" : (group == "fvox" ? "FVOX" : "HGrunt");
 
                 <div data-nav-panel-for="voxGroupTabs" data-tab-id="@group" @(isActive ? "" : "hidden")>
-                    <!-- Message Input Section -->
-                    <div class="vox-message-section">
-                        <label class="vox-message-label" for="@(prefix)-message-input">Message</label>
-                        <div class="vox-autocomplete-wrapper">
-                            <input type="text"
-                                   id="@(prefix)-message-input"
-                                   class="vox-message-input"
-                                   placeholder="Type words to announce..."
-                                   autocomplete="off"
-                                   aria-label="@groupName message"
-                                   aria-expanded="false"
-                                   aria-controls="@(prefix)-autocomplete"
-                                   aria-describedby="@(prefix)-message-help" />
+                    <!-- Consolidated Message Composer -->
+                    <div class="vox-composer">
+                        <!-- Message Input -->
+                        <div class="vox-message-section">
+                            <div class="vox-autocomplete-wrapper">
+                                <input type="text"
+                                       id="@(prefix)-message-input"
+                                       class="vox-message-input"
+                                       placeholder="Type words to announce..."
+                                       autocomplete="off"
+                                       aria-label="@groupName message"
+                                       aria-expanded="false"
+                                       aria-controls="@(prefix)-autocomplete" />
 
-                            <!-- Autocomplete Dropdown -->
-                            <div class="vox-autocomplete-dropdown"
-                                 id="@(prefix)-autocomplete"
-                                 role="listbox">
-                                <!-- Populated dynamically by JavaScript -->
-                            </div>
-
-                            <!-- Screen reader announcement region -->
-                            <div aria-live="polite" aria-atomic="true" class="sr-only" id="@(prefix)-autocomplete-status"></div>
-                        </div>
-                        <span id="@(prefix)-message-help" class="vox-message-help">
-                            Type words separated by spaces. Click clips below to append.
-                        </span>
-                    </div>
-
-                    <!-- Token Preview Strip -->
-                    <div class="vox-token-preview">
-                        <span class="vox-token-label" id="@(prefix)-token-label">Preview: 0/0 matched, ~0s</span>
-                        <div class="vox-token-pills" id="@(prefix)-token-pills">
-                            <span class="vox-token-empty">No words</span>
-                        </div>
-                    </div>
-
-                    <!-- Settings Panel (Collapsible) -->
-                    <div class="vox-settings">
-                        <div class="vox-settings-header"
-                             id="@(prefix)-settings-header"
-                             role="button"
-                             aria-expanded="false"
-                             aria-controls="@(prefix)-settings-content">
-                            <span class="vox-settings-title">Settings</span>
-                            <svg class="vox-settings-chevron" id="@(prefix)-settings-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor">
-                                <polyline points="6 9 12 15 18 9"></polyline>
-                            </svg>
-                        </div>
-                        <div class="vox-settings-content collapsed" id="@(prefix)-settings-content">
-                            <div class="vox-slider-group">
-                                <div class="vox-slider-header">
-                                    <label class="vox-slider-label" for="@(prefix)-word-gap-slider">Word Gap</label>
-                                    <span class="vox-slider-value" id="@(prefix)-gap-value">50 ms</span>
+                                <!-- Autocomplete Dropdown -->
+                                <div class="vox-autocomplete-dropdown"
+                                     id="@(prefix)-autocomplete"
+                                     role="listbox">
+                                    <!-- Populated dynamically by JavaScript -->
                                 </div>
-                                <input type="range"
-                                       id="@(prefix)-word-gap-slider"
-                                       min="20"
-                                       max="200"
-                                       step="10"
-                                       value="50"
-                                       aria-label="Word gap in milliseconds" />
-                                <div class="vox-gap-hints">
-                                    <span>20ms (fast)</span>
-                                    <span>200ms (slow)</span>
-                                </div>
+
+                                <!-- Screen reader announcement region -->
+                                <div aria-live="polite" aria-atomic="true" class="sr-only" id="@(prefix)-autocomplete-status"></div>
                             </div>
+                        </div>
+
+                        <!-- Token Preview -->
+                        <div class="vox-token-preview">
+                            <div class="vox-token-pills" id="@(prefix)-token-pills">
+                                <span class="vox-token-empty">No words</span>
+                            </div>
+                            <div class="vox-preview-stats" id="@(prefix)-preview-stats"></div>
                         </div>
                     </div>
 
