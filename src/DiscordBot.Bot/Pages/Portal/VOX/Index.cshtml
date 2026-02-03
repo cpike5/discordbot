@@ -736,7 +736,7 @@
 
             // Attach event listeners
             if (voxEls.messageInput) {
-                voxEls.messageInput.addEventListener('input', debounce(handleInputChange, 100));
+                voxEls.messageInput.addEventListener('input', debounce(handleInputChange, 200));
                 voxEls.messageInput.addEventListener('keydown', handleKeyDown);
                 voxEls.messageInput.addEventListener('blur', (e) => {
                     // Only hide if focus moved outside the autocomplete dropdown
