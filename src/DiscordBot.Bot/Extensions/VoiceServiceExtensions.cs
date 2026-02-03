@@ -140,6 +140,9 @@ public static class VoiceServiceExtensions
         // VOX concatenation service (singleton for stateless processing)
         services.AddSingleton<IVoxConcatenationService, VoxConcatenationService>();
 
+        // VOX orchestration service (scoped for per-request pipeline coordination)
+        services.AddScoped<IVoxService, VoxService>();
+
         return services;
     }
 }
