@@ -22,17 +22,20 @@ public class IndexModel : PageModel
 {
     private readonly IVoxClipLibrary _voxClipLibrary;
     private readonly IGuildService _guildService;
+    private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly VoxOptions _voxOptions;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IVoxClipLibrary voxClipLibrary,
         IGuildService guildService,
+        IGuildAudioSettingsRepository audioSettingsRepository,
         IOptions<VoxOptions> voxOptions,
         ILogger<IndexModel> logger)
     {
         _voxClipLibrary = voxClipLibrary;
         _guildService = guildService;
+        _audioSettingsRepository = audioSettingsRepository;
         _voxOptions = voxOptions.Value;
         _logger = logger;
     }
@@ -129,6 +132,11 @@ public class IndexModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// Gets whether the member portal is enabled for this guild.
+    /// </summary>
+    public bool IsMemberPortalEnabled { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the VOX management page.
     /// </summary>
     /// <param name="guildId">The guild ID from the route.</param>
@@ -152,6 +160,10 @@ public class IndexModel : PageModel
             GuildName = guild.Name;
             GuildIconUrl = guild.IconUrl;
             Settings = _voxOptions;
+
+            // Get audio settings to check if member portal is enabled
+            var audioSettings = await _audioSettingsRepository.GetOrCreateAsync(GuildId, cancellationToken);
+            IsMemberPortalEnabled = audioSettings.EnableMemberPortal;
 
             // Cache enum values to avoid multiple iterations
             var groups = Enum.GetValues<VoxClipGroup>();
@@ -227,13 +239,27 @@ public class IndexModel : PageModel
                 }
             };
 
+            var headerActions = new List<HeaderAction>();
+            if (IsMemberPortalEnabled)
+            {
+                headerActions.Add(new HeaderAction
+                {
+                    Label = "Open Member Portal",
+                    Url = $"/Portal/VOX/{GuildId}",
+                    Style = HeaderActionStyle.Secondary,
+                    Icon = "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
+                    OpenInNewTab = true
+                });
+            }
+
             Header = new GuildHeaderViewModel
             {
                 GuildId = guild.Id,
                 GuildName = guild.Name,
                 GuildIconUrl = guild.IconUrl,
                 PageTitle = "VOX",
-                PageDescription = $"Configure VOX announcements for {guild.Name}"
+                PageDescription = $"Configure VOX announcements for {guild.Name}",
+                Actions = headerActions
             };
 
             Navigation = new GuildNavBarViewModel
