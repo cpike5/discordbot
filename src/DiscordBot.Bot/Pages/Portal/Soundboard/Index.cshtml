@@ -1495,51 +1495,10 @@ else
         <div class="sidebar">
 
             <!-- Voice Channel Section -->
-            <div class="sidebar-panel">
-                <div class="sidebar-title">Voice Channel</div>
-
-                <!-- Connection Status -->
-                <div class="connection-status">
-                    <span id="connectionStatus" class="status-badge-voice @(Model.IsConnected ? "connected" : "disconnected")">
-                        <span class="status-dot"></span>
-                        <span id="connectionStatusText">@(Model.IsConnected ? "Connected" : "Disconnected")</span>
-                    </span>
-                    <span id="channelMemberCount" class="channel-member-count @(Model.IsConnected ? "" : "hidden")">
-                        @if (Model.IsConnected && Model.CurrentChannelMemberCount.HasValue)
-                        {
-                            <text>@Model.CurrentChannelMemberCount @(Model.CurrentChannelMemberCount == 1 ? "member" : "members")</text>
-                        }
-                    </span>
-                </div>
-
-                <!-- Channel Selector -->
-                <label class="channel-label">Select Channel</label>
-                <select id="channelSelect" class="channel-select">
-                    <option value="">-- Select a channel --</option>
-                    @foreach (var channel in Model.VoiceChannels)
-                    {
-                        <option value="@channel.Id" selected="@(channel.Id == Model.CurrentChannelId)">
-                            @channel.Name (@channel.MemberCount @(channel.MemberCount == 1 ? "member" : "members"))
-                        </option>
-                    }
-                </select>
-
-                <!-- Join/Leave Buttons -->
-                <div class="button-row">
-                    <button id="joinBtn" class="btn btn-join" @(Model.IsConnected ? "disabled" : "")>
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" />
-                        </svg>
-                        Join
-                    </button>
-                    <button id="leaveBtn" class="btn btn-leave" @(!Model.IsConnected ? "disabled" : "")>
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                        </svg>
-                        Leave
-                    </button>
-                </div>
-            </div>
+            @if (Model.VoicePanel != null)
+            {
+                @await Html.PartialAsync("../../Shared/Components/_VoiceChannelPanel", Model.VoicePanel)
+            }
 
             <!-- Now Playing Section -->
             <div class="sidebar-panel">
@@ -1716,7 +1675,8 @@ else
 @section Scripts {
     <!-- SignalR for real-time updates -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
-    <script src="/js/dashboard-hub.js"></script>
+    <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    <script src="~/js/voice-channel-panel.js" asp-append-version="true"></script>
 @if (Model.IsAuthenticated)
 {
     <script>
@@ -1727,8 +1687,6 @@ else
         let favorites = JSON.parse(localStorage.getItem('soundboard_favorites_' + window.guildId) || '[]');
         let currentlyPlaying = null;
         let currentlyPlayingName = null;
-        let isConnected = @Model.IsConnected.ToString().ToLower();
-        let selectedChannel = '@(Model.CurrentChannelId?.ToString() ?? "")';
         let searchDebounceTimer = null;
         let signalRConnected = false;
 
@@ -1872,10 +1830,7 @@ else
 
         // Sync UI from audio status DTO
         function syncFromAudioStatus(status) {
-            if (status.isConnected !== isConnected) {
-                isConnected = status.isConnected;
-                updateConnectionUI(isConnected);
-            }
+            // Voice panel connection status is now managed by voice-channel-panel.js
 
             if (!status.isPlaying && currentlyPlaying) {
                 // Bot stopped playing
@@ -1944,56 +1899,29 @@ else
         // Handle audio connected event from SignalR
         function handleAudioConnected(data) {
             console.log('[Soundboard] AudioConnected:', data.channelName, 'MemberCount:', data.memberCount);
-
-            isConnected = true;
-            updateConnectionUI(true, data.memberCount);
-
-            // Update channel selector to show connected channel
-            const channelSelect = document.getElementById('channelSelect');
-            if (data.channelId && channelSelect) {
-                channelSelect.value = data.channelId.toString();
-                selectedChannel = data.channelId.toString();
-            }
+            // Voice panel UI updates are now handled by voice-channel-panel.js
         }
 
         // Handle voice channel member count update from SignalR
         function handleVoiceChannelMemberCountUpdated(data) {
             console.log('[Soundboard] VoiceChannelMemberCountUpdated:', data.channelId, 'MemberCount:', data.memberCount);
-
-            // Update member count display if connected to this channel
-            if (isConnected && selectedChannel === data.channelId.toString()) {
-                updateMemberCountDisplay(data.memberCount);
-            }
-
-            // Update the channel selector option for this channel
-            const channelSelect = document.getElementById('channelSelect');
-            if (channelSelect) {
-                const option = channelSelect.querySelector(`option[value="${data.channelId}"]`);
-                if (option) {
-                    const channelName = data.channelName || option.textContent.replace(/\s*\(\d+\s*members?\)\s*$/, '').trim();
-                    option.textContent = `${channelName} (${data.memberCount} ${data.memberCount === 1 ? 'member' : 'members'})`;
-                }
-            }
+            // Voice panel UI updates are now handled by voice-channel-panel.js
         }
 
         // Handle audio disconnected event from SignalR
         function handleAudioDisconnected(data) {
             console.log('[Soundboard] AudioDisconnected:', data.reason);
 
-            isConnected = false;
-            selectedChannel = '';
+            // Clear playback state
             currentlyPlaying = null;
             currentlyPlayingName = null;
-
-            // Update UI
-            updateConnectionUI(false, null);
             updateNowPlayingUI(null);
-            document.getElementById('channelSelect').value = '';
 
             // Remove playing state from cards
             document.querySelectorAll('.sound-card').forEach(card => {
                 card.classList.remove('playing');
             });
+            // Voice panel UI updates are now handled by voice-channel-panel.js
         }
 
         // Handle sound uploaded event from SignalR (another user uploaded a sound)
@@ -2098,48 +2026,6 @@ else
             }, 3000);
         }
 
-        // Helper: Update connection status UI
-        function updateConnectionUI(connected, memberCount) {
-            const statusBadge = document.getElementById('connectionStatus');
-            const statusText = document.getElementById('connectionStatusText');
-            const joinBtn = document.getElementById('joinBtn');
-            const leaveBtn = document.getElementById('leaveBtn');
-            const memberCountEl = document.getElementById('channelMemberCount');
-
-            if (connected) {
-                statusBadge.classList.remove('disconnected');
-                statusBadge.classList.add('connected');
-                statusText.textContent = 'Connected';
-                joinBtn.disabled = true;
-                leaveBtn.disabled = false;
-                // Show and update member count
-                if (memberCountEl) {
-                    memberCountEl.classList.remove('hidden');
-                    if (memberCount !== undefined && memberCount !== null) {
-                        memberCountEl.textContent = `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`;
-                    }
-                }
-            } else {
-                statusBadge.classList.remove('connected');
-                statusBadge.classList.add('disconnected');
-                statusText.textContent = 'Disconnected';
-                joinBtn.disabled = false;
-                leaveBtn.disabled = true;
-                // Hide member count
-                if (memberCountEl) {
-                    memberCountEl.classList.add('hidden');
-                }
-            }
-        }
-
-        // Helper: Update member count display
-        function updateMemberCountDisplay(memberCount) {
-            const memberCountEl = document.getElementById('channelMemberCount');
-            if (memberCountEl && memberCount !== undefined && memberCount !== null) {
-                memberCountEl.textContent = `${memberCount} ${memberCount === 1 ? 'member' : 'members'}`;
-            }
-        }
-
         // Helper: Update now playing UI
         function updateNowPlayingUI(soundName) {
             const nowPlayingContent = document.getElementById('nowPlayingContent');
@@ -2220,15 +2106,6 @@ else
                 filterSounds();
                 searchInput.focus();
             });
-
-            // Channel select
-            document.getElementById('channelSelect').addEventListener('change', function() {
-                selectedChannel = this.value;
-            });
-
-            // Join/Leave buttons
-            document.getElementById('joinBtn').addEventListener('click', joinChannel);
-            document.getElementById('leaveBtn').addEventListener('click', leaveChannel);
 
             // Favorite buttons
             document.querySelectorAll('.favorite-btn').forEach(btn => {
@@ -2323,9 +2200,12 @@ else
         // Sound Playback
         // ========================================
         function playSound(soundId, soundName) {
+            // Check if bot is connected via voice panel data attribute
+            const voicePanel = document.getElementById('voice-channel-panel');
+            const isConnected = voicePanel && voicePanel.dataset.connected === 'true';
+
             if (!isConnected) {
                 PortalToast.warning('Please join a voice channel first!');
-                highlightChannelSelector();
                 return;
             }
 
@@ -2341,7 +2221,6 @@ else
                     const errorData = await response.json().catch(() => ({}));
                     if (errorData.message === 'Not connected to voice channel') {
                         PortalToast.warning('Please join a voice channel first!');
-                        highlightChannelSelector();
                         return Promise.reject('not_connected');
                     }
                     throw new Error(errorData.message || 'Failed to play sound');
@@ -2371,16 +2250,6 @@ else
                 console.error('Error playing sound:', error);
                 PortalToast.error(error.message || 'Failed to play sound. Please try again.');
             });
-        }
-
-        function highlightChannelSelector() {
-            const selector = document.getElementById('channelSelect');
-            selector.style.borderColor = '#fbbf24';
-            selector.style.boxShadow = '0 0 0 2px rgba(251, 191, 36, 0.2)';
-            setTimeout(() => {
-                selector.style.borderColor = '';
-                selector.style.boxShadow = '';
-            }, 3000);
         }
 
         function stopPlaying() {
@@ -2416,101 +2285,6 @@ else
             .catch(error => {
                 console.error('Error stopping sound:', error);
                 PortalToast.error(error.message || 'Failed to stop playback');
-            });
-        }
-
-        // ========================================
-        // Voice Channel Controls
-        // ========================================
-        function joinChannel() {
-            if (!selectedChannel) {
-                PortalToast.warning('Please select a voice channel first!');
-                highlightChannelSelector();
-                return;
-            }
-
-            const joinBtn = document.getElementById('joinBtn');
-            joinBtn.disabled = true;
-            joinBtn.innerHTML = '<svg class="animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Joining...';
-
-            // Call API to join channel (POST /channel)
-            fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ channelId: selectedChannel })
-            })
-            .then(async response => {
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || 'Failed to join channel');
-                }
-                return response.json();
-            })
-            .then(data => {
-                isConnected = true;
-                updateConnectionUI(true);
-                PortalToast.success('Connected to voice channel');
-            })
-            .catch(error => {
-                console.error('Error joining channel:', error);
-                PortalToast.error(error.message || 'Failed to join voice channel');
-                joinBtn.disabled = false;
-            })
-            .finally(() => {
-                // Reset button state
-                joinBtn.disabled = isConnected;
-                joinBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1" /></svg> Join';
-            });
-        }
-
-        function leaveChannel() {
-            const leaveBtn = document.getElementById('leaveBtn');
-            leaveBtn.disabled = true;
-            leaveBtn.innerHTML = '<svg class="animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg> Leaving...';
-
-            // Call API to leave channel (DELETE /channel)
-            fetch(`/api/portal/soundboard/${window.guildId}/channel`, {
-                method: 'DELETE',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(async response => {
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.message || 'Failed to leave channel');
-                }
-                return response.json();
-            })
-            .then(data => {
-                isConnected = false;
-                selectedChannel = '';
-                currentlyPlaying = null;
-                currentlyPlayingName = null;
-
-                // Update UI using helper functions
-                updateConnectionUI(false);
-                updateNowPlayingUI(null);
-                document.getElementById('channelSelect').value = '';
-
-                // Remove playing state from cards
-                document.querySelectorAll('.sound-card').forEach(card => {
-                    card.classList.remove('playing');
-                });
-
-                PortalToast.info('Disconnected from voice channel');
-            })
-            .catch(error => {
-                console.error('Error leaving channel:', error);
-                PortalToast.error(error.message || 'Failed to leave voice channel');
-                leaveBtn.disabled = false;
-            })
-            .finally(() => {
-                // Reset button state
-                leaveBtn.disabled = !isConnected;
-                leaveBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg> Leave';
             });
         }
 
