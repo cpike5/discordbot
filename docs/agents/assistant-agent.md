@@ -148,7 +148,7 @@ Retrieves comprehensive documentation for a bot feature including ALL related co
 **Parameters:**
 - `feature_name` (required): The name of the feature to get documentation for. Use lowercase with hyphens.
 
-**Available features:** soundboard, rat-watch, tts, reminder, member-directory, moderation, welcome, scheduled-messages, consent, privacy, commands, settings, audio, performance, audit
+**Available features:** soundboard, rat-watch, tts, vox, reminder, member-directory, moderation, welcome, scheduled-messages, consent, privacy, commands, settings, audio, performance, audit
 
 **When to use:**
 - **FIRST CHOICE** for any question about using a feature (e.g., "how do I use rat watch", "how does soundboard work")
@@ -332,6 +332,9 @@ Below is a summary of the main commands supported by the Discord Bot:
 - `/join-channel <channel>` - Join a specific voice channel
 - `/leave` - Leave the voice channel
 - `/tts <message> [voice]` - Text-to-speech message in voice channel
+- `/vox <message> [gap]` - Play a VOX announcement (Half-Life PA system style)
+- `/fvox <message> [gap]` - Play an FVOX announcement (Half-Life HEV suit style)
+- `/hgrunt <message> [gap]` - Play an HGrunt announcement (Half-Life military radio style)
 
 ### Consent & Privacy
 - `/consent` - Manage your data consent preferences
@@ -348,6 +351,7 @@ Below are some relevant documentation links for key features of the Discord Bot:
 - [Member Directory](https://github.com/cpike5/discordbot/blob/main/docs/articles/member-directory.md) - Guild member management
 - [Soundboard](https://github.com/cpike5/discordbot/blob/main/docs/articles/soundboard.md) - Audio playback in voice channels
 - [TTS Support](https://github.com/cpike5/discordbot/blob/main/docs/articles/tts-support.md) - Text-to-speech with Azure Cognitive Services
+- [VOX System](https://github.com/cpike5/discordbot/blob/main/docs/articles/vox-system-spec.md) - Half-Life style concatenated clip announcements
 - [Welcome System](https://github.com/cpike5/discordbot/blob/main/docs/articles/welcome-system.md) - Welcome messages and role assignment
 - [Consent & Privacy](https://github.com/cpike5/discordbot/blob/main/docs/articles/consent-privacy.md) - User consent and data privacy management
 - [Utility Commands](https://github.com/cpike5/discordbot/blob/main/docs/articles/utility-commands.md) - User/server/role information commands
@@ -380,6 +384,17 @@ The soundboard URL is https://discordbot.cpike.ca/Portal/Soundboard/{{GUILD_ID}}
 ## TTS URL
 
 The TTS URL is https://discordbot.cpike.ca/Portal/TTS/{{GUILD_ID}}
+
+## VOX URL
+
+The VOX Portal URL is https://discordbot.cpike.ca/Portal/VOX/{{GUILD_ID}}
+
+VOX is a Half-Life style concatenated clip announcement system. It plays pre-recorded word clips in sequence to create robotic, word-by-word announcements. Three clip groups are available:
+- **VOX** (`/vox`) - Half-Life PA system announcements
+- **FVOX** (`/fvox`) - Half-Life HEV suit (female voice)
+- **HGrunt** (`/hgrunt`) - Half-Life military grunt radio
+
+The optional `gap` parameter controls silence between words (20-200ms, default 50ms).
 
 ## Message Logging
 

@@ -669,6 +669,14 @@ Users cannot break out of the assistant context - Claude is constrained to answe
 
 ---
 
+## Adding New Features to Assistant Knowledge
+
+When adding a new feature to the bot, the AI assistant needs to be updated so it can answer questions about the new feature. This involves updating the agent prompt, documentation tool mappings, and ensuring feature documentation exists.
+
+See **[Adding Features to Assistant Knowledge](assistant-feature-updates.md)** for the complete guide.
+
+---
+
 ## Future Enhancements
 
 **Potential improvements** (not in current MVP):

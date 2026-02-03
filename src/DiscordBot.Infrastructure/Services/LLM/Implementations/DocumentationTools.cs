@@ -62,7 +62,7 @@ public static class DocumentationTools
         return new LlmToolDefinition
         {
             Name = GetFeatureDocumentation,
-            Description = "Retrieves comprehensive documentation for a bot feature including ALL related commands, configuration options, usage instructions, and examples. This is the BEST tool for 'how do I use X' questions - use it FIRST before search_commands. Feature names: soundboard, rat-watch, tts, reminder, member-directory, moderation, welcome, scheduled-messages, consent, privacy, commands, settings, audio, performance, audit.",
+            Description = "Retrieves comprehensive documentation for a bot feature including ALL related commands, configuration options, usage instructions, and examples. This is the BEST tool for 'how do I use X' questions - use it FIRST before search_commands. Feature names: soundboard, rat-watch, tts, vox, reminder, member-directory, moderation, welcome, scheduled-messages, consent, privacy, commands, settings, audio, performance, audit.",
             InputSchema = schema.RootElement.Clone()
         };
     }

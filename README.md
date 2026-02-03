@@ -423,6 +423,16 @@ public class MyModule : InteractionModuleBase<SocketInteractionContext>
 
 3. Restart the bot to apply changes.
 
+### Updating AI Assistant Knowledge
+
+When adding a new feature, update the AI assistant so it can answer user questions about the feature:
+
+1. **Agent Prompt** (`docs/agents/assistant-agent.md`) - Add commands, feature docs links, portal URLs
+2. **Tool Mappings** (`DocumentationToolProvider.cs`) - Map feature names to documentation files
+3. **Tool Description** (`DocumentationTools.cs`) - Add feature to the available features list
+
+See [assistant-feature-updates.md](docs/articles/assistant-feature-updates.md) for the complete guide.
+
 ### Building and Testing
 
 ```bash
