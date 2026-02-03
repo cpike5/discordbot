@@ -20,6 +20,7 @@ public class VoxClipLibrary : IVoxClipLibrary
     private readonly VoxOptions _options;
     private readonly Dictionary<VoxClipGroup, Dictionary<string, VoxClipInfo>> _clipInventory;
     private readonly SemaphoreSlim _initLock;
+    private readonly TaskCompletionSource _initializationTcs;
     private bool _initialized;
 
     public VoxClipLibrary(
@@ -30,6 +31,7 @@ public class VoxClipLibrary : IVoxClipLibrary
         _options = options.Value;
         _clipInventory = new Dictionary<VoxClipGroup, Dictionary<string, VoxClipInfo>>();
         _initLock = new SemaphoreSlim(1, 1);
+        _initializationTcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
     }
 
     /// <inheritdoc/>
@@ -65,10 +67,34 @@ public class VoxClipLibrary : IVoxClipLibrary
             }
 
             _initialized = true;
+            _initializationTcs.TrySetResult();
         }
         finally
         {
             _initLock.Release();
+        }
+    }
+
+    /// <inheritdoc/>
+    public bool IsInitialized => _initialized;
+
+    /// <inheritdoc/>
+    public async Task<bool> WaitForInitializationAsync(TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        if (_initialized)
+            return true;
+
+        using var cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        cts.CancelAfter(timeout);
+
+        try
+        {
+            await _initializationTcs.Task.WaitAsync(cts.Token);
+            return true;
+        }
+        catch (OperationCanceledException)
+        {
+            return false;
         }
     }
 
@@ -133,6 +159,14 @@ public class VoxClipLibrary : IVoxClipLibrary
         EnsureInitialized();
         var groupPath = GetGroupDirectoryPath(group);
         var normalizedName = clipName.ToLowerInvariant();
+
+        // Look up the clip to get the original filename (which may differ from normalized name)
+        if (_clipInventory[group].TryGetValue(normalizedName, out var clip))
+        {
+            return Path.Combine(groupPath, $"{clip.FileName}.mp3");
+        }
+
+        // Fallback to using the provided name if clip not found
         return Path.Combine(groupPath, $"{normalizedName}.mp3");
     }
 
@@ -202,6 +236,7 @@ public class VoxClipLibrary : IVoxClipLibrary
             return new VoxClipInfo
             {
                 Name = fileName,
+                FileName = fileName,
                 Group = group,
                 FileSizeBytes = fileInfo.Length,
                 DurationSeconds = duration
@@ -268,10 +303,15 @@ public class VoxClipLibrary : IVoxClipLibrary
 
     private void EnsureInitialized()
     {
-        if (!_initialized)
+        if (_initialized)
+            return;
+
+        // Wait briefly for initialization to complete (background service may still be initializing)
+        var waitTask = WaitForInitializationAsync(TimeSpan.FromSeconds(30));
+        if (!waitTask.GetAwaiter().GetResult())
         {
             throw new InvalidOperationException(
-                "VoxClipLibrary has not been initialized. Call InitializeAsync() before using the library.");
+                "VoxClipLibrary initialization timed out. The library may still be loading clips in the background.");
         }
     }
 }

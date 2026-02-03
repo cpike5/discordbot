@@ -21,26 +21,91 @@
 @section Styles {
     <link rel="stylesheet" href="~/css/nav-tabs.css" asp-append-version="true" />
     <style>
-        /* Two-column layout */
-        .vox-portal-layout {
+        :root {
+            --portal-header-height: 70px;
+        }
+
+        /* Prevent body/html scroll - portal pages fill viewport exactly */
+        html.portal-page,
+        html.portal-page body {
+            overflow: hidden;
+            height: 100%;
+        }
+
+        /* Header - single row layout matching TTS/Soundboard */
+        .portal-header {
+            background-color: var(--color-bg-primary);
+            border-bottom: 1px solid var(--color-border-primary);
+            padding: 1rem 1.5rem;
+        }
+
+        .portal-header .header-content {
+            max-width: 1600px;
+            margin: 0 auto;
             display: flex;
-            gap: 1.5rem;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0;
+        }
+
+        .portal-header .header-top {
+            margin-bottom: 0;
+        }
+
+        /* Main layout - matches TTS/Soundboard portal pages */
+        .main-container {
             max-width: 1600px;
             margin: 0 auto;
             padding: 1.5rem;
+            height: calc(100vh - var(--portal-header-height));
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
         }
 
-        .vox-sidebar {
+        .portal-content {
+            display: flex;
+            gap: 1.5rem;
+            flex: 1 1 0;
+            min-height: 0;
+        }
+
+        .sidebar {
             width: 300px;
-            flex-shrink: 0;
+            flex: 0 0 300px;
+            min-height: 0;
+            background-color: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            padding: 1.25rem;
+            overflow-y: auto;
             display: flex;
             flex-direction: column;
             gap: 1rem;
         }
 
-        .vox-main-panel {
+        .vox-panel {
             flex: 1;
             min-width: 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Tab content panels need to fill space and be flex containers */
+        .vox-panel > [data-nav-panel-for] {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow: hidden;
+        }
+
+        /* Respect hidden attribute on tab panels */
+        .vox-panel > [data-nav-panel-for][hidden] {
+            display: none;
         }
 
         /* Sidebar panels */
@@ -124,7 +189,16 @@
 
         /* Group tabs container */
         .vox-group-tabs-section {
-            margin-bottom: 1.5rem;
+            flex-shrink: 0;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Prevent composer sections from growing */
+        .vox-message-section,
+        .vox-token-preview,
+        .vox-settings,
+        .vox-play-section {
+            flex-shrink: 0;
         }
 
         .vox-clip-browser-placeholder {
@@ -142,12 +216,13 @@
 
         /* Responsive */
         @@media (max-width: 768px) {
-            .vox-portal-layout {
+            .portal-content {
                 flex-direction: column;
             }
 
-            .vox-sidebar {
+            .sidebar {
                 width: 100%;
+                flex: none;
             }
         }
 
@@ -486,11 +561,13 @@
         }
 
         .vox-spinner {
+            display: inline-block;
             width: 0.9rem;
             height: 0.9rem;
             border: 2px solid rgba(255, 255, 255, 0.3);
             border-top-color: white;
             border-radius: 50%;
+            vertical-align: middle;
             animation: spin 0.6s linear infinite;
         }
 
@@ -499,7 +576,9 @@
             display: flex;
             flex-direction: column;
             gap: 0.75rem;
-            min-height: 200px;
+            flex: 1;
+            min-height: 0;
+            overflow: hidden;
         }
 
         .vox-clip-search-group {
@@ -542,9 +621,11 @@
             display: grid;
             grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
             gap: 0.75rem;
+            flex: 1;
+            min-height: 0;
             overflow-y: auto;
-            max-height: 400px;
             padding-right: 0.25rem;
+            align-content: start;
         }
 
         .vox-clip-tile {
@@ -641,6 +722,12 @@
 
 @section Scripts {
     <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+
+    <!-- Voice Channel Panel Dependencies -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.0/signalr.min.js"></script>
+    <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
+    <script src="~/js/voice-channel-panel.js" asp-append-version="true"></script>
+
     <script>
         // Store guildId as string to avoid JS precision issues with Discord snowflake IDs
         window.guildId = '@Model.GuildId';
@@ -693,6 +780,7 @@
             return div.innerHTML;
         }
 
+
         // Initialize VOX Portal
         document.addEventListener('DOMContentLoaded', () => {
             // Initialize DOM references for active tab
@@ -701,8 +789,8 @@
             // Load clips for initial group
             loadClipsForGroup('vox');
 
-            // Listen for tab switches
-            document.addEventListener('navTabChanged', (e) => {
+            // Listen for tab switches (nav-tabs.js dispatches 'navtabchange')
+            document.addEventListener('navtabchange', (e) => {
                 if (e.detail.containerId === 'voxGroupTabs') {
                     const newGroup = e.detail.tabId;
                     voxState.activeGroup = newGroup;
@@ -863,7 +951,28 @@
         }
 
         function handleKeyDown(e) {
-            if (!voxEls.autocompleteDropdown || !voxEls.autocompleteDropdown.classList.contains('active')) return;
+            const isAutocompleteActive = voxEls.autocompleteDropdown &&
+                                          voxEls.autocompleteDropdown.classList.contains('active');
+
+            // Handle Enter key - either select suggestion or play message
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (isAutocompleteActive) {
+                    const items = Array.from(voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item'));
+                    if (voxState.highlightedIndex >= 0 && items[voxState.highlightedIndex]) {
+                        selectSuggestion(items[voxState.highlightedIndex].dataset.clipName);
+                    } else if (items.length > 0) {
+                        selectSuggestion(items[0].dataset.clipName);
+                    }
+                } else {
+                    // Autocomplete not open - send the message
+                    handlePlay();
+                }
+                return;
+            }
+
+            // Rest of key handling only applies when autocomplete is active
+            if (!isAutocompleteActive) return;
 
             const items = Array.from(voxEls.autocompleteDropdown.querySelectorAll('.vox-autocomplete-item'));
             if (items.length === 0) return;
@@ -879,11 +988,12 @@
                     voxState.highlightedIndex = Math.max(voxState.highlightedIndex - 1, -1);
                     updateHighlight(items);
                     break;
-                case 'Enter':
                 case 'Tab':
                     e.preventDefault();
                     if (voxState.highlightedIndex >= 0) {
                         selectSuggestion(items[voxState.highlightedIndex].dataset.clipName);
+                    } else if (items.length > 0) {
+                        selectSuggestion(items[0].dataset.clipName);
                     }
                     break;
                 case 'Escape':
@@ -950,7 +1060,7 @@
 
                 const tokenClass = isMatched ? 'matched' : 'skipped';
                 const gap = idx < words.length - 1 ? '<span class="vox-token-gap">·</span>' : '';
-                return `<span class="vox-token ${tokenClass}">${word}</span>${gap}`;
+                return `<span class="vox-token ${tokenClass}">${escapeHtml(word)}</span>${gap}`;
             }).join('');
 
             // Add word gap duration
@@ -1016,7 +1126,9 @@
                     throw new Error(error.message || 'Failed to play VOX message');
                 }
 
-                // Success feedback
+                // Success - clear the message input
+                voxEls.messageInput.value = '';
+                updateTokenPreview();
                 console.log('VOX message sent successfully');
             } catch (error) {
                 console.error('Error playing VOX:', error);
@@ -1094,8 +1206,6 @@
     </script>
 }
 
-@await Html.PartialAsync("../Shared/_PortalHeader", portalHeader)
-
 @if (!Model.IsAuthenticated)
 {
     <!-- Landing page for unauthenticated users -->
@@ -1169,9 +1279,21 @@ else if (!Model.IsAuthorized)
 else
 {
     <!-- Full VOX Portal for authorized users -->
-    <div class="vox-portal-layout">
-        <!-- Sidebar -->
-        <aside class="vox-sidebar">
+
+    <!-- Portal Header with Navigation -->
+    <partial name="../Shared/_PortalHeader" model='new DiscordBot.Bot.ViewModels.Portal.PortalHeaderViewModel {
+        GuildId = Model.GuildId,
+        GuildName = Model.GuildName,
+        GuildIconUrl = Model.GuildIconUrl,
+        IsOnline = Model.IsOnline,
+        ActiveTab = "vox"
+    }' />
+
+    <!-- Main Content -->
+    <main class="main-container">
+        <div class="portal-content">
+            <!-- LEFT: Sidebar -->
+            <div class="sidebar">
             <!-- Voice Channel Panel -->
             @if (Model.VoicePanel != null)
             {
@@ -1214,10 +1336,10 @@ else
                     <span class="stat-value">@Model.HgruntClipCount clips</span>
                 </div>
             </div>
-        </aside>
+            </div>
 
-        <!-- Main Panel -->
-        <main class="vox-main-panel">
+            <!-- RIGHT: Main Panel -->
+            <div class="vox-panel">
             <!-- Group Tabs -->
             <div class="vox-group-tabs-section">
                 @if (Model.GroupTabs != null)
@@ -1233,7 +1355,7 @@ else
                 var prefix = $"vox-{group}";
                 var groupName = group == "vox" ? "VOX" : (group == "fvox" ? "FVOX" : "HGrunt");
 
-                <div data-nav-panel-for="voxGroupTabs" data-tab-id="@group" style="@(isActive ? "" : "display:none")">
+                <div data-nav-panel-for="voxGroupTabs" data-tab-id="@group" @(isActive ? "" : "hidden")>
                     <!-- Message Input Section -->
                     <div class="vox-message-section">
                         <label class="vox-message-label" for="@(prefix)-message-input">Message</label>
@@ -1332,6 +1454,7 @@ else
                     </div>
                 </div>
             }
-        </main>
-    </div>
+            </div>
+        </div>
+    </main>
 }

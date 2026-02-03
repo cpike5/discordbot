@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using Discord.Audio;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.Configuration;
@@ -16,8 +15,6 @@ namespace DiscordBot.Bot.Services;
 /// </summary>
 public class VoxService : IVoxService
 {
-    private static readonly Regex PunctuationRegex = new(@"^[^\w]+|[^\w]+$", RegexOptions.Compiled);
-
     private readonly ILogger<VoxService> _logger;
     private readonly VoxOptions _options;
     private readonly IVoxClipLibrary _clipLibrary;
@@ -277,7 +274,8 @@ public class VoxService : IVoxService
 
     /// <summary>
     /// Tokenizes a message into individual words.
-    /// Splits on whitespace, converts to lowercase, and strips leading/trailing punctuation.
+    /// Splits on whitespace and converts to lowercase.
+    /// Preserves punctuation like ! and ? that may be part of clip names (e.g., "request!").
     /// </summary>
     private List<string> TokenizeMessage(string message)
     {
@@ -290,11 +288,8 @@ public class VoxService : IVoxService
 
         foreach (var rawToken in rawTokens)
         {
-            // Convert to lowercase
+            // Convert to lowercase - preserve all characters including ! and ?
             var token = rawToken.ToLowerInvariant();
-
-            // Strip leading and trailing punctuation
-            token = PunctuationRegex.Replace(token, string.Empty);
 
             // Only add non-empty tokens
             if (!string.IsNullOrEmpty(token))

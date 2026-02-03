@@ -53,4 +53,17 @@ public interface IVoxClipLibrary
     /// <param name="group">The clip group.</param>
     /// <returns>The count of clips.</returns>
     int GetClipCount(VoxClipGroup group);
+
+    /// <summary>
+    /// Gets a value indicating whether the library has been initialized.
+    /// </summary>
+    bool IsInitialized { get; }
+
+    /// <summary>
+    /// Waits for the library to be initialized.
+    /// </summary>
+    /// <param name="timeout">Maximum time to wait for initialization.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>True if initialized within timeout, false otherwise.</returns>
+    Task<bool> WaitForInitializationAsync(TimeSpan timeout, CancellationToken cancellationToken = default);
 }

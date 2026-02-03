@@ -8,9 +8,15 @@ namespace DiscordBot.Core.DTOs.Vox;
 public record VoxClipInfo
 {
     /// <summary>
-    /// Clip name (filename without extension, e.g. "warning").
+    /// Normalized clip name used for lookups (punctuation stripped, lowercase).
     /// </summary>
     public string Name { get; init; } = "";
+
+    /// <summary>
+    /// Original filename without extension (may contain punctuation like "request!").
+    /// Used to locate the actual file on disk.
+    /// </summary>
+    public string FileName { get; init; } = "";
 
     /// <summary>
     /// Which group this clip belongs to.

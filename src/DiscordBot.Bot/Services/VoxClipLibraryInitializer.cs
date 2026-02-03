@@ -5,10 +5,10 @@ using System.Diagnostics;
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
-/// Hosted service that initializes the VOX clip library at application startup.
-/// Logs initialization timing and clip counts per group.
+/// Background service that initializes the VOX clip library after application startup.
+/// Runs asynchronously to avoid blocking the application startup process.
 /// </summary>
-public class VoxClipLibraryInitializer : IHostedService
+public class VoxClipLibraryInitializer : BackgroundService
 {
     private readonly IVoxClipLibrary _clipLibrary;
     private readonly ILogger<VoxClipLibraryInitializer> _logger;
@@ -27,15 +27,15 @@ public class VoxClipLibraryInitializer : IHostedService
     }
 
     /// <inheritdoc/>
-    public async Task StartAsync(CancellationToken cancellationToken)
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("VOX clip library initialization starting");
+        _logger.LogInformation("VOX clip library background initialization starting");
 
         var stopwatch = Stopwatch.StartNew();
 
         try
         {
-            await _clipLibrary.InitializeAsync(cancellationToken);
+            await _clipLibrary.InitializeAsync(stoppingToken);
             stopwatch.Stop();
 
             var voxCount = _clipLibrary.GetClipCount(VoxClipGroup.Vox);
@@ -49,19 +49,15 @@ public class VoxClipLibraryInitializer : IHostedService
                 hgruntCount,
                 stopwatch.ElapsedMilliseconds);
         }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("VOX clip library initialization cancelled");
+        }
         catch (Exception ex)
         {
             stopwatch.Stop();
             _logger.LogError(ex, "Error initializing VOX clip library after {ElapsedMs}ms",
                 stopwatch.ElapsedMilliseconds);
-            throw;
         }
-    }
-
-    /// <inheritdoc/>
-    public Task StopAsync(CancellationToken cancellationToken)
-    {
-        _logger.LogInformation("VOX clip library initializer stopping");
-        return Task.CompletedTask;
     }
 }
