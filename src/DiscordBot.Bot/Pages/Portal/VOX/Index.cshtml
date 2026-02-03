@@ -1124,7 +1124,10 @@
         function updateTokenPreview() {
             if (!voxEls.messageInput || !voxEls.tokenPills || !voxEls.previewStats) return;
 
-            const text = voxEls.messageInput.value.toLowerCase();
+            // Parse punctuation as timing tokens (must match server-side TokenizeMessage)
+            const text = voxEls.messageInput.value.toLowerCase()
+                .replace(/,/g, ' _comma ')
+                .replace(/\./g, ' _period ');
             const words = text.split(/\s+/).filter(w => w.length > 0);
             const clips = voxState.clipCache[voxState.activeGroup] || [];
             const clipMap = new Map(clips.map(c => [c.name, c]));
