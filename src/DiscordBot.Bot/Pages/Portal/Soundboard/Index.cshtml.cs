@@ -1,5 +1,6 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Portal;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -20,6 +21,7 @@ public class IndexModel : PortalPageModelBase
     private readonly ISoundService _soundService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
     private readonly IAudioService _audioService;
+    private readonly IPlaybackService _playbackService;
     private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
@@ -29,6 +31,7 @@ public class IndexModel : PortalPageModelBase
         IGuildService guildService,
         DiscordSocketClient discordClient,
         IAudioService audioService,
+        IPlaybackService playbackService,
         ISettingsService settingsService,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
@@ -37,6 +40,7 @@ public class IndexModel : PortalPageModelBase
         _soundService = soundService;
         _audioSettingsRepository = audioSettingsRepository;
         _audioService = audioService;
+        _playbackService = playbackService;
         _settingsService = settingsService;
         _logger = logger;
     }
@@ -47,24 +51,9 @@ public class IndexModel : PortalPageModelBase
     public IReadOnlyList<PortalSoundViewModel> Sounds { get; set; } = Array.Empty<PortalSoundViewModel>();
 
     /// <summary>
-    /// Gets the list of voice channels in the guild.
+    /// Gets the voice channel panel view model.
     /// </summary>
-    public List<VoiceChannelInfo> VoiceChannels { get; set; } = new();
-
-    /// <summary>
-    /// Gets the ID of the voice channel the bot is currently connected to.
-    /// </summary>
-    public ulong? CurrentChannelId { get; set; }
-
-    /// <summary>
-    /// Gets whether the bot is connected to a voice channel in this guild.
-    /// </summary>
-    public bool IsConnected { get; set; }
-
-    /// <summary>
-    /// Gets the number of members in the currently connected voice channel (excluding bots).
-    /// </summary>
-    public int? CurrentChannelMemberCount { get; set; }
+    public VoiceChannelPanelViewModel? VoicePanel { get; set; }
 
     /// <summary>
     /// Gets the maximum number of sounds allowed per guild.
@@ -156,21 +145,43 @@ public class IndexModel : PortalPageModelBase
                 })
                 .ToList();
 
-            // Set remaining view properties
-            Sounds = soundViewModels;
-            VoiceChannels = BuildVoiceChannelList(context!.SocketGuild);
-            CurrentChannelId = _audioService.GetConnectedChannelId(guildId);
-            IsConnected = _audioService.IsConnected(guildId);
+            // Build voice channel panel data
+            var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
+            var isConnected = _audioService.IsConnected(guildId);
+            string? connectedChannelName = null;
+            int? channelMemberCount = null;
 
-            // Get member count if connected
-            if (IsConnected && CurrentChannelId.HasValue)
+            if (isConnected && connectedChannelId.HasValue)
             {
-                var connectedChannel = context.SocketGuild.GetVoiceChannel(CurrentChannelId.Value);
+                var connectedChannel = context!.SocketGuild.GetVoiceChannel(connectedChannelId.Value);
                 if (connectedChannel != null)
                 {
-                    CurrentChannelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
+                    connectedChannelName = connectedChannel.Name;
+                    channelMemberCount = connectedChannel.ConnectedUsers.Count(u => !u.IsBot);
                 }
             }
+
+            VoicePanel = new VoiceChannelPanelViewModel
+            {
+                GuildId = guildId,
+                IsCompact = true,
+                IsConnected = isConnected,
+                ConnectedChannelId = connectedChannelId,
+                ConnectedChannelName = connectedChannelName,
+                ChannelMemberCount = channelMemberCount,
+                AvailableChannels = BuildVoiceChannelList(context!.SocketGuild)
+                    .Select(c => new DiscordBot.Bot.ViewModels.Components.VoiceChannelInfo
+                    {
+                        Id = c.Id,
+                        Name = c.Name,
+                        MemberCount = c.MemberCount
+                    }).ToList(),
+                NowPlaying = null,
+                Queue = []
+            };
+
+            // Set remaining view properties
+            Sounds = soundViewModels;
             MaxSounds = settings.MaxSoundsPerGuild;
             CurrentSoundCount = sounds.Count;
             SupportedFormats = "MP3, WAV, OGG";
