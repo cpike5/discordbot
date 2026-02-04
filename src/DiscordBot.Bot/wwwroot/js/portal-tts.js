@@ -783,7 +783,7 @@
      */
     window.portalHandlePresetApply = function(presetData) {
         if (presetData.voice && window.voiceSelector_setValue) {
-            window.voiceSelector_setValue('portalVoiceSelector', presetData.voice);
+            window.voiceSelector_setValue('portalVoiceSelector', presetData.voice, true);
         }
 
         const speedSlider = document.getElementById('speedSlider');
