@@ -34,6 +34,8 @@ Three-layer clean architecture: Core (domain) → Infrastructure (data) → Bot 
 
 **Key patterns:** `DiscordSocketClient` singleton managed by `BotHostedService`; Repository pattern; Serilog logging; ASP.NET Core Identity with Discord OAuth; IOptions<T> for config.
 
+For system-level understanding during major feature work, see `docs/architecture/`.
+
 ## Critical Gotchas
 
 ### JavaScript and Discord Snowflake IDs
