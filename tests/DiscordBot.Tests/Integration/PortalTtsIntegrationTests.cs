@@ -38,8 +38,13 @@ public class PortalTtsIntegrationTests : IDisposable
     private readonly Mock<ITtsMessageRepository> _mockTtsMessageRepository;
     private readonly Mock<IAudioService> _mockAudioService;
     private readonly Mock<IPlaybackService> _mockPlaybackService;
+    private readonly Mock<ITtsPlaybackService> _mockTtsPlaybackService;
     private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IVoiceCapabilityProvider> _mockVoiceCapabilityProvider;
+    private readonly Mock<IStylePresetProvider> _mockStylePresetProvider;
+    private readonly Mock<ISsmlValidator> _mockSsmlValidator;
+    private readonly Mock<ISsmlBuilder> _mockSsmlBuilder;
     private readonly Mock<ILogger<PortalTtsController>> _mockLogger;
     private readonly AzureSpeechOptions _azureSpeechOptions;
 
@@ -54,8 +59,13 @@ public class PortalTtsIntegrationTests : IDisposable
         _mockTtsMessageRepository = new Mock<ITtsMessageRepository>();
         _mockAudioService = new Mock<IAudioService>();
         _mockPlaybackService = new Mock<IPlaybackService>();
+        _mockTtsPlaybackService = new Mock<ITtsPlaybackService>();
         _mockSettingsService = new Mock<ISettingsService>();
         _mockDiscordClient = new Mock<DiscordSocketClient>(MockBehavior.Default, new DiscordSocketConfig());
+        _mockVoiceCapabilityProvider = new Mock<IVoiceCapabilityProvider>();
+        _mockStylePresetProvider = new Mock<IStylePresetProvider>();
+        _mockSsmlValidator = new Mock<ISsmlValidator>();
+        _mockSsmlBuilder = new Mock<ISsmlBuilder>();
         _mockLogger = new Mock<ILogger<PortalTtsController>>();
 
         // Setup bot-level audio enabled by default
@@ -77,9 +87,14 @@ public class PortalTtsIntegrationTests : IDisposable
             _mockTtsMessageRepository.Object,
             _mockAudioService.Object,
             _mockPlaybackService.Object,
+            _mockTtsPlaybackService.Object,
             _mockSettingsService.Object,
             _mockDiscordClient.Object,
             Options.Create(_azureSpeechOptions),
+            _mockVoiceCapabilityProvider.Object,
+            _mockStylePresetProvider.Object,
+            _mockSsmlValidator.Object,
+            _mockSsmlBuilder.Object,
             _mockLogger.Object);
 
         // Setup HttpContext with Discord claims (simulating OAuth authentication)
