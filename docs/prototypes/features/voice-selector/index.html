@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice Selector Dropdown Component</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: #1a1a2e;
+            color: #e8e8e8;
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+
+        .demo-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .demo-title {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 30px;
+            color: #e8e8e8;
+        }
+
+        /* Voice Selector Component */
+        .voice-selector {
+            width: 100%;
+            position: relative;
+        }
+
+        .voice-selector-label {
+            display: block;
+            font-size: 14px;
+            font-weight: 500;
+            margin-bottom: 8px;
+            color: #a0a0a0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .voice-selector-trigger {
+            width: 100%;
+            padding: 12px 16px;
+            background: #16213e;
+            border: 1px solid #2a2a4a;
+            border-radius: 6px;
+            color: #e8e8e8;
+            font-size: 14px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+
+        .voice-selector-trigger:hover {
+            background: rgba(255, 255, 255, 0.05);
+            border-color: #3a3a5a;
+        }
+
+        .voice-selector-trigger.open {
+            border-bottom-left-radius: 0;
+            border-bottom-right-radius: 0;
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.05);
+        }
+
+        .voice-selector-trigger-text {
+            text-align: left;
+            flex: 1;
+        }
+
+        .voice-selector-trigger-chevron {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            margin-left: 12px;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+
+        .voice-selector-trigger.open .voice-selector-trigger-chevron {
+            transform: rotate(180deg);
+        }
+
+        .voice-selector-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: #16213e;
+            border: 1px solid #2a2a4a;
+            border-top: none;
+            border-bottom-left-radius: 6px;
+            border-bottom-right-radius: 6px;
+            max-height: 0;
+            overflow: hidden;
+            opacity: 0;
+            transition: all 0.2s ease;
+            z-index: 1000;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+        }
+
+        .voice-selector-dropdown.open {
+            max-height: 500px;
+            opacity: 1;
+            overflow-y: auto;
+        }
+
+        .voice-selector-dropdown-content {
+            padding: 12px;
+        }
+
+        .voice-search {
+            position: sticky;
+            top: 0;
+            padding: 0 0 12px 0;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #2a2a4a;
+            background: #16213e;
+            z-index: 10;
+        }
+
+        .voice-search-input {
+            width: 100%;
+            padding: 10px 12px;
+            background: #0f0f1a;
+            border: 1px solid #2a2a4a;
+            border-radius: 4px;
+            color: #e8e8e8;
+            font-size: 13px;
+            transition: all 0.2s ease;
+        }
+
+        .voice-search-input::placeholder {
+            color: #666666;
+        }
+
+        .voice-search-input:focus {
+            outline: none;
+            border-color: #f59e0b;
+            background: rgba(245, 158, 11, 0.08);
+        }
+
+        .voice-search-icon {
+            display: inline-block;
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            margin-top: -6px;
+            color: #a0a0a0;
+        }
+
+        .voice-group {
+            margin-bottom: 4px;
+        }
+
+        .voice-group.hidden {
+            display: none;
+        }
+
+        .voice-group-header {
+            padding: 8px 12px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            align-items: center;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #a0a0a0;
+            transition: all 0.2s ease;
+            border-radius: 4px;
+        }
+
+        .voice-group-header:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #e8e8e8;
+        }
+
+        .voice-group-chevron {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            margin-right: 8px;
+            flex-shrink: 0;
+            transition: transform 0.2s ease;
+        }
+
+        .voice-group-chevron.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .voice-group-name {
+            flex: 1;
+        }
+
+        .voice-group-count {
+            font-size: 11px;
+            font-weight: 500;
+            color: #666666;
+            margin-left: auto;
+        }
+
+        .voice-group-items {
+            max-height: 1000px;
+            overflow: hidden;
+            transition: max-height 0.2s ease;
+        }
+
+        .voice-group-items.collapsed {
+            max-height: 0;
+        }
+
+        .voice-item {
+            padding: 10px 12px;
+            padding-left: 28px;
+            cursor: pointer;
+            user-select: none;
+            font-size: 13px;
+            color: #a0a0a0;
+            transition: all 0.15s ease;
+            border-radius: 4px;
+            position: relative;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .voice-item:hover {
+            background: rgba(255, 255, 255, 0.05);
+            color: #e8e8e8;
+        }
+
+        .voice-item.selected {
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        .voice-item.hidden {
+            display: none;
+        }
+
+        .voice-checkmark {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 16px;
+            height: 16px;
+            margin-left: 8px;
+            flex-shrink: 0;
+            color: #f59e0b;
+            font-weight: bold;
+            font-size: 14px;
+        }
+
+        .voice-item:not(.selected) .voice-checkmark {
+            display: none;
+        }
+
+        /* Scrollbar styling */
+        .voice-selector-dropdown::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .voice-selector-dropdown::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .voice-selector-dropdown::-webkit-scrollbar-thumb {
+            background: #2a2a4a;
+            border-radius: 3px;
+        }
+
+        .voice-selector-dropdown::-webkit-scrollbar-thumb:hover {
+            background: #3a3a5a;
+        }
+
+        /* No results message */
+        .voice-no-results {
+            padding: 20px;
+            text-align: center;
+            color: #666666;
+            font-size: 13px;
+        }
+
+        /* Demo footer */
+        .demo-footer {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 1px solid #2a2a4a;
+            font-size: 12px;
+            color: #666666;
+        }
+
+        .demo-info {
+            margin-top: 20px;
+            padding: 12px;
+            background: rgba(245, 158, 11, 0.1);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+            border-radius: 4px;
+            color: #e8e8e8;
+            font-size: 12px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div class="demo-container">
+        <h1 class="demo-title">Voice Selector Dropdown</h1>
+
+        <div class="voice-selector">
+            <label class="voice-selector-label">Voice</label>
+
+            <button class="voice-selector-trigger" type="button" aria-label="Select voice">
+                <span class="voice-selector-trigger-text">Jenny (Female) - English (US)</span>
+                <svg class="voice-selector-trigger-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+            </button>
+
+            <div class="voice-selector-dropdown" role="listbox">
+                <div class="voice-selector-dropdown-content">
+                    <div class="voice-search">
+                        <input
+                            type="text"
+                            class="voice-search-input"
+                            placeholder="Search voices..."
+                            aria-label="Search voices by name, gender, or language"
+                        />
+                    </div>
+
+                    <!-- Voice groups will be generated by JavaScript -->
+                    <div id="voice-groups-container"></div>
+
+                    <div class="voice-no-results" style="display: none;">
+                        No voices found matching your search.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="demo-footer">
+            <div class="demo-info">
+                <strong>Interactions:</strong>
+                <ul style="margin-top: 8px; margin-left: 16px;">
+                    <li>Click the dropdown to open/close</li>
+                    <li>Type to search voices by name, gender, or language</li>
+                    <li>Click group headers to collapse/expand</li>
+                    <li>Click a voice to select it</li>
+                    <li>Press Escape to close the dropdown</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Voice data organized by language
+        const voiceData = {
+            'English (US)': [
+                { name: 'Jenny', gender: 'Female' },
+                { name: 'Guy', gender: 'Male' },
+                { name: 'Aria', gender: 'Female' },
+                { name: 'Davis', gender: 'Male' },
+                { name: 'Jane', gender: 'Female' },
+                { name: 'Jason', gender: 'Male' },
+            ],
+            'English (UK)': [
+                { name: 'Sonia', gender: 'Female' },
+                { name: 'Ryan', gender: 'Male' },
+                { name: 'Libby', gender: 'Female' },
+            ],
+            'Japanese': [
+                { name: 'Nanami', gender: 'Female' },
+                { name: 'Keita', gender: 'Male' },
+                { name: 'Aoi', gender: 'Female' },
+                { name: 'Daichi', gender: 'Male' },
+            ],
+            'French': [
+                { name: 'Denise', gender: 'Female' },
+                { name: 'Henri', gender: 'Male' },
+                { name: 'Brigitte', gender: 'Female' },
+            ],
+            'German': [
+                { name: 'Katja', gender: 'Female' },
+                { name: 'Conrad', gender: 'Male' },
+                { name: 'Amala', gender: 'Female' },
+            ],
+            'Spanish (Spain)': [
+                { name: 'Elvira', gender: 'Female' },
+                { name: 'Alvaro', gender: 'Male' },
+                { name: 'Abril', gender: 'Female' },
+            ],
+        };
+
+        // Default selected voice
+        let selectedVoice = {
+            name: 'Jenny',
+            gender: 'Female',
+            language: 'English (US)'
+        };
+
+        // Initial group state: English groups expanded, Japanese collapsed
+        const initialGroupState = {
+            'English (US)': true,
+            'English (UK)': true,
+            'Japanese': false,
+            'French': true,
+            'German': true,
+            'Spanish (Spain)': true,
+        };
+
+        // Get DOM elements
+        const trigger = document.querySelector('.voice-selector-trigger');
+        const dropdown = document.querySelector('.voice-selector-dropdown');
+        const searchInput = document.querySelector('.voice-search-input');
+        const groupsContainer = document.getElementById('voice-groups-container');
+        const noResultsMessage = document.querySelector('.voice-no-results');
+        const voiceSelector = document.querySelector('.voice-selector');
+
+        // Initialize the component
+        function initializeComponent() {
+            renderVoiceGroups();
+            attachEventListeners();
+        }
+
+        // Render voice groups
+        function renderVoiceGroups() {
+            groupsContainer.innerHTML = '';
+
+            Object.entries(voiceData).forEach(([language, voices]) => {
+                const groupDiv = document.createElement('div');
+                groupDiv.className = 'voice-group';
+                groupDiv.dataset.language = language;
+
+                // Group header
+                const headerDiv = document.createElement('div');
+                headerDiv.className = 'voice-group-header';
+                headerDiv.dataset.language = language;
+
+                const chevron = document.createElement('span');
+                chevron.className = 'voice-group-chevron';
+                if (!initialGroupState[language]) {
+                    chevron.classList.add('collapsed');
+                }
+                chevron.innerHTML = '▼';
+
+                const nameSpan = document.createElement('span');
+                nameSpan.className = 'voice-group-name';
+                nameSpan.textContent = language;
+
+                const countSpan = document.createElement('span');
+                countSpan.className = 'voice-group-count';
+                countSpan.textContent = `(${voices.length})`;
+
+                headerDiv.appendChild(chevron);
+                headerDiv.appendChild(nameSpan);
+                headerDiv.appendChild(countSpan);
+
+                // Voice items container
+                const itemsDiv = document.createElement('div');
+                itemsDiv.className = 'voice-group-items';
+                if (!initialGroupState[language]) {
+                    itemsDiv.classList.add('collapsed');
+                }
+
+                voices.forEach(voice => {
+                    const itemDiv = document.createElement('div');
+                    itemDiv.className = 'voice-item';
+                    itemDiv.dataset.language = language;
+                    itemDiv.dataset.name = voice.name;
+                    itemDiv.dataset.gender = voice.gender;
+
+                    // Check if this is the selected voice
+                    if (voice.name === selectedVoice.name &&
+                        voice.gender === selectedVoice.gender &&
+                        language === selectedVoice.language) {
+                        itemDiv.classList.add('selected');
+                    }
+
+                    const nameText = document.createElement('span');
+                    nameText.textContent = `${voice.name} (${voice.gender})`;
+
+                    const checkmark = document.createElement('span');
+                    checkmark.className = 'voice-checkmark';
+                    checkmark.textContent = '✓';
+
+                    itemDiv.appendChild(nameText);
+                    itemDiv.appendChild(checkmark);
+
+                    itemsDiv.appendChild(itemDiv);
+                });
+
+                groupDiv.appendChild(headerDiv);
+                groupDiv.appendChild(itemsDiv);
+                groupsContainer.appendChild(groupDiv);
+            });
+        }
+
+        // Attach event listeners
+        function attachEventListeners() {
+            // Toggle dropdown
+            trigger.addEventListener('click', toggleDropdown);
+
+            // Close on outside click
+            document.addEventListener('click', closeOnOutsideClick);
+
+            // Close on Escape
+            document.addEventListener('keydown', closeOnEscape);
+
+            // Search/filter
+            searchInput.addEventListener('input', handleSearch);
+
+            // Group header clicks
+            document.querySelectorAll('.voice-group-header').forEach(header => {
+                header.addEventListener('click', toggleGroup);
+            });
+
+            // Voice item clicks
+            document.querySelectorAll('.voice-item').forEach(item => {
+                item.addEventListener('click', selectVoice);
+            });
+        }
+
+        function toggleDropdown() {
+            const isOpen = dropdown.classList.contains('open');
+            if (isOpen) {
+                closeDropdown();
+            } else {
+                openDropdown();
+            }
+        }
+
+        function openDropdown() {
+            dropdown.classList.add('open');
+            trigger.classList.add('open');
+            searchInput.focus();
+        }
+
+        function closeDropdown() {
+            dropdown.classList.remove('open');
+            trigger.classList.remove('open');
+            searchInput.value = '';
+            clearSearch();
+        }
+
+        function closeOnOutsideClick(e) {
+            if (!voiceSelector.contains(e.target)) {
+                closeDropdown();
+            }
+        }
+
+        function closeOnEscape(e) {
+            if (e.key === 'Escape' && dropdown.classList.contains('open')) {
+                closeDropdown();
+            }
+        }
+
+        function toggleGroup(e) {
+            const header = e.currentTarget;
+            const language = header.dataset.language;
+            const itemsDiv = header.nextElementSibling;
+            const chevron = header.querySelector('.voice-group-chevron');
+
+            itemsDiv.classList.toggle('collapsed');
+            chevron.classList.toggle('collapsed');
+        }
+
+        function selectVoice(e) {
+            const item = e.currentTarget;
+            const language = item.dataset.language;
+            const name = item.dataset.name;
+            const gender = item.dataset.gender;
+
+            // Update selected voice
+            selectedVoice = {
+                name: name,
+                gender: gender,
+                language: language
+            };
+
+            // Update UI
+            document.querySelectorAll('.voice-item').forEach(v => {
+                v.classList.remove('selected');
+            });
+            item.classList.add('selected');
+
+            // Update trigger text
+            trigger.querySelector('.voice-selector-trigger-text').textContent =
+                `${name} (${gender}) - ${language}`;
+
+            // Close dropdown
+            closeDropdown();
+        }
+
+        function handleSearch(e) {
+            const searchTerm = e.target.value.toLowerCase().trim();
+
+            if (searchTerm === '') {
+                clearSearch();
+                return;
+            }
+
+            let hasVisibleItems = false;
+
+            document.querySelectorAll('.voice-group').forEach(group => {
+                const language = group.dataset.language;
+                const items = group.querySelectorAll('.voice-item');
+                const header = group.querySelector('.voice-group-header');
+                const itemsDiv = group.querySelector('.voice-group-items');
+                const chevron = header.querySelector('.voice-group-chevron');
+
+                let visibleInGroup = 0;
+
+                items.forEach(item => {
+                    const name = item.dataset.name.toLowerCase();
+                    const gender = item.dataset.gender.toLowerCase();
+                    const lang = language.toLowerCase();
+
+                    const matches = name.includes(searchTerm) ||
+                                  gender.includes(searchTerm) ||
+                                  lang.includes(searchTerm);
+
+                    if (matches) {
+                        item.classList.remove('hidden');
+                        visibleInGroup++;
+                        hasVisibleItems = true;
+                    } else {
+                        item.classList.add('hidden');
+                    }
+                });
+
+                if (visibleInGroup > 0) {
+                    group.classList.remove('hidden');
+                    itemsDiv.classList.remove('collapsed');
+                    chevron.classList.remove('collapsed');
+                } else {
+                    group.classList.add('hidden');
+                }
+            });
+
+            // Show/hide no results message
+            noResultsMessage.style.display = hasVisibleItems ? 'none' : 'block';
+        }
+
+        function clearSearch() {
+            document.querySelectorAll('.voice-item').forEach(item => {
+                item.classList.remove('hidden');
+            });
+
+            document.querySelectorAll('.voice-group').forEach(group => {
+                group.classList.remove('hidden');
+                const language = group.dataset.language;
+                const itemsDiv = group.querySelector('.voice-group-items');
+                const chevron = group.querySelector('.voice-group-chevron');
+
+                if (initialGroupState[language]) {
+                    itemsDiv.classList.remove('collapsed');
+                    chevron.classList.remove('collapsed');
+                } else {
+                    itemsDiv.classList.add('collapsed');
+                    chevron.classList.add('collapsed');
+                }
+            });
+
+            noResultsMessage.style.display = 'none';
+        }
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', initializeComponent);
+    </script>
+</body>
+</html>
