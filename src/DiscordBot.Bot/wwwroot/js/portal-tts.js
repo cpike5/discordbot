@@ -112,22 +112,7 @@
             stopBtn.addEventListener('click', stopPlayback);
         }
 
-        // Voice selection
-        const voiceSelect = document.getElementById('voiceSelect');
-        if (voiceSelect) {
-            voiceSelect.addEventListener('change', function() {
-                // Save selected voice to localStorage
-                saveSelectedVoice(this.value);
-                // Reload styles for new voice
-                if (window.styleSelector_loadStyles) {
-                    window.styleSelector_loadStyles('portalStyleSelector', this.value);
-                }
-                // Rebuild SSML if in Pro mode
-                if (currentMode === 'pro') {
-                    buildSsmlFromCurrentState();
-                }
-            });
-        }
+        // Voice selection - handled by VoiceSelector component via portalHandleVoiceChange callback
 
         // Slider value displays
         const speedSlider = document.getElementById('speedSlider');
@@ -147,16 +132,9 @@
     function loadSavedVoice() {
         try {
             const savedVoice = localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
-            if (savedVoice) {
-                const voiceSelect = document.getElementById('voiceSelect');
-                if (voiceSelect) {
-                    // Check if the saved voice still exists in the dropdown
-                    const option = voiceSelect.querySelector(`option[value="${savedVoice}"]`);
-                    if (option) {
-                        voiceSelect.value = savedVoice;
-                        console.log('[PortalTTS] Restored saved voice:', savedVoice);
-                    }
-                }
+            if (savedVoice && window.voiceSelector_setValue) {
+                window.voiceSelector_setValue('portalVoiceSelector', savedVoice, true);
+                console.log('[PortalTTS] Restored saved voice:', savedVoice);
             }
         } catch (error) {
             console.warn('[PortalTTS] Failed to load saved voice:', error);
@@ -290,7 +268,7 @@
             return;
         }
 
-        const voice = document.getElementById('voiceSelect').value;
+        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
         if (!voice) {
             showToast('warning', 'Please select a voice first!');
             return;
@@ -673,12 +651,11 @@
         if (currentMode !== 'pro') return;
 
         const messageInput = document.getElementById('ttsMessage');
-        const voiceSelect = document.getElementById('voiceSelect');
         const speedSlider = document.getElementById('speedSlider');
         const pitchSlider = document.getElementById('pitchSlider');
 
         const message = messageInput?.value?.trim() || '';
-        const voice = voiceSelect?.value || '';
+        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : '';
         const speed = parseFloat(speedSlider?.value || '1.0');
         const pitch = parseFloat(pitchSlider?.value || '1.0');
 
@@ -789,12 +766,24 @@
     };
 
     /**
+     * Handle voice changes from VoiceSelector component
+     */
+    window.portalHandleVoiceChange = function(voiceValue) {
+        saveSelectedVoice(voiceValue);
+        if (window.styleSelector_loadStyles) {
+            window.styleSelector_loadStyles('portalStyleSelector', voiceValue);
+        }
+        if (currentMode === 'pro') {
+            buildSsmlFromCurrentState();
+        }
+    };
+
+    /**
      * Handle preset application from PresetBar component
      */
     window.portalHandlePresetApply = function(presetData) {
-        const voiceSelect = document.getElementById('voiceSelect');
-        if (voiceSelect && presetData.voice) {
-            voiceSelect.value = presetData.voice;
+        if (presetData.voice && window.voiceSelector_setValue) {
+            window.voiceSelector_setValue('portalVoiceSelector', presetData.voice);
         }
 
         const speedSlider = document.getElementById('speedSlider');
