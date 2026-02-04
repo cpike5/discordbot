@@ -108,32 +108,35 @@ public class VoxModule : InteractionModuleBase<SocketInteractionContext>
         var guildId = Context.Guild.Id;
         var userId = Context.User.Id;
         var groupName = group.ToString().ToUpperInvariant();
+        var wordGapMs = gap ?? _voxOptions.Value.DefaultWordGapMs;
 
         _logger.LogInformation(
-            "{Group} command executed by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}), Message: {Message}, Gap: {Gap}",
+            "VOX_COMMAND_STARTED: {Group} command by {Username} (ID: {UserId}) in guild {GuildName} (ID: {GuildId}), Message: {Message}, WordGapMs: {WordGapMs}, Source: {Source}",
             groupName,
             Context.User.Username,
             userId,
             Context.Guild.Name,
             guildId,
             message,
-            gap);
+            wordGapMs,
+            "SlashCommand");
 
         await DeferAsync(ephemeral: true);
 
         try
         {
-            var wordGapMs = gap ?? _voxOptions.Value.DefaultWordGapMs;
             var options = new VoxPlaybackOptions { WordGapMs = wordGapMs };
 
             var result = await _voxService.PlayAsync(guildId, message, group, options);
 
             if (!result.Success)
             {
-                _logger.LogError(
-                    "Failed to play {Group} message '{Message}': {ErrorMessage}",
+                // Log using standardized VOX_COMMAND_FAILED format
+                // ErrorType is determined by the service and included in the result
+                _logger.LogWarning(
+                    "VOX_COMMAND_FAILED: {Group} command failed for guild {GuildId}. Reason: {ErrorMessage}",
                     groupName,
-                    message,
+                    guildId,
                     result.ErrorMessage);
 
                 await FollowupAsync(
@@ -141,14 +144,6 @@ public class VoxModule : InteractionModuleBase<SocketInteractionContext>
                     ephemeral: true);
                 return;
             }
-
-            _logger.LogInformation(
-                "{Group} message played successfully for guild {GuildId} by user {UserId}. Matched: {MatchedCount}, Skipped: {SkippedCount}",
-                groupName,
-                guildId,
-                userId,
-                result.MatchedWords.Count,
-                result.SkippedWords.Count);
 
             // Build success message
             var responseLines = new List<string>();
@@ -171,12 +166,14 @@ public class VoxModule : InteractionModuleBase<SocketInteractionContext>
         }
         catch (Exception ex)
         {
+            // Log unhandled exceptions using standardized format
             _logger.LogError(
                 ex,
-                "Failed to play {Group} message '{Message}' in guild {GuildId}",
+                "VOX_COMMAND_FAILED: {Group} command failed for guild {GuildId}. Reason: {ErrorType} - {ErrorMessage}",
                 groupName,
-                message,
-                guildId);
+                guildId,
+                "UnknownError",
+                ex.Message);
 
             await FollowupAsync(
                 text: "An error occurred while trying to play the message. Please try again later.",

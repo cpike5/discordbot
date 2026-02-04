@@ -176,9 +176,9 @@ Detailed command analytics showing usage patterns, distribution, and performance
 ### 6. Discord Bot - Soundboard & Audio
 **ID:** `discord-soundboard-dashboard` | **Time Range:** Default | **Refresh:** 10s
 
-Audio feature monitoring for soundboard and text-to-speech functionality.
+Audio feature monitoring for soundboard, text-to-speech, and VOX (Half-Life concatenated audio) functionality.
 
-#### Panels (5)
+#### Panels (10)
 | Panel | Visualization | Metric | Purpose |
 |-------|---------------|--------|---------|
 | Top Sounds Played | `discord-sound-top` | Most-used sound clips (top 15) | Content popularity |
@@ -186,8 +186,13 @@ Audio feature monitoring for soundboard and text-to-speech functionality.
 | Sound Plays Over Time | `discord-sound-timeline` | Audio playback trend (hourly) | Feature engagement |
 | TTS Voices Used | `discord-tts-voices` | Voice model distribution | Voice preference analysis |
 | Audio Error Count | `discord-audio-errors` | Playback/generation failures | Audio quality issues |
+| VOX Commands | `discord-vox-commands-total` | Total VOX commands executed | VOX feature usage |
+| VOX by Group | `discord-vox-by-group` | Distribution across VOX/FVOX/HGRUNT | Clip group popularity |
+| VOX Match Rate | `discord-vox-match-rate` | Average word-to-clip match percentage | Vocabulary coverage |
+| VOX Over Time | `discord-vox-timeline` | VOX command trend by group | VOX usage patterns |
+| VOX Errors | `discord-vox-errors` | VOX command failures | VOX error tracking |
 
-**Use Case:** Audio feature analytics, content management, TTS service health.
+**Use Case:** Audio feature analytics, content management, TTS service health, VOX usage monitoring.
 
 ---
 
@@ -280,7 +285,7 @@ AI Assistant feature monitoring including Anthropic API costs, latency, and toke
 
 ---
 
-## Visualizations (65 Total)
+## Visualizations (70 Total)
 
 All visualizations use Kibana Lens (modern visualization type). Organized by category:
 
@@ -296,7 +301,7 @@ All visualizations use Kibana Lens (modern visualization type). Organized by cat
 | `discord-error-sources` | Top Error Sources | Bar | logs-discordbot-* | Error source ranking |
 | `discord-top-sources` | Top Log Sources | Bar | logs-discordbot-* | Component activity |
 
-### Soundboard & Audio Category (5)
+### Soundboard & Audio Category (10)
 
 | ID | Name | Type | Data View | Purpose |
 |----|------|------|-----------|---------|
@@ -305,6 +310,11 @@ All visualizations use Kibana Lens (modern visualization type). Organized by cat
 | `discord-sound-timeline` | Sound Plays Over Time | Line | logs-discordbot-* | Audio usage trending |
 | `discord-tts-voices` | TTS Voices Used | Pie | logs-discordbot-* | Voice preference |
 | `discord-audio-errors` | Audio Error Count | Metric | logs-discordbot-* | Playback failures |
+| `discord-vox-commands-total` | VOX Commands Total | Metric | logs-discordbot-* | VOX command count |
+| `discord-vox-by-group` | VOX Commands by Group | Donut | logs-discordbot-* | VOX/FVOX/HGRUNT distribution |
+| `discord-vox-match-rate` | VOX Average Match Rate | Metric | logs-discordbot-* | Word-to-clip match % |
+| `discord-vox-timeline` | VOX Commands Over Time | Line | logs-discordbot-* | VOX usage trending |
+| `discord-vox-errors` | VOX Errors | Metric | logs-discordbot-* | VOX command failures |
 
 ### Guild Activity Category (4)
 
@@ -414,7 +424,7 @@ All visualizations use Kibana Lens (modern visualization type). Organized by cat
 | **DevOps/SRE** | APM Performance | Service Health | Infrastructure & performance |
 | **Product Manager** | Commands & Interactions | Soundboard & Audio | Feature usage & adoption |
 | **Backend Developer** | Database Performance | APM Commands | Performance optimization |
-| **Audio/TTS Developer** | Soundboard & Audio | Command Performance | Feature-specific monitoring |
+| **Audio/TTS Developer** | Soundboard & Audio | Command Performance | Feature-specific monitoring (Soundboard, TTS, VOX) |
 | **AI Product Owner** | AI Assistant | Overview | Cost tracking & usage |
 | **Manager/Leadership** | Overview | Guild Activity | High-level health status |
 
@@ -425,7 +435,7 @@ All visualizations use Kibana Lens (modern visualization type). Organized by cat
 | **Incident Response** | Operations Overview (look for error spike) → Guild Activity (identify affected guilds) | Narrow down issue scope |
 | **Performance Degradation** | APM Performance (identify slow transaction) → Database Performance (query optimization) → External HTTP (dependency check) | Root cause analysis |
 | **Billing/Budget Review** | AI Assistant (cost tracking) | Cost management |
-| **Feature Adoption** | Commands & Interactions (top commands) + Soundboard & Audio (audio usage) | Feature analytics |
+| **Feature Adoption** | Commands & Interactions (top commands) + Soundboard & Audio (audio/VOX usage) | Feature analytics |
 | **Daily Standup** | Overview (7-day view) | Quick health check |
 | **Post-Mortems** | All APM dashboards + Operations Overview | Comprehensive analysis |
 
@@ -509,6 +519,37 @@ SourceContext:*TextToSpeech* OR message:*tts*
 
 # Guild audio usage
 GuildId:"123456789012345678" AND (SourceContext:*Audio* OR SourceContext:*Soundboard*)
+```
+
+### VOX System Monitoring
+
+```kql
+# All VOX commands (started)
+message:"VOX_COMMAND_STARTED"
+
+# Successful VOX completions
+message:"VOX_COMMAND_COMPLETED"
+
+# VOX failures
+message:"VOX_COMMAND_FAILED"
+
+# VOX by specific group (VOX, FVOX, HGRUNT)
+message:"VOX_COMMAND_COMPLETED" AND labels.Group:"FVOX"
+
+# Low match rate commands (<50%)
+message:"VOX_COMMAND_COMPLETED" AND labels.MatchPercentage:<50
+
+# VOX concatenation events
+message:"VOX_CONCATENATION_COMPLETED"
+
+# VOX errors by type
+message:"VOX_COMMAND_FAILED" AND labels.ErrorType:"NoClipsMatched"
+
+# Slow VOX commands (>2 seconds)
+message:"VOX_COMMAND_COMPLETED" AND labels.DurationMs:>2000
+
+# VOX portal vs slash command usage
+message:"VOX_COMMAND_STARTED" AND labels.Source:"Portal"
 ```
 
 ### External Service Monitoring
@@ -815,6 +856,7 @@ See [elastic-stack-setup.md](elastic-stack-setup.md) for alerting setup instruct
 - [Elastic Stack Setup](elastic-stack-setup.md) - Docker setup, Elasticsearch configuration, verification
 - [Elastic APM](elastic-apm.md) - Application instrumentation, trace collection, span analysis
 - [Bot Performance Dashboard](bot-performance-dashboard.md) - Application-level metrics and dashboards
+- [VOX Telemetry Spec](vox-telemetry-spec.md) - VOX metrics, tracing, and logging specification
 
 ---
 
@@ -822,6 +864,7 @@ See [elastic-stack-setup.md](elastic-stack-setup.md) for alerting setup instruct
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.1 | 2026-02-04 | Added VOX telemetry visualizations (5 new) to Soundboard & Audio dashboard, VOX KQL queries |
 | 2.0 | 2026-02-03 | Complete dashboard inventory (11 dashboards, 65 visualizations), comprehensive filtering guide, troubleshooting section, best practices |
 | 1.0 | 2026-01-06 | Initial release with basic dashboard overview and alerting configuration |
 
@@ -843,4 +886,4 @@ See [elastic-stack-setup.md](elastic-stack-setup.md) for alerting setup instruct
 
 ---
 
-*Last Updated: February 3, 2026*
+*Last Updated: February 4, 2026*

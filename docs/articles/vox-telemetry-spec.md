@@ -780,124 +780,73 @@ public async Task<string> ConcatenateAsync(
 
 ---
 
-## Kibana Dashboard Recommendations
+## Kibana Dashboard Integration
 
-### Dashboard: VOX Usage Overview
+VOX telemetry visualizations are integrated into the **Soundboard & Audio** dashboard (`discord-soundboard-dashboard`).
 
-**Purpose**: High-level usage metrics and trends.
+### Implemented Visualizations
 
-**Visualizations**:
+| ID | Name | Type | Purpose |
+|----|------|------|---------|
+| `discord-vox-commands-total` | VOX Commands Total | Metric | Total VOX commands executed |
+| `discord-vox-by-group` | VOX Commands by Group | Donut | Distribution across VOX/FVOX/HGRUNT |
+| `discord-vox-match-rate` | VOX Average Match Rate | Metric | Average word-to-clip match percentage |
+| `discord-vox-timeline` | VOX Commands Over Time | Line | VOX usage trend by clip group |
+| `discord-vox-errors` | VOX Errors | Metric | VOX command failure count |
 
-1. **VOX Commands Over Time** (Line chart)
-   - Metric: `discordbot.vox.commands.total` (rate)
-   - Group by: `group` (VOX, FVOX, HGRUNT)
-   - Time range: Last 7 days
+### KQL Queries
 
-2. **Command Success Rate** (Pie chart)
-   - Metric: `discordbot.vox.commands.total` (count)
-   - Group by: `status` (success, failure)
+```kql
+# All VOX commands (started)
+message:"VOX_COMMAND_STARTED"
 
-3. **Top Clip Groups** (Bar chart)
-   - Metric: `discordbot.vox.commands.total` (count)
-   - Group by: `group`
-   - Sort: Descending
+# Successful VOX completions
+message:"VOX_COMMAND_COMPLETED"
 
-4. **Commands by Source** (Donut chart)
-   - Metric: `discordbot.vox.commands.total` (count)
-   - Group by: `source` (slash_command, portal)
+# VOX failures
+message:"VOX_COMMAND_FAILED"
 
-5. **Average Match Rate** (Gauge)
-   - Metric: `discordbot.vox.match.percentage` (average)
-   - Display: 0-100%
-   - Color thresholds: <50% red, 50-80% yellow, >80% green
+# VOX by specific group (VOX, FVOX, HGRUNT)
+message:"VOX_COMMAND_COMPLETED" AND labels.Group:"FVOX"
 
----
+# Low match rate commands (<50%)
+message:"VOX_COMMAND_COMPLETED" AND labels.MatchPercentage:<50
 
-### Dashboard: VOX Performance
+# VOX concatenation events
+message:"VOX_CONCATENATION_COMPLETED"
 
-**Purpose**: Performance monitoring and bottleneck identification.
+# VOX errors by type
+message:"VOX_COMMAND_FAILED" AND labels.ErrorType:"NoClipsMatched"
 
-**Visualizations**:
+# Slow VOX commands (>2 seconds)
+message:"VOX_COMMAND_COMPLETED" AND labels.DurationMs:>2000
 
-1. **Command Duration Distribution** (Histogram)
-   - Metric: `discordbot.vox.command.duration` (percentiles)
-   - Show: p50, p75, p95, p99
-   - Group by: `group`
+# VOX portal vs slash command usage
+message:"VOX_COMMAND_STARTED" AND labels.Source:"Portal"
+```
 
-2. **Performance Breakdown** (Stacked area chart)
-   - Metrics:
-     - Tokenization time (from span data)
-     - Clip lookup time (from span data)
-     - Concatenation time: `discordbot.vox.concatenation.duration` (average)
-     - Playback time (from span data)
-
-3. **Concatenation Performance** (Line chart)
-   - Metric: `discordbot.vox.concatenation.duration` (p95)
-   - Group by: `group`
-   - Time range: Last 24 hours
-
-4. **Audio Size vs Duration** (Scatter plot)
-   - X-axis: `discordbot.vox.audio.bytes`
-   - Y-axis: `discordbot.vox.command.duration`
-   - Group by: `group`
+See [kibana-dashboards.md](kibana-dashboards.md) for complete dashboard documentation.
 
 ---
 
-### Dashboard: VOX Errors & Quality
+### Future Dashboard Enhancements
 
-**Purpose**: Error analysis and match quality tracking.
+The following visualizations could be added for deeper VOX analytics:
 
-**Visualizations**:
+1. **VOX Performance Dashboard**
+   - Command duration distribution (histogram with p50/p75/p95)
+   - Concatenation vs playback time breakdown
+   - Audio size vs duration scatter plot
 
-1. **Error Rate Over Time** (Line chart)
-   - Metric: `discordbot.vox.errors` (rate)
-   - Group by: `error_type`
-   - Time range: Last 7 days
+2. **VOX Errors & Quality Dashboard**
+   - Error rate over time by error_type
+   - Match vs skip ratio by group
+   - Match percentage distribution histogram
 
-2. **Error Type Distribution** (Bar chart)
-   - Metric: `discordbot.vox.errors` (count)
-   - Group by: `error_type`
-   - Sort: Descending
-
-3. **Match vs Skip Ratio** (Stacked bar chart)
-   - Metrics:
-     - `discordbot.vox.words.matched` (count)
-     - `discordbot.vox.words.skipped` (count)
-   - Group by: `group`
-
-4. **Match Percentage Distribution** (Histogram)
-   - Metric: `discordbot.vox.match.percentage` (distribution)
-   - Buckets: 0-20%, 20-40%, 40-60%, 60-80%, 80-100%
-
-5. **Words per Message** (Histogram)
-   - Metric: `discordbot.vox.message.words` (distribution)
-   - Show: Average, median, max
-
----
-
-### Dashboard: VOX Guild Activity
-
-**Purpose**: Guild-level usage insights (requires Elasticsearch log queries).
-
-**Visualizations**:
-
-1. **Top Active Guilds** (Table)
-   - Query: Count of `VOX_COMMAND_STARTED` events
-   - Group by: `GuildName`
-   - Columns: Guild Name, Command Count, Last Active
-   - Top 20
-
-2. **Guild Command Heatmap** (Heatmap)
-   - Query: `VOX_COMMAND_STARTED` event count
-   - X-axis: Hour of day
-   - Y-axis: Day of week
-   - Color: Command volume
-
-3. **User Activity** (Table)
-   - Query: Count of `VOX_COMMAND_STARTED` events
-   - Group by: `Username`
-   - Columns: Username, Commands, Avg Match %, Avg Duration
-   - Top 50
+3. **VOX Guild Activity Dashboard**
+   - Top active guilds table
+   - Guild command heatmap (hour of day vs day of week)
+   - User activity table
 
 ---
 
@@ -1374,7 +1323,7 @@ builder.Services.AddOpenTelemetry()
 - [ ] Add structured logging events (`VOX_COMMAND_STARTED`, `VOX_COMMAND_COMPLETED`, etc.)
 - [ ] Register `"DiscordBot.Vox"` activity source in OpenTelemetry configuration
 - [ ] Add portal source tracking (use `"portal"` source tag when called from web)
-- [ ] Create Kibana dashboards for VOX metrics
+- [x] Create Kibana dashboards for VOX metrics
 - [ ] Test metrics collection with local OTLP exporter
 - [ ] Update VOX documentation with telemetry examples
 
@@ -1389,5 +1338,5 @@ builder.Services.AddOpenTelemetry()
 
 ---
 
-**Last Updated**: 2026-02-03
-**Version**: 1.0 (Initial design)
+**Last Updated**: 2026-02-04
+**Version**: 1.1 (Kibana visualizations implemented)
