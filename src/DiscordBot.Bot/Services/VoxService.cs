@@ -1,11 +1,14 @@
+using System.Diagnostics;
 using Discord.Audio;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.Vox;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.Vox;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenTelemetry.Trace;
 
 namespace DiscordBot.Bot.Services;
 
@@ -20,19 +23,27 @@ public class VoxService : IVoxService
     private readonly IVoxClipLibrary _clipLibrary;
     private readonly IVoxConcatenationService _concatenationService;
     private readonly IAudioService _audioService;
+    private readonly VoxMetrics _voxMetrics;
+    private readonly BusinessMetrics _businessMetrics;
+
+    private static readonly ActivitySource ActivitySource = new("DiscordBot.Vox");
 
     public VoxService(
         ILogger<VoxService> logger,
         IOptions<VoxOptions> options,
         IVoxClipLibrary clipLibrary,
         IVoxConcatenationService concatenationService,
-        IAudioService audioService)
+        IAudioService audioService,
+        VoxMetrics voxMetrics,
+        BusinessMetrics businessMetrics)
     {
         _logger = logger;
         _options = options.Value;
         _clipLibrary = clipLibrary;
         _concatenationService = concatenationService;
         _audioService = audioService;
+        _voxMetrics = voxMetrics;
+        _businessMetrics = businessMetrics;
     }
 
     /// <inheritdoc/>
@@ -43,172 +54,274 @@ public class VoxService : IVoxService
         VoxPlaybackOptions options,
         CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrWhiteSpace(message))
-        {
-            return new VoxPlaybackResult
-            {
-                Success = false,
-                ErrorMessage = "Message cannot be empty."
-            };
-        }
+        var stopwatch = Stopwatch.StartNew();
+        var groupName = group.ToString().ToUpperInvariant();
 
-        // Validate message length
-        if (message.Length > _options.MaxMessageLength)
-        {
-            return new VoxPlaybackResult
-            {
-                Success = false,
-                ErrorMessage = $"Message exceeds maximum length of {_options.MaxMessageLength} characters."
-            };
-        }
-
-        // Validate word gap range
-        if (options.WordGapMs < 20 || options.WordGapMs > 200)
-        {
-            return new VoxPlaybackResult
-            {
-                Success = false,
-                ErrorMessage = $"Word gap must be between 20 and 200 milliseconds (got {options.WordGapMs}ms)."
-            };
-        }
-
-        // Tokenize the message
-        var tokens = TokenizeMessage(message);
-
-        // Validate token count
-        if (tokens.Count > _options.MaxMessageWords)
-        {
-            return new VoxPlaybackResult
-            {
-                Success = false,
-                ErrorMessage = $"Message exceeds maximum word count of {_options.MaxMessageWords} words."
-            };
-        }
-
-        _logger.LogDebug("Processing VOX message with {TokenCount} tokens for group {Group}", tokens.Count, group);
-
-        // Look up clips for each token
-        var matchedClips = new List<VoxClipInfo>();
-        var matchedWords = new List<string>();
-        var skippedWords = new List<string>();
-
-        foreach (var token in tokens)
-        {
-            var clip = _clipLibrary.GetClip(group, token);
-            if (clip != null)
-            {
-                matchedClips.Add(clip);
-                matchedWords.Add(token);
-            }
-            else
-            {
-                skippedWords.Add(token);
-                _logger.LogDebug("No clip found for token: {Token}", token);
-            }
-        }
-
-        // Check if at least one clip matched
-        if (matchedClips.Count == 0)
-        {
-            return new VoxPlaybackResult
-            {
-                Success = false,
-                ErrorMessage = "No matching clips found for any words in the message.",
-                SkippedWords = skippedWords
-            };
-        }
-
-        // Check if bot is connected to voice
-        var audioClient = _audioService.GetAudioClient(guildId);
-        if (audioClient == null)
-        {
-            return new VoxPlaybackResult
-            {
-                Success = false,
-                ErrorMessage = "Bot is not connected to a voice channel.",
-                MatchedWords = matchedWords,
-                SkippedWords = skippedWords
-            };
-        }
-
-        // Get clip file paths
-        var clipPaths = matchedClips
-            .Select(c => _clipLibrary.GetClipFilePath(c.Group, c.Name))
-            .ToList();
-
-        _logger.LogInformation(
-            "Playing VOX message: {MatchedCount} matched, {SkippedCount} skipped",
-            matchedClips.Count,
-            skippedWords.Count);
-
-        string? concatenatedPcmPath = null;
+        using var activity = ActivitySource.StartActivity("VoxCommand");
+        activity?.SetTag("group", groupName);
+        activity?.SetTag("guild_id", guildId);
+        activity?.SetTag("word_gap_ms", options.WordGapMs);
+        activity?.SetTag("message_length", message?.Length ?? 0);
 
         try
         {
-            // Concatenate clips
-            concatenatedPcmPath = await _concatenationService.ConcatenateAsync(
-                clipPaths,
-                options.WordGapMs,
-                cancellationToken);
-
-            // Calculate total duration
-            var totalDuration = matchedClips.Sum(c => c.DurationSeconds);
-            if (matchedClips.Count > 1)
+            if (string.IsNullOrWhiteSpace(message))
             {
-                totalDuration += (matchedClips.Count - 1) * (options.WordGapMs / 1000.0);
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = "Message cannot be empty."
+                };
             }
 
-            // Stream PCM to Discord
-            await StreamPcmToDiscordAsync(audioClient, concatenatedPcmPath, guildId, cancellationToken);
-
-            // Update last activity
-            _audioService.UpdateLastActivity(guildId);
-
-            return new VoxPlaybackResult
+            // Validate message length
+            if (message.Length > _options.MaxMessageLength)
             {
-                Success = true,
-                MatchedWords = matchedWords,
-                SkippedWords = skippedWords,
-                EstimatedDurationSeconds = totalDuration
-            };
-        }
-        catch (OperationCanceledException)
-        {
-            _logger.LogInformation("VOX playback cancelled for guild {GuildId}", guildId);
-            return new VoxPlaybackResult
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Message exceeds maximum length of {_options.MaxMessageLength} characters."
+                };
+            }
+
+            // Validate word gap range
+            if (options.WordGapMs < 20 || options.WordGapMs > 200)
             {
-                Success = false,
-                ErrorMessage = "Playback was cancelled.",
-                MatchedWords = matchedWords,
-                SkippedWords = skippedWords
-            };
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Word gap must be between 20 and 200 milliseconds (got {options.WordGapMs}ms)."
+                };
+            }
+
+            // Tokenization span
+            List<string> tokens;
+            using (var tokenizeActivity = ActivitySource.StartActivity("Tokenization", ActivityKind.Internal))
+            {
+                tokens = TokenizeMessage(message);
+                tokenizeActivity?.SetTag("token_count", tokens.Count);
+                activity?.SetTag("total_words", tokens.Count);
+            }
+
+            // Validate token count
+            if (tokens.Count > _options.MaxMessageWords)
+            {
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Message exceeds maximum word count of {_options.MaxMessageWords} words."
+                };
+            }
+
+            _logger.LogDebug("Processing VOX message with {TokenCount} tokens for group {Group}", tokens.Count, group);
+
+            // Clip lookup span
+            var matchedClips = new List<VoxClipInfo>();
+            var matchedWords = new List<string>();
+            var skippedWords = new List<string>();
+
+            using (var lookupActivity = ActivitySource.StartActivity("ClipLookup", ActivityKind.Internal))
+            {
+                foreach (var token in tokens)
+                {
+                    var clip = _clipLibrary.GetClip(group, token);
+                    if (clip != null)
+                    {
+                        matchedClips.Add(clip);
+                        matchedWords.Add(token);
+                    }
+                    else
+                    {
+                        skippedWords.Add(token);
+                        _logger.LogDebug("No clip found for token: {Token}", token);
+                    }
+                }
+
+                lookupActivity?.SetTag("matched_count", matchedClips.Count);
+                lookupActivity?.SetTag("skipped_count", skippedWords.Count);
+                activity?.SetTag("matched_words", matchedClips.Count);
+                activity?.SetTag("skipped_words", skippedWords.Count);
+            }
+
+            // Check if at least one clip matched
+            if (matchedClips.Count == 0)
+            {
+                stopwatch.Stop();
+                var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+
+                _logger.LogWarning(
+                    "VOX_COMMAND_FAILED: {Group} command failed for guild {GuildId}. Reason: {ErrorType} - {ErrorMessage}",
+                    groupName, guildId, "NoClipsMatched", "No matching clips found for any words in the message.");
+
+                _voxMetrics.RecordError(groupName, "NoClipsMatched");
+                _voxMetrics.RecordCommandExecution(groupName, "slash_command", false, durationMs);
+
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = "No matching clips found for any words in the message.",
+                    SkippedWords = skippedWords
+                };
+            }
+
+            // Check if bot is connected to voice
+            var audioClient = _audioService.GetAudioClient(guildId);
+            if (audioClient == null)
+            {
+                stopwatch.Stop();
+                var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+
+                _logger.LogWarning(
+                    "VOX_COMMAND_FAILED: {Group} command failed for guild {GuildId}. Reason: {ErrorType} - {ErrorMessage}",
+                    groupName, guildId, "NotConnectedToVoice", "Bot is not connected to a voice channel.");
+
+                _voxMetrics.RecordError(groupName, "NotConnectedToVoice");
+                _voxMetrics.RecordCommandExecution(groupName, "slash_command", false, durationMs);
+
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = "Bot is not connected to a voice channel.",
+                    MatchedWords = matchedWords,
+                    SkippedWords = skippedWords
+                };
+            }
+
+            // Get clip file paths
+            var clipPaths = matchedClips
+                .Select(c => _clipLibrary.GetClipFilePath(c.Group, c.Name))
+                .ToList();
+
+            _logger.LogInformation(
+                "Playing VOX message: {MatchedCount} matched, {SkippedCount} skipped",
+                matchedClips.Count,
+                skippedWords.Count);
+
+            VoxConcatenationResult? concatenationResult = null;
+
+            try
+            {
+                // Concatenate clips
+                concatenationResult = await _concatenationService.ConcatenateAsync(
+                    clipPaths,
+                    options.WordGapMs,
+                    cancellationToken);
+
+                // Tag activity with audio metrics
+                activity?.SetTag("audio_bytes", concatenationResult.AudioBytes);
+                activity?.SetTag("concatenation_ms", concatenationResult.DurationMs);
+
+                // Calculate total duration
+                var totalDuration = matchedClips.Sum(c => c.DurationSeconds);
+                if (matchedClips.Count > 1)
+                {
+                    totalDuration += (matchedClips.Count - 1) * (options.WordGapMs / 1000.0);
+                }
+
+                // Playback span
+                using (var playbackActivity = ActivitySource.StartActivity("Playback", ActivityKind.Internal))
+                {
+                    await StreamPcmToDiscordAsync(audioClient, concatenationResult.OutputPath, guildId, cancellationToken);
+                }
+
+                // Update last activity
+                _audioService.UpdateLastActivity(guildId);
+
+                stopwatch.Stop();
+                var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+
+                // Calculate match percentage
+                var matchPercentage = (matchedWords.Count / (double)tokens.Count) * 100;
+
+                // Record success metrics
+                _voxMetrics.RecordCommandExecution(groupName, "slash_command", true, durationMs);
+                _voxMetrics.RecordClipsPlayed(groupName, matchedClips.Count);
+                _voxMetrics.RecordWordStats(groupName, matchedWords.Count, skippedWords.Count, tokens.Count);
+                _businessMetrics.RecordFeatureUsage($"vox.{groupName.ToLowerInvariant()}");
+
+                // Log completion
+                _logger.LogInformation(
+                    "VOX_COMMAND_COMPLETED: {Group} playback finished. Matched: {MatchedCount}/{TotalWords} ({MatchPercentage:F1}%), Skipped: {SkippedCount}, Duration: {DurationMs}ms",
+                    groupName, matchedWords.Count, tokens.Count, matchPercentage, skippedWords.Count, durationMs);
+
+                activity?.SetStatus(ActivityStatusCode.Ok);
+
+                return new VoxPlaybackResult
+                {
+                    Success = true,
+                    MatchedWords = matchedWords,
+                    SkippedWords = skippedWords,
+                    EstimatedDurationSeconds = totalDuration
+                };
+            }
+            catch (OperationCanceledException)
+            {
+                stopwatch.Stop();
+                _logger.LogInformation("VOX playback cancelled for guild {GuildId}", guildId);
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = "Playback was cancelled.",
+                    MatchedWords = matchedWords,
+                    SkippedWords = skippedWords
+                };
+            }
+            catch (Exception ex)
+            {
+                stopwatch.Stop();
+                var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+
+                _logger.LogError(ex,
+                    "VOX_COMMAND_FAILED: {Group} command failed for guild {GuildId}. Reason: {ErrorType}",
+                    groupName, guildId, "UnknownError");
+
+                _voxMetrics.RecordError(groupName, "UnknownError");
+                _voxMetrics.RecordCommandExecution(groupName, "slash_command", false, durationMs);
+
+                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+                activity?.AddException(ex);
+
+                return new VoxPlaybackResult
+                {
+                    Success = false,
+                    ErrorMessage = $"Failed to play VOX message: {ex.Message}",
+                    MatchedWords = matchedWords,
+                    SkippedWords = skippedWords
+                };
+            }
+            finally
+            {
+                // Clean up temporary file
+                if (concatenationResult != null && File.Exists(concatenationResult.OutputPath))
+                {
+                    try
+                    {
+                        File.Delete(concatenationResult.OutputPath);
+                        _logger.LogDebug("Cleaned up temporary PCM file: {FilePath}", concatenationResult.OutputPath);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to clean up temporary PCM file: {FilePath}", concatenationResult.OutputPath);
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to play VOX message for guild {GuildId}", guildId);
-            return new VoxPlaybackResult
-            {
-                Success = false,
-                ErrorMessage = $"Failed to play VOX message: {ex.Message}",
-                MatchedWords = matchedWords,
-                SkippedWords = skippedWords
-            };
-        }
-        finally
-        {
-            // Clean up temporary file
-            if (concatenatedPcmPath != null && File.Exists(concatenatedPcmPath))
-            {
-                try
-                {
-                    File.Delete(concatenatedPcmPath);
-                    _logger.LogDebug("Cleaned up temporary PCM file: {FilePath}", concatenatedPcmPath);
-                }
-                catch (Exception ex)
-                {
-                    _logger.LogWarning(ex, "Failed to clean up temporary PCM file: {FilePath}", concatenatedPcmPath);
-                }
-            }
+            stopwatch.Stop();
+            var durationMs = stopwatch.Elapsed.TotalMilliseconds;
+
+            _logger.LogError(ex,
+                "VOX_COMMAND_FAILED: {Group} command failed for guild {GuildId}. Reason: {ErrorType}",
+                groupName, guildId, "UnknownError");
+
+            _voxMetrics.RecordError(groupName, "UnknownError");
+            _voxMetrics.RecordCommandExecution(groupName, "slash_command", false, durationMs);
+
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+            activity?.AddException(ex);
+
+            throw;
         }
     }
 

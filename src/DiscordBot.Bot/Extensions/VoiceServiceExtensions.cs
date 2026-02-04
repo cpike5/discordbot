@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
@@ -142,6 +143,9 @@ public static class VoiceServiceExtensions
 
         // VOX orchestration service (scoped for per-request pipeline coordination)
         services.AddScoped<IVoxService, VoxService>();
+
+        // VOX metrics (singleton for metric collection)
+        services.AddSingleton<VoxMetrics>();
 
         // VOX clip library initialization (hosted service for startup initialization)
         services.AddHostedService<VoxClipLibraryInitializer>();

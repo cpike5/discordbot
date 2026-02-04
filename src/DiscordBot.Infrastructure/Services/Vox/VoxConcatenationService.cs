@@ -15,6 +15,7 @@ public class VoxConcatenationService : IVoxConcatenationService
 {
     private readonly ILogger<VoxConcatenationService> _logger;
     private readonly VoxOptions _options;
+    private static readonly ActivitySource ActivitySource = new("DiscordBot.Vox");
 
     public VoxConcatenationService(
         ILogger<VoxConcatenationService> logger,
@@ -25,7 +26,7 @@ public class VoxConcatenationService : IVoxConcatenationService
     }
 
     /// <inheritdoc/>
-    public async Task<string> ConcatenateAsync(
+    public async Task<VoxConcatenationResult> ConcatenateAsync(
         IReadOnlyList<string> clipFilePaths,
         int wordGapMs,
         CancellationToken cancellationToken = default)
@@ -49,13 +50,33 @@ public class VoxConcatenationService : IVoxConcatenationService
             }
         }
 
+        using var activity = ActivitySource.StartActivity("Concatenation");
+        activity?.SetTag("clip_count", clipFilePaths.Count);
+        activity?.SetTag("word_gap_ms", wordGapMs);
+
+        var stopwatch = Stopwatch.StartNew();
+
         _logger.LogDebug("Concatenating {Count} clips with {GapMs}ms word gap", clipFilePaths.Count, wordGapMs);
 
         // Single clip optimization - no concatenation needed
         if (clipFilePaths.Count == 1)
         {
             _logger.LogDebug("Single clip detected, decoding to PCM without concatenation");
-            return await DecodeSingleClipToPcmAsync(clipFilePaths[0], cancellationToken);
+            var singleResult = await DecodeSingleClipToPcmAsync(clipFilePaths[0], cancellationToken);
+            stopwatch.Stop();
+
+            var singleBytes = new FileInfo(singleResult).Length;
+            var singleDurationMs = stopwatch.Elapsed.TotalMilliseconds;
+
+            _logger.LogInformation(
+                "VOX_CONCATENATION_COMPLETED: Concatenated {ClipCount} clips ({AudioBytes} bytes) in {ConcatenationMs}ms",
+                clipFilePaths.Count, singleBytes, singleDurationMs);
+
+            activity?.SetTag("duration_ms", singleDurationMs);
+            activity?.SetTag("output_bytes", singleBytes);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            return new VoxConcatenationResult(singleResult, singleBytes, singleDurationMs);
         }
 
         // Generate output path in temp directory
@@ -107,14 +128,27 @@ public class VoxConcatenationService : IVoxConcatenationService
                 }
             }
 
-            _logger.LogInformation("Successfully concatenated {Count} clips to {OutputPath} ({Size} bytes)",
-                clipFilePaths.Count, outputPath, outputStream.Length);
+            stopwatch.Stop();
+            var audioBytes = outputStream.Length;
+            var durationMs = stopwatch.Elapsed.TotalMilliseconds;
 
-            return outputPath;
+            _logger.LogInformation(
+                "VOX_CONCATENATION_COMPLETED: Concatenated {ClipCount} clips ({AudioBytes} bytes) in {ConcatenationMs}ms",
+                clipFilePaths.Count, audioBytes, durationMs);
+
+            activity?.SetTag("duration_ms", durationMs);
+            activity?.SetTag("output_bytes", audioBytes);
+            activity?.SetStatus(ActivityStatusCode.Ok);
+
+            return new VoxConcatenationResult(outputPath, audioBytes, durationMs);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to concatenate clips");
+            stopwatch.Stop();
+
+            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
+
+            _logger.LogError(ex, "Failed to concatenate clips after {ElapsedMs}ms", stopwatch.ElapsedMilliseconds);
 
             // Clean up output file on error
             try

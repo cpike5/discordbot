@@ -32,6 +32,7 @@ public static class OpenTelemetryExtensions
         services.AddSingleton<ApiMetrics>();
         services.AddSingleton<BusinessMetrics>();
         services.AddSingleton<SloMetrics>();
+        services.AddSingleton<VoxMetrics>();
 
         // Configure OpenTelemetry
         services.AddOpenTelemetry()
@@ -47,6 +48,7 @@ public static class OpenTelemetryExtensions
                 metrics.AddMeter(ApiMetrics.MeterName);
                 metrics.AddMeter(BusinessMetrics.MeterName);
                 metrics.AddMeter(SloMetrics.MeterName);
+                metrics.AddMeter(VoxMetrics.MeterName);
 
                 // Add ASP.NET Core instrumentation
                 metrics.AddAspNetCoreInstrumentation();
@@ -87,6 +89,61 @@ public static class OpenTelemetryExtensions
                         Boundaries = new double[]
                         {
                             5, 10, 25, 50, 100, 250, 500, 1000, 2500, 5000
+                        }
+                    });
+
+                // Configure histogram bucket boundaries for VOX command duration
+                metrics.AddView(
+                    instrumentName: "discordbot.vox.command.duration",
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = new double[]
+                        {
+                            10, 25, 50, 100, 250, 500, 1000, 2000, 5000
+                        }
+                    });
+
+                // Configure histogram bucket boundaries for VOX concatenation duration
+                metrics.AddView(
+                    instrumentName: "discordbot.vox.concatenation.duration",
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = new double[]
+                        {
+                            5, 10, 25, 50, 100, 250, 500, 1000, 2000
+                        }
+                    });
+
+                // Configure histogram bucket boundaries for VOX message word count
+                metrics.AddView(
+                    instrumentName: "discordbot.vox.message.words",
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = new double[]
+                        {
+                            1, 2, 5, 10, 15, 20, 25, 30, 40, 50
+                        }
+                    });
+
+                // Configure histogram bucket boundaries for VOX match percentage
+                metrics.AddView(
+                    instrumentName: "discordbot.vox.match.percentage",
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = new double[]
+                        {
+                            0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
+                        }
+                    });
+
+                // Configure histogram bucket boundaries for VOX audio size
+                metrics.AddView(
+                    instrumentName: "discordbot.vox.audio.bytes",
+                    new ExplicitBucketHistogramConfiguration
+                    {
+                        Boundaries = new double[]
+                        {
+                            1024, 10240, 102400, 512000, 1048576, 5242880, 10485760, 52428800
                         }
                     });
 
