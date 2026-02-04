@@ -432,8 +432,8 @@
     (function() {
         /**
          * Gets the currently selected voice value.
-         * @param {string} containerId - The container ID of the voice selector
-         * @returns {string} The selected voice value
+         * @@param {string} containerId - The container ID of the voice selector
+         * @@returns {string} The selected voice value
          */
         window.voiceSelector_getValue = function(containerId) {
             const container = document.getElementById(containerId);
@@ -443,9 +443,9 @@
 
         /**
          * Sets the selected voice programmatically.
-         * @param {string} containerId - The container ID of the voice selector
-         * @param {string} voiceName - The voice name to select
-         * @param {boolean} suppressCallback - If true, doesn't trigger the callback
+         * @@param {string} containerId - The container ID of the voice selector
+         * @@param {string} voiceName - The voice name to select
+         * @@param {boolean} suppressCallback - If true, doesn't trigger the callback
          */
         window.voiceSelector_setValue = function(containerId, voiceName, suppressCallback) {
             const container = document.getElementById(containerId);
@@ -463,7 +463,7 @@
 
         /**
          * Toggles the dropdown open/closed.
-         * @param {string} containerId - The container ID of the voice selector
+         * @@param {string} containerId - The container ID of the voice selector
          */
         window.voiceSelector_toggle = function(containerId) {
             const container = document.getElementById(containerId);
@@ -484,7 +484,7 @@
 
         /**
          * Opens the dropdown.
-         * @param {string} containerId - The container ID of the voice selector
+         * @@param {string} containerId - The container ID of the voice selector
          */
         window.voiceSelector_open = function(containerId) {
             const container = document.getElementById(containerId);
@@ -527,7 +527,7 @@
 
         /**
          * Closes the dropdown.
-         * @param {string} containerId - The container ID of the voice selector
+         * @@param {string} containerId - The container ID of the voice selector
          */
         window.voiceSelector_close = function(containerId) {
             const container = document.getElementById(containerId);
@@ -560,7 +560,7 @@
 
         /**
          * Handles click-outside to close dropdown.
-         * @param {Event} event - The click event
+         * @@param {Event} event - The click event
          */
         window.voiceSelector_handleClickOutside = function(event) {
             const openTrigger = document.querySelector('.voice-selector__trigger[aria-expanded="true"]');
@@ -576,7 +576,7 @@
 
         /**
          * Handles keyboard navigation.
-         * @param {KeyboardEvent} event - The keyboard event
+         * @@param {KeyboardEvent} event - The keyboard event
          */
         window.voiceSelector_handleKeyDown = function(event) {
             const dropdown = event.currentTarget;
@@ -627,11 +627,11 @@
 
         /**
          * Selects a voice option.
-         * @param {string} containerId - The container ID of the voice selector
-         * @param {string} voiceValue - The voice value
-         * @param {string} displayName - The voice display name
-         * @param {string} gender - The voice gender
-         * @param {string} localeDisplayName - The locale display name
+         * @@param {string} containerId - The container ID of the voice selector
+         * @@param {string} voiceValue - The voice value
+         * @@param {string} displayName - The voice display name
+         * @@param {string} gender - The voice gender
+         * @@param {string} localeDisplayName - The locale display name
          */
         window.voiceSelector_select = function(containerId, voiceValue, displayName, gender, localeDisplayName) {
             voiceSelector_updateSelection(containerId, voiceValue, displayName, gender, localeDisplayName, false);
@@ -640,12 +640,12 @@
 
         /**
          * Updates the selected voice.
-         * @param {string} containerId - The container ID of the voice selector
-         * @param {string} voiceValue - The voice value
-         * @param {string} displayName - The voice display name
-         * @param {string} gender - The voice gender
-         * @param {string} localeDisplayName - The locale display name
-         * @param {boolean} suppressCallback - If true, doesn't trigger the callback
+         * @@param {string} containerId - The container ID of the voice selector
+         * @@param {string} voiceValue - The voice value
+         * @@param {string} displayName - The voice display name
+         * @@param {string} gender - The voice gender
+         * @@param {string} localeDisplayName - The locale display name
+         * @@param {boolean} suppressCallback - If true, doesn't trigger the callback
          */
         window.voiceSelector_updateSelection = function(containerId, voiceValue, displayName, gender, localeDisplayName, suppressCallback) {
             const container = document.getElementById(containerId);
@@ -706,7 +706,7 @@
 
         /**
          * Searches/filters voices.
-         * @param {string} containerId - The container ID of the voice selector
+         * @@param {string} containerId - The container ID of the voice selector
          */
         window.voiceSelector_search = function(containerId) {
             const container = document.getElementById(containerId);
@@ -768,8 +768,8 @@
 
         /**
          * Toggles a language group's collapse state.
-         * @param {string} containerId - The container ID of the voice selector
-         * @param {string} locale - The locale code of the group to toggle
+         * @@param {string} containerId - The container ID of the voice selector
+         * @@param {string} locale - The locale code of the group to toggle
          */
         window.voiceSelector_toggleGroup = function(containerId, locale) {
             const container = document.getElementById(containerId);

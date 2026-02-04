@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Pages.Guilds;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -10,6 +11,7 @@ using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Pages.Guilds;
@@ -25,6 +27,11 @@ public class DetailsModelTests
     private readonly Mock<IScheduledMessageService> _mockScheduledMessageService;
     private readonly Mock<IRatWatchService> _mockRatWatchService;
     private readonly Mock<IReminderRepository> _mockReminderRepository;
+    private readonly Mock<IGuildMemberService> _mockGuildMemberService;
+    private readonly Mock<IGuildAudioSettingsService> _mockGuildAudioSettingsService;
+    private readonly Mock<ISoundRepository> _mockSoundRepository;
+    private readonly Mock<ITtsMessageRepository> _mockTtsMessageRepository;
+    private readonly Mock<IAssistantGuildSettingsService> _mockAssistantGuildSettingsService;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
@@ -36,6 +43,11 @@ public class DetailsModelTests
         _mockScheduledMessageService = new Mock<IScheduledMessageService>();
         _mockRatWatchService = new Mock<IRatWatchService>();
         _mockReminderRepository = new Mock<IReminderRepository>();
+        _mockGuildMemberService = new Mock<IGuildMemberService>();
+        _mockGuildAudioSettingsService = new Mock<IGuildAudioSettingsService>();
+        _mockSoundRepository = new Mock<ISoundRepository>();
+        _mockTtsMessageRepository = new Mock<ITtsMessageRepository>();
+        _mockAssistantGuildSettingsService = new Mock<IAssistantGuildSettingsService>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
 
         // Setup default scheduled message service behavior
@@ -55,6 +67,8 @@ public class DetailsModelTests
         _mockReminderRepository.Setup(r => r.GetGuildStatsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((0, 0, 0, 0));
 
+        var assistantOptions = Options.Create(new AssistantOptions());
+
         _detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
@@ -62,6 +76,12 @@ public class DetailsModelTests
             _mockScheduledMessageService.Object,
             _mockRatWatchService.Object,
             _mockReminderRepository.Object,
+            _mockGuildMemberService.Object,
+            _mockGuildAudioSettingsService.Object,
+            _mockSoundRepository.Object,
+            _mockTtsMessageRepository.Object,
+            _mockAssistantGuildSettingsService.Object,
+            assistantOptions,
             _mockLogger.Object);
 
         // Setup PageContext
@@ -615,6 +635,7 @@ public class DetailsModelTests
     public void ViewModel_InitializesWithEmptyInstance()
     {
         // Arrange & Act
+        var assistantOptions = Options.Create(new AssistantOptions());
         var detailsModel = new DetailsModel(
             _mockGuildService.Object,
             _mockCommandLogService.Object,
@@ -622,6 +643,12 @@ public class DetailsModelTests
             _mockScheduledMessageService.Object,
             _mockRatWatchService.Object,
             _mockReminderRepository.Object,
+            _mockGuildMemberService.Object,
+            _mockGuildAudioSettingsService.Object,
+            _mockSoundRepository.Object,
+            _mockTtsMessageRepository.Object,
+            _mockAssistantGuildSettingsService.Object,
+            assistantOptions,
             _mockLogger.Object);
 
         // Assert
