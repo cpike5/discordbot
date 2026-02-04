@@ -1,0 +1,590 @@
+@model DiscordBot.Bot.ViewModels.Components.VoiceSelectorViewModel
+@{
+    var triggerId = $"{Model.ContainerId}-trigger";
+    var dropdownId = $"{Model.ContainerId}-dropdown";
+    var searchId = $"{Model.ContainerId}-search";
+    var listboxId = $"{Model.ContainerId}-listbox";
+
+    var selectedVoice = Model.Voices.FirstOrDefault(v => v.Value == Model.SelectedVoice);
+    var triggerText = selectedVoice != null
+        ? $"{selectedVoice.DisplayName} ({selectedVoice.Gender}) - {selectedVoice.LocaleDisplayName}"
+        : Model.Placeholder;
+
+    var groupedVoices = Model.Voices
+        .GroupBy(v => new { v.Locale, v.LocaleDisplayName })
+        .OrderBy(g => g.Key.LocaleDisplayName)
+        .ToList();
+}
+
+<div id="@Model.ContainerId" class="voice-selector">
+    <button
+        type="button"
+        id="@triggerId"
+        class="voice-selector-trigger"
+        aria-haspopup="listbox"
+        aria-expanded="false"
+        aria-controls="@dropdownId"
+    >
+        <span class="voice-selector-trigger-text">@triggerText</span>
+        <svg class="voice-selector-trigger-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+
+    <div id="@dropdownId" class="voice-selector-dropdown" style="display: none;">
+        <div class="voice-selector-search-wrapper">
+            <svg class="voice-selector-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+                type="text"
+                id="@searchId"
+                class="voice-selector-search"
+                placeholder="@Model.SearchPlaceholder"
+                autocomplete="off"
+            />
+        </div>
+
+        <div id="@listboxId" class="voice-selector-listbox" role="listbox" aria-label="Available voices">
+            @foreach (var group in groupedVoices)
+            {
+                var groupId = $"{Model.ContainerId}-group-{group.Key.Locale}";
+                var groupContentId = $"{groupId}-content";
+                var groupVoices = group.OrderBy(v => v.DisplayName).ToList();
+
+                <div class="voice-selector-group" data-locale="@group.Key.Locale">
+                    <button
+                        type="button"
+                        id="@groupId"
+                        class="voice-selector-group-header"
+                        aria-expanded="true"
+                        aria-controls="@groupContentId"
+                        onclick="voiceSelector_toggleGroup('@Model.ContainerId', '@group.Key.Locale')"
+                    >
+                        <svg class="voice-selector-group-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                        <span class="voice-selector-group-name">@group.Key.LocaleDisplayName.ToUpperInvariant()</span>
+                        <span class="voice-selector-group-count">(@groupVoices.Count)</span>
+                    </button>
+                    <div id="@groupContentId" class="voice-selector-group-content">
+                        @foreach (var voice in groupVoices)
+                        {
+                            var isSelected = voice.Value == Model.SelectedVoice;
+                            <div
+                                class="voice-selector-option @(isSelected ? "selected" : "")"
+                                role="option"
+                                aria-selected="@(isSelected ? "true" : "false")"
+                                data-voice-value="@voice.Value"
+                                data-voice-display="@voice.DisplayName"
+                                data-voice-gender="@voice.Gender"
+                                data-voice-locale="@voice.Locale"
+                                data-voice-locale-display="@voice.LocaleDisplayName"
+                            >
+                                <span class="voice-selector-option-text">
+                                    @voice.DisplayName (@voice.Gender)
+                                </span>
+                                @if (isSelected)
+                                {
+                                    <svg class="voice-selector-option-check" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                                    </svg>
+                                }
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</div>
+
+<style>
+.voice-selector {
+    position: relative;
+    width: 100%;
+}
+
+.voice-selector-trigger {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.625rem 0.875rem;
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.375rem;
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.voice-selector-trigger:hover {
+    background-color: var(--color-bg-hover);
+}
+
+.voice-selector-trigger:focus {
+    outline: none;
+    border-color: var(--color-accent-orange);
+    box-shadow: 0 0 0 3px rgba(255, 145, 0, 0.15);
+}
+
+.voice-selector-trigger[aria-expanded="true"] {
+    border-color: var(--color-accent-orange);
+}
+
+.voice-selector-trigger-text {
+    flex: 1;
+    text-align: left;
+}
+
+.voice-selector-trigger-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--color-text-tertiary);
+    transition: transform 0.2s ease;
+}
+
+.voice-selector-trigger[aria-expanded="true"] .voice-selector-trigger-icon {
+    transform: rotate(180deg);
+}
+
+.voice-selector-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    margin-top: 0.25rem;
+    background-color: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.375rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+    z-index: 50;
+    max-height: 24rem;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.voice-selector-search-wrapper {
+    position: relative;
+    padding: 0.75rem;
+    border-bottom: 1px solid var(--color-border-primary);
+}
+
+.voice-selector-search-icon {
+    position: absolute;
+    left: 1.25rem;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-text-tertiary);
+    pointer-events: none;
+}
+
+.voice-selector-search {
+    width: 100%;
+    padding: 0.5rem 0.75rem 0.5rem 2rem;
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.375rem;
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+}
+
+.voice-selector-search:focus {
+    outline: none;
+    border-color: var(--color-accent-orange);
+    box-shadow: 0 0 0 3px rgba(255, 145, 0, 0.15);
+}
+
+.voice-selector-search::placeholder {
+    color: var(--color-text-tertiary);
+}
+
+.voice-selector-listbox {
+    overflow-y: auto;
+    max-height: 18rem;
+}
+
+.voice-selector-group {
+    border-bottom: 1px solid var(--color-border-primary);
+}
+
+.voice-selector-group:last-child {
+    border-bottom: none;
+}
+
+.voice-selector-group.hidden {
+    display: none;
+}
+
+.voice-selector-group-header {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 0.625rem 0.75rem;
+    background-color: var(--color-bg-secondary);
+    border: none;
+    color: var(--color-text-secondary);
+    font-size: 0.75rem;
+    font-weight: 600;
+    line-height: 1rem;
+    cursor: pointer;
+    text-align: left;
+}
+
+.voice-selector-group-header:hover {
+    background-color: var(--color-bg-hover);
+}
+
+.voice-selector-group-chevron {
+    width: 1rem;
+    height: 1rem;
+    margin-right: 0.375rem;
+    transition: transform 0.2s ease;
+}
+
+.voice-selector-group-header[aria-expanded="false"] .voice-selector-group-chevron {
+    transform: rotate(-90deg);
+}
+
+.voice-selector-group-name {
+    flex: 1;
+}
+
+.voice-selector-group-count {
+    color: var(--color-text-tertiary);
+    margin-left: 0.5rem;
+}
+
+.voice-selector-group-content {
+    display: block;
+}
+
+.voice-selector-group-header[aria-expanded="false"] + .voice-selector-group-content {
+    display: none;
+}
+
+.voice-selector-option {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.625rem 0.75rem 0.625rem 2rem;
+    color: var(--color-text-primary);
+    font-size: 0.875rem;
+    line-height: 1.25rem;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+}
+
+.voice-selector-option:hover {
+    background-color: var(--color-bg-hover);
+}
+
+.voice-selector-option.selected {
+    background-color: var(--color-accent-orange-muted);
+}
+
+.voice-selector-option.hidden {
+    display: none;
+}
+
+.voice-selector-option-text {
+    flex: 1;
+}
+
+.voice-selector-option-check {
+    width: 1rem;
+    height: 1rem;
+    color: var(--color-accent-orange);
+    flex-shrink: 0;
+}
+</style>
+
+<script>
+(function() {
+    const containerId = '@Model.ContainerId';
+    const triggerId = '@triggerId';
+    const dropdownId = '@dropdownId';
+    const searchId = '@searchId';
+    const listboxId = '@listboxId';
+    const onVoiceChange = @Html.Raw(!string.IsNullOrEmpty(Model.OnVoiceChange) ? $"'{Model.OnVoiceChange}'" : "null");
+
+    let isOpen = false;
+    let selectedVoice = '@Model.SelectedVoice';
+    let focusedIndex = -1;
+    let visibleOptions = [];
+
+    function init() {
+        const trigger = document.getElementById(triggerId);
+        const dropdown = document.getElementById(dropdownId);
+        const search = document.getElementById(searchId);
+        const listbox = document.getElementById(listboxId);
+
+        if (!trigger || !dropdown || !search || !listbox) return;
+
+        // Trigger click
+        trigger.addEventListener('click', function(e) {
+            e.stopPropagation();
+            toggleDropdown();
+        });
+
+        // Search input
+        search.addEventListener('input', function() {
+            filterOptions(this.value);
+        });
+
+        // Search keyboard navigation
+        search.addEventListener('keydown', function(e) {
+            handleSearchKeydown(e);
+        });
+
+        // Option clicks
+        listbox.addEventListener('click', function(e) {
+            const option = e.target.closest('.voice-selector-option');
+            if (option) {
+                selectVoice(option.dataset.voiceValue);
+                closeDropdown();
+            }
+        });
+
+        // Close on outside click
+        document.addEventListener('click', function(e) {
+            if (!document.getElementById(containerId).contains(e.target)) {
+                closeDropdown();
+            }
+        });
+
+        // Close on escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' && isOpen) {
+                closeDropdown();
+                trigger.focus();
+            }
+        });
+
+        // Initialize visible options
+        updateVisibleOptions();
+    }
+
+    function toggleDropdown() {
+        if (isOpen) {
+            closeDropdown();
+        } else {
+            openDropdown();
+        }
+    }
+
+    function openDropdown() {
+        const trigger = document.getElementById(triggerId);
+        const dropdown = document.getElementById(dropdownId);
+        const search = document.getElementById(searchId);
+
+        if (!trigger || !dropdown || !search) return;
+
+        isOpen = true;
+        dropdown.style.display = 'flex';
+        trigger.setAttribute('aria-expanded', 'true');
+        search.value = '';
+        filterOptions('');
+        search.focus();
+    }
+
+    function closeDropdown() {
+        const trigger = document.getElementById(triggerId);
+        const dropdown = document.getElementById(dropdownId);
+
+        if (!trigger || !dropdown) return;
+
+        isOpen = false;
+        dropdown.style.display = 'none';
+        trigger.setAttribute('aria-expanded', 'false');
+        focusedIndex = -1;
+    }
+
+    function filterOptions(query) {
+        const listbox = document.getElementById(listboxId);
+        if (!listbox) return;
+
+        const normalizedQuery = query.toLowerCase().trim();
+        const groups = listbox.querySelectorAll('.voice-selector-group');
+
+        groups.forEach(group => {
+            const options = group.querySelectorAll('.voice-selector-option');
+            let visibleCount = 0;
+
+            options.forEach(option => {
+                const displayName = option.dataset.voiceDisplay.toLowerCase();
+                const gender = option.dataset.voiceGender.toLowerCase();
+                const localeDisplay = option.dataset.voiceLocaleDisplay.toLowerCase();
+
+                const matches = !normalizedQuery ||
+                    displayName.includes(normalizedQuery) ||
+                    gender.includes(normalizedQuery) ||
+                    localeDisplay.includes(normalizedQuery);
+
+                if (matches) {
+                    option.classList.remove('hidden');
+                    visibleCount++;
+                } else {
+                    option.classList.add('hidden');
+                }
+            });
+
+            // Hide group if no visible options
+            if (visibleCount === 0) {
+                group.classList.add('hidden');
+            } else {
+                group.classList.remove('hidden');
+            }
+        });
+
+        updateVisibleOptions();
+    }
+
+    function updateVisibleOptions() {
+        const listbox = document.getElementById(listboxId);
+        if (!listbox) return;
+
+        visibleOptions = Array.from(listbox.querySelectorAll('.voice-selector-option:not(.hidden)'));
+    }
+
+    function handleSearchKeydown(e) {
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            focusNextOption();
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            focusPreviousOption();
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (focusedIndex >= 0 && focusedIndex < visibleOptions.length) {
+                selectVoice(visibleOptions[focusedIndex].dataset.voiceValue);
+                closeDropdown();
+            }
+        } else if (e.key === 'Home') {
+            e.preventDefault();
+            focusedIndex = 0;
+            scrollToFocused();
+        } else if (e.key === 'End') {
+            e.preventDefault();
+            focusedIndex = visibleOptions.length - 1;
+            scrollToFocused();
+        }
+    }
+
+    function focusNextOption() {
+        if (visibleOptions.length === 0) return;
+        focusedIndex = Math.min(focusedIndex + 1, visibleOptions.length - 1);
+        scrollToFocused();
+    }
+
+    function focusPreviousOption() {
+        if (visibleOptions.length === 0) return;
+        focusedIndex = Math.max(focusedIndex - 1, 0);
+        scrollToFocused();
+    }
+
+    function scrollToFocused() {
+        if (focusedIndex < 0 || focusedIndex >= visibleOptions.length) return;
+
+        const option = visibleOptions[focusedIndex];
+        option.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }
+
+    function selectVoice(voiceValue, suppressCallback) {
+        const listbox = document.getElementById(listboxId);
+        const trigger = document.getElementById(triggerId);
+        if (!listbox || !trigger) return;
+
+        selectedVoice = voiceValue;
+
+        // Update selected state
+        listbox.querySelectorAll('.voice-selector-option').forEach(option => {
+            const isSelected = option.dataset.voiceValue === voiceValue;
+            option.classList.toggle('selected', isSelected);
+            option.setAttribute('aria-selected', isSelected ? 'true' : 'false');
+
+            // Update checkmark
+            const existingCheck = option.querySelector('.voice-selector-option-check');
+            if (isSelected && !existingCheck) {
+                const check = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                check.setAttribute('class', 'voice-selector-option-check');
+                check.setAttribute('fill', 'none');
+                check.setAttribute('viewBox', '0 0 24 24');
+                check.setAttribute('stroke', 'currentColor');
+                const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+                path.setAttribute('stroke-linecap', 'round');
+                path.setAttribute('stroke-linejoin', 'round');
+                path.setAttribute('stroke-width', '2');
+                path.setAttribute('d', 'M5 13l4 4L19 7');
+                check.appendChild(path);
+                option.appendChild(check);
+            } else if (!isSelected && existingCheck) {
+                existingCheck.remove();
+            }
+        });
+
+        // Update trigger text
+        const selectedOption = listbox.querySelector(`.voice-selector-option[data-voice-value="${voiceValue}"]`);
+        if (selectedOption) {
+            const displayName = selectedOption.dataset.voiceDisplay;
+            const gender = selectedOption.dataset.voiceGender;
+            const localeDisplay = selectedOption.dataset.voiceLocaleDisplay;
+            const triggerText = trigger.querySelector('.voice-selector-trigger-text');
+            if (triggerText) {
+                triggerText.textContent = `${displayName} (${gender}) - ${localeDisplay}`;
+            }
+        }
+
+        // Fire callback
+        if (!suppressCallback && onVoiceChange && typeof window[onVoiceChange] === 'function') {
+            window[onVoiceChange](voiceValue);
+        }
+    }
+
+    // Public API
+    window['voiceSelector_getValue'] = function(cid) {
+        if (cid === containerId) {
+            return selectedVoice;
+        }
+        return null;
+    };
+
+    window['voiceSelector_setValue'] = function(cid, voiceValue, suppressCallback) {
+        if (cid === containerId) {
+            selectVoice(voiceValue, suppressCallback);
+        }
+    };
+
+    window['voiceSelector_toggleGroup'] = function(cid, locale) {
+        if (cid !== containerId) return;
+
+        const listbox = document.getElementById(listboxId);
+        if (!listbox) return;
+
+        const group = listbox.querySelector(`.voice-selector-group[data-locale="${locale}"]`);
+        if (!group) return;
+
+        const header = group.querySelector('.voice-selector-group-header');
+        if (!header) return;
+
+        const isExpanded = header.getAttribute('aria-expanded') === 'true';
+        header.setAttribute('aria-expanded', isExpanded ? 'false' : 'true');
+
+        updateVisibleOptions();
+    };
+
+    // Initialize on DOM ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', init);
+    } else {
+        init();
+    }
+})();
+</script>
