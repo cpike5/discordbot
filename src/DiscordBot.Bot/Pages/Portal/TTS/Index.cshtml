@@ -639,15 +639,6 @@
         box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.1);
     }
 
-    .form-select optgroup {
-        background-color: var(--color-bg-primary);
-        color: var(--color-text-primary);
-    }
-
-    .form-select option {
-        background-color: var(--color-bg-primary);
-        color: var(--color-text-primary);
-    }
 
     .slider-group {
         display: flex;
@@ -1296,18 +1287,7 @@ else
                         <!-- Voice Selection -->
                         <div class="form-group">
                             <label class="form-label">Voice</label>
-                            <select id="voiceSelect" class="form-select">
-                                <option value="">-- Select a voice --</option>
-                                @foreach (var localeGroup in Model.AvailableVoices.GroupBy(v => v.Locale).OrderBy(g => g.Key))
-                                {
-                                    <optgroup label="@localeGroup.Key">
-                                        @foreach (var voice in localeGroup.OrderBy(v => v.DisplayName))
-                                        {
-                                            <option value="@voice.Name">@voice.DisplayName</option>
-                                        }
-                                    </optgroup>
-                                }
-                            </select>
+                            <partial name="../../Shared/Components/_VoiceSelector" model="Model.VoiceSelector" />
                         </div>
 
                         <!-- Style Selector (visible in Standard and Pro modes, hidden by default) -->

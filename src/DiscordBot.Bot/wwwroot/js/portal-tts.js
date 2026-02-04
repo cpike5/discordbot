@@ -112,8 +112,7 @@
             stopBtn.addEventListener('click', stopPlayback);
         }
 
-        // Voice selection handled by voice selector component
-        // See portalHandleVoiceChange callback below
+        // Voice selection - handled by VoiceSelector component via portalHandleVoiceChange callback
 
         // Slider value displays
         const speedSlider = document.getElementById('speedSlider');
@@ -133,11 +132,9 @@
     function loadSavedVoice() {
         try {
             const savedVoice = localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
-            if (savedVoice) {
-                if (window.voiceSelector_setValue) {
-                    window.voiceSelector_setValue('portalVoiceSelector', savedVoice, true);
-                    console.log('[PortalTTS] Restored saved voice:', savedVoice);
-                }
+            if (savedVoice && window.voiceSelector_setValue) {
+                window.voiceSelector_setValue('portalVoiceSelector', savedVoice, true);
+                console.log('[PortalTTS] Restored saved voice:', savedVoice);
             }
         } catch (error) {
             console.warn('[PortalTTS] Failed to load saved voice:', error);
@@ -271,8 +268,7 @@
             return;
         }
 
-        const voice = window.voiceSelector_getValue
-            ? window.voiceSelector_getValue('portalVoiceSelector') : '';
+        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
         if (!voice) {
             showToast('warning', 'Please select a voice first!');
             return;
@@ -659,8 +655,7 @@
         const pitchSlider = document.getElementById('pitchSlider');
 
         const message = messageInput?.value?.trim() || '';
-        const voice = window.voiceSelector_getValue
-            ? window.voiceSelector_getValue('portalVoiceSelector') : '';
+        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : '';
         const speed = parseFloat(speedSlider?.value || '1.0');
         const pitch = parseFloat(pitchSlider?.value || '1.0');
 
@@ -771,6 +766,19 @@
     };
 
     /**
+     * Handle voice changes from VoiceSelector component
+     */
+    window.portalHandleVoiceChange = function(voiceValue) {
+        saveSelectedVoice(voiceValue);
+        if (window.styleSelector_loadStyles) {
+            window.styleSelector_loadStyles('portalStyleSelector', voiceValue);
+        }
+        if (currentMode === 'pro') {
+            buildSsmlFromCurrentState();
+        }
+    };
+
+    /**
      * Handle preset application from PresetBar component
      */
     window.portalHandlePresetApply = function(presetData) {
@@ -825,19 +833,6 @@
 
     // portalHandleFormatChange removed - SSML builder parses textarea directly.
     // The toolbar fires the textarea 'input' event which triggers the existing debounced rebuild.
-
-    /**
-     * Handle voice changes from VoiceSelector component
-     */
-    window.portalHandleVoiceChange = function(voiceName) {
-        saveSelectedVoice(voiceName);
-        if (window.styleSelector_loadStyles) {
-            window.styleSelector_loadStyles('portalStyleSelector', voiceName);
-        }
-        if (currentMode === 'pro') {
-            buildSsmlFromCurrentState();
-        }
-    };
 
     /**
      * Handle SSML copy from SsmlPreview component

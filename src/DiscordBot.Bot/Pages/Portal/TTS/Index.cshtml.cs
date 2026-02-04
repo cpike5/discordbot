@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Entities;
@@ -91,6 +92,11 @@ public class IndexModel : PortalPageModelBase
     /// View model for the pause insertion modal (Pro mode only).
     /// </summary>
     public PauseModalViewModel PauseModal { get; set; } = new();
+
+    /// <summary>
+    /// View model for the voice selector component.
+    /// </summary>
+    public VoiceSelectorViewModel VoiceSelector { get; set; } = new();
 
     /// <summary>
     /// Handles GET requests to display the TTS Portal page.
@@ -278,6 +284,23 @@ public class IndexModel : PortalPageModelBase
             Id = "portalPauseModal",
             DefaultDuration = 500,
             OnInsertCallback = "portalHandlePauseInsert"
+        };
+
+        // Build voice selector with curated voices from TTS service
+        VoiceSelector = new VoiceSelectorViewModel
+        {
+            Voices = _ttsService.GetCuratedVoices()
+                .Select(v => new VoiceSelectorVoiceOption
+                {
+                    Value = v.ShortName,
+                    DisplayName = v.DisplayName,
+                    Gender = v.Gender,
+                    Locale = v.Locale,
+                    LocaleDisplayName = LocaleDisplayNames.GetDisplayName(v.Locale)
+                }).ToList(),
+            SelectedVoice = settings.DefaultVoice,
+            ContainerId = "portalVoiceSelector",
+            OnVoiceChange = "portalHandleVoiceChange"
         };
     }
 }
