@@ -3,7 +3,7 @@
 Quick reference catalog of all services in the Discord bot system. Organized by domain area for easy discovery and understanding of service relationships.
 
 **Last Updated**: February 2026
-**Codebase Version**: v0.19.0-dev
+**Codebase Version**: v0.18.3
 
 ---
 
