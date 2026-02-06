@@ -38,6 +38,12 @@ public class VoiceCapabilities
     public IReadOnlyList<string> SupportedRoles { get; init; } = [];
 
     /// <summary>
+    /// Whether voice supports the SSML &lt;emphasis&gt; element.
+    /// Only en-US-GuyNeural, en-US-DavisNeural, and en-US-JaneNeural support this.
+    /// </summary>
+    public bool SupportsEmphasis { get; init; }
+
+    /// <summary>
     /// Whether voice supports multilingual content.
     /// </summary>
     public bool SupportsMultilingual { get; init; }

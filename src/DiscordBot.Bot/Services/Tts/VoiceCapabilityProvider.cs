@@ -20,9 +20,12 @@ public class VoiceCapabilityProvider : IVoiceCapabilityProvider
     // Default cache duration: 24 hours
     private const int DefaultCacheDurationMinutes = 24 * 60;
 
+    // Voice capability reference: https://learn.microsoft.com/en-us/azure/ai-services/speech-service/language-support?tabs=tts#voice-styles-and-roles
+    // Last verified: 2026-02
     // Known Azure neural voices with their supported styles
     private static readonly Dictionary<string, VoiceCapabilities> KnownVoices = new(StringComparer.OrdinalIgnoreCase)
     {
+        // ── en-US voices ──────────────────────────────────────────────────────
         ["en-US-JennyNeural"] = new()
         {
             VoiceName = "en-US-JennyNeural",
@@ -32,7 +35,7 @@ public class VoiceCapabilityProvider : IVoiceCapabilityProvider
             SupportedStyles = new[]
             {
                 "angry", "assistant", "chat", "cheerful", "customerservice",
-                "empathetic", "excited", "friendly", "hopeful", "newscast",
+                "excited", "friendly", "hopeful", "newscast",
                 "sad", "shouting", "terrified", "unfriendly", "whispering"
             },
             SupportedRoles = Array.Empty<string>(),
@@ -49,9 +52,10 @@ public class VoiceCapabilityProvider : IVoiceCapabilityProvider
             Gender = "Female",
             SupportedStyles = new[]
             {
-                "angry", "chat", "cheerful", "empathetic", "excited",
-                "friendly", "hopeful", "sad", "shouting", "terrified",
-                "unfriendly", "whispering"
+                "angry", "chat", "cheerful", "customerservice", "empathetic",
+                "excited", "friendly", "hopeful", "narration-professional",
+                "newscast-casual", "newscast-formal", "sad", "shouting",
+                "terrified", "unfriendly", "whispering"
             },
             SupportedRoles = Array.Empty<string>(),
             SupportsMultilingual = false,
@@ -72,6 +76,7 @@ public class VoiceCapabilityProvider : IVoiceCapabilityProvider
                 "whispering"
             },
             SupportedRoles = Array.Empty<string>(),
+            SupportsEmphasis = true,
             SupportsMultilingual = false,
             IsPremium = false,
             VoiceType = "Neural",
@@ -89,6 +94,442 @@ public class VoiceCapabilityProvider : IVoiceCapabilityProvider
                 "hopeful", "sad", "shouting", "terrified", "unfriendly",
                 "whispering"
             },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsEmphasis = true,
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["en-US-JaneNeural"] = new()
+        {
+            VoiceName = "en-US-JaneNeural",
+            DisplayName = "Jane",
+            Locale = "en-US",
+            Gender = "Female",
+            SupportedStyles = new[]
+            {
+                "angry", "cheerful", "excited", "friendly", "hopeful",
+                "sad", "shouting", "terrified", "unfriendly", "whispering"
+            },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsEmphasis = true,
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["en-US-JasonNeural"] = new()
+        {
+            VoiceName = "en-US-JasonNeural",
+            DisplayName = "Jason",
+            Locale = "en-US",
+            Gender = "Male",
+            SupportedStyles = new[]
+            {
+                "angry", "cheerful", "excited", "friendly", "hopeful",
+                "sad", "shouting", "terrified", "unfriendly", "whispering"
+            },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── en-GB voices ──────────────────────────────────────────────────────
+        ["en-GB-RyanNeural"] = new()
+        {
+            VoiceName = "en-GB-RyanNeural",
+            DisplayName = "Ryan",
+            Locale = "en-GB",
+            Gender = "Male",
+            SupportedStyles = new[] { "chat", "cheerful", "sad", "whispering" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["en-GB-SoniaNeural"] = new()
+        {
+            VoiceName = "en-GB-SoniaNeural",
+            DisplayName = "Sonia",
+            Locale = "en-GB",
+            Gender = "Female",
+            SupportedStyles = new[] { "cheerful", "sad" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["en-GB-LibbyNeural"] = new()
+        {
+            VoiceName = "en-GB-LibbyNeural",
+            DisplayName = "Libby",
+            Locale = "en-GB",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── ja-JP voices ──────────────────────────────────────────────────────
+        ["ja-JP-NanamiNeural"] = new()
+        {
+            VoiceName = "ja-JP-NanamiNeural",
+            DisplayName = "Nanami",
+            Locale = "ja-JP",
+            Gender = "Female",
+            SupportedStyles = new[] { "chat", "cheerful", "customerservice" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["ja-JP-KeitaNeural"] = new()
+        {
+            VoiceName = "ja-JP-KeitaNeural",
+            DisplayName = "Keita",
+            Locale = "ja-JP",
+            Gender = "Male",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["ja-JP-MayuNeural"] = new()
+        {
+            VoiceName = "ja-JP-MayuNeural",
+            DisplayName = "Mayu",
+            Locale = "ja-JP",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["ja-JP-NaokiNeural"] = new()
+        {
+            VoiceName = "ja-JP-NaokiNeural",
+            DisplayName = "Naoki",
+            Locale = "ja-JP",
+            Gender = "Male",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── fr-FR voices ──────────────────────────────────────────────────────
+        ["fr-FR-DeniseNeural"] = new()
+        {
+            VoiceName = "fr-FR-DeniseNeural",
+            DisplayName = "Denise",
+            Locale = "fr-FR",
+            Gender = "Female",
+            SupportedStyles = new[] { "cheerful", "excited", "sad", "whispering" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["fr-FR-HenriNeural"] = new()
+        {
+            VoiceName = "fr-FR-HenriNeural",
+            DisplayName = "Henri",
+            Locale = "fr-FR",
+            Gender = "Male",
+            SupportedStyles = new[] { "cheerful", "excited", "sad", "whispering" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["fr-FR-BrigitteNeural"] = new()
+        {
+            VoiceName = "fr-FR-BrigitteNeural",
+            DisplayName = "Brigitte",
+            Locale = "fr-FR",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── de-DE voices ──────────────────────────────────────────────────────
+        ["de-DE-ConradNeural"] = new()
+        {
+            VoiceName = "de-DE-ConradNeural",
+            DisplayName = "Conrad",
+            Locale = "de-DE",
+            Gender = "Male",
+            SupportedStyles = new[] { "cheerful", "sad" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["de-DE-KatjaNeural"] = new()
+        {
+            VoiceName = "de-DE-KatjaNeural",
+            DisplayName = "Katja",
+            Locale = "de-DE",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── it-IT voices ──────────────────────────────────────────────────────
+        ["it-IT-DiegoNeural"] = new()
+        {
+            VoiceName = "it-IT-DiegoNeural",
+            DisplayName = "Diego",
+            Locale = "it-IT",
+            Gender = "Male",
+            SupportedStyles = new[] { "cheerful", "excited", "sad" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["it-IT-ElsaNeural"] = new()
+        {
+            VoiceName = "it-IT-ElsaNeural",
+            DisplayName = "Elsa",
+            Locale = "it-IT",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── es-ES voices ──────────────────────────────────────────────────────
+        ["es-ES-AlvaroNeural"] = new()
+        {
+            VoiceName = "es-ES-AlvaroNeural",
+            DisplayName = "Alvaro",
+            Locale = "es-ES",
+            Gender = "Male",
+            SupportedStyles = new[] { "cheerful", "sad" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["es-ES-ElviraNeural"] = new()
+        {
+            VoiceName = "es-ES-ElviraNeural",
+            DisplayName = "Elvira",
+            Locale = "es-ES",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── es-MX voices ──────────────────────────────────────────────────────
+        ["es-MX-DaliaNeural"] = new()
+        {
+            VoiceName = "es-MX-DaliaNeural",
+            DisplayName = "Dalia",
+            Locale = "es-MX",
+            Gender = "Female",
+            SupportedStyles = new[] { "cheerful", "sad", "whispering" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── hi-IN voices ──────────────────────────────────────────────────────
+        ["hi-IN-SwaraNeural"] = new()
+        {
+            VoiceName = "hi-IN-SwaraNeural",
+            DisplayName = "Swara",
+            Locale = "hi-IN",
+            Gender = "Female",
+            SupportedStyles = new[] { "cheerful", "empathetic", "newscast" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["hi-IN-MadhurNeural"] = new()
+        {
+            VoiceName = "hi-IN-MadhurNeural",
+            DisplayName = "Madhur",
+            Locale = "hi-IN",
+            Gender = "Male",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── zh-CN voices ──────────────────────────────────────────────────────
+        ["zh-CN-XiaoxiaoNeural"] = new()
+        {
+            VoiceName = "zh-CN-XiaoxiaoNeural",
+            DisplayName = "Xiaoxiao",
+            Locale = "zh-CN",
+            Gender = "Female",
+            SupportedStyles = new[]
+            {
+                "affectionate", "angry", "assistant", "calm", "chat",
+                "chat-casual", "cheerful", "customerservice", "disgruntled",
+                "excited", "fearful", "friendly", "gentle", "lyrical",
+                "newscast", "poetry-reading", "sad", "serious", "sorry",
+                "whispering"
+            },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["zh-CN-YunxiNeural"] = new()
+        {
+            VoiceName = "zh-CN-YunxiNeural",
+            DisplayName = "Yunxi",
+            Locale = "zh-CN",
+            Gender = "Male",
+            SupportedStyles = new[]
+            {
+                "angry", "assistant", "chat", "cheerful", "depressed",
+                "disgruntled", "embarrassed", "fearful", "narration-relaxed",
+                "newscast", "sad", "serious"
+            },
+            SupportedRoles = new[] { "Boy", "Narrator", "YoungAdultMale" },
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["zh-CN-YunyangNeural"] = new()
+        {
+            VoiceName = "zh-CN-YunyangNeural",
+            DisplayName = "Yunyang",
+            Locale = "zh-CN",
+            Gender = "Male",
+            SupportedStyles = new[] { "customerservice", "narration-professional", "newscast-casual" },
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── sv-SE voices ──────────────────────────────────────────────────────
+        ["sv-SE-SofieNeural"] = new()
+        {
+            VoiceName = "sv-SE-SofieNeural",
+            DisplayName = "Sofie",
+            Locale = "sv-SE",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["sv-SE-MattiasNeural"] = new()
+        {
+            VoiceName = "sv-SE-MattiasNeural",
+            DisplayName = "Mattias",
+            Locale = "sv-SE",
+            Gender = "Male",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── ru-RU voices ──────────────────────────────────────────────────────
+        ["ru-RU-SvetlanaNeural"] = new()
+        {
+            VoiceName = "ru-RU-SvetlanaNeural",
+            DisplayName = "Svetlana",
+            Locale = "ru-RU",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["ru-RU-DmitryNeural"] = new()
+        {
+            VoiceName = "ru-RU-DmitryNeural",
+            DisplayName = "Dmitry",
+            Locale = "ru-RU",
+            Gender = "Male",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+
+        // ── ar-SA voices ──────────────────────────────────────────────────────
+        ["ar-SA-ZariyahNeural"] = new()
+        {
+            VoiceName = "ar-SA-ZariyahNeural",
+            DisplayName = "Zariyah",
+            Locale = "ar-SA",
+            Gender = "Female",
+            SupportedStyles = Array.Empty<string>(),
+            SupportedRoles = Array.Empty<string>(),
+            SupportsMultilingual = false,
+            IsPremium = false,
+            VoiceType = "Neural",
+            SampleRate = 48000
+        },
+        ["ar-SA-HamedNeural"] = new()
+        {
+            VoiceName = "ar-SA-HamedNeural",
+            DisplayName = "Hamed",
+            Locale = "ar-SA",
+            Gender = "Male",
+            SupportedStyles = Array.Empty<string>(),
             SupportedRoles = Array.Empty<string>(),
             SupportsMultilingual = false,
             IsPremium = false,

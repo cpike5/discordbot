@@ -84,6 +84,9 @@
                 @(selectedStyleOption?.Example ?? "")
             }
         </p>
+        <p class="style-selector__no-styles-message" style="display: none;">
+            <em>This voice does not support speaking styles.</em>
+        </p>
     </div>
 
     <!-- Intensity Slider -->
@@ -198,6 +201,13 @@
         color: var(--color-text-tertiary);
         font-style: italic;
         margin: 0;
+    }
+
+    /* No Styles Message */
+    .style-selector__no-styles-message {
+        font-size: 0.8125rem;
+        color: var(--color-text-tertiary);
+        margin: 0.25rem 0 0 0;
     }
 
     /* Slider Wrapper */
@@ -467,29 +477,51 @@
                 const data = await response.json();
                 const supportedStyles = data.supportedStyles || [];
 
-                // Update option disabled states
-                const options = select.querySelectorAll('option');
-                options.forEach(option => {
-                    const styleValue = option.value;
+                const noStylesMsg = container.querySelector('.style-selector__no-styles-message');
+                const slider = container.querySelector(`#${containerId}-slider`);
 
-                    if (styleValue === '') {
-                        // "(None)" is always enabled
-                        option.disabled = false;
-                    } else {
-                        // Enable only if supported by voice
-                        option.disabled = !supportedStyles.includes(styleValue);
-                    }
-                });
+                if (supportedStyles.length === 0) {
+                    // Disable select and slider, show no-styles message
+                    select.disabled = true;
+                    if (slider) slider.disabled = true;
+                    if (noStylesMsg) noStylesMsg.style.display = 'block';
+                    // Reset to (None)
+                    select.value = '';
+                    styleSelector_onStyleChange(containerId);
+                } else {
+                    // Re-enable select, hide no-styles message
+                    select.disabled = false;
+                    if (noStylesMsg) noStylesMsg.style.display = 'none';
 
-                // Check if current selection is still valid
-                const currentStyle = container.dataset.style || '';
-                if (currentStyle !== '') {
-                    const isSupported = supportedStyles.includes(currentStyle);
-                    if (!isSupported) {
-                        // Reset to "(None)"
-                        select.value = '';
-                        styleSelector_onStyleChange(containerId);
+                    // Update option disabled states
+                    const options = select.querySelectorAll('option');
+                    options.forEach(option => {
+                        const styleValue = option.value;
+
+                        if (styleValue === '') {
+                            // "(None)" is always enabled
+                            option.disabled = false;
+                        } else {
+                            // Enable only if supported by voice
+                            option.disabled = !supportedStyles.includes(styleValue);
+                        }
+                    });
+
+                    // Check if current selection is still valid
+                    const currentStyle = container.dataset.style || '';
+                    if (currentStyle !== '') {
+                        const isSupported = supportedStyles.includes(currentStyle);
+                        if (!isSupported) {
+                            // Reset to "(None)"
+                            select.value = '';
+                            styleSelector_onStyleChange(containerId);
+                        }
                     }
+                }
+
+                // Notify EmphasisToolbar of voice emphasis capability
+                if (typeof window.emphasisToolbar_updateCapability === 'function') {
+                    window.emphasisToolbar_updateCapability(!!data.supportsEmphasis);
                 }
 
                 // Update container data attribute

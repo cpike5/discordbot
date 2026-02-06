@@ -1025,7 +1025,6 @@ public class PortalTtsController : ControllerBase
     /// <returns>Voice capabilities including supported styles.</returns>
     [HttpGet("/api/portal/tts/voices/{voiceName}/capabilities")]
     [ProducesResponseType(typeof(VoiceCapabilities), StatusCodes.Status200OK)]
-    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     [AllowAnonymous]
     public IActionResult GetVoiceCapabilities(string voiceName)
     {
@@ -1034,14 +1033,16 @@ public class PortalTtsController : ControllerBase
         var capabilities = _voiceCapabilityProvider.GetCapabilities(voiceName);
         if (capabilities == null)
         {
-            _logger.LogDebug("Voice not found: {VoiceName}", voiceName);
-            return NotFound(new ApiErrorDto
+            _logger.LogWarning("Voice not found in registry, returning fallback capabilities: {VoiceName}", voiceName);
+            capabilities = new VoiceCapabilities
             {
-                Message = "Voice not found",
-                Detail = $"The voice '{voiceName}' was not found in the known voices registry.",
-                StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
-            });
+                VoiceName = voiceName,
+                DisplayName = voiceName,
+                Locale = "unknown",
+                Gender = "Unknown",
+                SupportedStyles = Array.Empty<string>(),
+                SupportedRoles = Array.Empty<string>(),
+            };
         }
 
         return Ok(capabilities);
