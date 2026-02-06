@@ -23,6 +23,7 @@ public class IndexModel : PortalPageModelBase
     private readonly ITtsService _ttsService;
     private readonly ISettingsService _settingsService;
     private readonly ITtsSettingsService _ttsSettingsService;
+    private readonly IPlaybackService _playbackService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -32,6 +33,7 @@ public class IndexModel : PortalPageModelBase
         ITtsService ttsService,
         ISettingsService settingsService,
         ITtsSettingsService ttsSettingsService,
+        IPlaybackService playbackService,
         UserManager<ApplicationUser> userManager,
         ILogger<IndexModel> logger)
         : base(guildService, discordClient, userManager, logger)
@@ -40,6 +42,7 @@ public class IndexModel : PortalPageModelBase
         _ttsService = ttsService;
         _settingsService = settingsService;
         _ttsSettingsService = ttsSettingsService;
+        _playbackService = playbackService;
         _logger = logger;
     }
 
@@ -169,7 +172,9 @@ public class IndexModel : PortalPageModelBase
                         Name = c.Name,
                         MemberCount = c.MemberCount
                     }).ToList(),
-                NowPlaying = null,
+                NowPlaying = _playbackService.IsPlaying(guildId)
+                    ? new NowPlayingInfo { Name = "TTS Message" }
+                    : null,
                 Queue = []
             };
 
