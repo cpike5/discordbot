@@ -1,7 +1,7 @@
 # Component API Usage Guide
 
-**Version:** 1.2
-**Last Updated:** 2026-01-26
+**Version:** 1.3
+**Last Updated:** 2026-02-05
 **Target Framework:** .NET 8 Razor Pages with Tailwind CSS
 
 ---
@@ -69,6 +69,7 @@ Then in the view:
 | [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
 | [SortDropdown](#sortdropdown-component) | Sort selection dropdown | Table headers, list sorting |
 | [FilterPanel](#filterpanel-javascript-utility) | Collapsible filter sections | Data filtering, date range selection |
+| [VoiceChannelPanel](#voicechannelpanel-component) | Voice channel controls | Audio portals, admin voice pages |
 
 ---
 
@@ -2045,6 +2046,223 @@ onclick="setDatePreset('30days')"  // Last 30 days
 
 ---
 
+## VoiceChannelPanel Component
+
+Voice channel control panel with connection status, channel selection, now playing display, and queue management. Supports both full-featured and compact layouts for different use cases.
+
+**Location:** `Pages/Shared/Components/_VoiceChannelPanel.cshtml`
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `GuildId` | `ulong` | (required) | Discord guild ID |
+| `IsCompact` | `bool` | `false` | Compact mode for sidebar/widget use |
+| `ShowNowPlaying` | `bool` | `true` | Controls Now Playing section visibility |
+| `ShowProgress` | `bool` | `true` | Progress bar (true) vs "Playing..." text (false) |
+| `IsConnected` | `bool` | `false` | Whether bot is connected to voice |
+| `ConnectedChannelName` | `string?` | `null` | Connected channel name |
+| `ConnectedChannelId` | `ulong?` | `null` | Connected channel ID |
+| `ChannelMemberCount` | `int?` | `null` | Members in connected channel |
+| `AvailableChannels` | `IReadOnlyList<VoiceChannelInfo>` | `[]` | Available voice channels |
+| `NowPlaying` | `NowPlayingInfo?` | `null` | Currently playing audio info |
+| `Queue` | `IReadOnlyList<QueueItemInfo>` | `[]` | Queued audio items |
+
+### Supporting Types
+
+#### NowPlayingInfo
+
+Information about the currently playing audio track.
+
+```csharp
+public record NowPlayingInfo
+{
+    public string Name { get; init; } = string.Empty;              // Track name (required)
+    public double DurationSeconds { get; init; }                   // Total track duration
+    public double PositionSeconds { get; init; }                   // Current playback position
+    public int ProgressPercent => (int)((PositionSeconds / DurationSeconds) * 100);
+}
+```
+
+#### VoiceChannelInfo
+
+Information about an available voice channel.
+
+```csharp
+public record VoiceChannelInfo
+{
+    public ulong Id { get; init; }                                 // Discord channel ID (required)
+    public string Name { get; init; } = string.Empty;              // Channel name (required)
+    public int MemberCount { get; init; }                          // Current member count
+}
+```
+
+#### QueueItemInfo
+
+Information about a queued audio item.
+
+```csharp
+public record QueueItemInfo
+{
+    public int Position { get; init; }                             // Queue position (1-indexed)
+    public string Name { get; init; } = string.Empty;              // Item name (required)
+    public double DurationSeconds { get; init; }                   // Item duration
+}
+```
+
+### Basic Usage
+
+**Full Mode (Admin Pages):**
+
+Used on admin pages with all controls and information displayed.
+
+```csharp
+var voicePanel = new VoiceChannelPanelViewModel
+{
+    GuildId = Model.GuildId,
+    IsCompact = false,  // Full mode
+    IsConnected = Model.IsConnected,
+    ConnectedChannelId = Model.ConnectedChannelId,
+    ConnectedChannelName = Model.ConnectedChannelName,
+    ChannelMemberCount = Model.ChannelMemberCount,
+    AvailableChannels = Model.AvailableChannels
+};
+```
+
+```cshtml
+<partial name="Shared/Components/_VoiceChannelPanel" model="voicePanel" />
+```
+
+**Compact Mode with Now Playing and Progress (Soundboard Portal):**
+
+Used in audio portals where playback duration is known.
+
+```csharp
+var voicePanel = new VoiceChannelPanelViewModel
+{
+    GuildId = Model.GuildId,
+    IsCompact = true,
+    ShowNowPlaying = true,
+    ShowProgress = true,              // Progress bar shown (duration known)
+    IsConnected = Model.IsConnected,
+    ConnectedChannelId = Model.ConnectedChannelId,
+    ConnectedChannelName = Model.ConnectedChannelName,
+    AvailableChannels = Model.AvailableChannels,
+    NowPlaying = Model.NowPlaying
+};
+```
+
+**Compact Mode with Now Playing but No Progress (TTS/VOX Portal):**
+
+Used for TTS and VOX portals where audio duration is unknown until playback.
+
+```csharp
+var voicePanel = new VoiceChannelPanelViewModel
+{
+    GuildId = Model.GuildId,
+    IsCompact = true,
+    ShowNowPlaying = true,
+    ShowProgress = false,             // Shows "Playing..." text instead of progress bar
+    IsConnected = Model.IsConnected,
+    ConnectedChannelId = Model.ConnectedChannelId,
+    ConnectedChannelName = Model.ConnectedChannelName,
+    AvailableChannels = Model.AvailableChannels,
+    NowPlaying = Model.NowPlaying
+};
+```
+
+**Compact Mode without Now Playing (Admin Pages with Compact Layout):**
+
+Used when sidebar space is limited and now playing info is not needed.
+
+```csharp
+var voicePanel = new VoiceChannelPanelViewModel
+{
+    GuildId = Model.GuildId,
+    IsCompact = true,
+    ShowNowPlaying = false,           // Hide now playing section
+    IsConnected = Model.IsConnected,
+    ConnectedChannelId = Model.ConnectedChannelId,
+    ConnectedChannelName = Model.ConnectedChannelName,
+    AvailableChannels = Model.AvailableChannels
+};
+```
+
+### Feature Details
+
+#### Connection Status Display
+
+- Shows bot connection state with visual indicator
+- Displays connected channel name and member count
+- Channel selection dropdown for connecting/disconnecting
+
+#### Now Playing Display
+
+When `ShowNowPlaying` is true and `NowPlaying` is populated:
+
+**With Progress Bar (`ShowProgress = true`):**
+- Displays track name
+- Shows progress bar with ARIA attributes
+- Displays current time and duration
+- Stop button to stop playback
+
+**With "Playing..." Text (`ShowProgress = false`):**
+- Displays track name
+- Shows "Playing..." indicator (no progress bar)
+- Stop button to stop playback
+
+#### Queue Management
+
+When queue items are present, displays upcoming tracks in playback order.
+
+### Accessibility Notes
+
+- Progress bar uses `role="progressbar"` with `aria-valuenow`, `aria-valuemin`, `aria-valuemax`
+- Connection status includes `aria-label` for screen readers
+- Stop button includes `title` attribute with keyboard shortcut
+- All buttons are keyboard navigable with visible focus indicators
+- Channel selection dropdown properly labeled
+
+### Common Patterns
+
+**Checking Audio Portal State:**
+
+```csharp
+// In page model
+public VoiceChannelPanelViewModel GetVoicePanel()
+{
+    var isAudioPortal = Model.AudioMode == AudioPortalMode.Soundboard;
+
+    return new VoiceChannelPanelViewModel
+    {
+        GuildId = Model.GuildId,
+        IsCompact = true,
+        ShowNowPlaying = true,
+        ShowProgress = isAudioPortal,  // Only for soundboard
+        IsConnected = Model.IsConnected,
+        ConnectedChannelId = Model.ConnectedChannelId,
+        ConnectedChannelName = Model.ConnectedChannelName,
+        AvailableChannels = Model.AvailableChannels,
+        NowPlaying = isAudioPortal ? Model.NowPlaying : null
+    };
+}
+```
+
+**Responsive Layout Strategy:**
+
+- Full mode on desktop admin pages with space for details
+- Compact mode on sidebar and mobile layouts
+- Hide now playing when screen space is critical
+- Show progress only when duration information is available
+
+### Related Documentation
+
+- **[Unified Now Playing](unified-now-playing.md)** - Architecture and real-time state management
+- **[Voice Channel Integration](voice-channels.md)** - Discord voice channel connectivity
+- **[Soundboard](soundboard.md)** - Soundboard feature and audio playback
+
+---
+
 ## Integration Examples
 
 ### Form with Validation
@@ -2527,6 +2745,12 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.3 (2026-02-05)
+- Added VoiceChannelPanel component documentation
+- Documented ShowNowPlaying and ShowProgress properties for Now Playing control
+- Added usage examples for portal and admin page configurations
+- Included accessibility guidelines for progress bar and audio controls
 
 ### Version 1.2 (2026-01-26)
 - Added SortDropdown component documentation with ViewModel properties
