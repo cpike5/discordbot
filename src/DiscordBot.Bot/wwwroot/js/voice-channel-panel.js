@@ -478,6 +478,7 @@ const VoiceChannelPanel = (function() {
 
             if (nowPlayingName) {
                 nowPlayingName.textContent = nowPlaying.name;
+                nowPlayingName.title = nowPlaying.name;
             }
 
             updatePlaybackProgress(nowPlaying.positionSeconds || 0, nowPlaying.durationSeconds || 0);
