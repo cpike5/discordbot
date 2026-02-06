@@ -22,6 +22,8 @@
       href: design-system.md
     - name: Component API
       href: component-api.md
+    - name: Unified Now Playing
+      href: unified-now-playing.md
 - name: API & Integration
   items:
     - name: REST API Endpoints

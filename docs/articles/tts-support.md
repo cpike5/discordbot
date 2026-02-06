@@ -111,9 +111,9 @@ Guild members can access a web-based TTS portal to send text-to-speech messages 
   - Voice selector dropdown (categorized by locale: English US, English UK, Spanish, etc.)
   - Speed slider (0.5-2.0x)
   - Pitch slider (0.5-2.0x)
-- **Now Playing**: Shows currently playing TTS message (first 50 characters)
+- **Now Playing**: Shows currently playing TTS message via unified `_VoiceChannelPanel` component (real-time SignalR updates)
 - **Rate Limiting**: Enforced per-user based on `GuildTtsSettings.RateLimitPerMinute`
-- **Real-time Status**: Connection and playback status polling (3-second interval)
+- **Real-time Status**: Connection and playback status via SignalR (replaced polling)
 - **Mobile Responsive**: Sidebar stacks on mobile devices, touch-friendly controls
 
 ### Access Control
@@ -163,20 +163,25 @@ The portal respects all guild TTS settings from `GuildTtsSettings`:
 - Green indicator when connected to voice channel
 - Gray indicator when not connected
 - Send button disabled when not connected
-- Status updates every 3 seconds via polling
+- Status updates in real-time via SignalR
 
-**Now Playing Panel:**
+**Now Playing Panel** (unified component):
+
+Now Playing is provided by the `_VoiceChannelPanel` component with `ShowNowPlaying = true` and `ShowProgress = false`:
 - Appears when TTS audio is playing
-- Shows message text (truncated to 50 characters)
+- Shows "Playing..." text indicator (no progress bar, since TTS has no known duration)
 - Stop button to interrupt current playback
 - Hides automatically when playback completes
+- Real-time updates via SignalR (no polling overhead)
+
+See [Unified Now Playing](unified-now-playing.md) for architecture details.
 
 ### Technical Implementation
 
 **Frontend:**
 - Razor Page with two states: landing page (unauthenticated) and full portal (authenticated)
 - Vanilla JavaScript with AJAX for form submission (no page reloads)
-- Status polling every 3 seconds to update connection and playback state
+- Real-time SignalR updates for connection and playback state (replaced 3-second polling)
 - Toast notification system for success/error feedback
 - Character counter with real-time updates and warning colors
 
@@ -237,7 +242,6 @@ Potential future additions to the portal:
 - **Message History**: Show user's own TTS message history with replay
 - **Voice Presets**: Save favorite voice/speed/pitch combinations per user
 - **Queue Management**: View queued messages when multiple users send simultaneously
-- **SignalR Real-time**: Replace polling with WebSocket-based real-time updates
 - **Message Templates**: Save frequently used phrases for quick access
 - **SSML Support**: Advanced users can write custom SSML for prosody control
 
@@ -578,6 +582,7 @@ ORDER BY TotalCharacters DESC;
 
 - [Audio Dependencies](audio-dependencies.md) - FFmpeg, libsodium, libopus setup
 - [Soundboard](soundboard.md) - Related audio playback feature
+- [Unified Now Playing](unified-now-playing.md) - Shared Now Playing component architecture
 - [SignalR Real-Time Updates](signalr-realtime.md) - Dashboard real-time notifications
 - [Authorization Policies](authorization-policies.md) - Admin UI access control
 - [Azure Speech Service Documentation](https://learn.microsoft.com/azure/ai-services/speech-service/) - Official Azure docs

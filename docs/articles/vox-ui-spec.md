@@ -1,7 +1,7 @@
 # VOX UI/UX Design Specification
 
-**Version:** 2.0
-**Last Updated:** 2026-02-02
+**Version:** 2.2
+**Last Updated:** 2026-02-05
 **Target Framework:** .NET 8 Razor Pages with Tailwind CSS
 **Related Systems:** [Design System](design-system.md) | [Component API](component-api.md) | [VOX System Spec](vox-system-spec.md)
 
@@ -94,8 +94,9 @@ Member-facing page for composing and playing VOX announcements.
 |  +-----------+   |  +--------------------------------------------+  |
 |  | Now       |   |  | Token Preview Strip                        |  |
 |  | Playing   |   |  | [word] . [word] . [word] . [word]          |  |
-|  |           |   |  |  green    green   green    red(skipped)     |  |
-|  | [Stop]    |   |  +--------------------------------------------+  |
+|  | (via      |   |  |  green    green   green    red(skipped)     |  |
+|  | VoicePanel|   |  +--------------------------------------------+  |
+|  | [Stop]    |   |                                                  |
 |  +-----------+   |                                                  |
 |                  |  [Play VOX Announcement] button                  |
 |  +-----------+   |                                                  |
@@ -125,14 +126,19 @@ Member-facing page for composing and playing VOX announcements.
 
 ##### Left Sidebar (300px Fixed Width)
 
-**Voice Channel Panel** (reuse existing `_VoiceChannelPanel.cshtml`):
+**Voice Channel Panel** (reuse `_VoiceChannelPanel.cshtml` with unified Now Playing):
 
 ```csharp
-new StatusIndicatorViewModel {
-    Status = Model.IsConnected ? StatusType.Online : StatusType.Offline,
-    Text = Model.IsConnected ? "Connected" : "Disconnected",
-    DisplayStyle = StatusDisplayStyle.DotWithText,
-    Size = StatusSize.Medium
+new VoiceChannelPanelViewModel {
+    GuildId = Model.GuildId,
+    IsCompact = true,
+    ShowNowPlaying = true,   // Show Now Playing section
+    ShowProgress = false,     // "Playing..." text (no progress bar)
+    IsConnected = Model.VoicePanel.IsConnected,
+    ConnectedChannelId = Model.VoicePanel.ConnectedChannelId,
+    ConnectedChannelName = Model.VoicePanel.ConnectedChannelName,
+    AvailableChannels = Model.VoicePanel.AvailableChannels,
+    NowPlaying = Model.VoicePanel.NowPlaying
 }
 ```
 
@@ -140,10 +146,15 @@ new StatusIndicatorViewModel {
 - Join/Leave buttons
 - Styled with `bg-bg-secondary`, `border-border-primary`, `rounded-lg`, `p-5`
 
-**Now Playing Section**:
-- Container: `bg-bg-primary`, `rounded-lg`, `p-4`
-- Message display: `text-sm`, `font-mono`, `text-text-primary`, truncated
-- Stop button: `ButtonViewModel` with `Variant = ButtonVariant.Danger`
+**Now Playing Section** (via unified `_VoiceChannelPanel`):
+
+The Now Playing display is provided by the unified `_VoiceChannelPanel` component with `ShowNowPlaying = true` and `ShowProgress = false`. This eliminates the need for custom Now Playing HTML/CSS. The component provides:
+- Real-time updates via SignalR (not polling)
+- Stop playback button
+- "Playing..." text indicator (no progress bar, since VOX has no known duration)
+- Automatic show/hide based on playback state
+
+See [Unified Now Playing](unified-now-playing.md) for architecture details.
 
 **Clip Stats Panel**:
 - Display clip counts per group
@@ -1191,9 +1202,11 @@ Response is cached client-side for autocomplete and token preview. The full clip
 }
 ```
 
-### Status Polling
+### Real-Time Updates
 
-Reuse the existing portal status polling pattern to show Now Playing state and voice connection status.
+Now Playing state and voice connection status are updated in real-time via SignalR through the unified `_VoiceChannelPanel` component's `voice-channel-panel.js` script. This replaces the previous polling approach.
+
+See [Unified Now Playing](unified-now-playing.md) for the SignalR event flow.
 
 ---
 
@@ -1259,6 +1272,7 @@ Reuse the existing portal status polling pattern to show Now Playing state and v
 
 | Version | Date | Changes |
 |---------|------|---------|
+| 2.2 | 2026-02-05 | Now Playing section migrated to unified `_VoiceChannelPanel` component with `ShowNowPlaying = true, ShowProgress = false`. Custom Now Playing HTML/CSS removed. Real-time updates via SignalR. See [Unified Now Playing](unified-now-playing.md) |
 | 2.1 | 2026-02-03 | Documented implemented clip grid features: A-Z index rail with letter navigation, sticky alphabetical section headers with shadow effects, scroll position indicator (80x80px floating letter), enhanced keyboard navigation (arrow keys, Home/End for grid), dynamic grid column calculation, intersection observer for section tracking, comprehensive ARIA labeling, reduced motion support for all animations and behaviors |
 | 2.0 | 2026-02-02 | Simplified to static clip library with 3 groups, removed TTS generation, sentence builder, word bank management. Soundboard-style clip grid + autocomplete input |
 | 1.1 | 2026-02-02 | Aligned component references with component API |
@@ -1266,5 +1280,5 @@ Reuse the existing portal status polling pattern to show Now Playing state and v
 
 ---
 
-**Last Updated**: 2026-02-03
-**Version**: 2.1 (Implemented)
+**Last Updated**: 2026-02-05
+**Version**: 2.2 (Implemented)

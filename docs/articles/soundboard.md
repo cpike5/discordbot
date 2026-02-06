@@ -641,11 +641,11 @@ Gets the current playback status and queue information.
      - Filter selection dropdown
      - Stop/pause controls
      - Queue display (if queue mode enabled)
-     - Current playback status indicator
+     - Now Playing with progress bar via unified `_VoiceChannelPanel` component
 
    - **Real-Time Status Updates** (via SignalR)
      - Connection status updates
-     - Playback progress indicator
+     - Now Playing with progress bar (unified `_VoiceChannelPanel` component)
      - Queue updates
      - Error notifications
 
@@ -810,3 +810,4 @@ The bot maintains a persistent PCM stream per guild. If audio fails after the fi
 
 - [Audio Dependencies](audio-dependencies.md) - FFmpeg, libsodium, libopus setup
 - [SignalR Real-Time Updates](signalr-realtime.md) - Dashboard real-time notifications
+- [Unified Now Playing](unified-now-playing.md) - Shared Now Playing component architecture
