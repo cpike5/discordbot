@@ -3,7 +3,10 @@
     var statusClass = Model.IsConnected ? "text-success" : "text-text-tertiary";
     var statusText = Model.IsConnected ? "Connected" : "Disconnected";
     var statusBgClass = Model.IsConnected ? "bg-success/20" : "bg-bg-tertiary";
-    var panelClass = Model.IsCompact ? "voice-panel-compact" : "";
+    var panelClasses = new List<string>();
+    if (Model.IsCompact) panelClasses.Add("voice-panel-compact");
+    if (!Model.ShowNowPlaying) panelClasses.Add("voice-panel-hide-now-playing");
+    var panelClass = string.Join(" ", panelClasses);
 }
 
 @if (Model.IsCompact)
@@ -78,9 +81,12 @@
             height: 0.875rem !important;
         }
 
-        /* Hide Now Playing and Queue sections in compact mode */
-        .voice-panel-compact #now-playing-section,
+        /* Only hide Queue in compact mode; Now Playing controlled by ShowNowPlaying */
         .voice-panel-compact .voice-queue-section {
+            display: none !important;
+        }
+
+        .voice-panel-hide-now-playing #now-playing-section {
             display: none !important;
         }
 
@@ -206,17 +212,29 @@
                 <p id="now-playing-name" class="text-sm font-medium text-text-primary truncate">
                     @(Model.NowPlaying?.Name ?? "Nothing playing")
                 </p>
-                <div class="mt-1.5">
-                    <div class="w-full bg-bg-tertiary rounded-full h-1.5">
-                        <div id="now-playing-progress"
-                             class="bg-accent-blue h-1.5 rounded-full transition-all duration-300"
-                             style="width: @(Model.NowPlaying?.ProgressPercent ?? 0)%"></div>
+                @if (Model.ShowProgress)
+                {
+                    <div class="mt-1.5">
+                        <div class="w-full bg-bg-tertiary rounded-full h-1.5"
+                             role="progressbar"
+                             aria-valuenow="@(Model.NowPlaying?.ProgressPercent ?? 0)"
+                             aria-valuemin="0"
+                             aria-valuemax="100"
+                             aria-label="Playback progress">
+                            <div id="now-playing-progress"
+                                 class="bg-accent-blue h-1.5 rounded-full transition-all duration-300"
+                                 style="width: @(Model.NowPlaying?.ProgressPercent ?? 0)%"></div>
+                        </div>
+                        <div class="flex justify-between mt-1 text-xs text-text-tertiary">
+                            <span id="now-playing-position">@FormatDuration(Model.NowPlaying?.PositionSeconds ?? 0)</span>
+                            <span id="now-playing-duration">@FormatDuration(Model.NowPlaying?.DurationSeconds ?? 0)</span>
+                        </div>
                     </div>
-                    <div class="flex justify-between mt-1 text-xs text-text-tertiary">
-                        <span id="now-playing-position">@FormatDuration(Model.NowPlaying?.PositionSeconds ?? 0)</span>
-                        <span id="now-playing-duration">@FormatDuration(Model.NowPlaying?.DurationSeconds ?? 0)</span>
-                    </div>
-                </div>
+                }
+                else
+                {
+                    <p class="mt-1 text-xs text-text-tertiary">Playing...</p>
+                }
             </div>
         </div>
     </div>

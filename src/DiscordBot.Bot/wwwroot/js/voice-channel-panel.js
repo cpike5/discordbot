@@ -488,13 +488,14 @@ const VoiceChannelPanel = (function() {
 
     /**
      * Updates the playback progress bar and time display.
+     * Handles missing progress elements gracefully (when ShowProgress = false).
      * @param {number} position - Current position in seconds.
      * @param {number} duration - Total duration in seconds.
      */
     function updatePlaybackProgress(position, duration) {
-        const percent = duration > 0 ? Math.round((position / duration) * 100) : 0;
-
+        // Progress elements may not exist if ShowProgress = false, so check before updating
         if (nowPlayingProgress) {
+            const percent = duration > 0 ? Math.round((position / duration) * 100) : 0;
             nowPlayingProgress.style.width = `${percent}%`;
         }
 

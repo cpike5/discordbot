@@ -13,9 +13,22 @@ public record VoiceChannelPanelViewModel
 
     /// <summary>
     /// When true, renders the panel in compact mode for sidebar/widget use.
-    /// Stacks controls vertically, reduces padding, and hides queue/now-playing sections.
+    /// Stacks controls vertically, reduces padding, and hides queue section.
     /// </summary>
     public bool IsCompact { get; init; }
+
+    /// <summary>
+    /// Controls visibility of the Now Playing section.
+    /// Default: true. Set to false to hide Now Playing.
+    /// </summary>
+    public bool ShowNowPlaying { get; init; } = true;
+
+    /// <summary>
+    /// When true, shows progress bar with position/duration.
+    /// When false, shows "Playing..." text instead.
+    /// Use false for content without known duration (TTS, VOX).
+    /// </summary>
+    public bool ShowProgress { get; init; } = true;
 
     /// <summary>
     /// Whether the bot is currently connected to a voice channel.
