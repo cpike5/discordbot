@@ -594,7 +594,8 @@ public class IndexModel : PageModel
             ConnectedChannelId = connectedChannelId,
             ConnectedChannelName = connectedChannelName,
             ChannelMemberCount = channelMemberCount,
-            AvailableChannels = availableChannels
+            AvailableChannels = availableChannels,
+            ShowNowPlaying = false
             // NowPlaying and Queue will be populated via SignalR in real-time
         };
     }

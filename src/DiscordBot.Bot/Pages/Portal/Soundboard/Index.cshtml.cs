@@ -176,7 +176,9 @@ public class IndexModel : PortalPageModelBase
                         Name = c.Name,
                         MemberCount = c.MemberCount
                     }).ToList(),
-                NowPlaying = null,
+                NowPlaying = _playbackService.IsPlaying(guildId)
+                    ? new NowPlayingInfo { Name = "Now Playing" }
+                    : null,
                 Queue = []
             };
 
