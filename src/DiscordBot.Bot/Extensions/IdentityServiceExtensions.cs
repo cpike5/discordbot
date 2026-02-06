@@ -7,6 +7,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -31,6 +32,15 @@ public static class IdentityServiceExtensions
         var identityConfig = configuration
             .GetSection(IdentityConfigOptions.SectionName)
             .Get<IdentityConfigOptions>() ?? new IdentityConfigOptions();
+
+        // Persist data protection keys to a writable directory so antiforgery tokens
+        // and cookies survive restarts (required when systemd ProtectHome=true blocks
+        // the default ~/.aspnet/DataProtection-Keys location)
+        var dataProtectionPath = configuration.GetValue<string>("DataProtection:KeyPath")
+            ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "DataProtection-Keys");
+        services.AddDataProtection()
+            .PersistKeysToFileSystem(new DirectoryInfo(dataProtectionPath))
+            .SetApplicationName("DiscordBot");
 
         // Add ASP.NET Core Identity
         services.AddIdentity<ApplicationUser, IdentityRole>(options =>
