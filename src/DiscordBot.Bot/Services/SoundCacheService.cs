@@ -353,6 +353,11 @@ public class SoundCacheService : ISoundCacheService, IDisposable
         await _metadataLock.WaitAsync(cancellationToken);
         try
         {
+            if (!Directory.Exists(_cachePath))
+            {
+                Directory.CreateDirectory(_cachePath);
+            }
+
             var entries = _metadata.Values.ToList();
             var json = JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(_metadataPath, json, cancellationToken);
