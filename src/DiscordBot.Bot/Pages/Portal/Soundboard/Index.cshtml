@@ -542,86 +542,6 @@
         background-color: var(--color-error);
     }
 
-    /* Now Playing */
-    .now-playing-container {
-        background-color: var(--color-bg-primary);
-        border-radius: 0.5rem;
-        padding: 1rem;
-    }
-
-    .now-playing-item {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .now-playing-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 0.5rem;
-        background-color: rgba(59, 130, 246, 0.1);
-        color: #3b82f6;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .now-playing-info {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .now-playing-name {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--color-text-primary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .now-playing-status {
-        font-size: 0.75rem;
-        color: var(--color-text-secondary);
-    }
-
-    .stop-btn {
-        width: 32px;
-        height: 32px;
-        border-radius: 0.5rem;
-        background-color: var(--color-error);
-        color: white;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: all 0.2s;
-        flex-shrink: 0;
-    }
-
-    .stop-btn:hover {
-        background-color: var(--color-error);
-    }
-
-    .empty-now-playing {
-        text-align: center;
-        padding: 1.5rem;
-        color: var(--color-text-secondary);
-    }
-
-    .empty-now-playing svg {
-        width: 32px;
-        height: 32px;
-        margin: 0 auto 0.75rem;
-        opacity: 0.5;
-    }
-
-    .empty-now-playing p {
-        font-size: 0.875rem;
-    }
-
     /* Upload Section */
     .dropzone {
         border: 2px dashed var(--color-border-primary);
@@ -1500,42 +1420,6 @@ else
                 @await Html.PartialAsync("../../Shared/Components/_VoiceChannelPanel", Model.VoicePanel)
             }
 
-            <!-- Now Playing Section -->
-            <div class="sidebar-panel">
-                <div class="sidebar-title">Now Playing</div>
-
-                <!-- Now Playing Content (hidden when nothing playing) -->
-                <div id="nowPlayingContent" class="hidden">
-                    <div class="now-playing-container">
-                        <div class="now-playing-item">
-                            <div class="now-playing-icon">
-                                <svg fill="currentColor" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
-                                    <path d="M8 5v14l11-7z"/>
-                                </svg>
-                            </div>
-                            <div class="now-playing-info">
-                                <div id="nowPlayingName" class="now-playing-name">--</div>
-                                <div class="now-playing-status">Playing...</div>
-                            </div>
-                            <button class="stop-btn" title="Stop">
-                                <svg fill="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
-                                    <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Empty state when nothing playing -->
-                <div id="nowPlayingEmpty" class="empty-now-playing">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p>No sound playing</p>
-                </div>
-            </div>
-
             <!-- Upload Sound Section -->
             <div class="sidebar-panel">
                 <div class="sidebar-title">Upload Sound</div>
@@ -1686,7 +1570,6 @@ else
         // State
         let favorites = JSON.parse(localStorage.getItem('soundboard_favorites_' + window.guildId) || '[]');
         let currentlyPlaying = null;
-        let currentlyPlayingName = null;
         let searchDebounceTimer = null;
         let signalRConnected = false;
 
@@ -1835,8 +1718,6 @@ else
             if (!status.isPlaying && currentlyPlaying) {
                 // Bot stopped playing
                 currentlyPlaying = null;
-                currentlyPlayingName = null;
-                updateNowPlayingUI(null);
                 document.querySelectorAll('.sound-card').forEach(card => {
                     card.classList.remove('playing');
                 });
@@ -1848,10 +1729,6 @@ else
             console.log('[Soundboard] PlaybackStarted:', data.name);
 
             currentlyPlaying = data.soundId;
-            currentlyPlayingName = data.name;
-
-            // Update Now Playing panel
-            updateNowPlayingUI(data.name);
 
             // Update card state
             document.querySelectorAll('.sound-card').forEach(card => {
@@ -1879,10 +1756,6 @@ else
             console.log('[Soundboard] PlaybackFinished:', data.soundId, 'cancelled:', data.wasCancelled);
 
             currentlyPlaying = null;
-            currentlyPlayingName = null;
-
-            // Update Now Playing panel
-            updateNowPlayingUI(null);
 
             // Remove playing state from cards
             document.querySelectorAll('.sound-card').forEach(card => {
@@ -1914,8 +1787,6 @@ else
 
             // Clear playback state
             currentlyPlaying = null;
-            currentlyPlayingName = null;
-            updateNowPlayingUI(null);
 
             // Remove playing state from cards
             document.querySelectorAll('.sound-card').forEach(card => {
@@ -1969,8 +1840,6 @@ else
                     // If deleted sound was playing, clear now playing UI
                     if (currentlyPlaying === data.soundId) {
                         currentlyPlaying = null;
-                        currentlyPlayingName = null;
-                        updateNowPlayingUI(null);
                     }
 
                     // Remove from favorites if present
@@ -2024,22 +1893,6 @@ else
                 toast.classList.remove('show');
                 setTimeout(() => toast.remove(), 300);
             }, 3000);
-        }
-
-        // Helper: Update now playing UI
-        function updateNowPlayingUI(soundName) {
-            const nowPlayingContent = document.getElementById('nowPlayingContent');
-            const nowPlayingEmpty = document.getElementById('nowPlayingEmpty');
-            const nowPlayingNameEl = document.getElementById('nowPlayingName');
-
-            if (soundName) {
-                nowPlayingNameEl.textContent = soundName;
-                nowPlayingContent.classList.remove('hidden');
-                nowPlayingEmpty.classList.add('hidden');
-            } else {
-                nowPlayingContent.classList.add('hidden');
-                nowPlayingEmpty.classList.remove('hidden');
-            }
         }
 
         // Initialize favorites from localStorage
@@ -2123,9 +1976,6 @@ else
                     playSound(soundId, soundName);
                 });
             });
-
-            // Stop button
-            document.querySelector('.stop-btn').addEventListener('click', stopPlaying);
 
             // Upload dropzone
             const dropzone = document.getElementById('dropzone');
@@ -2231,10 +2081,6 @@ else
                 if (!data) return; // Rejected promise
 
                 currentlyPlaying = soundId;
-                currentlyPlayingName = soundName;
-
-                // Update Now Playing panel
-                updateNowPlayingUI(soundName);
 
                 // Update card state
                 document.querySelectorAll('.sound-card').forEach(card => {
@@ -2252,41 +2098,6 @@ else
             });
         }
 
-        function stopPlaying() {
-            if (!currentlyPlaying) return;
-
-            // Call API to stop sound
-            fetch(`/api/portal/soundboard/${window.guildId}/stop`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    return response.json().then(err => {
-                        throw new Error(err.message || 'Failed to stop sound');
-                    });
-                }
-                return response.json();
-            })
-            .then(data => {
-                currentlyPlaying = null;
-                currentlyPlayingName = null;
-
-                // Update Now Playing panel
-                updateNowPlayingUI(null);
-
-                // Remove playing state from cards
-                document.querySelectorAll('.sound-card').forEach(card => {
-                    card.classList.remove('playing');
-                });
-            })
-            .catch(error => {
-                console.error('Error stopping sound:', error);
-                PortalToast.error(error.message || 'Failed to stop playback');
-            });
-        }
 
         // ========================================
         // File Upload

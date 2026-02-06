@@ -164,7 +164,7 @@ public class IndexModel : PortalPageModelBase
             VoicePanel = new VoiceChannelPanelViewModel
             {
                 GuildId = guildId,
-                IsCompact = true,
+                IsCompact = false,
                 IsConnected = isConnected,
                 ConnectedChannelId = connectedChannelId,
                 ConnectedChannelName = connectedChannelName,
