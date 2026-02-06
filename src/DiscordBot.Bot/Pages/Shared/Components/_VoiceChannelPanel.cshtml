@@ -86,12 +86,18 @@
             display: none !important;
         }
 
-        .voice-panel-hide-now-playing #now-playing-section {
-            display: none !important;
-        }
-
         .voice-panel-compact h4 {
             font-size: 0.65rem !important;
+        }
+    </style>
+}
+
+@if (!Model.ShowNowPlaying)
+{
+    <style>
+        /* Hide Now Playing when ShowNowPlaying is false (works in both compact and full modes) */
+        .voice-panel-hide-now-playing #now-playing-section {
+            display: none !important;
         }
     </style>
 }
@@ -209,7 +215,8 @@
                 </svg>
             </div>
             <div class="flex-1 min-w-0">
-                <p id="now-playing-name" class="text-sm font-medium text-text-primary truncate">
+                <p id="now-playing-name" class="text-sm font-medium text-text-primary truncate"
+                   title="@(Model.NowPlaying?.Name ?? "Nothing playing")">
                     @(Model.NowPlaying?.Name ?? "Nothing playing")
                 </p>
                 @if (Model.ShowProgress)
