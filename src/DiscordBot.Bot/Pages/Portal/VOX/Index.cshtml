@@ -334,36 +334,17 @@
         }
 
         /* Sidebar panels */
-        .vox-now-playing {
-            background-color: var(--color-bg-primary);
-            border-radius: 0.5rem;
-            padding: 1rem;
-        }
-
         .vox-stats {
             background-color: var(--color-bg-secondary);
             border-radius: 0.5rem;
             padding: 1rem;
         }
 
-        .vox-now-playing h3,
         .vox-stats h3 {
             font-size: 0.875rem;
             font-weight: 600;
             color: var(--color-text-primary);
             margin: 0 0 0.75rem 0;
-        }
-
-        .now-playing-message {
-            color: var(--color-text-secondary);
-            font-size: 0.875rem;
-            margin-bottom: 0.75rem;
-        }
-
-        .now-playing-empty {
-            color: var(--color-text-secondary);
-            font-size: 0.875rem;
-            font-style: italic;
         }
 
         .stat-item {
@@ -386,30 +367,6 @@
             color: var(--color-text-primary);
             font-size: 0.875rem;
             font-weight: 600;
-        }
-
-        .stop-btn {
-            width: 100%;
-            padding: 0.5rem;
-            background-color: var(--color-error);
-            color: white;
-            border: none;
-            border-radius: 0.375rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        .stop-btn:hover {
-            background-color: var(--color-error);
-            filter: brightness(0.9);
-            transform: scale(1.02);
-        }
-
-        .stop-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
         }
 
         /* Group tabs container */
@@ -1961,26 +1918,6 @@ else
             {
                 @await Html.PartialAsync("../../Shared/Components/_VoiceChannelPanel", Model.VoicePanel)
             }
-
-            <!-- Now Playing -->
-            <div class="vox-now-playing">
-                <h3>Now Playing</h3>
-                @if (!string.IsNullOrEmpty(Model.NowPlayingMessage))
-                {
-                    <div class="now-playing-message">
-                        @Model.NowPlayingMessage
-                    </div>
-                    <button type="button" class="stop-btn" id="stop-playback-btn" aria-label="Stop VOX playback">
-                        Stop
-                    </button>
-                }
-                else
-                {
-                    <div class="now-playing-empty">
-                        No audio playing
-                    </div>
-                }
-            </div>
 
             <!-- Clip Stats -->
             <div class="vox-stats">

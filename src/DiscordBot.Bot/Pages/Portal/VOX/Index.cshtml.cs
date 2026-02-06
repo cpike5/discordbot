@@ -139,6 +139,8 @@ public class IndexModel : PortalPageModelBase
             {
                 GuildId = guildId,
                 IsCompact = true,
+                ShowNowPlaying = true,
+                ShowProgress = false,
                 IsConnected = isConnected,
                 ConnectedChannelId = connectedChannelId,
                 ConnectedChannelName = connectedChannelName,
@@ -150,7 +152,9 @@ public class IndexModel : PortalPageModelBase
                         Name = c.Name,
                         MemberCount = c.MemberCount
                     }).ToList(),
-                NowPlaying = null,
+                NowPlaying = string.IsNullOrEmpty(NowPlayingMessage)
+                    ? null
+                    : new NowPlayingInfo { Name = NowPlayingMessage },
                 Queue = []
             };
 
