@@ -102,6 +102,13 @@
     </button>
 </div>
 
+<div id="@(Model.ContainerId)-emphasis-notice"
+     class="emphasis-toolbar__notice hidden"
+     role="status"
+     aria-live="polite">
+    <em>Emphasis is not supported by this voice.</em>
+</div>
+
 <style>
     /* ==========================================
        FLOATING TOOLBAR CONTAINER
@@ -204,6 +211,33 @@
     }
 
     /* ==========================================
+       DISABLED EMPHASIS STATE
+       ========================================== */
+    .emphasis-toolbar__button--emphasis-disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    /* Emphasis Notice */
+    .emphasis-toolbar__notice {
+        position: fixed;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: var(--z-popover, 1000);
+        white-space: nowrap;
+    }
+
+    .emphasis-toolbar__notice.hidden {
+        display: none;
+    }
+
+    /* ==========================================
        RESPONSIVE - MOBILE BOTTOM SHEET
        ========================================== */
     @@media (max-width: 767px) {
@@ -254,6 +288,7 @@
         const MARKER_RE = /\*\*(.+?)\*\*(?!\*)|\*(?!\*)(.+?)\*(?!\*)|\[#\s(.+?)\s#\]|\[📅\s(.+?)\s📅\]|\[⏸️\s\d+ms\]/g;
 
         let currentSelection = { start: 0, end: 0, text: '' };
+        let emphasisSupported = true;
 
         function showToolbar() {
             const selected = textarea.value.substring(textarea.selectionStart, textarea.selectionEnd);
@@ -268,6 +303,14 @@
                 container.style.top = Math.max(10, rect.top - 60) + 'px';
                 container.style.left = Math.max(10, (rect.left + (textarea.offsetWidth / 2) - (toolbarWidth / 2))) + 'px';
                 container.classList.remove('hidden');
+
+                // Position emphasis notice below toolbar
+                const notice = document.getElementById(`${containerId}-emphasis-notice`);
+                if (notice && !emphasisSupported) {
+                    notice.style.top = (parseInt(container.style.top) + 50) + 'px';
+                    notice.style.left = container.style.left;
+                    notice.classList.remove('hidden');
+                }
             } else {
                 hideToolbar();
             }
@@ -275,6 +318,8 @@
 
         function hideToolbar() {
             container.classList.add('hidden');
+            const notice = document.getElementById(`${containerId}-emphasis-notice`);
+            if (notice) notice.classList.add('hidden');
         }
 
         /**
@@ -289,6 +334,7 @@
          * Only modifies textarea text and fires input event - no state tracking needed.
          */
         function applyFormatting(action, options = {}) {
+            if (action === 'emphasis' && !emphasisSupported) return;
             if (currentSelection.text.length === 0 && action !== 'pause') return;
 
             const before = textarea.value.substring(0, currentSelection.start);
@@ -334,6 +380,7 @@
             switch(e.key.toLowerCase()) {
                 case 'b':
                     e.preventDefault();
+                    if (!emphasisSupported) break;
                     if (textarea.selectionStart !== textarea.selectionEnd) {
                         currentSelection = {
                             start: textarea.selectionStart,
@@ -345,6 +392,7 @@
                     break;
                 case 'e':
                     e.preventDefault();
+                    if (!emphasisSupported) break;
                     if (textarea.selectionStart !== textarea.selectionEnd) {
                         currentSelection = {
                             start: textarea.selectionStart,
@@ -356,6 +404,35 @@
                     break;
             }
         }
+
+        /**
+         * Updates emphasis capability based on selected voice.
+         * Called by StyleSelector when voice changes.
+         * @param {boolean} supported - Whether the current voice supports emphasis
+         */
+        window.emphasisToolbar_updateCapability = function(supported) {
+            emphasisSupported = supported;
+            const emphasisButtons = container.querySelectorAll('[data-action="emphasis"]');
+            const notice = document.getElementById(`${containerId}-emphasis-notice`);
+
+            emphasisButtons.forEach(btn => {
+                if (supported) {
+                    btn.classList.remove('emphasis-toolbar__button--emphasis-disabled');
+                    btn.removeAttribute('aria-disabled');
+                } else {
+                    btn.classList.add('emphasis-toolbar__button--emphasis-disabled');
+                    btn.setAttribute('aria-disabled', 'true');
+                }
+            });
+
+            if (notice) {
+                if (supported) {
+                    notice.classList.add('hidden');
+                } else {
+                    notice.classList.remove('hidden');
+                }
+            }
+        };
 
         // Event listeners
         textarea.addEventListener('mouseup', showToolbar);
