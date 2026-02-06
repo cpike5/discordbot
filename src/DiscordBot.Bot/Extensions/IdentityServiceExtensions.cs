@@ -28,7 +28,10 @@ public static class IdentityServiceExtensions
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddIdentityServices(this IServiceCollection services, IConfiguration configuration)
     {
-        // Load Identity configuration for startup
+        // Register IdentityConfigOptions with DI (used by IdentitySeeder and below)
+        services.AddOptions<IdentityConfigOptions>()
+            .Bind(configuration.GetSection(IdentityConfigOptions.SectionName));
+
         var identityConfig = configuration
             .GetSection(IdentityConfigOptions.SectionName)
             .Get<IdentityConfigOptions>() ?? new IdentityConfigOptions();
