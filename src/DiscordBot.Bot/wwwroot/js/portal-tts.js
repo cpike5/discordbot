@@ -5,7 +5,6 @@
     // Configuration
     // ========================================
     const CONFIG = {
-        STATUS_POLL_INTERVAL: 3000,        // 3 seconds
         CHARACTER_WARNING_THRESHOLD: 0.9,   // 90%
         SPEED_MIN: 0.5,
         SPEED_MAX: 2.0,
@@ -20,11 +19,7 @@
     // API Endpoints
     // ========================================
     const API = {
-        status: (guildId) => `/api/portal/tts/${guildId}/status`,
         send: (guildId) => `/api/portal/tts/${guildId}/send`,
-        joinChannel: (guildId) => `/api/portal/tts/${guildId}/channel`,
-        leaveChannel: (guildId) => `/api/portal/tts/${guildId}/channel`,
-        stop: (guildId) => `/api/portal/tts/${guildId}/stop`,
         voiceCapabilities: (voiceName) => `/api/portal/tts/voices/${voiceName}/capabilities`,
         validateSsml: () => `/api/portal/tts/validate-ssml`,
         buildSsml: () => `/api/portal/tts/build-ssml`
@@ -34,11 +29,7 @@
     // State
     // ========================================
     let guildId = null;                    // CRITICAL: Always string, never parse to number
-    let statusPollTimer = null;
-    let isConnected = false;
-    let isPlaying = false;
     let isSending = false;                 // Track if a message is currently being sent
-    let currentMessage = null;
     let selectedChannel = null;
     let maxMessageLength = 500;            // Dynamic max length from server (default: 500)
 
@@ -73,7 +64,7 @@
         setupEventHandlers();
         loadSavedVoice();
         loadSavedMode();
-        startStatusPolling();
+        observeConnectionState();
     }
 
     // ========================================
@@ -106,11 +97,7 @@
         }
 
         // Note: Voice channel join/leave are handled by voice-channel-panel.js
-        // TTS stop button (stops TTS playback specifically)
-        const stopBtn = document.getElementById('stopBtn');
-        if (stopBtn) {
-            stopBtn.addEventListener('click', stopPlayback);
-        }
+        // Note: Stop button is now handled by voice-channel-panel.js
 
         // Voice selection - handled by VoiceSelector component via portalHandleVoiceChange callback
 
@@ -174,71 +161,39 @@
     }
 
     // ========================================
-    // Status Polling (every 3 seconds)
+    // Connection State Observer
     // ========================================
-    function startStatusPolling() {
-        statusPollTimer = setInterval(pollStatus, CONFIG.STATUS_POLL_INTERVAL);
-        // Poll immediately on start
-        pollStatus();
+    function observeConnectionState() {
+        const panel = document.getElementById('voice-channel-panel');
+        if (!panel) {
+            console.warn('[PortalTTS] Voice channel panel not found, cannot observe connection state');
+            return;
+        }
+
+        // Initial state
+        updateCharacterCount();
+
+        // Watch for data-connected attribute changes
+        const observer = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                if (mutation.type === 'attributes' && mutation.attributeName === 'data-connected') {
+                    console.log('[PortalTTS] Connection state changed via voice panel');
+                    updateCharacterCount(); // Update send button state
+                }
+            });
+        });
+
+        observer.observe(panel, {
+            attributes: true,
+            attributeFilter: ['data-connected']
+        });
+
+        console.log('[PortalTTS] Observing connection state from voice panel');
     }
 
-    function stopStatusPolling() {
-        if (statusPollTimer) {
-            clearInterval(statusPollTimer);
-            statusPollTimer = null;
-        }
-    }
-
-    async function pollStatus() {
-        if (!guildId) return;
-
-        try {
-            const response = await fetch(API.status(guildId));
-            if (!response.ok) {
-                console.error('[PortalTTS] Status poll failed:', response.statusText);
-                return;
-            }
-
-            const data = await response.json();
-
-            // Update max message length if provided by server
-            if (data.maxMessageLength && data.maxMessageLength !== maxMessageLength) {
-                maxMessageLength = data.maxMessageLength;
-                console.log('[PortalTTS] Max message length updated:', maxMessageLength);
-                updateCharacterCount(); // Update UI with new limit
-            }
-
-            // Update connection state if changed
-            if (data.isConnected !== isConnected) {
-                isConnected = data.isConnected;
-                console.log('[PortalTTS] Connection state changed:', isConnected);
-                updateConnectionUI(isConnected);
-
-                if (!isConnected) {
-                    // Bot disconnected externally
-                    isPlaying = false;
-                    currentMessage = null;
-                    updateNowPlayingUI(null);
-                }
-            }
-
-            // Update playing state if changed
-            if (data.isPlaying && data.currentMessage) {
-                if (!isPlaying || currentMessage !== data.currentMessage) {
-                    isPlaying = true;
-                    currentMessage = data.currentMessage;
-                    console.log('[PortalTTS] Now playing:', currentMessage);
-                    updateNowPlayingUI(data.currentMessage);
-                }
-            } else if (!data.isPlaying && isPlaying) {
-                isPlaying = false;
-                currentMessage = null;
-                console.log('[PortalTTS] Playback finished');
-                updateNowPlayingUI(null);
-            }
-        } catch (error) {
-            console.error('[PortalTTS] Status poll error:', error);
-        }
+    function checkIsConnected() {
+        const panel = document.getElementById('voice-channel-panel');
+        return panel?.dataset.connected === 'true';
     }
 
     // ========================================
@@ -262,7 +217,7 @@
             return;
         }
 
-        if (!isConnected) {
+        if (!checkIsConnected()) {
             showToast('warning', 'Please join a voice channel first!');
             highlightChannelSelector();
             return;
@@ -335,121 +290,6 @@
     }
 
     // ========================================
-    // Voice Channel Controls
-    // ========================================
-    async function joinChannel() {
-        if (!selectedChannel) {
-            showToast('warning', 'Please select a voice channel first!');
-            highlightChannelSelector();
-            return;
-        }
-
-        const joinBtn = document.getElementById('joinBtn');
-        const originalHtml = joinBtn.innerHTML;
-        joinBtn.disabled = true;
-        joinBtn.innerHTML = `
-            <svg class="inline-block animate-spin mr-2" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Joining...
-        `;
-
-        try {
-            const response = await fetch(API.joinChannel(guildId), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ channelId: selectedChannel })
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to join channel');
-            }
-
-            isConnected = true;
-            updateConnectionUI(true);
-            showToast('success', 'Connected to voice channel');
-        } catch (error) {
-            console.error('[PortalTTS] Join error:', error);
-            showToast('error', error.message);
-        } finally {
-            joinBtn.disabled = isConnected;
-            joinBtn.innerHTML = originalHtml;
-        }
-    }
-
-    async function leaveChannel() {
-        const leaveBtn = document.getElementById('leaveBtn');
-        const originalHtml = leaveBtn.innerHTML;
-        leaveBtn.disabled = true;
-        leaveBtn.innerHTML = `
-            <svg class="inline-block animate-spin mr-2" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
-                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            Leaving...
-        `;
-
-        try {
-            const response = await fetch(API.leaveChannel(guildId), {
-                method: 'DELETE',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to leave channel');
-            }
-
-            isConnected = false;
-            isPlaying = false;
-            currentMessage = null;
-
-            updateConnectionUI(false);
-            updateNowPlayingUI(null);
-
-            const channelSelect = document.getElementById('channelSelect');
-            if (channelSelect) {
-                channelSelect.value = '';
-            }
-
-            showToast('info', 'Disconnected from voice channel');
-        } catch (error) {
-            console.error('[PortalTTS] Leave error:', error);
-            showToast('error', error.message);
-        } finally {
-            leaveBtn.disabled = !isConnected;
-            leaveBtn.innerHTML = originalHtml;
-        }
-    }
-
-    async function stopPlayback() {
-        if (!isPlaying) {
-            return;
-        }
-
-        try {
-            const response = await fetch(API.stop(guildId), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to stop playback');
-            }
-
-            isPlaying = false;
-            currentMessage = null;
-            updateNowPlayingUI(null);
-        } catch (error) {
-            console.error('[PortalTTS] Stop error:', error);
-            showToast('error', error.message);
-        }
-    }
-
-    // ========================================
     // UI Updates
     // ========================================
     function updateCharacterCount() {
@@ -491,67 +331,7 @@
 
         // Update send button state (disabled if empty, not connected, over limit, or currently sending)
         if (sendBtn) {
-            sendBtn.disabled = count === 0 || !isConnected || count > maxMessageLength || isSending;
-        }
-    }
-
-    function updateConnectionUI(connected) {
-        const statusBadge = document.getElementById('connectionStatus');
-        const joinBtn = document.getElementById('joinBtn');
-        const leaveBtn = document.getElementById('leaveBtn');
-        const messageInput = document.getElementById('ttsMessage');
-
-        if (statusBadge) {
-            if (connected) {
-                statusBadge.className = 'status-badge-voice connected';
-                statusBadge.innerHTML = '<span class="status-dot"></span><span>Connected</span>';
-            } else {
-                statusBadge.className = 'status-badge-voice disconnected';
-                statusBadge.innerHTML = '<span class="status-dot"></span><span>Disconnected</span>';
-            }
-        }
-
-        if (joinBtn) {
-            joinBtn.disabled = connected;
-        }
-
-        if (leaveBtn) {
-            leaveBtn.disabled = !connected;
-        }
-
-        // Update message input disabled state
-        if (messageInput) {
-            messageInput.disabled = !connected;
-        }
-
-        updateCharacterCount(); // Update send button state
-    }
-
-    function updateNowPlayingUI(message) {
-        const nowPlayingContent = document.getElementById('nowPlayingContent');
-        const nowPlayingEmpty = document.getElementById('nowPlayingEmpty');
-        const nowPlayingMessage = document.getElementById('nowPlayingMessage');
-
-        if (message) {
-            if (nowPlayingMessage) {
-                // CRITICAL: Use textContent to prevent XSS
-                const displayMessage = message.length > 100 ? message.substring(0, 100) + '...' : message;
-                nowPlayingMessage.textContent = displayMessage;
-            }
-
-            if (nowPlayingContent) {
-                nowPlayingContent.classList.remove('hidden');
-            }
-            if (nowPlayingEmpty) {
-                nowPlayingEmpty.classList.add('hidden');
-            }
-        } else {
-            if (nowPlayingContent) {
-                nowPlayingContent.classList.add('hidden');
-            }
-            if (nowPlayingEmpty) {
-                nowPlayingEmpty.classList.remove('hidden');
-            }
+            sendBtn.disabled = count === 0 || !checkIsConnected() || count > maxMessageLength || isSending;
         }
     }
 
@@ -849,13 +629,6 @@
     };
 
     // ========================================
-    // Cleanup on page unload
-    // ========================================
-    window.addEventListener('beforeunload', function() {
-        stopStatusPolling();
-    });
-
-    // ========================================
     // Initialize when DOM is ready
     // ========================================
     if (document.readyState === 'loading') {
@@ -867,9 +640,6 @@
     // Export public API for testing/debugging
     window.PortalTTS = {
         init: init,
-        pollStatus: pollStatus,
-        updateConnectionUI: updateConnectionUI,
-        updateNowPlayingUI: updateNowPlayingUI,
         showToast: showToast
     };
 
