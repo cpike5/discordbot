@@ -156,6 +156,8 @@ public class IndexModel : PortalPageModelBase
             {
                 GuildId = guildId,
                 IsCompact = true,
+                ShowNowPlaying = true,
+                ShowProgress = false,
                 IsConnected = isConnected,
                 ConnectedChannelId = connectedChannelId,
                 ConnectedChannelName = connectedChannelName,

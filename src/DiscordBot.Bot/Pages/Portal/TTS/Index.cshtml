@@ -404,98 +404,6 @@
         background: var(--color-text-secondary);
     }
 
-    /* TTS Now Playing Section */
-    .tts-now-playing {
-        margin-top: 1rem;
-        padding: 1rem;
-        background-color: var(--color-bg-primary);
-        border-radius: 0.5rem;
-    }
-
-    .tts-now-playing-title {
-        font-size: 0.75rem;
-        font-weight: 600;
-        color: var(--color-text-secondary);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.75rem;
-    }
-
-    .tts-now-playing-content {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .tts-now-playing-icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 0.5rem;
-        background-color: rgba(59, 130, 246, 0.1);
-        color: #3b82f6;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .tts-now-playing-info {
-        flex: 1;
-        min-width: 0;
-    }
-
-    .tts-now-playing-message {
-        font-size: 0.875rem;
-        font-weight: 500;
-        color: var(--color-text-primary);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .tts-now-playing-status {
-        font-size: 0.75rem;
-        color: var(--color-text-secondary);
-    }
-
-    .tts-stop-btn {
-        width: 32px;
-        height: 32px;
-        border-radius: 0.5rem;
-        background-color: var(--color-error);
-        color: white;
-        border: none;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: background-color 0.15s ease;
-    }
-
-    .tts-stop-btn:hover {
-        background-color: #dc2626;
-    }
-
-    .tts-now-playing-empty {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 1rem;
-        color: var(--color-text-tertiary);
-    }
-
-    .tts-now-playing-empty svg {
-        width: 32px;
-        height: 32px;
-        opacity: 0.5;
-    }
-
-    .tts-now-playing-empty p {
-        font-size: 0.875rem;
-        margin: 0;
-    }
-
     /* TTS Form Panel - Flexible on RIGHT with internal scrolling */
     .tts-panel {
         flex: 1;
@@ -1138,40 +1046,6 @@ else
                 {
                     @await Html.PartialAsync("../../Shared/Components/_VoiceChannelPanel", Model.VoicePanel)
                 }
-
-                <!-- TTS Now Playing Section -->
-                <div class="tts-now-playing">
-                    <div class="tts-now-playing-title">Now Playing</div>
-
-                    <!-- Now Playing Content (hidden when nothing playing) -->
-                    <div id="nowPlayingContent" class="hidden">
-                        <div class="tts-now-playing-content">
-                            <div class="tts-now-playing-icon">
-                                <svg fill="currentColor" viewBox="0 0 24 24" style="width: 18px; height: 18px;">
-                                    <path d="M8 5v14l11-7z"/>
-                                </svg>
-                            </div>
-                            <div class="tts-now-playing-info">
-                                <div id="nowPlayingMessage" class="tts-now-playing-message">--</div>
-                                <div class="tts-now-playing-status">Playing...</div>
-                            </div>
-                            <button id="stopBtn" class="tts-stop-btn" title="Stop">
-                                <svg fill="currentColor" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
-                                    <path d="M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z"/>
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <!-- Empty state when nothing playing -->
-                    <div id="nowPlayingEmpty" class="tts-now-playing-empty">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        <p>No message playing</p>
-                    </div>
-                </div>
 
             </div>
 
