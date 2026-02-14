@@ -65,6 +65,8 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 - **Soundboard** - Audio playback in voice channels with guild-managed sound libraries, export/import support ([docs](docs/articles/soundboard.md))
 - **Text-to-Speech** - Azure Cognitive Services integration for voice synthesis in voice channels ([docs](docs/articles/tts-support.md))
 - **VOX System** - Half-Life style announcement playback with VOX, FVOX, and HGRUNT clip libraries ([docs](docs/articles/vox-system-spec.md))
+- **Unified Now Playing** - Real-time audio playback display across all portals using SignalR and server-side rendering ([docs](docs/articles/unified-now-playing.md))
+- **Voice Capability System** - Adaptive UI that responds to voice channel and TTS voice capabilities ([docs](docs/articles/voice-capability-system.md))
 - **Member Portal** - Public-facing TTS, Soundboard, and VOX interfaces for guild members (OAuth required)
 - **Global Search** - Cross-guild search for commands, logs, users, and content
 - **Consent & Privacy** - GDPR-compliant user consent management and data handling ([docs](docs/articles/consent-privacy.md))
@@ -596,7 +598,7 @@ See [CLAUDE.md](CLAUDE.md) for the complete configuration options reference tabl
 - **AspNet.Security.OAuth.Discord** (8.0.0): Discord OAuth authentication
 - **Microsoft.AspNetCore.Identity.EntityFrameworkCore** (8.0.0): ASP.NET Core Identity
 - **Serilog.AspNetCore** (8.0.0): Structured logging framework
-- **Elastic.Serilog.Sinks** (10.0.0): Elasticsearch log sink for Serilog
+- **Elastic.Serilog.Sinks** (8.11.0): Elasticsearch log sink for Serilog
 - **Elastic.Apm.NetCoreAll** (1.29.0): Elastic APM distributed tracing
 - **Anthropic.SDK** (5.8.0): Claude API client for AI assistant
 - **Microsoft.CognitiveServices.Speech** (1.41.0): Azure Text-to-Speech
