@@ -102,8 +102,14 @@ Build and serve locally: `.\build-docs.ps1 -Serve`
 | [audit-log-system.md](docs/articles/audit-log-system.md) | Audit logging fluent builder API |
 | [soundboard.md](docs/articles/soundboard.md) | Soundboard feature, playback, portal, API, export |
 | [tts-support.md](docs/articles/tts-support.md) | Text-to-Speech with Azure Cognitive Services |
+| [unified-now-playing.md](docs/articles/unified-now-playing.md) | Unified Now Playing component (SignalR, SSR, VoiceChannelPanel) |
+| [voice-capability-system.md](docs/articles/voice-capability-system.md) | Voice capability-aware UI system |
+| [voice-selector-spec.md](docs/articles/voice-selector-spec.md) | Voice selector component specification |
 | [vox-system-spec.md](docs/articles/vox-system-spec.md) | VOX/FVOX/HGRUNT clip library architecture |
 | [vox-ui-spec.md](docs/articles/vox-ui-spec.md) | VOX Portal UI/UX specification |
+| [scheduled-messages.md](docs/articles/scheduled-messages.md) | Scheduled messages and cron expressions |
+| [reminder-system.md](docs/articles/reminder-system.md) | Personal reminders with natural language parsing |
+| [notification-system.md](docs/articles/notification-system.md) | User notification system |
 | [database-schema.md](docs/articles/database-schema.md) | Entity relationships and schema |
 | [testing-guide.md](docs/articles/testing-guide.md) | Testing patterns and fixtures |
 
@@ -127,9 +133,9 @@ See implementations in Command Logs, Audit Logs, Member Directory, RatWatch, Rem
 
 Files exceeding standard read limits - search for specific methods instead of full read:
 
-**Services (500+ lines):** `RatWatch/RatWatchService.cs` (1,159), `UserManagementService.cs` (995), `SearchService.cs` (919), `PlaybackService.cs` (918), `UserDataExportService.cs` (762), `BotHostedService.cs` (739), `ScheduledMessageService.cs` (702), `TimeParsingService.cs` (598)
+**Services (500+ lines):** `RatWatch/RatWatchService.cs` (1,159), `UserManagementService.cs` (995), `SearchService.cs` (919), `PlaybackService.cs` (918), `UserDataExportService.cs` (762), `BotHostedService.cs` (739), `ScheduledMessageService.cs` (702), `NotificationService.cs` (675), `Tts/VoiceCapabilityProvider.cs` (649), `Tts/SsmlValidator.cs` (631), `AlertMonitoringService.cs` (628), `PageMetadataService.cs` (609), `TimeParsingService.cs` (598), `ApiRequestTracker.cs` (584), `ConsentService.cs` (567), `AzureTtsService.cs` (527)
 
-**Controllers (500+ lines):** `PerformanceMetricsController.cs` (1,173), `AnalyticsController.cs` (698), `PortalSoundboardController.cs` (652)
+**Controllers (500+ lines):** `PerformanceMetricsController.cs` (1,173), `PortalTtsController.cs` (1,089), `AnalyticsController.cs` (698), `AlertsController.cs` (560), `PerformanceTabsController.cs` (553), `PortalVoxController.cs` (522)
 
 **Documentation:** `api-endpoints.md`, `design-system.md`
 
