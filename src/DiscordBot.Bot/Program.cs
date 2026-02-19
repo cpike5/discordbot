@@ -200,6 +200,9 @@ try
     // Web API & SignalR
     // ==========================================
 
+    // Add health check services (database and Discord gateway)
+    builder.Services.AddHealthCheckServices();
+
     // Add Web API services (controllers, Razor Pages, HttpClient)
     builder.Services.AddWebServices();
 
@@ -238,7 +241,13 @@ try
     // Add API metrics middleware (after correlation ID, before Serilog)
     app.UseApiMetrics();
 
-    app.UseSerilogRequestLogging();
+    app.UseSerilogRequestLogging(options =>
+    {
+        options.GetLevel = (httpContext, elapsed, ex) =>
+            httpContext.Request.Path.StartsWithSegments("/health")
+                ? Serilog.Events.LogEventLevel.Verbose
+                : Serilog.Events.LogEventLevel.Information;
+    });
 
     // Configure error handling
     if (app.Environment.IsDevelopment())
@@ -272,6 +281,7 @@ try
     app.UseAuthorization();
 
     app.MapControllers();
+    app.MapDiscordBotHealthChecks();
     app.MapRazorPages();
 
     // Map SignalR hub for real-time dashboard
