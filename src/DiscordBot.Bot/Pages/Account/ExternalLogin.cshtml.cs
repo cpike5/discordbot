@@ -71,6 +71,13 @@ public class ExternalLoginModel : PageModel
     public async Task<IActionResult> OnGetCallbackAsync(string? returnUrl = null, string? remoteError = null)
     {
         returnUrl ??= Url.Content("~/");
+
+        // Sanitize ReturnUrl - if it points to the login page, redirect to home instead
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase))
+        {
+            returnUrl = Url.Content("~/");
+        }
+
         ReturnUrl = returnUrl;
 
         if (!string.IsNullOrEmpty(remoteError))

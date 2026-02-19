@@ -95,6 +95,13 @@ public class LoginModel : PageModel
         }
 
         returnUrl ??= Url.Content("~/");
+
+        // Sanitize ReturnUrl - if it points to the login page, redirect to home instead
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase))
+        {
+            returnUrl = Url.Content("~/");
+        }
+
         ReturnUrl = returnUrl;
 
         _logger.LogDebug("Login page accessed, return URL: {ReturnUrl}", returnUrl);
@@ -216,6 +223,12 @@ public class LoginModel : PageModel
         }
 
         returnUrl ??= Url.Content("~/");
+
+        // Sanitize ReturnUrl - if it points to the login page, redirect to home instead
+        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase))
+        {
+            returnUrl = Url.Content("~/");
+        }
 
         _logger.LogInformation("Discord OAuth login initiated");
 
