@@ -9,8 +9,10 @@ node_modules/
 # Test projects
 tests/
 
-# Documentation
+# Documentation (except runtime-required files for AI assistant)
 docs/
+!docs/agents/
+!docs/articles/
 
 # Markdown files (root level)
 *.md
