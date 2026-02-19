@@ -489,4 +489,19 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
 
         return ownedIds;
     }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteAllByUserAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Deleting all notifications for user {UserId}", userId);
+
+        var deleted = await DbSet
+            .Where(n => n.UserId == userId)
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogInformation("Deleted {Count} notifications for user {UserId}", deleted, userId);
+        return deleted;
+    }
 }

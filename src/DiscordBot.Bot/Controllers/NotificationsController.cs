@@ -177,6 +177,26 @@ public class NotificationsController : ControllerBase
     }
 
     /// <summary>
+    /// Deletes all notifications for the current user.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of notifications deleted.</returns>
+    [HttpPost("delete-all")]
+    [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<ActionResult<int>> DeleteAll(CancellationToken cancellationToken = default)
+    {
+        var userId = GetUserId();
+        if (string.IsNullOrEmpty(userId))
+            return Unauthorized();
+
+        _logger.LogDebug("User {UserId} deleting all notifications", userId);
+
+        var deleted = await _notificationService.DeleteAllAsync(userId, cancellationToken);
+        return Ok(deleted);
+    }
+
+    /// <summary>
     /// Deletes a notification.
     /// </summary>
     /// <param name="id">The notification ID.</param>
