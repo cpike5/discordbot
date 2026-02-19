@@ -337,7 +337,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Performance Dashboard",
-                Route = "/Admin/Performance",
+                Route = "/Admin/Performance#overview",
                 Description = "Performance overview dashboard",
                 Section = "Performance",
                 IconName = "chart-bar-square",
@@ -347,7 +347,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Health Metrics",
-                Route = "/Admin/Performance/HealthMetrics",
+                Route = "/Admin/Performance#health",
                 Description = "Bot health metrics dashboard",
                 Section = "Performance",
                 IconName = "heart",
@@ -357,7 +357,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Command Performance",
-                Route = "/Admin/Performance/Commands",
+                Route = "/Admin/Performance#commands",
                 Description = "Command response times and throughput",
                 Section = "Performance",
                 IconName = "bolt",
@@ -367,7 +367,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "System Health",
-                Route = "/Admin/Performance/System",
+                Route = "/Admin/Performance#system",
                 Description = "Database, cache, and service monitoring",
                 Section = "Performance",
                 IconName = "cpu-chip",
@@ -377,7 +377,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Performance Alerts",
-                Route = "/Admin/Performance/Alerts",
+                Route = "/Admin/Performance#alerts",
                 Description = "Alert thresholds and incident management",
                 Section = "Performance",
                 IconName = "bell-alert",
@@ -387,7 +387,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "API Metrics",
-                Route = "/Admin/Performance/ApiMetrics",
+                Route = "/Admin/Performance#api",
                 Description = "Discord API usage and rate limits",
                 Section = "Performance",
                 IconName = "globe-alt",
