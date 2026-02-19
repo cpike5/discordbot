@@ -13,6 +13,8 @@ services:
   bot:
     build: .
     env_file: .env
+    environment:
+      Observability__SeqUrl: ${SEQ_URL:-}
     volumes:
       - bot-data:/app/data            # SQLite database persistence
       - ./sounds:/app/sounds:ro       # Optional: custom sound clips
@@ -56,10 +58,12 @@ services:
     profiles: [seq]
     environment:
       ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:-}
+      SEQ_FIRSTRUN_NOAUTHENTICATION: ${SEQ_NO_AUTH:-true}
     volumes:
       - seq-data:/data
     ports:
-      - "5341:80"
+      - "5343:80"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/api/health"]

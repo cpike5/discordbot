@@ -30,7 +30,7 @@ public static class ServiceCollectionExtensions
 
         // Register DbContext with SQLite and interceptor
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Data Source=discordbot.db";
+            ?? "Data Source=data/discordbot.db";
 
         services.AddDbContext<BotDbContext>((serviceProvider, options) =>
         {

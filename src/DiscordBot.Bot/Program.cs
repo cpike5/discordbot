@@ -2,7 +2,9 @@ using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
 using Elastic.Apm.NetCoreAll;
 using Elastic.Apm.SerilogEnricher;
@@ -79,6 +81,13 @@ try
                     transport.Authentication(new ApiKey(apiKey));
                 }
             });
+        }
+
+        // Add Seq sink programmatically if configured
+        var seqUrl = context.Configuration["Observability:SeqUrl"];
+        if (!string.IsNullOrEmpty(seqUrl))
+        {
+            configuration.WriteTo.Seq(seqUrl);
         }
     });
 
@@ -188,6 +197,15 @@ try
     builder.Services.AddSwaggerDocumentation();
 
     var app = builder.Build();
+
+    // ==========================================
+    // Auto-apply database migrations (required for Docker/fresh deployments)
+    // ==========================================
+    using (var scope = app.Services.CreateScope())
+    {
+        var db = scope.ServiceProvider.GetRequiredService<BotDbContext>();
+        await db.Database.MigrateAsync();
+    }
 
     // ==========================================
     // Middleware Pipeline

@@ -20,7 +20,7 @@ COPY src/DiscordBot.Core/DiscordBot.Core.csproj src/DiscordBot.Core/
 COPY src/DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj src/DiscordBot.Infrastructure/
 COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/
 
-RUN dotnet restore
+RUN dotnet restore src/DiscordBot.Bot/DiscordBot.Bot.csproj
 
 # Copy remaining source code
 COPY src/ src/
@@ -46,7 +46,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         ffmpeg \
         libsodium23 \
         libopus0 \
-    && rm -rf /var/lib/apt/lists/*
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -s /usr/lib/x86_64-linux-gnu/libopus.so.0 /usr/lib/x86_64-linux-gnu/libopus.so \
+    && ln -s /usr/lib/x86_64-linux-gnu/libsodium.so.23 /usr/lib/x86_64-linux-gnu/libsodium.so
 
 # Create non-root user
 RUN adduser --disabled-password --gecos "" appuser
