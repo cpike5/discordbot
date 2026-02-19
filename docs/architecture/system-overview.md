@@ -1,6 +1,6 @@
 # System Overview
 
-**Version:** 1.0.1-dev
+**Version:** 1.1.0
 **Last Updated:** 2026-02-19
 
 ## Introduction

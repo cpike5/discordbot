@@ -1,6 +1,6 @@
 # Architecture Documentation
 
-Comprehensive reference for the Discord bot's system architecture, design patterns, and component organization. All documents reflect the current codebase at **v1.0.1-dev**.
+Comprehensive reference for the Discord bot's system architecture, design patterns, and component organization. All documents reflect the current codebase at **v1.1.0**.
 
 ---
 
