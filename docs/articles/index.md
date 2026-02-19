@@ -49,6 +49,7 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Grafana Dashboards](grafana-dashboards-specification.md) - Dashboard design and configuration
 
 ## Deployment
+- [Docker Deployment](docker-deployment.md) - Docker and Docker Compose deployment guide
 - [Linux VPS Deployment](linux-deployment.md) - Production deployment guide for Ubuntu/Debian
 - [Versioning Strategy](versioning-strategy.md) - SemVer versioning and release process
 

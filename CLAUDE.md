@@ -112,6 +112,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve`
 | [notification-system.md](docs/articles/notification-system.md) | User notification system |
 | [database-schema.md](docs/articles/database-schema.md) | Entity relationships and schema |
 | [testing-guide.md](docs/articles/testing-guide.md) | Testing patterns and fixtures |
+| [docker-deployment.md](docs/articles/docker-deployment.md) | Docker and Docker Compose deployment guide |
 
 ## User/Guild Preview Popups
 
