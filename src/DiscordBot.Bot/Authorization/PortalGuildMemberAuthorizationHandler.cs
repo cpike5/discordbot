@@ -114,11 +114,27 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
         var guildUser = guild.GetUser(user.DiscordUserId.Value);
         if (guildUser == null)
         {
-            _logger.LogDebug(
-                "PortalGuildMember: User {DiscordUserId} is not a member of guild {GuildId}",
-                user.DiscordUserId.Value, guildId);
-            SetForbiddenResult(httpContext);
-            return;
+            // Cache miss - try REST API (AlwaysDownloadUsers is false, so cache may be incomplete)
+            try
+            {
+                var restUser = await _discordClient.Rest.GetGuildUserAsync(guildId, user.DiscordUserId.Value);
+                if (restUser == null)
+                {
+                    _logger.LogDebug(
+                        "PortalGuildMember: User {DiscordUserId} is not a member of guild {GuildId}",
+                        user.DiscordUserId.Value, guildId);
+                    SetForbiddenResult(httpContext);
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "PortalGuildMember: Failed to verify guild membership via REST for user {DiscordUserId} in guild {GuildId}",
+                    user.DiscordUserId.Value, guildId);
+                SetForbiddenResult(httpContext);
+                return;
+            }
         }
 
         _logger.LogDebug(
