@@ -15,6 +15,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
   - [Configuration](#configuration)
   - [Getting Started Checklist](#getting-started-checklist)
   - [Running the Bot](#running-the-bot)
+  - [Docker Quick Start](#docker-quick-start)
 - [Architecture](#architecture)
   - [Key Components](#key-components)
 - [Commands](#commands)
@@ -193,6 +194,22 @@ The bot will:
 - Swagger docs available at `/swagger`
 
 To stop the bot gracefully, press `Ctrl+C`.
+
+### Docker Quick Start
+
+Prefer Docker? You can run the bot without installing .NET or Node.js:
+
+```bash
+git clone https://github.com/cpike5/discordbot.git
+cd discordbot
+cp .env.example .env
+# Edit .env — set Discord__Token, Discord__OAuth__ClientId, Discord__OAuth__ClientSecret
+docker compose up -d
+```
+
+The admin UI will be available at `http://localhost:5000`. Optional profiles add PostgreSQL (`--profile postgres`) and Seq log viewer (`--profile seq`).
+
+See [Docker Deployment Guide](docs/articles/docker-deployment.md) for the full reference including database options, volume mounts, audio support, updating, and troubleshooting.
 
 ## Architecture
 
@@ -621,6 +638,10 @@ See [CLAUDE.md](CLAUDE.md) for the complete configuration options reference tabl
 
 ## Production Deployment
 
+### Docker
+
+Docker is the recommended way to deploy the bot. The image includes all dependencies (FFmpeg, libsodium, libopus) and supports SQLite or PostgreSQL via Docker Compose profiles. See the [Docker Deployment Guide](docs/articles/docker-deployment.md) for complete instructions.
+
 ### Environment Variables
 
 All `appsettings.json` values can be overridden with environment variables using the `__` (double underscore) separator:
@@ -784,6 +805,7 @@ This project is for educational and development purposes.
 - [Identity Configuration](docs/articles/identity-configuration.md) - Authentication setup
 - [Authorization Policies](docs/articles/authorization-policies.md) - Role hierarchy and access control
 - [Versioning Strategy](docs/articles/versioning-strategy.md) - SemVer versioning, CI/CD, release process
+- [Docker Deployment](docs/articles/docker-deployment.md) - Docker Compose setup, profiles, and configuration
 
 ### Observability & Monitoring
 - [Log Aggregation](docs/articles/log-aggregation.md) - Centralized logging with Elasticsearch and Elastic APM
