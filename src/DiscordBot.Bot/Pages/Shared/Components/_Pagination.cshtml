@@ -39,11 +39,28 @@
         pagesToShow.Add(Model.TotalPages);
     }
 
+    string StripQueryParam(string url, string paramName)
+    {
+        var queryIndex = url.IndexOf('?');
+        if (queryIndex < 0) return url;
+        var basePath = url.Substring(0, queryIndex);
+        var queryString = url.Substring(queryIndex + 1);
+        var pairs = queryString.Split('&')
+            .Where(p => !p.StartsWith(paramName + "=", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (pairs.Length == 0) return basePath;
+        return basePath + "?" + string.Join("&", pairs);
+    }
+
     string BuildUrl(int page, int? pageSize = null)
     {
         if (string.IsNullOrEmpty(Model.BaseUrl)) return "#";
-        var separator = Model.BaseUrl.Contains("?") ? "&" : "?";
-        var url = $"{Model.BaseUrl}{separator}{Model.PageParameterName}={page}";
+        // Strip existing page/pageSize params from BaseUrl to avoid duplicates
+        var baseUrl = StripQueryParam(Model.BaseUrl, Model.PageParameterName);
+        if (pageSize.HasValue)
+            baseUrl = StripQueryParam(baseUrl, Model.PageSizeParameterName);
+        var separator = baseUrl.Contains("?") ? "&" : "?";
+        var url = $"{baseUrl}{separator}{Model.PageParameterName}={page}";
         if (pageSize.HasValue)
             url += $"&{Model.PageSizeParameterName}={pageSize.Value}";
         return url;
@@ -156,7 +173,7 @@ else
                     <select
                         id="pageSize"
                         class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue"
-                        onchange="window.location.href='@BuildUrl(1)'.replace('page=1', 'page=1&pageSize=' + this.value)"
+                        onchange="window.location.href='@BuildUrl(1)' + '&@(Model.PageSizeParameterName)=' + this.value"
                     >
                         @foreach (var size in Model.PageSizeOptions)
                         {
