@@ -319,9 +319,13 @@
         }
 
         async function dismissEvent(eventId) {
-            if (!confirm('Are you sure you want to dismiss this flagged event?')) {
-                return;
-            }
+            const confirmed = await quickActions.confirm({
+                title: 'Dismiss Flagged Event',
+                message: 'Are you sure you want to dismiss this flagged event?',
+                variant: 'warning',
+                confirmText: 'Dismiss'
+            });
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/dismiss`, {
@@ -336,11 +340,11 @@
                     location.reload();
                 } else {
                     const error = await response.json();
-                    alert('Error dismissing event: ' + error.message);
+                    quickActions.showToast('Error dismissing event: ' + error.message, 'error');
                 }
             } catch (error) {
                 console.error('Error dismissing event:', error);
-                alert('An error occurred while dismissing the event.');
+                quickActions.showToast('An error occurred while dismissing the event.', 'error');
             }
         }
 
@@ -348,9 +352,13 @@
             const checkboxes = document.querySelectorAll('.event-checkbox:checked');
             if (checkboxes.length === 0) return;
 
-            if (!confirm(`Are you sure you want to dismiss ${checkboxes.length} flagged event(s)?`)) {
-                return;
-            }
+            const confirmed = await quickActions.confirm({
+                title: 'Bulk Dismiss Events',
+                message: `Are you sure you want to dismiss ${checkboxes.length} flagged event(s)?`,
+                variant: 'warning',
+                confirmText: 'Dismiss'
+            });
+            if (!confirmed) return;
 
             const eventIds = Array.from(checkboxes).map(cb => cb.dataset.eventId);
 
@@ -369,7 +377,7 @@
                 location.reload();
             } catch (error) {
                 console.error('Error dismissing events:', error);
-                alert('An error occurred while dismissing events.');
+                quickActions.showToast('An error occurred while dismissing events.', 'error');
             }
         }
 
@@ -377,9 +385,13 @@
             const checkboxes = document.querySelectorAll('.event-checkbox:checked');
             if (checkboxes.length === 0) return;
 
-            if (!confirm(`Are you sure you want to acknowledge ${checkboxes.length} flagged event(s)?`)) {
-                return;
-            }
+            const confirmed = await quickActions.confirm({
+                title: 'Bulk Acknowledge Events',
+                message: `Are you sure you want to acknowledge ${checkboxes.length} flagged event(s)?`,
+                variant: 'warning',
+                confirmText: 'Acknowledge'
+            });
+            if (!confirmed) return;
 
             const eventIds = Array.from(checkboxes).map(cb => cb.dataset.eventId);
 
@@ -398,7 +410,7 @@
                 location.reload();
             } catch (error) {
                 console.error('Error acknowledging events:', error);
-                alert('An error occurred while acknowledging events.');
+                quickActions.showToast('An error occurred while acknowledging events.', 'error');
             }
         }
     </script>

@@ -114,9 +114,7 @@
                     dropdownItem.remove();
                 }
 
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('success', `Tag "${tagName}" added successfully`);
-                }
+                quickActions.showToast(`Tag "${tagName}" added successfully`, 'success');
             } else {
                 // Try to parse JSON, but handle non-JSON responses gracefully
                 let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
@@ -128,19 +126,11 @@
                     console.error('Response was not JSON:', parseError);
                 }
 
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('error', `Failed to add tag: ${errorMessage}`);
-                } else {
-                    alert(`Failed to add tag: ${errorMessage}`);
-                }
+                quickActions.showToast(`Failed to add tag: ${errorMessage}`, 'error');
             }
         } catch (error) {
             console.error('Error adding tag:', error);
-            if (typeof ToastManager !== 'undefined') {
-                ToastManager.show('error', 'Failed to add tag. Please try again.');
-            } else {
-                alert('Failed to add tag. Please try again.');
-            }
+            quickActions.showToast('Failed to add tag. Please try again.', 'error');
         }
     };
 
@@ -148,7 +138,13 @@
      * Remove a tag from the user
      */
     window.removeTag = async function (tagName) {
-        if (!confirm(`Remove tag "${tagName}" from this user?`)) {
+        const confirmed = await quickActions.confirm({
+            title: 'Remove Tag',
+            message: `Remove tag "${tagName}" from this user?`,
+            variant: 'warning',
+            confirmText: 'Remove'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -164,9 +160,7 @@
                     tagElement.remove();
                 }
 
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('success', `Tag "${tagName}" removed`);
-                }
+                quickActions.showToast(`Tag "${tagName}" removed`, 'success');
             } else {
                 let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
                 try {
@@ -176,19 +170,11 @@
                     console.error('Response was not JSON:', parseError);
                 }
 
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('error', `Failed to remove tag: ${errorMessage}`);
-                } else {
-                    alert(`Failed to remove tag: ${errorMessage}`);
-                }
+                quickActions.showToast(`Failed to remove tag: ${errorMessage}`, 'error');
             }
         } catch (error) {
             console.error('Error removing tag:', error);
-            if (typeof ToastManager !== 'undefined') {
-                ToastManager.show('error', 'Failed to remove tag. Please try again.');
-            } else {
-                alert('Failed to remove tag. Please try again.');
-            }
+            quickActions.showToast('Failed to remove tag. Please try again.', 'error');
         }
     };
 
@@ -200,7 +186,7 @@
         const content = noteTextarea.value.trim();
 
         if (!content) {
-            alert('Please enter a note');
+            quickActions.showToast('Please enter a note', 'warning');
             return;
         }
 
@@ -223,11 +209,11 @@
                 window.location.reload();
             } else {
                 const error = await response.json();
-                alert(`Failed to add note: ${error.message || 'Unknown error'}`);
+                quickActions.showToast(`Failed to add note: ${error.message || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             console.error('Error adding note:', error);
-            alert('Failed to add note. Please try again.');
+            quickActions.showToast('Failed to add note. Please try again.', 'error');
         }
     };
 
@@ -235,7 +221,13 @@
      * Delete a note
      */
     window.deleteNote = async function (noteId) {
-        if (!confirm('Are you sure you want to delete this note?')) {
+        const confirmed = await quickActions.confirm({
+            title: 'Delete Note',
+            message: 'Are you sure you want to delete this note?',
+            variant: 'danger',
+            confirmText: 'Delete'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -252,11 +244,11 @@
                 }
             } else {
                 const error = await response.json();
-                alert(`Failed to delete note: ${error.message || 'Unknown error'}`);
+                quickActions.showToast(`Failed to delete note: ${error.message || 'Unknown error'}`, 'error');
             }
         } catch (error) {
             console.error('Error deleting note:', error);
-            alert('Failed to delete note. Please try again.');
+            quickActions.showToast('Failed to delete note. Please try again.', 'error');
         }
     };
 

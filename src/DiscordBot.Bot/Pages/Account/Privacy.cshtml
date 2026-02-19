@@ -1,5 +1,6 @@
 @page
 @model PrivacyModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Privacy & Consent";
 }
@@ -123,8 +124,8 @@ else
                     <!-- Consent Item -->
                     <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
                         <label class="form-toggle cursor-pointer flex-shrink-0 pt-1">
-                            <form method="post" asp-page-handler="ToggleConsent" asp-route-type="@consent.Type" asp-route-grant="@(!consent.IsGranted)" onsubmit="return confirm('@(consent.IsGranted ? "Are you sure you want to revoke consent for " + consent.TypeDisplayName + "?" : "Are you sure you want to grant consent for " + consent.TypeDisplayName + "?")');">
-                                <input type="checkbox" class="form-toggle-input" checked="@consent.IsGranted" onchange="this.form.submit()" />
+                            <form method="post" asp-page-handler="ToggleConsent" asp-route-type="@consent.Type" asp-route-grant="@(!consent.IsGranted)" class="consent-toggle-form" data-consent-name="@consent.TypeDisplayName" data-consent-action="@(consent.IsGranted ? "revoke" : "grant")">
+                                <input type="checkbox" class="form-toggle-input" checked="@consent.IsGranted" onchange="window.confirmConsentToggle(this)" />
                                 <span class="form-toggle-track">
                                     <span class="form-toggle-thumb"></span>
                                 </span>
@@ -228,14 +229,12 @@ else
                     <p class="text-sm text-text-secondary mb-3">
                         Permanently delete all your data from our system. This action cannot be undone.
                     </p>
-                    <form method="post" asp-page-handler="DeleteData" onsubmit="return confirm('Are you sure you want to permanently delete ALL your data? This action cannot be undone.\n\nType DELETE in the command to confirm:\n/privacy delete-data confirm:DELETE');">
-                        <button type="submit" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover hover:border-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                            </svg>
-                            Delete My Data
-                        </button>
-                    </form>
+                    <button type="button" onclick="quickActions.showConfirmationModal('deleteDataModal')" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover hover:border-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                        Delete My Data
+                    </button>
                 </div>
             </div>
         </div>
@@ -371,6 +370,45 @@ else
         </div>
     </div>
 }
+
+@if (Model.IsDiscordLinked)
+{
+    <partial name="Shared/Components/_ConfirmationModal" model='new ConfirmationModalViewModel
+    {
+        Id = "deleteDataModal",
+        Title = "Delete All Data",
+        Message = "Are you sure you want to permanently delete ALL your data? This action cannot be undone.",
+        ConfirmText = "Delete My Data",
+        Variant = ConfirmationVariant.Danger,
+        FormAction = "/Account/Privacy",
+        FormHandler = "DeleteData"
+    }' />
+}
+
+<script>
+    window.confirmConsentToggle = async function(checkbox) {
+        const form = checkbox.closest('form');
+        const consentName = form.dataset.consentName;
+        const action = form.dataset.consentAction;
+        const message = action === 'revoke'
+            ? `Are you sure you want to revoke consent for ${consentName}?`
+            : `Are you sure you want to grant consent for ${consentName}?`;
+
+        const confirmed = await quickActions.confirm({
+            title: action === 'revoke' ? 'Revoke Consent' : 'Grant Consent',
+            message: message,
+            variant: 'warning',
+            confirmText: action === 'revoke' ? 'Revoke' : 'Grant'
+        });
+
+        if (confirmed) {
+            form.submit();
+        } else {
+            // Revert the checkbox state
+            checkbox.checked = !checkbox.checked;
+        }
+    };
+</script>
 
 <style>
     /* Toggle Switch Component */

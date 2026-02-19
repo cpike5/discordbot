@@ -98,9 +98,15 @@
         }
 
         if (deleteSelectedBtn) {
-            deleteSelectedBtn.addEventListener('click', function() {
+            deleteSelectedBtn.addEventListener('click', async function() {
                 if (selectedIds.size === 0) return;
-                if (confirm(`Delete ${selectedIds.size} notification(s)? This cannot be undone.`)) {
+                const confirmed = await quickActions.confirm({
+                    title: 'Delete Notifications',
+                    message: `Delete ${selectedIds.size} notification(s)? This cannot be undone.`,
+                    variant: 'danger',
+                    confirmText: 'Delete'
+                });
+                if (confirmed) {
                     bulkAction('/api/notifications/delete', Array.from(selectedIds), 'deleted');
                 }
             });
@@ -108,7 +114,13 @@
 
         if (markAllReadBtn) {
             markAllReadBtn.addEventListener('click', async function() {
-                if (confirm('Mark all notifications as read?')) {
+                const confirmed = await quickActions.confirm({
+                    title: 'Mark All as Read',
+                    message: 'Mark all notifications as read?',
+                    variant: 'info',
+                    confirmText: 'Mark All Read'
+                });
+                if (confirmed) {
                     try {
                         const response = await fetch('/api/notifications/mark-all-read', {
                             method: 'POST',
@@ -123,11 +135,11 @@
                         } else {
                             const errorText = await response.text();
                             console.error('Failed to mark all as read:', errorText);
-                            alert('Failed to mark all notifications as read. Please try again.');
+                            quickActions.showToast('Failed to mark all notifications as read. Please try again.', 'error');
                         }
                     } catch (error) {
                         console.error('Error marking all as read:', error);
-                        alert('An error occurred. Please try again.');
+                        quickActions.showToast('An error occurred. Please try again.', 'error');
                     }
                 }
             });
@@ -136,7 +148,13 @@
         const deleteAllBtn = document.getElementById('deleteAll');
         if (deleteAllBtn) {
             deleteAllBtn.addEventListener('click', async function() {
-                if (confirm('Delete ALL notifications? This cannot be undone.')) {
+                const confirmed = await quickActions.confirm({
+                    title: 'Delete All Notifications',
+                    message: 'Delete ALL notifications? This cannot be undone.',
+                    variant: 'danger',
+                    confirmText: 'Delete All'
+                });
+                if (confirmed) {
                     try {
                         const response = await fetch('/api/notifications/delete-all', {
                             method: 'POST',
@@ -151,11 +169,11 @@
                         } else {
                             const errorText = await response.text();
                             console.error('Failed to delete all notifications:', errorText);
-                            alert('Failed to delete all notifications. Please try again.');
+                            quickActions.showToast('Failed to delete all notifications. Please try again.', 'error');
                         }
                     } catch (error) {
                         console.error('Error deleting all notifications:', error);
-                        alert('An error occurred. Please try again.');
+                        quickActions.showToast('An error occurred. Please try again.', 'error');
                     }
                 }
             });
@@ -184,11 +202,11 @@
             } else {
                 const errorText = await response.text();
                 console.error(`Failed to ${actionName}:`, errorText);
-                alert(`Failed to ${actionName} notifications. Please try again.`);
+                quickActions.showToast(`Failed to ${actionName} notifications. Please try again.`, 'error');
             }
         } catch (error) {
             console.error('Bulk action failed:', error);
-            alert(`Failed to ${actionName} notifications. Please try again.`);
+            quickActions.showToast(`Failed to ${actionName} notifications. Please try again.`, 'error');
         }
     }
 
@@ -215,11 +233,11 @@
                         location.reload();
                     } else {
                         console.error('Failed to toggle read status');
-                        alert('Failed to update notification. Please try again.');
+                        quickActions.showToast('Failed to update notification. Please try again.', 'error');
                     }
                 } catch (error) {
                     console.error('Error toggling read status:', error);
-                    alert('An error occurred. Please try again.');
+                    quickActions.showToast('An error occurred. Please try again.', 'error');
                 }
             });
         });
@@ -227,7 +245,13 @@
         // Delete single notification
         document.querySelectorAll('[data-action="delete"]').forEach(btn => {
             btn.addEventListener('click', async function() {
-                if (!confirm('Delete this notification? This cannot be undone.')) return;
+                const confirmed = await quickActions.confirm({
+                    title: 'Delete Notification',
+                    message: 'Delete this notification? This cannot be undone.',
+                    variant: 'danger',
+                    confirmText: 'Delete'
+                });
+                if (!confirmed) return;
 
                 const id = this.dataset.id;
 
@@ -243,11 +267,11 @@
                         location.reload();
                     } else {
                         console.error('Failed to delete notification');
-                        alert('Failed to delete notification. Please try again.');
+                        quickActions.showToast('Failed to delete notification. Please try again.', 'error');
                     }
                 } catch (error) {
                     console.error('Error deleting notification:', error);
-                    alert('An error occurred. Please try again.');
+                    quickActions.showToast('An error occurred. Please try again.', 'error');
                 }
             });
         });

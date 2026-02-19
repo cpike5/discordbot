@@ -487,7 +487,7 @@
                 console.log(`Exported ${incidents.length} incidents to CSV`);
             } catch (error) {
                 console.error('Failed to export CSV:', error);
-                alert('Failed to export incidents. Please try again.');
+                quickActions.showToast('Failed to export incidents. Please try again.', 'error');
             } finally {
                 // Restore button state
                 btn.disabled = false;

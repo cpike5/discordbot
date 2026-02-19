@@ -140,18 +140,14 @@
             } catch (error) {
                 console.error('Failed to save config changes:', error);
                 hasError = true;
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('error', `Failed to save configuration for ${metricName}. Please try again.`, { title: 'Error' });
-                }
+                quickActions.showToast(`Failed to save configuration for ${metricName}. Please try again.`, 'error');
                 break;
             }
         }
 
         if (!hasError) {
             state.configChanges = {};
-            if (typeof ToastManager !== 'undefined') {
-                ToastManager.show('success', 'Alert thresholds saved successfully.', { title: 'Saved' });
-            }
+            quickActions.showToast('Alert thresholds saved successfully.', 'success');
             updateSaveButtonVisibility();
         }
 
@@ -212,9 +208,7 @@
             }
 
             // Show success toast
-            if (typeof Toast !== 'undefined' && Toast.success) {
-                Toast.success('Incident acknowledged successfully');
-            }
+            quickActions.showToast('Incident acknowledged successfully', 'success');
         } catch (error) {
             console.error('[Alerts] Failed to acknowledge incident:', error);
 
@@ -225,11 +219,7 @@
             }
 
             // Show error toast
-            if (typeof Toast !== 'undefined' && Toast.error) {
-                Toast.error(error.message || 'Failed to acknowledge incident');
-            } else {
-                alert(error.message || 'Failed to acknowledge incident');
-            }
+            quickActions.showToast(error.message || 'Failed to acknowledge incident', 'error');
         }
     };
 
@@ -282,9 +272,7 @@
 
             // Show success toast
             const count = result.acknowledgedCount || 0;
-            if (typeof Toast !== 'undefined' && Toast.success) {
-                Toast.success(`Acknowledged ${count} incident${count !== 1 ? 's' : ''} successfully`);
-            }
+            quickActions.showToast(`Acknowledged ${count} incident${count !== 1 ? 's' : ''} successfully`, 'success');
         } catch (error) {
             console.error('[Alerts] Failed to acknowledge all incidents:', error);
 
@@ -295,11 +283,7 @@
             }
 
             // Show error toast
-            if (typeof Toast !== 'undefined' && Toast.error) {
-                Toast.error(error.message || 'Failed to acknowledge incidents');
-            } else {
-                alert(error.message || 'Failed to acknowledge incidents');
-            }
+            quickActions.showToast(error.message || 'Failed to acknowledge incidents', 'error');
         }
     };
 

@@ -12,9 +12,16 @@
      * Switch between settings tabs
      * @param {string} tabId - The tab ID to switch to (overview, spam, content, raid, tags)
      */
-    function switchTab(tabId) {
-        if (isDirty && !confirm('You have unsaved changes. Are you sure you want to switch tabs?')) {
-            return;
+    async function switchTab(tabId) {
+        if (isDirty) {
+            const confirmed = await quickActions.confirm({
+                title: 'Unsaved Changes',
+                message: 'You have unsaved changes. Are you sure you want to switch tabs?',
+                variant: 'warning',
+                confirmText: 'Switch Tab',
+                cancelText: 'Stay'
+            });
+            if (!confirmed) return;
         }
 
         currentTab = tabId;
@@ -98,14 +105,14 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
-                ToastManager.show('error', data.message || 'Failed to save overview settings.');
+                quickActions.showToast(data.message || 'Failed to save overview settings.', 'error');
             }
         } catch (error) {
             console.error('Save overview error:', error);
-            ToastManager.show('error', 'An error occurred while saving overview settings.');
+            quickActions.showToast('An error occurred while saving overview settings.', 'error');
         }
     }
 
@@ -138,17 +145,17 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
                 isDirty = false;
 
                 // Reload page to reflect new preset settings
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                ToastManager.show('error', data.message || 'Failed to apply preset.');
+                quickActions.showToast(data.message || 'Failed to apply preset.', 'error');
             }
         } catch (error) {
             console.error('Apply preset error:', error);
-            ToastManager.show('error', 'An error occurred while applying preset.');
+            quickActions.showToast('An error occurred while applying preset.', 'error');
         }
     }
 
@@ -181,14 +188,14 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
-                ToastManager.show('error', data.message || 'Failed to save spam settings.');
+                quickActions.showToast(data.message || 'Failed to save spam settings.', 'error');
             }
         } catch (error) {
             console.error('Save spam error:', error);
-            ToastManager.show('error', 'An error occurred while saving spam settings.');
+            quickActions.showToast('An error occurred while saving spam settings.', 'error');
         }
     }
 
@@ -227,14 +234,14 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
-                ToastManager.show('error', data.message || 'Failed to save content settings.');
+                quickActions.showToast(data.message || 'Failed to save content settings.', 'error');
             }
         } catch (error) {
             console.error('Save content error:', error);
-            ToastManager.show('error', 'An error occurred while saving content settings.');
+            quickActions.showToast('An error occurred while saving content settings.', 'error');
         }
     }
 
@@ -266,14 +273,14 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
-                ToastManager.show('error', data.message || 'Failed to save raid settings.');
+                quickActions.showToast(data.message || 'Failed to save raid settings.', 'error');
             }
         } catch (error) {
             console.error('Save raid error:', error);
-            ToastManager.show('error', 'An error occurred while saving raid settings.');
+            quickActions.showToast('An error occurred while saving raid settings.', 'error');
         }
     }
 
@@ -288,7 +295,7 @@
         const tagCategory = parseInt(document.getElementById('new-tag-color').value);
 
         if (!tagName) {
-            ToastManager.show('error', 'Please enter a tag name.');
+            quickActions.showToast('Please enter a tag name.', 'error');
             return;
         }
 
@@ -321,7 +328,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
 
                 // Add new tag to the DOM
                 const tagsList = document.getElementById('tags-list');
@@ -354,11 +361,11 @@
                 document.getElementById('new-tag-name').value = '';
                 document.getElementById('new-tag-color').value = '0';
             } else {
-                ToastManager.show('error', data.message || 'Failed to create tag.');
+                quickActions.showToast(data.message || 'Failed to create tag.', 'error');
             }
         } catch (error) {
             console.error('Create tag error:', error);
-            ToastManager.show('error', 'An error occurred while creating tag.');
+            quickActions.showToast('An error occurred while creating tag.', 'error');
         }
     }
 
@@ -367,7 +374,13 @@
      * @param {string} tagName - The name of the tag to delete
      */
     async function deleteTag(tagName) {
-        if (!confirm(`Are you sure you want to delete the tag "${tagName}"? This will remove it from all users.`)) {
+        const confirmed = await quickActions.confirm({
+            title: 'Delete Tag',
+            message: `Are you sure you want to delete the tag "${tagName}"? This will remove it from all users.`,
+            variant: 'danger',
+            confirmText: 'Delete Tag'
+        });
+        if (!confirmed) {
             return;
         }
 
@@ -385,7 +398,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
 
                 // Remove the tag from the list
                 const tagElement = document.querySelector(`[data-tag-name="${tagName}"]`);
@@ -393,26 +406,24 @@
                     tagElement.remove();
                 }
             } else {
-                ToastManager.show('error', data.message || 'Failed to delete tag.');
+                quickActions.showToast(data.message || 'Failed to delete tag.', 'error');
             }
         } catch (error) {
             console.error('Delete tag error:', error);
-            ToastManager.show('error', 'An error occurred while deleting tag.');
+            quickActions.showToast('An error occurred while deleting tag.', 'error');
         }
     }
 
     /**
      * Show the import templates modal
      */
-    function showImportTemplatesModal() {
-        // For now, just alert. In a full implementation, would show a modal with checkboxes for template selection
-        const templateNames = ['Spammer', 'Toxic User', 'New Account', 'Suspected Bot', 'Watch List'];
-        const selected = prompt('Enter template names to import (comma-separated):\n' + templateNames.join(', '));
-
-        if (selected) {
-            const names = selected.split(',').map(n => n.trim()).filter(n => n.length > 0);
-            importTemplates(names);
-        }
+    async function showImportTemplatesModal() {
+        await quickActions.alert({
+            title: 'Not Available',
+            message: 'Template import is not yet implemented.',
+            variant: 'info'
+        });
+        return;
     }
 
     /**
@@ -436,7 +447,7 @@
             const data = await response.json();
 
             if (response.ok && data.success) {
-                ToastManager.show('success', data.message);
+                quickActions.showToast(data.message, 'success');
 
                 // Reload page to show imported tags (import can add multiple tags with complex logic)
                 // Stay on tags tab by reloading with hash
@@ -445,11 +456,11 @@
                     window.location.reload();
                 }, 1000);
             } else {
-                ToastManager.show('error', data.message || 'Failed to import templates.');
+                quickActions.showToast(data.message || 'Failed to import templates.', 'error');
             }
         } catch (error) {
             console.error('Import templates error:', error);
-            ToastManager.show('error', 'An error occurred while importing templates.');
+            quickActions.showToast('An error occurred while importing templates.', 'error');
         }
     }
 

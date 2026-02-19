@@ -191,13 +191,13 @@
 
                     <!-- Execute Purge Form -->
                     <div class="pt-6 border-t border-border-primary">
-                        <form method="post" asp-page-handler="Execute" id="purge-form" onsubmit="return confirmPurge();">
+                        <form method="post" asp-page-handler="Execute" id="purge-form">
                             <input type="hidden" name="EntityType" value="@Model.EntityType" />
                             <input type="hidden" name="StartDate" value="@Model.StartDate?.ToString("yyyy-MM-dd")" />
                             <input type="hidden" name="EndDate" value="@Model.EndDate?.ToString("yyyy-MM-dd")" />
                             <input type="hidden" name="GuildIdInput" value="@Model.GuildIdInput" />
 
-                            <button type="submit" class="btn btn-error">
+                            <button type="button" onclick="confirmPurge()" class="btn btn-error">
                                 <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
@@ -289,17 +289,22 @@
 </div>
 
 <script>
-    function confirmPurge() {
+    async function confirmPurge() {
         const entityType = '@Model.EntityType';
         const count = '@Model.PreviewResult?.EstimatedCount.ToString("N0")';
         const dateRange = '@Model.PreviewResult?.DateRange';
 
-        const message = `WARNING: You are about to permanently delete ${count} ${entityType} records.\n\n` +
-                       `Date Range: ${dateRange}\n\n` +
-                       `This action CANNOT be undone.\n\n` +
-                       `Are you absolutely sure you want to proceed?`;
-
-        return confirm(message);
+        const confirmed = await quickActions.typedConfirm({
+            title: 'Permanently Delete Records',
+            message: `You are about to permanently delete ${count} ${entityType} records (Date Range: ${dateRange}). This action CANNOT be undone.`,
+            requiredText: 'CONFIRM',
+            inputLabel: 'Type CONFIRM to proceed',
+            variant: 'danger',
+            confirmText: 'Execute Purge'
+        });
+        if (confirmed) {
+            document.getElementById('purge-form').submit();
+        }
     }
 
     // Entity type card selection

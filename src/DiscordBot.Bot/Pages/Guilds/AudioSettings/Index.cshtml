@@ -451,18 +451,6 @@
     <input type="hidden" name="guildId" value="@Model.GuildId" />
 </form>
 
-<!-- Success Toast -->
-<div class="toast toast-success" id="successToast">
-    <div class="toast-icon">
-        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-        </svg>
-    </div>
-    <div>
-        <p class="text-sm font-medium text-text-primary" id="toastTitle">Settings saved</p>
-        <p class="text-xs text-text-tertiary" id="toastMessage">Audio settings have been updated successfully.</p>
-    </div>
-</div>
 
 @functions {
     private static string GetCommandDescription(string command)
@@ -756,79 +744,6 @@
             flex-shrink: 0;
         }
 
-        /* Toast Styles - Override global toast animation */
-        .toast {
-            position: fixed;
-            bottom: 1.5rem;
-            right: 1.5rem;
-            display: none;
-            align-items: center;
-            gap: 0.75rem;
-            padding: 1rem 1.25rem;
-            background: var(--color-bg-secondary);
-            border: 1px solid var(--color-border-primary);
-            border-radius: 0.5rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-            z-index: 100;
-            animation: none;
-        }
-
-        .toast.show {
-            display: flex;
-            animation: slideUp 0.3s ease-out forwards;
-        }
-
-        @@keyframes slideUp {
-            from {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-            to {
-                transform: translateY(0);
-                opacity: 1;
-            }
-        }
-
-        .toast.dismissing {
-            display: flex;
-            animation: slideDown 0.3s ease-in forwards;
-        }
-
-        @@keyframes slideDown {
-            from {
-                transform: translateY(0);
-                opacity: 1;
-            }
-            to {
-                transform: translateY(100%);
-                opacity: 0;
-            }
-        }
-
-        .toast-success {
-            border-left: 3px solid var(--color-success);
-        }
-
-        .toast-error {
-            border-left: 3px solid var(--color-error);
-        }
-
-        .toast-icon {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 1.5rem;
-            height: 1.5rem;
-            background: var(--color-success-bg);
-            color: var(--color-success);
-            border-radius: 50%;
-        }
-
-        .toast-error .toast-icon {
-            background: var(--color-error-bg);
-            color: var(--color-error);
-        }
-
         /* Validation error styles */
         .input-error {
             border-color: var(--color-error) !important;
@@ -969,26 +884,6 @@
                 return document.querySelector('input[name="__RequestVerificationToken"]').value;
             },
 
-            // Show toast notification
-            showToast: function(title, message, isError = false) {
-                const toast = document.getElementById('successToast');
-                document.getElementById('toastTitle').textContent = title;
-                document.getElementById('toastMessage').textContent = message;
-
-                toast.classList.remove('toast-success', 'toast-error', 'dismissing');
-                toast.classList.add(isError ? 'toast-error' : 'toast-success');
-                toast.classList.add('show');
-
-                setTimeout(() => {
-                    toast.classList.add('dismissing');
-                    toast.classList.remove('show');
-                    // Remove dismissing class after animation completes
-                    setTimeout(() => {
-                        toast.classList.remove('dismissing');
-                    }, 300);
-                }, 3000);
-            },
-
             // Save general settings
             saveGeneralSettings: async function() {
                 const data = {
@@ -1002,7 +897,7 @@
                 // Validate auto-leave timeout
                 if (data.autoLeaveTimeoutMinutes < 0 || data.autoLeaveTimeoutMinutes > 60) {
                     document.getElementById('autoLeaveTimeout').classList.add('input-error');
-                    this.showToast('Validation Error', 'Auto-leave timeout must be between 0 and 60 minutes.', true);
+                    quickActions.showToast('Auto-leave timeout must be between 0 and 60 minutes.', 'error');
                     return;
                 }
                 document.getElementById('autoLeaveTimeout').classList.remove('input-error');
@@ -1018,10 +913,10 @@
                     });
 
                     const result = await response.json();
-                    this.showToast(result.success ? 'Settings saved' : 'Error', result.message, !result.success);
+                    quickActions.showToast(result.message, result.success ? 'success' : 'error');
                 } catch (error) {
                     console.error('Error saving general settings:', error);
-                    this.showToast('Error', 'Failed to save settings. Please try again.', true);
+                    quickActions.showToast('Failed to save settings. Please try again.', 'error');
                 }
             },
 
@@ -1060,7 +955,7 @@
                 }
 
                 if (hasErrors) {
-                    this.showToast('Validation Error', 'Please fix the validation errors before saving.', true);
+                    quickActions.showToast('Please fix the validation errors before saving.', 'error');
                     return;
                 }
 
@@ -1075,10 +970,10 @@
                     });
 
                     const result = await response.json();
-                    this.showToast(result.success ? 'Settings saved' : 'Error', result.message, !result.success);
+                    quickActions.showToast(result.message, result.success ? 'success' : 'error');
                 } catch (error) {
                     console.error('Error saving limit settings:', error);
-                    this.showToast('Error', 'Failed to save settings. Please try again.', true);
+                    quickActions.showToast('Failed to save settings. Please try again.', 'error');
                 }
             },
 
@@ -1094,7 +989,7 @@
                 // Validate max SSML complexity
                 if (data.maxSsmlComplexity < 10 || data.maxSsmlComplexity > 200) {
                     document.getElementById('maxSsmlComplexity').classList.add('input-error');
-                    this.showToast('Validation Error', 'Max SSML complexity must be between 10 and 200.', true);
+                    quickActions.showToast('Max SSML complexity must be between 10 and 200.', 'error');
                     return;
                 }
                 document.getElementById('maxSsmlComplexity').classList.remove('input-error');
@@ -1110,10 +1005,10 @@
                     });
 
                     const result = await response.json();
-                    this.showToast(result.success ? 'Settings saved' : 'Error', result.message, !result.success);
+                    quickActions.showToast(result.message, result.success ? 'success' : 'error');
                 } catch (error) {
                     console.error('Error saving TTS settings:', error);
-                    this.showToast('Error', 'Failed to save settings. Please try again.', true);
+                    quickActions.showToast('Failed to save settings. Please try again.', 'error');
                 }
             },
 
@@ -1140,19 +1035,25 @@
 
                     const result = await response.json();
                     if (result.success) {
-                        this.showToast('Permissions updated', `/${command} permissions saved.`);
+                        quickActions.showToast(`/${command} permissions saved.`, 'success');
                     } else {
-                        this.showToast('Error', result.message, true);
+                        quickActions.showToast(result.message, 'error');
                     }
                 } catch (error) {
                     console.error('Error saving command permissions:', error);
-                    this.showToast('Error', 'Failed to save permissions. Please try again.', true);
+                    quickActions.showToast('Failed to save permissions. Please try again.', 'error');
                 }
             },
 
             // Reset to defaults
             resetToDefaults: async function() {
-                if (!confirm('Are you sure you want to reset all audio settings to their default values? This cannot be undone.')) {
+                const confirmed = await quickActions.confirm({
+                    title: 'Reset Audio Settings',
+                    message: 'Are you sure you want to reset all audio settings to their default values? This cannot be undone.',
+                    variant: 'danger',
+                    confirmText: 'Reset to Defaults'
+                });
+                if (!confirmed) {
                     return;
                 }
 
@@ -1167,15 +1068,15 @@
 
                     const result = await response.json();
                     if (result.success) {
-                        this.showToast('Settings reset', 'Audio settings have been reset to defaults.');
+                        quickActions.showToast('Audio settings have been reset to defaults.', 'success');
                         // Reload the page to show updated values
                         setTimeout(() => location.reload(), 1000);
                     } else {
-                        this.showToast('Error', result.message, true);
+                        quickActions.showToast(result.message, 'error');
                     }
                 } catch (error) {
                     console.error('Error resetting settings:', error);
-                    this.showToast('Error', 'Failed to reset settings. Please try again.', true);
+                    quickActions.showToast('Failed to reset settings. Please try again.', 'error');
                 }
             }
         };

@@ -486,9 +486,16 @@
      * Switch between settings category tabs
      * @param {string} category - The category name (General, Logging, Features, Advanced)
      */
-    function switchTab(category) {
-        if (isDirty && !confirm('You have unsaved changes. Are you sure you want to switch tabs?')) {
-            return;
+    async function switchTab(category) {
+        if (isDirty) {
+            const confirmed = await quickActions.confirm({
+                title: 'Unsaved Changes',
+                message: 'You have unsaved changes. Are you sure you want to switch tabs?',
+                variant: 'warning',
+                confirmText: 'Switch Tab',
+                cancelText: 'Stay'
+            });
+            if (!confirmed) return;
         }
 
         currentCategory = category;

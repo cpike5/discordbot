@@ -393,27 +393,10 @@ const AlertsRealtime = (function() {
      * @param {Object} alert - PerformanceIncidentDto
      */
     function showAlertToast(alert) {
-        if (typeof ToastManager === 'undefined') return;
-
         const severityValue = typeof alert.severity === 'string' ? alert.severity : getSeverityString(alert.severity);
         const type = severityValue === 'Critical' ? 'error' : 'warning';
-        const title = `Alert: ${alert.metricName}`;
 
-        ToastManager.show(type, alert.message, {
-            title: title,
-            duration: TOAST_DURATION_MS,
-            action: {
-                label: 'View',
-                onClick: () => {
-                    const row = document.querySelector(`[data-incident-id="${alert.id}"]`);
-                    if (row) {
-                        row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                        row.classList.add('alert-highlight');
-                        setTimeout(() => row.classList.remove('alert-highlight'), 2000);
-                    }
-                }
-            }
-        });
+        quickActions.showToast(`Alert: ${alert.metricName} - ${alert.message}`, type);
     }
 
     /**
@@ -421,12 +404,7 @@ const AlertsRealtime = (function() {
      * @param {Object} alert - PerformanceIncidentDto
      */
     function showResolvedToast(alert) {
-        if (typeof ToastManager === 'undefined') return;
-
-        ToastManager.show('success', 'The alert has been automatically resolved.', {
-            title: `Resolved: ${alert.metricName}`,
-            duration: 5000
-        });
+        quickActions.showToast(`Resolved: ${alert.metricName} - The alert has been automatically resolved.`, 'success');
     }
 
     /**
@@ -635,9 +613,7 @@ async function acknowledgeIncident(incidentId) {
         }
 
         // Show success toast
-        if (typeof Toast !== 'undefined' && Toast.success) {
-            Toast.success('Incident acknowledged successfully');
-        }
+        quickActions.showToast('Incident acknowledged successfully', 'success');
     } catch (error) {
         console.error('[Alerts] Failed to acknowledge incident:', error);
 
@@ -648,11 +624,7 @@ async function acknowledgeIncident(incidentId) {
         }
 
         // Show error toast
-        if (typeof Toast !== 'undefined' && Toast.error) {
-            Toast.error(error.message || 'Failed to acknowledge incident');
-        } else {
-            alert(error.message || 'Failed to acknowledge incident');
-        }
+        quickActions.showToast(error.message || 'Failed to acknowledge incident', 'error');
     }
 }
 
@@ -707,9 +679,7 @@ async function acknowledgeAllIncidents() {
 
         // Show success toast
         const count = result.acknowledgedCount || 0;
-        if (typeof Toast !== 'undefined' && Toast.success) {
-            Toast.success(`Acknowledged ${count} incident${count !== 1 ? 's' : ''} successfully`);
-        }
+        quickActions.showToast(`Acknowledged ${count} incident${count !== 1 ? 's' : ''} successfully`, 'success');
     } catch (error) {
         console.error('[Alerts] Failed to acknowledge all incidents:', error);
 
@@ -720,10 +690,6 @@ async function acknowledgeAllIncidents() {
         }
 
         // Show error toast
-        if (typeof Toast !== 'undefined' && Toast.error) {
-            Toast.error(error.message || 'Failed to acknowledge incidents');
-        } else {
-            alert(error.message || 'Failed to acknowledge incidents');
-        }
+        quickActions.showToast(error.message || 'Failed to acknowledge incidents', 'error');
     }
 }
