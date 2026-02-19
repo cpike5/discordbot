@@ -14,6 +14,14 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     {
     }
 
+    /// <summary>
+    /// Constructor for derived DbContext subclasses (e.g. PostgresBotDbContext).
+    /// Accepts non-generic options so DI can inject DbContextOptions&lt;TDerived&gt;.
+    /// </summary>
+    protected BotDbContext(DbContextOptions options) : base(options)
+    {
+    }
+
     public DbSet<Guild> Guilds => Set<Guild>();
     public new DbSet<User> Users => Set<User>();
     public DbSet<CommandLog> CommandLogs => Set<CommandLog>();

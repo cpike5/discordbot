@@ -4,14 +4,11 @@ using Microsoft.EntityFrameworkCore.Design;
 namespace DiscordBot.Infrastructure.Data;
 
 /// <summary>
-/// Design-time only DbContext subclass for SQLite migrations.
-/// Passes <see cref="DbContextOptions{BotDbContext}"/> to the base constructor
-/// so that <c>ApplyConfigurationsFromAssembly</c> resolves correctly.
-/// This class is NOT used at runtime — DI always resolves <see cref="BotDbContext"/>.
+/// DbContext subclass for SQLite. Used at design-time for generating SQLite migrations.
 /// </summary>
 public class SqliteBotDbContext : BotDbContext
 {
-    public SqliteBotDbContext(DbContextOptions<BotDbContext> options) : base(options)
+    public SqliteBotDbContext(DbContextOptions<SqliteBotDbContext> options) : base(options)
     {
     }
 }
@@ -24,7 +21,7 @@ public class SqliteDesignTimeFactory : IDesignTimeDbContextFactory<SqliteBotDbCo
 {
     public SqliteBotDbContext CreateDbContext(string[] args)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<BotDbContext>();
+        var optionsBuilder = new DbContextOptionsBuilder<SqliteBotDbContext>();
         optionsBuilder.UseSqlite("Data Source=design-time.db",
             x => x.MigrationsAssembly("DiscordBot.Infrastructure"));
         return new SqliteBotDbContext(optionsBuilder.Options);
