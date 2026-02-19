@@ -1,0 +1,73 @@
+# Discord Bot Management System — Docker Compose
+#
+# Usage:
+#   docker compose up -d                                    # Bot + SQLite (default)
+#   docker compose --profile postgres up -d                 # Bot + PostgreSQL
+#   docker compose --profile seq up -d                      # Bot + Seq logging
+#   docker compose --profile postgres --profile seq up -d   # Everything
+
+services:
+  # ===========================================================================
+  # Bot (always starts)
+  # ===========================================================================
+  bot:
+    build: .
+    env_file: .env
+    volumes:
+      - bot-data:/app/data            # SQLite database persistence
+      - ./sounds:/app/sounds:ro       # Optional: custom sound clips
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      seq:
+        condition: service_healthy
+        required: false
+
+  # ===========================================================================
+  # PostgreSQL (--profile postgres)
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    profiles: [postgres]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-discordbot}
+      POSTGRES_USER: ${POSTGRES_USER:-discordbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-discordbot} -d ${POSTGRES_DB:-discordbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Seq (--profile seq)
+  # ===========================================================================
+  seq:
+    image: datalust/seq:latest
+    profiles: [seq]
+    environment:
+      ACCEPT_EULA: "Y"
+    volumes:
+      - seq-data:/data
+    ports:
+      - "5341:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:80/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  bot-data:
+  postgres-data:
+  seq-data:
