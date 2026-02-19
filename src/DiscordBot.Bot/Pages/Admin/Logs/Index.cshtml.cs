@@ -210,14 +210,11 @@ public class IndexModel : PageModel
 
     private async Task LoadAuditLogsAsync(CancellationToken cancellationToken)
     {
-        // Set default date range to last 24 hours if no filters specified
-        if (!AuditStartDate.HasValue && !AuditEndDate.HasValue && !Category.HasValue &&
-            !Action.HasValue && string.IsNullOrEmpty(ActorId) &&
-            string.IsNullOrEmpty(TargetType) && !AuditGuildId.HasValue &&
-            string.IsNullOrEmpty(AuditSearchTerm))
+        // Default to last 30 days when no date filters specified
+        if (!AuditStartDate.HasValue && !AuditEndDate.HasValue)
         {
-            AuditStartDate = DateTime.UtcNow.AddDays(-1);
-            AuditEndDate = DateTime.UtcNow;
+            AuditStartDate = DateTime.UtcNow.Date.AddDays(-30);
+            AuditEndDate = DateTime.UtcNow.Date.AddDays(1);
         }
 
         _logger.LogDebug("Loading audit logs with filters: Category={Category}, Action={Action}, ActorId={ActorId}, TargetType={TargetType}, GuildId={GuildId}, StartDate={StartDate}, EndDate={EndDate}, SearchTerm={SearchTerm}, Page={Page}, PageSize={PageSize}",
