@@ -58,7 +58,7 @@ WORKDIR /app
 # Copy published output
 COPY --from=build /app/publish ./
 
-# Create data directory for SQLite volume mount and set ownership
+# Create data directory for SQLite database volume mount (not used when running PostgreSQL)
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
 
 USER appuser
