@@ -480,6 +480,9 @@ public class SettingsService : ISettingsService
         // Handle nullable types
         var underlyingType = Nullable.GetUnderlyingType(targetType) ?? targetType;
 
+        if (string.IsNullOrWhiteSpace(value) && underlyingType != typeof(string))
+            return default;
+
         if (underlyingType == typeof(string))
         {
             return (T)(object)value;
