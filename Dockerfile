@@ -41,8 +41,9 @@ RUN dotnet publish src/DiscordBot.Bot/DiscordBot.Bot.csproj \
 # =============================================================================
 FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
-# Install audio dependencies (FFmpeg, libsodium, Opus)
+# Install runtime dependencies (audio libs + curl for health checks)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        curl \
         ffmpeg \
         libsodium23 \
         libopus0 \
@@ -68,6 +69,6 @@ ENV ASPNETCORE_URLS=http://+:5000
 EXPOSE 5000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD wget --no-verbose --tries=1 -O /dev/null http://localhost:5000/health || exit 1
+    CMD curl -sf http://localhost:5000/health || exit 1
 
 ENTRYPOINT ["dotnet", "DiscordBot.Bot.dll"]
