@@ -101,22 +101,13 @@ public class AnalyticsModel : PageModel
                 return NotFound();
             }
 
-            // Load analytics data and leaderboards in parallel
-            var summaryTask = _ratWatchRepository.GetAnalyticsSummaryAsync(guildId, start, end, cancellationToken);
-            var timeSeriesTask = _ratWatchRepository.GetTimeSeriesAsync(guildId, start, end, cancellationToken);
-            var heatmapTask = _ratWatchRepository.GetActivityHeatmapAsync(guildId, start, end, cancellationToken);
-            var mostWatchedTask = _ratRecordRepository.GetUserMetricsAsync(guildId, "watched", 10, cancellationToken);
-            var biggestRatsTask = _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 10, cancellationToken);
-            var topAccusersTask = GetTopAccusersAsync(guildId, 10, cancellationToken);
-
-            await Task.WhenAll(summaryTask, timeSeriesTask, heatmapTask, mostWatchedTask, biggestRatsTask, topAccusersTask);
-
-            var summary = await summaryTask;
-            var timeSeries = await timeSeriesTask;
-            var heatmap = await heatmapTask;
-            var mostWatched = await mostWatchedTask;
-            var biggestRats = await biggestRatsTask;
-            var topAccusers = await topAccusersTask;
+            // Load analytics data sequentially — DbContext is not thread-safe
+            var summary = await _ratWatchRepository.GetAnalyticsSummaryAsync(guildId, start, end, cancellationToken);
+            var timeSeries = await _ratWatchRepository.GetTimeSeriesAsync(guildId, start, end, cancellationToken);
+            var heatmap = await _ratWatchRepository.GetActivityHeatmapAsync(guildId, start, end, cancellationToken);
+            var mostWatched = await _ratRecordRepository.GetUserMetricsAsync(guildId, "watched", 10, cancellationToken);
+            var biggestRats = await _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 10, cancellationToken);
+            var topAccusers = await GetTopAccusersAsync(guildId, 10, cancellationToken);
 
             // Resolve usernames for all leaderboard entries in parallel
             var mostWatchedNamesTask = ResolveUsernamesAsync(guildId, mostWatched);

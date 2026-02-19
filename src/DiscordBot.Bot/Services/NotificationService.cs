@@ -148,10 +148,11 @@ public class NotificationService : INotificationService
             "Created {Count} notifications for admins: {Title}",
             notifications.Count, title);
 
-        // Broadcast notifications to each admin user via SignalR (in parallel)
-        var broadcastTasks = notifications.Select(n =>
-            BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken));
-        await Task.WhenAll(broadcastTasks);
+        // Broadcast notifications to each admin user via SignalR (sequentially — DbContext is not thread-safe)
+        foreach (var n in notifications)
+        {
+            await BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken);
+        }
 
         return true;
     }
@@ -222,10 +223,11 @@ public class NotificationService : INotificationService
             "Created {Count} notifications for guild {GuildId} admins: {Title}",
             notifications.Count, guildId, title);
 
-        // Broadcast notifications to each guild admin user via SignalR (in parallel)
-        var broadcastTasks = notifications.Select(n =>
-            BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken));
-        await Task.WhenAll(broadcastTasks);
+        // Broadcast notifications to each guild admin user via SignalR (sequentially — DbContext is not thread-safe)
+        foreach (var n in notifications)
+        {
+            await BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken);
+        }
 
         return true;
     }

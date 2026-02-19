@@ -63,32 +63,24 @@ public class AlertsModel : PageModel
     {
         try
         {
-            // Fetch all data in parallel for better performance
-            var activeIncidentsTask = _alertService.GetActiveIncidentsAsync(cancellationToken);
-            var alertConfigsTask = _alertService.GetAllConfigsAsync(cancellationToken);
-            var recentIncidentsTask = _alertService.GetIncidentHistoryAsync(
+            // Execute sequentially — DbContext is not thread-safe
+            var activeIncidents = await _alertService.GetActiveIncidentsAsync(cancellationToken);
+            var alertConfigs = await _alertService.GetAllConfigsAsync(cancellationToken);
+            var recentIncidents = await _alertService.GetIncidentHistoryAsync(
                 new IncidentQueryDto { PageNumber = 1, PageSize = 10 },
                 cancellationToken);
-            var autoRecoveryEventsTask = _alertService.GetAutoRecoveryEventsAsync(10, cancellationToken);
-            var alertFrequencyTask = _alertService.GetAlertFrequencyDataAsync(30, cancellationToken);
-            var summaryTask = _alertService.GetActiveAlertSummaryAsync(cancellationToken);
-
-            await Task.WhenAll(
-                activeIncidentsTask,
-                alertConfigsTask,
-                recentIncidentsTask,
-                autoRecoveryEventsTask,
-                alertFrequencyTask,
-                summaryTask);
+            var autoRecoveryEvents = await _alertService.GetAutoRecoveryEventsAsync(10, cancellationToken);
+            var alertFrequency = await _alertService.GetAlertFrequencyDataAsync(30, cancellationToken);
+            var alertSummary = await _alertService.GetActiveAlertSummaryAsync(cancellationToken);
 
             ViewModel = new AlertsPageViewModel
             {
-                ActiveIncidents = activeIncidentsTask.Result,
-                AlertConfigs = alertConfigsTask.Result,
-                RecentIncidents = recentIncidentsTask.Result.Items,
-                AutoRecoveryEvents = autoRecoveryEventsTask.Result,
-                AlertFrequencyData = alertFrequencyTask.Result,
-                AlertSummary = summaryTask.Result,
+                ActiveIncidents = activeIncidents,
+                AlertConfigs = alertConfigs,
+                RecentIncidents = recentIncidents.Items,
+                AutoRecoveryEvents = autoRecoveryEvents,
+                AlertFrequencyData = alertFrequency,
+                AlertSummary = alertSummary,
                 CanEdit = CanEdit
             };
 

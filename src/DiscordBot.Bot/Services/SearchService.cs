@@ -95,12 +95,12 @@ public class SearchService : ISearchService
         // Determine which categories to search
         var categoriesToSearch = DetermineCategoriesToSearch(query.CategoryFilter, canViewAdminCategories);
 
-        // Execute searches in parallel
-        var searchTasks = categoriesToSearch.Select(category =>
-            SearchCategoryInternalAsync(category, searchTerm, query.MaxResultsPerCategory, user, canViewAdminCategories, cancellationToken)
-        ).ToList();
-
-        var categoryResults = await Task.WhenAll(searchTasks);
+        // Execute searches sequentially — DbContext is not thread-safe
+        var categoryResults = new List<SearchCategoryResult>();
+        foreach (var category in categoriesToSearch)
+        {
+            categoryResults.Add(await SearchCategoryInternalAsync(category, searchTerm, query.MaxResultsPerCategory, user, canViewAdminCategories, cancellationToken));
+        }
 
         // Build unified result
         var result = new UnifiedSearchResultDto

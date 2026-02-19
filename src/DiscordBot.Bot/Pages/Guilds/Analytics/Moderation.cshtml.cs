@@ -98,20 +98,12 @@ public class ModerationModel : PageModel
                 return NotFound();
             }
 
-            // Load analytics data from service in parallel
-            var summaryTask = _analyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
-            var trendsTask = _analyticsService.GetTrendsAsync(guildId, start, end, cancellationToken);
-            var distributionTask = _analyticsService.GetCaseDistributionAsync(guildId, start, end, cancellationToken);
-            var repeatOffendersTask = _analyticsService.GetRepeatOffendersAsync(guildId, start, end, 10, cancellationToken);
-            var moderatorWorkloadTask = _analyticsService.GetModeratorWorkloadAsync(guildId, start, end, 5, cancellationToken);
-
-            await Task.WhenAll(summaryTask, trendsTask, distributionTask, repeatOffendersTask, moderatorWorkloadTask);
-
-            var summary = await summaryTask;
-            var trends = await trendsTask;
-            var distribution = await distributionTask;
-            var repeatOffenders = await repeatOffendersTask;
-            var moderatorWorkload = await moderatorWorkloadTask;
+            // Execute sequentially — DbContext is not thread-safe
+            var summary = await _analyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
+            var trends = await _analyticsService.GetTrendsAsync(guildId, start, end, cancellationToken);
+            var distribution = await _analyticsService.GetCaseDistributionAsync(guildId, start, end, cancellationToken);
+            var repeatOffenders = await _analyticsService.GetRepeatOffendersAsync(guildId, start, end, 10, cancellationToken);
+            var moderatorWorkload = await _analyticsService.GetModeratorWorkloadAsync(guildId, start, end, 5, cancellationToken);
 
             // Resolve usernames in parallel
             var repeatOffendersWithNamesTask = ResolveRepeatOffenderUsernamesAsync(guildId, repeatOffenders);
