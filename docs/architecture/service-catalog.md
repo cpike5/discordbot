@@ -3,7 +3,7 @@
 Quick reference catalog of all services in the Discord bot system. Organized by domain area for easy discovery and understanding of service relationships.
 
 **Last Updated**: February 2026
-**Codebase Version**: v1.0.0
+**Codebase Version**: v1.0.1-dev
 
 ---
 
@@ -84,8 +84,11 @@ Services for Azure Cognitive Services TTS and SSML generation.
 |---------|----------|---------|
 | `ITtsService` | Core Interfaces | Text-to-speech conversion using Azure Cognitive Services |
 | `AzureTtsService` | Bot/Services | Azure TTS implementation with caching and error handling |
+| `ITtsPlaybackService` | Bot Interfaces | TTS playback orchestration: PCM streaming, duration calculation, history logging, and observability |
 | `ITtsSettingsService` | Core Interfaces | Guild-level TTS configuration (voices, styles, rates) |
 | `ITtsHistoryService` | Core Interfaces | Tracks TTS message playback history |
+| `IStylePresetProvider` | Core Interfaces | Provides predefined TTS voice style presets (Emotional, Professional, Character, Assistant categories) |
+| `StylePresetProvider` | Bot/Services | Singleton implementation with 12 built-in presets across 4 categories; supports lookup by ID or category |
 | `ISsmlBuilder` | Core Interfaces | SSML markup generation for advanced TTS features |
 | `ISsmlValidator` | Core Interfaces | SSML markup validation |
 
@@ -150,7 +153,7 @@ Services for moderation cases, notes, tags, and enforcement actions.
 | `IContentFilterService` | Core Interfaces | Message content scanning and policy enforcement |
 | `ContentFilterService` | Bot/Services | Validates messages against content policies |
 | `ISpamDetectionService` | Core Interfaces | Detects spam patterns |
-| `SpamDetectionService` | Bot/Services | Message frequency/pattern spam analysis (918 lines) |
+| `SpamDetectionService` | Bot/Services | Message frequency/pattern spam analysis |
 | `IRaidDetectionService` | Core Interfaces | Detects coordinated member join raids |
 | `RaidDetectionService` | Bot/Services | Monitors for bot raids and coordinated attacks |
 | `IFlaggedEventService` | Core Interfaces | Tracks moderation-relevant events |
@@ -234,6 +237,10 @@ Long-running services that execute periodic or event-driven tasks.
 |---------|----------|---------|
 | `BotHostedService` | Bot/Services | Main bot lifecycle (startup, login, handlers) (739 lines) |
 | `MonitoredBackgroundService` | Bot/Services | Base class for background services with health tracking |
+| `AuditLogQueueProcessor` | Bot/Services | Processes audit log entries from IAuditLogQueue in batches for efficient bulk insertion |
+| `AuditLogRetentionService` | Bot/Services | Periodically purges old audit log records per configured retention policy |
+| `GuildMetricsAggregationService` | Bot/Services | Aggregates daily guild-level metrics into GuildMetricsSnapshot records |
+| `CommandPerformanceAggregator` | Bot/Services | Aggregates command performance metrics from command logs; implements ICommandPerformanceAggregator |
 | `InteractionStateCleanupService` | Bot/Services | Cleanup expired interaction state objects |
 | `VerificationCleanupService` | Bot/Services | Cleanup expired verification tokens |
 | `MessageLogCleanupService` | Bot/Services | Purge old message logs |
@@ -305,6 +312,7 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `IDocumentationToolService` | Core Interfaces | Documentation lookup tool for assistant |
 | `RatWatchToolProvider` | Bot/Services/LLM | RatWatch-specific tool provider for assistant |
 | `RatWatchTools` | Infrastructure/Services/LLM | Tool implementations for RatWatch queries |
+| `UserGuildInfoToolProvider` | Bot/Services/LLM | Tool provider exposing get_user_profile, get_guild_info, and get_user_roles tools; resolves data from Discord client and database |
 
 ---
 

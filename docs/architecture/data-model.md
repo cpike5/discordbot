@@ -23,10 +23,16 @@ erDiagram
     GUILD ||--o{ GUILD_MODERATION_CONFIG : has
     GUILD ||--o{ GUILD_AUDIO_SETTINGS : has
     GUILD ||--o{ FLAGGED_EVENT : flagged_in
+    GUILD ||--o| WELCOME_CONFIGURATION : configures
+    GUILD ||--o| GUILD_RAT_WATCH_SETTINGS : configures
+    GUILD ||--o{ ASSISTANT_USAGE_METRICS : tracks
+    GUILD ||--o{ ASSISTANT_INTERACTION_LOG : logs
 
     USER ||--o{ GUILD_MEMBER : member_of
     USER ||--o{ COMMAND_LOG : executes
     USER ||--o{ MESSAGE_LOG : authors
+    USER ||--o{ USER_CONSENT : grants
+    USER ||--o{ USER_ACTIVITY_EVENT : generates
 
     GUILD_MEMBER ||--|| GUILD : references
     GUILD_MEMBER ||--|| USER : references
@@ -36,10 +42,13 @@ erDiagram
     RAT_WATCH ||--o{ RAT_VOTE : has
     RAT_WATCH ||--o| RAT_RECORD : creates
 
+    GUILD_AUDIO_SETTINGS ||--o{ COMMAND_ROLE_RESTRICTION : restricts
+
     APPLICATION_USER ||--o| DISCORD_OAUTH_TOKEN : has
     APPLICATION_USER ||--o| THEME : prefers
     APPLICATION_USER ||--o{ USER_GUILD_ACCESS : grants
     APPLICATION_USER ||--o{ USER_ACTIVITY_LOG : performs
+    APPLICATION_USER ||--o{ VERIFICATION_CODE : initiates
 
     USER_GUILD_ACCESS ||--|| GUILD : references
 ```
@@ -97,7 +106,20 @@ erDiagram
 - JSON fields hold nested configuration objects; parsed into domain models when loaded.
 - `GuildAudioSettings.CommandRoleRestrictions` is a collection (1:many relationship).
 
-### 5. Moderation (ModerationCase, ModNote, FlaggedEvent)
+### 5. Verification & Welcome (VerificationCode, WelcomeConfiguration)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **VerificationCode** | Short-lived code used to link a Discord account to a web portal account | `Id` (Guid, PK), `ApplicationUserId` (FK), `Code` (6-char), `DiscordUserId` (ulong?, set on command use), `Status` (enum: Pending/Completed/Expired/Cancelled), `CreatedAt`, `ExpiresAt`, `CompletedAt`, `IpAddress` | Belongs to ApplicationUser |
+| **WelcomeConfiguration** | Per-guild welcome message settings | `GuildId` (ulong, PK), `IsEnabled`, `WelcomeChannelId` (ulong?), `WelcomeMessage` (template), `IncludeAvatar`, `UseEmbed`, `EmbedColor` (nullable hex), `CreatedAt`, `UpdatedAt` | Belongs to Guild |
+
+**Notes:**
+- `VerificationCode` has a 15-minute TTL enforced by `ExpiresAt`; `VerificationCleanupService` purges expired records.
+- `VerificationCode.DiscordUserId` is null until the user runs `/verify-account` in Discord.
+- `VerificationCode.Status` transitions: Pending → Completed (linked), Expired (TTL exceeded), or Cancelled (user action).
+- `WelcomeConfiguration.WelcomeMessage` supports placeholders: `{user}`, `{guild}`, `{memberCount}`.
+
+### 6. Moderation (ModerationCase, ModNote, FlaggedEvent)
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
@@ -111,20 +133,22 @@ erDiagram
 - `FlaggedEvent.Evidence` is JSON array of message IDs, content snippets, timestamps.
 - `FlaggedEvent → ModerationCase` link is optional; mod can create case independently.
 
-### 6. Community Features (RatWatch, RatVote, RatRecord)
+### 7. Community Features (RatWatch, RatVote, RatRecord, GuildRatWatchSettings)
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
 | **RatWatch** | Accountability tracker for user commitments ("rat check") | `Id` (Guid, PK), `GuildId`, `ChannelId`, `AccusedUserId`, `InitiatorUserId`, `OriginalMessageId`, `CustomMessage`, `ScheduledAt`, `CreatedAt`, `Status` (enum), `NotificationMessageId`, `VotingMessageId`, `ClearedAt`, `VotingStartedAt`, `VotingEndedAt` | Owns RatVote collection, owns RatRecord |
 | **RatVote** | User vote in a rat watch (guilty/innocent) | `Id` (Guid, PK), `RatWatchId`, `VoterUserId`, `Vote` (enum), `CastAt` | Belongs to RatWatch |
 | **RatRecord** | Guilty verdict record created after failed rat check | `Id` (Guid, PK), `RatWatchId`, `AccusedUserId`, `GuildId`, `GuiltCount`, `CreatedAt` | Belongs to RatWatch |
+| **GuildRatWatchSettings** | Per-guild configuration for the Rat Watch feature | `GuildId` (ulong, PK), `IsEnabled`, `Timezone` (IANA string), `MaxAdvanceHours`, `VotingDurationMinutes`, `PublicLeaderboardEnabled`, `CreatedAt`, `UpdatedAt` | Belongs to Guild |
 
 **Notes:**
 - `RatWatch.Status` tracks lifecycle: Pending → Notified → Voting → Cleared/Guilty
 - `RatWatch.ClearedAt` = accused proved they were online in time.
 - `RatRecord` only created if voting ends with "guilty" verdict.
+- `GuildRatWatchSettings.Timezone` defaults to `"Eastern Standard Time"`; used for parsing user-supplied times like "10pm".
 
-### 7. Messaging & Scheduling (ScheduledMessage, Reminder, TtsMessage)
+### 8. Messaging & Scheduling (ScheduledMessage, Reminder, TtsMessage)
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
@@ -137,20 +161,34 @@ erDiagram
 - `Reminder.Status` tracks: Pending → Delivered / Failed
 - `Reminder.DeliveryAttempts` incremented on each retry; `LastError` stores failure reason.
 
-### 8. Audio Features (Sound, SoundPlayLog, GuildTtsSettings)
+### 9. Audio Features (Sound, SoundPlayLog, GuildTtsSettings, CommandRoleRestriction)
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
 | **Sound** | Audio file in soundboard | `Id` (Guid, PK), `GuildId`, `Name`, `FileName`, `FileSizeBytes`, `DurationSeconds`, `UploadedById` (nullable), `UploadedAt`, `PlayCount` | References Guild |
 | **SoundPlayLog** | Audit trail for sound playback | `Id` (Guid, PK), `GuildId`, `UserId`, `SoundName`, `DurationSeconds`, `PlayedAt` | References Guild |
 | **GuildTtsSettings** | Text-to-Speech feature configuration | `GuildId` (ulong, PK), `TtsEnabled`, `AllowedChannelIds` (JSON), `MaxMessageLength`, `MaxMessageWordsPerMinute`, `CreatedAt`, `UpdatedAt` | References Guild |
+| **CommandRoleRestriction** | Role-based access restriction for a specific soundboard command | `Id` (int, PK), `GuildId`, `CommandName`, `AllowedRoleIds` (List&lt;ulong&gt;, JSON) | Belongs to GuildAudioSettings |
 
 **Notes:**
 - `Sound.UploadedById` is nullable; sounds discovered from filesystem have no uploader.
 - `Sound.PlayCount` is incremented each time the sound is played (performance counter).
 - File storage is filesystem-based; database stores metadata only.
+- `CommandRoleRestriction.AllowedRoleIds` is empty when the command is available to everyone; populated to restrict to specific Discord roles.
 
-### 9. Analytics & Metrics (Snapshots, PerformanceIncident)
+### 10. Command Configuration (CommandModuleConfiguration)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **CommandModuleConfiguration** | Enable/disable state and metadata for each Discord command module | `ModuleName` (string, PK), `IsEnabled`, `DisplayName`, `Description`, `Category`, `RequiresRestart`, `LastModifiedAt`, `LastModifiedBy` (nullable) | Standalone (global, not per-guild) |
+
+**Notes:**
+- `ModuleName` is the primary key and must match the class name of the command module (e.g., `"AdminModule"`, `"RatWatchModule"`).
+- `Category` groups modules in the admin UI; valid values: Admin, Moderation, Features, Audio, Utility, Core.
+- `RequiresRestart = true` means toggling the module requires a bot process restart to take effect.
+- This entity is global, not scoped to a specific guild.
+
+### 11. Analytics & Metrics (Snapshots, PerformanceIncident, PerformanceAlertConfig)
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
@@ -159,12 +197,15 @@ erDiagram
 | **ChannelActivitySnapshot** | Point-in-time channel activity | `Id` (Guid, PK), `GuildId`, `ChannelId`, `Timestamp`, `MessageCount` | References Guild |
 | **MetricSnapshot** | System-wide metrics | `Id` (Guid, PK), `Timestamp`, `OnlineGuildCount`, `TotalUserCount` | Standalone |
 | **PerformanceIncident** | Performance/health issue alert | `Id` (Guid, PK), `IncidentType` (enum), `Severity` (enum), `Description`, `AffectedResource`, `StartTime`, `EndTime`, `Status` (enum) | Standalone |
+| **PerformanceAlertConfig** | Threshold configuration for a named performance metric | `Id` (int, PK), `MetricName` (unique), `DisplayName`, `Description`, `WarningThreshold` (double?), `CriticalThreshold` (double?), `ThresholdUnit`, `IsEnabled`, `CreatedAt`, `UpdatedAt` (nullable), `UpdatedBy` (nullable) | Standalone |
 
 **Notes:**
 - Snapshots are immutable records created periodically (hourly/daily) for analytics.
-- `PerformanceIncident` used for alerting on degraded performance; linked to PerformanceAlertConfig.
+- `PerformanceIncident` is raised at runtime when a metric breaches a `PerformanceAlertConfig` threshold.
+- `PerformanceAlertConfig.MetricName` must be unique; examples: `"CommandResponseTime"`, `"DatabaseQueryTime"`, `"CacheHitRate"`.
+- `ThresholdUnit` describes the measurement unit, e.g., `"ms"`, `"%"`, `"MB"`.
 
-### 10. Web Admin (ApplicationUser Access Control)
+### 12. Web Admin (ApplicationUser Access Control)
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
@@ -176,7 +217,46 @@ erDiagram
 - `UserActivityLog.TargetUserId` nullable for actions not scoped to a user (e.g., system actions).
 - `IpAddress` captured from HTTP request for audit trail.
 
-### 11. UI Themes & Tags
+### 13. Consent & Privacy (UserConsent)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **UserConsent** | User opt-in/opt-out record for a specific data processing activity | `Id` (int, PK), `DiscordUserId` (ulong), `ConsentType` (enum), `GrantedAt`, `RevokedAt` (nullable), `GrantedVia` (nullable), `RevokedVia` (nullable) | References User (via DiscordUserId) |
+
+**Notes:**
+- `UserConsent.IsActive` is a computed property (`RevokedAt == null`); not a stored column.
+- `ConsentType` enum values include: MessageLogging, Analytics (see `DiscordBot.Core.Enums.ConsentType`).
+- `GrantedVia` / `RevokedVia` record the surface that triggered the consent change, e.g., `"SlashCommand"`, `"WebUI"`.
+- Multiple consent records per user are possible (one per `ConsentType`).
+
+### 14. AI Assistant Metrics (AssistantUsageMetrics, AssistantInteractionLog)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **AssistantUsageMetrics** | Aggregated daily AI usage per guild | `Id` (long, PK), `GuildId`, `Date` (UTC date), `TotalQuestions`, `TotalInputTokens`, `TotalOutputTokens`, `TotalCachedTokens`, `TotalCacheWriteTokens`, `TotalCacheHits`, `TotalCacheMisses`, `TotalToolCalls`, `EstimatedCostUsd`, `FailedRequests`, `AverageLatencyMs`, `UpdatedAt` | Belongs to Guild |
+| **AssistantInteractionLog** | Per-interaction detail log for debugging and audit | `Id` (long, PK), `Timestamp`, `UserId`, `GuildId`, `ChannelId`, `MessageId`, `Question`, `Response` (nullable), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheCreationTokens`, `CacheHit`, `ToolCalls`, `LatencyMs`, `Success`, `ErrorMessage` (nullable), `EstimatedCostUsd` | References User, Guild |
+
+**Notes:**
+- `AssistantUsageMetrics` is aggregated per guild per calendar day; updated by the AI assistant service on each interaction.
+- `AssistantInteractionLog` stores individual question/response pairs with full token accounting.
+- Both tables use `long` primary keys to support high-volume logging at scale.
+- Subject to the retention policy configured in `AssistantOptions`.
+
+### 15. Activity & Connection Tracking (UserActivityEvent, ConnectionEvent)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **UserActivityEvent** | Lightweight, content-free event record for aggregate analytics | `Id` (long, PK), `UserId`, `GuildId`, `ChannelId`, `Timestamp`, `LoggedAt`, `EventType` (enum) | References User (via UserId), Guild (via GuildId) |
+| **ConnectionEvent** | Discord gateway connection state change record for uptime tracking | `Id` (long, PK), `EventType` (string: "Connected"/"Disconnected"), `Timestamp`, `Reason` (nullable), `Details` (nullable) | Standalone |
+
+**Notes:**
+- `UserActivityEvent` stores no message content; designed for consent-free analytics and engagement metrics.
+- `ActivityEventType` enum values: Message, Reaction, VoiceJoin, VoiceLeave, GuildJoin, GuildLeave.
+- `UserActivityEvent` uses `long` PK for high-volume scenarios; indexed on `GuildId`, `UserId`, and `Timestamp`.
+- `ConnectionEvent` is standalone (no FK to Guild); persisted across restarts to compute cumulative uptime.
+- `ConnectionEvent.Reason` / `Details` capture exception messages and types on disconnect.
+
+### 16. UI Themes & Tags
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
@@ -202,9 +282,12 @@ When a Guild is deleted, the following cascade:
 - Reminders (by GuildId)
 - TtsMessages (by GuildId)
 - AuditLogs (by GuildId) - soft reference via IpAddress/Details
-- All configuration tables (GuildModerationConfig, GuildAudioSettings, AssistantGuildSettings, GuildTtsSettings)
+- All configuration tables (GuildModerationConfig, GuildAudioSettings, AssistantGuildSettings, GuildTtsSettings, WelcomeConfiguration, GuildRatWatchSettings)
 - FlaggedEvents (by GuildId)
 - GuildMembers (by GuildId)
+- UserActivityEvents (by GuildId)
+- AssistantUsageMetrics (by GuildId)
+- AssistantInteractionLog (by GuildId)
 
 **Note:** UserGuildAccess cascades are RESTRICT, so guild cannot be deleted if admin access is still granted. Manual cleanup required.
 
@@ -213,6 +296,8 @@ When a User is deleted:
 - CommandLogs (by UserId) - hard delete or soft via user ID nullification
 - MessageLogs (by AuthorId) - hard delete or soft via author ID nullification
 - GuildMembers (by UserId) - hard delete (member leaves)
+- UserConsent (by DiscordUserId) - hard delete
+- UserActivityEvents (by UserId) - hard delete
 
 **Note:** Discord users are rarely deleted; typically marked inactive instead.
 
@@ -221,6 +306,7 @@ When an ApplicationUser is deleted:
 - DiscordOAuthToken cascades (delete)
 - UserGuildAccess cascades (delete)
 - UserActivityLog (TargetUserId set to NULL, ActorUserId RESTRICT)
+- VerificationCode cascades (delete)
 
 ## Key Design Patterns
 

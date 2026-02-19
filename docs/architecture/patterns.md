@@ -12,6 +12,9 @@ Quick reference guide for common patterns and conventions used throughout the Di
 6. [Authorization](#authorization)
 7. [Audit Logging](#audit-logging)
 8. [Error Handling](#error-handling)
+9. [MonitoredBackgroundService](#monitoredbackgroundservice)
+10. [IMemoryReportable](#imemoryreportable)
+11. [Per-Guild Locking](#per-guild-locking)
 
 ---
 
@@ -812,101 +815,113 @@ public class ModerationModule : InteractionModuleBase<SocketInteractionContext>
 
 ## Audit Logging
 
-Use the fluent builder API for audit log creation.
-
-### Audit Logging Pattern
-
-```csharp
-namespace DiscordBot.Bot.Services;
-
-/// <summary>
-/// Fluent builder implementation for constructing audit log entries.
-/// </summary>
-public class AuditLogBuilder : IAuditLogBuilder
-{
-    public IAuditLogBuilder ForCategory(AuditLogCategory category)
-    {
-        _category = category;
-        return this;
-    }
-
-    public IAuditLogBuilder WithAction(AuditLogAction action)
-    {
-        _action = action;
-        return this;
-    }
-
-    public IAuditLogBuilder ByUser(string userId)
-    {
-        _actorId = userId;
-        _actorType = AuditLogActorType.User;
-        return this;
-    }
-
-    public IAuditLogBuilder OnTarget(string targetType, string targetId)
-    {
-        _targetType = targetType;
-        _targetId = targetId;
-        return this;
-    }
-
-    public IAuditLogBuilder InGuild(ulong guildId)
-    {
-        _guildId = guildId;
-        return this;
-    }
-
-    public IAuditLogBuilder WithDetails(string details)
-    {
-        _details = details;
-        return this;
-    }
-
-    public async Task EnqueueAsync()
-    {
-        // Enqueue for processing
-    }
-}
-```
+Use the fluent builder API via `IAuditLogService.CreateBuilder()` for audit log creation. Inject `IAuditLogService` into any service or page model that needs to record an audit entry.
 
 ### Using Audit Logs in Code
 
+Obtain a builder from the service, chain the desired configuration, then terminate with `LogAsync()` (awaits confirmation) or `Enqueue()` (fire-and-forget via background queue).
+
 ```csharp
-// Create and queue an audit log entry
-await auditLogService
-    .Create()
-    .ForCategory(AuditLogCategory.UserManagement)
+// Await confirmation that the entry was written
+await _auditLogService.CreateBuilder()
+    .ForCategory(AuditLogCategory.User)
     .WithAction(AuditLogAction.UserBanned)
     .ByUser(banningUserId)
     .OnTarget("User", bannedUserId)
     .InGuild(guildId)
-    .WithDetails($"Banned user {username} for: {reason}")
-    .EnqueueAsync();
+    .WithDetails(new { reason = reason, username = username })
+    .LogAsync();
+
+// Fire-and-forget via background queue (high-performance path)
+_auditLogService.CreateBuilder()
+    .ForCategory(AuditLogCategory.Command)
+    .WithAction(AuditLogAction.CommandExecuted)
+    .ByUser(userId)
+    .InGuild(guildId)
+    .WithDetails(new { commandName = "vox", input = message })
+    .Enqueue();
+
+// System-initiated action (no human actor)
+await _auditLogService.CreateBuilder()
+    .ForCategory(AuditLogCategory.System)
+    .WithAction(AuditLogAction.BotStarted)
+    .BySystem()
+    .LogAsync();
+
+// Include IP address for web-originated actions
+await _auditLogService.CreateBuilder()
+    .ForCategory(AuditLogCategory.Security)
+    .WithAction(AuditLogAction.Login)
+    .ByUser(userId)
+    .FromIpAddress(HttpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown")
+    .LogAsync();
+
+// Group related entries with a correlation ID
+var correlationId = Guid.NewGuid().ToString();
+await _auditLogService.CreateBuilder()
+    .ForCategory(AuditLogCategory.Configuration)
+    .WithAction(AuditLogAction.SettingChanged)
+    .ByUser(userId)
+    .InGuild(guildId)
+    .WithCorrelationId(correlationId)
+    .LogAsync();
 ```
+
+### Fluent Builder API Reference
+
+| Method | Signature | Description |
+|--------|-----------|-------------|
+| `ForCategory` | `ForCategory(AuditLogCategory)` | Sets the log category (required) |
+| `WithAction` | `WithAction(AuditLogAction)` | Sets the specific action performed (required) |
+| `ByUser` | `ByUser(string userId)` | Actor is a human user; sets `ActorType = User` |
+| `BySystem` | `BySystem()` | Actor is an automated process; sets `ActorType = System` |
+| `ByBot` | `ByBot()` | Actor is the Discord bot; sets `ActorType = Bot` |
+| `OnTarget` | `OnTarget(string targetType, string targetId)` | Entity that was affected |
+| `InGuild` | `InGuild(ulong guildId)` | Guild context for the action |
+| `WithDetails` | `WithDetails(object)` or `WithDetails(Dictionary<string, object?>)` | Arbitrary JSON-serialized metadata |
+| `FromIpAddress` | `FromIpAddress(string)` | Originating IP (web interface actions) |
+| `WithCorrelationId` | `WithCorrelationId(string)` | Groups related log entries for tracing |
+| `LogAsync` | `Task LogAsync(CancellationToken)` | Writes the entry and waits for confirmation |
+| `Enqueue` | `void Enqueue()` | Pushes to background queue; does not await |
 
 ### Audit Log Categories and Actions
 
 ```csharp
 public enum AuditLogCategory
 {
-    UserManagement,      // User creation, deletion, role changes
-    Moderation,          // Bans, kicks, warnings
-    CommandExecution,    // Slash command and message command usage
-    GuildConfiguration,  // Guild settings changes
-    RatWatch,            // RatWatch incidents and reports
-    SystemOperation      // Bot internal operations
+    User = 1,           // User-related actions (login, profile updates, ban, kick)
+    Guild = 2,          // Guild-related actions (settings, channel management)
+    Configuration = 3,  // Bot settings and feature toggles
+    Security = 4,       // Permission changes, role modifications
+    Command = 5,        // Slash command execution
+    Message = 6,        // Message deletion and editing
+    System = 7          // Bot startup, shutdown, internal errors
 }
 
 public enum AuditLogAction
 {
-    Created,
-    Updated,
-    Deleted,
-    UserBanned,
-    UserKicked,
-    UserWarned,
-    CommandExecuted,
-    SettingChanged
+    Created = 1,            // A new entity was created
+    Updated = 2,            // An existing entity was updated
+    Deleted = 3,            // An entity was deleted
+    Login = 4,              // A user logged in
+    Logout = 5,             // A user logged out
+    PermissionChanged = 6,  // Permissions changed for a user or role
+    SettingChanged = 7,     // A configuration setting was changed
+    CommandExecuted = 8,    // A command was executed
+    MessageDeleted = 9,     // A message was deleted
+    MessageEdited = 10,     // A message was edited
+    UserBanned = 11,        // A user was banned from a guild
+    UserUnbanned = 12,      // A user was unbanned from a guild
+    UserKicked = 13,        // A user was kicked from a guild
+    RoleAssigned = 14,      // A role was assigned to a user
+    RoleRemoved = 15,       // A role was removed from a user
+    BotStarted = 16,        // The Discord bot started
+    BotStopped = 17,        // The Discord bot stopped
+    BotConnected = 18,      // The bot connected to the Discord gateway
+    BotDisconnected = 19,   // The bot disconnected from the Discord gateway
+    UserDataPurged = 20,    // User data purged (GDPR right to be forgotten)
+    BulkDataPurged = 21,    // Bulk data purge executed
+    UserDataExported = 22   // User data exported (GDPR right of access)
 }
 
 public enum AuditLogActorType
@@ -1128,6 +1143,238 @@ var items = await DbSet
     .Where(/* filter */)
     .ToListAsync();
 ```
+
+---
+
+## MonitoredBackgroundService
+
+All periodic and event-driven background services extend `MonitoredBackgroundService` instead of `BackgroundService` directly. The base class handles health registry integration, heartbeat tracking, status management, and structured error recording automatically.
+
+### Class Hierarchy
+
+```
+IHostedService
+  └── BackgroundService (Microsoft.Extensions.Hosting)
+        └── MonitoredBackgroundService (Bot/Services)
+              └── YourService
+```
+
+### What the Base Class Provides
+
+| Member | Description |
+|--------|-------------|
+| `ServiceName` (abstract) | Display name used in health registry and logs |
+| `ExecuteMonitoredAsync` (abstract) | Override this instead of `ExecuteAsync`; your service loop goes here |
+| `UpdateHeartbeat()` | Call periodically in your loop to record the last-alive timestamp |
+| `RecordError(Exception)` | Records error message and sets Status to "Error"; service keeps running |
+| `RecordError(string)` | Records a string error message; service keeps running |
+| `ClearError()` | Clears error state and returns Status to "Running" |
+| `SetStatus(string)` | Sets a custom status string (e.g., "Syncing", "Processing") |
+| `Status` | Current status string: "Initializing" → "Running" / "Error" → "Stopped" |
+| `LastHeartbeat` | DateTime? of the last `UpdateHeartbeat()` call |
+| `LastError` | Most recent error message, or null if no error |
+
+### Lifecycle
+
+`ExecuteAsync` is sealed. The base class:
+
+1. Yields immediately on startup to avoid blocking `IHostedService.StartAsync`.
+2. Lazily resolves `IBackgroundServiceHealthRegistry` and calls `Register(ServiceName, this)`.
+3. Sets Status to `"Running"` and calls `ExecuteMonitoredAsync(stoppingToken)`.
+4. On `OperationCanceledException`: logs graceful stop (normal shutdown path).
+5. On any other exception: records the error, sets Status to `"Error"`, re-throws.
+6. In `finally`: sets Status to `"Stopped"`, calls `Unregister(ServiceName)`.
+
+### Implementation Pattern
+
+```csharp
+public class MyAggregationService : MonitoredBackgroundService
+{
+    private readonly IServiceScopeFactory _scopeFactory;
+
+    public override string ServiceName => "My Aggregation Service";
+
+    public MyAggregationService(
+        IServiceProvider serviceProvider,
+        IServiceScopeFactory scopeFactory,
+        ILogger<MyAggregationService> logger)
+        : base(serviceProvider, logger)
+    {
+        _scopeFactory = scopeFactory;
+    }
+
+    protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                SetStatus("Processing");
+
+                await using var scope = _scopeFactory.CreateAsyncScope();
+                var repo = scope.ServiceProvider.GetRequiredService<IMyRepository>();
+                await repo.AggregateAsync(stoppingToken);
+
+                UpdateHeartbeat();
+                ClearError();
+                SetStatus("Running");
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Aggregation failed");
+                RecordError(ex);
+            }
+
+            await Task.Delay(TimeSpan.FromHours(1), stoppingToken);
+        }
+    }
+}
+```
+
+### Registration
+
+Register as a hosted service in an `IServiceCollection` extension method:
+
+```csharp
+services.AddHostedService<MyAggregationService>();
+```
+
+The service self-registers with `IBackgroundServiceHealthRegistry` at startup. Dashboard components read health status from the registry.
+
+### Known Implementors
+
+All services listed in the [Background Services section of the Service Catalog](service-catalog.md#background-services) (except `BotHostedService`, which manages bot lifecycle directly) extend `MonitoredBackgroundService`.
+
+---
+
+## IMemoryReportable
+
+Services that hold significant in-memory state implement `IMemoryReportable` to expose their approximate memory footprint to the diagnostics subsystem. `MemoryDiagnosticsService` collects reports from all registered implementors and aggregates them for the admin dashboard.
+
+### Interface Contract
+
+```csharp
+// src/DiscordBot.Core/Interfaces/IMemoryReportable.cs
+public interface IMemoryReportable
+{
+    /// <summary>Gets the display name for this service in memory reports.</summary>
+    string ServiceName { get; }
+
+    /// <summary>Gets the estimated memory usage of this service.</summary>
+    ServiceMemoryReportDto GetMemoryReport();
+}
+```
+
+`ServiceMemoryReportDto` carries the service name, estimated bytes used, entry counts, and any additional metadata the service wants to surface.
+
+### Implementation Pattern
+
+```csharp
+public class MyHistoryService : IMyHistoryService, IMemoryReportable
+{
+    private readonly ConcurrentQueue<MyEntry> _history = new();
+
+    public string ServiceName => "My History Service";
+
+    public ServiceMemoryReportDto GetMemoryReport()
+    {
+        var entries = _history.Count;
+        // Estimate: fixed overhead per entry
+        var estimatedBytes = entries * 128L;
+
+        return new ServiceMemoryReportDto
+        {
+            ServiceName = ServiceName,
+            EstimatedBytes = estimatedBytes,
+            EntryCount = entries
+        };
+    }
+}
+```
+
+### Registration
+
+Register the service for both its own interface and `IMemoryReportable`:
+
+```csharp
+services.AddSingleton<MyHistoryService>();
+services.AddSingleton<IMyHistoryService>(sp => sp.GetRequiredService<MyHistoryService>());
+services.AddSingleton<IMemoryReportable>(sp => sp.GetRequiredService<MyHistoryService>());
+```
+
+`MemoryDiagnosticsService` resolves `IEnumerable<IMemoryReportable>` and calls `GetMemoryReport()` on each.
+
+### Known Implementors
+
+| Service | What it tracks |
+|---------|---------------|
+| `CpuHistoryService` | CPU sample ring buffer |
+| `LatencyHistoryService` | Latency measurement history |
+| `InteractionStateService` | Active multi-step interaction state per user |
+| `RaidDetectionService` | Per-guild join event windows for raid detection |
+| `SpamDetectionService` | Per-guild message frequency tracking windows |
+| `DiscordClientMemoryReporter` | Discord.Net socket client cache footprint |
+
+---
+
+## Per-Guild Locking
+
+Services that manage guild-specific mutable state use a `ConcurrentDictionary<ulong, SemaphoreSlim>` to provide per-guild exclusive access without blocking unrelated guilds. This avoids a single global lock becoming a bottleneck across many concurrent guilds.
+
+### Rationale
+
+Discord bots serve many guilds simultaneously. A global lock on shared audio or detection state would serialize all guild operations. Per-guild semaphores ensure:
+
+- Guild A's playback does not block Guild B's playback.
+- Concurrent operations within the same guild are safely serialized.
+- Memory overhead is proportional to the number of active guilds.
+
+### Pattern
+
+```csharp
+public class MyGuildService : IMyGuildService
+{
+    // One semaphore per guild, created on first access
+    private readonly ConcurrentDictionary<ulong, SemaphoreSlim> _guildLocks = new();
+
+    private SemaphoreSlim GetGuildLock(ulong guildId)
+        => _guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
+
+    public async Task DoExclusiveOperationAsync(ulong guildId, CancellationToken cancellationToken)
+    {
+        var guildLock = GetGuildLock(guildId);
+        await guildLock.WaitAsync(cancellationToken);
+        try
+        {
+            // Guild-exclusive work here
+        }
+        finally
+        {
+            guildLock.Release();
+        }
+    }
+}
+```
+
+### Cleanup Consideration
+
+Semaphores for guilds the bot has left can accumulate over time. Services with long lifetimes (singletons) should remove entries when a guild disconnect event is received:
+
+```csharp
+if (_guildLocks.TryRemove(guildId, out var removedLock))
+{
+    removedLock.Dispose();
+}
+```
+
+### Known Implementors
+
+| Service | Protected state |
+|---------|----------------|
+| `AudioService` | Voice channel connection state per guild |
+| `PlaybackService` | Sound playback queue and active stream per guild |
+| `SpamDetectionService` | Message frequency windows per guild |
+| `RaidDetectionService` | Join event detection windows per guild |
 
 ---
 

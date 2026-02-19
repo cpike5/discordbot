@@ -11,8 +11,8 @@ This document maps all major features to their supporting components: Discord co
 1. [Audio Features](#audio-features) - Soundboard, VOX, TTS
 2. [Moderation Features](#moderation-features) - Warnings, bans, notes, watchlist
 3. [Community Features](#community-features) - Reminders, Rat Watch, Scheduled Messages
-4. [Administrative Features](#administrative-features) - Guild management, settings, monitoring
-5. [System Features](#system-features) - Authentication, logging, notifications
+4. [Administrative Features](#administrative-features) - Guild management, settings, monitoring, verification
+5. [System Features](#system-features) - Authentication, logging, notifications, activity tracking
 
 ---
 
@@ -298,6 +298,27 @@ Automated welcome messages and member verification upon joining guild.
 
 ---
 
+### Verification System
+
+Allows users to link their Discord account to their web portal account by running a slash command with a short-lived code generated from the portal UI.
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Commands** | `/verify-account` (VerifyAccountModule) |
+| **Services** | `IVerificationService`, `VerificationCleanupService` |
+| **UI Pages** | Account: Link Discord page (`Account/LinkDiscord`) |
+| **Database Entities** | `VerificationCode` |
+| **Key Features** | 15-minute code TTL, status tracking (Pending/Completed/Expired/Cancelled), IP address capture, automatic cleanup of expired codes |
+
+**Workflow**:
+1. User visits Account > Link Discord in the portal; a `VerificationCode` is created with `Status = Pending`
+2. Portal displays the 6-character code (e.g., `ABC-123`) and a 15-minute countdown
+3. User runs `/verify-account ABC123` in any Discord server the bot is in
+4. Bot resolves the code, sets `DiscordUserId` on the `VerificationCode`, links accounts, and sets `Status = Completed`
+5. `VerificationCleanupService` periodically purges records with `Status = Expired`
+
+---
+
 ### User Management
 
 Administrative interface for user CRUD, role assignment, consent management.
@@ -414,6 +435,24 @@ Real-time monitoring of bot performance, API usage, system health.
 
 ---
 
+### Activity Event Tracking
+
+Lightweight, content-free event recording for aggregate analytics and engagement metrics. Designed to operate without requiring user consent because no message content is captured.
+
+| Aspect | Components |
+|--------|------------|
+| **Handlers** | `ActivityEventTrackingHandler` |
+| **Database Entities** | `UserActivityEvent` |
+| **Event Types** | Message, Reaction, VoiceJoin, VoiceLeave, GuildJoin, GuildLeave |
+| **Key Features** | Consent-free (metadata only, no content), high-volume `long` PK, indexed on `GuildId`/`UserId`/`Timestamp` for analytics queries |
+
+**Notes**:
+- `UserActivityEvent` records only: who acted, where, when, and what type of event. No message text or reaction content is stored.
+- Distinct from `MessageLog`, which stores full content and requires explicit guild consent to enable.
+- `ActivityEventType` enum: `Message`, `Reaction`, `VoiceJoin`, `VoiceLeave`, `GuildJoin`, `GuildLeave`.
+
+---
+
 ### Search & Filtering
 
 Full-text search across logs, audit trails, and moderation cases.
@@ -475,19 +514,29 @@ Application settings management with environment-based configuration.
 │  (Auth, Logging, Config, Background Services, Database)        │
 └─────────────────────────────────────────────────────────────────┘
                               ↓
-    ┌─────────────────────────┼─────────────────────────┐
-    ↓                         ↓                         ↓
-┌─────────────────┐  ┌──────────────────┐  ┌──────────────────┐
-│  Audio Features │  │ Moderation       │  │ Community        │
-│                 │  │ Features         │  │ Features         │
-│ • Soundboard    │  │ • Actions        │  │ • Reminders      │
-│ • VOX/FVOX      │  │ • Notes          │  │ • Rat Watch      │
-│ • TTS           │  │ • Tags           │  │ • Scheduled Msg  │
-└─────────────────┘  │ • Watchlist      │  └──────────────────┘
+    ┌─────────────────────────┼──────────────────────────────┐
+    ↓                         ↓                              ↓
+┌─────────────────┐  ┌──────────────────┐  ┌───────────────────────┐
+│  Audio Features │  │ Moderation       │  │ Community Features    │
+│                 │  │ Features         │  │                       │
+│ • Soundboard    │  │ • Actions        │  │ • Reminders           │
+│ • VOX/FVOX      │  │ • Notes          │  │ • Rat Watch           │
+│ • TTS           │  │ • Tags           │  │ • Scheduled Messages  │
+└─────────────────┘  │ • Watchlist      │  └───────────────────────┘
                      │ • History        │
                      │ • Investigation  │
                      │ • Logging        │
                      └──────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                  Administrative Features                        │
+│  (Guild Mgmt, Welcome, Verification, User Mgmt, Audit Logs)    │
+└─────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────┐
+│                    System Features                              │
+│  (Auth, Notifications, Performance, Activity Tracking, Search) │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---

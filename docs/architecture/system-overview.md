@@ -1,7 +1,7 @@
 # System Overview
 
-**Version:** 1.0
-**Last Updated:** 2026-02-03
+**Version:** 1.0.1-dev
+**Last Updated:** 2026-02-19
 
 ## Introduction
 
@@ -48,7 +48,6 @@ graph TB
 
     subgraph "External Services"
         DISCORD["Discord API"]
-        KAFKA["Message Queues<br/>(Audit, Sync)"]
         ELASTIC["Elasticsearch<br/>(Logging)"]
         APM["Elastic APM<br/>(Tracing)"]
     end
@@ -74,7 +73,6 @@ graph TB
     API -->|Use| REPO
     PAGES -->|Use| REPO
     HUB -->|Notify| PAGES
-    API -->|Emits| KAFKA
     REPO -->|Logs to| ELASTIC
     DC -->|Metrics to| APM
     DC -->|Sync to| DISCORD
@@ -150,10 +148,10 @@ Contains only abstractions and data types. No external dependencies or implement
 // Entity - represents database table
 public class Guild
 {
-    public ulong GuildId { get; set; }
+    public ulong Id { get; set; }
     public string Name { get; set; }
     public bool IsActive { get; set; }
-    public DateTime CreatedAt { get; set; }
+    public DateTime JoinedAt { get; set; }
 }
 
 // DTO - API contract
@@ -240,7 +238,7 @@ public class GuildRepository : Repository<Guild>, IGuildRepository
     public async Task<Guild?> GetByIdAsync(ulong guildId)
     {
         return await _context.Guilds
-            .FirstOrDefaultAsync(g => g.GuildId == guildId);
+            .FirstOrDefaultAsync(g => g.Id == guildId);
     }
 }
 ```
@@ -291,7 +289,7 @@ Handler executes (e.g., MessageLoggingHandler)
    ↓
 Handler calls Repository to persist
    ↓
-Handler publishes to SignalR/Kafka for real-time updates
+Handler publishes to SignalR for real-time updates
 ```
 
 #### 2. Web API
@@ -377,7 +375,7 @@ Response
    ↓
 8. DbContext persists to SQL database
    ↓
-9. Handler publishes audit log to Kafka queue
+9. Handler enqueues audit log entry to IAuditLogQueue (in-memory Channel<T>)
    ↓
 10. Response returned to Discord (deferred, ephemeral, or public)
 ```
@@ -457,13 +455,13 @@ Single `BotDbContext` using Entity Framework Core:
 - **Lifetime**: Scoped to HTTP requests; singleton for background services
 - **Queries**: LINQ-based via repositories
 
-### Message Queues (Kafka)
+### In-Memory Queues (Channel&lt;T&gt;)
 
-Asynchronous event publishing:
+Asynchronous event decoupling via `System.Threading.Channels`:
 
-- `IAuditLogQueue`: Enqueues audit log entries for async processing
-- `IMemberSyncQueue`: Enqueues member data sync tasks
-- Enables decoupling of event processing from storage
+- `IAuditLogQueue` (`AuditLogQueue`): Bounded `Channel<AuditLogCreateDto>` (capacity 10,000) with `DropOldest` backpressure. Consumed by `AuditLogQueueProcessor` (background service).
+- `IMemberSyncQueue` (`MemberSyncQueue`): Bounded `Channel<(ulong GuildId, MemberSyncReason)>` (capacity 1,000) with `DropOldest` backpressure. Consumed by `MemberSyncService` (background service).
+- Both queues are registered as singletons and enable non-blocking writes from event handlers.
 
 ### Observability
 
@@ -578,7 +576,7 @@ public static class AuditLoggingExtensions
 - Database queries → SQL statements
 - Logs → Elasticsearch
 - Traces → Elastic APM
-- Events → Kafka queues
+- Events → In-memory queues (Channel&lt;T&gt;)
 
 **Inbound:**
 - Discord WebSocket events
@@ -632,7 +630,7 @@ public class BotService
 | **Repository** | Data access abstraction | `IGuildRepository.GetByIdAsync()` |
 | **Dependency Injection** | Service composition | Extension methods in Program.cs |
 | **IOptions<T>** | Configuration binding | `IOptions<BotConfiguration>` |
-| **Background Service** | Long-running tasks | `ScheduledMessageService : BackgroundService` |
+| **Background Service** | Long-running tasks | `ScheduledMessageExecutionService : MonitoredBackgroundService` |
 | **Hosted Service** | Lifecycle management | `BotHostedService : IHostedService` |
 | **SignalR Hub** | Real-time notifications | `DashboardHub : Hub` |
 | **Middleware** | Request pipeline | `CorrelationIdMiddleware` |
@@ -649,7 +647,7 @@ public class BotService
 The current architecture supports horizontal scaling with:
 - **Stateless services**: Services don't hold state between requests
 - **Distributed tracing**: Correlation IDs link requests across instances
-- **Message queues**: Kafka enables async processing without state sharing
+- **In-memory queues**: `Channel<T>` enables async decoupling between event handlers and background processors
 - **Database pooling**: Connection pooling for concurrent requests
 
 ### Caching Strategy
@@ -692,42 +690,45 @@ Assert.Equal(testGuild.Name, result.Name);
 
 ## Deployment Architecture
 
+### Current Deployment (Docker Single-Instance)
+
 ```
-┌─────────────────┐
-│  Load Balancer  │
-│   (Reverse      │
-│    Proxy)       │
-└────────┬────────┘
-         │
-    ┌────┴────┐
-    │          │
-┌───▼──┐   ┌──▼───┐
-│Bot 1 │   │Bot 2 │  (Multiple instances)
-│ Inst │   │ Inst │
-└───┬──┘   └──┬───┘
-    │          │
-    └────┬─────┘
+┌──────────────────────────┐
+│    Docker Host           │
+│                          │
+│  ┌────────────────────┐  │
+│  │  discordbot        │  │
+│  │  (ASP.NET Core)    │  │
+│  │  - Discord Bot     │  │
+│  │  - Web UI          │  │
+│  │  - REST API        │  │
+│  │  - Background Svcs │  │
+│  └─────────┬──────────┘  │
+│            │              │
+│  ┌─────────▼──────────┐  │
+│  │  Database          │  │
+│  │  SQLite (default)  │  │
+│  │  or PostgreSQL     │  │
+│  │  (profile: postgres│  │
+│  └────────────────────┘  │
+│                          │
+│  ┌────────────────────┐  │
+│  │  Seq (optional)    │  │
+│  │  (profile: seq)    │  │
+│  │  Log aggregation   │  │
+│  └────────────────────┘  │
+└──────────────────────────┘
          │
     ┌────▼─────────┐
-    │ Shared       │
-    │ Database     │
-    │ (PostgreSQL) │
+    │ Discord API  │
+    │ (WebSocket + │
+    │  REST)       │
     └──────────────┘
-         │
-    ┌────▼─────────┐
-    │ Message      │
-    │ Queue        │
-    │ (Kafka)      │
-    └──────────────┘
-         │
-    ┌────▼──────────────┐
-    │ Observability     │
-    │ Stack:            │
-    │ - Elasticsearch   │
-    │ - Elastic APM     │
-    │ - Kibana          │
-    └───────────────────┘
 ```
+
+Deployment: `docker compose up [-d] [--profile postgres] [--profile seq]`
+
+See [docker-deployment.md](../articles/docker-deployment.md) for the full guide.
 
 ---
 
