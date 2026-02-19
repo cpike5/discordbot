@@ -27,4 +27,10 @@ public class DatabaseSettings
     /// Default: true.
     /// </summary>
     public bool LogQueryParameters { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets the database provider to use. Valid values: "Sqlite", "PostgreSql".
+    /// When null, the provider is auto-detected from the connection string.
+    /// </summary>
+    public string? Provider { get; set; }
 }
