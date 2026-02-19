@@ -283,6 +283,7 @@ public class PrivacyModel : PageModel
 
     /// <summary>
     /// Handles POST requests to delete user data.
+    /// Returns JSON for AJAX consumption by the typed confirmation dialog flow.
     /// </summary>
     public async Task<IActionResult> OnPostDeleteDataAsync()
     {
@@ -292,15 +293,19 @@ public class PrivacyModel : PageModel
         if (user == null)
         {
             _logger.LogWarning("User not found during delete data");
-            return NotFound("User not found.");
+            return new JsonResult(new { success = false, message = "User not found." })
+            {
+                StatusCode = StatusCodes.Status404NotFound
+            };
         }
 
         if (!user.DiscordUserId.HasValue)
         {
             _logger.LogWarning("User {UserId} attempted to delete data without Discord account linked", user.Id);
-            StatusMessage = "You must link your Discord account before deleting data.";
-            IsSuccess = false;
-            return RedirectToPage();
+            return new JsonResult(new { success = false, message = "You must link your Discord account before deleting data." })
+            {
+                StatusCode = StatusCodes.Status400BadRequest
+            };
         }
 
         var discordUserId = user.DiscordUserId.Value;
@@ -315,9 +320,10 @@ public class PrivacyModel : PageModel
             if (!canPurge)
             {
                 _logger.LogWarning("Cannot purge user {UserId}: {BlockingReason}", user.Id, reason);
-                StatusMessage = reason ?? "Your data cannot be deleted at this time.";
-                IsSuccess = false;
-                return RedirectToPage();
+                return new JsonResult(new { success = false, message = reason ?? "Your data cannot be deleted at this time." })
+                {
+                    StatusCode = StatusCodes.Status400BadRequest
+                };
             }
 
             var result = await _purgeService.PurgeUserDataAsync(
@@ -332,18 +338,21 @@ public class PrivacyModel : PageModel
                 _logger.LogInformation("Successfully deleted data for user {UserId}. {RecordCount} records deleted",
                     user.Id, totalDeleted);
 
-                StatusMessage = $"Your data has been permanently deleted. {totalDeleted} records were removed from the system.";
-                IsSuccess = true;
-
-                // Sign out the user since their account has been deleted
-                return RedirectToPage("/Account/Logout", new { area = "" });
+                // Return JSON with a redirect URL so the client can navigate after showing the toast.
+                // The user's account has been purged, so redirect to logout.
+                return new JsonResult(new
+                {
+                    success = true,
+                    message = $"Your data has been permanently deleted. {totalDeleted} records were removed from the system.",
+                    redirectUrl = Url.Page("/Account/Logout") ?? "/"
+                });
             }
             else
             {
                 _logger.LogWarning("Failed to delete data for user {UserId}: {ErrorCode} - {ErrorMessage}",
                     user.Id, result.ErrorCode, result.ErrorMessage);
 
-                StatusMessage = result.ErrorCode switch
+                var errorMessage = result.ErrorCode switch
                 {
                     UserPurgeResultDto.UserNotFound => "User not found in the database.",
                     UserPurgeResultDto.UserHasAdminRole => "Cannot delete data for users with admin roles. Contact support.",
@@ -351,16 +360,20 @@ public class PrivacyModel : PageModel
                     UserPurgeResultDto.TransactionFailed => "Failed to delete data. Please try again.",
                     _ => result.ErrorMessage ?? "Failed to delete data. Please try again."
                 };
-                IsSuccess = false;
+
+                return new JsonResult(new { success = false, message = errorMessage })
+                {
+                    StatusCode = StatusCodes.Status422UnprocessableEntity
+                };
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error deleting data for user {UserId}", user.Id);
-            StatusMessage = "An error occurred while deleting your data. Please try again.";
-            IsSuccess = false;
+            return new JsonResult(new { success = false, message = "An error occurred while deleting your data. Please try again." })
+            {
+                StatusCode = StatusCodes.Status500InternalServerError
+            };
         }
-
-        return RedirectToPage();
     }
 }
