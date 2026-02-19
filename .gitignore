@@ -422,7 +422,7 @@ FodyWeavers.xsd
 *.msp
 
 # Claude Code local settings
-.claude/
+.claude/settings.local.json
 
 # DocFX generated files
 _site/
