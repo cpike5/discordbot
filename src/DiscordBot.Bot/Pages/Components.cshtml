@@ -11,6 +11,8 @@
 
 @section Scripts {
     <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
+    <script src="~/js/quick-actions.js" asp-append-version="true"></script>
+    <script src="~/js/settings.js" asp-append-version="true"></script>
 }
 
 <div class="space-y-8">
@@ -295,7 +297,121 @@
         </div>
     </section>
 
-    <!-- 8. CARDS -->
+    <!-- 8. CONFIRMATION DIALOGS -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Confirmation Dialogs</h3>
+            <p class="text-sm text-text-secondary mt-1">Modal dialogs for confirming destructive or important actions, available as server-rendered partials and a Promise-based JS API</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <!-- Server-Rendered Confirmation Modals -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Server-Rendered Confirmation Modals</h4>
+                <p class="text-xs text-text-tertiary mb-4">Pre-rendered on the server via <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">_ConfirmationModal</code> partial. Shown/hidden with <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">quickActions.showConfirmationModal(id)</code>.</p>
+                <div class="flex flex-wrap gap-3">
+                    <button type="button"
+                            onclick="window.quickActions.showConfirmationModal('showcase-info-modal')"
+                            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-md transition-colors">
+                        Info Confirmation
+                    </button>
+                    <button type="button"
+                            onclick="window.quickActions.showConfirmationModal('showcase-warning-modal')"
+                            class="px-4 py-2 bg-warning hover:bg-amber-600 text-white text-sm font-medium rounded-md transition-colors">
+                        Warning Confirmation
+                    </button>
+                    <button type="button"
+                            onclick="window.quickActions.showConfirmationModal('showcase-danger-modal')"
+                            class="px-4 py-2 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors">
+                        Danger Confirmation
+                    </button>
+                </div>
+                @await Html.PartialAsync("Components/_ConfirmationModal", Model.InfoConfirmation)
+                @await Html.PartialAsync("Components/_ConfirmationModal", Model.WarningConfirmation)
+                @await Html.PartialAsync("Components/_ConfirmationModal", Model.DangerConfirmation)
+            </div>
+
+            <!-- Typed Confirmation Modal -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Typed Confirmation Modal</h4>
+                <p class="text-xs text-text-tertiary mb-4">Requires the user to type a specific phrase before the confirm button is enabled. Uses the <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">_TypedConfirmationModal</code> partial.</p>
+                <div>
+                    <button type="button"
+                            onclick="window.quickActions.showConfirmationModal('showcase-typed-modal')"
+                            class="px-4 py-2 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors">
+                        Typed Confirmation (type "DELETE")
+                    </button>
+                </div>
+                @await Html.PartialAsync("Components/_TypedConfirmationModal", Model.TypedConfirmation)
+            </div>
+
+            <!-- JS-Driven Confirm -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">JS-Driven Confirm (Promise-based)</h4>
+                <p class="text-xs text-text-tertiary mb-4">Creates the modal entirely from JavaScript. Returns a <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">Promise&lt;boolean&gt;</code> that resolves when the user responds.</p>
+                <div class="flex items-center gap-4">
+                    <button type="button"
+                            onclick="quickActions.confirm({ title: 'Confirm Action', message: 'Do you want to proceed with this action?', variant: 'warning', confirmText: 'Yes, proceed', cancelText: 'No, cancel' }).then(function(result) { document.getElementById('js-confirm-result').textContent = result ? 'Confirmed' : 'Cancelled'; })"
+                            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-md transition-colors">
+                        Open JS Confirm
+                    </button>
+                    <span class="text-sm text-text-secondary">Result: <span id="js-confirm-result" class="font-medium text-text-primary">--</span></span>
+                </div>
+                <pre class="bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto mt-3"><code>const confirmed = await quickActions.confirm({
+    title: 'Confirm Action',
+    message: 'Do you want to proceed with this action?',
+    variant: 'warning',       // 'info' | 'warning' | 'danger'
+    confirmText: 'Yes, proceed',
+    cancelText: 'No, cancel'
+});
+// confirmed === true or false</code></pre>
+            </div>
+
+            <!-- JS-Driven Alert -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">JS-Driven Alert (Promise-based)</h4>
+                <p class="text-xs text-text-tertiary mb-4">Displays an informational alert dialog with a single OK button. Returns a <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">Promise&lt;void&gt;</code>.</p>
+                <div>
+                    <button type="button"
+                            onclick="quickActions.alert({ title: 'Operation Complete', message: 'The export has finished successfully. Your file is ready for download.', variant: 'info', okText: 'Got it' })"
+                            class="px-4 py-2 bg-accent-blue hover:bg-accent-blue-hover text-white text-sm font-medium rounded-md transition-colors">
+                        Open JS Alert
+                    </button>
+                </div>
+                <pre class="bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto mt-3"><code>await quickActions.alert({
+    title: 'Operation Complete',
+    message: 'The export has finished successfully.',
+    variant: 'info',    // 'info' | 'warning' | 'danger'
+    okText: 'Got it'
+});</code></pre>
+            </div>
+
+            <!-- JS-Driven Typed Confirm -->
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">JS-Driven Typed Confirm (Promise-based)</h4>
+                <p class="text-xs text-text-tertiary mb-4">Like <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">confirm()</code> but requires typed input. Returns <code class="px-1.5 py-0.5 bg-bg-tertiary rounded">Promise&lt;boolean&gt;</code>.</p>
+                <div class="flex items-center gap-4">
+                    <button type="button"
+                            onclick="quickActions.typedConfirm({ title: 'Delete Repository', message: 'This will permanently delete the repository and all its data.', requiredText: 'CONFIRM', inputLabel: 'Type CONFIRM to continue', variant: 'danger', confirmText: 'Delete', cancelText: 'Cancel' }).then(function(result) { document.getElementById('js-typed-confirm-result').textContent = result ? 'Confirmed' : 'Cancelled'; })"
+                            class="px-4 py-2 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors">
+                        Open JS Typed Confirm
+                    </button>
+                    <span class="text-sm text-text-secondary">Result: <span id="js-typed-confirm-result" class="font-medium text-text-primary">--</span></span>
+                </div>
+                <pre class="bg-bg-tertiary p-4 rounded-lg text-xs overflow-x-auto mt-3"><code>const confirmed = await quickActions.typedConfirm({
+    title: 'Delete Repository',
+    message: 'This will permanently delete the repository.',
+    requiredText: 'CONFIRM',
+    inputLabel: 'Type CONFIRM to continue',
+    variant: 'danger',
+    confirmText: 'Delete',
+    cancelText: 'Cancel'
+});
+// confirmed === true or false</code></pre>
+            </div>
+        </div>
+    </section>
+
+    <!-- 9. CARDS -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">
             <h3 class="text-lg font-semibold text-text-primary">Cards</h3>
@@ -319,7 +435,7 @@
         </div>
     </section>
 
-    <!-- 9. EMPTY STATES -->
+    <!-- 10. EMPTY STATES -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">
             <h3 class="text-lg font-semibold text-text-primary">Empty States</h3>
@@ -333,7 +449,7 @@
         </div>
     </section>
 
-    <!-- 10. PAGINATION -->
+    <!-- 11. PAGINATION -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">
             <h3 class="text-lg font-semibold text-text-primary">Pagination</h3>
@@ -370,7 +486,7 @@
         </div>
     </section>
 
-    <!-- 11. NAVIGATION TABS -->
+    <!-- 12. NAVIGATION TABS -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
         <div class="px-6 py-4 border-b border-border-primary">
             <h3 class="text-lg font-semibold text-text-primary">Navigation Tabs</h3>

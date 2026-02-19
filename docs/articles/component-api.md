@@ -1,7 +1,7 @@
 # Component API Usage Guide
 
-**Version:** 1.3
-**Last Updated:** 2026-02-05
+**Version:** 1.4
+**Last Updated:** 2026-02-19
 **Target Framework:** .NET 8 Razor Pages with Tailwind CSS
 
 ---
@@ -63,6 +63,9 @@ Then in the view:
 | [FormInput](#forminput-component) | Text input fields | Forms, search bars |
 | [FormSelect](#formselect-component) | Dropdown selection | Forms, filters |
 | [Alert](#alert-component) | User notifications | Success/error messages, warnings |
+| [ConfirmationModal](#confirmationmodal-component) | Confirmation dialogs | Delete actions, destructive operations |
+| [TypedConfirmationModal](#typedconfirmationmodal-component) | Text-verified confirmations | Irreversible destructive actions |
+| [quickActions JS API](#quickactions-javascript-api) | Promise-based dialogs | AJAX-gated confirms, dynamic alerts |
 | [LoadingSpinner](#loadingspinner-component) | Loading states | Async operations, page loads |
 | [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results |
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
@@ -989,6 +992,399 @@ var subtleAlert = new AlertViewModel
 - Dismiss button includes `aria-label="Dismiss"`
 - Alert uses appropriate ARIA role implicitly
 - Icon provides visual reinforcement (not sole indicator)
+
+---
+
+## ConfirmationModal Component
+
+Modal dialog for confirming user intent before executing an action. Renders as a `<form>` element with anti-forgery token support, making it suitable for actions that require a server-side POST.
+
+**Partial:** `Components/_ConfirmationModal`
+
+**Namespace:** `DiscordBot.Bot.ViewModels.Components`
+
+> For JavaScript-driven confirmations that do not require a form POST, use the [`quickActions` JS API](#quickactions-javascript-api) instead.
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id` | `string` | `""` | Unique modal element ID — required; used to open/close the modal via JS |
+| `Title` | `string` | `""` | Modal heading text |
+| `Message` | `string` | `""` | Body message explaining the action to confirm |
+| `ConfirmText` | `string` | `"Confirm"` | Label for the confirm button |
+| `CancelText` | `string` | `"Cancel"` | Label for the cancel button |
+| `Variant` | `ConfirmationVariant` | `Warning` | Visual severity of the dialog |
+| `FormAction` | `string?` | `null` | Form `action` attribute (URL to POST to on confirm) |
+| `FormHandler` | `string?` | `null` | Razor Pages handler name (e.g., `"Delete"` maps to `OnPostDelete`) |
+| `CustomIconPath` | `string?` | `null` | SVG path override for the dialog icon |
+
+### Enums
+
+#### ConfirmationVariant
+
+| Value | Description | Accent Color |
+|-------|-------------|--------------|
+| `Info` | Informational dialog | Blue (`accent-blue`) |
+| `Warning` | Caution; reversible but significant action | Amber (`warning`) |
+| `Danger` | Destructive or irreversible action | Red (`error`) |
+
+### Basic Usage
+
+**Delete Confirmation (form POST):**
+
+```csharp
+// PageModel
+public ConfirmationModalViewModel DeleteModal { get; set; } = new()
+{
+    Id = "delete-server-modal",
+    Title = "Delete Server",
+    Message = "Are you sure you want to delete this server? This action cannot be undone.",
+    ConfirmText = "Delete Server",
+    CancelText = "Keep Server",
+    Variant = ConfirmationVariant.Danger,
+    FormAction = $"/guild/{GuildId}/settings",
+    FormHandler = "Delete"
+};
+```
+
+```cshtml
+@* Render the modal (hidden by default) *@
+<partial name="Shared/Components/_ConfirmationModal" model="Model.DeleteModal" />
+
+@* Trigger button *@
+<partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+{
+    Text = "Delete Server",
+    Variant = ButtonVariant.Danger,
+    OnClick = "window.quickActions.showConfirmationModal('delete-server-modal')"
+})" />
+```
+
+**Warning Confirmation (custom icon):**
+
+```csharp
+var restartModal = new ConfirmationModalViewModel
+{
+    Id = "restart-bot-modal",
+    Title = "Restart Bot",
+    Message = "Restarting the bot will temporarily disconnect all voice channels and clear the playback queue.",
+    ConfirmText = "Restart Now",
+    Variant = ConfirmationVariant.Warning,
+    FormAction = "/admin/bot/restart",
+    FormHandler = "Restart",
+    CustomIconPath = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+};
+```
+
+### Accessibility Notes
+
+- Modal uses `role="dialog"` with `aria-modal="true"` and `aria-labelledby` pointing to the title
+- Focus is trapped within the modal while open
+- Pressing `Escape` closes the modal and returns focus to the trigger element
+- Confirm button receives initial focus when the modal opens
+
+---
+
+## TypedConfirmationModal Component
+
+Confirmation dialog that requires the user to type a specific phrase before the confirm button is enabled. Use this for irreversible destructive actions where accidental confirmation must be prevented.
+
+**Partial:** `Components/_TypedConfirmationModal`
+
+**Namespace:** `DiscordBot.Bot.ViewModels.Components`
+
+> For a lighter confirmation without text entry, use [`ConfirmationModal`](#confirmationmodal-component). For JavaScript-only typed confirms, use [`quickActions.typedConfirm()`](#quickactions-javascript-api).
+
+### Properties
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id` | `string` | `""` | Unique modal element ID — required |
+| `Title` | `string` | `""` | Modal heading text |
+| `Message` | `string` | `""` | Body message explaining the action |
+| `RequiredText` | `string` | `""` | Exact phrase the user must type to enable confirm |
+| `InputLabel` | `string` | `""` | Label displayed above the text input |
+| `ConfirmText` | `string` | `"Confirm"` | Label for the confirm button |
+| `CancelText` | `string` | `"Cancel"` | Label for the cancel button |
+| `Variant` | `ConfirmationVariant` | `Danger` | Visual severity (defaults to `Danger` for typed confirms) |
+| `FormAction` | `string?` | `null` | Form `action` attribute (URL to POST to on confirm) |
+| `FormHandler` | `string?` | `null` | Razor Pages handler name |
+
+### Basic Usage
+
+**Purge Data (typed confirmation):**
+
+```csharp
+// PageModel
+public TypedConfirmationModalViewModel PurgeModal { get; set; } = new()
+{
+    Id = "purge-data-modal",
+    Title = "Purge All Data",
+    Message = "This will permanently delete all messages, logs, and settings for this guild. " +
+              "This action cannot be undone.",
+    RequiredText = "delete everything",
+    InputLabel = "Type \"delete everything\" to confirm",
+    ConfirmText = "Permanently Delete",
+    CancelText = "Cancel",
+    Variant = ConfirmationVariant.Danger,
+    FormAction = $"/guild/{GuildId}/data",
+    FormHandler = "Purge"
+};
+```
+
+```cshtml
+@* Render the modal (hidden by default) *@
+<partial name="Shared/Components/_TypedConfirmationModal" model="Model.PurgeModal" />
+
+@* Trigger button *@
+<partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+{
+    Text = "Purge All Data",
+    Variant = ButtonVariant.Danger,
+    IconLeft = "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16",
+    OnClick = "window.quickActions.showConfirmationModal('purge-data-modal')"
+})" />
+```
+
+**Remove Member (typed with member name):**
+
+```csharp
+var removeModal = new TypedConfirmationModalViewModel
+{
+    Id = "remove-member-modal",
+    Title = "Remove Member",
+    Message = $"You are about to permanently remove {memberName} from this guild. " +
+               "All of their data, roles, and history will be deleted.",
+    RequiredText = memberName,
+    InputLabel = $"Type \"{memberName}\" to confirm removal",
+    ConfirmText = "Remove Member",
+    Variant = ConfirmationVariant.Danger,
+    FormAction = $"/guild/{GuildId}/members/{memberId}",
+    FormHandler = "Remove"
+};
+```
+
+### Accessibility Notes
+
+- Confirm button is disabled until `RequiredText` matches exactly (case-sensitive)
+- Input field receives focus on modal open
+- Mismatch state is indicated visually; no submit is possible until text matches
+- `Escape` dismisses and clears the typed input
+
+---
+
+## quickActions JavaScript API
+
+Global utility object (`window.quickActions`) providing two categories of dialog control:
+
+1. **Modal helpers** — open/close server-rendered `_ConfirmationModal` or `_TypedConfirmationModal` partials
+2. **Promise-based dynamic dialogs** — create and await confirmation/alert dialogs entirely in JavaScript, with no Razor partial required
+
+The object is registered globally and available on all pages that include the shared layout.
+
+### When to Use Which Approach
+
+| Scenario | Recommended Approach |
+|----------|----------------------|
+| Confirm before a form POST (delete, update) | Server-rendered partial + `showConfirmationModal()` |
+| Confirm before an AJAX call | `quickActions.confirm()` Promise API |
+| Display a non-dismissible alert before proceeding | `quickActions.alert()` Promise API |
+| Require text entry before an AJAX destructive action | `quickActions.typedConfirm()` Promise API |
+| Anti-forgery token required on the resulting request | Server-rendered partial (form includes token automatically) |
+
+### Modal Helpers
+
+Use these functions to open and close server-rendered confirmation modals that were rendered with `_ConfirmationModal` or `_TypedConfirmationModal`.
+
+#### showConfirmationModal(modalId)
+
+Opens a server-rendered confirmation modal by its element ID.
+
+```typescript
+showConfirmationModal(modalId: string): void
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `modalId` | `string` | The `Id` property value used when rendering the partial |
+
+```javascript
+// Open the modal rendered with Id = "delete-server-modal"
+window.quickActions.showConfirmationModal('delete-server-modal');
+```
+
+#### hideConfirmationModal(modalId)
+
+Closes a server-rendered confirmation modal.
+
+```typescript
+hideConfirmationModal(modalId: string): void
+```
+
+```javascript
+window.quickActions.hideConfirmationModal('delete-server-modal');
+```
+
+### Promise-Based Dialog API
+
+These methods create modals dynamically in JavaScript and return Promises. No Razor partial is needed. The returned Promise resolves when the user dismisses the dialog.
+
+#### confirm(options)
+
+Displays a yes/no confirmation dialog. Resolves `true` if confirmed, `false` if cancelled.
+
+```typescript
+confirm(options: {
+    title: string;
+    message: string;
+    variant?: 'info' | 'warning' | 'danger';  // default: 'warning'
+    confirmText?: string;                       // default: 'Confirm'
+    cancelText?: string;                        // default: 'Cancel'
+}): Promise<boolean>
+```
+
+**Example — confirm before AJAX delete:**
+
+```javascript
+async function deleteSound(soundId) {
+    const confirmed = await window.quickActions.confirm({
+        title: 'Delete Sound',
+        message: 'Are you sure you want to delete this sound? It cannot be recovered.',
+        variant: 'danger',
+        confirmText: 'Delete',
+        cancelText: 'Keep'
+    });
+
+    if (!confirmed) return;
+
+    await fetch(`/api/sounds/${soundId}`, { method: 'DELETE' });
+    location.reload();
+}
+```
+
+#### alert(options)
+
+Displays an informational or warning alert that the user must acknowledge. Resolves `void` when dismissed.
+
+```typescript
+alert(options: {
+    title: string;
+    message: string;
+    variant?: 'info' | 'warning' | 'danger';  // default: 'info'
+    okText?: string;                            // default: 'OK'
+}): Promise<void>
+```
+
+**Example — notify before a long operation:**
+
+```javascript
+async function exportData() {
+    await window.quickActions.alert({
+        title: 'Export Started',
+        message: 'Your data export has been queued. You will receive a notification when it is ready.',
+        variant: 'info',
+        okText: 'Got It'
+    });
+
+    // Optionally navigate or continue after acknowledgement
+}
+```
+
+#### typedConfirm(options)
+
+Displays a confirmation dialog requiring the user to type a specific phrase. Resolves `true` when the exact phrase is entered and confirmed, `false` if cancelled.
+
+```typescript
+typedConfirm(options: {
+    title: string;
+    message: string;
+    requiredText: string;          // Phrase user must type exactly
+    inputLabel?: string;           // Label for the input field
+    variant?: 'info' | 'warning' | 'danger';  // default: 'danger'
+    confirmText?: string;          // default: 'Confirm'
+    cancelText?: string;           // default: 'Cancel'
+}): Promise<boolean>
+```
+
+**Example — typed confirm before irreversible AJAX action:**
+
+```javascript
+async function resetGuildSettings(guildId) {
+    const confirmed = await window.quickActions.typedConfirm({
+        title: 'Reset All Settings',
+        message: 'This will reset all guild settings to their defaults. ' +
+                 'Custom configurations will be permanently lost.',
+        requiredText: 'reset settings',
+        inputLabel: 'Type "reset settings" to confirm',
+        variant: 'danger',
+        confirmText: 'Reset Everything'
+    });
+
+    if (!confirmed) return;
+
+    await fetch(`/api/guilds/${guildId}/settings/reset`, { method: 'POST' });
+    location.reload();
+}
+```
+
+### Complete Example: Mixed Server-Rendered and JS API
+
+A page that uses a server-rendered modal for a form POST and JS API for an AJAX action:
+
+```cshtml
+@* Server-rendered modal for the ban action (needs anti-forgery token) *@
+<partial name="Shared/Components/_ConfirmationModal" model="@(new ConfirmationModalViewModel
+{
+    Id = "ban-member-modal",
+    Title = "Ban Member",
+    Message = $"Are you sure you want to ban {Model.MemberName}? They will be removed from the guild.",
+    ConfirmText = "Ban Member",
+    Variant = ConfirmationVariant.Danger,
+    FormAction = $"/guild/{Model.GuildId}/members/{Model.MemberId}",
+    FormHandler = "Ban"
+})" />
+
+@* Trigger for the server-rendered modal *@
+<partial name="Shared/Components/_Button" model="@(new ButtonViewModel
+{
+    Text = "Ban Member",
+    Variant = ButtonVariant.Danger,
+    OnClick = "window.quickActions.showConfirmationModal('ban-member-modal')"
+})" />
+
+@* AJAX action — uses JS Promise API directly *@
+<button type="button" onclick="sendWarning('@Model.MemberId')">Send Warning</button>
+
+<script>
+    async function sendWarning(memberId) {
+        const confirmed = await window.quickActions.confirm({
+            title: 'Send Warning',
+            message: 'Send an official warning to this member?',
+            variant: 'warning',
+            confirmText: 'Send Warning'
+        });
+
+        if (!confirmed) return;
+
+        const resp = await fetch(`/api/members/${memberId}/warn`, { method: 'POST' });
+        if (resp.ok) {
+            await window.quickActions.alert({
+                title: 'Warning Sent',
+                message: 'The member has been notified.',
+                variant: 'info'
+            });
+        }
+    }
+</script>
+```
+
+### Accessibility Notes
+
+- Promise-based dialogs use the same accessible modal structure as server-rendered modals (`role="dialog"`, `aria-modal`, `aria-labelledby`)
+- Focus is trapped within the dialog while open
+- `Escape` cancels (resolves `false` / resolves `void`)
+- Screen reader announcements are made when dialogs open and close
 
 ---
 
@@ -2745,6 +3141,14 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.4 (2026-02-19)
+- Added ConfirmationModal component documentation with all ViewModel properties
+- Added TypedConfirmationModal component documentation with all ViewModel properties
+- Documented ConfirmationVariant enum values and visual meaning
+- Added quickActions JavaScript API section covering server-rendered modal helpers and Promise-based dialog API (`confirm`, `alert`, `typedConfirm`)
+- Added guidance table on when to use server-rendered partials vs the JS Promise API
+- Updated Quick Reference table with entries for new components and JS utility
 
 ### Version 1.3 (2026-02-05)
 - Added VoiceChannelPanel component documentation
