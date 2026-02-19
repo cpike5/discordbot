@@ -320,12 +320,365 @@
     }, 3000);
   }
 
+  // ============================================
+  // Promise-based Dynamic Modal API
+  // ============================================
+
+  let modalCounter = 0;
+
+  const variantConfig = {
+    info: {
+      color: 'accent-blue',
+      btnClass: 'bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active',
+      disabledBtnClass: 'bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-accent-blue',
+      iconPath: 'M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z'
+    },
+    warning: {
+      color: 'warning',
+      btnClass: 'bg-warning hover:bg-amber-600 active:bg-amber-700',
+      disabledBtnClass: 'bg-warning hover:bg-amber-600 active:bg-amber-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-warning',
+      iconPath: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+    },
+    danger: {
+      color: 'error',
+      btnClass: 'bg-error hover:bg-red-600 active:bg-red-700',
+      disabledBtnClass: 'bg-error hover:bg-red-600 active:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-error',
+      iconPath: 'M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z'
+    }
+  };
+
+  /**
+   * Escape HTML to prevent XSS in dynamic modal content
+   * @param {string} str - The string to escape
+   * @returns {string} Escaped string
+   */
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  /**
+   * Generate a unique modal ID
+   * @returns {string} Unique modal ID
+   */
+  function generateModalId() {
+    return `quickActions-modal-${++modalCounter}-${Date.now()}`;
+  }
+
+  /**
+   * Setup focus trap for a dynamic modal
+   * @param {HTMLElement} modal - The modal element
+   * @returns {{ destroy: Function }} Cleanup handle
+   */
+  function setupDynamicFocusTrap(modal) {
+    function getFocusable() {
+      return modal.querySelectorAll(
+        'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      );
+    }
+
+    function handleTab(e) {
+      if (e.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    modal.addEventListener('keydown', handleTab);
+    return {
+      destroy: () => modal.removeEventListener('keydown', handleTab)
+    };
+  }
+
+  /**
+   * Show a dynamic modal and return a Promise that resolves when closed
+   * @param {HTMLElement} modal - The modal element
+   * @param {Object} options - Modal options
+   * @param {Function} resolve - Promise resolve function
+   * @param {string} [focusSelector] - CSS selector for initial focus target
+   * @returns {Function} Cleanup/close function
+   */
+  function showDynamicModal(modal, resolve, focusSelector) {
+    const savedTrigger = document.activeElement;
+    document.body.appendChild(modal);
+    modal.classList.remove('hidden');
+
+    const trap = setupDynamicFocusTrap(modal);
+
+    // Focus the target element
+    requestAnimationFrame(() => {
+      const target = focusSelector
+        ? modal.querySelector(focusSelector)
+        : modal.querySelector('button:not([disabled])');
+      if (target) target.focus();
+    });
+
+    function close(result) {
+      trap.destroy();
+      document.removeEventListener('keydown', escapeHandler);
+      modal.classList.add('hidden');
+      modal.remove();
+      if (savedTrigger && typeof savedTrigger.focus === 'function') {
+        savedTrigger.focus();
+      }
+      resolve(result);
+    }
+
+    function escapeHandler(e) {
+      if (e.key === 'Escape') close(false);
+    }
+    document.addEventListener('keydown', escapeHandler);
+
+    // Backdrop click
+    const backdrop = modal.querySelector('[data-modal-backdrop]');
+    if (backdrop) {
+      backdrop.addEventListener('click', () => close(false));
+    }
+
+    return close;
+  }
+
+  /**
+   * Build the modal icon HTML
+   * @param {Object} config - Variant config
+   * @returns {string} Icon HTML
+   */
+  function buildIconHtml(config) {
+    return `
+      <div class="flex-shrink-0 w-10 h-10 rounded-full bg-${config.color}/20 flex items-center justify-center">
+        <svg class="w-5 h-5 text-${config.color}" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="${config.iconPath}" />
+        </svg>
+      </div>`;
+  }
+
+  /**
+   * Confirmation dialog — returns Promise<boolean>
+   * @param {Object} options - Dialog options
+   * @param {string} options.title - Dialog title
+   * @param {string} options.message - Dialog message
+   * @param {string} [options.variant='warning'] - 'info' | 'warning' | 'danger'
+   * @param {string} [options.confirmText='Confirm'] - Confirm button text
+   * @param {string} [options.cancelText='Cancel'] - Cancel button text
+   * @returns {Promise<boolean>} true if confirmed, false if cancelled
+   */
+  function confirmDialog(options) {
+    const {
+      title = 'Confirm',
+      message = 'Are you sure?',
+      variant = 'warning',
+      confirmText = 'Confirm',
+      cancelText = 'Cancel'
+    } = options || {};
+
+    const config = variantConfig[variant] || variantConfig.warning;
+    const modalId = generateModalId();
+
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.id = modalId;
+      modal.className = 'hidden fixed inset-0 z-[var(--z-modal)]';
+      modal.setAttribute('role', 'alertdialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-labelledby', `${modalId}-title`);
+      modal.setAttribute('aria-describedby', `${modalId}-desc`);
+
+      modal.innerHTML = `
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" data-modal-backdrop aria-hidden="true"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+          <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <div class="p-6">
+              <div class="flex items-start gap-4">
+                ${buildIconHtml(config)}
+                <div class="flex-1">
+                  <h3 id="${modalId}-title" class="text-lg font-semibold text-text-primary">${escapeHtml(title)}</h3>
+                  <p id="${modalId}-desc" class="mt-2 text-sm text-text-secondary">${escapeHtml(message)}</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+              <button type="button" data-modal-cancel
+                      class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                ${escapeHtml(cancelText)}
+              </button>
+              <button type="button" data-modal-confirm
+                      class="px-4 py-2 ${config.btnClass} text-white font-medium text-sm rounded-md transition-colors">
+                ${escapeHtml(confirmText)}
+              </button>
+            </div>
+          </div>
+        </div>`;
+
+      const close = showDynamicModal(modal, resolve, '[data-modal-cancel]');
+
+      modal.querySelector('[data-modal-cancel]').addEventListener('click', () => close(false));
+      modal.querySelector('[data-modal-confirm]').addEventListener('click', () => close(true));
+    });
+  }
+
+  /**
+   * Alert dialog (info/error feedback) — returns Promise<void>
+   * @param {Object} options - Dialog options
+   * @param {string} options.title - Dialog title
+   * @param {string} options.message - Dialog message
+   * @param {string} [options.variant='info'] - 'info' | 'warning' | 'danger'
+   * @param {string} [options.okText='OK'] - OK button text
+   * @returns {Promise<void>}
+   */
+  function alertDialog(options) {
+    const {
+      title = 'Alert',
+      message = '',
+      variant = 'info',
+      okText = 'OK'
+    } = options || {};
+
+    const config = variantConfig[variant] || variantConfig.info;
+    const modalId = generateModalId();
+
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.id = modalId;
+      modal.className = 'hidden fixed inset-0 z-[var(--z-modal)]';
+      modal.setAttribute('role', 'alertdialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-labelledby', `${modalId}-title`);
+      modal.setAttribute('aria-describedby', `${modalId}-desc`);
+
+      modal.innerHTML = `
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" data-modal-backdrop aria-hidden="true"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+          <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <div class="p-6">
+              <div class="flex items-start gap-4">
+                ${buildIconHtml(config)}
+                <div class="flex-1">
+                  <h3 id="${modalId}-title" class="text-lg font-semibold text-text-primary">${escapeHtml(title)}</h3>
+                  <p id="${modalId}-desc" class="mt-2 text-sm text-text-secondary">${escapeHtml(message)}</p>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-end px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+              <button type="button" data-modal-ok
+                      class="px-4 py-2 ${config.btnClass} text-white font-medium text-sm rounded-md transition-colors">
+                ${escapeHtml(okText)}
+              </button>
+            </div>
+          </div>
+        </div>`;
+
+      const close = showDynamicModal(modal, () => resolve(), '[data-modal-ok]');
+
+      modal.querySelector('[data-modal-ok]').addEventListener('click', () => close());
+    });
+  }
+
+  /**
+   * Typed confirmation dialog — returns Promise<boolean>
+   * @param {Object} options - Dialog options
+   * @param {string} options.title - Dialog title
+   * @param {string} options.message - Dialog message
+   * @param {string} options.requiredText - Text the user must type to confirm
+   * @param {string} [options.inputLabel] - Label for the input field
+   * @param {string} [options.variant='danger'] - 'info' | 'warning' | 'danger'
+   * @param {string} [options.confirmText='Confirm'] - Confirm button text
+   * @param {string} [options.cancelText='Cancel'] - Cancel button text
+   * @returns {Promise<boolean>} true if confirmed, false if cancelled
+   */
+  function typedConfirmDialog(options) {
+    const {
+      title = 'Confirm',
+      message = '',
+      requiredText = 'CONFIRM',
+      inputLabel = `Type ${requiredText} to confirm`,
+      variant = 'danger',
+      confirmText = 'Confirm',
+      cancelText = 'Cancel'
+    } = options || {};
+
+    const config = variantConfig[variant] || variantConfig.danger;
+    const modalId = generateModalId();
+
+    return new Promise((resolve) => {
+      const modal = document.createElement('div');
+      modal.id = modalId;
+      modal.className = 'hidden fixed inset-0 z-[var(--z-modal)]';
+      modal.setAttribute('role', 'alertdialog');
+      modal.setAttribute('aria-modal', 'true');
+      modal.setAttribute('aria-labelledby', `${modalId}-title`);
+      modal.setAttribute('aria-describedby', `${modalId}-desc`);
+
+      modal.innerHTML = `
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" data-modal-backdrop aria-hidden="true"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+          <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+            <div class="p-6">
+              <div class="flex items-start gap-4">
+                ${buildIconHtml(config)}
+                <div class="flex-1">
+                  <h3 id="${modalId}-title" class="text-lg font-semibold text-text-primary">${escapeHtml(title)}</h3>
+                  <p id="${modalId}-desc" class="mt-2 text-sm text-text-secondary">${escapeHtml(message)}</p>
+                  <div class="mt-4">
+                    <label for="${modalId}-input" class="block text-sm font-medium text-text-primary mb-2">
+                      ${escapeHtml(inputLabel)}
+                    </label>
+                    <input type="text" id="${modalId}-input" data-modal-input
+                           class="w-full px-3 py-2 text-sm bg-bg-primary border border-error rounded-md text-text-primary placeholder-text-tertiary focus:border-error focus:ring-1 focus:ring-error transition-colors"
+                           placeholder="${escapeHtml(requiredText)}" autocomplete="off" />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+              <button type="button" data-modal-cancel
+                      class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                ${escapeHtml(cancelText)}
+              </button>
+              <button type="button" data-modal-confirm disabled
+                      class="px-4 py-2 ${config.disabledBtnClass} text-white font-medium text-sm rounded-md transition-colors">
+                ${escapeHtml(confirmText)}
+              </button>
+            </div>
+          </div>
+        </div>`;
+
+      const close = showDynamicModal(modal, resolve, '[data-modal-input]');
+
+      const input = modal.querySelector('[data-modal-input]');
+      const confirmBtn = modal.querySelector('[data-modal-confirm]');
+
+      input.addEventListener('input', () => {
+        confirmBtn.disabled = input.value !== requiredText;
+      });
+
+      modal.querySelector('[data-modal-cancel]').addEventListener('click', () => close(false));
+      confirmBtn.addEventListener('click', () => close(true));
+    });
+  }
+
   // Expose public API
   window.quickActions = {
     showConfirmationModal,
     hideConfirmationModal,
     submitQuickAction,
-    showToast
+    showToast,
+    confirm: confirmDialog,
+    alert: alertDialog,
+    typedConfirm: typedConfirmDialog
   };
 
   // Initialize

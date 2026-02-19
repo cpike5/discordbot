@@ -71,8 +71,12 @@
 
     /* Z-index layers */
     --z-fixed: 300;
-    --z-popover: 350;
-    --z-notification: 400;
+    --z-modal-backdrop: 1000;
+    --z-modal: 1001;
+    --z-popover: 1100;
+    --z-tooltip: 1200;
+    --z-toast: 1300;
+    --z-notification: 1300;
   }
 
   /* ============================================
@@ -1895,11 +1899,27 @@
 
   /* Z-index utilities */
   .z-fixed {
-    z-index: 300;
+    z-index: var(--z-fixed);
+  }
+
+  .z-modal-backdrop {
+    z-index: var(--z-modal-backdrop);
+  }
+
+  .z-modal {
+    z-index: var(--z-modal);
   }
 
   .z-notification {
     z-index: var(--z-notification);
+  }
+
+  .z-tooltip {
+    z-index: var(--z-tooltip);
+  }
+
+  .z-toast {
+    z-index: var(--z-toast);
   }
 
   /* Toast Notifications */

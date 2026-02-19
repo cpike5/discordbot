@@ -2,7 +2,7 @@
 @using DiscordBot.Bot.ViewModels.Components
 
 <!-- Confirmation Modal -->
-<div id="@Model.Id" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="@(Model.Id)Title" aria-describedby="@(Model.Id)Desc">
+<div id="@Model.Id" class="hidden fixed inset-0 z-[var(--z-modal)]" role="alertdialog" aria-modal="true" aria-labelledby="@(Model.Id)Title" aria-describedby="@(Model.Id)Desc">
     <!-- Backdrop - aria-hidden prevents screen readers from announcing this decorative element -->
     <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="window.quickActions?.hideConfirmationModal('@Model.Id')" aria-hidden="true"></div>
 
