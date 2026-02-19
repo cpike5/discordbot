@@ -2,7 +2,7 @@
 
 Guidance for Claude Code when working with this Discord bot management system. See README.md for full documentation.
 
-**Current version:** v1.1.1. See [CLAUDE-REFERENCE.md](CLAUDE-REFERENCE.md) for comprehensive lookup tables.
+**Current version:** v1.1.2-dev. See [CLAUDE-REFERENCE.md](CLAUDE-REFERENCE.md) for comprehensive lookup tables.
 
 ## Quick Reference
 
