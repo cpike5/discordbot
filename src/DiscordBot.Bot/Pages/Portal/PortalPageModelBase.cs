@@ -1,4 +1,5 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -178,13 +179,36 @@ public abstract class PortalPageModelBase : PageModel
             return (PortalAuthResult.ShowLandingPage, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
         }
 
-        // Check if user is a member of the guild
+        // SuperAdmins and Admins bypass guild membership checks (consistent with PortalGuildMemberAuthorizationHandler)
+        if (User.IsInRole(IdentitySeeder.Roles.SuperAdmin) || User.IsInRole(IdentitySeeder.Roles.Admin))
+        {
+            _logger.LogDebug("Admin user {DiscordUserId} granted portal access for guild {GuildId}",
+                user.DiscordUserId.Value, guildId);
+            IsAuthorized = true;
+            return (PortalAuthResult.Authorized, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+        }
+
+        // Check if user is a member of the guild (cache first, then REST API fallback)
         var guildUser = socketGuild.GetUser(user.DiscordUserId.Value);
         if (guildUser == null)
         {
-            _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
-                user.DiscordUserId.Value, guildId);
-            return (PortalAuthResult.NotGuildMember, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+            // Cache miss - try REST API (AlwaysDownloadUsers is false, so cache may be incomplete)
+            try
+            {
+                var restUser = await _discordClient.Rest.GetGuildUserAsync(guildId, user.DiscordUserId.Value);
+                if (restUser == null)
+                {
+                    _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
+                        user.DiscordUserId.Value, guildId);
+                    return (PortalAuthResult.NotGuildMember, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to verify guild membership via REST for user {DiscordUserId} in guild {GuildId}",
+                    user.DiscordUserId.Value, guildId);
+                return (PortalAuthResult.NotGuildMember, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+            }
         }
 
         // User is authenticated and authorized
