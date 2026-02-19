@@ -1,0 +1,90 @@
+# Discord Bot Management System — Docker Compose (GHCR pre-built image)
+#
+# Pulls the pre-built image from GitHub Container Registry instead of building locally.
+#
+# Usage:
+#   docker compose -f docker-compose.ghcr.yml up -d                                    # Bot + SQLite (default)
+#   docker compose -f docker-compose.ghcr.yml --profile postgres up -d                 # Bot + PostgreSQL
+#   docker compose -f docker-compose.ghcr.yml --profile seq up -d                      # Bot + Seq logging
+#   docker compose -f docker-compose.ghcr.yml --profile postgres --profile seq up -d   # Everything
+#
+# To use a specific version, set IMAGE_TAG in .env (default: latest):
+#   IMAGE_TAG=1.1.0
+#
+# PostgreSQL workflow:
+#   1. Copy .env.example to .env and set DATABASE_PROVIDER=PostgreSql
+#   2. Set CONNECTION_STRING to the PostgreSQL connection string (use 'postgres' as hostname)
+#   3. Set POSTGRES_USER and POSTGRES_PASSWORD to match the connection string
+#   4. Run: docker compose -f docker-compose.ghcr.yml --profile postgres up -d
+
+services:
+  # ===========================================================================
+  # Bot (always starts)
+  # ===========================================================================
+  bot:
+    image: ghcr.io/cpike5/discordbot:${IMAGE_TAG:-latest}
+    env_file: .env
+    environment:
+      Observability__SeqUrl: ${SEQ_URL:-}
+      Database__Provider: ${DATABASE_PROVIDER:-}
+      ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:-Data Source=data/discordbot.db}
+    volumes:
+      - bot-data:/app/data            # SQLite database persistence
+      - ./sounds:/app/sounds:ro       # Optional: custom sound clips
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+      seq:
+        condition: service_healthy
+        required: false
+
+  # ===========================================================================
+  # PostgreSQL (--profile postgres)
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    profiles: [postgres]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-discordbot}
+      POSTGRES_USER: ${POSTGRES_USER:-discordbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-discordbot} -d ${POSTGRES_DB:-discordbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================================================
+  # Seq (--profile seq)
+  # ===========================================================================
+  seq:
+    image: datalust/seq:latest
+    profiles: [seq]
+    environment:
+      ACCEPT_EULA: "Y"
+      SEQ_FIRSTRUN_ADMINPASSWORD: ${SEQ_ADMIN_PASSWORD:-}
+      SEQ_FIRSTRUN_NOAUTHENTICATION: ${SEQ_NO_AUTH:-true}
+    volumes:
+      - seq-data:/data
+    ports:
+      - "5343:80"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost:80/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  bot-data:
+  postgres-data:
+  seq-data:
