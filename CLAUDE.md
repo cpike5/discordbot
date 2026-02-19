@@ -170,6 +170,25 @@ Files exceeding standard read limits - search for specific methods instead of fu
 - Kibana (optional): `http://localhost:5601`
 - Elastic APM (optional): `http://localhost:8200`
 
+## Agent Definitions
+
+Domain-expert agents live in `.claude/agents/`. Each agent owns a feature stream and carries domain-specific knowledge (key files, patterns, gotchas).
+
+**Maintenance rule:** When completing feature work that adds new services, entities, repositories, or significantly changes patterns within a stream, update the relevant agent definition in `.claude/agents/` as part of the same work. Keep file paths, service inventories, and gotchas current.
+
+| Agent | Stream |
+|-------|--------|
+| `moderation-safety` | Mod cases, notes, tags, watchlists, auto-mod, content filtering, raid/spam, flagged events |
+| `audio-voice` | Soundboard, TTS (Azure), VOX system, playback, voice channel management |
+| `ai-assistant` | Anthropic/Claude integration, agent runner, tool registry/providers, cost tracking |
+| `scheduling-notifications` | Scheduled messages, reminders, notifications, time parsing |
+| `analytics-observability` | Analytics, performance monitoring, alerting, health, SignalR, Serilog/OTel/APM |
+| `user-identity` | Identity, Discord OAuth, consent/GDPR, data export/purge, verification, roles |
+| `guild-configuration` | Guild settings, member sync, command module config, welcome system, IOptions |
+| `community-engagement` | Rat Watch, public leaderboards, fun/nice-to-have features |
+| `data-infrastructure` | EF Core, repositories, migrations, audit/message logging, search, caching, background services |
+| `web-ui-portal` | Razor Pages, shared components, Tailwind/HTMX/Alpine.js, portal, design system, API controllers |
+
 ## Lookup Reference
 
 For comprehensive tables (Configuration Options, UI Page Routes, Command Modules, Full Docs Index), see [CLAUDE-REFERENCE.md](CLAUDE-REFERENCE.md).
