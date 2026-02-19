@@ -51,6 +51,7 @@ This section contains conceptual documentation and developer guides for the Disc
 ## Deployment
 - [Docker Deployment](docker-deployment.md) - Docker and Docker Compose deployment guide
 - [Linux VPS Deployment](linux-deployment.md) - Production deployment guide for Ubuntu/Debian
+- [SQLite to Docker + PostgreSQL Migration](sqlite-to-docker-postgres-migration.md) - Migrate from manual SQLite to Docker with PostgreSQL
 - [Versioning Strategy](versioning-strategy.md) - SemVer versioning and release process
 
 ## Development
