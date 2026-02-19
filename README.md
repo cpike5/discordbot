@@ -45,6 +45,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 - Role-based authorization (SuperAdmin, Admin, Moderator, Viewer)
 - User management dashboard with Discord account linking
 - Structured logging with Serilog (console and rotating file outputs)
+- Dual database provider support: SQLite (default/development) and PostgreSQL (production)
 - Clean architecture with separation of concerns
 - Graceful bot lifecycle management
 - Swagger/OpenAPI documentation for REST API
@@ -629,8 +630,9 @@ All `appsettings.json` values can be overridden with environment variables using
 Discord__Token="your-bot-token"
 Discord__TestGuildId="123456789"
 
-# Database
-ConnectionStrings__DefaultConnection="Server=...;Database=...;User Id=...;Password=..."
+# Database (SQLite default; set Provider and connection string for PostgreSQL)
+Database__Provider="PostgreSql"
+ConnectionStrings__DefaultConnection="Host=localhost;Database=discordbot;Username=discordbot;Password=..."
 
 # OAuth
 Discord__OAuth__ClientId="your-client-id"
@@ -659,10 +661,12 @@ dotnet ef database update \
 ```
 
 Supported databases:
-- SQLite (default for development)
+- SQLite (default, file-based — ideal for development and single-server deployments)
+- PostgreSQL (recommended for production — see [docker-deployment.md](docs/articles/docker-deployment.md) for Docker setup and [linux-deployment.md](docs/articles/linux-deployment.md) for bare-metal setup)
 - SQL Server
 - MySQL
-- PostgreSQL
+
+Provider is selected via the `Database:Provider` config key (`Sqlite` or `PostgreSql`), or auto-detected from the connection string format.
 
 ### Linux Systemd Service
 

@@ -7,7 +7,7 @@ The repository pattern provides an abstraction layer between the application log
 **Benefits:**
 - **Testability:** Repositories can be easily mocked for unit testing
 - **Separation of Concerns:** Business logic separated from data access
-- **Flexibility:** Easy to swap data providers (SQLite → SQL Server)
+- **Flexibility:** Easy to swap data providers (SQLite → PostgreSQL or SQL Server) — EF Core's repository abstraction enables transparent provider switching without changing business logic
 - **Consistency:** Standardized data access methods across entities
 - **Encapsulation:** Complex queries encapsulated in repository methods
 
@@ -204,12 +204,14 @@ public static IServiceCollection AddInfrastructure(
     this IServiceCollection services,
     IConfiguration configuration)
 {
-    // Register DbContext with SQLite
+    // Register DbContext — provider is selected based on configuration.
+    // SQLite is the default for development; PostgreSQL is used in production
+    // Docker deployments (enabled via the --profile postgres Compose profile).
     var connectionString = configuration.GetConnectionString("DefaultConnection")
         ?? "Data Source=discordbot.db";
 
     services.AddDbContext<BotDbContext>(options =>
-        options.UseSqlite(connectionString));
+        options.UseSqlite(connectionString));  // or .UseNpgsql(...) for PostgreSQL
 
     // Register repositories as Scoped
     services.AddScoped(typeof(IRepository<>), typeof(Repository<>));

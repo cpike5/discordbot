@@ -1,7 +1,7 @@
 # Linux VPS Deployment Guide
 
-**Last Updated:** 2025-12-27
-**Applies to:** v0.3.x
+**Last Updated:** 2026-02-19
+**Applies to:** v1.0.x
 **Target:** Ubuntu 22.04 LTS / Debian 12 (other systemd-based distros should work with minor adjustments)
 
 ---
@@ -446,13 +446,18 @@ dotnet ef database update \
 
 Or copy the database file, apply migrations locally, and copy it back.
 
-### PostgreSQL (Alternative for High Availability)
+### PostgreSQL (Recommended for Production / High Availability)
 
-If using PostgreSQL:
+PostgreSQL is recommended for production deployments. The application auto-detects the provider from the connection string, or you can set it explicitly.
+
+#### Install and Configure PostgreSQL
 
 ```bash
 # Install PostgreSQL
 sudo apt install -y postgresql postgresql-contrib
+
+# Start and enable the service
+sudo systemctl enable --now postgresql
 
 # Create database and user
 sudo -u postgres psql << EOF
@@ -462,11 +467,49 @@ GRANT ALL PRIVILEGES ON DATABASE discordbot TO discordbot;
 EOF
 ```
 
-Update connection string in `/etc/discordbot/secrets.env`:
+#### Configure the Application
+
+Add the following to `/etc/discordbot/discordbot.env` (the secrets file):
 
 ```bash
+# Explicit provider selection (optional — auto-detected from connection string)
+Database__Provider=PostgreSql
+
+# PostgreSQL connection string
 ConnectionStrings__DefaultConnection=Host=localhost;Database=discordbot;Username=discordbot;Password=your-secure-password
 ```
+
+Alternatively, set these in `/opt/discordbot/appsettings.Production.json` under the `ConnectionStrings` and `Database` keys:
+
+```json
+{
+  "Database": {
+    "Provider": "PostgreSql"
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=discordbot;Username=discordbot;Password=your-secure-password"
+  }
+}
+```
+
+**Auto-detection:** If `Database:Provider` is omitted, the application detects the provider from the connection string: a string containing `Host=` or `Server=` (without a file path) is treated as PostgreSQL; a string with a file-path `Data Source` is treated as SQLite.
+
+#### Database Migrations
+
+Migrations run automatically on startup — no manual steps are required. The application will apply any pending migrations to the PostgreSQL database when it first starts.
+
+#### Data Migration (SQLite to PostgreSQL)
+
+If you are moving an existing deployment from SQLite to PostgreSQL, use the built-in migration CLI:
+
+```bash
+# Run from the application directory
+dotnet DiscordBot.Bot.dll migrate-data \
+  --source "Data Source=/var/lib/discordbot/discordbot.db" \
+  --target "Host=localhost;Database=discordbot;Username=discordbot;Password=your-secure-password"
+```
+
+This copies all data from the SQLite source to the PostgreSQL target. Run it before switching the active connection string.
 
 ---
 

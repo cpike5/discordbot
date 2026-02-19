@@ -7,6 +7,7 @@ This document describes the environment-specific configuration files and their i
 | Section | Class | Key Settings |
 |---------|-------|--------------|
 | `Application` | `ApplicationOptions` | Title, BaseUrl, ContactEmail |
+| `Database` | `DatabaseOptions` | Provider (`Sqlite` \| `PostgreSql`) |
 | `Discord` | `DiscordOAuthOptions` | ClientId, ClientSecret, Token |
 | `AudioCache` | `AudioCacheOptions` | MaxCacheSizeMb, CacheExpirationMinutes |
 | `Soundboard` | `SoundboardOptions` | MaxFileSizeMb, AllowedExtensions, MaxSoundsPerGuild |
@@ -142,6 +143,82 @@ The Discord Bot uses ASP.NET Core's configuration system which automatically loa
   }
 }
 ```
+
+## Database Provider Configuration
+
+### Provider Selection
+
+The `Database:Provider` key controls which database engine EF Core uses. If omitted, the provider is auto-detected from the connection string.
+
+| Value | Provider | Detection heuristic |
+|-------|----------|---------------------|
+| `Sqlite` | SQLite (file-based) | `Data Source` with a file path |
+| `PostgreSql` | PostgreSQL (Npgsql) | Connection string containing `Host=` or `Server=` |
+| *(omitted)* | Auto-detected | See heuristics above |
+
+**appsettings.json:**
+```json
+{
+  "Database": {
+    "Provider": "PostgreSql"
+  },
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Database=discordbot;Username=discordbot;Password=your-password"
+  }
+}
+```
+
+**Environment variable form:**
+```bash
+Database__Provider=PostgreSql
+ConnectionStrings__DefaultConnection="Host=localhost;Database=discordbot;Username=discordbot;Password=your-password"
+```
+
+### Connection String Examples
+
+**SQLite (default — development and single-server):**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Data Source=data/discordbot.db"
+  }
+}
+```
+
+**PostgreSQL (production):**
+```json
+{
+  "ConnectionStrings": {
+    "DefaultConnection": "Host=localhost;Port=5432;Database=discordbot;Username=discordbot;Password=your-password"
+  }
+}
+```
+
+**PostgreSQL via Docker Compose (`postgres` profile):**
+```bash
+ConnectionStrings__DefaultConnection="Host=db;Database=discordbot;Username=discordbot;Password=your-password"
+```
+
+### Detection Logic
+
+Provider selection follows a two-tier priority:
+
+1. **Explicit config** — if `Database:Provider` is set to `Sqlite` or `PostgreSql`, that value is used unconditionally.
+2. **Connection string heuristic** — if `Database:Provider` is absent or null, the connection string is inspected:
+   - Contains `Host=` or `Server=` (without a file path extension) → PostgreSQL
+   - Contains `Data Source` with a file path → SQLite
+
+This means you can omit `Database:Provider` in most cases and rely on the connection string alone to determine the provider.
+
+### Environment Recommendations
+
+| Environment | Provider | Rationale |
+|-------------|----------|-----------|
+| Development | SQLite | Zero-config, file-based, no server required |
+| Staging | PostgreSQL | Match production provider to catch provider-specific issues |
+| Production | PostgreSQL | Concurrent writes, connection pooling, WAL, backup tooling |
+
+---
 
 ## Database Configuration
 
@@ -439,6 +516,8 @@ Use secure environment variable management:
 | Bot Token | `Discord__Token` | Discord bot authentication token |
 | OAuth Client ID | `Discord__OAuth__ClientId` | Discord OAuth2 client ID |
 | OAuth Client Secret | `Discord__OAuth__ClientSecret` | Discord OAuth2 client secret |
+| Database Provider | `Database__Provider` | `Sqlite` or `PostgreSql` (or omit for auto-detect) |
+| Database Connection | `ConnectionStrings__DefaultConnection` | Full connection string for the selected provider |
 | Anthropic API Key | `Anthropic__ApiKey` | Anthropic/Claude API key |
 | Azure Speech Key | `AzureSpeech__SubscriptionKey` | Azure Speech Services subscription key |
 | Seq API Key | `Serilog__WriteTo__2__Args__apiKey` | Seq log aggregation API key |

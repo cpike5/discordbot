@@ -12,9 +12,16 @@ dotnet build
 dotnet run --project src/DiscordBot.Bot
 dotnet test
 
-# Entity Framework
-dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot
-dotnet ef database update --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot
+# Entity Framework — SQLite (--context required)
+dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot --context SqliteBotDbContext -o Migrations/Sqlite
+dotnet ef database update --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot --context SqliteBotDbContext
+
+# Entity Framework — PostgreSQL (--context required)
+dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot --context PostgresBotDbContext -o Migrations/Postgresql
+dotnet ef database update --project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot --context PostgresBotDbContext
+
+# Data Migration (SQLite → PostgreSQL or vice versa)
+dotnet run --project src/DiscordBot.Bot -- migrate-data --source "Data Source=data/discordbot.db" --target "Host=localhost;Database=discordbot;Username=discordbot;Password=changeme"
 
 # Documentation
 .\build-docs.ps1 -Serve  # Build and serve at http://localhost:8080
@@ -55,6 +62,13 @@ window.guildId = '@Model.GuildId';
 - **Never commit tokens** - use User Secrets for `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`, `Anthropic:ApiKey`, `AzureSpeech:SubscriptionKey`
 - **Command propagation** - Without `Discord:TestGuildId`, global commands take up to 1 hour to appear
 - **Discord terminology** - Use "guild" not "server" in URLs/code (Discord API convention)
+- **Database provider** - Set `Database:Provider` to `Sqlite` or `PostgreSql` to explicitly select a provider; omit for auto-detection from the connection string (`Host=`/`Server=` → PostgreSQL, file-path `Data Source` → SQLite). Default is SQLite at `data/discordbot.db`.
+
+### PostgreSQL
+
+- **EF CLI requires `--context`** - Both `SqliteBotDbContext` and `PostgresBotDbContext` design-time factories exist; always pass `--context` to EF CLI commands (see Quick Reference above).
+- **Separate migration sets** - SQLite migrations live in `Migrations/Sqlite/`, PostgreSQL in `Migrations/Postgresql/`.
+- **Npgsql legacy timestamp** - `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)` is applied at startup. Do not remove this switch; removing it causes `DateTime` write errors with `timestamp with time zone` columns.
 
 ### Audio Dependencies
 

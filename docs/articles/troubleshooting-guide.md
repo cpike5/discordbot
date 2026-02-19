@@ -993,6 +993,100 @@ sudo tail -f /var/log/postgresql/postgresql-*.log
 
 ---
 
+### PostgreSQL Issues
+
+The following issues apply specifically to deployments using the PostgreSQL provider. SQLite deployments are not affected.
+
+#### Connection Refused
+
+**Symptoms:**
+- `Npgsql.NpgsqlException: Failed to connect to ...`
+- Application fails to start with a database connection error
+
+**Solutions:**
+
+1. Verify PostgreSQL is running:
+   ```bash
+   # Linux (systemd)
+   systemctl status postgresql
+
+   # Docker Compose
+   docker compose ps
+   ```
+
+2. Check the host and port in the connection string match the running instance. The default PostgreSQL port is `5432`. When using Docker Compose with the `--profile postgres` option, the service is reachable at `localhost:5432` from the host or at the service name (`postgres`) from within the Docker network.
+
+3. Ensure the connection string uses the correct format:
+   ```
+   Host=localhost;Port=5432;Database=discordbot;Username=botuser;Password=yourpassword
+   ```
+
+#### Authentication Failure
+
+**Symptoms:**
+- `Npgsql.PostgresException: 28P01: password authentication failed for user "..."`
+- `28000: no pg_hba.conf entry for host`
+
+**Solutions:**
+
+1. Verify the username and password in the connection string match the PostgreSQL user:
+   ```bash
+   psql -h localhost -U botuser -d discordbot
+   ```
+
+2. If the error references `pg_hba.conf`, the PostgreSQL host-based authentication configuration does not allow the connection. Edit `/etc/postgresql/<version>/main/pg_hba.conf` to add an entry for the application's host, then reload PostgreSQL:
+   ```bash
+   systemctl reload postgresql
+   ```
+
+#### Timestamp Errors
+
+**Symptoms:**
+- `InvalidCastException` or `NotSupportedException` involving `DateTime` or `timestamp without time zone` during migrations or data access
+
+**Solution:**
+
+The application sets `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)` in `Program.cs` automatically. If this error occurs, confirm that the startup code path runs before any EF Core operations. No manual configuration is required.
+
+#### Sequence Exhaustion After Data Migration
+
+**Symptoms:**
+- `duplicate key value violates unique constraint` on `Id` columns immediately after importing data
+
+**Solution:**
+
+When data is migrated from SQLite (or another source) using the `migrate-data` command, PostgreSQL sequences may not be updated to reflect the highest existing ID. Verify that the `migrate-data` command ran its sequence reset step. If sequences were not reset, update them manually:
+
+```sql
+-- Example for the Guilds table; repeat for each affected table
+SELECT setval(pg_get_serial_sequence('"Guilds"', 'Id'), MAX("Id")) FROM "Guilds";
+```
+
+#### "More Than One DbContext Was Found" (EF CLI)
+
+**Symptoms:**
+- `More than one DbContext was found. Specify which one to use.` when running `dotnet ef` commands
+
+**Solution:**
+
+The project registers both `SqliteBotDbContext` and `PostgresBotDbContext`. Always specify the target context explicitly:
+
+```bash
+# SQLite migrations
+dotnet ef migrations add MigrationName \
+  --context SqliteBotDbContext \
+  --project src/DiscordBot.Infrastructure \
+  --startup-project src/DiscordBot.Bot
+
+# PostgreSQL migrations
+dotnet ef migrations add MigrationName \
+  --context PostgresBotDbContext \
+  --project src/DiscordBot.Infrastructure \
+  --startup-project src/DiscordBot.Bot
+```
+
+---
+
 ### Performance Issues
 
 **Symptoms:**

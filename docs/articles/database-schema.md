@@ -2,7 +2,41 @@
 
 ## Overview
 
-The Discord bot uses Entity Framework Core with SQLite for local development and supports MSSQL, MySQL, and PostgreSQL for production deployments. The schema has evolved from the initial three core tables (`Guilds`, `Users`, `CommandLogs`) to include additional feature tables for audit logging, scheduled messages, welcome configurations, message logging, user consent tracking, and the Rat Watch accountability system.
+The Discord bot uses Entity Framework Core with SQLite for local development and PostgreSQL for production deployments. The schema has evolved from the initial three core tables (`Guilds`, `Users`, `CommandLogs`) to include additional feature tables for audit logging, scheduled messages, welcome configurations, message logging, user consent tracking, and the Rat Watch accountability system.
+
+## Database Provider Support
+
+The application supports two database providers selected via the `Database:Provider` configuration key:
+
+| Provider | Value | Recommended For |
+|----------|-------|-----------------|
+| SQLite | `Sqlite` | Local development, single-server deployments with low write volume |
+| PostgreSQL | `PostgreSql` | Production, high-availability, multi-instance deployments |
+
+**Default:** SQLite with `Data Source=data/discordbot.db`.
+
+**Auto-detection:** If `Database:Provider` is not set, the provider is inferred from the connection string: a string containing `Host=` or `Server=` (without a file path) is treated as PostgreSQL; a `Data Source` file-path is treated as SQLite.
+
+See [environment-configuration.md](environment-configuration.md) for the `Database:Provider` config key reference, and [docker-deployment.md](docker-deployment.md) / [linux-deployment.md](linux-deployment.md) for provider-specific setup steps.
+
+## Provider Type Mapping
+
+EF Core maps C# types differently depending on the active provider. The table below shows the storage type used in each case.
+
+| C# Type | SQLite | PostgreSQL | Notes |
+|---------|--------|------------|-------|
+| `ulong` | `INTEGER` | `bigint` | Stored as `long` via EF value converter; application always uses `ulong` |
+| `DateTime` | `TEXT` | `timestamp without time zone` | PostgreSQL uses Npgsql legacy timestamp mode for UTC compatibility |
+| `bool` | `INTEGER` (0/1) | `boolean` | Converted transparently by EF Core |
+| `string` | `TEXT` | `text` | Length constraints enforced at application level via `MaxLength` |
+| `byte[]` / `Guid` | `BLOB` | `bytea` | Used for primary keys on log tables |
+| `decimal` | `TEXT` | `numeric` | Used for cost/metric fields |
+
+**Npgsql timestamp note:** The application configures `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)` to preserve UTC `DateTime` behavior consistent with the SQLite provider.
+
+**Default values:** `HasDefaultValueSql("CURRENT_TIMESTAMP")` is supported on both providers and produces equivalent behavior.
+
+The SQL schema examples in this document use SQLite syntax. Column types differ on PostgreSQL as shown in the mapping table above.
 
 ## Data Type Considerations
 

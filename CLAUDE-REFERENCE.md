@@ -2,7 +2,7 @@
 
 Auto-generated lookup tables for Discord bot management system. Regenerate with `/update-instructions tables`.
 
-**Last updated:** 2026-02-13
+**Last updated:** 2026-02-19
 
 ## Configuration Options
 
@@ -23,6 +23,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | `BotConfiguration` | `Discord` | Discord bot settings (token, test guild, rate limits, owner IDs) |
 | `CachingOptions` | `Caching` | In-memory cache durations for guild, user, and search data |
 | `DatabaseSettings` | `Database` | Query performance logging (slow query threshold, parameter logging) |
+| *(string key)* | `Database:Provider` | Database provider selection: `Sqlite`, `PostgreSql`, or omit for auto-detection from connection string |
 | `DiscordOAuthOptions` | `Discord:OAuth` | OAuth client credentials (use user secrets) |
 | `GuildMembershipCacheOptions` | `GuildMembershipCache` | Guild membership database cache duration |
 | `HistoricalMetricsOptions` | `HistoricalMetrics` | Historical metrics collection (sample interval, retention) |
