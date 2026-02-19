@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Commands;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
@@ -20,6 +21,13 @@ using System.Reflection;
 // DateTime properties and HasDefaultValueSql("CURRENT_TIMESTAMP") calls in our entity configs.
 // This switch restores legacy behavior. See: https://www.npgsql.org/doc/types/datetime.htm
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+// Intercept CLI commands before building the web host
+if (args.Length > 0 && args[0] == "migrate-data")
+{
+    Environment.ExitCode = await MigrateDataCommand.ExecuteAsync(args);
+    return;
+}
 
 // Get service version from assembly for consistent use across logging and APM
 var serviceVersion = Assembly.GetExecutingAssembly()
