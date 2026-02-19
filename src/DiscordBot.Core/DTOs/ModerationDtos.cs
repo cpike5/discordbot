@@ -802,6 +802,11 @@ public class GuildModerationConfigDto
     public ulong GuildId { get; set; }
 
     /// <summary>
+    /// Gets or sets whether the moderation system is enabled for this guild.
+    /// </summary>
+    public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the configuration mode.
     /// </summary>
     public ConfigMode Mode { get; set; }

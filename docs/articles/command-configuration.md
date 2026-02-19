@@ -11,7 +11,7 @@ The Command Module Configuration feature provides:
 - Protection for core modules that cannot be disabled
 - Restart notification when changes require a bot restart
 
-**Note:** This document covers the end-user feature and UI workflows. For technical implementation details, API reference, and programmatic usage, see [Command Module Configuration Technical Reference](command-module-configuration.md).
+**Note:** This document covers both feature workflows and technical implementation details for the command module configuration system.
 
 ## Accessing the Feature
 
@@ -31,7 +31,7 @@ Server administration and configuration commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `AdminModule` | Admin | `/admin info`, `/admin kick`, `/admin ban` |
+| `AdminModule` | Admin | `/status`, `/guilds`, `/shutdown` |
 | `WelcomeModule` | Welcome | `/welcome setup/test/disable` |
 | `ScheduleModule` | Scheduled Messages | `/schedule-message create/list/delete/edit` |
 

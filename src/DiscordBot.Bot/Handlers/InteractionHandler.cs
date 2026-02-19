@@ -91,10 +91,29 @@ public class InteractionHandler
         var loadedModules = new List<string>();
         var skippedModules = new List<string>();
 
+        // Build a set of disabled module names for component module parent lookups
+        var disabledModuleNames = moduleConfigurations
+            .Where(m => !m.IsEnabled)
+            .Select(m => m.ModuleName)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
         // Register only enabled modules
         foreach (var moduleType in allModuleTypes)
         {
             var moduleName = moduleType.Name;
+
+            // If this is a component module, check if its parent module is disabled
+            if (moduleName.EndsWith("ComponentModule", StringComparison.Ordinal))
+            {
+                var parentModuleName = moduleName.Replace("ComponentModule", "Module");
+                if (disabledModuleNames.Contains(parentModuleName))
+                {
+                    skippedModules.Add(moduleName);
+                    _logger.LogInformation("Skipped component module {ModuleName} because parent {ParentModuleName} is disabled",
+                        moduleName, parentModuleName);
+                    continue;
+                }
+            }
 
             // If we have no configuration for this module, default to enabled
             if (!moduleConfigurations.Any(m => m.ModuleName.Equals(moduleName, StringComparison.OrdinalIgnoreCase)))

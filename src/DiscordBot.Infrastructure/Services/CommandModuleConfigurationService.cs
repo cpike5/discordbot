@@ -53,6 +53,7 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
         new("TtsModule", "Text-to-Speech", "Text-to-speech commands", "Audio", true),
         new("SoundboardModule", "Soundboard", "Soundboard playback commands", "Audio", true),
         new("VoiceModule", "Voice", "Voice channel management commands", "Audio", true),
+        new("VoxModule", "VOX", "Half-Life style concatenated clip announcements (/vox, /fvox, /hgrunt)", "Audio", true),
 
         // Utility modules
         new("UtilityModule", "Utility", "Utility commands like /userinfo, /serverinfo", "Utility", true)
@@ -354,6 +355,18 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
                 addedOrUpdated++;
 
                 _logger.LogInformation("Added default module configuration for {ModuleName}", defaultModule.ModuleName);
+            }
+        }
+
+        // Remove stale module configurations that are no longer in the default definitions
+        var knownModuleNames = new HashSet<string>(DefaultModules.Select(m => m.ModuleName), StringComparer.OrdinalIgnoreCase);
+
+        foreach (var existing in existingConfigurations)
+        {
+            if (!knownModuleNames.Contains(existing.ModuleName))
+            {
+                await repository.DeleteAsync(existing.ModuleName, cancellationToken);
+                _logger.LogInformation("Removed stale module configuration for {ModuleName}", existing.ModuleName);
             }
         }
 

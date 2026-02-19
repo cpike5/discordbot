@@ -87,6 +87,7 @@ public class GuildModerationConfigService : IGuildModerationConfigService
             }
 
             // Update fields
+            config.IsEnabled = configDto.IsEnabled;
             config.Mode = configDto.Mode;
             config.SimplePreset = configDto.SimplePreset;
             config.SpamConfig = JsonSerializer.Serialize(configDto.SpamConfig, JsonOptions);
@@ -323,6 +324,7 @@ public class GuildModerationConfigService : IGuildModerationConfigService
         return new GuildModerationConfigDto
         {
             GuildId = config.GuildId,
+            IsEnabled = config.IsEnabled,
             Mode = config.Mode,
             SimplePreset = config.SimplePreset,
             SpamConfig = spamConfig ?? new SpamDetectionConfigDto(),

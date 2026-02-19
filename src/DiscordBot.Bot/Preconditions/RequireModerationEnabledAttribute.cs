@@ -1,37 +1,51 @@
 using Discord;
 using Discord.Interactions;
+using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Preconditions;
 
 /// <summary>
-/// Precondition that requires the moderation system to be enabled for the guild.
-/// Configuration is created on demand if it doesn't exist, so this always succeeds for valid guilds.
-/// TODO: Implement when IGuildModerationConfigService is available.
+/// Precondition that requires moderation features to be enabled both globally and for the guild.
+/// Commands using this attribute will fail if moderation is disabled at either level.
 /// </summary>
 [AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
 public class RequireModerationEnabledAttribute : PreconditionAttribute
 {
     /// <summary>
-    /// Checks if the moderation system is enabled for the guild.
+    /// Checks if moderation features are enabled globally and for the guild.
     /// </summary>
-    public override Task<PreconditionResult> CheckRequirementsAsync(
+    public override async Task<PreconditionResult> CheckRequirementsAsync(
         IInteractionContext context,
         ICommandInfo commandInfo,
         IServiceProvider services)
     {
-        // Check if the command is being used in a guild (not DM)
+        // Moderation commands require a guild context
         if (context.Guild == null)
         {
-            return Task.FromResult(
-                PreconditionResult.FromError("This command can only be used in a guild (server).")
-            );
+            return PreconditionResult.FromError("This command can only be used in a server.");
         }
 
-        // TODO: Once IGuildModerationConfigService is implemented, uncomment this:
-        // var moderationConfigService = services.GetRequiredService<IGuildModerationConfigService>();
-        // var config = await moderationConfigService.GetConfigAsync(context.Guild.Id);
+        // Check bot-level setting first
+        var settingsService = services.GetRequiredService<ISettingsService>();
+        var isGloballyEnabled = await settingsService.GetSettingValueAsync<bool?>("Features:ModerationEnabled") ?? true;
 
-        // For now, always allow (moderation is enabled by default)
-        return Task.FromResult(PreconditionResult.FromSuccess());
+        if (!isGloballyEnabled)
+        {
+            return PreconditionResult.FromError(
+                "Moderation features have been disabled by an administrator.");
+        }
+
+        // Check guild-level setting
+        var moderationConfigService = services.GetRequiredService<IGuildModerationConfigService>();
+        var config = await moderationConfigService.GetConfigAsync(context.Guild.Id);
+
+        if (!config.IsEnabled)
+        {
+            return PreconditionResult.FromError(
+                "Moderation features are disabled for this server. An administrator can enable them in the admin panel.");
+        }
+
+        return PreconditionResult.FromSuccess();
     }
 }

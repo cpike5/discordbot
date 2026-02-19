@@ -237,7 +237,6 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [bot-performance-dashboard.md](docs/articles/bot-performance-dashboard.md) | Performance monitoring dashboard |
 | [bot-verification.md](docs/articles/bot-verification.md) | Bot verification as OAuth alternative |
 | [command-configuration.md](docs/articles/command-configuration.md) | Command module enable/disable |
-| [command-module-configuration.md](docs/articles/command-module-configuration.md) | Dynamic module configuration system |
 | [commands-page-design.md](docs/articles/commands-page-design.md) | Commands page design spec |
 | [commands-page.md](docs/articles/commands-page.md) | Commands page feature |
 | [component-api.md](docs/articles/component-api.md) | Razor UI component library reference |
