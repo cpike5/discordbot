@@ -16,6 +16,11 @@ using Serilog;
 using Serilog.Exceptions;
 using System.Reflection;
 
+// Npgsql 6+ defaults to timestamp with time zone for DateTime, which breaks existing
+// DateTime properties and HasDefaultValueSql("CURRENT_TIMESTAMP") calls in our entity configs.
+// This switch restores legacy behavior. See: https://www.npgsql.org/doc/types/datetime.htm
+AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
 // Get service version from assembly for consistent use across logging and APM
 var serviceVersion = Assembly.GetExecutingAssembly()
     .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion

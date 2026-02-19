@@ -7,6 +7,7 @@ using DiscordBot.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
 
 namespace DiscordBot.Infrastructure.Extensions;
 
@@ -28,15 +29,35 @@ public static class ServiceCollectionExtensions
         // Register query performance interceptor as singleton
         services.AddSingleton<QueryPerformanceInterceptor>();
 
-        // Register DbContext with SQLite and interceptor
+        // Register DbContext with provider detection
+        // Primary: explicit Database:Provider config key; Fallback: connection string heuristic
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? "Data Source=data/discordbot.db";
+
+        var dbSettings = configuration.GetSection(DatabaseSettings.SectionName).Get<DatabaseSettings>()
+            ?? new DatabaseSettings();
+        var isPostgreSql = dbSettings.Provider?.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase) == true
+            || (string.IsNullOrEmpty(dbSettings.Provider) && IsPostgreSqlConnectionString(connectionString));
+
+        var providerName = isPostgreSql ? "PostgreSQL" : "SQLite";
+        Log.Information("Database provider: {Provider}", providerName);
 
         services.AddDbContext<BotDbContext>((serviceProvider, options) =>
         {
             var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
-            options.UseSqlite(connectionString)
-                   .AddInterceptors(interceptor);
+
+            if (isPostgreSql)
+            {
+                options.UseNpgsql(connectionString, npgsql =>
+                    npgsql.MigrationsAssembly("DiscordBot.Infrastructure"))
+                    .AddInterceptors(interceptor);
+            }
+            else
+            {
+                options.UseSqlite(connectionString, sqlite =>
+                    sqlite.MigrationsAssembly("DiscordBot.Infrastructure"))
+                    .AddInterceptors(interceptor);
+            }
         });
 
         // Register repositories
@@ -86,5 +107,17 @@ public static class ServiceCollectionExtensions
         services.AddSingleton<ICommandModuleConfigurationService, CommandModuleConfigurationService>();
 
         return services;
+    }
+
+    /// <summary>
+    /// Heuristic to detect PostgreSQL connection strings.
+    /// PostgreSQL strings typically contain Host= or Server=, while SQLite strings reference file paths.
+    /// Note: Npgsql accepts "Data Source=" as an alias for "Host=", making pure keyword matching
+    /// unreliable — this is why the explicit Database:Provider config is the primary mechanism.
+    /// </summary>
+    private static bool IsPostgreSqlConnectionString(string connectionString)
+    {
+        return connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase);
     }
 }
