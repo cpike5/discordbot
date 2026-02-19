@@ -64,6 +64,10 @@ public partial class ApiMetricsMiddleware
 
     private static bool ShouldTrackRequest(string path)
     {
+        // Exclude health check endpoint from metrics tracking
+        if (path.StartsWith("/health", StringComparison.OrdinalIgnoreCase))
+            return false;
+
         // Track API endpoints and key Razor pages
         return path.StartsWith("/api/", StringComparison.OrdinalIgnoreCase)
             || path.StartsWith("/Account/", StringComparison.OrdinalIgnoreCase)
