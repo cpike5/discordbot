@@ -1,6 +1,6 @@
 # Docker Deployment Guide
 
-**Last Updated:** 2026-02-18
+**Last Updated:** 2026-02-19
 **Applies to:** v1.0.x+
 
 ---
@@ -84,13 +84,14 @@ docker compose --profile postgres up -d
 Enable PostgreSQL by uncommenting and configuring these settings in `.env`:
 
 ```env
-ConnectionStrings__DefaultConnection=Host=postgres;Database=discordbot;Username=discordbot;Password=changeme
+DATABASE_PROVIDER=PostgreSql
+CONNECTION_STRING=Host=postgres;Database=discordbot;Username=discordbot;Password=changeme
 POSTGRES_DB=discordbot
 POSTGRES_USER=discordbot
 POSTGRES_PASSWORD=changeme
 ```
 
-The bot waits for PostgreSQL to be healthy before starting.
+The bot waits for PostgreSQL to be healthy before starting. The `DATABASE_PROVIDER` key explicitly selects the provider; omit it to use connection string auto-detection (`Host=`/`Server=` prefix selects PostgreSQL, file-path `Data Source` selects SQLite).
 
 ### With Seq Logging
 
@@ -132,7 +133,8 @@ Configure the bot by editing `.env`. See `.env.example` for all available settin
 | `Discord__TestGuildId` | *(none)* | Guild ID for instant command registration |
 | `Identity__DefaultAdmin__Email` | `admin@example.com` | Default admin email (first run) |
 | `Identity__DefaultAdmin__Password` | `ChangeThisPassword123!` | Default admin password (change immediately!) |
-| `ConnectionStrings__DefaultConnection` | SQLite at `/app/data/discordbot.db` | Database connection string |
+| `DATABASE_PROVIDER` | *(auto-detect)* | Database provider: `Sqlite`, `PostgreSql`, or omit for auto-detection |
+| `CONNECTION_STRING` | SQLite at `/app/data/discordbot.db` | Database connection string (overrides default) |
 | `Anthropic__ApiKey` | *(none)* | API key for AI assistant feature |
 | `AzureSpeech__SubscriptionKey` | *(none)* | Azure Speech Services key for TTS |
 | `AzureSpeech__Region` | *(none)* | Azure region (e.g., `eastus`) |
@@ -174,20 +176,59 @@ Place `.wav` files in a `sounds/` directory next to `docker-compose.yml`. The mo
 
 ## Database Options
 
+The bot supports SQLite (default) and PostgreSQL. Provider selection uses the `DATABASE_PROVIDER` config key or is auto-detected from the connection string format.
+
+| Provider | Connection String Pattern | `DATABASE_PROVIDER` Value |
+|----------|--------------------------|--------------------------|
+| SQLite | `Data Source=...` (file path) | `Sqlite` |
+| PostgreSQL | `Host=...` or `Server=...` | `PostgreSql` |
+
 ### SQLite (Default)
 
 No configuration needed. The database is created automatically at `/app/data/discordbot.db` and persisted via the `bot-data` volume.
 
+```env
+# .env — SQLite is the default; no DATABASE_PROVIDER needed
+CONNECTION_STRING=Data Source=/app/data/discordbot.db
+```
+
 ### PostgreSQL
 
-1. Start with the postgres profile: `docker compose --profile postgres up -d`
-2. Set the connection string in `.env`:
-   ```env
-   ConnectionStrings__DefaultConnection=Host=postgres;Database=discordbot;Username=discordbot;Password=changeme
-   ```
-3. EF Core migrations run automatically on startup
+1. Start with the postgres profile:
 
-**Switching from SQLite to PostgreSQL** requires migrating data manually — there is no built-in migration tool between providers.
+   ```bash
+   docker compose --profile postgres up -d
+   ```
+
+2. Configure `.env`:
+
+   ```env
+   DATABASE_PROVIDER=PostgreSql
+   CONNECTION_STRING=Host=postgres;Database=discordbot;Username=discordbot;Password=changeme
+   POSTGRES_DB=discordbot
+   POSTGRES_USER=discordbot
+   POSTGRES_PASSWORD=changeme
+   ```
+
+3. EF Core migrations run automatically on startup using the PostgreSQL migration set.
+
+### Migrating Data from SQLite to PostgreSQL
+
+The `migrate-data` CLI command copies data between providers:
+
+```bash
+# Run against the bot binary with both connection strings
+dotnet run --project src/DiscordBot.Bot -- migrate-data \
+  --source "Data Source=/app/data/discordbot.db" \
+  --target "Host=localhost;Database=discordbot;Username=discordbot;Password=changeme"
+```
+
+**Recommended workflow:**
+
+1. Stop the running bot container: `docker compose stop bot`
+2. Run `migrate-data` (see above)
+3. Update `.env` to set `DATABASE_PROVIDER=PostgreSql` and the new `CONNECTION_STRING`
+4. Restart: `docker compose --profile postgres up -d`
 
 ## Audio Support
 
@@ -263,6 +304,19 @@ docker compose --profile postgres logs postgres
 ```
 
 Verify the connection string in `.env` uses the service name `postgres` (not `localhost`).
+
+### PostgreSQL authentication failure
+
+If you see `password authentication failed`, confirm that `POSTGRES_USER`, `POSTGRES_PASSWORD`, and the credentials in `CONNECTION_STRING` all match. Changes to `POSTGRES_PASSWORD` only take effect on first container creation — delete the `postgres-data` volume to reset:
+
+```bash
+docker compose --profile postgres down -v
+docker compose --profile postgres up -d
+```
+
+### Npgsql timestamp errors
+
+If you see errors like `Cannot write DateTime with Kind=Unspecified to PostgreSQL type 'timestamp with time zone'`, the Npgsql legacy timestamp switch is not applied. This is configured automatically by the application via `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)` at startup. Ensure you are running the current version of the bot image.
 
 ### Audio not working
 

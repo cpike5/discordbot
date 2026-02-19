@@ -635,7 +635,7 @@ Save to database
 
 ### Data Storage
 
-All consent-related data and user data is stored in a SQLite database (development) or SQL Server/MySQL/PostgreSQL (production) using Entity Framework Core.
+All consent-related data and user data is stored in the configured database (SQLite or PostgreSQL) using Entity Framework Core. SQLite is the default for development and local deployments. PostgreSQL is recommended for production Docker deployments and is available via the `--profile postgres` Docker Compose profile.
 
 **Consent Data Tables:**
 

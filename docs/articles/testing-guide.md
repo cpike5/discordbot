@@ -158,7 +158,7 @@ Integration tests validate interactions between components, typically involving 
 
 **Characteristics:**
 - Slower execution than unit tests (but still fast)
-- Uses in-memory SQLite database
+- Uses in-memory SQLite database (via `Microsoft.EntityFrameworkCore.Sqlite`)
 - Tests database queries, migrations, and data persistence
 - Validates repository implementations
 
@@ -167,6 +167,8 @@ Integration tests validate interactions between components, typically involving 
 - Entity Framework queries
 - Database constraints and relationships
 - Data access patterns
+
+**Database Provider Note:** Tests use SQLite (in-memory or file-based) and do not require PostgreSQL to be installed or running. The project uses the same EF Core entity model for both SQLite and PostgreSQL, so SQLite-based tests validate core business logic and query behavior. Provider-specific behavior (such as PostgreSQL sequence handling or timestamp precision) should be verified in a dedicated PostgreSQL environment when making schema changes.
 
 ### System Tests
 

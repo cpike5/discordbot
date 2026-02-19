@@ -85,17 +85,28 @@ Deployment guide covering:
 | Base image | `mcr.microsoft.com/dotnet/aspnet:8.0` | Standard Microsoft image, well-supported |
 | Container registry | GitHub Container Registry (GHCR) | Native GitHub integration, same ecosystem as repo |
 | Configuration | Environment variables | Standard Docker pattern, matches existing systemd `.env` approach |
-| Database | SQLite (default) or external | SQLite for simple setups, MySQL/PostgreSQL/MSSQL for production |
+| Database | SQLite (default) or PostgreSQL | SQLite for simple setups and development; PostgreSQL for production via `--profile postgres` |
 | Architecture | amd64 only | Covers most use cases, arm64 can be added if requested |
 | Build trigger | Release tags only | Clean versioning, no noise from development commits |
 | Compose scope | Minimal (bot only) | Users add their own services as needed |
 
 ## Database Strategy
 
+The application supports two database providers. SQLite is the default for local and simple deployments. PostgreSQL is the recommended provider for production Docker deployments.
+
 | Option | Use Case | Configuration |
 |--------|----------|---------------|
-| SQLite | Simple deployments, development | Mount volume to `/app/data`, use default connection string |
-| External DB | Production, high availability | Set `ConnectionStrings__DefaultConnection` to MySQL/PostgreSQL/MSSQL |
+| SQLite (default) | Development, simple self-hosting | Mount volume to `/app/data`; connection string defaults to `Data Source=/app/data/discordbot.db` |
+| PostgreSQL | Production, high availability | Start with `--profile postgres` in Docker Compose; set `ConnectionStrings__DefaultConnection` to a PostgreSQL connection string |
+
+### Enabling PostgreSQL via Docker Compose
+
+```bash
+# Start the bot with the optional PostgreSQL service
+docker compose --profile postgres up -d
+```
+
+The `postgres` Compose profile starts a PostgreSQL container alongside the bot and configures the connection string automatically via environment variables. See [docker-deployment.md](../articles/docker-deployment.md) for the full environment variable reference.
 
 ## Out of Scope (v0.8.0)
 
