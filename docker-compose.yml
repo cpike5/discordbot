@@ -5,6 +5,12 @@
 #   docker compose --profile postgres up -d                 # Bot + PostgreSQL
 #   docker compose --profile seq up -d                      # Bot + Seq logging
 #   docker compose --profile postgres --profile seq up -d   # Everything
+#
+# PostgreSQL workflow:
+#   1. Copy .env.example to .env and set DATABASE_PROVIDER=PostgreSql
+#   2. Set CONNECTION_STRING to the PostgreSQL connection string (use 'postgres' as hostname)
+#   3. Set POSTGRES_USER and POSTGRES_PASSWORD to match the connection string
+#   4. Run: docker compose --profile postgres up -d
 
 services:
   # ===========================================================================
@@ -15,6 +21,8 @@ services:
     env_file: .env
     environment:
       Observability__SeqUrl: ${SEQ_URL:-}
+      Database__Provider: ${DATABASE_PROVIDER:-}
+      ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:-Data Source=data/discordbot.db}
     volumes:
       - bot-data:/app/data            # SQLite database persistence
       - ./sounds:/app/sounds:ro       # Optional: custom sound clips
