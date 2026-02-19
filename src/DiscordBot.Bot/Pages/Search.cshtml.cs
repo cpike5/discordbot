@@ -42,18 +42,19 @@ public class SearchModel : PageModel
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         // Return early with empty results if search term is empty or whitespace
-        if (string.IsNullOrWhiteSpace(SearchTerm))
+        if (string.IsNullOrWhiteSpace(SearchTerm) || SearchTerm.Trim().Length < 2)
         {
-            _logger.LogDebug("Search page accessed with empty search term");
+            _logger.LogDebug("Search page accessed with empty or too-short search term");
             ViewModel = new SearchResultsViewModel
             {
-                SearchTerm = string.Empty,
-                CanViewUsers = false
+                SearchTerm = SearchTerm?.Trim() ?? string.Empty,
+                CanViewUsers = false,
+                ValidationMessage = string.IsNullOrWhiteSpace(SearchTerm) ? null : "Please enter at least 2 characters to search."
             };
             return Page();
         }
 
-        _logger.LogInformation("User {UserId} searching for term: {SearchTerm}", User.Identity?.Name, SearchTerm);
+        _logger.LogDebug("User {UserId} performed a search", User.Identity?.Name);
 
         // Check if user has permission to view admin categories
         var canViewUsers = (await _authorizationService.AuthorizeAsync(User, "RequireAdmin")).Succeeded;
@@ -77,13 +78,15 @@ public class SearchModel : PageModel
             // Map legacy Guilds category (backward compatibility)
             GuildResults = unifiedResult.Guilds.Items
                 .Select(MapToGuildSearchResultItem)
-                .ToArray(),
+                .Where(x => x != null)
+                .ToArray()!,
             TotalGuildResults = unifiedResult.Guilds.TotalCount,
 
             // Map legacy CommandLogs category (backward compatibility)
             CommandLogResults = unifiedResult.CommandLogs.Items
                 .Select(MapToCommandLogSearchResultItem)
-                .ToArray(),
+                .Where(x => x != null)
+                .ToArray()!,
             TotalCommandLogResults = unifiedResult.CommandLogs.TotalCount,
 
             // Map legacy Users category (backward compatibility)
@@ -127,15 +130,22 @@ public class SearchModel : PageModel
     /// <summary>
     /// Maps a SearchResultItemDto to GuildSearchResultItem for backward compatibility.
     /// </summary>
-    private GuildSearchResultItem MapToGuildSearchResultItem(SearchResultItemDto dto)
+    private GuildSearchResultItem? MapToGuildSearchResultItem(SearchResultItemDto dto)
     {
+        if (!ulong.TryParse(dto.Id, out var id))
+        {
+            _logger.LogWarning("Skipping guild search result with malformed ID: {Id}", dto.Id);
+            return null;
+        }
+
         return new GuildSearchResultItem
         {
-            Id = ulong.Parse(dto.Id),
+            Id = id,
             Name = dto.Title,
             IconUrl = dto.IconUrl,
             MemberCount = dto.Metadata.TryGetValue("MemberCount", out var memberCount) && memberCount != "Unknown"
-                ? int.Parse(memberCount)
+                && int.TryParse(memberCount, out var count)
+                ? count
                 : null,
             IsActive = dto.BadgeText?.Equals("Active", StringComparison.OrdinalIgnoreCase) ?? false
         };
@@ -144,8 +154,14 @@ public class SearchModel : PageModel
     /// <summary>
     /// Maps a SearchResultItemDto to CommandLogSearchResultItem for backward compatibility.
     /// </summary>
-    private CommandLogSearchResultItem MapToCommandLogSearchResultItem(SearchResultItemDto dto)
+    private CommandLogSearchResultItem? MapToCommandLogSearchResultItem(SearchResultItemDto dto)
     {
+        if (!Guid.TryParse(dto.Id, out var id))
+        {
+            _logger.LogWarning("Skipping command log search result with malformed ID: {Id}", dto.Id);
+            return null;
+        }
+
         // Parse subtitle to extract username and guild name
         // Format: "{username} in {guildName}"
         var subtitle = dto.Subtitle ?? "";
@@ -155,7 +171,7 @@ public class SearchModel : PageModel
 
         return new CommandLogSearchResultItem
         {
-            Id = Guid.Parse(dto.Id),
+            Id = id,
             CommandName = dto.Title.TrimStart('/'),
             ExecutedAt = dto.Timestamp ?? DateTime.UtcNow,
             GuildName = guildName == "DM" ? null : guildName,
@@ -176,7 +192,7 @@ public class SearchModel : PageModel
             DisplayName = dto.Title,
             Role = dto.BadgeText ?? "Viewer",
             AvatarUrl = dto.IconUrl,
-            IsActive = dto.Metadata.TryGetValue("IsActive", out var isActive) && bool.Parse(isActive)
+            IsActive = dto.Metadata.TryGetValue("IsActive", out var isActive) && bool.TryParse(isActive, out var active) && active
         };
     }
 }

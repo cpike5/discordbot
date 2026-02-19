@@ -19,6 +19,11 @@ public class SearchResultsViewModel
     public bool CanViewUsers { get; set; }
 
     /// <summary>
+    /// Gets or sets an optional validation message to display (e.g., minimum length warning).
+    /// </summary>
+    public string? ValidationMessage { get; set; }
+
+    /// <summary>
     /// Gets or sets the guild search results (backward compatibility).
     /// </summary>
     public IReadOnlyList<GuildSearchResultItem> GuildResults { get; set; } = Array.Empty<GuildSearchResultItem>();
