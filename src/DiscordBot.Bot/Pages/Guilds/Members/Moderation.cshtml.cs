@@ -102,14 +102,12 @@ public class ModerationModel : PageModel
         var discordGuild = _discordClient.GetGuild(GuildId);
         var discordUser = discordGuild?.GetUser(UserId);
 
-        // Load all moderation data in parallel for performance
-        var casesTask = _moderationService.GetUserCasesAsync(GuildId, UserId);
-        var notesTask = _modNoteService.GetNotesAsync(GuildId, UserId);
-        var tagsTask = _modTagService.GetUserTagsAsync(GuildId, UserId);
-        var flagsTask = _flaggedEventService.GetUserEventsAsync(GuildId, UserId);
-        var availableTagsTask = _modTagService.GetGuildTagsAsync(GuildId);
-
-        await Task.WhenAll(casesTask, notesTask, tagsTask, flagsTask, availableTagsTask);
+        // Load moderation data sequentially — DbContext is not thread-safe
+        var casesResult = await _moderationService.GetUserCasesAsync(GuildId, UserId);
+        var notes = await _modNoteService.GetNotesAsync(GuildId, UserId);
+        var tags = await _modTagService.GetUserTagsAsync(GuildId, UserId);
+        var flags = await _flaggedEventService.GetUserEventsAsync(GuildId, UserId);
+        var availableTags = await _modTagService.GetGuildTagsAsync(GuildId);
 
         // Get current user ID for identifying the logged-in moderator
         var currentUserId = User.GetDiscordUserId();
@@ -133,11 +131,11 @@ public class ModerationModel : PageModel
             AccountCreatedAt = discordUser?.CreatedAt.UtcDateTime ?? DateTime.UtcNow.AddYears(-1), // Fallback if Discord user not available
             JoinedGuildAt = member.JoinedAt,
             Roles = member.Roles.Select(r => r.Name).ToList(),
-            Cases = casesTask.Result.Items.ToList(),
-            Notes = notesTask.Result.ToList(),
-            Tags = tagsTask.Result.ToList(),
-            FlaggedEvents = flagsTask.Result.ToList(),
-            AvailableTags = availableTagsTask.Result.ToList(),
+            Cases = casesResult.Items.ToList(),
+            Notes = notes.ToList(),
+            Tags = tags.ToList(),
+            FlaggedEvents = flags.ToList(),
+            AvailableTags = availableTags.ToList(),
             CurrentUserId = currentUserId
         };
 

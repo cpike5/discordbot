@@ -93,18 +93,11 @@ public class EngagementModel : PageModel
                 return NotFound();
             }
 
-            // Load analytics data in parallel
-            var summaryTask = _engagementAnalyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
-            var messageTrendsTask = _engagementAnalyticsService.GetMessageTrendsAsync(guildId, start, end, cancellationToken);
-            var newMemberRetentionTask = _engagementAnalyticsService.GetNewMemberRetentionAsync(guildId, start, end, cancellationToken);
-            var channelEngagementTask = GetChannelEngagementAsync(guildId, start, end, cancellationToken);
-
-            await Task.WhenAll(summaryTask, messageTrendsTask, newMemberRetentionTask, channelEngagementTask);
-
-            var summary = await summaryTask;
-            var messageTrends = await messageTrendsTask;
-            var newMemberRetention = await newMemberRetentionTask;
-            var channelEngagement = await channelEngagementTask;
+            // Execute sequentially — DbContext is not thread-safe
+            var summary = await _engagementAnalyticsService.GetSummaryAsync(guildId, start, end, cancellationToken);
+            var messageTrends = await _engagementAnalyticsService.GetMessageTrendsAsync(guildId, start, end, cancellationToken);
+            var newMemberRetention = await _engagementAnalyticsService.GetNewMemberRetentionAsync(guildId, start, end, cancellationToken);
+            var channelEngagement = await GetChannelEngagementAsync(guildId, start, end, cancellationToken);
 
             // Build view model
             ViewModel = new EngagementAnalyticsViewModel

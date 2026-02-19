@@ -123,14 +123,9 @@ public class PublicLeaderboardModel : PageModel
 
         try
         {
-            // Phase 1: Parallelize validation calls
-            var guildTask = _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-            var settingsTask = _ratWatchSettingsRepository.GetByGuildIdAsync(guildId, cancellationToken);
-
-            await Task.WhenAll(guildTask, settingsTask);
-
-            var guild = await guildTask;
-            var settings = await settingsTask;
+            // Execute sequentially — DbContext is not thread-safe
+            var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+            var settings = await _ratWatchSettingsRepository.GetByGuildIdAsync(guildId, cancellationToken);
 
             if (guild == null)
             {
@@ -194,16 +189,10 @@ public class PublicLeaderboardModel : PageModel
             _logger.LogDebug("User {DiscordUserId} authorized to view leaderboard for guild {GuildId}",
                 applicationUser.DiscordUserId.Value, guildId);
 
-            // Phase 2: Parallelize data loading calls
-            var funStatsTask = _ratRecordRepository.GetFunStatsAsync(guildId, cancellationToken);
-            var userMetricsTask = _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 25, cancellationToken);
-            var watchesTask = _ratWatchRepository.GetAllAsync(cancellationToken);
-
-            await Task.WhenAll(funStatsTask, userMetricsTask, watchesTask);
-
-            FunStats = await funStatsTask;
-            var userMetrics = await userMetricsTask;
-            var allWatches = await watchesTask;
+            // Execute sequentially — DbContext is not thread-safe
+            FunStats = await _ratRecordRepository.GetFunStatsAsync(guildId, cancellationToken);
+            var userMetrics = await _ratRecordRepository.GetUserMetricsAsync(guildId, "guilty", 25, cancellationToken);
+            var allWatches = await _ratWatchRepository.GetAllAsync(cancellationToken);
 
             // Phase 3: Parallelize username resolution for leaderboard
             var leaderboardTasks = userMetrics.Select(async (metric, index) =>

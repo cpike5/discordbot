@@ -123,32 +123,22 @@ public class TtsHistoryService : ITtsHistoryService
             var today = DateTime.UtcNow.Date;
             var allTime = DateTime.MinValue;
 
-            // Gather stats in parallel where possible
-            var messagesTodayTask = _messageRepository.GetMessageCountAsync(guildId, today, ct);
-            var totalMessagesTask = _messageRepository.GetMessageCountAsync(guildId, allTime, ct);
-            var totalPlaybackTask = _messageRepository.GetTotalPlaybackSecondsAsync(guildId, today, ct);
-            var uniqueUsersTask = _messageRepository.GetUniqueUserCountAsync(guildId, today, ct);
-            var mostUsedVoiceTask = _messageRepository.GetMostUsedVoiceAsync(guildId, today, ct);
-            var topUserTask = _messageRepository.GetTopUserAsync(guildId, today, ct);
-
-            await Task.WhenAll(
-                messagesTodayTask,
-                totalMessagesTask,
-                totalPlaybackTask,
-                uniqueUsersTask,
-                mostUsedVoiceTask,
-                topUserTask);
-
-            var topUser = await topUserTask;
+            // Execute sequentially — DbContext is not thread-safe
+            var messagesToday = await _messageRepository.GetMessageCountAsync(guildId, today, ct);
+            var totalMessages = await _messageRepository.GetMessageCountAsync(guildId, allTime, ct);
+            var totalPlayback = await _messageRepository.GetTotalPlaybackSecondsAsync(guildId, today, ct);
+            var uniqueUsers = await _messageRepository.GetUniqueUserCountAsync(guildId, today, ct);
+            var mostUsedVoice = await _messageRepository.GetMostUsedVoiceAsync(guildId, today, ct);
+            var topUser = await _messageRepository.GetTopUserAsync(guildId, today, ct);
 
             var stats = new TtsStatsDto
             {
                 GuildId = guildId,
-                MessagesToday = await messagesTodayTask,
-                TotalMessages = await totalMessagesTask,
-                TotalPlaybackSeconds = await totalPlaybackTask,
-                UniqueUsers = await uniqueUsersTask,
-                MostUsedVoice = await mostUsedVoiceTask,
+                MessagesToday = messagesToday,
+                TotalMessages = totalMessages,
+                TotalPlaybackSeconds = totalPlayback,
+                UniqueUsers = uniqueUsers,
+                MostUsedVoice = mostUsedVoice,
                 TopUserId = topUser?.UserId,
                 TopUsername = topUser?.Username,
                 TopUserMessageCount = topUser?.MessageCount ?? 0

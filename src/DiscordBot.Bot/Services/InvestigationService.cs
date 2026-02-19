@@ -56,20 +56,12 @@ public class InvestigationService : IInvestigationService
             var accountCreatedAt = GetAccountCreationDate(userId);
             var joinedGuildAt = await GetGuildJoinDateAsync(guildId, userId);
 
-            // Fetch all moderation data in parallel for better performance
-            var casesTask = _moderationService.GetUserCasesAsync(guildId, userId, 1, int.MaxValue, ct);
-            var notesTask = _modNoteService.GetNotesAsync(guildId, userId, ct);
-            var tagsTask = _modTagService.GetUserTagsAsync(guildId, userId, ct);
-            var watchlistEntryTask = _watchlistService.GetEntryAsync(guildId, userId, ct);
-            var flaggedEventsTask = _flaggedEventService.GetUserEventsAsync(guildId, userId, ct);
-
-            await Task.WhenAll(casesTask, notesTask, tagsTask, watchlistEntryTask, flaggedEventsTask);
-
-            var (cases, _) = await casesTask;
-            var notes = await notesTask;
-            var tags = await tagsTask;
-            var watchlistEntry = await watchlistEntryTask;
-            var flaggedEvents = await flaggedEventsTask;
+            // Execute sequentially — DbContext is not thread-safe
+            var (cases, _) = await _moderationService.GetUserCasesAsync(guildId, userId, 1, int.MaxValue, ct);
+            var notes = await _modNoteService.GetNotesAsync(guildId, userId, ct);
+            var tags = await _modTagService.GetUserTagsAsync(guildId, userId, ct);
+            var watchlistEntry = await _watchlistService.GetEntryAsync(guildId, userId, ct);
+            var flaggedEvents = await _flaggedEventService.GetUserEventsAsync(guildId, userId, ct);
 
             var profile = new UserModerationProfileDto
             {

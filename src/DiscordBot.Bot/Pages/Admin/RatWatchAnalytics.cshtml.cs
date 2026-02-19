@@ -92,32 +92,30 @@ public class RatWatchAnalyticsModel : PageModel
             var allSettings = await _ratWatchSettingsRepository.GetAllAsync(cancellationToken);
             var enabledSettings = allSettings.Where(s => s.IsEnabled).ToList();
 
-            // Parallelize guild lookups
-            var guildTasks = enabledSettings.Select(s => _guildService.GetGuildByIdAsync(s.GuildId, cancellationToken));
-            var guilds = await Task.WhenAll(guildTasks);
+            // Load guild info sequentially (DbContext is not thread-safe)
+            var guilds = new List<DiscordBot.Core.DTOs.GuildDto?>();
+            foreach (var s in enabledSettings)
+            {
+                guilds.Add(await _guildService.GetGuildByIdAsync(s.GuildId, cancellationToken));
+            }
             EnabledGuilds = guilds
                 .Where(g => g != null)
                 .Select(g => new GuildSummaryDto
                 {
                     GuildId = g!.Id,
                     Name = g.Name,
-                    IconUrl = g.IconUrl
+                    IconUrl = _discordClient.GetGuild(g.Id)?.IconUrl
                 })
                 .ToList();
 
             _logger.LogDebug("Found {Count} guilds with Rat Watch enabled", EnabledGuilds.Count);
 
-            // Load analytics data from repository in parallel
-            var summaryTask = _ratWatchRepository.GetAnalyticsSummaryAsync(GuildId, start, end, cancellationToken);
-            var timeSeriesTask = _ratWatchRepository.GetTimeSeriesAsync(GuildId, start, end, cancellationToken);
-            var heatmapTask = GuildId.HasValue
-                ? _ratWatchRepository.GetActivityHeatmapAsync(GuildId.Value, start, end, cancellationToken)
-                : Task.FromResult(Enumerable.Empty<ActivityHeatmapDto>());
-
-            await Task.WhenAll(summaryTask, timeSeriesTask, heatmapTask);
-            var summary = summaryTask.Result;
-            var timeSeries = timeSeriesTask.Result;
-            var heatmap = heatmapTask.Result;
+            // Load analytics data sequentially (DbContext is not thread-safe)
+            var summary = await _ratWatchRepository.GetAnalyticsSummaryAsync(GuildId, start, end, cancellationToken);
+            var timeSeries = await _ratWatchRepository.GetTimeSeriesAsync(GuildId, start, end, cancellationToken);
+            var heatmap = GuildId.HasValue
+                ? await _ratWatchRepository.GetActivityHeatmapAsync(GuildId.Value, start, end, cancellationToken)
+                : Enumerable.Empty<ActivityHeatmapDto>();
 
             // Load leaderboards (note: GetUserMetricsAsync doesn't support global, so we'll aggregate manually if needed)
             List<RatWatchUserMetricsDto> mostWatched = new();
@@ -126,17 +124,15 @@ public class RatWatchAnalyticsModel : PageModel
 
             if (GuildId.HasValue)
             {
-                // Single guild - parallelize repository calls
-                var mostWatchedTask = _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "watched", 10, cancellationToken);
-                var biggestRatsTask = _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "guilty", 10, cancellationToken);
-                var topAccusersTask = GetTopAccusersAsync(GuildId.Value, 10, cancellationToken);
+                // Load leaderboard data sequentially (DbContext is not thread-safe)
+                var mostWatchedRaw = await _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "watched", 10, cancellationToken);
+                var biggestRatsRaw = await _ratRecordRepository.GetUserMetricsAsync(GuildId.Value, "guilty", 10, cancellationToken);
+                var topAccusersRaw = await GetTopAccusersAsync(GuildId.Value, 10, cancellationToken);
 
-                await Task.WhenAll(mostWatchedTask, biggestRatsTask, topAccusersTask);
-
-                // Parallelize username resolution
-                var mostWatchedNamesTask = ResolveUsernamesAsync(GuildId.Value, mostWatchedTask.Result);
-                var biggestRatsNamesTask = ResolveUsernamesAsync(GuildId.Value, biggestRatsTask.Result);
-                var topAccusersNamesTask = ResolveAccuserUsernamesAsync(GuildId.Value, topAccusersTask.Result);
+                // Resolve usernames (these use Discord client cache, not DbContext, so parallel is safe)
+                var mostWatchedNamesTask = ResolveUsernamesAsync(GuildId.Value, mostWatchedRaw);
+                var biggestRatsNamesTask = ResolveUsernamesAsync(GuildId.Value, biggestRatsRaw);
+                var topAccusersNamesTask = ResolveAccuserUsernamesAsync(GuildId.Value, topAccusersRaw);
 
                 await Task.WhenAll(mostWatchedNamesTask, biggestRatsNamesTask, topAccusersNamesTask);
 
