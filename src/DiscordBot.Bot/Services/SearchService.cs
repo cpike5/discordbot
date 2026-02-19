@@ -75,12 +75,19 @@ public class SearchService : ISearchService
         }
 
         var searchTerm = query.SearchTerm.Trim();
+
+        if (searchTerm.Length < 2)
+        {
+            _logger.LogDebug("Search term too short (< 2 characters): {SearchTerm}", searchTerm);
+            return new UnifiedSearchResultDto { SearchTerm = searchTerm };
+        }
+
         _logger.LogInformation("Unified search initiated for term: {SearchTerm}, MaxResults: {MaxResults}, CategoryFilter: {CategoryFilter}",
             searchTerm, query.MaxResultsPerCategory, query.CategoryFilter);
 
         // Generate cache key based on search parameters and user identity
         var userId = user.Identity?.Name ?? "anonymous";
-        var cacheKey = $"search:{userId}:{searchTerm}:{query.MaxResultsPerCategory}:{query.CategoryFilter}";
+        var cacheKey = $"search:{userId}:{searchTerm.ToLowerInvariant()}:{query.MaxResultsPerCategory}:{query.CategoryFilter}";
 
         // Try to get cached results
         if (_cache.TryGetValue(cacheKey, out UnifiedSearchResultDto? cachedResult) && cachedResult != null)
@@ -197,7 +204,7 @@ public class SearchService : ISearchService
         {
             SearchTerm = searchTerm,
             Page = 1,
-            PageSize = 100 // Get more results for better ranking
+            PageSize = 25
         };
 
         var guilds = await _guildService.GetGuildsAsync(query, cancellationToken);
@@ -222,7 +229,7 @@ public class SearchService : ISearchService
                 BadgeText = x.Guild.IsActive ? "Active" : "Inactive",
                 BadgeVariant = x.Guild.IsActive ? "success" : "secondary",
                 Url = $"/Guilds/Details/{x.Guild.Id}",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Timestamp = x.Guild.JoinedAt,
                 Metadata = new Dictionary<string, string>
                 {
@@ -251,7 +258,7 @@ public class SearchService : ISearchService
         {
             SearchTerm = searchTerm,
             Page = 1,
-            PageSize = 100 // Get more results for better ranking
+            PageSize = 25
         };
 
         var logs = await _commandLogService.GetLogsAsync(query, cancellationToken);
@@ -279,7 +286,7 @@ public class SearchService : ISearchService
                 BadgeText = x.Log.Success ? "Success" : "Failed",
                 BadgeVariant = x.Log.Success ? "success" : "danger",
                 Url = $"/CommandLogs/{x.Log.Id}",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Timestamp = x.Log.ExecutedAt,
                 Metadata = new Dictionary<string, string>
                 {
@@ -309,7 +316,7 @@ public class SearchService : ISearchService
         {
             SearchTerm = searchTerm,
             Page = 1,
-            PageSize = 100 // Get more results for better ranking
+            PageSize = 25
         };
 
         var users = await _userManagementService.GetUsersAsync(query, cancellationToken);
@@ -337,7 +344,7 @@ public class SearchService : ISearchService
                 BadgeText = x.User.HighestRole,
                 BadgeVariant = GetRoleBadgeVariant(x.User.HighestRole),
                 Url = $"/Admin/Users/Details?id={x.User.Id}",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Timestamp = x.User.CreatedAt,
                 Metadata = new Dictionary<string, string>
                 {
@@ -367,7 +374,7 @@ public class SearchService : ISearchService
         {
             SearchTerm = searchTerm,
             Page = 1,
-            PageSize = 100
+            PageSize = 25
         };
 
         var (logs, totalCount) = await _auditLogService.GetLogsAsync(query, cancellationToken);
@@ -394,7 +401,7 @@ public class SearchService : ISearchService
                 BadgeText = x.Log.CategoryName,
                 BadgeVariant = GetAuditLogBadgeVariant(x.Log.CategoryName),
                 Url = $"/Admin/AuditLogs/Details/{x.Log.Id}",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Timestamp = x.Log.Timestamp,
                 Metadata = new Dictionary<string, string>
                 {
@@ -424,7 +431,7 @@ public class SearchService : ISearchService
         {
             SearchTerm = searchTerm,
             Page = 1,
-            PageSize = 100
+            PageSize = 25
         };
 
         var logs = await _messageLogService.GetLogsAsync(query, cancellationToken);
@@ -453,7 +460,7 @@ public class SearchService : ISearchService
                 BadgeText = x.Log.Source.ToString(),
                 BadgeVariant = x.Log.Source == MessageSource.ServerChannel ? "primary" : "secondary",
                 Url = $"/Admin/MessageLogs/Details/{x.Log.Id}",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Timestamp = x.Log.Timestamp,
                 Metadata = new Dictionary<string, string>
                 {
@@ -508,7 +515,7 @@ public class SearchService : ISearchService
                 BadgeText = x.Command.ModuleName,
                 BadgeVariant = "primary",
                 Url = $"/Commands#cmd-{x.Command.FullName.Replace(" ", "-")}",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Metadata = new Dictionary<string, string>
                 {
                     ["ParameterCount"] = x.Command.Parameters.Count.ToString(),
@@ -561,21 +568,27 @@ public class SearchService : ISearchService
         }
 
         var items = authorizedPages
-            .Take(maxResults)
-            .Select(p => new SearchResultItemDto
+            .Select(p => new
             {
-                Id = p.Route,
-                Title = p.Name,
-                Subtitle = p.Section,
-                Description = p.Description ?? string.Empty,
-                BadgeText = p.Section ?? "Main",
-                BadgeVariant = GetSectionBadgeVariant(p.Section),
-                Url = p.Route,
-                RelevanceScore = CalculateRelevanceScore(p.Name, searchLower),
+                Page = p,
+                Score = CalculateRelevanceScore(p.Name, searchLower)
+            })
+            .OrderByDescending(x => x.Score)
+            .Take(maxResults)
+            .Select(x => new SearchResultItemDto
+            {
+                Id = x.Page.Route,
+                Title = x.Page.Name,
+                Subtitle = x.Page.Section,
+                Description = x.Page.Description ?? string.Empty,
+                BadgeText = x.Page.Section ?? "Main",
+                BadgeVariant = GetSectionBadgeVariant(x.Page.Section),
+                Url = x.Page.Route,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Metadata = new Dictionary<string, string>
                 {
-                    ["Section"] = p.Section ?? "Main",
-                    ["isExactMatch"] = (exactMatch != null && exactMatch.Route == p.Route).ToString()
+                    ["Section"] = x.Page.Section ?? "Main",
+                    ["isExactMatch"] = (exactMatch != null && exactMatch.Route == x.Page.Route).ToString()
                 }
             })
             .ToList();
@@ -600,12 +613,13 @@ public class SearchService : ISearchService
         // Query reminders from DbContext with filtering applied in SQL
         var allReminders = await _dbContext.Reminders
             .AsNoTracking()
-            .Where(r => EF.Functions.Like(r.Message.ToLower(), $"%{searchLower}%") ||
-                       r.UserId.ToString().Contains(searchTerm))
+            .Where(r => r.Message.ToLower().Contains(searchLower) ||
+                       r.UserId.ToString().Contains(searchLower))
+            .Take(75)
             .ToListAsync(cancellationToken);
 
-        // Filter and score reminders
-        var items = allReminders
+        // Score reminders once, then filter and project
+        var scoredReminders = allReminders
             .Select(r => new
             {
                 Reminder = r,
@@ -613,6 +627,11 @@ public class SearchService : ISearchService
                         CalculateRelevanceScore(r.UserId.ToString(), searchLower) / 2
             })
             .Where(x => x.Score > 0)
+            .ToList();
+
+        var totalCount = scoredReminders.Count;
+
+        var items = scoredReminders
             .OrderByDescending(x => x.Score)
             .ThenByDescending(x => x.Reminder.CreatedAt)
             .Take(maxResults)
@@ -636,7 +655,7 @@ public class SearchService : ISearchService
                     _ => "secondary"
                 },
                 Url = $"/Guilds/{x.Reminder.GuildId}/Reminders",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Timestamp = x.Reminder.CreatedAt,
                 Metadata = new Dictionary<string, string>
                 {
@@ -646,10 +665,6 @@ public class SearchService : ISearchService
                 }
             })
             .ToList();
-
-        var totalCount = allReminders.Count(r =>
-            CalculateRelevanceScore(r.Message, searchLower) +
-            CalculateRelevanceScore(r.UserId.ToString(), searchLower) / 2 > 0);
 
         return new SearchCategoryResult
         {
@@ -668,13 +683,17 @@ public class SearchService : ISearchService
 
         var searchLower = searchTerm.ToLowerInvariant();
 
-        // Query scheduled messages from DbContext
+        // Query scheduled messages from DbContext with filtering applied in SQL
         var allMessages = await _dbContext.ScheduledMessages
             .AsNoTracking()
+            .Where(m => m.Content.ToLower().Contains(searchLower) ||
+                       m.Title.ToLower().Contains(searchLower) ||
+                       m.ChannelId.ToString().Contains(searchLower))
+            .Take(75)
             .ToListAsync(cancellationToken);
 
-        // Filter and score scheduled messages
-        var items = allMessages
+        // Score scheduled messages once, then filter and project
+        var scoredMessages = allMessages
             .Select(m => new
             {
                 Message = m,
@@ -683,6 +702,11 @@ public class SearchService : ISearchService
                         CalculateRelevanceScore(m.ChannelId.ToString(), searchLower) / 2
             })
             .Where(x => x.Score > 0)
+            .ToList();
+
+        var totalCount = scoredMessages.Count;
+
+        var items = scoredMessages
             .OrderByDescending(x => x.Score)
             .ThenByDescending(x => x.Message.CreatedAt)
             .Take(maxResults)
@@ -699,7 +723,7 @@ public class SearchService : ISearchService
                 BadgeText = x.Message.IsEnabled ? "Active" : "Disabled",
                 BadgeVariant = x.Message.IsEnabled ? "success" : "secondary",
                 Url = $"/Guilds/ScheduledMessages/Edit/{x.Message.GuildId}/{x.Message.Id}",
-                RelevanceScore = x.Score,
+                RelevanceScore = Math.Min(x.Score, 100),
                 Timestamp = x.Message.CreatedAt,
                 Metadata = new Dictionary<string, string>
                 {
@@ -710,11 +734,6 @@ public class SearchService : ISearchService
                 }
             })
             .ToList();
-
-        var totalCount = allMessages.Count(m =>
-            CalculateRelevanceScore(m.Content, searchLower) +
-            CalculateRelevanceScore(m.Title, searchLower) +
-            CalculateRelevanceScore(m.ChannelId.ToString(), searchLower) / 2 > 0);
 
         return new SearchCategoryResult
         {
@@ -727,11 +746,29 @@ public class SearchService : ISearchService
         };
     }
 
-    private string GetRelativeTime(DateTime futureTime)
+    private string GetRelativeTime(DateTime dateTime)
     {
         var now = DateTime.UtcNow;
-        var diff = futureTime - now;
+        var diff = dateTime - now;
 
+        // Handle past dates
+        if (diff.TotalSeconds < 0)
+        {
+            var absDiff = diff.Negate();
+
+            if (absDiff.TotalMinutes < 1)
+                return "less than a minute ago";
+            if (absDiff.TotalMinutes < 60)
+                return $"{Math.Floor(absDiff.TotalMinutes)} minute{(Math.Floor(absDiff.TotalMinutes) != 1 ? "s" : "")} ago";
+            if (absDiff.TotalHours < 24)
+                return $"{Math.Floor(absDiff.TotalHours)} hour{(Math.Floor(absDiff.TotalHours) != 1 ? "s" : "")} ago";
+            if (absDiff.TotalDays < 7)
+                return $"{Math.Floor(absDiff.TotalDays)} day{(Math.Floor(absDiff.TotalDays) != 1 ? "s" : "")} ago";
+
+            return $"on {dateTime:MMM d, yyyy}";
+        }
+
+        // Handle future dates
         if (diff.TotalMinutes < 1)
             return "in less than a minute";
         if (diff.TotalMinutes < 60)
@@ -741,7 +778,7 @@ public class SearchService : ISearchService
         if (diff.TotalDays < 7)
             return $"in {Math.Floor(diff.TotalDays)} day{(Math.Floor(diff.TotalDays) != 1 ? "s" : "")}";
 
-        return $"on {futureTime:MMM d, yyyy}";
+        return $"on {dateTime:MMM d, yyyy}";
     }
 
     private string GetSectionBadgeVariant(string? section)

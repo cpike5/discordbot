@@ -1,5 +1,5 @@
 <!-- Mobile Search Overlay -->
-<div id="mobileSearchOverlay" class="mobile-search-overlay">
+<div id="mobileSearchOverlay" class="mobile-search-overlay" role="dialog" aria-modal="true" aria-label="Search">
   <!-- Overlay Header with Search Input -->
   <div class="mobile-search-header">
     <div class="relative flex-1">
@@ -11,6 +11,7 @@
         id="mobile-search-input"
         placeholder="Search servers, commands, logs..."
         class="mobile-search-input"
+        aria-label="Search"
         autocomplete="off"
         autocorrect="off"
         autocapitalize="off"

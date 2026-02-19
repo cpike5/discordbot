@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Core.DTOs;
@@ -10,6 +11,7 @@ public class SearchQueryDto
     /// <summary>
     /// Gets or sets the search term to query across all categories.
     /// </summary>
+    [StringLength(200)]
     public string SearchTerm { get; set; } = string.Empty;
 
     /// <summary>

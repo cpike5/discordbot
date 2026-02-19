@@ -2,7 +2,7 @@
 title: Search System
 description: Global search functionality across portal data and Discord logs
 version: 1.0
-lastUpdated: 2026-01-25
+lastUpdated: 2026-02-19
 ---
 
 # Search System
@@ -20,7 +20,7 @@ The search system enables:
 - **Authorization-Aware** - Results respect user roles and permissions
 - **Rich Results** - Results include icons, badges, timestamps, and metadata
 - **Fast Lookup** - Indexed database queries for performance
-- **Mobile-Friendly** - Mobile search overlay with type-ahead
+- **Mobile-Friendly** - Mobile search overlay with recent search history
 
 ---
 
@@ -71,7 +71,7 @@ public interface ISearchService
 }
 ```
 
-**Implementation:** `SearchService` in `src/DiscordBot.Bot/Services/SearchService.cs` (749 lines)
+**Implementation:** `SearchService` in `src/DiscordBot.Bot/Services/SearchService.cs` (919 lines)
 
 ### Service Registration
 
@@ -129,7 +129,7 @@ The global search bar is available in the navigation header:
 **Keyboard Shortcut:** Ctrl+K (Windows/Linux) or Cmd+K (macOS)
 
 **Features:**
-- Type-ahead suggestions
+- Recent search history
 - Mobile overlay support
 - Quick navigation
 - Category filtering
@@ -568,14 +568,14 @@ if (results.HasMore)
 Located in the main navigation header:
 
 ```html
-<input type="text" placeholder="Search... (Ctrl+K)"
-       id="global-search-input"
+<input type="search" placeholder="Search... (Ctrl+K)"
+       id="navbar-search"
        aria-label="Global search">
 ```
 
 **Features:**
 - Keyboard shortcut (Ctrl+K / Cmd+K)
-- Type-ahead suggestions
+- Recent search history
 - Navigate to results page on Enter
 - Mobile overlay support
 
@@ -586,7 +586,7 @@ On smaller screens, search opens a full-screen overlay:
 ```html
 <div id="mobile-search-overlay" class="search-overlay">
   <div class="search-overlay-content">
-    <input type="text" placeholder="Search..." autofocus>
+    <input type="search" placeholder="Search..." autofocus>
     <div class="results-list">
       <!-- Results rendered here -->
     </div>
@@ -702,7 +702,7 @@ If you can't see certain results:
 
 ## References
 
-- **Service Implementation:** `SearchService.cs` (749 lines)
+- **Service Implementation:** `SearchService.cs` (919 lines)
 - **Service Interface:** `ISearchService.cs`
 - **Search Page:** `/Search.cshtml` and `Search.cshtml.cs`
 - **DTOs:** `SearchDtos.cs` and `SearchCategory.cs` enum
