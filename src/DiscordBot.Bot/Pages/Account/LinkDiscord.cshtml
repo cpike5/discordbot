@@ -1,5 +1,6 @@
 @page
 @model LinkDiscordModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Link Discord Account";
 }
@@ -184,13 +185,12 @@
                     <p class="text-sm font-medium text-text-primary">Unlink Discord Account</p>
                     <p class="text-xs text-text-tertiary mt-0.5">This will remove the Discord connection and clear all associated data</p>
                 </div>
-                <form method="post" asp-page-handler="Unlink" onsubmit="return confirm('Are you sure you want to unlink your Discord account? This will remove guild management access.');">
-                    <button
-                        type="submit"
-                        class="py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
-                        Unlink Discord
-                    </button>
-                </form>
+                <button
+                    type="button"
+                    onclick="quickActions.showConfirmationModal('unlinkDiscordModal')"
+                    class="py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Unlink Discord
+                </button>
             </div>
         </div>
     }
@@ -353,3 +353,17 @@
     }
 
 </div>
+
+@if (Model.IsDiscordLinked)
+{
+    <partial name="Shared/Components/_ConfirmationModal" model='new ConfirmationModalViewModel
+    {
+        Id = "unlinkDiscordModal",
+        Title = "Unlink Discord Account",
+        Message = "Are you sure you want to unlink your Discord account? This will remove guild management access.",
+        ConfirmText = "Unlink Discord",
+        Variant = ConfirmationVariant.Danger,
+        FormAction = "/Account/LinkDiscord",
+        FormHandler = "Unlink"
+    }' />
+}

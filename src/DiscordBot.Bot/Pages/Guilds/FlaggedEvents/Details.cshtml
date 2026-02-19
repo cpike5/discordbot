@@ -324,9 +324,13 @@
         }
 
         async function dismissEvent() {
-            if (!confirm('Are you sure you want to dismiss this flagged event?')) {
-                return;
-            }
+            const confirmed = await quickActions.confirm({
+                title: 'Dismiss Flagged Event',
+                message: 'Are you sure you want to dismiss this flagged event?',
+                variant: 'warning',
+                confirmText: 'Dismiss'
+            });
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/dismiss`, {
@@ -341,18 +345,22 @@
                     window.location.href = '/Guilds/FlaggedEvents/Index/' + guildId + '?successMessage=' + encodeURIComponent('Event dismissed successfully');
                 } else {
                     const error = await response.json();
-                    alert('Error dismissing event: ' + error.message);
+                    quickActions.showToast('Error dismissing event: ' + error.message, 'error');
                 }
             } catch (error) {
                 console.error('Error dismissing event:', error);
-                alert('An error occurred while dismissing the event.');
+                quickActions.showToast('An error occurred while dismissing the event.', 'error');
             }
         }
 
         async function acknowledgeEvent() {
-            if (!confirm('Are you sure you want to acknowledge this flagged event?')) {
-                return;
-            }
+            const confirmed = await quickActions.confirm({
+                title: 'Acknowledge Flagged Event',
+                message: 'Are you sure you want to acknowledge this flagged event?',
+                variant: 'warning',
+                confirmText: 'Acknowledge'
+            });
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/acknowledge`, {
@@ -367,20 +375,24 @@
                     location.reload();
                 } else {
                     const error = await response.json();
-                    alert('Error acknowledging event: ' + error.message);
+                    quickActions.showToast('Error acknowledging event: ' + error.message, 'error');
                 }
             } catch (error) {
                 console.error('Error acknowledging event:', error);
-                alert('An error occurred while acknowledging the event.');
+                quickActions.showToast('An error occurred while acknowledging the event.', 'error');
             }
         }
 
         async function takeAction(action) {
             document.getElementById('actionDropdown').classList.add('hidden');
 
-            if (!confirm('Are you sure you want to take this action: ' + action + '?')) {
-                return;
-            }
+            const confirmed = await quickActions.confirm({
+                title: 'Confirm Action',
+                message: `Are you sure you want to take this action: ${action}?`,
+                variant: 'danger',
+                confirmText: action
+            });
+            if (!confirmed) return;
 
             try {
                 const response = await fetch(`/api/guilds/${guildId}/flagged-events/${eventId}/action`, {
@@ -398,11 +410,11 @@
                     location.reload();
                 } else {
                     const error = await response.json();
-                    alert('Error taking action: ' + error.message);
+                    quickActions.showToast('Error taking action: ' + error.message, 'error');
                 }
             } catch (error) {
                 console.error('Error taking action:', error);
-                alert('An error occurred while taking action.');
+                quickActions.showToast('An error occurred while taking action.', 'error');
             }
         }
 
@@ -410,7 +422,7 @@
             const actionText = document.getElementById('customActionText').value.trim();
 
             if (!actionText) {
-                alert('Please enter an action description.');
+                quickActions.showToast('Please enter an action description.', 'warning');
                 return;
             }
 
@@ -432,11 +444,11 @@
                     location.reload();
                 } else {
                     const error = await response.json();
-                    alert('Error taking action: ' + error.message);
+                    quickActions.showToast('Error taking action: ' + error.message, 'error');
                 }
             } catch (error) {
                 console.error('Error taking action:', error);
-                alert('An error occurred while taking action.');
+                quickActions.showToast('An error occurred while taking action.', 'error');
             }
         }
 

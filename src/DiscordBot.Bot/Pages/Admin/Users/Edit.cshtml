@@ -1,5 +1,6 @@
 @page
 @model DiscordBot.Bot.Pages.Admin.Users.EditModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     ViewData["Title"] = "Edit User";
 }
@@ -192,13 +193,10 @@
                             <p class="text-xs text-text-secondary mt-1">Linked Discord account</p>
                         </div>
                     </div>
-                    <form method="post" asp-page-handler="UnlinkDiscord">
-                        <input type="hidden" name="userId" value="@Model.Input.UserId" />
-                        <button type="submit" class="btn btn-secondary text-error hover:bg-error/10"
-                                onclick="return confirm('Are you sure you want to unlink this Discord account?');">
-                            Unlink Discord
-                        </button>
-                    </form>
+                    <button type="button" class="btn btn-secondary text-error hover:bg-error/10"
+                            onclick="quickActions.showConfirmationModal('unlinkDiscordModal')">
+                        Unlink Discord
+                    </button>
                 </div>
             </div>
         </div>
@@ -216,13 +214,10 @@
                     <h3 class="text-sm font-medium text-text-primary">Reset Password</h3>
                     <p class="text-xs text-text-secondary mt-1">Generate a new temporary password for this user</p>
                 </div>
-                <form method="post" asp-page-handler="ResetPassword">
-                    <input type="hidden" name="userId" value="@Model.Input.UserId" />
-                    <button type="submit" class="btn btn-secondary"
-                            onclick="return confirm('Are you sure you want to reset this user\'s password? A new temporary password will be generated.');">
-                        Reset Password
-                    </button>
-                </form>
+                <button type="button" class="btn btn-secondary"
+                        onclick="quickActions.showConfirmationModal('resetPasswordModal')">
+                    Reset Password
+                </button>
             </div>
 
             <!-- View Details -->
@@ -238,6 +233,31 @@
         </div>
     </div>
 </div>
+
+@if (Model.ViewModel.IsDiscordLinked)
+{
+    <partial name="Shared/Components/_ConfirmationModal" model='new ConfirmationModalViewModel
+    {
+        Id = "unlinkDiscordModal",
+        Title = "Unlink Discord Account",
+        Message = "Are you sure you want to unlink this Discord account?",
+        ConfirmText = "Unlink Discord",
+        Variant = ConfirmationVariant.Danger,
+        FormAction = $"/Admin/Users/Edit?userId={Model.Input.UserId}",
+        FormHandler = "UnlinkDiscord"
+    }' />
+}
+
+<partial name="Shared/Components/_ConfirmationModal" model='new ConfirmationModalViewModel
+{
+    Id = "resetPasswordModal",
+    Title = "Reset Password",
+    Message = "Are you sure you want to reset this user\u0027s password? A new temporary password will be generated.",
+    ConfirmText = "Reset Password",
+    Variant = ConfirmationVariant.Warning,
+    FormAction = $"/Admin/Users/Edit?userId={Model.Input.UserId}",
+    FormHandler = "ResetPassword"
+}' />
 
 @section Scripts {
     <partial name="_ValidationScriptsPartial" />
