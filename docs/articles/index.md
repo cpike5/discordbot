@@ -38,10 +38,15 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Welcome System](welcome-system.md) - Automated welcome messages for new members
 - [Rat Watch](rat-watch.md) - Accountability and task tracking feature
 
+## Configuration
+- [Configuration Guide](configuration-guide.md) - Unified reference: appsettings vs database settings vs per-guild settings
+- [Environment Configuration](environment-configuration.md) - Environment-specific settings (Dev, Staging, Production)
+- [Settings Page](settings-page.md) - Admin UI for runtime-adjustable settings
+- [Command Module Configuration](command-module-configuration.md) - Dynamic module enable/disable
+
 ## Operations & Monitoring
 - [Audit Log System](audit-log-system.md) - Comprehensive audit logging, retention, and compliance tracking
 - [Message Logging](message-logging.md) - Discord message logging with consent-based collection
-- [Environment Configuration](environment-configuration.md) - Environment-specific settings (Dev, Staging, Production)
 - [Distributed Tracing](tracing.md) - OpenTelemetry distributed tracing
 - [OpenTelemetry Metrics](metrics.md) - Metrics collection with Prometheus export
 - [Centralized Logging (Seq)](log-aggregation.md) - Log aggregation with Seq
