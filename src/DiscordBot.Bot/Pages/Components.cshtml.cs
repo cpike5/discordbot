@@ -1,5 +1,6 @@
 // src/DiscordBot.Bot/Pages/Components.cshtml.cs
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using DiscordBot.Bot.ViewModels.Components;
 
@@ -49,6 +50,12 @@ public class ComponentsModel : PageModel
     public List<AlertViewModel> AlertVariants { get; set; } = new();
     public List<AlertViewModel> AlertDismissible { get; set; } = new();
 
+    // Confirmation Dialogs
+    public ConfirmationModalViewModel InfoConfirmation { get; set; } = new();
+    public ConfirmationModalViewModel WarningConfirmation { get; set; } = new();
+    public ConfirmationModalViewModel DangerConfirmation { get; set; } = new();
+    public TypedConfirmationModalViewModel TypedConfirmation { get; set; } = new();
+
     // Cards
     public CardViewModel DefaultCard { get; set; } = new();
     public CardViewModel ElevatedCard { get; set; } = new();
@@ -67,6 +74,11 @@ public class ComponentsModel : PageModel
     public NavTabsViewModel BorderedTabs { get; set; } = default!;
     public NavTabsViewModel IconTabs { get; set; } = default!;
 
+    public IActionResult OnPostShowcaseConfirm()
+    {
+        return new JsonResult(new { success = true, message = "Showcase confirmation received." });
+    }
+
     public void OnGet()
     {
         InitializeButtons();
@@ -76,6 +88,7 @@ public class ComponentsModel : PageModel
         InitializeFormInputs();
         InitializeFormSelects();
         InitializeAlerts();
+        InitializeConfirmationDialogs();
         InitializeCards();
         InitializeEmptyStates();
         InitializePagination();
@@ -329,6 +342,59 @@ public class ComponentsModel : PageModel
         {
             new() { Variant = AlertVariant.Info, Message = "This alert can be dismissed by clicking the X button.", IsDismissible = true },
             new() { Variant = AlertVariant.Success, Title = "Welcome!", Message = "You've successfully logged into the Discord Bot Admin panel.", IsDismissible = true }
+        };
+    }
+
+    private void InitializeConfirmationDialogs()
+    {
+        InfoConfirmation = new ConfirmationModalViewModel
+        {
+            Id = "showcase-info-modal",
+            Title = "Information",
+            Message = "This action will update your notification preferences. You can change this at any time from your settings.",
+            ConfirmText = "Continue",
+            CancelText = "Cancel",
+            Variant = ConfirmationVariant.Info,
+            FormAction = null,
+            FormHandler = "ShowcaseConfirm"
+        };
+
+        WarningConfirmation = new ConfirmationModalViewModel
+        {
+            Id = "showcase-warning-modal",
+            Title = "Are you sure?",
+            Message = "This will reset the bot configuration for this guild to default values. Custom command prefixes and module settings will be lost.",
+            ConfirmText = "Reset Configuration",
+            CancelText = "Keep Current",
+            Variant = ConfirmationVariant.Warning,
+            FormAction = null,
+            FormHandler = "ShowcaseConfirm"
+        };
+
+        DangerConfirmation = new ConfirmationModalViewModel
+        {
+            Id = "showcase-danger-modal",
+            Title = "Delete Guild Data",
+            Message = "This will permanently delete all stored data for this guild including audit logs, command history, and custom settings. This action cannot be undone.",
+            ConfirmText = "Delete Everything",
+            CancelText = "Cancel",
+            Variant = ConfirmationVariant.Danger,
+            FormAction = null,
+            FormHandler = "ShowcaseConfirm"
+        };
+
+        TypedConfirmation = new TypedConfirmationModalViewModel
+        {
+            Id = "showcase-typed-modal",
+            Title = "Confirm Account Deletion",
+            Message = "This will permanently delete your account and all associated data. This action is irreversible.",
+            RequiredText = "DELETE",
+            InputLabel = "Type DELETE to confirm",
+            ConfirmText = "Delete My Account",
+            CancelText = "Cancel",
+            Variant = ConfirmationVariant.Danger,
+            FormAction = null,
+            FormHandler = "ShowcaseConfirm"
         };
     }
 
