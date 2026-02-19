@@ -467,6 +467,29 @@ Following Tailwind CSS conventions (base unit: 0.25rem = 4px):
 --space-24: 6rem;       /* 96px */
 ```
 
+### Z-Index Layers
+
+The design system defines a z-index token scale to ensure consistent stacking across all components:
+
+```css
+--z-fixed: 300;           /* Fixed navbar, sidebar */
+--z-modal-backdrop: 1000; /* Modal backdrop overlay */
+--z-modal: 1001;          /* Modal dialog content */
+--z-popover: 1100;        /* Popovers, dropdowns, autocomplete */
+--z-tooltip: 1200;        /* Tooltips */
+--z-toast: 1300;          /* Toast notifications */
+--z-notification: 1300;   /* Notification containers (alias for toast) */
+```
+
+**Utility classes:** `.z-fixed`, `.z-modal-backdrop`, `.z-modal`, `.z-notification`, `.z-tooltip`, `.z-toast`
+
+**Usage:**
+- Fixed layout elements (navbar): `z-fixed`
+- Modal backdrops: `z-modal-backdrop` or `z-[var(--z-modal-backdrop)]`
+- Modal dialogs: `z-modal` or `z-[var(--z-modal)]`
+- Dropdowns and popovers: use `var(--z-popover)` in CSS
+- Toast/notification containers: `z-toast` or `z-notification`
+
 ### Layout Guidelines
 
 #### Container Widths
