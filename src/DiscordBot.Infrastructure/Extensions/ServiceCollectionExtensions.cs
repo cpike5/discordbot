@@ -42,23 +42,28 @@ public static class ServiceCollectionExtensions
         var providerName = isPostgreSql ? "PostgreSQL" : "SQLite";
         Log.Information("Database provider: {Provider}", providerName);
 
-        services.AddDbContext<BotDbContext>((serviceProvider, options) =>
+        if (isPostgreSql)
         {
-            var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
-
-            if (isPostgreSql)
+            services.AddDbContext<PostgresBotDbContext>((serviceProvider, options) =>
             {
+                var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
                 options.UseNpgsql(connectionString, npgsql =>
                     npgsql.MigrationsAssembly("DiscordBot.Infrastructure"))
                     .AddInterceptors(interceptor);
-            }
-            else
+            });
+            // Forward BotDbContext to resolve as PostgresBotDbContext
+            services.AddScoped<BotDbContext>(sp => sp.GetRequiredService<PostgresBotDbContext>());
+        }
+        else
+        {
+            services.AddDbContext<BotDbContext>((serviceProvider, options) =>
             {
+                var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
                 options.UseSqlite(connectionString, sqlite =>
                     sqlite.MigrationsAssembly("DiscordBot.Infrastructure"))
                     .AddInterceptors(interceptor);
-            }
-        });
+            });
+        }
 
         // Register repositories
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
