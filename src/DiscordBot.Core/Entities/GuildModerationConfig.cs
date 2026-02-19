@@ -13,6 +13,11 @@ public class GuildModerationConfig
     public ulong GuildId { get; set; }
 
     /// <summary>
+    /// Whether the moderation system is enabled for this guild.
+    /// </summary>
+    public bool IsEnabled { get; set; } = true;
+
+    /// <summary>
     /// Configuration mode for this guild (Simple or Advanced).
     /// </summary>
     public ConfigMode Mode { get; set; }

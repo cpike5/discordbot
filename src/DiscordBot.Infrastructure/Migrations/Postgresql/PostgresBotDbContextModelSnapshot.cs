@@ -982,6 +982,9 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<bool>("IsEnabled")
+                        .HasColumnType("boolean");
+
                     b.Property<int>("Mode")
                         .HasColumnType("integer");
 
