@@ -110,6 +110,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve`
 | [configuration-guide.md](docs/articles/configuration-guide.md) | **Unified config reference**: appsettings vs database vs per-guild settings |
 | [component-api.md](docs/articles/component-api.md) | Razor UI component library (Button, Badge, Card, FormInput, etc.) |
 | [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, component specs |
+| [theme-creation-guide.md](docs/articles/theme-creation-guide.md) | Step-by-step guide for adding new UI themes |
 | [interactive-components.md](docs/articles/interactive-components.md) | Discord button/component patterns with `ComponentIdBuilder` |
 | [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup and troubleshooting |
 | [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy (SuperAdmin > Admin > Moderator > Viewer) |
