@@ -198,4 +198,14 @@ public interface INotificationRepository : IRepository<UserNotification>
         string userId,
         IEnumerable<Guid> notificationIds,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Permanently deletes all notifications for a user.
+    /// </summary>
+    /// <param name="userId">The ApplicationUser ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of notifications deleted.</returns>
+    Task<int> DeleteAllByUserAsync(
+        string userId,
+        CancellationToken cancellationToken = default);
 }

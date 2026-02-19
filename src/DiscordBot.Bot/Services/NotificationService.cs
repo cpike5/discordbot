@@ -674,4 +674,15 @@ public class NotificationService : INotificationService
         await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
         return deleted;
     }
+
+    /// <inheritdoc/>
+    public async Task<int> DeleteAllAsync(
+        string userId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Deleting all notifications for user {UserId}", userId);
+        var deleted = await _repository.DeleteAllByUserAsync(userId, cancellationToken);
+        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        return deleted;
+    }
 }

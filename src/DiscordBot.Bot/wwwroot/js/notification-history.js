@@ -132,6 +132,34 @@
                 }
             });
         }
+
+        const deleteAllBtn = document.getElementById('deleteAll');
+        if (deleteAllBtn) {
+            deleteAllBtn.addEventListener('click', async function() {
+                if (confirm('Delete ALL notifications? This cannot be undone.')) {
+                    try {
+                        const response = await fetch('/api/notifications/delete-all', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'RequestVerificationToken': getAntiForgeryToken()
+                            }
+                        });
+
+                        if (response.ok) {
+                            location.reload();
+                        } else {
+                            const errorText = await response.text();
+                            console.error('Failed to delete all notifications:', errorText);
+                            alert('Failed to delete all notifications. Please try again.');
+                        }
+                    } catch (error) {
+                        console.error('Error deleting all notifications:', error);
+                        alert('An error occurred. Please try again.');
+                    }
+                }
+            });
+        }
     }
 
     /**
