@@ -59,8 +59,9 @@ WORKDIR /app
 # Copy published output
 COPY --from=build /app/publish ./
 
-# Copy AI assistant prompt templates (referenced at runtime by PromptTemplate service)
+# Copy AI assistant runtime docs (prompt templates + documentation tool articles)
 COPY docs/agents/ ./docs/agents/
+COPY docs/articles/ ./docs/articles/
 
 # Create data directory for SQLite database volume mount (not used when running PostgreSQL)
 RUN mkdir -p /app/data && chown -R appuser:appuser /app
