@@ -1,0 +1,40 @@
+# Version control
+.git/
+.gitignore
+
+# Node modules
+node_modules/
+**/node_modules/
+
+# Test projects
+tests/
+
+# Documentation
+docs/
+
+# Markdown files (root level)
+*.md
+
+# Build output
+**/bin/
+**/obj/
+
+# Sound clip files (users mount their own volume)
+sounds/
+
+# IDE and editor directories
+.vs/
+.vscode/
+
+# Environment files
+.env
+.env.*
+*.env
+
+# Temporary files
+temp/
+/temp/
+
+# Docker files (no need to copy into image)
+Dockerfile
+.dockerignore
