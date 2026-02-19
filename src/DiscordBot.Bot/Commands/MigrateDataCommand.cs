@@ -51,13 +51,13 @@ Example:
         try
         {
             // Create source (SQLite) context
-            var sourceOptions = new DbContextOptionsBuilder<BotDbContext>()
+            var sourceOptions = new DbContextOptionsBuilder<SqliteBotDbContext>()
                 .UseSqlite(source)
                 .Options;
             using var sourceDb = new SqliteBotDbContext(sourceOptions);
 
             // Create target (PostgreSQL) context
-            var targetOptions = new DbContextOptionsBuilder<BotDbContext>()
+            var targetOptions = new DbContextOptionsBuilder<PostgresBotDbContext>()
                 .UseNpgsql(target)
                 .Options;
             using var targetDb = new PostgresBotDbContext(targetOptions);

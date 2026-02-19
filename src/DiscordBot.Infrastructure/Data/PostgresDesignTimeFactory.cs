@@ -4,14 +4,12 @@ using Microsoft.EntityFrameworkCore.Design;
 namespace DiscordBot.Infrastructure.Data;
 
 /// <summary>
-/// Design-time only DbContext subclass for PostgreSQL migrations.
-/// Passes <see cref="DbContextOptions{BotDbContext}"/> to the base constructor
-/// so that <c>ApplyConfigurationsFromAssembly</c> resolves correctly.
-/// This class is NOT used at runtime — DI always resolves <see cref="BotDbContext"/>.
+/// DbContext subclass for PostgreSQL. Used at runtime when the PostgreSQL provider
+/// is selected, and at design-time for generating PostgreSQL migrations.
 /// </summary>
 public class PostgresBotDbContext : BotDbContext
 {
-    public PostgresBotDbContext(DbContextOptions<BotDbContext> options) : base(options)
+    public PostgresBotDbContext(DbContextOptions<PostgresBotDbContext> options) : base(options)
     {
     }
 }
@@ -24,7 +22,7 @@ public class PostgresDesignTimeFactory : IDesignTimeDbContextFactory<PostgresBot
 {
     public PostgresBotDbContext CreateDbContext(string[] args)
     {
-        var optionsBuilder = new DbContextOptionsBuilder<BotDbContext>();
+        var optionsBuilder = new DbContextOptionsBuilder<PostgresBotDbContext>();
         optionsBuilder.UseNpgsql("Host=localhost;Database=design-time",
             x => x.MigrationsAssembly("DiscordBot.Infrastructure"));
         return new PostgresBotDbContext(optionsBuilder.Options);
