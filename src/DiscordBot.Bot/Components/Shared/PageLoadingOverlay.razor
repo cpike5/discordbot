@@ -1,0 +1,38 @@
+<!-- Page Loading Overlay -->
+<div id="@Id"
+     class="loading-overlay hidden"
+     role="alert"
+     aria-live="polite"
+     aria-busy="true">
+
+    <!-- Spinner and Messages -->
+    <LoadingSpinner
+        Variant="@Variant"
+        Size="@Size"
+        Message="@Message"
+        SubMessage="@SubMessage"
+        Color="SpinnerColor.White" />
+
+    <!-- Optional Cancel Button -->
+    @if (ShowCancelButton)
+    {
+        <button type="button"
+                class="btn btn-secondary btn-sm mt-4"
+                id="@(Id)CancelBtn"
+                @onclick="OnCancel"
+                aria-label="@CancelText">
+            @CancelText
+        </button>
+    }
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = "pageLoadingOverlay";
+    [Parameter] public SpinnerVariant Variant { get; set; } = SpinnerVariant.Simple;
+    [Parameter] public SpinnerSize Size { get; set; } = SpinnerSize.Large;
+    [Parameter] public string? Message { get; set; } = "Loading...";
+    [Parameter] public string? SubMessage { get; set; }
+    [Parameter] public bool ShowCancelButton { get; set; }
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public EventCallback OnCancel { get; set; }
+}

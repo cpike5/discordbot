@@ -1,0 +1,140 @@
+@{
+    var sizeClasses = Size switch
+    {
+        InputSize.Small => "py-1.5 px-3 text-xs",
+        InputSize.Large => "py-3 px-4 text-base",
+        _ => "py-2.5 px-3.5 text-sm"
+    };
+
+    var validationClasses = ValidationState switch
+    {
+        ValidationState.Error => "border-error focus:border-error focus:ring-error/15",
+        ValidationState.Success => "border-success focus:border-success focus:ring-success/15",
+        ValidationState.Warning => "border-warning focus:border-warning focus:ring-warning/15",
+        _ => "border-border-primary focus:border-accent-blue focus:ring-accent-blue/15"
+    };
+
+    var selectClasses = $"w-full {sizeClasses} pr-10 text-text-primary bg-bg-primary border {validationClasses} rounded-md appearance-none transition-colors focus:outline-none focus:ring-[3px]";
+
+    if (IsDisabled)
+    {
+        selectClasses += " bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60";
+    }
+}
+
+<div class="space-y-1.5">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@Id" class="block text-sm font-medium text-text-primary">
+            @Label
+            @if (IsRequired)
+            {
+                <span class="text-error">*</span>
+            }
+        </label>
+    }
+
+    <div class="relative">
+        <select
+            id="@Id"
+            name="@Name"
+            class="@selectClasses"
+            required="@IsRequired"
+            disabled="@IsDisabled"
+            multiple="@AllowMultiple"
+            @onchange="HandleChange"
+            @attributes="AdditionalAttributes">
+            @if (!string.IsNullOrEmpty(Placeholder) && !AllowMultiple)
+            {
+                var placeholderSelected = string.IsNullOrEmpty(SelectedValue);
+                <option value="" disabled selected="@placeholderSelected">@Placeholder</option>
+            }
+
+            @if (OptionGroups != null && OptionGroups.Any())
+            {
+                @foreach (var group in OptionGroups)
+                {
+                    <optgroup label="@group.Label">
+                        @foreach (var option in group.Options)
+                        {
+                            <option value="@option.Value" selected="@(option.Value == SelectedValue)" disabled="@option.IsDisabled">@option.Text</option>
+                        }
+                    </optgroup>
+                }
+            }
+            else
+            {
+                @foreach (var option in Options)
+                {
+                    <option value="@option.Value" selected="@(option.Value == SelectedValue)" disabled="@option.IsDisabled">@option.Text</option>
+                }
+            }
+        </select>
+
+        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(HelpText) && ValidationState == ValidationState.None)
+    {
+        <p class="text-xs text-text-secondary">@HelpText</p>
+    }
+
+    @if (ValidationState == ValidationState.Error && !string.IsNullOrEmpty(ValidationMessage))
+    {
+        <p class="flex items-center gap-1.5 text-xs text-error">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @ValidationMessage
+        </p>
+    }
+
+    @if (ValidationState == ValidationState.Success && !string.IsNullOrEmpty(ValidationMessage))
+    {
+        <p class="flex items-center gap-1.5 text-xs text-success">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @ValidationMessage
+        </p>
+    }
+
+    @if (ValidationState == ValidationState.Warning && !string.IsNullOrEmpty(ValidationMessage))
+    {
+        <p class="flex items-center gap-1.5 text-xs text-warning">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+            @ValidationMessage
+        </p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+    [Parameter] public string Name { get; set; } = string.Empty;
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; } = "Select an option";
+    [Parameter] public string? SelectedValue { get; set; }
+    [Parameter] public EventCallback<string?> SelectedValueChanged { get; set; }
+    [Parameter] public List<SelectOption> Options { get; set; } = new();
+    [Parameter] public List<SelectOptionGroup>? OptionGroups { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public InputSize Size { get; set; } = InputSize.Medium;
+    [Parameter] public ValidationState ValidationState { get; set; } = ValidationState.None;
+    [Parameter] public string? ValidationMessage { get; set; }
+    [Parameter] public bool IsRequired { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+    [Parameter] public bool AllowMultiple { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        SelectedValue = e.Value?.ToString();
+        await SelectedValueChanged.InvokeAsync(SelectedValue);
+    }
+}

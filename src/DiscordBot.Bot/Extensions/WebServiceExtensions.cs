@@ -46,6 +46,9 @@ public static class WebServiceExtensions
         // Revalidate auth state periodically in Blazor Server circuits
         services.AddScoped<AuthenticationStateProvider, RevalidatingAuthStateProvider>();
 
+        // Add Blazor JS interop services
+        services.AddBlazorInteropServices();
+
         // Capture client IP during circuit initialization for audit logging
         services.AddScoped<CircuitClientInfoService>();
         services.AddScoped<CircuitHandler, CircuitClientInfoService>(sp => sp.GetRequiredService<CircuitClientInfoService>());

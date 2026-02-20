@@ -1,0 +1,272 @@
+@inject IJSRuntime JS
+
+<div id="@ContainerId"
+     class="emphasis-toolbar hidden"
+     role="toolbar"
+     aria-label="Text formatting toolbar"
+     data-target="@TargetTextareaId">
+
+    <!-- Strong Emphasis -->
+    <button type="button"
+            class="emphasis-toolbar__button emphasis-toolbar__button--strong @(!EmphasisSupported ? "emphasis-toolbar__button--emphasis-disabled" : "")"
+            title="Strong Emphasis@(ShowKeyboardShortcuts ? " (Ctrl+B)" : "")"
+            data-action="emphasis"
+            data-level="strong"
+            aria-label="Apply strong emphasis to selected text"
+            @onclick="OnStrongEmphasis">
+        <strong>B</strong>
+    </button>
+
+    <!-- Moderate Emphasis -->
+    <button type="button"
+            class="emphasis-toolbar__button emphasis-toolbar__button--moderate @(!EmphasisSupported ? "emphasis-toolbar__button--emphasis-disabled" : "")"
+            title="Moderate Emphasis@(ShowKeyboardShortcuts ? " (Ctrl+E)" : "")"
+            data-action="emphasis"
+            data-level="moderate"
+            aria-label="Apply moderate emphasis to selected text"
+            @onclick="OnModerateEmphasis">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        </svg>
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <!-- Insert Pause -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Insert Pause"
+            data-action="pause"
+            aria-label="Insert pause at cursor position"
+            @onclick="OnPause">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 4v16m12-16v16" />
+        </svg>
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <!-- Say-as Number -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Say as Number"
+            data-action="say-as"
+            data-interpret-as="cardinal"
+            aria-label="Format selected text as number"
+            @onclick="OnSayAsCardinal">
+        <strong>#</strong>
+    </button>
+
+    <!-- Say-as Date -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Say as Date"
+            data-action="say-as"
+            data-interpret-as="date"
+            aria-label="Format selected text as date"
+            @onclick="OnSayAsDate">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+        </svg>
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <!-- Clear Formatting -->
+    <button type="button"
+            class="emphasis-toolbar__button"
+            title="Clear Formatting"
+            data-action="clear"
+            aria-label="Remove formatting from selected text"
+            @onclick="OnClearFormatting">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+    </button>
+</div>
+
+@if (!EmphasisSupported)
+{
+    <div id="@(ContainerId)-emphasis-notice"
+         class="emphasis-toolbar__notice"
+         role="status"
+         aria-live="polite">
+        <em>Emphasis is not supported by this voice.</em>
+    </div>
+}
+
+<style>
+    .emphasis-toolbar {
+        position: fixed;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        padding: 0.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+        z-index: var(--z-popover, 1000);
+        animation: emphasisToolbar_slideUp 0.2s ease-out;
+        pointer-events: auto;
+    }
+
+    .emphasis-toolbar.hidden {
+        display: none;
+        pointer-events: none;
+    }
+
+    @@keyframes emphasisToolbar_slideUp {
+        from {
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .emphasis-toolbar__button {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 0.375rem;
+        background: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-primary);
+        color: var(--color-text-primary);
+        cursor: pointer;
+        transition: all 150ms ease-out;
+        font-weight: 600;
+        font-size: 0.75rem;
+    }
+
+    .emphasis-toolbar__button:hover {
+        background: var(--color-bg-hover);
+        border-color: var(--color-accent-orange);
+    }
+
+    .emphasis-toolbar__button:focus {
+        outline: none;
+        box-shadow: 0 0 0 3px var(--color-accent-orange-muted);
+    }
+
+    .emphasis-toolbar__button--strong {
+        color: var(--color-accent-orange);
+    }
+
+    .emphasis-toolbar__button--strong:hover {
+        background: var(--color-accent-orange-muted);
+        border-color: var(--color-accent-orange);
+    }
+
+    .emphasis-toolbar__button--moderate {
+        color: var(--color-accent-blue);
+    }
+
+    .emphasis-toolbar__button--moderate:hover {
+        background: var(--color-accent-blue-muted);
+        border-color: var(--color-accent-blue);
+    }
+
+    .emphasis-toolbar__button svg {
+        width: 1rem;
+        height: 1rem;
+        flex-shrink: 0;
+    }
+
+    .emphasis-toolbar__separator {
+        width: 1px;
+        height: 24px;
+        background: var(--color-border-secondary);
+        margin: 0 0.25rem;
+    }
+
+    .emphasis-toolbar__button--emphasis-disabled {
+        opacity: 0.4;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .emphasis-toolbar__notice {
+        position: fixed;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.375rem;
+        padding: 0.375rem 0.75rem;
+        font-size: 0.75rem;
+        color: var(--color-text-tertiary);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: var(--z-popover, 1000);
+        white-space: nowrap;
+    }
+
+    .emphasis-toolbar__notice.hidden {
+        display: none;
+    }
+
+    @@media (max-width: 767px) {
+        .emphasis-toolbar {
+            position: fixed !important;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            width: 100%;
+            border-radius: 0.75rem 0.75rem 0 0;
+            padding: 1rem;
+            justify-content: center;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+            animation: emphasisToolbar_slideUpMobile 0.3s ease-out;
+        }
+
+        @@keyframes emphasisToolbar_slideUpMobile {
+            from {
+                opacity: 0;
+                transform: translateY(100%);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .emphasis-toolbar__button {
+            min-width: 44px;
+            min-height: 44px;
+        }
+    }
+</style>
+
+@code {
+    [Parameter] public string TargetTextareaId { get; set; } = string.Empty;
+    [Parameter] public string ContainerId { get; set; } = "emphasisToolbar";
+    [Parameter] public EventCallback<EmphasisFormatAction> OnFormatChange { get; set; }
+    [Parameter] public bool ShowKeyboardShortcuts { get; set; } = true;
+    [Parameter] public bool EmphasisSupported { get; set; } = true;
+
+    private Task OnStrongEmphasis() => ApplyFormat("emphasis", "strong");
+    private Task OnModerateEmphasis() => ApplyFormat("emphasis", "moderate");
+    private Task OnPause() => ApplyFormat("pause", "");
+    private Task OnSayAsCardinal() => ApplyFormat("say-as", "cardinal");
+    private Task OnSayAsDate() => ApplyFormat("say-as", "date");
+    private Task OnClearFormatting() => ApplyFormat("clear", "");
+
+    private async Task ApplyFormat(string action, string option)
+    {
+        if (action == "emphasis" && !EmphasisSupported) return;
+
+        await OnFormatChange.InvokeAsync(new EmphasisFormatAction
+        {
+            Action = action,
+            Option = option
+        });
+    }
+
+    public class EmphasisFormatAction
+    {
+        public string Action { get; set; } = string.Empty;
+        public string Option { get; set; } = string.Empty;
+    }
+}

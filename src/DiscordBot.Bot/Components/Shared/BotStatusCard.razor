@@ -1,0 +1,85 @@
+@implements IDisposable
+
+@{
+    var statusIndicatorStatus = StatusType;
+    var isPulsing = StatusType == StatusType.Online;
+}
+
+<!-- Bot Status Card -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-5" data-bot-status-card>
+    <!-- Card Header -->
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-text-primary">Bot Status</h2>
+        <StatusIndicator Status="@statusIndicatorStatus"
+                         DisplayStyle="StatusDisplayStyle.BadgeStyle"
+                         IsPulsing="@isPulsing" />
+    </div>
+
+    <!-- Metrics Grid -->
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <!-- Connection State -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Connection</p>
+            <div class="flex items-center gap-2">
+                <StatusIndicator Status="@statusIndicatorStatus"
+                                 DisplayStyle="StatusDisplayStyle.DotOnly"
+                                 Size="StatusSize.Small" />
+                <p class="text-sm font-medium text-text-primary" data-connection-state>@ConnectionState</p>
+            </div>
+        </div>
+
+        <!-- Latency -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Latency</p>
+            <p class="text-sm font-medium text-text-primary">
+                <span data-latency>@LatencyMs</span><span class="text-text-secondary"> ms</span>
+            </p>
+        </div>
+
+        <!-- Uptime -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Uptime</p>
+            <p class="text-sm font-medium text-text-primary" data-uptime>@UptimeFormatted</p>
+        </div>
+
+        <!-- Guild Count -->
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Servers</p>
+            <p class="text-sm font-medium text-text-primary" data-guild-count>@GuildCount</p>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="pt-3 border-t border-border-primary">
+        <p class="text-xs text-text-tertiary">
+            Last updated: <span data-last-updated>@_lastUpdated</span>
+        </p>
+    </div>
+</div>
+
+@code {
+    [Parameter] public StatusType StatusType { get; set; } = StatusType.Offline;
+    [Parameter] public string ConnectionState { get; set; } = string.Empty;
+    [Parameter] public int LatencyMs { get; set; }
+    [Parameter] public string UptimeFormatted { get; set; } = string.Empty;
+    [Parameter] public int GuildCount { get; set; }
+
+    // TODO: Subscribe to IDashboardEventBus in Phase 5
+
+    private string _lastUpdated = "Just now";
+    private System.Threading.Timer? _timer;
+
+    protected override void OnInitialized()
+    {
+        _timer = new System.Threading.Timer(_ =>
+        {
+            _lastUpdated = "Just now";
+            InvokeAsync(StateHasChanged);
+        }, null, TimeSpan.FromSeconds(30), TimeSpan.FromSeconds(30));
+    }
+
+    public void Dispose()
+    {
+        _timer?.Dispose();
+    }
+}

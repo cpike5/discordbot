@@ -1,0 +1,84 @@
+@inject IJSRuntime JSRuntime
+
+@{
+    var searchInputId = $"{Id}-search";
+    var helpTextId = $"{Id}-help";
+}
+
+<div class="space-y-1.5">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@searchInputId" class="block text-sm font-medium text-text-primary">
+            @Label
+            @if (IsRequired)
+            {
+                <span class="text-error">*</span>
+            }
+        </label>
+    }
+
+    <div class="autocomplete-wrapper">
+        <input
+            type="text"
+            id="@searchInputId"
+            class="form-input w-full"
+            placeholder="@(Placeholder ?? "Search...")"
+            value="@InitialDisplayText"
+            autocomplete="off"
+            aria-required="@(IsRequired ? "true" : null)"
+            aria-describedby="@(!string.IsNullOrEmpty(HelpText) ? helpTextId : null)"
+        />
+        <input
+            type="hidden"
+            id="@Id"
+            name="@Name"
+            value="@InitialValue"
+        />
+    </div>
+
+    @if (!string.IsNullOrEmpty(HelpText))
+    {
+        <p id="@helpTextId" class="text-xs text-text-secondary">@HelpText</p>
+    }
+</div>
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+    [Parameter] public string Name { get; set; } = string.Empty;
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string Endpoint { get; set; } = string.Empty;
+    [Parameter] public string? InitialValue { get; set; }
+    [Parameter] public string? InitialDisplayText { get; set; }
+    [Parameter] public string? GuildIdSourceElement { get; set; }
+    [Parameter] public bool IsRequired { get; set; }
+    [Parameter] public int MinChars { get; set; } = 2;
+    [Parameter] public int DebounceMs { get; set; } = 300;
+    [Parameter] public int MaxResults { get; set; } = 25;
+    [Parameter] public string NoResultsMessage { get; set; } = "No results found";
+    [Parameter] public string? HelpText { get; set; }
+
+    private bool _initialized;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            var searchInputId = $"{Id}-search";
+            var options = new
+            {
+                inputId = searchInputId,
+                hiddenInputId = Id,
+                endpoint = Endpoint,
+                guildIdSource = GuildIdSourceElement,
+                minChars = MinChars,
+                debounceMs = DebounceMs,
+                maxResults = MaxResults,
+                placeholder = Placeholder ?? "Search...",
+                noResultsMessage = NoResultsMessage
+            };
+            await JSRuntime.InvokeVoidAsync("AutocompleteManager.init", options);
+        }
+    }
+}
