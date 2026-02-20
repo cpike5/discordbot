@@ -6,6 +6,8 @@
 - [#598 - Bug: Command search shows module name badge only, not the matched command name](https://github.com/cpike5/discordbot/issues/598)
 **PR:** [#619](https://github.com/cpike5/discordbot/pull/619)
 
+**Follow-up fix:** `3d6cb4d fix: set TagMode.StartTagAndEndTag on HighlightTagHelper to render content`
+
 ---
 
 ## Summary
@@ -90,12 +92,9 @@ While Command Logs (which worked) used direct output:
 <span class="font-mono...">/@log.CommandName</span>
 ```
 
-### Root Cause
+### Root Cause (initial understanding)
 
-The `<highlight>` tag helper was producing empty output for command titles. The exact cause wasn't definitively identified but likely relates to:
-- How the tag helper handles text starting with `/`
-- Potential HTML encoding interactions with the slash character
-- Regex pattern matching edge cases
+The `<highlight>` tag helper was producing empty output for command titles. At the time of the fix, the exact cause was not identified. The working theory was that the slash prefix (`/`) on command names caused an edge case in the regex or HTML encoding logic.
 
 ### Fix
 
@@ -118,6 +117,89 @@ Description highlighting was kept since it worked correctly.
 The Command Logs section rendered command names correctly without the highlight helper. Rather than debugging the tag helper edge case, the simpler solution was to match the working pattern.
 
 **Pragmatism over perfection:** Highlighting the command name is nice-to-have, but displaying it at all is essential. The fix prioritized correctness over completeness.
+
+> **Note:** The true root cause was identified in a subsequent review and is documented below in [Root Cause Confirmed: ASP.NET Core TagMode.SelfClosing](#root-cause-confirmed-aspnet-core-tagmodeselfclosing). The slash prefix was a red herring.
+
+---
+
+## Root Cause Confirmed: ASP.NET Core TagMode.SelfClosing
+
+**Commit:** `3d6cb4d fix: set TagMode.StartTagAndEndTag on HighlightTagHelper to render content`
+
+**Date:** 2026-02-19
+
+### Problem
+
+During a broader search system review, it was confirmed that **all** `<highlight />` usages in search result templates were producing empty `<span></span>` elements — not just the command title. Titles and descriptions in every category where the tag helper was used rendered blank in the browser despite containing correct data throughout the entire C# pipeline.
+
+Symptoms:
+- Search result cards appeared with no title or description text
+- The surrounding markup (badges, icons, links) rendered correctly
+- Inspecting the HTML showed `<span></span>` elements with no inner content
+- Server-side debugging showed `Text` and `SearchTerm` properties populated correctly on the tag helper instance
+- The `TextHighlightHelper` methods produced correct HTML strings when called directly
+
+The data was correct at every observable point in the pipeline. The output was silently empty.
+
+### Why Debugging Was Misleading
+
+The natural places to look first were all innocent:
+1. `SearchService` — data was correctly populated in `Title` and `Description`
+2. `SearchResultItemDto` — values were non-null and non-empty when passed to the view
+3. `TextHighlightHelper` — produced correct `<mark>`-wrapped HTML strings
+4. The Razor template — the tag helper attributes were correctly bound
+
+Because every intermediate step looked correct, the failure appeared to be happening "between" steps rather than at any single identifiable point, which made isolation difficult.
+
+### Root Cause
+
+**ASP.NET Core tag helpers default to `TagMode.SelfClosing` when the element uses self-closing syntax.**
+
+When a tag helper is written as `<highlight ... />`, the framework processes it in `TagMode.SelfClosing` by default. In this mode, the tag helper's `output.Content` is **silently discarded** — any call to `SetHtmlContent()` or `SetContent()` has no effect on the final rendered output.
+
+The `HighlightTagHelper.Process` method was calling:
+
+```csharp
+output.TagName = "span";
+// TagMode not set — defaults to SelfClosing due to self-closing usage syntax
+output.Content.SetHtmlContent(highlighted); // silently discarded
+```
+
+The rendered output was therefore an empty self-closing `<span />` element, which browsers normalise to `<span></span>`.
+
+This behaviour is documented in the ASP.NET Core source but not prominently flagged as a potential pitfall. The framework produces no warning, no exception, and no indication that content was discarded.
+
+### Fix
+
+One line added to `HighlightTagHelper.Process`:
+
+```csharp
+public override void Process(TagHelperContext context, TagHelperOutput output)
+{
+    output.TagName = "span";
+    output.TagMode = TagMode.StartTagAndEndTag; // added — without this, SetHtmlContent is silently discarded
+    // ...
+    output.Content.SetHtmlContent(highlighted);
+}
+```
+
+**File:** `src/DiscordBot.Bot/TagHelpers/HighlightTagHelper.cs`
+
+### Rule for All Future Tag Helpers
+
+> **Any tag helper that sets content via `SetHtmlContent()` or `SetContent()` MUST explicitly set `output.TagMode = TagMode.StartTagAndEndTag` in its `Process` method.**
+>
+> This is required regardless of whether the tag is used with self-closing or paired syntax in templates, because `TagMode` defaults are controlled by the ASP.NET Core framework based on how the element appears at the call site, not by the tag helper itself.
+
+### Why the Command Title Seemed Different
+
+The original workaround for Issue #598 removed `<highlight>` from command titles because those appeared blank. The description field (which also used `<highlight>`) was noted as "working correctly" at the time — but this was incorrect. Both were producing empty output. The description field was simply less visually obvious as broken because it is rendered at smaller size and lower visual prominence than the title.
+
+The slash prefix (`/`) on command names was a red herring and had no bearing on the failure.
+
+### Checklist Addition
+
+See updated checklist below.
 
 ---
 
@@ -160,10 +242,18 @@ With this surface area, some bugs slipping through is expected.
 - [ ] Test mobile search flow end-to-end
 - [ ] Verify all search result types render title, description, and badge
 - [ ] Compare rendering patterns between similar sections
+- [ ] Any new `<highlight />` usage must have `output.TagMode = TagMode.StartTagAndEndTag` set in the tag helper's `Process` method
+
+## Checklist for New Tag Helpers
+
+- [ ] If the tag helper renders content via `SetHtmlContent()` or `SetContent()`, set `output.TagMode = TagMode.StartTagAndEndTag` explicitly
+- [ ] Write a smoke test that verifies rendered output is non-empty for a known-good input
+- [ ] If the element can be used with self-closing syntax, verify output in browser developer tools — an empty `<tagname></tagname>` with no inner text is a strong signal that `TagMode` is wrong
 
 ---
 
 ## Files Modified
 
-- `src/DiscordBot.Bot/wwwroot/js/search.js` - 3 querystring parameter fixes
-- `src/DiscordBot.Bot/Pages/Search.cshtml` - Remove highlight helper from command title
+- `src/DiscordBot.Bot/wwwroot/js/search.js` - 3 querystring parameter fixes (PR #619)
+- `src/DiscordBot.Bot/Pages/Search.cshtml` - Workaround: removed highlight helper from command title (PR #619)
+- `src/DiscordBot.Bot/TagHelpers/HighlightTagHelper.cs` - Added `output.TagMode = TagMode.StartTagAndEndTag` (commit `3d6cb4d`)

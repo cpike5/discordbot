@@ -563,6 +563,95 @@ if (results.HasMore)
 
 ## Search UI Components
 
+### HighlightTagHelper
+
+The `HighlightTagHelper` renders text with matching substrings wrapped in `<mark>` elements, providing visual emphasis for search terms in result cards.
+
+**Location:** `src/DiscordBot.Bot/TagHelpers/HighlightTagHelper.cs`
+
+**Tag name:** `<highlight>`
+
+#### Attributes
+
+| Attribute | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `text` | `string` | Yes | The full text to display and search within |
+| `search-term` | `string` | Yes | The term to highlight within the text |
+| `max-length` | `int?` | No | Truncate text to this length before highlighting |
+| `show-context` | `bool` | No | When `true` and `max-length` is set, centres the truncation window around the first match |
+
+#### Basic Usage
+
+```razor
+<highlight text="@item.Title" search-term="@Model.SearchTerm" />
+```
+
+This renders as a `<span>` containing the full text, with any occurrences of the search term wrapped in `<mark>`:
+
+```html
+<span>My <mark>Discord</mark> Server</span>
+```
+
+#### Truncated Usage
+
+```razor
+<highlight text="@item.Description"
+           search-term="@Model.SearchTerm"
+           max-length="200" />
+```
+
+#### Context-Centred Truncation
+
+Useful for long bodies of text (e.g. message log content) where the match may be far from the start:
+
+```razor
+<highlight text="@item.Description"
+           search-term="@Model.SearchTerm"
+           max-length="200"
+           show-context="true" />
+```
+
+#### Highlighting Helper
+
+The tag helper delegates to static methods on `TextHighlightHelper`:
+
+| Method | Used when |
+|--------|-----------|
+| `HighlightMatches(text, term)` | No `max-length` |
+| `TruncateAndHighlight(text, term, length)` | `max-length` set, `show-context` false |
+| `HighlightWithContext(text, term, length)` | `max-length` set, `show-context` true |
+
+#### Critical: TagMode Requirement
+
+**`output.TagMode = TagMode.StartTagAndEndTag` MUST be set in the `Process` method.**
+
+ASP.NET Core tag helpers default to `TagMode.SelfClosing` when the element is written with self-closing syntax (e.g. `<highlight ... />`). In `SelfClosing` mode the framework **silently discards any content set via `output.Content.SetHtmlContent()`**, producing an empty `<span></span>` element with no visible output.
+
+Without the explicit assignment:
+
+```csharp
+// WRONG - content set here is silently discarded in SelfClosing mode
+output.Content.SetHtmlContent(highlighted);
+```
+
+With the correct assignment:
+
+```csharp
+public override void Process(TagHelperContext context, TagHelperOutput output)
+{
+    output.TagName = "span";
+    output.TagMode = TagMode.StartTagAndEndTag; // REQUIRED - must be set before SetHtmlContent
+    // ...
+    output.Content.SetHtmlContent(highlighted);
+}
+```
+
+This applies to **any tag helper that sets content via `SetHtmlContent()` or `SetContent()` and is used with self-closing syntax**. The fix is always to explicitly set `output.TagMode = TagMode.StartTagAndEndTag` in the `Process` method.
+
+See [issue-597-598-search-bugs.md](../lessons-learned/issue-597-598-search-bugs.md) for the full debugging history that uncovered this.
+
+---
+
 ### Global Search Bar
 
 Located in the main navigation header:
@@ -706,4 +795,7 @@ If you can't see certain results:
 - **Service Interface:** `ISearchService.cs`
 - **Search Page:** `/Search.cshtml` and `Search.cshtml.cs`
 - **DTOs:** `SearchDtos.cs` and `SearchCategory.cs` enum
+- **Tag Helper:** `src/DiscordBot.Bot/TagHelpers/HighlightTagHelper.cs`
+- **Highlight Helper:** `src/DiscordBot.Bot/Helpers/TextHighlightHelper.cs`
 - **Authorization Policies:** See [Authorization Policies](authorization-policies.md)
+- **Lessons Learned:** See [Search Bug Lessons](../lessons-learned/issue-597-598-search-bugs.md)
