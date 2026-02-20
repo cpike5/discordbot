@@ -25,6 +25,7 @@ public class HighlightTagHelper : TagHelper
     public override void Process(TagHelperContext context, TagHelperOutput output)
     {
         output.TagName = "span";
+        output.TagMode = TagMode.StartTagAndEndTag;
 
         string highlighted;
 
