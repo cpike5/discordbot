@@ -1,0 +1,328 @@
+@{
+    var startItem = (CurrentPage - 1) * PageSize + 1;
+    var endItem = Math.Min(CurrentPage * PageSize, TotalItems);
+    var isFirstPage = CurrentPage == 1;
+    var isLastPage = CurrentPage == TotalPages;
+
+    // Generate page numbers to show (max 7 buttons: 1 ... 4 5 6 ... 10)
+    var pagesToShow = new List<int?>();
+    if (TotalPages <= 7)
+    {
+        for (int i = 1; i <= TotalPages; i++)
+            pagesToShow.Add(i);
+    }
+    else
+    {
+        pagesToShow.Add(1);
+
+        if (CurrentPage <= 4)
+        {
+            for (int i = 2; i <= Math.Min(5, TotalPages - 1); i++)
+                pagesToShow.Add(i);
+            pagesToShow.Add(null); // ellipsis
+        }
+        else if (CurrentPage >= TotalPages - 3)
+        {
+            pagesToShow.Add(null);
+            for (int i = Math.Max(2, TotalPages - 4); i < TotalPages; i++)
+                pagesToShow.Add(i);
+        }
+        else
+        {
+            pagesToShow.Add(null);
+            for (int i = CurrentPage - 1; i <= CurrentPage + 1; i++)
+                pagesToShow.Add(i);
+            pagesToShow.Add(null);
+        }
+
+        pagesToShow.Add(TotalPages);
+    }
+}
+
+@if (Style == PaginationStyle.Simple)
+{
+    <nav aria-label="Pagination" class="flex items-center gap-3">
+        <a
+            href="@BuildUrl(CurrentPage - 1)"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isFirstPage ? "pointer-events-none opacity-50" : "")"
+            aria-disabled="@(isFirstPage ? "true" : "false")">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            Previous
+        </a>
+        <a
+            href="@BuildUrl(CurrentPage + 1)"
+            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isLastPage ? "pointer-events-none opacity-50" : "")"
+            aria-disabled="@(isLastPage ? "true" : "false")">
+            Next
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </nav>
+}
+else if (Style == PaginationStyle.Compact)
+{
+    <nav aria-label="Pagination" class="flex items-center justify-between gap-4">
+        <a
+            href="@BuildUrl(CurrentPage - 1)"
+            class="px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isFirstPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Previous page"
+            aria-disabled="@(isFirstPage ? "true" : "false")">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        <span class="text-sm text-text-secondary">
+            Page <span class="font-medium text-text-primary">@CurrentPage</span> of <span class="font-medium text-text-primary">@TotalPages</span>
+        </span>
+        <a
+            href="@BuildUrl(CurrentPage + 1)"
+            class="px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors @(isLastPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Next page"
+            aria-disabled="@(isLastPage ? "true" : "false")">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </nav>
+}
+else if (Style == PaginationStyle.Bordered)
+{
+    <nav aria-label="Pagination" class="inline-flex items-center bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <a
+            href="@BuildUrl(CurrentPage - 1)"
+            class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary @(isFirstPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Previous page"
+            aria-disabled="@(isFirstPage ? "true" : "false")">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+        </a>
+        @foreach (var page in pagesToShow)
+        {
+            if (page == null)
+            {
+                <span class="px-4 py-2 text-sm text-text-tertiary border-r border-border-primary">...</span>
+            }
+            else if (page == CurrentPage)
+            {
+                <span class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border-r border-border-primary">@(page)</span>
+            }
+            else
+            {
+                <a href="@BuildUrl(page.Value)" class="px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors">@(page)</a>
+            }
+        }
+        <a
+            href="@BuildUrl(CurrentPage + 1)"
+            class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover @(isLastPage ? "pointer-events-none opacity-50" : "")"
+            aria-label="Next page"
+            aria-disabled="@(isLastPage ? "true" : "false")">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </a>
+    </nav>
+}
+else
+{
+    @* Full Pagination Style *@
+    if (ShowPageSizeSelector || ShowItemCount)
+    {
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div class="flex items-center gap-3">
+                @if (ShowPageSizeSelector)
+                {
+                    <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+                    <select
+                        id="pageSize"
+                        class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue"
+                        onchange="@($"window.location.href='{BuildUrl(1)}&{PageSizeParameterName}=' + this.value")">
+                        @foreach (var size in PageSizeOptions)
+                        {
+                            <option value="@size" selected="@(size == PageSize)">@size</option>
+                        }
+                    </select>
+                }
+                @if (ShowItemCount)
+                {
+                    <span class="text-sm text-text-secondary">
+                        Showing <span class="font-medium text-text-primary">@startItem-@endItem</span> of <span class="font-medium text-text-primary">@TotalItems</span>
+                    </span>
+                }
+            </div>
+            <nav aria-label="Pagination" class="flex items-center gap-1">
+                @if (ShowFirstLast)
+                {
+                    <a
+                        href="@BuildUrl(1)"
+                        class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                        aria-label="First page"
+                        aria-disabled="@(isFirstPage ? "true" : "false")">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                        </svg>
+                    </a>
+                }
+
+                <a
+                    href="@BuildUrl(CurrentPage - 1)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="Previous page"
+                    aria-disabled="@(isFirstPage ? "true" : "false")">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                    </svg>
+                </a>
+
+                @foreach (var pageNum in pagesToShow)
+                {
+                    if (pageNum == null)
+                    {
+                        <span class="px-2 py-2 text-text-tertiary">...</span>
+                    }
+                    else if (pageNum == CurrentPage)
+                    {
+                        <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">@(pageNum)</span>
+                    }
+                    else
+                    {
+                        <a href="@BuildUrl(pageNum.Value)" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">@(pageNum)</a>
+                    }
+                }
+
+                <a
+                    href="@BuildUrl(CurrentPage + 1)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="Next page"
+                    aria-disabled="@(isLastPage ? "true" : "false")">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                    </svg>
+                </a>
+
+                @if (ShowFirstLast)
+                {
+                    <a
+                        href="@BuildUrl(TotalPages)"
+                        class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                        aria-label="Last page"
+                        aria-disabled="@(isLastPage ? "true" : "false")">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                }
+            </nav>
+        </div>
+    }
+    else
+    {
+        <nav aria-label="Pagination" class="flex items-center gap-1">
+            @if (ShowFirstLast)
+            {
+                <a
+                    href="@BuildUrl(1)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="First page"
+                    aria-disabled="@(isFirstPage ? "true" : "false")">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                    </svg>
+                </a>
+            }
+
+            <a
+                href="@BuildUrl(CurrentPage - 1)"
+                class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isFirstPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                aria-label="Previous page"
+                aria-disabled="@(isFirstPage ? "true" : "false")">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </a>
+
+            @foreach (var page in pagesToShow)
+            {
+                if (page == null)
+                {
+                    <span class="px-2 py-2 text-text-tertiary">...</span>
+                }
+                else if (page == CurrentPage)
+                {
+                    <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">@(page)</span>
+                }
+                else
+                {
+                    <a href="@BuildUrl(page.Value)" class="px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors">@(page)</a>
+                }
+            }
+
+            <a
+                href="@BuildUrl(CurrentPage + 1)"
+                class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                aria-label="Next page"
+                aria-disabled="@(isLastPage ? "true" : "false")">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </a>
+
+            @if (ShowFirstLast)
+            {
+                <a
+                    href="@BuildUrl(TotalPages)"
+                    class="px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors @(isLastPage ? "pointer-events-none opacity-50 cursor-not-allowed" : "")"
+                    aria-label="Last page"
+                    aria-disabled="@(isLastPage ? "true" : "false")">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                    </svg>
+                </a>
+            }
+        </nav>
+    }
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; } = 1;
+    [Parameter] public int TotalItems { get; set; }
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public int[] PageSizeOptions { get; set; } = new[] { 10, 25, 50, 100 };
+    [Parameter] public PaginationStyle Style { get; set; } = PaginationStyle.Full;
+    [Parameter] public bool ShowPageSizeSelector { get; set; }
+    [Parameter] public bool ShowItemCount { get; set; }
+    [Parameter] public bool ShowFirstLast { get; set; } = true;
+    [Parameter] public string BaseUrl { get; set; } = string.Empty;
+    [Parameter] public string PageParameterName { get; set; } = "page";
+    [Parameter] public string PageSizeParameterName { get; set; } = "pageSize";
+
+    private string StripQueryParam(string url, string paramName)
+    {
+        var queryIndex = url.IndexOf('?');
+        if (queryIndex < 0) return url;
+        var basePath = url[..queryIndex];
+        var queryString = url[(queryIndex + 1)..];
+        var pairs = queryString.Split('&')
+            .Where(p => !p.StartsWith(paramName + "=", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (pairs.Length == 0) return basePath;
+        return basePath + "?" + string.Join("&", pairs);
+    }
+
+    private string BuildUrl(int page, int? pageSize = null)
+    {
+        if (string.IsNullOrEmpty(BaseUrl)) return "#";
+        var baseUrl = StripQueryParam(BaseUrl, PageParameterName);
+        if (pageSize.HasValue)
+            baseUrl = StripQueryParam(baseUrl, PageSizeParameterName);
+        var separator = baseUrl.Contains('?') ? "&" : "?";
+        var url = $"{baseUrl}{separator}{PageParameterName}={page}";
+        if (pageSize.HasValue)
+            url += $"&{PageSizeParameterName}={pageSize.Value}";
+        return url;
+    }
+}

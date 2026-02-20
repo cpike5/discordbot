@@ -1,0 +1,21 @@
+@using DiscordBot.Core.Enums
+
+@{
+    var (statusClass, label) = Status switch
+    {
+        FlaggedEventStatus.Pending => ("status-pending", "Pending"),
+        FlaggedEventStatus.Dismissed => ("status-dismissed", "Dismissed"),
+        FlaggedEventStatus.Acknowledged => ("status-acknowledged", "Acknowledged"),
+        FlaggedEventStatus.Actioned => ("status-actioned", "Actioned"),
+        _ => ("status-dismissed", "Unknown")
+    };
+}
+
+<span class="status-badge @statusClass" @attributes="AdditionalAttributes">
+    @label
+</span>
+
+@code {
+    [Parameter] public FlaggedEventStatus Status { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}
