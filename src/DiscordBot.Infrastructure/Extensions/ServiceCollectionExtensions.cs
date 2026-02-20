@@ -51,7 +51,10 @@ public static class ServiceCollectionExtensions
                     npgsql.MigrationsAssembly("DiscordBot.Infrastructure"))
                     .AddInterceptors(interceptor);
             });
-            // AddPooledDbContextFactory auto-registers scoped PostgresBotDbContext
+            // Explicitly register scoped PostgresBotDbContext from the factory
+            // (AddPooledDbContextFactory's auto-registration may not surface the type reliably)
+            services.AddScoped(sp =>
+                sp.GetRequiredService<IDbContextFactory<PostgresBotDbContext>>().CreateDbContext());
             // Forward BotDbContext to resolve as PostgresBotDbContext for existing code
             services.AddScoped<BotDbContext>(sp => sp.GetRequiredService<PostgresBotDbContext>());
             // Register IDbContextFactory<BotDbContext> for Blazor components
