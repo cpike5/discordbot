@@ -24,7 +24,7 @@ public class SearchService : ISearchService
     private readonly ICommandMetadataService _commandMetadataService;
     private readonly IAuditLogService _auditLogService;
     private readonly IMessageLogService _messageLogService;
-    private readonly BotDbContext _dbContext;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
     private readonly IAuthorizationService _authorizationService;
     private readonly IMemoryCache _cache;
     private readonly CachingOptions _cachingOptions;
@@ -42,7 +42,7 @@ public class SearchService : ISearchService
         ICommandMetadataService commandMetadataService,
         IAuditLogService auditLogService,
         IMessageLogService messageLogService,
-        BotDbContext dbContext,
+        IDbContextFactory<BotDbContext> dbContextFactory,
         IAuthorizationService authorizationService,
         IMemoryCache cache,
         IOptions<CachingOptions> cachingOptions,
@@ -55,7 +55,7 @@ public class SearchService : ISearchService
         _commandMetadataService = commandMetadataService;
         _auditLogService = auditLogService;
         _messageLogService = messageLogService;
-        _dbContext = dbContext;
+        _dbContextFactory = dbContextFactory;
         _authorizationService = authorizationService;
         _cache = cache;
         _cachingOptions = cachingOptions.Value;
@@ -611,7 +611,8 @@ public class SearchService : ISearchService
         var searchLower = searchTerm.ToLowerInvariant();
 
         // Query reminders from DbContext with filtering applied in SQL
-        var allReminders = await _dbContext.Reminders
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var allReminders = await dbContext.Reminders
             .AsNoTracking()
             .Where(r => r.Message.ToLower().Contains(searchLower) ||
                        r.UserId.ToString().Contains(searchLower))
@@ -684,7 +685,8 @@ public class SearchService : ISearchService
         var searchLower = searchTerm.ToLowerInvariant();
 
         // Query scheduled messages from DbContext with filtering applied in SQL
-        var allMessages = await _dbContext.ScheduledMessages
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+        var allMessages = await dbContext.ScheduledMessages
             .AsNoTracking()
             .Where(m => m.Content.ToLower().Contains(searchLower) ||
                        m.Title.ToLower().Contains(searchLower) ||

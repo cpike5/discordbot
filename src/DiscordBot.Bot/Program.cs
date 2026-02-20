@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Commands;
+using DiscordBot.Bot.Components;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
@@ -279,6 +280,7 @@ try
     // Enable authentication and authorization middleware
     app.UseAuthentication();
     app.UseAuthorization();
+    app.UseAntiforgery();    // Required by Blazor, must be after UseAuthorization
 
     app.MapControllers();
     app.MapDiscordBotHealthChecks();
@@ -286,6 +288,9 @@ try
 
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");
+
+    // Map Blazor Server components
+    app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
     // Map Prometheus metrics endpoint
     app.UseOpenTelemetryPrometheusScrapingEndpoint();
