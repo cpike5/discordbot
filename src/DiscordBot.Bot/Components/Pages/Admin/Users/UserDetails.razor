@@ -1,0 +1,284 @@
+@page "/Admin/Users/Details/{Id}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Core.Entities
+@using System.Security.Claims
+@inject IUserManagementService UserManagementService
+@inject ILogger<UserDetails> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>User Details - Discord Bot Admin</PageTitle>
+
+@if (_viewModel?.User is null)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else
+{
+    var user = _viewModel.User;
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+                <a href="/Admin/Users" class="hover:text-text-primary">Users</a>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="text-text-primary">Details</span>
+            </div>
+            <div class="flex items-center justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold text-text-primary">User Details</h1>
+                    <p class="mt-1 text-sm text-text-secondary">View user information and activity history</p>
+                </div>
+                @if (_viewModel.CanEdit)
+                {
+                    <a href="/Admin/Users/Edit?id=@user.Id" class="btn btn-primary">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        Edit User
+                    </a>
+                }
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- User Profile Card -->
+            <div class="lg:col-span-1">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <!-- Avatar -->
+                    <div class="flex justify-center mb-4">
+                        @if (!string.IsNullOrEmpty(user.DiscordAvatarUrl))
+                        {
+                            <img class="h-24 w-24 rounded-full" src="@user.DiscordAvatarUrl" alt="@user.Email" />
+                        }
+                        else
+                        {
+                            <div class="h-24 w-24 rounded-full bg-accent-blue flex items-center justify-center">
+                                <span class="text-white font-bold text-3xl">@user.Email.Substring(0, 1).ToUpper()</span>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- User Info -->
+                    <div class="text-center mb-6">
+                        <h2 class="text-xl font-bold text-text-primary">@(user.DisplayName ?? user.Email)</h2>
+                        @if (!string.IsNullOrEmpty(user.DisplayName))
+                        {
+                            <p class="text-sm text-text-secondary mt-1">@user.Email</p>
+                        }
+                    </div>
+
+                    <!-- Role Badge -->
+                    <div class="flex justify-center mb-6">
+                        @{
+                            var badgeVariant = user.HighestRole switch
+                            {
+                                "SuperAdmin" => BadgeVariant.Error,
+                                "Admin" => BadgeVariant.Orange,
+                                "Moderator" => BadgeVariant.Blue,
+                                "Viewer" => BadgeVariant.Info,
+                                _ => BadgeVariant.Default
+                            };
+                        }
+                        <Badge Text="@user.HighestRole" Variant="@badgeVariant" />
+                    </div>
+
+                    <!-- Status -->
+                    <div class="mb-6">
+                        @if (user.IsActive)
+                        {
+                            <StatusIndicator Status="StatusType.Online" Text="Active Account" />
+                        }
+                        else
+                        {
+                            <StatusIndicator Status="StatusType.Offline" Text="Inactive Account" />
+                        }
+                    </div>
+
+                    <!-- User Stats -->
+                    <div class="space-y-3 border-t border-border-primary pt-4">
+                        <div class="flex justify-between text-sm">
+                            <span class="text-text-secondary">Member Since</span>
+                            <span class="text-text-primary font-medium" data-utc="@user.CreatedAtUtcIso" data-format="date"></span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-text-secondary">Last Login</span>
+                            <span class="text-text-primary font-medium">
+                                @if (user.LastLoginAt.HasValue)
+                                {
+                                    <span data-utc="@user.LastLoginAtUtcIso" data-format="date"></span>
+                                }
+                                else
+                                {
+                                    <span class="text-text-tertiary">Never</span>
+                                }
+                            </span>
+                        </div>
+                        <div class="flex justify-between text-sm">
+                            <span class="text-text-secondary">Email Confirmed</span>
+                            <span class="text-text-primary font-medium">
+                                @if (user.EmailConfirmed)
+                                {
+                                    <span class="text-success">Yes</span>
+                                }
+                                else
+                                {
+                                    <span class="text-warning">No</span>
+                                }
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Discord Section -->
+                @if (user.IsDiscordLinked)
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mt-6">
+                        <h3 class="text-lg font-semibold text-text-primary mb-4">Discord Account</h3>
+                        <div class="space-y-3">
+                            <div class="flex items-center gap-2">
+                                <svg class="w-5 h-5 text-accent-blue" fill="currentColor" viewBox="0 0 24 24">
+                                    <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                                </svg>
+                                <span class="text-sm font-medium text-text-primary">@user.DiscordUsername</span>
+                            </div>
+                            <div class="text-xs text-text-tertiary">
+                                ID: @user.DiscordUserId
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mt-6">
+                        <div class="text-center py-4">
+                            <svg class="w-12 h-12 mx-auto text-text-tertiary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            <p class="text-sm text-text-secondary">No Discord account linked</p>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <!-- Activity Log -->
+            <div class="lg:col-span-2">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h2 class="text-lg font-semibold text-text-primary">Recent Activity</h2>
+                    </div>
+                    <div class="overflow-x-auto">
+                        @if (_viewModel.RecentActivity.Any())
+                        {
+                            <table class="min-w-full divide-y divide-border-primary">
+                                <thead class="bg-bg-tertiary">
+                                    <tr>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Details</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border-primary">
+                                    @foreach (var activity in _viewModel.RecentActivity)
+                                    {
+                                        var actionBadge = activity.Action switch
+                                        {
+                                            UserActivityAction.UserCreated => (Text: "Created", Variant: BadgeVariant.Success),
+                                            UserActivityAction.UserUpdated => (Text: "Updated", Variant: BadgeVariant.Info),
+                                            UserActivityAction.UserEnabled => (Text: "Enabled", Variant: BadgeVariant.Success),
+                                            UserActivityAction.UserDisabled => (Text: "Disabled", Variant: BadgeVariant.Warning),
+                                            UserActivityAction.RoleAssigned => (Text: "Role Assigned", Variant: BadgeVariant.Blue),
+                                            UserActivityAction.RoleRemoved => (Text: "Role Removed", Variant: BadgeVariant.Warning),
+                                            UserActivityAction.PasswordReset => (Text: "Password Reset", Variant: BadgeVariant.Orange),
+                                            UserActivityAction.DiscordLinked => (Text: "Discord Linked", Variant: BadgeVariant.Blue),
+                                            UserActivityAction.DiscordUnlinked => (Text: "Discord Unlinked", Variant: BadgeVariant.Warning),
+                                            _ => (Text: activity.Action.ToString(), Variant: BadgeVariant.Default)
+                                        };
+
+                                        <tr class="hover:bg-bg-tertiary/50">
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <Badge Text="@actionBadge.Text" Variant="@actionBadge.Variant" Size="BadgeSize.Small" />
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                                                @activity.ActorEmail
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-text-secondary">
+                                                @if (!string.IsNullOrEmpty(activity.Details))
+                                                {
+                                                    <span class="truncate max-w-md block">@activity.Details</span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-text-tertiary">-</span>
+                                                }
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                                <span data-utc="@activity.TimestampUtcIso" data-format="datetime-short"></span>
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        }
+                        else
+                        {
+                            <div class="p-12 text-center">
+                                <EmptyState Type="EmptyStateType.NoData" Title="No activity yet" Description="This user has no recorded activity" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    private UserDetailViewModel? _viewModel;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(Id))
+            return;
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(currentUserId))
+            return;
+
+        Logger.LogInformation("User {CurrentUserId} viewing details for user {TargetUserId}",
+            currentUserId, Id);
+
+        var user = await UserManagementService.GetUserByIdAsync(Id);
+        if (user == null)
+        {
+            Logger.LogWarning("User {UserId} not found", Id);
+            return;
+        }
+
+        var activityLog = await UserManagementService.GetActivityLogAsync(Id, page: 1, pageSize: 20);
+        var canManage = await UserManagementService.CanManageUserAsync(currentUserId, Id);
+        var isSelf = currentUserId == Id;
+
+        _viewModel = new UserDetailViewModel
+        {
+            User = user,
+            RecentActivity = activityLog.Items,
+            CanEdit = canManage,
+            CanDelete = canManage && !isSelf,
+            CanResetPassword = canManage && !isSelf,
+            CanChangeRole = canManage && !isSelf,
+            CanUnlinkDiscord = canManage && user.IsDiscordLinked,
+            IsSelf = isSelf
+        };
+    }
+}
