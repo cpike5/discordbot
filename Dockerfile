@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy solution and project files for layer-cached restore
 COPY DiscordBot.sln ./
+COPY Directory.Build.props ./
 COPY src/DiscordBot.Core/DiscordBot.Core.csproj src/DiscordBot.Core/
 COPY src/DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj src/DiscordBot.Infrastructure/
 COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/
