@@ -1,9 +1,21 @@
-@page
-@model PrivacyModel
-@* ViewModels.Components removed — no longer using server-rendered confirmation modal *@
-@{
-    ViewData["Title"] = "Privacy & Consent";
-}
+@page "/Account/Privacy"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Entities
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+@inject IConsentService ConsentService
+@inject IUserDataExportService ExportService
+@inject IUserPurgeService PurgeService
+@inject ILogger<Privacy> Logger
+@inject IHttpContextAccessor HttpContextAccessor
+@inject IJSRuntime JS
+@inject NavigationManager Navigation
+
+<PageTitle>Privacy & Consent - Discord Bot Admin</PageTitle>
 
 <!-- Page Header -->
 <div class="mb-8">
@@ -12,10 +24,10 @@
 </div>
 
 <!-- Status Message -->
-@if (!string.IsNullOrEmpty(Model.StatusMessage))
+@if (!string.IsNullOrEmpty(_statusMessage))
 {
-    <div class="mb-6 p-4 rounded-lg flex items-start gap-3 @(Model.IsSuccess ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border")" role="alert">
-        @if (Model.IsSuccess)
+    <div class="mb-6 p-4 rounded-lg flex items-start gap-3 @(_isSuccess ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border")" role="alert">
+        @if (_isSuccess)
         {
             <!-- Success Icon -->
             <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -30,17 +42,17 @@
             </svg>
         }
         <div>
-            <p class="text-sm font-semibold @(Model.IsSuccess ? "text-success" : "text-error")">
-                @(Model.IsSuccess ? "Success" : "Error")
+            <p class="text-sm font-semibold @(_isSuccess ? "text-success" : "text-error")">
+                @(_isSuccess ? "Success" : "Error")
             </p>
-            <p class="text-sm @(Model.IsSuccess ? "text-success" : "text-error") mt-1">
-                @Model.StatusMessage
+            <p class="text-sm @(_isSuccess ? "text-success" : "text-error") mt-1">
+                @_statusMessage
             </p>
         </div>
     </div>
 }
 
-@if (!Model.IsDiscordLinked)
+@if (!_isDiscordLinked)
 {
     <!-- Discord Not Linked State -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
@@ -69,7 +81,7 @@
                 To manage your privacy preferences, please link your Discord account first.
             </p>
 
-            <a asp-page="./LinkDiscord" class="inline-flex items-center justify-center gap-2.5 py-2.5 px-6 text-sm font-semibold text-white bg-discord border border-discord rounded-md transition-colors hover:bg-discord-hover hover:border-discord-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-discord focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+            <a href="/Account/LinkDiscord" class="inline-flex items-center justify-center gap-2.5 py-2.5 px-6 text-sm font-semibold text-white bg-discord border border-discord rounded-md transition-colors hover:bg-discord-hover hover:border-discord-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-discord focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
                 <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                     <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
                 </svg>
@@ -91,14 +103,14 @@ else
             </div>
             <div class="flex-1">
                 <div class="flex items-center gap-2">
-                    <h2 class="text-lg font-semibold text-text-primary">@(Model.DiscordUsername ?? "Discord User")</h2>
+                    <h2 class="text-lg font-semibold text-text-primary">@(_discordUsername ?? "Discord User")</h2>
                     <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
                         Linked
                     </span>
                 </div>
-                @if (Model.DiscordUserId.HasValue)
+                @if (_discordUserId.HasValue)
                 {
-                    <p class="text-sm text-text-secondary font-mono">ID: @Model.DiscordUserId.Value</p>
+                    <p class="text-sm text-text-secondary font-mono">ID: @_discordUserId.Value</p>
                 }
             </div>
         </div>
@@ -107,7 +119,7 @@ else
         </p>
     </div>
 
-    @if (Model.ConsentStatuses.Any())
+    @if (_consentStatuses.Any())
     {
         <!-- Consent Settings Card -->
         <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg mb-6">
@@ -119,17 +131,16 @@ else
             </div>
 
             <div class="p-6 space-y-6">
-                @foreach (var consent in Model.ConsentStatuses)
+                @foreach (var consent in _consentStatuses)
                 {
                     <!-- Consent Item -->
                     <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
                         <label class="form-toggle cursor-pointer flex-shrink-0 pt-1">
-                            <form method="post" asp-page-handler="ToggleConsent" asp-route-type="@consent.Type" asp-route-grant="@(!consent.IsGranted)" class="consent-toggle-form" data-consent-name="@consent.TypeDisplayName" data-consent-action="@(consent.IsGranted ? "revoke" : "grant")">
-                                <input type="checkbox" class="form-toggle-input" checked="@consent.IsGranted" onchange="window.confirmConsentToggle(this)" />
-                                <span class="form-toggle-track">
-                                    <span class="form-toggle-thumb"></span>
-                                </span>
-                            </form>
+                            <input type="checkbox" class="form-toggle-input" checked="@consent.IsGranted"
+                                   @onchange="() => OnConsentToggleClicked(consent.Type, consent.TypeDisplayName, consent.IsGranted)" />
+                            <span class="form-toggle-track">
+                                <span class="form-toggle-thumb"></span>
+                            </span>
                         </label>
 
                         <div class="flex-1">
@@ -206,14 +217,13 @@ else
                     <p class="text-sm text-text-secondary mb-3">
                         Download all your data in a portable JSON format. The export will be available for 7 days.
                     </p>
-                    <form method="post" asp-page-handler="ExportData">
-                        <button type="submit" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-accent-blue border border-accent-blue rounded-md transition-colors hover:bg-accent-blue-hover hover:border-accent-blue-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
-                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
-                            </svg>
-                            Export My Data
-                        </button>
-                    </form>
+                    <button type="button" @onclick="OnExportDataClicked" disabled="@_isExporting"
+                            class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-accent-blue border border-accent-blue rounded-md transition-colors hover:bg-accent-blue-hover hover:border-accent-blue-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary disabled:opacity-50 disabled:cursor-not-allowed">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10" />
+                        </svg>
+                        @(_isExporting ? "Exporting..." : "Export My Data")
+                    </button>
                 </div>
             </div>
 
@@ -229,11 +239,12 @@ else
                     <p class="text-sm text-text-secondary mb-3">
                         Permanently delete all your data from our system. This action cannot be undone.
                     </p>
-                    <button type="button" onclick="deleteAllData()" class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover hover:border-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    <button type="button" @onclick="OnDeleteDataClicked" disabled="@_isDeleting"
+                            class="inline-flex items-center justify-center gap-2 py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error-hover hover:border-error-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-error focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary disabled:opacity-50 disabled:cursor-not-allowed">
                         <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                         </svg>
-                        Delete My Data
+                        @(_isDeleting ? "Deleting..." : "Delete My Data")
                     </button>
                 </div>
             </div>
@@ -247,7 +258,7 @@ else
         </div>
     </div>
 
-    @if (Model.ConsentHistory.Any())
+    @if (_consentHistory.Any())
     {
         <!-- Consent History Card -->
         <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-lg">
@@ -261,7 +272,7 @@ else
             <div class="p-6">
                 <div class="space-y-0">
                     @{
-                        var historyList = Model.ConsentHistory.ToList();
+                        var historyList = _consentHistory.ToList();
                         for (int i = 0; i < historyList.Count; i++)
                         {
                             var entry = historyList[i];
@@ -371,74 +382,6 @@ else
     </div>
 }
 
-<script>
-    async function deleteAllData() {
-        const confirmed = await quickActions.typedConfirm({
-            title: 'Permanently Delete All Data',
-            message: 'This will permanently delete ALL your personal data including message logs, preferences, and consent records. This action cannot be undone.',
-            requiredText: 'DELETE',
-            inputLabel: 'Type DELETE to confirm',
-            variant: 'danger',
-            confirmText: 'Delete All Data'
-        });
-        if (!confirmed) return;
-
-        const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-        if (!tokenInput) {
-            quickActions.showToast('Security token not found. Please refresh the page.', 'error');
-            return;
-        }
-        const token = tokenInput.value;
-        const btn = document.querySelector('[onclick="deleteAllData()"]');
-        if (btn) btn.disabled = true;
-
-        try {
-            const response = await fetch('?handler=DeleteData', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'RequestVerificationToken': token
-                },
-                body: '__RequestVerificationToken=' + encodeURIComponent(token)
-            });
-            const data = await response.json();
-            if (response.ok && data.success) {
-                quickActions.showToast(data.message || 'All data has been deleted.', 'success');
-                setTimeout(() => window.location.href = data.redirectUrl || '/', 2000);
-            } else {
-                quickActions.showToast(data.message || 'Failed to delete data. Please try again.', 'error');
-                if (btn) btn.disabled = false;
-            }
-        } catch (error) {
-            quickActions.showToast('An error occurred. Please try again.', 'error');
-            if (btn) btn.disabled = false;
-        }
-    }
-
-    window.confirmConsentToggle = async function(checkbox) {
-        const form = checkbox.closest('form');
-        const consentName = form.dataset.consentName;
-        const action = form.dataset.consentAction;
-        const message = action === 'revoke'
-            ? `Are you sure you want to revoke consent for ${consentName}?`
-            : `Are you sure you want to grant consent for ${consentName}?`;
-
-        const confirmed = await quickActions.confirm({
-            title: action === 'revoke' ? 'Revoke Consent' : 'Grant Consent',
-            message: message,
-            variant: 'warning',
-            confirmText: action === 'revoke' ? 'Revoke' : 'Grant'
-        });
-
-        if (confirmed) {
-            form.submit();
-        } else {
-            // Revert the checkbox state
-            checkbox.checked = !checkbox.checked;
-        }
-    };
-</script>
-
 <style>
     /* Toggle Switch Component */
     .form-toggle {
@@ -518,3 +461,291 @@ else
         display: none;
     }
 </style>
+
+@code {
+    private bool _isDiscordLinked;
+    private ulong? _discordUserId;
+    private string? _discordUsername;
+    private IEnumerable<ConsentStatusDto> _consentStatuses = Array.Empty<ConsentStatusDto>();
+    private IEnumerable<ConsentHistoryEntryDto> _consentHistory = Array.Empty<ConsentHistoryEntryDto>();
+    private string? _statusMessage;
+    private bool _isSuccess;
+    private bool _isExporting;
+    private bool _isDeleting;
+    private string? _userId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var httpContext = HttpContextAccessor.HttpContext;
+        if (httpContext?.User == null) return;
+
+        var user = await UserManager.GetUserAsync(httpContext.User);
+        if (user == null)
+        {
+            Logger.LogWarning("User not found during Privacy page load");
+            return;
+        }
+
+        _userId = user.Id;
+        Logger.LogDebug("Loading privacy settings for user {UserId}", user.Id);
+
+        _isDiscordLinked = user.DiscordUserId.HasValue;
+        _discordUserId = user.DiscordUserId;
+        _discordUsername = user.DiscordUsername;
+
+        if (_isDiscordLinked && _discordUserId.HasValue)
+        {
+            Logger.LogDebug("User {UserId} has Discord linked (Discord ID: {DiscordUserId}), fetching consent data",
+                user.Id, _discordUserId.Value);
+
+            try
+            {
+                _consentStatuses = await ConsentService.GetConsentStatusAsync(_discordUserId.Value);
+                Logger.LogDebug("Retrieved {Count} consent statuses for user {UserId}",
+                    _consentStatuses.Count(), user.Id);
+
+                _consentHistory = await ConsentService.GetConsentHistoryAsync(_discordUserId.Value);
+                Logger.LogInformation("Retrieved {Count} consent history entries for user {UserId}",
+                    _consentHistory.Count(), user.Id);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Error fetching consent data for user {UserId}", user.Id);
+                _statusMessage = "An error occurred while loading consent data.";
+                _isSuccess = false;
+            }
+        }
+        else
+        {
+            Logger.LogDebug("User {UserId} does not have Discord linked", user.Id);
+        }
+    }
+
+    private async Task OnConsentToggleClicked(int type, string typeName, bool currentlyGranted)
+    {
+        var action = currentlyGranted ? "revoke" : "grant";
+        var title = currentlyGranted ? "Revoke Consent" : "Grant Consent";
+        var message = currentlyGranted
+            ? $"Are you sure you want to revoke consent for {typeName}?"
+            : $"Are you sure you want to grant consent for {typeName}?";
+        var confirmText = currentlyGranted ? "Revoke" : "Grant";
+
+        var confirmed = await JS.InvokeAsync<bool>("quickActions.confirm", new
+        {
+            title,
+            message,
+            variant = "warning",
+            confirmText
+        });
+
+        if (!confirmed) return;
+
+        if (!_discordUserId.HasValue)
+        {
+            _statusMessage = "You must link your Discord account before managing consent preferences.";
+            _isSuccess = false;
+            return;
+        }
+
+        if (!Enum.IsDefined(typeof(ConsentType), type))
+        {
+            _statusMessage = "Invalid consent type.";
+            _isSuccess = false;
+            return;
+        }
+
+        var consentType = (ConsentType)type;
+        var grant = !currentlyGranted;
+
+        Logger.LogInformation("User {UserId} (Discord ID: {DiscordUserId}) {Action} consent for {ConsentType}",
+            _userId, _discordUserId.Value, grant ? "granting" : "revoking", consentType);
+
+        try
+        {
+            ConsentUpdateResult result;
+
+            if (grant)
+            {
+                result = await ConsentService.GrantConsentAsync(_discordUserId.Value, consentType);
+            }
+            else
+            {
+                result = await ConsentService.RevokeConsentAsync(_discordUserId.Value, consentType);
+            }
+
+            if (result.Succeeded)
+            {
+                Logger.LogInformation("Successfully {Action} consent for {ConsentType} for user {UserId}",
+                    grant ? "granted" : "revoked", consentType, _userId);
+                _statusMessage = "Your consent preferences have been updated successfully.";
+                _isSuccess = true;
+
+                // Reload consent data
+                _consentStatuses = await ConsentService.GetConsentStatusAsync(_discordUserId.Value);
+                _consentHistory = await ConsentService.GetConsentHistoryAsync(_discordUserId.Value);
+            }
+            else
+            {
+                Logger.LogWarning("Failed to {Action} consent for {ConsentType} for user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    grant ? "grant" : "revoke", consentType, _userId, result.ErrorCode, result.ErrorMessage);
+
+                _statusMessage = result.ErrorCode switch
+                {
+                    ConsentUpdateResult.AlreadyGranted => "This consent is already granted.",
+                    ConsentUpdateResult.NotGranted => "This consent is not currently granted.",
+                    ConsentUpdateResult.UserNotFound => "Discord user not found.",
+                    ConsentUpdateResult.InvalidConsentType => "Invalid consent type.",
+                    ConsentUpdateResult.DatabaseError => "A database error occurred. Please try again.",
+                    _ => result.ErrorMessage ?? "Failed to update consent preferences. Please try again."
+                };
+                _isSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error toggling consent for user {UserId}", _userId);
+            _statusMessage = "An error occurred while updating consent preferences.";
+            _isSuccess = false;
+        }
+    }
+
+    private async Task OnExportDataClicked()
+    {
+        if (!_discordUserId.HasValue)
+        {
+            _statusMessage = "You must link your Discord account before exporting data.";
+            _isSuccess = false;
+            return;
+        }
+
+        _isExporting = true;
+
+        try
+        {
+            Logger.LogInformation("User {UserId} (Discord ID: {DiscordUserId}) initiated data export from web UI",
+                _userId, _discordUserId.Value);
+
+            var result = await ExportService.ExportUserDataAsync(_discordUserId.Value);
+
+            if (result.Success)
+            {
+                var totalRecords = result.ExportedCounts.Values.Sum();
+
+                Logger.LogInformation("Successfully exported data for user {UserId}. {RecordCount} records exported",
+                    _userId, totalRecords);
+
+                _statusMessage = $"Your data has been exported successfully. {totalRecords} records were exported. " +
+                                 $"Download link: {result.DownloadUrl} (expires in 7 days)";
+                _isSuccess = true;
+            }
+            else
+            {
+                Logger.LogWarning("Failed to export data for user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    _userId, result.ErrorCode, result.ErrorMessage);
+
+                _statusMessage = result.ErrorCode switch
+                {
+                    UserDataExportResultDto.UserNotFound => "User not found in the database.",
+                    UserDataExportResultDto.DatabaseError => "A database error occurred. Please try again.",
+                    UserDataExportResultDto.FileSystemError => "Failed to create export files. Please try again.",
+                    _ => result.ErrorMessage ?? "Failed to export data. Please try again."
+                };
+                _isSuccess = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting data for user {UserId}", _userId);
+            _statusMessage = "An error occurred while exporting your data. Please try again.";
+            _isSuccess = false;
+        }
+        finally
+        {
+            _isExporting = false;
+        }
+    }
+
+    private async Task OnDeleteDataClicked()
+    {
+        if (!_discordUserId.HasValue)
+        {
+            _statusMessage = "You must link your Discord account before deleting data.";
+            _isSuccess = false;
+            return;
+        }
+
+        var confirmed = await JS.InvokeAsync<bool>("quickActions.typedConfirm", new
+        {
+            title = "Permanently Delete All Data",
+            message = "This will permanently delete ALL your personal data including message logs, preferences, and consent records. This action cannot be undone.",
+            requiredText = "DELETE",
+            inputLabel = "Type DELETE to confirm",
+            variant = "danger",
+            confirmText = "Delete All Data"
+        });
+
+        if (!confirmed) return;
+
+        _isDeleting = true;
+
+        try
+        {
+            Logger.LogInformation("User {UserId} (Discord ID: {DiscordUserId}) initiated data deletion from web UI",
+                _userId, _discordUserId.Value);
+
+            var (canPurge, reason) = await PurgeService.CanPurgeUserAsync(_discordUserId.Value);
+            if (!canPurge)
+            {
+                Logger.LogWarning("Cannot purge user {UserId}: {BlockingReason}", _userId, reason);
+                await JS.InvokeVoidAsync("quickActions.showToast", reason ?? "Your data cannot be deleted at this time.", "error");
+                _isDeleting = false;
+                return;
+            }
+
+            var result = await PurgeService.PurgeUserDataAsync(
+                _discordUserId.Value,
+                PurgeInitiator.User,
+                _discordUserId.Value.ToString());
+
+            if (result.Success)
+            {
+                var totalDeleted = result.DeletedCounts.Values.Sum();
+
+                Logger.LogInformation("Successfully deleted data for user {UserId}. {RecordCount} records deleted",
+                    _userId, totalDeleted);
+
+                await JS.InvokeVoidAsync("quickActions.showToast",
+                    $"Your data has been permanently deleted. {totalDeleted} records were removed from the system.", "success");
+
+                // Redirect to logout after a short delay
+                await Task.Delay(2000);
+                Navigation.NavigateTo("/Account/Logout", forceLoad: true);
+            }
+            else
+            {
+                Logger.LogWarning("Failed to delete data for user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    _userId, result.ErrorCode, result.ErrorMessage);
+
+                var errorMessage = result.ErrorCode switch
+                {
+                    UserPurgeResultDto.UserNotFound => "User not found in the database.",
+                    UserPurgeResultDto.UserHasAdminRole => "Cannot delete data for users with admin roles. Contact support.",
+                    UserPurgeResultDto.DatabaseError => "A database error occurred. Please try again.",
+                    UserPurgeResultDto.TransactionFailed => "Failed to delete data. Please try again.",
+                    _ => result.ErrorMessage ?? "Failed to delete data. Please try again."
+                };
+
+                await JS.InvokeVoidAsync("quickActions.showToast", errorMessage, "error");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting data for user {UserId}", _userId);
+            await JS.InvokeVoidAsync("quickActions.showToast", "An error occurred while deleting your data. Please try again.", "error");
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+}
