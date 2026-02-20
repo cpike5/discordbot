@@ -45,22 +45,8 @@ else
                  StatusBadge="@(new BadgeViewModel { Text = _guild.IsActive ? "Active" : "Inactive", Variant = _guild.IsActive ? BadgeVariant.Success : BadgeVariant.Error, Style = BadgeStyle.Subtle, IconLeft = "M10 18a8 8 0 100-16 8 8 0 000 16z" })"
                  Actions="@_headerActions" />
 
-    <!-- Guild Navigation - Desktop tabs -->
-    <div class="mb-6">
-        <div class="border-b border-border-primary">
-            <nav class="flex gap-6 -mb-px" aria-label="Guild navigation">
-                @foreach (var tab in GuildNavigationConfig.GetTabs().OrderBy(t => t.Order))
-                {
-                    var isActive = tab.Id == "overview";
-                    var tabUrl = tab.GetUrl((ulong)GuildId);
-                    <a href="@tabUrl"
-                       class="@(isActive ? "border-accent-blue text-accent-blue" : "border-transparent text-text-secondary hover:text-text-primary hover:border-border-primary") whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors">
-                        @tab.Label
-                    </a>
-                }
-            </nav>
-        </div>
-    </div>
+    <!-- Guild Navigation Tabs -->
+    <GuildTabNavigation GuildId="(ulong)GuildId" ActiveTab="overview" />
 
     <!-- Guild Information Card -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">

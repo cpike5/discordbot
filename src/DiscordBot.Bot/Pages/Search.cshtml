@@ -151,7 +151,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             @foreach (var guild in Model.ViewModel.GuildResults)
                             {
-                                <a asp-page="/Guilds/Details" asp-route-id="@guild.Id" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
+                                <a href="/Guilds/Details/@guild.Id" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
                                     <div class="flex items-start gap-3">
                                         @if (!string.IsNullOrEmpty(guild.IconUrl))
                                         {
@@ -230,7 +230,7 @@
                     <div class="divide-y divide-border-primary">
                         @foreach (var log in Model.ViewModel.CommandLogResults)
                         {
-                            <a asp-page="/CommandLogs/Details" asp-route-id="@log.Id" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                            <a href="/CommandLogs/Details/@log.Id" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
                                 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                                     <div class="flex-1 min-w-0">
                                         <div class="flex items-center gap-3 flex-wrap">
@@ -328,7 +328,7 @@
                         <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             @foreach (var user in Model.ViewModel.UserResults)
                             {
-                                <a asp-page="/Admin/Users/Details" asp-route-id="@user.Id" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
+                                <a href="/Admin/Users/Details/@user.Id" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
                                     <div class="flex items-start gap-3">
                                         @if (!string.IsNullOrEmpty(user.AvatarUrl))
                                         {
