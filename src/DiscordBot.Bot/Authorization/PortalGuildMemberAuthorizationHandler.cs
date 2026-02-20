@@ -48,21 +48,28 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
             return;
         }
 
-        var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext == null)
+        ulong guildId;
+        if (context.Resource is ulong resourceGuildId)
         {
-            _logger.LogWarning("PortalGuildMember: HttpContext is null");
-            return;
+            guildId = resourceGuildId;
         }
-
-        // Extract guild ID from route
-        var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
-            ?? httpContext.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
-
-        if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out var guildId))
+        else
         {
-            _logger.LogDebug("PortalGuildMember: No valid guildId found in route or query");
-            return;
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null)
+            {
+                _logger.LogWarning("PortalGuildMember: HttpContext is null and no resource guild ID");
+                return;
+            }
+
+            var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
+                ?? httpContext.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
+
+            if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out guildId))
+            {
+                _logger.LogDebug("PortalGuildMember: No valid guildId found in route or query");
+                return;
+            }
         }
 
         // Check if user is authenticated
@@ -78,14 +85,14 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
         if (user == null)
         {
             _logger.LogDebug("PortalGuildMember: User not found in database");
-            SetForbiddenResult(httpContext);
+            SetForbiddenResult(_httpContextAccessor.HttpContext);
             return;
         }
 
         if (!user.DiscordUserId.HasValue)
         {
             _logger.LogDebug("PortalGuildMember: User {UserId} does not have Discord linked", user.Id);
-            SetForbiddenResult(httpContext);
+            SetForbiddenResult(_httpContextAccessor.HttpContext);
             return;
         }
 
@@ -98,7 +105,7 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
         if (audioSettings == null || !audioSettings.AudioEnabled)
         {
             _logger.LogDebug("PortalGuildMember: Portal not enabled for guild {GuildId}", guildId);
-            SetNotFoundResult(httpContext);
+            SetNotFoundResult(_httpContextAccessor.HttpContext);
             return;
         }
 
@@ -107,7 +114,7 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
         if (guild == null)
         {
             _logger.LogWarning("PortalGuildMember: Guild {GuildId} not found in Discord client", guildId);
-            SetNotFoundResult(httpContext);
+            SetNotFoundResult(_httpContextAccessor.HttpContext);
             return;
         }
 
@@ -123,7 +130,7 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
                     _logger.LogDebug(
                         "PortalGuildMember: User {DiscordUserId} is not a member of guild {GuildId}",
                         user.DiscordUserId.Value, guildId);
-                    SetForbiddenResult(httpContext);
+                    SetForbiddenResult(_httpContextAccessor.HttpContext);
                     return;
                 }
             }
@@ -132,7 +139,7 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
                 _logger.LogWarning(ex,
                     "PortalGuildMember: Failed to verify guild membership via REST for user {DiscordUserId} in guild {GuildId}",
                     user.DiscordUserId.Value, guildId);
-                SetForbiddenResult(httpContext);
+                SetForbiddenResult(_httpContextAccessor.HttpContext);
                 return;
             }
         }
@@ -145,17 +152,21 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
 
     /// <summary>
     /// Sets an item in HttpContext to signal a 403 Forbidden response.
+    /// No-op when HttpContext is null (Blazor circuit path).
     /// </summary>
-    private static void SetForbiddenResult(HttpContext httpContext)
+    private static void SetForbiddenResult(HttpContext? httpContext)
     {
-        httpContext.Items["AuthorizationFailureReason"] = "Forbidden";
+        if (httpContext != null)
+            httpContext.Items["AuthorizationFailureReason"] = "Forbidden";
     }
 
     /// <summary>
     /// Sets an item in HttpContext to signal a 404 Not Found response.
+    /// No-op when HttpContext is null (Blazor circuit path).
     /// </summary>
-    private static void SetNotFoundResult(HttpContext httpContext)
+    private static void SetNotFoundResult(HttpContext? httpContext)
     {
-        httpContext.Items["AuthorizationFailureReason"] = "NotFound";
+        if (httpContext != null)
+            httpContext.Items["AuthorizationFailureReason"] = "NotFound";
     }
 }
