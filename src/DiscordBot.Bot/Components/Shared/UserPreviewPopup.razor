@@ -1,0 +1,100 @@
+<div class="preview-popup preview-popup-user" data-user-id="@UserId">
+    <!-- Header -->
+    <div class="preview-header">
+        <div class="preview-avatar">
+            @if (!string.IsNullOrEmpty(AvatarUrl))
+            {
+                <img src="@AvatarUrl" alt="@Username" class="w-12 h-12 rounded-full object-cover" />
+            }
+            else
+            {
+                <div class="w-12 h-12 rounded-full bg-accent-blue-muted flex items-center justify-center">
+                    <span class="text-lg font-semibold text-accent-blue">
+                        @(Username.FirstOrDefault().ToString().ToUpperInvariant())
+                    </span>
+                </div>
+            }
+        </div>
+        <div class="preview-identity flex-1 min-w-0">
+            <span class="preview-username block text-sm font-semibold text-text-primary truncate">
+                @Username
+            </span>
+            @if (!string.IsNullOrEmpty(DisplayName) && DisplayName != Username)
+            {
+                <span class="preview-displayname block text-xs text-text-secondary truncate">
+                    @DisplayName
+                </span>
+            }
+        </div>
+        @if (IsVerified)
+        {
+            <span class="preview-badge px-1.5 py-0.5 bg-success-bg text-success text-xs font-medium rounded" title="Verified">
+                <svg class="w-3.5 h-3.5 inline" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+            </span>
+        }
+    </div>
+
+    <!-- Body -->
+    <div class="preview-body">
+        <div class="preview-meta space-y-2 text-xs">
+            @if (MemberSince.HasValue)
+            {
+                <div class="preview-meta-item flex justify-between">
+                    <span class="text-text-tertiary">Member since</span>
+                    <span class="text-text-secondary">@MemberSince.Value.ToString("MMM yyyy")</span>
+                </div>
+            }
+            @if (Roles.Count > 0)
+            {
+                <div class="preview-meta-item flex justify-between items-start">
+                    <span class="text-text-tertiary">Roles</span>
+                    <span class="text-text-secondary text-right max-w-[140px] truncate">
+                        @string.Join(", ", Roles.Take(3))@(Roles.Count > 3 ? $" +{Roles.Count - 3}" : "")
+                    </span>
+                </div>
+            }
+            @if (LastActive.HasValue)
+            {
+                <div class="preview-meta-item flex justify-between">
+                    <span class="text-text-tertiary">Last active</span>
+                    <span class="text-text-secondary" data-utc="@LastActive.Value.ToString("o")">
+                        @LastActive.Value.ToString("g")
+                    </span>
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="preview-footer">
+        <a href="@ProfileUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-white bg-accent-blue rounded hover:bg-accent-blue-hover transition-colors text-center">
+            View Profile
+        </a>
+        @if (!string.IsNullOrEmpty(ModerationHistoryUrl))
+        {
+            <a href="@ModerationHistoryUrl" class="flex-1 px-3 py-1.5 text-xs font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded hover:bg-bg-hover transition-colors text-center inline-flex items-center justify-center gap-1">
+                Mod History
+                @if (HasActiveModeration)
+                {
+                    <span class="w-1.5 h-1.5 bg-warning rounded-full" title="Active case"></span>
+                }
+            </a>
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter] public ulong UserId { get; set; }
+    [Parameter] public string Username { get; set; } = string.Empty;
+    [Parameter] public string? DisplayName { get; set; }
+    [Parameter] public string? AvatarUrl { get; set; }
+    [Parameter] public DateTime? MemberSince { get; set; }
+    [Parameter] public IReadOnlyList<string> Roles { get; set; } = [];
+    [Parameter] public DateTime? LastActive { get; set; }
+    [Parameter] public bool IsVerified { get; set; }
+    [Parameter] public bool HasActiveModeration { get; set; }
+    [Parameter] public string ProfileUrl { get; set; } = string.Empty;
+    [Parameter] public string? ModerationHistoryUrl { get; set; }
+}

@@ -1,0 +1,33 @@
+@{
+    var tabDisplayName = ActiveTab switch
+    {
+        "command-list" => "Command List",
+        "execution-logs" => "Execution Logs",
+        "analytics" => "Analytics",
+        _ => "Command List"
+    };
+}
+
+<nav aria-label="Breadcrumb" class="mb-6">
+    <ol class="flex items-center gap-2 text-sm">
+        <li class="flex items-center gap-2">
+            <a href="/" class="text-text-secondary hover:text-accent-blue transition-colors">Home</a>
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </li>
+        <li class="flex items-center gap-2">
+            <a href="/Commands" class="text-text-secondary hover:text-accent-blue transition-colors">Commands</a>
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+        </li>
+        <li>
+            <span class="text-text-primary font-medium" aria-current="page" data-command-breadcrumb-active>@tabDisplayName</span>
+        </li>
+    </ol>
+</nav>
+
+@code {
+    [Parameter] public string ActiveTab { get; set; } = "command-list";
+}

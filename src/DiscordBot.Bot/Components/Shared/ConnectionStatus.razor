@@ -1,0 +1,28 @@
+@{
+    var stateStr = State.ToString().ToLowerInvariant();
+    var displayText = CustomText ?? State switch
+    {
+        ConnectionState.Connected => "Connected",
+        ConnectionState.Connecting => "Connecting...",
+        ConnectionState.Reconnecting => "Reconnecting...",
+        ConnectionState.Disconnected => "Disconnected",
+        _ => "Unknown"
+    };
+}
+
+<div class="connection-status inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-bg-tertiary border border-border-primary"
+     data-state="@stateStr"
+     role="status"
+     aria-live="polite"
+     @attributes="AdditionalAttributes">
+    <span class="connection-dot relative w-2 h-2 rounded-full"></span>
+    <span class="connection-text">@displayText</span>
+</div>
+
+@code {
+    [Parameter] public ConnectionState State { get; set; } = ConnectionState.Disconnected;
+    [Parameter] public string? CustomText { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    // TODO: Subscribe to IDashboardEventBus in Phase 5
+}
