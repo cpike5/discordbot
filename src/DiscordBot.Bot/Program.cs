@@ -1,5 +1,4 @@
 using DiscordBot.Bot.Commands;
-using DiscordBot.Bot.Components;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
@@ -289,8 +288,9 @@ try
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");
 
-    // Map Blazor Server components
-    app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
+    // Map Blazor Server components hosted within _Layout.cshtml
+    app.MapBlazorHub();
+    app.MapFallbackToPage("/_BlazorHost");
 
     // Map Prometheus metrics endpoint
     app.UseOpenTelemetryPrometheusScrapingEndpoint();
