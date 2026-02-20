@@ -21,7 +21,7 @@ namespace DiscordBot.Bot.Controllers;
 public class PreviewController : ControllerBase
 {
     private readonly DiscordSocketClient _client;
-    private readonly BotDbContext _dbContext;
+    private readonly IDbContextFactory<BotDbContext> _dbContextFactory;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger<PreviewController> _logger;
 
@@ -30,12 +30,12 @@ public class PreviewController : ControllerBase
     /// </summary>
     public PreviewController(
         DiscordSocketClient client,
-        BotDbContext dbContext,
+        IDbContextFactory<BotDbContext> dbContextFactory,
         UserManager<ApplicationUser> userManager,
         ILogger<PreviewController> logger)
     {
         _client = client;
-        _dbContext = dbContext;
+        _dbContextFactory = dbContextFactory;
         _userManager = userManager;
         _logger = logger;
     }
@@ -225,8 +225,10 @@ public class PreviewController : ControllerBase
         ulong? guildId,
         CancellationToken cancellationToken)
     {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
         // Get last activity from command logs
-        var lastActive = await _dbContext.CommandLogs
+        var lastActive = await dbContext.CommandLogs
             .Where(c => c.UserId == discordUser.Id)
             .OrderByDescending(c => c.ExecutedAt)
             .Select(c => (DateTime?)c.ExecutedAt)
@@ -237,7 +239,7 @@ public class PreviewController : ControllerBase
             .AnyAsync(u => u.DiscordUserId == discordUser.Id, cancellationToken);
 
         // Check for active moderation cases
-        var hasActiveModeration = guildId.HasValue && await HasActiveModerationAsync(guildId.Value, discordUser.Id, cancellationToken);
+        var hasActiveModeration = guildId.HasValue && await HasActiveModerationAsync(dbContext, guildId.Value, discordUser.Id, cancellationToken);
 
         return new UserPreviewDto
         {
@@ -261,8 +263,10 @@ public class PreviewController : ControllerBase
         ulong guildId,
         CancellationToken cancellationToken)
     {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
         // Get last activity from command logs
-        var lastActive = await _dbContext.CommandLogs
+        var lastActive = await dbContext.CommandLogs
             .Where(c => c.UserId == guildUser.Id)
             .OrderByDescending(c => c.ExecutedAt)
             .Select(c => (DateTime?)c.ExecutedAt)
@@ -273,7 +277,7 @@ public class PreviewController : ControllerBase
             .AnyAsync(u => u.DiscordUserId == guildUser.Id, cancellationToken);
 
         // Check for active moderation cases
-        var hasActiveModeration = await HasActiveModerationAsync(guildId, guildUser.Id, cancellationToken);
+        var hasActiveModeration = await HasActiveModerationAsync(dbContext, guildId, guildUser.Id, cancellationToken);
 
         // Get top roles (excluding @everyone, limit to 5)
         var roles = guildUser.Roles
@@ -304,8 +308,10 @@ public class PreviewController : ControllerBase
         SocketGuild discordGuild,
         CancellationToken cancellationToken)
     {
+        await using var dbContext = await _dbContextFactory.CreateDbContextAsync(cancellationToken);
+
         // Get database guild for bot joined date and settings
-        var dbGuild = await _dbContext.Guilds
+        var dbGuild = await dbContext.Guilds
             .AsNoTracking()
             .FirstOrDefaultAsync(g => g.Id == discordGuild.Id, cancellationToken);
 
@@ -325,11 +331,11 @@ public class PreviewController : ControllerBase
         }
 
         // Check for additional features in database tables
-        var hasRatWatch = await _dbContext.GuildRatWatchSettings
+        var hasRatWatch = await dbContext.GuildRatWatchSettings
             .AnyAsync(r => r.GuildId == discordGuild.Id && r.IsEnabled, cancellationToken);
         if (hasRatWatch) activeFeatures.Add("RatWatch");
 
-        var hasScheduledMessages = await _dbContext.ScheduledMessages
+        var hasScheduledMessages = await dbContext.ScheduledMessages
             .AnyAsync(s => s.GuildId == discordGuild.Id && s.IsEnabled, cancellationToken);
         if (hasScheduledMessages) activeFeatures.Add("Scheduled Messages");
 
@@ -350,14 +356,15 @@ public class PreviewController : ControllerBase
     /// <summary>
     /// Checks if a user has any active (non-expired) moderation cases.
     /// </summary>
-    private async Task<bool> HasActiveModerationAsync(
+    private static async Task<bool> HasActiveModerationAsync(
+        BotDbContext dbContext,
         ulong guildId,
         ulong userId,
         CancellationToken cancellationToken)
     {
         // Check for active moderation cases (mutes, temp bans that haven't expired)
         // A case is active if it has no expiry (permanent) or hasn't expired yet
-        return await _dbContext.ModerationCases
+        return await dbContext.ModerationCases
             .AnyAsync(c =>
                 c.GuildId == guildId &&
                 c.TargetUserId == userId &&
