@@ -1,0 +1,462 @@
+@page "/Admin/Users"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using System.Security.Claims
+@inject IUserManagementService UserManagementService
+@inject ILogger<UserIndex> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ToastInterop Toast
+
+<PageTitle>User Management - Discord Bot Admin</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-h1 text-text-primary">Users</h1>
+            <p class="mt-1 text-sm text-text-secondary">Manage application users and their roles</p>
+        </div>
+        @if (_canCreateUsers)
+        {
+            <a href="/Admin/Users/Create"
+               class="inline-flex items-center gap-2 px-5 py-2.5 text-sm font-semibold text-white bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active rounded-md transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 4v16m8-8H4" />
+                </svg>
+                <span>Create User</span>
+            </a>
+        }
+    </div>
+
+    <!-- Alerts -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <!-- Search and Filters -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <!-- Search -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                <input
+                    type="text"
+                    @bind="_searchTerm"
+                    @bind:event="oninput"
+                    @onkeydown="HandleSearchKeyDown"
+                    placeholder="Email, name, or Discord username..."
+                    class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+            </div>
+
+            <!-- Role Filter -->
+            <FormSelect
+                Id="roleFilter"
+                Label="Role"
+                Placeholder="All Roles"
+                SelectedValue="@_roleFilter"
+                SelectedValueChanged="HandleRoleFilterChanged"
+                Options="@_roleOptions" />
+
+            <!-- Status Filter -->
+            <FormSelect
+                Id="activeFilter"
+                Label="Status"
+                Placeholder="All"
+                SelectedValue="@_activeFilterValue"
+                SelectedValueChanged="HandleActiveFilterChanged"
+                Options="@_statusOptions" />
+
+            <!-- Discord Filter -->
+            <FormSelect
+                Id="discordFilter"
+                Label="Discord"
+                Placeholder="All"
+                SelectedValue="@_discordLinkedFilterValue"
+                SelectedValueChanged="HandleDiscordFilterChanged"
+                Options="@_discordOptions" />
+        </div>
+
+        <!-- Search Buttons -->
+        <div class="md:col-span-4 flex justify-end gap-2 mt-4">
+            <Button Text="Clear" Variant="ButtonVariant.Secondary" OnClick="ClearFilters" />
+            <Button Text="Search" Variant="ButtonVariant.Primary" OnClick="ApplyFilters"
+                    IconLeft="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </div>
+    </div>
+
+    <!-- Loading State -->
+    @if (_isLoading)
+    {
+        <div class="flex items-center justify-center py-12">
+            <div class="text-text-secondary">Loading users...</div>
+        </div>
+    }
+    else
+    {
+        <!-- Users Table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Role</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Discord</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Last Login</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @if (_users.Any())
+                        {
+                            @foreach (var user in _users)
+                            {
+                                <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            @if (!string.IsNullOrEmpty(user.DiscordAvatarUrl))
+                                            {
+                                                <img class="h-10 w-10 rounded-full" src="@user.DiscordAvatarUrl" alt="@user.Email" />
+                                            }
+                                            else
+                                            {
+                                                <div class="h-10 w-10 rounded-full bg-accent-blue flex items-center justify-center">
+                                                    <span class="text-white font-medium text-sm">@user.Email.Substring(0, 1).ToUpper()</span>
+                                                </div>
+                                            }
+                                            <div class="ml-4">
+                                                <div class="text-sm font-medium text-text-primary">@user.Email</div>
+                                                @if (!string.IsNullOrEmpty(user.DisplayName))
+                                                {
+                                                    <div class="text-sm text-text-secondary">@user.DisplayName</div>
+                                                }
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @{
+                                            var badgeVariant = user.HighestRole switch
+                                            {
+                                                "SuperAdmin" => BadgeVariant.Error,
+                                                "Admin" => BadgeVariant.Orange,
+                                                "Moderator" => BadgeVariant.Blue,
+                                                "Viewer" => BadgeVariant.Info,
+                                                _ => BadgeVariant.Default
+                                            };
+                                        }
+                                        <Badge Text="@user.HighestRole" Variant="@badgeVariant" Size="BadgeSize.Small" />
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if (user.IsActive)
+                                        {
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
+                                                <svg class="w-2 h-2 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                                                    <circle cx="4" cy="4" r="3" />
+                                                </svg>
+                                                Active
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-text-tertiary/20 text-text-tertiary">
+                                                <svg class="w-2 h-2 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                                                    <circle cx="4" cy="4" r="3" />
+                                                </svg>
+                                                Inactive
+                                            </span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if (user.IsDiscordLinked)
+                                        {
+                                            <div class="flex items-center text-sm text-text-primary">
+                                                <svg class="w-4 h-4 mr-1.5 text-accent-blue" fill="currentColor" viewBox="0 0 24 24">
+                                                    <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+                                                </svg>
+                                                @user.DiscordUsername
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-tertiary">-</span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                        @if (user.LastLoginAt.HasValue)
+                                        {
+                                            <span data-utc="@user.LastLoginAtUtcIso" data-format="date"></span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-text-tertiary">Never</span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                        <div class="flex justify-end gap-2">
+                                            <a href="/Admin/Users/Details/@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                                                View
+                                            </a>
+                                            <a href="/Admin/Users/@user.Id/Edit" class="text-accent-blue hover:text-accent-blue/80">
+                                                Edit
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="6" class="px-6 py-12 text-center">
+                                    @{
+                                        var emptyTitle = !string.IsNullOrEmpty(_searchTerm) ? "No users found" : "No users yet";
+                                        var emptyDesc = !string.IsNullOrEmpty(_searchTerm) ? "Try adjusting your search or filters" : "Create your first user to get started";
+                                    }
+                                    <EmptyState Type="EmptyStateType.NoResults" Title="@emptyTitle" Description="@emptyDesc" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            @if (_totalPages > 1)
+            {
+                <div class="px-6 py-4 border-t border-border-primary">
+                    <Pagination
+                        CurrentPage="@_currentPage"
+                        TotalPages="@_totalPages"
+                        TotalItems="@_totalCount"
+                        PageSize="@_pageSize"
+                        BaseUrl="@BuildPaginationBaseUrl()"
+                        PageParameterName="pageNumber"
+                        ShowItemCount="true" />
+                </div>
+            }
+        </div>
+
+        <!-- Results Summary -->
+        @if (_totalCount > 0)
+        {
+            <div class="mt-4 text-sm text-text-secondary">
+                Showing @((_currentPage - 1) * _pageSize + 1) to @Math.Min(_currentPage * _pageSize, _totalCount) of @_totalCount users
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "SearchTerm")]
+    public string? QuerySearchTerm { get; set; }
+
+    [SupplyParameterFromQuery(Name = "RoleFilter")]
+    public string? QueryRoleFilter { get; set; }
+
+    [SupplyParameterFromQuery(Name = "ActiveFilter")]
+    public string? QueryActiveFilter { get; set; }
+
+    [SupplyParameterFromQuery(Name = "DiscordLinkedFilter")]
+    public string? QueryDiscordLinkedFilter { get; set; }
+
+    [SupplyParameterFromQuery(Name = "pageNumber")]
+    public int? QueryPage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "PageSize")]
+    public int? QueryPageSize { get; set; }
+
+    private bool _isLoading = true;
+    private string? _searchTerm;
+    private string? _roleFilter;
+    private bool? _activeFilter;
+    private bool? _discordLinkedFilter;
+    private int _currentPage = 1;
+    private int _pageSize = 20;
+    private int _totalPages;
+    private int _totalCount;
+    private bool _canCreateUsers;
+    private string? _currentUserId;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    private IReadOnlyList<UserDto> _users = Array.Empty<UserDto>();
+    private List<SelectOption> _roleOptions = new();
+    private readonly List<SelectOption> _statusOptions = new()
+    {
+        new SelectOption { Value = "", Text = "All" },
+        new SelectOption { Value = "true", Text = "Active" },
+        new SelectOption { Value = "false", Text = "Inactive" }
+    };
+    private readonly List<SelectOption> _discordOptions = new()
+    {
+        new SelectOption { Value = "", Text = "All" },
+        new SelectOption { Value = "true", Text = "Linked" },
+        new SelectOption { Value = "false", Text = "Not Linked" }
+    };
+
+    // String representations for FormSelect binding
+    private string? _activeFilterValue;
+    private string? _discordLinkedFilterValue;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Sync query parameters to local state
+        _searchTerm = QuerySearchTerm;
+        _roleFilter = QueryRoleFilter;
+        _currentPage = QueryPage ?? 1;
+        _pageSize = QueryPageSize ?? 20;
+
+        _activeFilter = QueryActiveFilter switch
+        {
+            "true" or "True" => true,
+            "false" or "False" => false,
+            _ => null
+        };
+        _activeFilterValue = _activeFilter?.ToString().ToLower() ?? "";
+
+        _discordLinkedFilter = QueryDiscordLinkedFilter switch
+        {
+            "true" or "True" => true,
+            "false" or "False" => false,
+            _ => null
+        };
+        _discordLinkedFilterValue = _discordLinkedFilter?.ToString().ToLower() ?? "";
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        StateHasChanged();
+
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(_currentUserId))
+                return;
+
+            _canCreateUsers = authState.User.IsInRole("Admin") || authState.User.IsInRole("SuperAdmin");
+
+            Logger.LogInformation("User {UserId} accessing user management list", _currentUserId);
+
+            // Load available roles for filter dropdown
+            var roles = await UserManagementService.GetAvailableRolesAsync(_currentUserId);
+            _roleOptions = new List<SelectOption> { new() { Value = "", Text = "All Roles" } };
+            _roleOptions.AddRange(roles.Select(r => new SelectOption { Value = r, Text = r }));
+
+            // Build search query
+            var query = new UserSearchQueryDto
+            {
+                SearchTerm = _searchTerm,
+                Role = string.IsNullOrEmpty(_roleFilter) ? null : _roleFilter,
+                IsActive = _activeFilter,
+                IsDiscordLinked = _discordLinkedFilter,
+                Page = _currentPage,
+                PageSize = _pageSize,
+                SortBy = "CreatedAt",
+                SortDescending = true
+            };
+
+            var result = await UserManagementService.GetUsersAsync(query);
+            _users = result.Items;
+            _totalCount = result.TotalCount;
+            _totalPages = result.TotalPages;
+            _currentPage = result.Page;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading user list");
+            _errorMessage = "Failed to load users. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            ApplyFilters();
+        }
+    }
+
+    private void HandleRoleFilterChanged(string? value)
+    {
+        _roleFilter = string.IsNullOrEmpty(value) ? null : value;
+    }
+
+    private void HandleActiveFilterChanged(string? value)
+    {
+        _activeFilterValue = value;
+        _activeFilter = value switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+    }
+
+    private void HandleDiscordFilterChanged(string? value)
+    {
+        _discordLinkedFilterValue = value;
+        _discordLinkedFilter = value switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+    }
+
+    private void ApplyFilters()
+    {
+        var queryParams = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(_searchTerm)) queryParams["SearchTerm"] = _searchTerm;
+        if (!string.IsNullOrEmpty(_roleFilter)) queryParams["RoleFilter"] = _roleFilter;
+        if (_activeFilter.HasValue) queryParams["ActiveFilter"] = _activeFilter.Value.ToString();
+        if (_discordLinkedFilter.HasValue) queryParams["DiscordLinkedFilter"] = _discordLinkedFilter.Value.ToString();
+        queryParams["pageNumber"] = 1;
+
+        var url = NavigationManager.GetUriWithQueryParameters("/Admin/Users", queryParams);
+        NavigationManager.NavigateTo(url);
+    }
+
+    private void ClearFilters()
+    {
+        _searchTerm = null;
+        _roleFilter = null;
+        _activeFilter = null;
+        _discordLinkedFilter = null;
+        _activeFilterValue = "";
+        _discordLinkedFilterValue = "";
+        NavigationManager.NavigateTo("/Admin/Users");
+    }
+
+    private string BuildPaginationBaseUrl()
+    {
+        var queryParams = new Dictionary<string, object?>();
+        if (!string.IsNullOrWhiteSpace(_searchTerm)) queryParams["SearchTerm"] = _searchTerm;
+        if (!string.IsNullOrEmpty(_roleFilter)) queryParams["RoleFilter"] = _roleFilter;
+        if (_activeFilter.HasValue) queryParams["ActiveFilter"] = _activeFilter.Value.ToString();
+        if (_discordLinkedFilter.HasValue) queryParams["DiscordLinkedFilter"] = _discordLinkedFilter.Value.ToString();
+
+        return NavigationManager.GetUriWithQueryParameters("/Admin/Users", queryParams);
+    }
+}

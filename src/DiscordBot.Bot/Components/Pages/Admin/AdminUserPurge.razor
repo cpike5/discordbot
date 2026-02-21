@@ -1,0 +1,397 @@
+@page "/Admin/UserPurge"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "RequireSuperAdmin")]
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using System.Security.Claims
+@inject IUserPurgeService PurgeService
+@inject ILogger<AdminUserPurge> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>User Data Purge - Discord Bot Admin</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-h1 text-text-primary">User Data Purge</h1>
+        <p class="mt-1 text-sm text-text-secondary">Permanently delete all user data for GDPR compliance</p>
+    </div>
+
+    <!-- Warning Notice -->
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Error"
+               Title="Warning: Irreversible Operation"
+               Message="This action permanently deletes all user data from the system. This operation cannot be undone. Use with extreme caution." />
+    </div>
+
+    <!-- Success/Error Messages -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <!-- Input Form -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Enter Discord User ID</h2>
+        <div class="space-y-4">
+            <div>
+                <label for="discord-user-id" class="block text-sm font-medium text-text-primary mb-2">
+                    Discord User ID
+                </label>
+                <input type="text"
+                       id="discord-user-id"
+                       @bind="_discordUserId"
+                       placeholder="Enter Discord user ID (e.g., 123456789012345678)"
+                       class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                @if (!string.IsNullOrEmpty(_userIdError))
+                {
+                    <p class="mt-1 text-sm text-error">@_userIdError</p>
+                }
+            </div>
+            <div class="flex gap-2">
+                <Button Text="Preview Data"
+                        Variant="ButtonVariant.Primary"
+                        OnClick="HandlePreview"
+                        IsLoading="_isPreviewLoading"
+                        IconLeft="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                @if (!string.IsNullOrEmpty(_discordUserId))
+                {
+                    <Button Text="Clear"
+                            Variant="ButtonVariant.Secondary"
+                            OnClick="HandleClear" />
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Cannot Purge Warning -->
+    @if (!string.IsNullOrEmpty(_cannotPurgeReason))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Warning"
+                   Title="Cannot Purge User"
+                   Message="@_cannotPurgeReason" />
+        </div>
+    }
+
+    <!-- Preview Results -->
+    @if (_showPreview && _previewResult is not null)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                <h2 class="text-lg font-semibold text-text-primary">Preview: Data to be Deleted</h2>
+                <p class="text-sm text-text-secondary mt-1">
+                    The following records will be permanently deleted for Discord user ID: <span class="font-mono text-text-primary">@_discordUserId</span>
+                </p>
+            </div>
+
+            <div class="p-6">
+                @if (_previewResult.DeletedCounts.Any())
+                {
+                    <!-- Data Counts Table -->
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-border-primary">
+                            <thead>
+                                <tr>
+                                    <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                        Data Type
+                                    </th>
+                                    <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
+                                        Records
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border-primary">
+                                @foreach (var kvp in _previewResult.DeletedCounts.OrderByDescending(x => x.Value))
+                                {
+                                    <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                        <td class="px-4 py-3 text-sm text-text-primary">
+                                            @if (kvp.Key.Contains("Anonymized"))
+                                            {
+                                                <span class="inline-flex items-center">
+                                                    @kvp.Key.Replace("_Anonymized", "")
+                                                    <Badge Text="Anonymized" Variant="BadgeVariant.Info" Size="BadgeSize.Small" class="ml-2" />
+                                                </span>
+                                            }
+                                            else
+                                            {
+                                                @kvp.Key
+                                            }
+                                        </td>
+                                        <td class="px-4 py-3 text-sm text-text-primary text-right font-mono">
+                                            @kvp.Value.ToString("N0")
+                                        </td>
+                                    </tr>
+                                }
+                                <tr class="bg-bg-tertiary font-semibold">
+                                    <td class="px-4 py-3 text-sm text-text-primary">
+                                        Total Records
+                                    </td>
+                                    <td class="px-4 py-3 text-sm text-text-primary text-right font-mono">
+                                        @_previewResult.DeletedCounts.Values.Sum().ToString("N0")
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Info Notice -->
+                    <div class="mt-6">
+                        <Alert Variant="AlertVariant.Info"
+                               Title="About Anonymization"
+                               Message="Some records (RatRecords, RatWatches) are anonymized rather than deleted to preserve historical data integrity. The user's ID is replaced with 0." />
+                    </div>
+
+                    <!-- Purge Confirmation -->
+                    <div class="mt-6 pt-6 border-t border-border-primary">
+                        <Button Text="Purge User Data"
+                                Variant="ButtonVariant.Danger"
+                                OnClick="HandlePurgeClick"
+                                IsLoading="_isPurgeLoading"
+                                IconLeft="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <p class="mt-2 text-xs text-text-tertiary">
+                            This operation will permanently delete the user data shown above. You will be asked to type the user ID to confirm.
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <!-- No Data Found -->
+                    <div class="text-center py-8">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                            <svg class="w-10 h-10 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-text-primary mb-2">No Data Found</h3>
+                        <p class="text-sm text-text-secondary">
+                            No records found for this Discord user ID. The user may not exist in the database.
+                        </p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Purge Result -->
+    @if (_purgeResult is { Success: true })
+    {
+        <div class="bg-success/10 border border-success/30 rounded-lg p-6 mb-6">
+            <div class="flex items-start gap-3">
+                <svg class="w-6 h-6 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-success mb-2">Purge Complete</h3>
+                    <p class="text-sm text-success/90 mb-4">
+                        Successfully purged all data for Discord user ID: <span class="font-mono">@_discordUserId</span>
+                    </p>
+
+                    <!-- Deleted Counts Summary -->
+                    <div class="bg-bg-secondary rounded-lg p-4 border border-success/20">
+                        <p class="text-xs font-semibold text-text-primary uppercase tracking-wider mb-2">Deleted Records</p>
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            @foreach (var kvp in _purgeResult.DeletedCounts.Where(x => x.Value > 0))
+                            {
+                                <div class="text-xs">
+                                    <span class="text-text-secondary">@kvp.Key:</span>
+                                    <span class="text-text-primary font-mono ml-1">@kvp.Value</span>
+                                </div>
+                            }
+                        </div>
+                        <div class="mt-3 pt-3 border-t border-border-primary">
+                            <span class="text-sm font-semibold text-text-primary">Total: </span>
+                            <span class="text-sm font-mono text-text-primary">@_purgeResult.DeletedCounts.Values.Sum().ToString("N0")</span>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(_purgeResult.AuditLogCorrelationId))
+                    {
+                        <p class="text-xs text-success/80 mt-4">
+                            Audit Correlation ID: <span class="font-mono">@_purgeResult.AuditLogCorrelationId</span>
+                        </p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Additional Information -->
+    <div class="mt-6">
+        <Alert Variant="AlertVariant.Info"
+               Title="GDPR Compliance"
+               Message="This tool implements the &quot;right to be forgotten&quot; under GDPR. All user data is permanently deleted or anonymized. An audit log entry is created for compliance tracking. Users can also request deletion via the /privacy command in Discord." />
+    </div>
+</div>
+
+<!-- Typed Confirmation Modal -->
+<TypedConfirmationModal @bind-IsVisible="_showConfirmModal"
+                        Title="Permanently Delete User Data"
+                        Message="@_confirmMessage"
+                        RequiredText="@(_discordUserId ?? "")"
+                        InputLabel="Type the user ID to confirm"
+                        ConfirmText="Purge User Data"
+                        Variant="ConfirmationVariant.Danger"
+                        OnConfirm="ExecutePurge" />
+
+@code {
+    private string? _discordUserId;
+
+    private UserPurgeResultDto? _previewResult;
+    private UserPurgeResultDto? _purgeResult;
+    private string? _cannotPurgeReason;
+    private bool _showPreview;
+
+    private string? _successMessage;
+    private string? _errorMessage;
+    private string? _userIdError;
+
+    private bool _isPreviewLoading;
+    private bool _isPurgeLoading;
+    private bool _showConfirmModal;
+    private string _confirmMessage = string.Empty;
+
+    private bool ValidateUserId(out ulong userId)
+    {
+        userId = 0;
+        _userIdError = null;
+
+        if (string.IsNullOrWhiteSpace(_discordUserId))
+        {
+            _userIdError = "Discord User ID is required.";
+            return false;
+        }
+
+        if (!ulong.TryParse(_discordUserId, out userId))
+        {
+            _userIdError = "Invalid Discord User ID format.";
+            return false;
+        }
+
+        return true;
+    }
+
+    private async Task HandlePreview()
+    {
+        _previewResult = null;
+        _purgeResult = null;
+        _cannotPurgeReason = null;
+        _showPreview = false;
+        _errorMessage = null;
+        _successMessage = null;
+
+        if (!ValidateUserId(out var userId)) return;
+
+        _isPreviewLoading = true;
+        try
+        {
+            // Check if user can be purged
+            var (canPurge, reason) = await PurgeService.CanPurgeUserAsync(userId);
+            if (!canPurge)
+            {
+                _cannotPurgeReason = reason;
+                return;
+            }
+
+            // Get preview of data to be deleted
+            _previewResult = await PurgeService.PreviewPurgeAsync(userId);
+
+            if (_previewResult.Success)
+            {
+                _showPreview = true;
+            }
+            else
+            {
+                _errorMessage = _previewResult.ErrorMessage ?? "Failed to generate preview.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during user purge preview for {DiscordUserId}", userId);
+            _errorMessage = "An unexpected error occurred while generating the preview.";
+        }
+        finally
+        {
+            _isPreviewLoading = false;
+        }
+    }
+
+    private void HandlePurgeClick()
+    {
+        if (_previewResult is null || string.IsNullOrEmpty(_discordUserId)) return;
+
+        _confirmMessage = $"You are about to permanently delete ALL data for Discord user ID: {_discordUserId}. This action CANNOT be undone.";
+        _showConfirmModal = true;
+    }
+
+    private async Task ExecutePurge()
+    {
+        if (!ValidateUserId(out var userId)) return;
+
+        _isPurgeLoading = true;
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var adminUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+            Logger.LogInformation(
+                "Admin {AdminId} initiating purge for Discord user {DiscordUserId}",
+                adminUserId, userId);
+
+            _purgeResult = await PurgeService.PurgeUserDataAsync(
+                userId,
+                PurgeInitiator.Admin,
+                adminUserId);
+
+            if (_purgeResult.Success)
+            {
+                var totalDeleted = _purgeResult.DeletedCounts.Values.Sum();
+                _successMessage = $"User data purged successfully. {totalDeleted} records deleted.";
+                _showPreview = false;
+                _previewResult = null;
+
+                Logger.LogInformation(
+                    "Successfully purged data for Discord user {DiscordUserId}. Total records: {TotalDeleted}",
+                    userId, totalDeleted);
+            }
+            else
+            {
+                _errorMessage = _purgeResult.ErrorMessage ?? "An error occurred during purge.";
+
+                Logger.LogError(
+                    "Failed to purge data for Discord user {DiscordUserId}: {Error}",
+                    userId, _purgeResult.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during user purge execution for {DiscordUserId}", userId);
+            _errorMessage = "An unexpected error occurred during the purge operation.";
+        }
+        finally
+        {
+            _isPurgeLoading = false;
+        }
+    }
+
+    private void HandleClear()
+    {
+        _discordUserId = null;
+        _previewResult = null;
+        _purgeResult = null;
+        _cannotPurgeReason = null;
+        _showPreview = false;
+        _successMessage = null;
+        _errorMessage = null;
+        _userIdError = null;
+    }
+}

@@ -1,0 +1,568 @@
+@page "/guilds"
+@attribute [Authorize(Policy = "RequireModerator")]
+@rendermode InteractiveServer
+
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Entities
+@using DiscordBot.Core.Interfaces
+@using Microsoft.AspNetCore.Identity
+
+@inject IGuildService GuildService
+@inject IAuthorizationService AuthorizationService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<GuildList> Logger
+
+<PageTitle>Servers - Discord Bot Admin</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-h1 text-text-primary">Servers</h1>
+            @if (_viewModel is not null)
+            {
+                <Badge Text="@_viewModel.TotalCount.ToString()" Variant="BadgeVariant.Blue" Size="BadgeSize.Medium" />
+            }
+        </div>
+        <div class="flex items-center gap-3">
+            @if (_isAdminOrAbove)
+            {
+                <Button Text="Sync All"
+                        Variant="ButtonVariant.Accent"
+                        IsLoading="_isSyncingAll"
+                        IconLeft="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                        OnClick="SyncAllGuilds" />
+            }
+            <span class="text-xs text-text-tertiary hidden lg:block">
+                Last updated: <span data-utc="@DateTime.UtcNow.ToString("o")" data-format="datetime-short"></span>
+            </span>
+        </div>
+    </div>
+
+    <!-- Filtered View Info Banner -->
+    @if (_isFiltered)
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Info"
+                   Message="@($"You're viewing {_viewModel?.TotalCount} of {_totalGuilds} total servers. Only servers where you are a Discord member are shown.")" />
+        </div>
+    }
+
+    <!-- Alert Messages -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <!-- Search & Filter Bar -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <div class="flex flex-col md:flex-row md:items-end gap-4">
+            <!-- Search Input -->
+            <div class="flex-1">
+                <FormInput Id="searchTerm"
+                           Label="Search"
+                           Placeholder="Search servers by name or ID..."
+                           Value="@_searchTerm"
+                           ValueChanged="@((string? v) => _searchTerm = v)"
+                           IconLeft="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </div>
+
+            <!-- Status Filter -->
+            <div class="w-full md:w-40">
+                <FormSelect Id="statusFilter"
+                            Label="Status"
+                            Placeholder="All Statuses"
+                            SelectedValue="@_statusFilterValue"
+                            SelectedValueChanged="OnStatusFilterChanged"
+                            Options="@_statusOptions" />
+            </div>
+
+            <!-- Sort By -->
+            <div class="w-full md:w-40">
+                <FormSelect Id="sortBy"
+                            Label="Sort By"
+                            SelectedValue="@_sortBy"
+                            SelectedValueChanged="OnSortByChanged"
+                            Options="@_sortOptions" />
+            </div>
+
+            <!-- Sort Direction -->
+            <div class="w-full md:w-40">
+                <FormSelect Id="sortDirection"
+                            Label="Order"
+                            SelectedValue="@(_sortDescending ? "true" : "false")"
+                            SelectedValueChanged="OnSortDirectionChanged"
+                            Options="@_sortDirectionOptions" />
+            </div>
+
+            <!-- Action Buttons -->
+            <div class="flex gap-2">
+                <Button Text="Clear" Variant="ButtonVariant.Secondary" OnClick="ClearFilters" />
+                <Button Text="Search" Variant="ButtonVariant.Primary" IconLeft="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" OnClick="ApplyFilters" />
+            </div>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="flex items-center justify-center py-12">
+            <LoadingSpinner Message="Loading servers..." />
+        </div>
+    }
+    else if (_viewModel is not null)
+    {
+        <!-- Desktop Table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Server Name</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Members</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
+                            <th class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Joined</th>
+                            <th class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @if (_viewModel.Guilds.Any())
+                        {
+                            @foreach (var guild in _viewModel.Guilds)
+                            {
+                                <tr class="hover:bg-bg-hover transition-colors cursor-pointer group"
+                                    @onclick="() => NavigateToGuild(guild.Id)"
+                                    tabindex="0"
+                                    role="link"
+                                    aria-label="View details for @guild.Name">
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-3">
+                                            @if (!string.IsNullOrEmpty(guild.IconUrl))
+                                            {
+                                                <img src="@guild.IconUrl" alt="@guild.Name" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                            }
+                                            else
+                                            {
+                                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                    @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                                </div>
+                                            }
+                                            <div class="min-w-0">
+                                                <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors truncate">@guild.Name</p>
+                                                <p class="text-xs text-text-tertiary font-mono">ID: @guild.Id</p>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 text-text-secondary">
+                                        @guild.MemberCount.ToString("N0")
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <StatusIndicator Status="@(guild.IsActive ? StatusType.Online : StatusType.Offline)"
+                                                         Text="@(guild.IsActive ? "Active" : "Inactive")"
+                                                         DisplayStyle="StatusDisplayStyle.DotWithText"
+                                                         Size="StatusSize.Medium" />
+                                    </td>
+                                    <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                        <span data-utc="@guild.JoinedAtUtcIso" data-format="date"></span>
+                                    </td>
+                                    <td class="px-6 py-4 text-right" @onclick:stopPropagation="true">
+                                        <div class="flex items-center justify-end gap-2">
+                                            <Button IsIconOnly="true"
+                                                    Variant="ButtonVariant.Ghost"
+                                                    IconLeft="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                                    AriaLabel="Sync guild data"
+                                                    IsLoading="@(_syncingGuildId == guild.Id)"
+                                                    OnClick="() => SyncGuild(guild.Id)" />
+                                            <a href="/Guilds/Details/@guild.Id" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" title="View Details">
+                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                </svg>
+                                            </a>
+                                            <a href="/Guilds/Edit/@guild.Id" class="p-2 text-text-secondary hover:text-accent-orange hover:bg-bg-hover rounded transition-colors" title="Configure">
+                                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                            </a>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="5" class="px-6 py-12 text-center">
+                                    @{
+                                        var hasFilters = !string.IsNullOrEmpty(_searchTerm) || _statusFilter.HasValue;
+                                        var emptyTitle = _isFiltered && !hasFilters ? "No accessible servers" :
+                                                         hasFilters ? "No servers found" : "No servers yet";
+                                        var emptyDesc = _isFiltered && !hasFilters ? "You don't have access to any servers. Contact an admin to grant access or join a Discord server with this bot." :
+                                                        hasFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
+                                    }
+                                    <EmptyState Type="@(hasFilters ? EmptyStateType.NoResults : EmptyStateType.FirstTime)"
+                                                Title="@emptyTitle"
+                                                Description="@emptyDesc" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mobile Card Layout -->
+        <div class="md:hidden space-y-4">
+            @if (_viewModel.Guilds.Any())
+            {
+                @foreach (var guild in _viewModel.Guilds)
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 cursor-pointer group hover:bg-bg-hover transition-colors"
+                         @onclick="() => NavigateToGuild(guild.Id)"
+                         tabindex="0"
+                         role="link"
+                         aria-label="View details for @guild.Name">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-center gap-3">
+                                @if (!string.IsNullOrEmpty(guild.IconUrl))
+                                {
+                                    <img src="@guild.IconUrl" alt="@guild.Name" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                }
+                                else
+                                {
+                                    <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                        @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                    </div>
+                                }
+                                <div class="min-w-0">
+                                    <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors truncate">@guild.Name</p>
+                                    <p class="text-xs text-text-tertiary font-mono">@guild.Id</p>
+                                </div>
+                            </div>
+                            <StatusIndicator Status="@(guild.IsActive ? StatusType.Online : StatusType.Offline)"
+                                             Text="@(guild.IsActive ? "Active" : "Inactive")"
+                                             DisplayStyle="StatusDisplayStyle.DotWithText"
+                                             Size="StatusSize.Small" />
+                        </div>
+                        <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                            <div>
+                                <span class="text-text-tertiary">Members:</span>
+                                <span class="text-text-primary ml-1">@guild.MemberCount.ToString("N0")</span>
+                            </div>
+                            <div>
+                                <span class="text-text-tertiary">Joined:</span>
+                                <span class="text-text-primary ml-1" data-utc="@guild.JoinedAtUtcIso" data-format="date"></span>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2 pt-3 border-t border-border-secondary" @onclick:stopPropagation="true">
+                            <Button Text="Sync"
+                                    Variant="ButtonVariant.Secondary"
+                                    Size="ButtonSize.Small"
+                                    IconLeft="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                                    IsLoading="@(_syncingGuildId == guild.Id)"
+                                    OnClick="() => SyncGuild(guild.Id)" />
+                            <a href="/Guilds/Details/@guild.Id" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                                View
+                            </a>
+                            <a href="/Guilds/Edit/@guild.Id" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                Configure
+                            </a>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                    @{
+                        var hasFiltersMobile = !string.IsNullOrEmpty(_searchTerm) || _statusFilter.HasValue;
+                        var emptyTitleMobile = _isFiltered && !hasFiltersMobile ? "No accessible servers" :
+                                             hasFiltersMobile ? "No servers found" : "No servers yet";
+                        var emptyDescMobile = _isFiltered && !hasFiltersMobile ? "You don't have access to any servers. Contact an admin to grant access or join a Discord server with this bot." :
+                                            hasFiltersMobile ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
+                    }
+                    <EmptyState Type="@(hasFiltersMobile ? EmptyStateType.NoResults : EmptyStateType.FirstTime)"
+                                Title="@emptyTitleMobile"
+                                Description="@emptyDescMobile" />
+                </div>
+            }
+        </div>
+
+        <!-- Pagination -->
+        @if (_viewModel.TotalPages > 1)
+        {
+            <div class="mt-6">
+                <Pagination CurrentPage="_viewModel.CurrentPage"
+                            TotalPages="_viewModel.TotalPages"
+                            TotalItems="_viewModel.TotalCount"
+                            PageSize="_viewModel.PageSize"
+                            BaseUrl="@BuildBaseUrl()"
+                            Style="PaginationStyle.Full"
+                            ShowPageSizeSelector="true"
+                            ShowItemCount="true"
+                            PageParameterName="pageNumber" />
+            </div>
+        }
+
+        <!-- Results Summary -->
+        @if (_viewModel.TotalCount > 0)
+        {
+            var startItem = (_viewModel.CurrentPage - 1) * _viewModel.PageSize + 1;
+            var endItem = Math.Min(_viewModel.CurrentPage * _viewModel.PageSize, _viewModel.TotalCount);
+            <div class="mt-4 text-sm text-text-secondary">
+                Showing @startItem to @endItem of @_viewModel.TotalCount servers
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "SearchTerm")]
+    public string? QuerySearchTerm { get; set; }
+
+    [SupplyParameterFromQuery(Name = "StatusFilter")]
+    public bool? QueryStatusFilter { get; set; }
+
+    [SupplyParameterFromQuery(Name = "SortBy")]
+    public string? QuerySortBy { get; set; }
+
+    [SupplyParameterFromQuery(Name = "SortDescending")]
+    public bool QuerySortDescending { get; set; }
+
+    [SupplyParameterFromQuery(Name = "pageNumber")]
+    public int? QueryPage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "PageSize")]
+    public int? QueryPageSize { get; set; }
+
+    private GuildListViewModel? _viewModel;
+    private bool _isLoading = true;
+    private bool _isFiltered;
+    private int _totalGuilds;
+    private bool _isAdminOrAbove;
+    private bool _isSyncingAll;
+    private ulong? _syncingGuildId;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    // Filter state
+    private string? _searchTerm;
+    private bool? _statusFilter;
+    private string _sortBy = "Name";
+    private bool _sortDescending;
+    private int _currentPage = 1;
+    private int _pageSize = 10;
+
+    // Select options
+    private string? _statusFilterValue;
+
+    private static readonly List<SelectOption> _statusOptions = new()
+    {
+        new() { Value = "true", Text = "Active" },
+        new() { Value = "false", Text = "Inactive" }
+    };
+
+    private static readonly List<SelectOption> _sortOptions = new()
+    {
+        new() { Value = "Name", Text = "Name" },
+        new() { Value = "MemberCount", Text = "Member Count" },
+        new() { Value = "JoinedAt", Text = "Join Date" }
+    };
+
+    private static readonly List<SelectOption> _sortDirectionOptions = new()
+    {
+        new() { Value = "false", Text = "Ascending" },
+        new() { Value = "true", Text = "Descending" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Apply query string parameters
+        _searchTerm = QuerySearchTerm;
+        _statusFilter = QueryStatusFilter;
+        _statusFilterValue = _statusFilter?.ToString().ToLowerInvariant();
+        _sortBy = QuerySortBy ?? "Name";
+        _sortDescending = QuerySortDescending;
+        _currentPage = QueryPage ?? 1;
+        _pageSize = QueryPageSize ?? 10;
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+
+        try
+        {
+            var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+            var claimsPrincipal = authState.User;
+
+            var user = await UserManager.GetUserAsync(claimsPrincipal);
+            var userRoles = user != null ? await UserManager.GetRolesAsync(user) : Array.Empty<string>();
+
+            _isAdminOrAbove = userRoles.Contains("SuperAdmin") || userRoles.Contains("Admin");
+
+            _isFiltered = userRoles.Any() &&
+                          !userRoles.Contains("SuperAdmin") &&
+                          !userRoles.Contains("Admin") &&
+                          (userRoles.Contains("Moderator") || userRoles.Contains("Viewer"));
+
+            if (_isFiltered)
+            {
+                var allGuilds = await GuildService.GetAllGuildsAsync();
+                _totalGuilds = allGuilds.Count;
+            }
+
+            var query = new GuildSearchQueryDto
+            {
+                SearchTerm = _searchTerm,
+                IsActive = _statusFilter,
+                Page = _currentPage,
+                PageSize = _pageSize,
+                SortBy = _sortBy,
+                SortDescending = _sortDescending,
+                UserId = user?.Id,
+                UserRoles = userRoles
+            };
+
+            var paginatedGuilds = await GuildService.GetGuildsAsync(query);
+            _viewModel = GuildListViewModel.FromPaginatedDto(paginatedGuilds, query);
+
+            Logger.LogInformation("User accessing guild list page. Search={Search}, Status={Status}, Sort={Sort}, Page={Page}",
+                _searchTerm, _statusFilter, _sortBy, _currentPage);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading guild list");
+            _errorMessage = "An error occurred while loading the server list.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void NavigateToGuild(ulong guildId)
+    {
+        NavigationManager.NavigateTo($"/Guilds/Details/{guildId}");
+    }
+
+    private async Task ApplyFilters()
+    {
+        _currentPage = 1;
+        var url = BuildBaseUrl();
+        NavigationManager.NavigateTo(url, forceLoad: true);
+    }
+
+    private void ClearFilters()
+    {
+        NavigationManager.NavigateTo("/guilds", forceLoad: true);
+    }
+
+    private void OnStatusFilterChanged(string? value)
+    {
+        _statusFilterValue = value;
+        _statusFilter = string.IsNullOrEmpty(value) ? null : bool.Parse(value);
+    }
+
+    private void OnSortByChanged(string? value)
+    {
+        _sortBy = value ?? "Name";
+    }
+
+    private void OnSortDirectionChanged(string? value)
+    {
+        _sortDescending = value == "true";
+    }
+
+    private async Task SyncGuild(ulong guildId)
+    {
+        _syncingGuildId = guildId;
+        _successMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            Logger.LogInformation("User requesting sync for guild {GuildId}", guildId);
+            var success = await GuildService.SyncGuildAsync(guildId);
+
+            if (success)
+            {
+                Logger.LogInformation("Successfully synced guild {GuildId}", guildId);
+                _successMessage = "Guild synced successfully.";
+                await LoadData();
+            }
+            else
+            {
+                Logger.LogWarning("Failed to sync guild {GuildId} - guild not found in Discord", guildId);
+                _errorMessage = "Guild not found in Discord client.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error syncing guild {GuildId}", guildId);
+            _errorMessage = "An error occurred while syncing the guild.";
+        }
+        finally
+        {
+            _syncingGuildId = null;
+        }
+    }
+
+    private async Task SyncAllGuilds()
+    {
+        _isSyncingAll = true;
+        _successMessage = null;
+        _errorMessage = null;
+
+        try
+        {
+            Logger.LogInformation("User requesting sync for all guilds");
+            var syncedCount = await GuildService.SyncAllGuildsAsync();
+            Logger.LogInformation("Successfully synced {SyncedCount} guilds", syncedCount);
+            _successMessage = $"Successfully synced {syncedCount} guild{(syncedCount != 1 ? "s" : "")}.";
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error syncing all guilds");
+            _errorMessage = "An error occurred while syncing guilds.";
+        }
+        finally
+        {
+            _isSyncingAll = false;
+        }
+    }
+
+    private string BuildBaseUrl()
+    {
+        var queryParams = new List<string>();
+        if (!string.IsNullOrEmpty(_searchTerm)) queryParams.Add($"SearchTerm={Uri.EscapeDataString(_searchTerm)}");
+        if (_statusFilter.HasValue) queryParams.Add($"StatusFilter={_statusFilter}");
+        if (_sortBy != "Name") queryParams.Add($"SortBy={_sortBy}");
+        if (_sortDescending) queryParams.Add("SortDescending=true");
+        if (_pageSize != 10) queryParams.Add($"PageSize={_pageSize}");
+
+        return queryParams.Any() ? $"/guilds?{string.Join("&", queryParams)}" : "/guilds";
+    }
+}

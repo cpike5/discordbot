@@ -1,0 +1,657 @@
+@page "/guilds/{GuildId:long}/flagged-events"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@rendermode InteractiveServer
+
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using System.Security.Claims
+
+@inject IFlaggedEventService FlaggedEventService
+@inject IGuildService GuildService
+@inject AuthenticationStateProvider AuthStateProvider
+@inject NavigationManager NavigationManager
+@inject ILogger<FlaggedEventList> Logger
+
+<PageTitle>Flagged Events - @(_guildName ?? "Loading") - Discord Bot Admin</PageTitle>
+
+@if (_isLoading)
+{
+    <div class="flex items-center justify-center py-12">
+        <LoadingSpinner Message="Loading flagged events..." />
+    </div>
+}
+else if (_guildName is null)
+{
+    <EmptyState Type="EmptyStateType.Error"
+                Title="Guild Not Found"
+                Description="The requested guild could not be found." />
+}
+else
+{
+    <!-- Breadcrumb -->
+    <GuildBreadcrumb Items="@_breadcrumbItems" />
+
+    <!-- Guild Header -->
+    <GuildHeader GuildId="(ulong)GuildId"
+                 GuildName="@_guildName"
+                 GuildIconUrl="@_guildIconUrl"
+                 PageTitle="Flagged Events"
+                 PageDescription="@($"Auto-detected moderation events for {_guildName}")" />
+
+    <!-- Guild Navigation Tabs -->
+    <GuildTabNavigation GuildId="(ulong)GuildId" ActiveTab="moderation" />
+
+    <!-- Alert Messages -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <!-- Filter Bar -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <FormSelect Id="filterRuleType"
+                        Label="Rule Type"
+                        Placeholder="All Types"
+                        SelectedValue="@_filterRuleTypeValue"
+                        SelectedValueChanged="OnRuleTypeFilterChanged"
+                        Options="@_ruleTypeOptions" />
+
+            <FormSelect Id="filterSeverity"
+                        Label="Severity"
+                        Placeholder="All Levels"
+                        SelectedValue="@_filterSeverityValue"
+                        SelectedValueChanged="OnSeverityFilterChanged"
+                        Options="@_severityOptions" />
+
+            <FormSelect Id="filterStatus"
+                        Label="Status"
+                        Placeholder="All Statuses"
+                        SelectedValue="@_filterStatusValue"
+                        SelectedValueChanged="OnStatusFilterChanged"
+                        Options="@_statusOptions" />
+
+            <FormInput Id="filterDateFrom"
+                       Type="date"
+                       Label="From Date"
+                       Value="@_filterDateFrom?.ToString("yyyy-MM-dd")"
+                       ValueChanged="OnDateFromChanged" />
+
+            <FormInput Id="filterDateTo"
+                       Type="date"
+                       Label="To Date"
+                       Value="@_filterDateTo?.ToString("yyyy-MM-dd")"
+                       ValueChanged="OnDateToChanged" />
+        </div>
+
+        <div class="flex items-center justify-end gap-3 mt-4">
+            <Button Text="Clear Filters" Variant="ButtonVariant.Ghost" OnClick="ClearFilters" />
+            <Button Text="Apply Filters" Variant="ButtonVariant.Accent" OnClick="ApplyFilters" />
+        </div>
+    </div>
+
+    <!-- Bulk Actions Toolbar -->
+    @if (_selectedEventIds.Count > 0)
+    {
+        <div class="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span class="text-sm font-medium text-text-primary">@_selectedEventIds.Count event(s) selected</span>
+            </div>
+            <div class="flex items-center gap-2">
+                <Button Text="Clear Selection" Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="ClearSelection" />
+                <Button Text="Dismiss Selected" Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" OnClick="BulkDismiss" />
+                <Button Text="Acknowledge Selected" Variant="ButtonVariant.Accent" Size="ButtonSize.Small" OnClick="BulkAcknowledge" />
+            </div>
+        </div>
+    }
+
+    @if (!_events.Any())
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12">
+            @{
+                var hasFilters = _filterRuleType.HasValue || _filterSeverity.HasValue || _filterStatus.HasValue;
+            }
+            <EmptyState Type="@(hasFilters ? EmptyStateType.NoResults : EmptyStateType.NoData)"
+                        Title="No flagged events found"
+                        Description="@(hasFilters ? "Try adjusting your filters." : "No auto-moderation events have been detected yet.")"
+                        IconSvgPath="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </div>
+    }
+    else
+    {
+        <!-- Desktop Table -->
+        <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <table class="min-w-full divide-y divide-border-primary">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th scope="col" class="w-12 px-4 py-3">
+                            <input type="checkbox" checked="@_selectAll"
+                                   @onchange="ToggleSelectAll"
+                                   class="w-4 h-4 rounded border-border-primary text-accent-blue focus:ring-accent-blue"
+                                   aria-label="Select all events" />
+                        </th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Severity</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Rule</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Channel</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Timestamp</th>
+                        <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                        <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @foreach (var evt in _events)
+                    {
+                        <tr class="hover:bg-bg-hover transition-colors">
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <input type="checkbox" checked="@_selectedEventIds.Contains(evt.Id)"
+                                       @onchange="() => ToggleEventSelection(evt.Id)"
+                                       class="w-4 h-4 rounded border-border-primary text-accent-blue focus:ring-accent-blue"
+                                       aria-label="Select event from @evt.Username" />
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <SeverityBadge Severity="evt.Severity" />
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@_guildId">@evt.Username</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="flex items-center gap-2">
+                                    <RuleTypeIcon RuleType="evt.RuleType" />
+                                    <span class="text-sm text-text-primary">@evt.RuleType</span>
+                                </div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm text-text-secondary">@(evt.ChannelId.GetValueOrDefault() > 0 ? $"#{evt.ChannelName}" : "N/A")</div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <div class="text-sm text-text-secondary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="datetime"></span></div>
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap">
+                                <StatusBadge Status="evt.Status" />
+                            </td>
+                            <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                <div class="flex items-center justify-end gap-2">
+                                    @if (evt.Status == FlaggedEventStatus.Pending)
+                                    {
+                                        <Button IsIconOnly="true"
+                                                Variant="ButtonVariant.Ghost"
+                                                IconLeft="M6 18L18 6M6 6l12 12"
+                                                AriaLabel="Dismiss"
+                                                OnClick="() => DismissEvent(evt.Id)" />
+                                    }
+                                    <Button IsIconOnly="true"
+                                            Variant="ButtonVariant.Ghost"
+                                            IconLeft="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                            AriaLabel="View Details"
+                                            OnClick="() => NavigateToEventDetails(evt.Id)" />
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Mobile Cards -->
+        <div class="md:hidden space-y-4 mb-6">
+            @foreach (var evt in _events)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            <input type="checkbox" checked="@_selectedEventIds.Contains(evt.Id)"
+                                   @onchange="() => ToggleEventSelection(evt.Id)"
+                                   class="w-4 h-4 rounded border-border-primary text-accent-blue focus:ring-accent-blue"
+                                   aria-label="Select event from @evt.Username" />
+                            <SeverityBadge Severity="evt.Severity" />
+                        </div>
+                        <StatusBadge Status="evt.Status" />
+                    </div>
+                    <div class="space-y-2">
+                        <div class="flex items-center gap-2">
+                            <span class="text-sm font-semibold text-text-secondary">User:</span>
+                            <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@_guildId">@evt.Username</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <RuleTypeIcon RuleType="evt.RuleType" />
+                            <span class="text-sm text-text-primary">@evt.RuleType</span>
+                        </div>
+                        @if (evt.ChannelId.GetValueOrDefault() > 0)
+                        {
+                            <div class="text-sm text-text-secondary">#@evt.ChannelName</div>
+                        }
+                        <div class="text-xs text-text-tertiary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="datetime"></span></div>
+                    </div>
+                    <div class="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-border-primary">
+                        @if (evt.Status == FlaggedEventStatus.Pending)
+                        {
+                            <Button Text="Dismiss" Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="() => DismissEvent(evt.Id)" />
+                        }
+                        <Button Text="View Details"
+                                Variant="ButtonVariant.Accent"
+                                Size="ButtonSize.Small"
+                                OnClick="() => NavigateToEventDetails(evt.Id)" />
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Pagination -->
+        @if (_totalPages > 1)
+        {
+            <div class="px-6 py-4 border-t border-border-primary">
+                <Pagination CurrentPage="_currentPage"
+                            TotalPages="_totalPages"
+                            TotalItems="_totalCount"
+                            PageSize="_pageSize"
+                            BaseUrl="@BuildPaginationBaseUrl()"
+                            Style="PaginationStyle.Full"
+                            ShowItemCount="true" />
+            </div>
+        }
+    }
+
+    <!-- Dismiss Confirmation Modal -->
+    <ConfirmationModal Id="dismissEvent"
+                       Title="Dismiss Flagged Event"
+                       Message="Are you sure you want to dismiss this flagged event?"
+                       ConfirmText="Dismiss"
+                       CancelText="Cancel"
+                       Variant="ConfirmationVariant.Warning"
+                       IsVisible="_showDismissModal"
+                       IsVisibleChanged="(bool v) => _showDismissModal = v"
+                       OnConfirm="ConfirmDismiss" />
+
+    <!-- Bulk Dismiss Confirmation Modal -->
+    <ConfirmationModal Id="bulkDismissEvents"
+                       Title="Bulk Dismiss Events"
+                       Message="@($"Are you sure you want to dismiss {_selectedEventIds.Count} flagged event(s)?")"
+                       ConfirmText="Dismiss"
+                       CancelText="Cancel"
+                       Variant="ConfirmationVariant.Warning"
+                       IsVisible="_showBulkDismissModal"
+                       IsVisibleChanged="(bool v) => _showBulkDismissModal = v"
+                       OnConfirm="ConfirmBulkDismiss" />
+
+    <!-- Bulk Acknowledge Confirmation Modal -->
+    <ConfirmationModal Id="bulkAcknowledgeEvents"
+                       Title="Bulk Acknowledge Events"
+                       Message="@($"Are you sure you want to acknowledge {_selectedEventIds.Count} flagged event(s)?")"
+                       ConfirmText="Acknowledge"
+                       CancelText="Cancel"
+                       Variant="ConfirmationVariant.Warning"
+                       IsVisible="_showBulkAcknowledgeModal"
+                       IsVisibleChanged="(bool v) => _showBulkAcknowledgeModal = v"
+                       OnConfirm="ConfirmBulkAcknowledge" />
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private ulong _guildId => (ulong)GuildId;
+    private string? _guildName;
+    private string? _guildIconUrl;
+    private bool _isLoading = true;
+    private List<FlaggedEventDto> _events = new();
+    private List<BreadcrumbItem>? _breadcrumbItems;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    // Pagination
+    private int _currentPage = 1;
+    private int _pageSize = 20;
+    private int _totalCount;
+    private int _totalPages => (int)Math.Ceiling((double)_totalCount / _pageSize);
+
+    // Filter state
+    private RuleType? _filterRuleType;
+    private string? _filterRuleTypeValue;
+    private Severity? _filterSeverity;
+    private string? _filterSeverityValue;
+    private FlaggedEventStatus? _filterStatus;
+    private string? _filterStatusValue;
+    private DateTime? _filterDateFrom;
+    private DateTime? _filterDateTo;
+
+    // Selection state
+    private HashSet<Guid> _selectedEventIds = new();
+    private bool _selectAll;
+
+    // Modal state
+    private bool _showDismissModal;
+    private Guid _dismissEventId;
+    private bool _showBulkDismissModal;
+    private bool _showBulkAcknowledgeModal;
+
+    // Current user for reviewer ID
+    private ulong _reviewerId;
+
+    [SupplyParameterFromQuery(Name = "page")]
+    public int? QueryPage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "FilterRuleType")]
+    public int? QueryFilterRuleType { get; set; }
+
+    [SupplyParameterFromQuery(Name = "FilterSeverity")]
+    public int? QueryFilterSeverity { get; set; }
+
+    [SupplyParameterFromQuery(Name = "FilterStatus")]
+    public int? QueryFilterStatus { get; set; }
+
+    [SupplyParameterFromQuery(Name = "FilterDateFrom")]
+    public DateTime? QueryFilterDateFrom { get; set; }
+
+    [SupplyParameterFromQuery(Name = "FilterDateTo")]
+    public DateTime? QueryFilterDateTo { get; set; }
+
+    private static readonly List<SelectOption> _ruleTypeOptions = new()
+    {
+        new() { Value = ((int)RuleType.Spam).ToString(), Text = "Spam" },
+        new() { Value = ((int)RuleType.Content).ToString(), Text = "Content" },
+        new() { Value = ((int)RuleType.Raid).ToString(), Text = "Raid" }
+    };
+
+    private static readonly List<SelectOption> _severityOptions = new()
+    {
+        new() { Value = ((int)Severity.Low).ToString(), Text = "Low" },
+        new() { Value = ((int)Severity.Medium).ToString(), Text = "Medium" },
+        new() { Value = ((int)Severity.High).ToString(), Text = "High" },
+        new() { Value = ((int)Severity.Critical).ToString(), Text = "Critical" }
+    };
+
+    private static readonly List<SelectOption> _statusOptions = new()
+    {
+        new() { Value = ((int)FlaggedEventStatus.Pending).ToString(), Text = "Pending" },
+        new() { Value = ((int)FlaggedEventStatus.Dismissed).ToString(), Text = "Dismissed" },
+        new() { Value = ((int)FlaggedEventStatus.Acknowledged).ToString(), Text = "Acknowledged" },
+        new() { Value = ((int)FlaggedEventStatus.Actioned).ToString(), Text = "Actioned" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Apply query parameters
+        if (QueryFilterRuleType.HasValue && Enum.IsDefined(typeof(RuleType), QueryFilterRuleType.Value))
+        {
+            _filterRuleType = (RuleType)QueryFilterRuleType.Value;
+            _filterRuleTypeValue = QueryFilterRuleType.Value.ToString();
+        }
+        if (QueryFilterSeverity.HasValue && Enum.IsDefined(typeof(Severity), QueryFilterSeverity.Value))
+        {
+            _filterSeverity = (Severity)QueryFilterSeverity.Value;
+            _filterSeverityValue = QueryFilterSeverity.Value.ToString();
+        }
+        if (QueryFilterStatus.HasValue && Enum.IsDefined(typeof(FlaggedEventStatus), QueryFilterStatus.Value))
+        {
+            _filterStatus = (FlaggedEventStatus)QueryFilterStatus.Value;
+            _filterStatusValue = QueryFilterStatus.Value.ToString();
+        }
+        _filterDateFrom = QueryFilterDateFrom ?? DateTime.Today.AddDays(-30);
+        _filterDateTo = QueryFilterDateTo ?? DateTime.Today;
+        _currentPage = QueryPage ?? 1;
+
+        // Get reviewer ID
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var discordIdClaim = authState.User.FindFirst("DiscordId")?.Value;
+        if (!ulong.TryParse(discordIdClaim, out var reviewerId) || reviewerId == 0)
+        {
+            Logger.LogWarning("Could not resolve reviewer Discord ID from claims");
+            _errorMessage = "Unable to identify your Discord account. Please sign out and sign back in.";
+            _isLoading = false;
+            return;
+        }
+        _reviewerId = reviewerId;
+
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+
+        try
+        {
+            if (_currentPage < 1) _currentPage = 1;
+
+            Logger.LogInformation("User accessing Flagged Events list for guild {GuildId}, page {Page}", _guildId, _currentPage);
+
+            var guild = await GuildService.GetGuildByIdAsync(_guildId);
+            if (guild == null)
+            {
+                Logger.LogWarning("Guild {GuildId} not found", _guildId);
+                return;
+            }
+
+            _guildName = guild.Name;
+            _guildIconUrl = guild.IconUrl;
+
+            var query = new FlaggedEventQueryDto
+            {
+                RuleType = _filterRuleType,
+                Severity = _filterSeverity,
+                Status = _filterStatus,
+                DateFrom = _filterDateFrom,
+                DateTo = _filterDateTo,
+                Page = _currentPage,
+                PageSize = _pageSize
+            };
+
+            var (events, totalCount) = await FlaggedEventService.GetFilteredEventsAsync(_guildId, query);
+            _events = events.ToList();
+            _totalCount = totalCount;
+
+            _breadcrumbItems = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{_guildId}" },
+                new() { Label = "Moderation", Url = $"/Guilds/ModerationSettings/{_guildId}" },
+                new() { Label = "Flagged Events", IsCurrent = true }
+            };
+
+            Logger.LogDebug("Retrieved {Count} flagged events for guild {GuildId}", _events.Count, _guildId);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading flagged events for guild {GuildId}", _guildId);
+            _errorMessage = "An error occurred while loading flagged events.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private void OnRuleTypeFilterChanged(string? value)
+    {
+        _filterRuleTypeValue = value;
+        _filterRuleType = string.IsNullOrEmpty(value) ? null :
+            int.TryParse(value, out var v) && Enum.IsDefined(typeof(RuleType), v) ? (RuleType)v : null;
+    }
+
+    private void OnSeverityFilterChanged(string? value)
+    {
+        _filterSeverityValue = value;
+        _filterSeverity = string.IsNullOrEmpty(value) ? null :
+            int.TryParse(value, out var v) && Enum.IsDefined(typeof(Severity), v) ? (Severity)v : null;
+    }
+
+    private void OnStatusFilterChanged(string? value)
+    {
+        _filterStatusValue = value;
+        _filterStatus = string.IsNullOrEmpty(value) ? null :
+            int.TryParse(value, out var v) && Enum.IsDefined(typeof(FlaggedEventStatus), v) ? (FlaggedEventStatus)v : null;
+    }
+
+    private void OnDateFromChanged(string? value)
+    {
+        _filterDateFrom = string.IsNullOrEmpty(value) ? null : DateTime.TryParse(value, out var d) ? d : null;
+    }
+
+    private void OnDateToChanged(string? value)
+    {
+        _filterDateTo = string.IsNullOrEmpty(value) ? null : DateTime.TryParse(value, out var d) ? d : null;
+    }
+
+    private async Task ApplyFilters()
+    {
+        _currentPage = 1;
+        _selectedEventIds.Clear();
+        _selectAll = false;
+        await LoadData();
+    }
+
+    private async Task ClearFilters()
+    {
+        _filterRuleType = null;
+        _filterRuleTypeValue = null;
+        _filterSeverity = null;
+        _filterSeverityValue = null;
+        _filterStatus = null;
+        _filterStatusValue = null;
+        _filterDateFrom = DateTime.Today.AddDays(-30);
+        _filterDateTo = DateTime.Today;
+        _currentPage = 1;
+        _selectedEventIds.Clear();
+        _selectAll = false;
+        await LoadData();
+    }
+
+    private void ToggleSelectAll(ChangeEventArgs e)
+    {
+        _selectAll = (bool)(e.Value ?? false);
+        if (_selectAll)
+        {
+            foreach (var evt in _events)
+                _selectedEventIds.Add(evt.Id);
+        }
+        else
+        {
+            _selectedEventIds.Clear();
+        }
+    }
+
+    private void ToggleEventSelection(Guid eventId)
+    {
+        if (_selectedEventIds.Contains(eventId))
+            _selectedEventIds.Remove(eventId);
+        else
+            _selectedEventIds.Add(eventId);
+
+        _selectAll = _selectedEventIds.Count == _events.Count;
+    }
+
+    private void ClearSelection()
+    {
+        _selectedEventIds.Clear();
+        _selectAll = false;
+    }
+
+    private void NavigateToEventDetails(Guid eventId)
+    {
+        NavigationManager.NavigateTo($"/Guilds/FlaggedEvents/Details/{_guildId}/{eventId}");
+    }
+
+    private void DismissEvent(Guid eventId)
+    {
+        _dismissEventId = eventId;
+        _showDismissModal = true;
+    }
+
+    private async Task ConfirmDismiss()
+    {
+        try
+        {
+            var result = await FlaggedEventService.DismissEventAsync(_dismissEventId, _reviewerId);
+            if (result != null)
+            {
+                _successMessage = "Event dismissed successfully.";
+                await LoadData();
+            }
+            else
+            {
+                _errorMessage = "Failed to dismiss the event.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error dismissing event {EventId}", _dismissEventId);
+            _errorMessage = "An error occurred while dismissing the event.";
+        }
+    }
+
+    private void BulkDismiss()
+    {
+        if (_selectedEventIds.Count == 0) return;
+        _showBulkDismissModal = true;
+    }
+
+    private async Task ConfirmBulkDismiss()
+    {
+        try
+        {
+            var tasks = _selectedEventIds.Select(id => FlaggedEventService.DismissEventAsync(id, _reviewerId));
+            await Task.WhenAll(tasks);
+            _successMessage = $"Successfully dismissed {_selectedEventIds.Count} event(s).";
+            _selectedEventIds.Clear();
+            _selectAll = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error bulk dismissing events");
+            _errorMessage = "An error occurred while dismissing events.";
+        }
+    }
+
+    private void BulkAcknowledge()
+    {
+        if (_selectedEventIds.Count == 0) return;
+        _showBulkAcknowledgeModal = true;
+    }
+
+    private async Task ConfirmBulkAcknowledge()
+    {
+        try
+        {
+            var tasks = _selectedEventIds.Select(id => FlaggedEventService.AcknowledgeEventAsync(id, _reviewerId));
+            await Task.WhenAll(tasks);
+            _successMessage = $"Successfully acknowledged {_selectedEventIds.Count} event(s).";
+            _selectedEventIds.Clear();
+            _selectAll = false;
+            await LoadData();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error bulk acknowledging events");
+            _errorMessage = "An error occurred while acknowledging events.";
+        }
+    }
+
+    private string BuildPaginationBaseUrl()
+    {
+        var queryParams = new List<string>();
+        if (_filterRuleType.HasValue) queryParams.Add($"FilterRuleType={(int)_filterRuleType.Value}");
+        if (_filterSeverity.HasValue) queryParams.Add($"FilterSeverity={(int)_filterSeverity.Value}");
+        if (_filterStatus.HasValue) queryParams.Add($"FilterStatus={(int)_filterStatus.Value}");
+        if (_filterDateFrom.HasValue) queryParams.Add($"FilterDateFrom={_filterDateFrom.Value:yyyy-MM-dd}");
+        if (_filterDateTo.HasValue) queryParams.Add($"FilterDateTo={_filterDateTo.Value:yyyy-MM-dd}");
+
+        var basePath = $"/guilds/{GuildId}/flagged-events";
+        return queryParams.Any() ? $"{basePath}?{string.Join("&", queryParams)}" : basePath;
+    }
+}

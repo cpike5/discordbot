@@ -137,7 +137,7 @@
                             </div>
                             @if (_viewModel.TotalGuildResults > _viewModel.GuildResults.Count)
                             {
-                                <a href="/Guilds?SearchTerm=@Uri.EscapeDataString(_viewModel.SearchTerm)" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                <a href="/guilds?SearchTerm=@Uri.EscapeDataString(_viewModel.SearchTerm ?? "")" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
                                     View all @_viewModel.TotalGuildResults results &rarr;
                                 </a>
                             }
