@@ -1,0 +1,943 @@
+@page "/Guilds/ModerationSettings/{GuildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@rendermode InteractiveServer
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Bot.ViewModels.Pages
+@using Discord.WebSocket
+@inject IGuildModerationConfigService ConfigService
+@inject IModTagService ModTagService
+@inject IGuildService GuildService
+@inject IFlaggedEventService FlaggedEventService
+@inject DiscordSocketClient DiscordClient
+@inject ToastInterop Toast
+@inject ILogger<GuildModerationSettings> Logger
+
+<PageTitle>Moderation Settings - Discord Bot Admin</PageTitle>
+
+@if (_guild is null && !_notFound)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else if (_notFound)
+{
+    <div class="flex flex-col items-center justify-center py-12 space-y-4">
+        <div class="text-text-secondary text-lg">Guild not found</div>
+        <a href="/Guilds" class="text-accent-blue hover:text-accent-blue-hover transition-colors text-sm">Back to Guilds</a>
+    </div>
+}
+else
+{
+    <!-- Breadcrumb -->
+    <GuildBreadcrumb Items="@_breadcrumbItems" />
+
+    <!-- Guild Header -->
+    <GuildHeader GuildId="(ulong)GuildId"
+                 GuildName="@_guild!.Name"
+                 GuildIconUrl="@_guild.IconUrl"
+                 PageTitle="Moderation Settings"
+                 PageDescription="Configure auto-moderation rules for this server"
+                 Actions="@_headerActions" />
+
+    <!-- Error Alert -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Title="Error" Message="@_errorMessage" IsDismissible="true" />
+        </div>
+    }
+
+    <!-- Tab Navigation -->
+    <div class="settings-tabs mb-6" role="tablist" aria-label="Moderation settings sections">
+        <button type="button" class="settings-tab @(_activeTab == "overview" ? "settings-tab-active" : "")" role="tab" aria-selected="@(_activeTab == "overview")" @onclick='() => _activeTab = "overview"'>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+            Overview
+        </button>
+        <button type="button" class="settings-tab @(_activeTab == "spam" ? "settings-tab-active" : "")" role="tab" aria-selected="@(_activeTab == "spam")" @onclick='() => _activeTab = "spam"'>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            Spam
+        </button>
+        <button type="button" class="settings-tab @(_activeTab == "content" ? "settings-tab-active" : "")" role="tab" aria-selected="@(_activeTab == "content")" @onclick='() => _activeTab = "content"'>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+            </svg>
+            Content
+        </button>
+        <button type="button" class="settings-tab @(_activeTab == "raid" ? "settings-tab-active" : "")" role="tab" aria-selected="@(_activeTab == "raid")" @onclick='() => _activeTab = "raid"'>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+            Raid
+        </button>
+        <button type="button" class="settings-tab @(_activeTab == "tags" ? "settings-tab-active" : "")" role="tab" aria-selected="@(_activeTab == "tags")" @onclick='() => _activeTab = "tags"'>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+            </svg>
+            Tags
+        </button>
+    </div>
+
+    <!-- Tab Content Container -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg">
+
+        @* ===== Overview Tab ===== *@
+        @if (_activeTab == "overview")
+        {
+            <div class="p-6" role="tabpanel">
+                <!-- Mode Toggle -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-text-primary mb-2">Configuration Mode</h3>
+                    <p class="text-sm text-text-secondary mb-4">Choose between simplified presets or advanced custom configuration.</p>
+                    <div class="mode-toggle">
+                        <button type="button" class="mode-toggle-btn @(_mode == ConfigMode.Simple ? "mode-toggle-btn-active" : "")" @onclick="() => _mode = ConfigMode.Simple">Simple</button>
+                        <button type="button" class="mode-toggle-btn @(_mode == ConfigMode.Advanced ? "mode-toggle-btn-active" : "")" @onclick="() => _mode = ConfigMode.Advanced">Advanced</button>
+                    </div>
+                </div>
+
+                <!-- Simple Mode: Presets -->
+                @if (_mode == ConfigMode.Simple)
+                {
+                    <div class="mb-8">
+                        <h3 class="text-lg font-semibold text-text-primary mb-4">Protection Level</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <!-- Relaxed -->
+                            <button type="button" class="text-left p-4 bg-bg-tertiary border-2 rounded-lg transition-colors @(_simplePreset == "Relaxed" ? "border-accent-orange" : "border-border-primary")" @onclick='() => _simplePreset = "Relaxed"'>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="w-3 h-3 rounded-full bg-success"></div>
+                                    <span class="font-semibold text-text-primary">Relaxed</span>
+                                </div>
+                                <p class="text-sm text-text-secondary">Minimal intervention. Only catches obvious spam and severe violations.</p>
+                            </button>
+                            <!-- Moderate -->
+                            <button type="button" class="text-left p-4 bg-bg-tertiary border-2 rounded-lg transition-colors @(_simplePreset == "Moderate" ? "border-accent-orange" : "border-border-primary")" @onclick='() => _simplePreset = "Moderate"'>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="w-3 h-3 rounded-full bg-warning"></div>
+                                    <span class="font-semibold text-text-primary">Moderate</span>
+                                </div>
+                                <p class="text-sm text-text-secondary">Balanced protection. Flags suspicious activity for review.</p>
+                            </button>
+                            <!-- Strict -->
+                            <button type="button" class="text-left p-4 bg-bg-tertiary border-2 rounded-lg transition-colors @(_simplePreset == "Strict" ? "border-accent-orange" : "border-border-primary")" @onclick='() => _simplePreset = "Strict"'>
+                                <div class="flex items-center gap-2 mb-2">
+                                    <div class="w-3 h-3 rounded-full bg-error"></div>
+                                    <span class="font-semibold text-text-primary">Strict</span>
+                                </div>
+                                <p class="text-sm text-text-secondary">Maximum protection. Aggressive detection with auto-actions enabled.</p>
+                            </button>
+                        </div>
+                    </div>
+                }
+
+                <!-- Advanced Mode: Configuration Guide -->
+                @if (_mode == ConfigMode.Advanced)
+                {
+                    <div class="mb-8">
+                        <div class="p-4 bg-bg-tertiary border border-border-primary rounded-lg">
+                            <div class="flex items-start gap-3">
+                                <svg class="w-6 h-6 text-accent-orange flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                <div>
+                                    <h4 class="font-semibold text-text-primary mb-1">Advanced Configuration Mode</h4>
+                                    <p class="text-sm text-text-secondary mb-3">
+                                        Configure each moderation feature individually using the tabs below.
+                                        Each tab provides granular control over thresholds, actions, and exclusions.
+                                    </p>
+                                    <div class="flex flex-wrap gap-2">
+                                        <button type="button" @onclick='() => _activeTab = "spam"' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">
+                                            Spam Detection
+                                        </button>
+                                        <button type="button" @onclick='() => _activeTab = "content"' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">
+                                            Content Filter
+                                        </button>
+                                        <button type="button" @onclick='() => _activeTab = "raid"' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">
+                                            Raid Protection
+                                        </button>
+                                        <button type="button" @onclick='() => _activeTab = "tags"' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">
+                                            Tags
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <!-- Quick Stats -->
+                <div>
+                    <h3 class="text-lg font-semibold text-text-primary mb-4">Activity Summary (Last 24h)</h3>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div class="history-stat-card">
+                            <span class="history-stat-value">@_eventsFlagged</span>
+                            <span class="history-stat-label">Events Flagged</span>
+                        </div>
+                        <div class="history-stat-card">
+                            <span class="history-stat-value text-success">@_autoActions</span>
+                            <span class="history-stat-label">Auto-Actions</span>
+                        </div>
+                        <div class="history-stat-card">
+                            <span class="history-stat-value">@_activeRules</span>
+                            <span class="history-stat-label">Active Rules</span>
+                        </div>
+                        <div class="history-stat-card">
+                            <span class="history-stat-value text-warning">@_falsePositives</span>
+                            <span class="history-stat-label">False Positives</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Save Button -->
+                <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                    <Button Text="Save Overview Settings"
+                            Variant="ButtonVariant.Primary"
+                            IsLoading="_isSavingOverview"
+                            LoadingText="Saving..."
+                            OnClick="SaveOverviewAsync" />
+                </div>
+            </div>
+        }
+
+        @* ===== Spam Tab ===== *@
+        @if (_activeTab == "spam")
+        {
+            <div class="p-6" role="tabpanel">
+                <!-- Enable Toggle -->
+                <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+                    <div>
+                        <h3 class="text-lg font-semibold text-text-primary">Spam Detection</h3>
+                        <p class="text-sm text-text-secondary">Detect and flag spam messages automatically</p>
+                    </div>
+                    <FormToggle Id="spam-enabled"
+                                Name="SpamEnabled"
+                                IsChecked="_spamEnabled"
+                                IsCheckedChanged="v => _spamEnabled = v" />
+                </div>
+
+                <!-- Settings Grid -->
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput Id="spam-max-messages"
+                                   Name="MaxMessagesPerWindow"
+                                   Label="Message Rate Threshold"
+                                   Description="Flag when user sends this many messages..."
+                                   Type="number"
+                                   Value="@_spamMaxMessages.ToString()"
+                                   ValueChanged="v => _spamMaxMessages = int.TryParse(v, out var r) ? r : _spamMaxMessages" />
+                        <FormInput Id="spam-window-seconds"
+                                   Name="SpamWindowSeconds"
+                                   Label="Time Window (seconds)"
+                                   Description="...within this time period"
+                                   Type="number"
+                                   Value="@_spamWindowSeconds.ToString()"
+                                   ValueChanged="v => _spamWindowSeconds = int.TryParse(v, out var r) ? r : _spamWindowSeconds" />
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput Id="spam-max-mentions"
+                                   Name="MaxMentionsPerMessage"
+                                   Label="Max Mentions Per Message"
+                                   Description="Maximum mentions allowed per message"
+                                   Type="number"
+                                   Value="@_spamMaxMentions.ToString()"
+                                   ValueChanged="v => _spamMaxMentions = int.TryParse(v, out var r) ? r : _spamMaxMentions" />
+                        <FormInput Id="spam-duplicate-threshold"
+                                   Name="DuplicateMessageThreshold"
+                                   Label="Similarity Threshold (%)"
+                                   Description="Messages this similar count as duplicates"
+                                   Type="number"
+                                   Value="@_spamDuplicateThresholdPercent.ToString()"
+                                   ValueChanged="v => _spamDuplicateThresholdPercent = int.TryParse(v, out var r) ? r : _spamDuplicateThresholdPercent" />
+                    </div>
+
+                    <FormSelect Id="spam-auto-action"
+                                Name="SpamAutoAction"
+                                Label="Auto-Action on Detection"
+                                Description="Automatically take action when spam is detected"
+                                SelectedValue="@(((int)_spamAutoAction).ToString())"
+                                SelectedValueChanged="v => _spamAutoAction = Enum.TryParse<AutoAction>(v, out var r) ? r : _spamAutoAction"
+                                Options="@_autoActionOptions" />
+                </div>
+
+                <!-- Save Button -->
+                <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                    <Button Text="Save Spam Settings"
+                            Variant="ButtonVariant.Primary"
+                            IsLoading="_isSavingSpam"
+                            LoadingText="Saving..."
+                            OnClick="SaveSpamAsync" />
+                </div>
+            </div>
+        }
+
+        @* ===== Content Tab ===== *@
+        @if (_activeTab == "content")
+        {
+            <div class="p-6" role="tabpanel">
+                <!-- Enable Toggle -->
+                <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+                    <div>
+                        <h3 class="text-lg font-semibold text-text-primary">Content Filter</h3>
+                        <p class="text-sm text-text-secondary">Block harmful, offensive, or unwanted content</p>
+                    </div>
+                    <FormToggle Id="content-enabled"
+                                Name="ContentEnabled"
+                                IsChecked="_contentEnabled"
+                                IsCheckedChanged="v => _contentEnabled = v" />
+                </div>
+
+                <!-- Settings -->
+                <div class="space-y-6">
+                    <!-- Custom Blocklist -->
+                    <div class="space-y-1.5">
+                        <label for="content-prohibited-words" class="block text-sm font-medium text-text-primary">Custom Blocklist</label>
+                        <p class="text-xs text-text-tertiary mb-2">Words and phrases to block (comma-separated)</p>
+                        <textarea id="content-prohibited-words"
+                                  rows="3"
+                                  placeholder="Enter words or phrases..."
+                                  class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors resize-none"
+                                  @bind="_prohibitedWordsText"
+                                  @bind:event="oninput"></textarea>
+                    </div>
+
+                    <!-- Block Invite Links -->
+                    <FormToggle Id="content-block-invites"
+                                Name="BlockInviteLinks"
+                                Label="Block Discord Invite Links"
+                                Description="Prevent users from posting Discord server invites"
+                                IsChecked="_contentBlockInvites"
+                                IsCheckedChanged="v => _contentBlockInvites = v" />
+
+                    <!-- Auto Action -->
+                    <FormSelect Id="content-auto-action"
+                                Name="ContentAutoAction"
+                                Label="Auto-Action on Detection"
+                                SelectedValue="@(((int)_contentAutoAction).ToString())"
+                                SelectedValueChanged="v => _contentAutoAction = Enum.TryParse<AutoAction>(v, out var r) ? r : _contentAutoAction"
+                                Options="@_contentAutoActionOptions" />
+                </div>
+
+                <!-- Save Button -->
+                <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                    <Button Text="Save Content Settings"
+                            Variant="ButtonVariant.Primary"
+                            IsLoading="_isSavingContent"
+                            LoadingText="Saving..."
+                            OnClick="SaveContentAsync" />
+                </div>
+            </div>
+        }
+
+        @* ===== Raid Tab ===== *@
+        @if (_activeTab == "raid")
+        {
+            <div class="p-6" role="tabpanel">
+                <!-- Enable Toggle -->
+                <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+                    <div>
+                        <h3 class="text-lg font-semibold text-text-primary">Raid Protection</h3>
+                        <p class="text-sm text-text-secondary">Detect and respond to coordinated attacks</p>
+                    </div>
+                    <FormToggle Id="raid-enabled"
+                                Name="RaidEnabled"
+                                IsChecked="_raidEnabled"
+                                IsCheckedChanged="v => _raidEnabled = v" />
+                </div>
+
+                <!-- Settings -->
+                <div class="space-y-6">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <FormInput Id="raid-max-joins"
+                                   Name="MaxJoinsPerWindow"
+                                   Label="Mass Join Threshold"
+                                   Description="Trigger when this many users join..."
+                                   Type="number"
+                                   Value="@_raidMaxJoins.ToString()"
+                                   ValueChanged="v => _raidMaxJoins = int.TryParse(v, out var r) ? r : _raidMaxJoins" />
+                        <FormInput Id="raid-window-seconds"
+                                   Name="RaidWindowSeconds"
+                                   Label="Time Window (seconds)"
+                                   Description="...within this time period"
+                                   Type="number"
+                                   Value="@_raidWindowSeconds.ToString()"
+                                   ValueChanged="v => _raidWindowSeconds = int.TryParse(v, out var r) ? r : _raidWindowSeconds" />
+                    </div>
+
+                    <FormInput Id="raid-min-account-age"
+                               Name="MinAccountAgeHours"
+                               Label="Minimum Account Age (hours)"
+                               Description="Require accounts to be older than this (0 = no restriction)"
+                               Type="number"
+                               Value="@_raidMinAccountAge.ToString()"
+                               ValueChanged="v => _raidMinAccountAge = int.TryParse(v, out var r) ? r : _raidMinAccountAge" />
+
+                    <FormSelect Id="raid-auto-action"
+                                Name="RaidAutoAction"
+                                Label="Auto-Action on Raid Detection"
+                                Description="Action to take when a raid is detected"
+                                SelectedValue="@(((int)_raidAutoAction).ToString())"
+                                SelectedValueChanged="v => _raidAutoAction = Enum.TryParse<RaidAutoAction>(v, out var r) ? r : _raidAutoAction"
+                                Options="@_raidAutoActionOptions" />
+                </div>
+
+                <!-- Save Button -->
+                <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                    <Button Text="Save Raid Settings"
+                            Variant="ButtonVariant.Primary"
+                            IsLoading="_isSavingRaid"
+                            LoadingText="Saving..."
+                            OnClick="SaveRaidAsync" />
+                </div>
+            </div>
+        }
+
+        @* ===== Tags Tab ===== *@
+        @if (_activeTab == "tags")
+        {
+            <div class="p-6" role="tabpanel">
+                <div class="flex items-center justify-between mb-6">
+                    <div>
+                        <h3 class="text-lg font-semibold text-text-primary">User Tags</h3>
+                        <p class="text-sm text-text-secondary">Define custom tags for categorizing users</p>
+                    </div>
+                    <button type="button"
+                            class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors"
+                            @onclick="() => _showImportModal = true">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                        </svg>
+                        Import Templates
+                    </button>
+                </div>
+
+                <!-- Existing Tags -->
+                <div class="space-y-3 mb-6">
+                    @if (_tags.Count == 0)
+                    {
+                        <div class="text-center py-8 text-text-tertiary text-sm">
+                            No tags defined yet. Add a tag below or import templates.
+                        </div>
+                    }
+                    else
+                    {
+                        @foreach (var tag in _tags)
+                        {
+                            <div class="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg">
+                                <div class="flex items-center gap-3">
+                                    <span class="user-tag @GetTagColorClass(tag.Category)">@tag.Name</span>
+                                    <span class="text-sm text-text-secondary">Used @tag.UserCount times</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button type="button"
+                                            class="p-1.5 text-text-tertiary hover:text-error hover:bg-error-bg rounded transition-colors"
+                                            title="Delete"
+                                            @onclick="() => DeleteTagAsync(tag.Name)">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                        </svg>
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <!-- Add New Tag Form -->
+                <div class="p-4 bg-bg-tertiary rounded-lg">
+                    <h4 class="font-medium text-text-primary mb-4">Add New Tag</h4>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormInput Id="new-tag-name"
+                                   Name="NewTagName"
+                                   Label="Tag Name"
+                                   Placeholder="e.g., VIP, Trusted, etc."
+                                   Value="@_newTagName"
+                                   ValueChanged="v => _newTagName = v" />
+                        <FormSelect Id="new-tag-color"
+                                    Name="NewTagColor"
+                                    Label="Color"
+                                    SelectedValue="@(((int)_newTagCategory).ToString())"
+                                    SelectedValueChanged="v => _newTagCategory = Enum.TryParse<TagCategory>(v, out var r) ? r : _newTagCategory"
+                                    Options="@_tagCategoryOptions" />
+                        <div class="flex items-end">
+                            <Button Text="Add Tag"
+                                    Variant="ButtonVariant.Primary"
+                                    IsLoading="_isCreatingTag"
+                                    LoadingText="Adding..."
+                                    OnClick="CreateTagAsync" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Import Templates Confirmation Modal -->
+    <ConfirmationModal Id="importTemplatesModal"
+                       Title="Import Template Tags"
+                       Message="This will import a set of commonly used moderation tags into your guild. Existing tags with the same name will not be duplicated."
+                       ConfirmText="Import"
+                       Variant="ConfirmationVariant.Warning"
+                       IsVisible="_showImportModal"
+                       IsVisibleChanged="v => _showImportModal = v"
+                       OnConfirm="ImportTemplatesAsync" />
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    // Core data
+    private GuildDto? _guild;
+    private List<BreadcrumbItem>? _breadcrumbItems;
+    private List<HeaderAction>? _headerActions;
+    private GuildModerationConfigDto _config = new();
+    private List<ModTagDto> _tags = new();
+
+    // UI state
+    private string _activeTab = "overview";
+    private bool _notFound;
+    private bool _isSavingOverview;
+    private bool _isSavingSpam;
+    private bool _isSavingContent;
+    private bool _isSavingRaid;
+    private bool _isCreatingTag;
+    private bool _showImportModal;
+    private string? _errorMessage;
+
+    // Overview fields
+    private ConfigMode _mode;
+    private string? _simplePreset;
+
+    // Stats
+    private int _eventsFlagged;
+    private int _autoActions;
+    private int _activeRules;
+    private int _falsePositives;
+
+    // Spam fields
+    private bool _spamEnabled;
+    private int _spamMaxMessages;
+    private int _spamWindowSeconds;
+    private int _spamMaxMentions;
+    private int _spamDuplicateThresholdPercent;
+    private AutoAction _spamAutoAction;
+
+    // Content fields
+    private bool _contentEnabled;
+    private string _prohibitedWordsText = string.Empty;
+    private bool _contentBlockInvites;
+    private AutoAction _contentAutoAction;
+
+    // Raid fields
+    private bool _raidEnabled;
+    private int _raidMaxJoins;
+    private int _raidWindowSeconds;
+    private int _raidMinAccountAge;
+    private RaidAutoAction _raidAutoAction;
+
+    // Tag creation fields
+    private string _newTagName = string.Empty;
+    private TagCategory _newTagCategory = TagCategory.Positive;
+
+    // Select options
+    private List<SelectOption> _autoActionOptions = new()
+    {
+        new() { Value = "0", Text = "None (Flag Only)" },
+        new() { Value = "1", Text = "Delete Message" },
+        new() { Value = "2", Text = "Warn User" },
+        new() { Value = "3", Text = "Mute User (1 hour)" },
+        new() { Value = "4", Text = "Kick User" },
+        new() { Value = "5", Text = "Ban User" }
+    };
+
+    private List<SelectOption> _contentAutoActionOptions = new()
+    {
+        new() { Value = "0", Text = "None (Flag Only)" },
+        new() { Value = "1", Text = "Delete Message" },
+        new() { Value = "2", Text = "Warn User" },
+        new() { Value = "3", Text = "Delete + Mute User" },
+        new() { Value = "5", Text = "Delete + Ban User" }
+    };
+
+    private List<SelectOption> _raidAutoActionOptions = new()
+    {
+        new() { Value = "0", Text = "None" },
+        new() { Value = "1", Text = "Alert Only" },
+        new() { Value = "2", Text = "Lock Invites" },
+        new() { Value = "3", Text = "Lock Server" }
+    };
+
+    private List<SelectOption> _tagCategoryOptions = new()
+    {
+        new() { Value = "0", Text = "Positive (Green)" },
+        new() { Value = "1", Text = "Negative (Red)" },
+        new() { Value = "2", Text = "Neutral (Blue)" }
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guildId = (ulong)GuildId;
+
+        Logger.LogDebug("Moderation settings page accessed for guild {GuildId}", guildId);
+
+        var guildDto = await GuildService.GetGuildByIdAsync(guildId);
+        if (guildDto is null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", guildId);
+            _notFound = true;
+            return;
+        }
+
+        _guild = guildDto;
+
+        _headerActions = new List<HeaderAction>
+        {
+            new()
+            {
+                Label = "View Flagged Events",
+                Url = $"/Guilds/FlaggedEvents/{GuildId}",
+                Style = HeaderActionStyle.Secondary,
+                Icon = "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
+            }
+        };
+
+        // Load moderation config and tags
+        _config = await ConfigService.GetConfigAsync(guildId);
+        var tags = await ModTagService.GetGuildTagsAsync(guildId);
+        _tags = tags.ToList();
+
+        // Populate form fields from config
+        PopulateFieldsFromConfig(_config);
+
+        // Load statistics
+        await LoadStatisticsAsync(guildId);
+
+        // Calculate active rules
+        _activeRules = CalculateActiveRulesCount(_config);
+
+        // Breadcrumb
+        _breadcrumbItems = new List<BreadcrumbItem>
+        {
+            new() { Label = "Home", Url = "/" },
+            new() { Label = "Servers", Url = "/Guilds" },
+            new() { Label = guildDto.Name, Url = $"/Guilds/Details/{GuildId}" },
+            new() { Label = "Moderation Settings", IsCurrent = true }
+        };
+    }
+
+    private void PopulateFieldsFromConfig(GuildModerationConfigDto config)
+    {
+        // Overview
+        _mode = config.Mode;
+        _simplePreset = config.SimplePreset;
+
+        // Spam
+        _spamEnabled = config.SpamConfig.Enabled;
+        _spamMaxMessages = config.SpamConfig.MaxMessagesPerWindow;
+        _spamWindowSeconds = config.SpamConfig.WindowSeconds;
+        _spamMaxMentions = config.SpamConfig.MaxMentionsPerMessage;
+        _spamDuplicateThresholdPercent = (int)(config.SpamConfig.DuplicateMessageThreshold * 100);
+        _spamAutoAction = config.SpamConfig.AutoAction;
+
+        // Content
+        _contentEnabled = config.ContentFilterConfig.Enabled;
+        _prohibitedWordsText = string.Join(", ", config.ContentFilterConfig.ProhibitedWords);
+        _contentBlockInvites = config.ContentFilterConfig.BlockInviteLinks;
+        _contentAutoAction = config.ContentFilterConfig.AutoAction;
+
+        // Raid
+        _raidEnabled = config.RaidProtectionConfig.Enabled;
+        _raidMaxJoins = config.RaidProtectionConfig.MaxJoinsPerWindow;
+        _raidWindowSeconds = config.RaidProtectionConfig.WindowSeconds;
+        _raidMinAccountAge = config.RaidProtectionConfig.MinAccountAgeHours;
+        _raidAutoAction = config.RaidProtectionConfig.AutoAction;
+    }
+
+    private async Task SaveOverviewAsync()
+    {
+        if (_isSavingOverview) return;
+        _isSavingOverview = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            _config.Mode = _mode;
+            _config.SimplePreset = _simplePreset;
+
+            if (_mode == ConfigMode.Simple && !string.IsNullOrEmpty(_simplePreset))
+            {
+                _config = await ConfigService.ApplyPresetAsync(guildId, _simplePreset);
+                PopulateFieldsFromConfig(_config);
+                _activeRules = CalculateActiveRulesCount(_config);
+            }
+            else
+            {
+                _config = await ConfigService.UpdateConfigAsync(guildId, _config);
+            }
+
+            Logger.LogInformation("Overview settings saved for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "Overview settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save overview settings for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "Failed to save overview settings. Please try again.";
+        }
+        finally
+        {
+            _isSavingOverview = false;
+        }
+    }
+
+    private async Task SaveSpamAsync()
+    {
+        if (_isSavingSpam) return;
+        _isSavingSpam = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            _config.SpamConfig = new SpamDetectionConfigDto
+            {
+                Enabled = _spamEnabled,
+                MaxMessagesPerWindow = _spamMaxMessages,
+                WindowSeconds = _spamWindowSeconds,
+                MaxMentionsPerMessage = _spamMaxMentions,
+                DuplicateMessageThreshold = _spamDuplicateThresholdPercent / 100.0,
+                AutoAction = _spamAutoAction
+            };
+
+            _config = await ConfigService.UpdateConfigAsync(guildId, _config);
+            _activeRules = CalculateActiveRulesCount(_config);
+
+            Logger.LogInformation("Spam settings saved for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "Spam detection settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save spam settings for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "Failed to save spam detection settings. Please try again.";
+        }
+        finally
+        {
+            _isSavingSpam = false;
+        }
+    }
+
+    private async Task SaveContentAsync()
+    {
+        if (_isSavingContent) return;
+        _isSavingContent = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            var words = _prohibitedWordsText
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Where(w => !string.IsNullOrWhiteSpace(w))
+                .ToList();
+
+            _config.ContentFilterConfig = new ContentFilterConfigDto
+            {
+                Enabled = _contentEnabled,
+                ProhibitedWords = words,
+                BlockInviteLinks = _contentBlockInvites,
+                AutoAction = _contentAutoAction
+            };
+
+            _config = await ConfigService.UpdateConfigAsync(guildId, _config);
+            _activeRules = CalculateActiveRulesCount(_config);
+
+            Logger.LogInformation("Content filter settings saved for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "Content filter settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save content filter settings for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "Failed to save content filter settings. Please try again.";
+        }
+        finally
+        {
+            _isSavingContent = false;
+        }
+    }
+
+    private async Task SaveRaidAsync()
+    {
+        if (_isSavingRaid) return;
+        _isSavingRaid = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            _config.RaidProtectionConfig = new RaidProtectionConfigDto
+            {
+                Enabled = _raidEnabled,
+                MaxJoinsPerWindow = _raidMaxJoins,
+                WindowSeconds = _raidWindowSeconds,
+                MinAccountAgeHours = _raidMinAccountAge,
+                AutoAction = _raidAutoAction
+            };
+
+            _config = await ConfigService.UpdateConfigAsync(guildId, _config);
+            _activeRules = CalculateActiveRulesCount(_config);
+
+            Logger.LogInformation("Raid protection settings saved for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "Raid protection settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save raid protection settings for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "Failed to save raid protection settings. Please try again.";
+        }
+        finally
+        {
+            _isSavingRaid = false;
+        }
+    }
+
+    private async Task CreateTagAsync()
+    {
+        if (_isCreatingTag) return;
+        if (string.IsNullOrWhiteSpace(_newTagName))
+        {
+            await Toast.ShowAsync("error", "Tag name is required.");
+            return;
+        }
+
+        _isCreatingTag = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            var dto = new ModTagCreateDto
+            {
+                GuildId = guildId,
+                Name = _newTagName.Trim(),
+                Category = _newTagCategory
+            };
+
+            var tag = await ModTagService.CreateTagAsync(guildId, dto);
+            _tags.Add(tag);
+
+            _newTagName = string.Empty;
+            _newTagCategory = TagCategory.Positive;
+
+            Logger.LogInformation("Tag {TagName} created for guild {GuildId}", dto.Name, guildId);
+            await Toast.ShowAsync("success", "Tag created successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to create tag for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "Failed to create tag. Please try again.";
+        }
+        finally
+        {
+            _isCreatingTag = false;
+        }
+    }
+
+    private async Task DeleteTagAsync(string tagName)
+    {
+        try
+        {
+            var guildId = (ulong)GuildId;
+            var success = await ModTagService.DeleteTagAsync(guildId, tagName);
+
+            if (success)
+            {
+                _tags.RemoveAll(t => t.Name == tagName);
+                Logger.LogInformation("Tag {TagName} deleted for guild {GuildId}", tagName, guildId);
+                await Toast.ShowAsync("success", "Tag deleted successfully.");
+            }
+            else
+            {
+                await Toast.ShowAsync("error", "Tag not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete tag {TagName} for guild {GuildId}", tagName, (ulong)GuildId);
+            await Toast.ShowAsync("error", "Failed to delete tag. Please try again.");
+        }
+    }
+
+    private async Task ImportTemplatesAsync()
+    {
+        try
+        {
+            var guildId = (ulong)GuildId;
+            var templateNames = new[] { "default" };
+
+            var count = await ModTagService.ImportTemplateTagsAsync(guildId, templateNames);
+
+            // Refresh tags list
+            var tags = await ModTagService.GetGuildTagsAsync(guildId);
+            _tags = tags.ToList();
+
+            Logger.LogInformation("{Count} template tags imported for guild {GuildId}", count, guildId);
+            await Toast.ShowAsync("success", $"{count} template tags imported successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to import template tags for guild {GuildId}", (ulong)GuildId);
+            await Toast.ShowAsync("error", "Failed to import template tags. Please try again.");
+        }
+    }
+
+    private async Task LoadStatisticsAsync(ulong guildId)
+    {
+        try
+        {
+            // Use a small page size - we only need recent counts, not full records
+            var (events, totalCount) = await FlaggedEventService.GetPendingEventsAsync(guildId, 1, 100);
+            var since = DateTime.UtcNow.AddHours(-24);
+
+            var eventsList = events.ToList();
+            _eventsFlagged = eventsList.Count(e => e.CreatedAt >= since);
+            _autoActions = eventsList.Count(e => e.CreatedAt >= since && !string.IsNullOrEmpty(e.ActionTaken));
+            _falsePositives = eventsList.Count(e => e.CreatedAt >= since && e.Status == FlaggedEventStatus.Dismissed);
+
+            Logger.LogDebug("Loaded statistics for guild {GuildId}: Events={Events}, AutoActions={AutoActions}, FalsePositives={FalsePositives}",
+                guildId, _eventsFlagged, _autoActions, _falsePositives);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Failed to load statistics for guild {GuildId}", guildId);
+        }
+    }
+
+    private int CalculateActiveRulesCount(GuildModerationConfigDto config)
+    {
+        int count = 0;
+        if (config.SpamConfig.Enabled) count++;
+        if (config.ContentFilterConfig.Enabled) count++;
+        if (config.RaidProtectionConfig.Enabled) count++;
+        return count;
+    }
+
+    private static string GetTagColorClass(TagCategory category) => category switch
+    {
+        TagCategory.Positive => "user-tag-success",
+        TagCategory.Negative => "user-tag-danger",
+        TagCategory.Neutral => "user-tag-info",
+        _ => ""
+    };
+}
