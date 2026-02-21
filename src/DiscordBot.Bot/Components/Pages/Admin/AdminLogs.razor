@@ -1,0 +1,1350 @@
+@page "/Admin/Logs"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "RequireAdmin")]
+
+@using System.Text
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Bot.ViewModels.Pages
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+
+@inject IMessageLogService MessageLogService
+@inject IAuditLogService AuditLogService
+@inject IGuildService GuildService
+@inject NavigationManager NavigationManager
+@inject IJSRuntime JS
+@inject ILogger<AdminLogs> Logger
+
+<PageTitle>Logs</PageTitle>
+
+<!-- Page Header -->
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Logs</h1>
+        <p class="text-text-secondary mt-1">View message logs, audit logs, and application logs</p>
+    </div>
+</div>
+
+<!-- Tab Navigation -->
+<div class="mb-6">
+    <div class="border-b border-border-primary" role="tablist" aria-label="Log types">
+        <nav class="flex -mb-px space-x-6">
+            <button type="button"
+                    role="tab"
+                    aria-selected="@(_activeTab == "messages")"
+                    aria-controls="panel-messages"
+                    class="@GetTabClass("messages") whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2"
+                    @onclick="@(() => SwitchTabAsync("messages"))">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Messages
+            </button>
+            <button type="button"
+                    role="tab"
+                    aria-selected="@(_activeTab == "audit")"
+                    aria-controls="panel-audit"
+                    class="@GetTabClass("audit") whitespace-nowrap py-3 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2"
+                    @onclick="@(() => SwitchTabAsync("audit"))">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                Audit
+            </button>
+            <button type="button"
+                    role="tab"
+                    aria-selected="false"
+                    aria-disabled="true"
+                    disabled
+                    class="whitespace-nowrap py-3 px-1 border-b-2 border-transparent font-medium text-sm text-text-tertiary cursor-not-allowed flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                <span class="hidden sm:inline">Application</span>
+                <span class="sm:hidden">App</span>
+            </button>
+        </nav>
+    </div>
+</div>
+
+<!-- Error Alert -->
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="mb-6 rounded-lg border border-error/30 bg-error/10 p-4 flex items-start gap-3" role="alert">
+        <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <div class="flex-1">
+            <p class="text-sm text-error">@_errorMessage</p>
+        </div>
+        <button type="button" class="text-error/70 hover:text-error transition-colors" @onclick="() => _errorMessage = null">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+}
+
+<!-- Tab Panels -->
+@if (_activeTab == "messages")
+{
+    <div id="panel-messages" role="tabpanel" aria-labelledby="tab-messages">
+        @if (_isLoading)
+        {
+            <div class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-blue"></div>
+                <span class="ml-3 text-text-secondary">Loading message logs...</span>
+            </div>
+        }
+        else
+        {
+            <div class="max-w-7xl mx-auto">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-semibold text-text-primary">Message Logs</h2>
+                        <p class="mt-1 text-sm text-text-secondary">View and search logged Discord messages</p>
+                    </div>
+                </div>
+
+                <!-- Filters Section -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-text-primary">Filters</h3>
+                    </div>
+
+                    <form @onsubmit="ApplyMessageFiltersAsync" @onsubmit:preventDefault>
+                        <div class="space-y-4">
+                            <!-- Row 1: User ID, Guild, Search -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <div>
+                                    <label for="msgAuthorId" class="block text-sm font-medium text-text-primary mb-1">Author ID</label>
+                                    <input type="text" id="msgAuthorId" @bind="_messageFilters.AuthorIdInput"
+                                           placeholder="Discord user ID..."
+                                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                </div>
+                                <div>
+                                    <label for="msgGuildId" class="block text-sm font-medium text-text-primary mb-1">Guild ID</label>
+                                    <input type="text" id="msgGuildId" @bind="_messageFilters.GuildIdInput"
+                                           placeholder="Discord guild ID..."
+                                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                </div>
+                                <div>
+                                    <label for="msgChannelId" class="block text-sm font-medium text-text-primary mb-1">Channel ID</label>
+                                    <input type="text" id="msgChannelId" @bind="_messageFilters.ChannelIdInput"
+                                           placeholder="Discord channel ID..."
+                                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                </div>
+                            </div>
+
+                            <!-- Row 2: Date Range -->
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label for="msgStartDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                                    <input type="date" id="msgStartDate" @bind="_messageFilters.StartDate" @bind:format="yyyy-MM-dd"
+                                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                </div>
+                                <div>
+                                    <label for="msgEndDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                                    <input type="date" id="msgEndDate" @bind="_messageFilters.EndDate" @bind:format="yyyy-MM-dd"
+                                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                </div>
+                            </div>
+
+                            <!-- Row 3: Source Type -->
+                            <div>
+                                <label class="block text-sm font-medium text-text-primary mb-2">Source Type</label>
+                                <div class="flex flex-wrap items-center gap-4">
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="msgSource" checked="@(string.IsNullOrEmpty(_messageFilters.Source))"
+                                               @onchange="@(() => _messageFilters.Source = "")" class="w-4 h-4" />
+                                        <span class="text-sm text-text-primary">All</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="msgSource" checked="@(_messageFilters.Source == "DirectMessage")"
+                                               @onchange="@(() => _messageFilters.Source = "DirectMessage")" class="w-4 h-4" />
+                                        <span class="text-sm text-text-primary">DMs Only</span>
+                                    </label>
+                                    <label class="flex items-center gap-2 cursor-pointer">
+                                        <input type="radio" name="msgSource" checked="@(_messageFilters.Source == "ServerChannel")"
+                                               @onchange="@(() => _messageFilters.Source = "ServerChannel")" class="w-4 h-4" />
+                                        <span class="text-sm text-text-primary">Server Only</span>
+                                    </label>
+                                </div>
+                            </div>
+
+                            <!-- Row 4: Content Search -->
+                            <div>
+                                <label for="msgSearchTerm" class="block text-sm font-medium text-text-primary mb-1">Content Search</label>
+                                <input type="text" id="msgSearchTerm" @bind="_messageFilters.SearchTerm"
+                                       placeholder="Search message content..."
+                                       class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                            </div>
+
+                            <!-- Actions -->
+                            <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                                <button type="button" @onclick="ClearMessageFilters"
+                                        class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                                    Clear Filters
+                                </button>
+                                <button type="submit"
+                                        class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                                    <span class="flex items-center justify-center gap-2">
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                        </svg>
+                                        Apply Filters
+                                    </span>
+                                </button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+                <!-- Results Summary -->
+                @if (_messageResult != null && _messageResult.Items.Any())
+                {
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="text-sm text-text-secondary">
+                            Showing <span class="font-medium text-text-primary">@((_messageResult.Page - 1) * _messageResult.PageSize + 1)-@Math.Min(_messageResult.Page * _messageResult.PageSize, _messageResult.TotalCount)</span> of <span class="font-medium text-text-primary">@_messageResult.TotalCount</span> messages
+                        </p>
+                    </div>
+                }
+
+                <!-- Table -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-border-primary">
+                            <thead class="bg-bg-tertiary">
+                                <tr>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Author</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Guild</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Channel</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Source</th>
+                                    <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Content</th>
+                                    <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-border-primary">
+                                @if (_messageResult != null && _messageResult.Items.Any())
+                                {
+                                    @foreach (var message in _messageResult.Items)
+                                    {
+                                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                                @message.Timestamp.ToString("yyyy-MM-dd HH:mm")
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                <div class="flex items-center">
+                                                    <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center">
+                                                        <span class="text-white font-medium text-xs">
+                                                            @GetUserInitials(message.AuthorUsername)
+                                                        </span>
+                                                    </div>
+                                                    <div class="ml-3">
+                                                        <div class="text-sm font-medium text-text-primary">@(message.AuthorUsername ?? "(Unknown)")</div>
+                                                        <div class="text-xs text-text-tertiary font-mono">@message.AuthorId</div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                                                @if (message.GuildId.HasValue)
+                                                {
+                                                    @(message.GuildName ?? message.GuildId.ToString())
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-text-tertiary">(DM)</span>
+                                                }
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                                @if (message.GuildId.HasValue)
+                                                {
+                                                    @(message.ChannelName ?? $"#{message.ChannelId}")
+                                                }
+                                                else
+                                                {
+                                                    <span class="text-text-tertiary">-</span>
+                                                }
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap">
+                                                @if (message.Source == MessageSource.DirectMessage)
+                                                {
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                                                        DM
+                                                    </span>
+                                                }
+                                                else
+                                                {
+                                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                                                        Server
+                                                    </span>
+                                                }
+                                            </td>
+                                            <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">
+                                                @TruncateContent(message.Content, 100)
+                                            </td>
+                                            <td class="px-6 py-4 whitespace-nowrap text-right">
+                                                <a href="/Admin/MessageLogs/Details/@message.Id" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                                    <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                                    </svg>
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="7" class="px-6 py-12 text-center">
+                                            <div class="flex flex-col items-center gap-2">
+                                                <svg class="w-12 h-12 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                                </svg>
+                                                <h3 class="text-sm font-medium text-text-primary">
+                                                    @(HasActiveMessageFilters() ? "No messages found" : "No messages logged yet")
+                                                </h3>
+                                                <p class="text-sm text-text-secondary">
+                                                    @(HasActiveMessageFilters() ? "Try adjusting your search or filters" : "Messages will appear here as they are logged")
+                                                </p>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <!-- Pagination -->
+                    @if (_messageResult != null && _messageResult.TotalPages > 1)
+                    {
+                        <div class="px-6 py-4 border-t border-border-primary">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm text-text-secondary">
+                                    Page @_messageResult.Page of @_messageResult.TotalPages (@_messageResult.TotalCount total)
+                                </p>
+                                <div class="flex gap-2">
+                                    <button type="button" disabled="@(!_messageResult.HasPreviousPage)"
+                                            @onclick="() => ChangeMessagePageAsync(_messageResult.Page - 1)"
+                                            class="px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-hover text-text-primary">
+                                        Previous
+                                    </button>
+                                    @foreach (var pageNum in GetPageNumbers(_messageResult.Page, _messageResult.TotalPages))
+                                    {
+                                        var currentPageNum = pageNum;
+                                        <button type="button"
+                                                @onclick="@(() => ChangeMessagePageAsync(currentPageNum))"
+                                                class="@(currentPageNum == _messageResult.Page ? "px-3 py-1.5 text-sm font-medium rounded-md bg-accent-blue text-white" : "px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary hover:bg-bg-hover text-text-primary transition-colors")">
+                                            @currentPageNum
+                                        </button>
+                                    }
+                                    <button type="button" disabled="@(!_messageResult.HasNextPage)"
+                                            @onclick="() => ChangeMessagePageAsync(_messageResult.Page + 1)"
+                                            class="px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-hover text-text-primary">
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else if (_activeTab == "audit")
+{
+    <div id="panel-audit" role="tabpanel" aria-labelledby="tab-audit">
+        @if (_isLoading)
+        {
+            <div class="flex items-center justify-center py-12">
+                <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-blue"></div>
+                <span class="ml-3 text-text-secondary">Loading audit logs...</span>
+            </div>
+        }
+        else
+        {
+            <div class="max-w-7xl mx-auto">
+                <!-- Header -->
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-xl font-semibold text-text-primary">Audit Logs</h2>
+                        <p class="mt-1 text-sm text-text-secondary">Track administrative actions and changes across your bot</p>
+                    </div>
+                    <button type="button" @onclick="ExportAuditCsvAsync"
+                            disabled="@_isExporting"
+                            class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors disabled:opacity-50">
+                        @if (_isExporting)
+                        {
+                            <div class="animate-spin rounded-full h-4 w-4 border-b-2 border-text-primary"></div>
+                        }
+                        else
+                        {
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                            </svg>
+                        }
+                        Export CSV
+                    </button>
+                </div>
+
+                <!-- Filters Section -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+                    <div class="flex items-center justify-between mb-4">
+                        <h3 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                            <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                            </svg>
+                            Filters
+                        </h3>
+                        <button type="button" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1"
+                                @onclick="() => _showAuditFilters = !_showAuditFilters">
+                            <span>@(_showAuditFilters ? "Hide Filters" : "Show Filters")</span>
+                            <svg class="w-4 h-4 transition-transform @(_showAuditFilters ? "" : "rotate-180")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    @if (_showAuditFilters)
+                    {
+                        <form @onsubmit="ApplyAuditFiltersAsync" @onsubmit:preventDefault>
+                            <div class="space-y-4">
+                                <!-- Row 1: Date Range -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="auditStartDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                                        <input type="date" id="auditStartDate" @bind="_auditFilters.StartDate" @bind:format="yyyy-MM-dd"
+                                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                    </div>
+                                    <div>
+                                        <label for="auditEndDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                                        <input type="date" id="auditEndDate" @bind="_auditFilters.EndDate" @bind:format="yyyy-MM-dd"
+                                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                    </div>
+                                </div>
+
+                                <!-- Row 2: Category and Action -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="auditCategory" class="block text-sm font-medium text-text-primary mb-1">Category</label>
+                                        <select id="auditCategory" @bind="_auditFilters.Category"
+                                                class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
+                                            <option value="">All Categories</option>
+                                            @foreach (var category in Enum.GetValues<AuditLogCategory>())
+                                            {
+                                                <option value="@category">@category</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="auditAction" class="block text-sm font-medium text-text-primary mb-1">Action</label>
+                                        <select id="auditAction" @bind="_auditFilters.Action"
+                                                class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
+                                            <option value="">All Actions</option>
+                                            @foreach (var action in Enum.GetValues<AuditLogAction>())
+                                            {
+                                                <option value="@action">@action</option>
+                                            }
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Row 3: Actor ID and Target Type -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="auditActorId" class="block text-sm font-medium text-text-primary mb-1">Actor ID</label>
+                                        <input type="text" id="auditActorId" @bind="_auditFilters.ActorId"
+                                               placeholder="Search by user ID..."
+                                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                    </div>
+                                    <div>
+                                        <label for="auditTargetType" class="block text-sm font-medium text-text-primary mb-1">Target Type</label>
+                                        <select id="auditTargetType" @bind="_auditFilters.TargetType"
+                                                class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
+                                            <option value="">All Types</option>
+                                            <option value="User">User</option>
+                                            <option value="Guild">Guild</option>
+                                            <option value="Settings">Settings</option>
+                                            <option value="Message">Message</option>
+                                            <option value="ScheduledMessage">Scheduled Message</option>
+                                            <option value="Verification">Verification Rule</option>
+                                            <option value="BotConfig">Bot Configuration</option>
+                                            <option value="AuditLog">Audit Logs</option>
+                                        </select>
+                                    </div>
+                                </div>
+
+                                <!-- Row 4: Guild and Search -->
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label for="auditGuildId" class="block text-sm font-medium text-text-primary mb-1">Guild</label>
+                                        <select id="auditGuildId" @bind="_auditFilters.GuildIdInput"
+                                                class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
+                                            <option value="">All Guilds</option>
+                                            @foreach (var guild in _availableGuilds)
+                                            {
+                                                <option value="@guild.Id">@guild.Name</option>
+                                            }
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label for="auditSearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                                        <input type="text" id="auditSearchTerm" @bind="_auditFilters.SearchTerm"
+                                               placeholder="Search in details..."
+                                               class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                                    </div>
+                                </div>
+
+                                <!-- Actions -->
+                                <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                                    <button type="button" @onclick="ClearAuditFilters"
+                                            class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                                        Clear Filters
+                                    </button>
+                                    <button type="submit"
+                                            class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange/80 transition-colors">
+                                        <span class="flex items-center justify-center gap-2">
+                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                            </svg>
+                                            Apply Filters
+                                        </span>
+                                    </button>
+                                </div>
+                            </div>
+                        </form>
+                    }
+                </div>
+
+                <!-- Results Summary -->
+                @if (_auditLogs.Any())
+                {
+                    <div class="flex items-center justify-between mb-4">
+                        <p class="text-sm text-text-secondary">
+                            Showing <span class="font-medium text-text-primary">@((_auditCurrentPage - 1) * 25 + 1)-@Math.Min(_auditCurrentPage * 25, _auditTotalCount)</span> of <span class="font-medium text-text-primary">@_auditTotalCount</span> entries
+                        </p>
+                    </div>
+                }
+
+                <!-- Desktop Table -->
+                <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <table class="min-w-full divide-y divide-border-primary">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="w-12 px-2 py-3"></th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Target</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden lg:table-cell">Guild</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            @if (_auditListItems.Any())
+                            {
+                                @foreach (var log in _auditListItems)
+                                {
+                                    <!-- Main Row -->
+                                    <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                        <td class="px-2 py-4">
+                                            <button type="button"
+                                                    class="w-11 h-11 flex items-center justify-center hover:bg-bg-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus"
+                                                    aria-label="@($"Expand audit log details for {log.Action}")"
+                                                    aria-expanded="@IsRowExpanded(log.Id)"
+                                                    @onclick="() => ToggleRowExpand(log.Id)">
+                                                <svg class="w-5 h-5 text-text-secondary transition-transform @(IsRowExpanded(log.Id) ? "rotate-90" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                </svg>
+                                            </button>
+                                        </td>
+                                        <td class="px-4 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                            @log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                        </td>
+                                        <td class="px-4 py-4 whitespace-nowrap">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">
+                                                @log.Action
+                                            </span>
+                                        </td>
+                                        <td class="px-4 py-4 whitespace-nowrap">
+                                            @if (log.IsSystemActor)
+                                            {
+                                                <div class="flex items-center gap-2">
+                                                    <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                                        </svg>
+                                                    </div>
+                                                    <span class="text-sm text-text-secondary">System</span>
+                                                </div>
+                                            }
+                                            else if (log.IsBotActor)
+                                            {
+                                                <div class="flex items-center gap-2">
+                                                    <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                                                        </svg>
+                                                    </div>
+                                                    <span class="text-sm text-text-secondary">Bot</span>
+                                                </div>
+                                            }
+                                            else if (log.IsUserActor && log.HasActorDisplayName)
+                                            {
+                                                <div class="flex items-center gap-2">
+                                                    <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
+                                                        <span class="font-medium text-xs">@log.ActorInitials</span>
+                                                    </div>
+                                                    <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                                </div>
+                                            }
+                                            else
+                                            {
+                                                <div class="flex items-center gap-2">
+                                                    <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-tertiary flex items-center justify-center">
+                                                        <span class="font-medium text-xs">?</span>
+                                                    </div>
+                                                    <span class="text-sm text-text-tertiary">Unknown</span>
+                                                </div>
+                                            }
+                                        </td>
+                                        <td class="px-4 py-4 whitespace-nowrap text-sm text-text-primary">
+                                            @log.TargetType
+                                        </td>
+                                        <td class="px-4 py-4 whitespace-nowrap text-sm hidden lg:table-cell">
+                                            @if (!string.IsNullOrEmpty(log.GuildName))
+                                            {
+                                                <span class="text-text-primary">@log.GuildName</span>
+                                            }
+                                            else
+                                            {
+                                                <span class="text-text-secondary italic">@log.GetGuildDisplay()</span>
+                                            }
+                                        </td>
+                                    </tr>
+                                    <!-- Expandable content row -->
+                                    @if (IsRowExpanded(log.Id))
+                                    {
+                                        <tr>
+                                            <td colspan="6" class="px-4 py-0">
+                                                <div class="bg-bg-primary border-l-2 @log.ActionBorderClass pl-4 py-3 my-2 rounded-r-md">
+                                                    <!-- Metadata Grid -->
+                                                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+                                                        <div>
+                                                            <span class="text-text-tertiary">Entry ID:</span>
+                                                            <span class="ml-2 font-mono text-text-secondary">@log.Id</span>
+                                                        </div>
+                                                        @if (!string.IsNullOrEmpty(log.IpAddress))
+                                                        {
+                                                            <div>
+                                                                <span class="text-text-tertiary">IP Address:</span>
+                                                                <span class="ml-2 font-mono text-text-secondary">@log.IpAddress</span>
+                                                            </div>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(log.CorrelationId))
+                                                        {
+                                                            <div>
+                                                                <span class="text-text-tertiary">Correlation ID:</span>
+                                                                <span class="ml-2 font-mono text-text-secondary">@log.CorrelationId</span>
+                                                            </div>
+                                                        }
+                                                        @if (!string.IsNullOrEmpty(log.TargetId))
+                                                        {
+                                                            <div>
+                                                                <span class="text-text-tertiary">Target ID:</span>
+                                                                <span class="ml-2 font-mono text-text-secondary">@log.TargetId</span>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                    <!-- JSON Details Section -->
+                                                    @if (log.HasDetails)
+                                                    {
+                                                        <div class="border-t border-border-secondary pt-3">
+                                                            <div class="flex items-center justify-between mb-2">
+                                                                <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Details</span>
+                                                                <button type="button" class="text-xs text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1"
+                                                                        @onclick="() => ToggleJsonExpand(log.Id)">
+                                                                    <span>@(IsJsonExpanded(log.Id) ? "Collapse" : "Expand")</span>
+                                                                    <svg class="w-3 h-3 transition-transform @(IsJsonExpanded(log.Id) ? "rotate-180" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                                                    </svg>
+                                                                </button>
+                                                            </div>
+                                                            <pre class="bg-bg-tertiary rounded-md p-3 text-xs font-mono text-text-secondary overflow-x-auto @(IsJsonExpanded(log.Id) ? "" : "max-h-[200px] overflow-y-auto")">@log.FormattedDetails</pre>
+                                                        </div>
+                                                    }
+                                                    <!-- View Details Link -->
+                                                    <div class="flex justify-end mt-3 pt-3 border-t border-border-secondary">
+                                                        <a href="/Admin/AuditLogs/Details/@log.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1">
+                                                            View full details
+                                                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                                            </svg>
+                                                        </a>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                            }
+                            else
+                            {
+                                <tr>
+                                    <td colspan="6" class="px-4 py-12 text-center">
+                                        <div class="flex flex-col items-center gap-2">
+                                            <svg class="w-12 h-12 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                            </svg>
+                                            <h3 class="text-sm font-medium text-text-primary">
+                                                @(HasActiveAuditFilters() ? "No audit logs found" : "No audit logs yet")
+                                            </h3>
+                                            <p class="text-sm text-text-secondary">
+                                                @(HasActiveAuditFilters() ? "Try adjusting your filters or check back later" : "Audit logs will appear here as actions are performed")
+                                            </p>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+
+                    <!-- Pagination (Desktop) -->
+                    @if (_auditTotalPages > 1)
+                    {
+                        <div class="px-4 py-4 border-t border-border-primary">
+                            <div class="flex items-center justify-between">
+                                <p class="text-sm text-text-secondary">
+                                    Page @_auditCurrentPage of @_auditTotalPages (@_auditTotalCount total)
+                                </p>
+                                <div class="flex gap-2">
+                                    <button type="button" disabled="@(_auditCurrentPage <= 1)"
+                                            @onclick="() => ChangeAuditPageAsync(_auditCurrentPage - 1)"
+                                            class="px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-hover text-text-primary">
+                                        Previous
+                                    </button>
+                                    @foreach (var pageNum in GetPageNumbers(_auditCurrentPage, _auditTotalPages))
+                                    {
+                                        var currentPageNum = pageNum;
+                                        <button type="button"
+                                                @onclick="@(() => ChangeAuditPageAsync(currentPageNum))"
+                                                class="@(currentPageNum == _auditCurrentPage ? "px-3 py-1.5 text-sm font-medium rounded-md bg-accent-blue text-white" : "px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary hover:bg-bg-hover text-text-primary transition-colors")">
+                                            @currentPageNum
+                                        </button>
+                                    }
+                                    <button type="button" disabled="@(_auditCurrentPage >= _auditTotalPages)"
+                                            @onclick="() => ChangeAuditPageAsync(_auditCurrentPage + 1)"
+                                            class="px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-hover text-text-primary">
+                                        Next
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <!-- Mobile Card Layout -->
+                <div class="md:hidden space-y-4">
+                    @if (_auditListItems.Any())
+                    {
+                        @foreach (var log in _auditListItems)
+                        {
+                            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                                <!-- Header: Action Badge + Timestamp -->
+                                <div class="flex items-start justify-between mb-3">
+                                    <div>
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">
+                                            @log.Action
+                                        </span>
+                                        <p class="text-xs text-text-tertiary mt-1">
+                                            @log.Timestamp.ToString("yyyy-MM-dd HH:mm:ss")
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <!-- Actor -->
+                                <div class="mb-3">
+                                    <span class="text-xs text-text-tertiary">Actor:</span>
+                                    <div class="mt-1">
+                                        @if (log.IsSystemActor)
+                                        {
+                                            <span class="text-sm text-text-secondary">System</span>
+                                        }
+                                        else if (log.IsBotActor)
+                                        {
+                                            <span class="text-sm text-text-secondary">Bot</span>
+                                        }
+                                        else if (log.HasActorDisplayName)
+                                        {
+                                            <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-tertiary">Unknown</span>
+                                        }
+                                    </div>
+                                </div>
+
+                                <!-- Metadata Grid -->
+                                <div class="grid grid-cols-2 gap-3 text-sm">
+                                    <div>
+                                        <span class="text-text-tertiary">Target:</span>
+                                        <span class="text-text-primary ml-1">@log.TargetType</span>
+                                    </div>
+                                    <div>
+                                        <span class="text-text-tertiary">Guild:</span>
+                                        <span class="text-text-primary ml-1">@log.GetGuildDisplay()</span>
+                                    </div>
+                                </div>
+
+                                <!-- Details Summary -->
+                                @if (log.HasDetails)
+                                {
+                                    <div class="mt-3 pt-3 border-t border-border-secondary">
+                                        <p class="text-xs text-text-tertiary mb-1">Details:</p>
+                                        <p class="text-xs text-text-secondary line-clamp-2">@log.DetailsSummary</p>
+                                    </div>
+                                }
+
+                                <!-- View Details Link -->
+                                <div class="mt-3 pt-3 border-t border-border-secondary">
+                                    <a href="/Admin/AuditLogs/Details/@log.Id"
+                                       class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors inline-flex items-center gap-1 min-h-[44px]">
+                                        View Details
+                                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
+                                    </a>
+                                </div>
+                            </div>
+                        }
+
+                        <!-- Pagination (Mobile) -->
+                        @if (_auditTotalPages > 1)
+                        {
+                            <div class="mt-4 flex items-center justify-between">
+                                <button type="button" disabled="@(_auditCurrentPage <= 1)"
+                                        @onclick="() => ChangeAuditPageAsync(_auditCurrentPage - 1)"
+                                        class="px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-hover text-text-primary">
+                                    Previous
+                                </button>
+                                <span class="text-sm text-text-secondary">Page @_auditCurrentPage of @_auditTotalPages</span>
+                                <button type="button" disabled="@(_auditCurrentPage >= _auditTotalPages)"
+                                        @onclick="() => ChangeAuditPageAsync(_auditCurrentPage + 1)"
+                                        class="px-3 py-1.5 text-sm font-medium rounded-md border border-border-primary transition-colors disabled:opacity-50 disabled:cursor-not-allowed hover:bg-bg-hover text-text-primary">
+                                    Next
+                                </button>
+                            </div>
+                        }
+                    }
+                    else
+                    {
+                        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                            <div class="flex flex-col items-center gap-2 text-center">
+                                <svg class="w-12 h-12 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                </svg>
+                                <h3 class="text-sm font-medium text-text-primary">
+                                    @(HasActiveAuditFilters() ? "No logs found" : "No audit logs yet")
+                                </h3>
+                                <p class="text-sm text-text-secondary">
+                                    @(HasActiveAuditFilters() ? "Try adjusting your filters" : "Audit logs will appear here as actions are performed")
+                                </p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+}
+else if (_activeTab == "application")
+{
+    <div id="panel-application" role="tabpanel" aria-labelledby="tab-application">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+            <div class="flex flex-col items-center gap-2 text-center">
+                <svg class="w-12 h-12 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                </svg>
+                <h3 class="text-sm font-medium text-text-primary">Application Logs Coming Soon</h3>
+                <p class="text-sm text-text-secondary">Application-level logging and diagnostics will be available in a future update.</p>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    // Tab state
+    private string _activeTab = "messages";
+    private bool _isLoading = true;
+    private string? _errorMessage;
+
+    // Message logs state
+    private MessageFilterModel _messageFilters = new();
+    private PaginatedResponseDto<MessageLogDto>? _messageResult;
+
+    // Audit logs state
+    private AuditFilterModel _auditFilters = new();
+    private IReadOnlyList<AuditLogDto> _auditLogs = Array.Empty<AuditLogDto>();
+    private IReadOnlyList<AuditLogListItem> _auditListItems = Array.Empty<AuditLogListItem>();
+    private int _auditCurrentPage = 1;
+    private int _auditTotalCount;
+    private int _auditTotalPages;
+    private bool _showAuditFilters = true;
+    private bool _isExporting;
+    private IReadOnlyList<GuildDto> _availableGuilds = Array.Empty<GuildDto>();
+
+    // Expandable row state
+    private readonly HashSet<long> _expandedRows = new();
+    private readonly HashSet<long> _expandedJson = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Set default date ranges
+        _messageFilters.StartDate = DateTime.UtcNow.Date.AddDays(-7);
+        _messageFilters.EndDate = DateTime.UtcNow.Date.AddDays(1);
+
+        _auditFilters.StartDate = DateTime.UtcNow.Date.AddDays(-30);
+        _auditFilters.EndDate = DateTime.UtcNow.Date.AddDays(1);
+
+        await LoadTabDataAsync();
+    }
+
+    private async Task SwitchTabAsync(string tab)
+    {
+        if (_activeTab == tab) return;
+        _activeTab = tab;
+        _isLoading = true;
+        _errorMessage = null;
+        await LoadTabDataAsync();
+    }
+
+    private async Task LoadTabDataAsync()
+    {
+        _isLoading = true;
+        try
+        {
+            if (_activeTab == "messages")
+            {
+                await LoadMessageLogsAsync();
+            }
+            else if (_activeTab == "audit")
+            {
+                await LoadAuditLogsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading {Tab} logs", _activeTab);
+            _errorMessage = "An error occurred while loading logs. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task LoadMessageLogsAsync()
+    {
+        MessageSource? sourceFilter = null;
+        if (!string.IsNullOrEmpty(_messageFilters.Source))
+        {
+            if (Enum.TryParse<MessageSource>(_messageFilters.Source, true, out var parsedSource))
+            {
+                sourceFilter = parsedSource;
+            }
+        }
+
+        ulong? authorId = null;
+        if (!string.IsNullOrWhiteSpace(_messageFilters.AuthorIdInput) && ulong.TryParse(_messageFilters.AuthorIdInput, out var parsedAuthorId))
+        {
+            authorId = parsedAuthorId;
+        }
+
+        ulong? guildId = null;
+        if (!string.IsNullOrWhiteSpace(_messageFilters.GuildIdInput) && ulong.TryParse(_messageFilters.GuildIdInput, out var parsedGuildId))
+        {
+            guildId = parsedGuildId;
+        }
+
+        ulong? channelId = null;
+        if (!string.IsNullOrWhiteSpace(_messageFilters.ChannelIdInput) && ulong.TryParse(_messageFilters.ChannelIdInput, out var parsedChannelId))
+        {
+            channelId = parsedChannelId;
+        }
+
+        var query = new MessageLogQueryDto
+        {
+            AuthorId = authorId,
+            GuildId = guildId,
+            ChannelId = channelId,
+            Source = sourceFilter,
+            StartDate = _messageFilters.StartDate,
+            EndDate = _messageFilters.EndDate,
+            SearchTerm = _messageFilters.SearchTerm,
+            Page = _messageFilters.CurrentPage,
+            PageSize = 25
+        };
+
+        Logger.LogDebug("Loading message logs with filters: AuthorId={AuthorId}, GuildId={GuildId}, ChannelId={ChannelId}, Source={Source}, Page={Page}",
+            authorId, guildId, channelId, sourceFilter, _messageFilters.CurrentPage);
+
+        _messageResult = await MessageLogService.GetLogsAsync(query);
+
+        Logger.LogInformation("Retrieved {Count} message logs (page {Page} of {TotalPages})",
+            _messageResult.Items.Count, _messageResult.Page, _messageResult.TotalPages);
+    }
+
+    private async Task LoadAuditLogsAsync()
+    {
+        // Load available guilds for dropdown
+        _availableGuilds = await GuildService.GetAllGuildsAsync();
+
+        ulong? guildId = null;
+        if (!string.IsNullOrWhiteSpace(_auditFilters.GuildIdInput) && ulong.TryParse(_auditFilters.GuildIdInput, out var parsedGuildId))
+        {
+            guildId = parsedGuildId;
+        }
+
+        AuditLogCategory? category = null;
+        if (!string.IsNullOrEmpty(_auditFilters.Category) && Enum.TryParse<AuditLogCategory>(_auditFilters.Category, out var parsedCategory))
+        {
+            category = parsedCategory;
+        }
+
+        AuditLogAction? action = null;
+        if (!string.IsNullOrEmpty(_auditFilters.Action) && Enum.TryParse<AuditLogAction>(_auditFilters.Action, out var parsedAction))
+        {
+            action = parsedAction;
+        }
+
+        var query = new AuditLogQueryDto
+        {
+            Category = category,
+            Action = action,
+            ActorId = _auditFilters.ActorId,
+            TargetType = string.IsNullOrWhiteSpace(_auditFilters.TargetType) ? null : _auditFilters.TargetType,
+            GuildId = guildId,
+            StartDate = _auditFilters.StartDate,
+            EndDate = _auditFilters.EndDate?.Date.AddDays(1).AddTicks(-1),
+            SearchTerm = _auditFilters.SearchTerm,
+            Page = _auditCurrentPage,
+            PageSize = 25
+        };
+
+        Logger.LogDebug("Loading audit logs with filters: Category={Category}, Action={Action}, Page={Page}",
+            category, action, _auditCurrentPage);
+
+        var (items, totalCount) = await AuditLogService.GetLogsAsync(query);
+
+        _auditLogs = items;
+        _auditTotalCount = totalCount;
+        _auditTotalPages = (int)Math.Ceiling((double)totalCount / 25);
+        _auditListItems = items.Select(AuditLogListItem.FromDto).ToList();
+
+        Logger.LogInformation("Retrieved {Count} audit logs (page {Page} of {TotalPages})",
+            items.Count, _auditCurrentPage, _auditTotalPages);
+    }
+
+    private async Task ApplyMessageFiltersAsync()
+    {
+        _messageFilters.CurrentPage = 1;
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            await LoadMessageLogsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error applying message log filters");
+            _errorMessage = "An error occurred while applying filters. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ApplyAuditFiltersAsync()
+    {
+        _auditCurrentPage = 1;
+        _expandedRows.Clear();
+        _expandedJson.Clear();
+        _isLoading = true;
+        _errorMessage = null;
+        try
+        {
+            await LoadAuditLogsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error applying audit log filters");
+            _errorMessage = "An error occurred while applying filters. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ClearMessageFilters()
+    {
+        _messageFilters = new MessageFilterModel
+        {
+            StartDate = DateTime.UtcNow.Date.AddDays(-7),
+            EndDate = DateTime.UtcNow.Date.AddDays(1)
+        };
+        await ApplyMessageFiltersAsync();
+    }
+
+    private async Task ClearAuditFilters()
+    {
+        _auditFilters = new AuditFilterModel
+        {
+            StartDate = DateTime.UtcNow.Date.AddDays(-30),
+            EndDate = DateTime.UtcNow.Date.AddDays(1)
+        };
+        _showAuditFilters = true;
+        await ApplyAuditFiltersAsync();
+    }
+
+    private async Task ChangeMessagePageAsync(int page)
+    {
+        _messageFilters.CurrentPage = page;
+        _isLoading = true;
+        try
+        {
+            await LoadMessageLogsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading message logs page {Page}", page);
+            _errorMessage = "An error occurred while loading the page. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ChangeAuditPageAsync(int page)
+    {
+        _auditCurrentPage = page;
+        _expandedRows.Clear();
+        _expandedJson.Clear();
+        _isLoading = true;
+        try
+        {
+            await LoadAuditLogsAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading audit logs page {Page}", page);
+            _errorMessage = "An error occurred while loading the page. Please try again.";
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    private async Task ExportAuditCsvAsync()
+    {
+        _isExporting = true;
+        try
+        {
+            ulong? guildId = null;
+            if (!string.IsNullOrWhiteSpace(_auditFilters.GuildIdInput) && ulong.TryParse(_auditFilters.GuildIdInput, out var parsedGuildId))
+            {
+                guildId = parsedGuildId;
+            }
+
+            AuditLogCategory? category = null;
+            if (!string.IsNullOrEmpty(_auditFilters.Category) && Enum.TryParse<AuditLogCategory>(_auditFilters.Category, out var parsedCategory))
+            {
+                category = parsedCategory;
+            }
+
+            AuditLogAction? action = null;
+            if (!string.IsNullOrEmpty(_auditFilters.Action) && Enum.TryParse<AuditLogAction>(_auditFilters.Action, out var parsedAction))
+            {
+                action = parsedAction;
+            }
+
+            var query = new AuditLogQueryDto
+            {
+                Category = category,
+                Action = action,
+                ActorId = _auditFilters.ActorId,
+                TargetType = string.IsNullOrWhiteSpace(_auditFilters.TargetType) ? null : _auditFilters.TargetType,
+                GuildId = guildId,
+                StartDate = _auditFilters.StartDate,
+                EndDate = _auditFilters.EndDate?.Date.AddDays(1).AddTicks(-1),
+                SearchTerm = _auditFilters.SearchTerm,
+                Page = 1,
+                PageSize = int.MaxValue
+            };
+
+            Logger.LogInformation("Exporting audit logs with current filters");
+            var (items, totalCount) = await AuditLogService.GetLogsAsync(query);
+
+            Logger.LogInformation("Exporting {Count} audit log entries to CSV", totalCount);
+
+            // Build CSV content
+            var csv = new StringBuilder();
+            csv.AppendLine("Timestamp,Category,Action,Actor,Target Type,Target ID,Guild,Details,IP Address,Correlation ID");
+
+            foreach (var log in items)
+            {
+                csv.AppendLine($"\"{log.Timestamp:yyyy-MM-dd HH:mm:ss}\"," +
+                    $"\"{EscapeCsv(log.CategoryName)}\"," +
+                    $"\"{EscapeCsv(log.ActionName)}\"," +
+                    $"\"{EscapeCsv(log.ActorDisplayName ?? log.ActorId ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.TargetType ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.TargetId ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.GuildName ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.Details ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.IpAddress ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.CorrelationId ?? string.Empty)}\"");
+            }
+
+            // Trigger download via JS interop
+            var fileName = $"audit-logs-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+            var csvBytes = Encoding.UTF8.GetBytes(csv.ToString());
+            var base64 = Convert.ToBase64String(csvBytes);
+            await JS.InvokeVoidAsync("eval", $@"
+                (function() {{
+                    var a = document.createElement('a');
+                    a.href = 'data:text/csv;base64,{base64}';
+                    a.download = '{fileName}';
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                }})();
+            ");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error exporting audit logs to CSV");
+            _errorMessage = "An error occurred while exporting audit logs. Please try again.";
+        }
+        finally
+        {
+            _isExporting = false;
+        }
+    }
+
+    // Expandable row helpers
+    private void ToggleRowExpand(long id)
+    {
+        if (!_expandedRows.Remove(id))
+        {
+            _expandedRows.Add(id);
+        }
+    }
+
+    private bool IsRowExpanded(long id) => _expandedRows.Contains(id);
+
+    private void ToggleJsonExpand(long id)
+    {
+        if (!_expandedJson.Remove(id))
+        {
+            _expandedJson.Add(id);
+        }
+    }
+
+    private bool IsJsonExpanded(long id) => _expandedJson.Contains(id);
+
+    // Tab styling
+    private string GetTabClass(string tab)
+    {
+        return _activeTab == tab
+            ? "border-accent-blue text-accent-blue"
+            : "border-transparent text-text-secondary hover:text-text-primary hover:border-border-primary";
+    }
+
+    // Display helpers
+    private static string GetUserInitials(string? username)
+    {
+        if (string.IsNullOrEmpty(username)) return "?";
+        return username.Length >= 2
+            ? username.Substring(0, 2).ToUpper()
+            : username.ToUpper();
+    }
+
+    private static string TruncateContent(string content, int maxLength)
+    {
+        if (string.IsNullOrEmpty(content)) return string.Empty;
+        return content.Length <= maxLength ? content : content.Substring(0, maxLength) + "...";
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value)) return string.Empty;
+        return value.Replace("\"", "\"\"");
+    }
+
+    private bool HasActiveMessageFilters()
+    {
+        return !string.IsNullOrWhiteSpace(_messageFilters.AuthorIdInput) ||
+               !string.IsNullOrWhiteSpace(_messageFilters.GuildIdInput) ||
+               !string.IsNullOrWhiteSpace(_messageFilters.ChannelIdInput) ||
+               !string.IsNullOrEmpty(_messageFilters.Source) ||
+               !string.IsNullOrWhiteSpace(_messageFilters.SearchTerm);
+    }
+
+    private bool HasActiveAuditFilters()
+    {
+        return !string.IsNullOrEmpty(_auditFilters.Category) ||
+               !string.IsNullOrEmpty(_auditFilters.Action) ||
+               !string.IsNullOrWhiteSpace(_auditFilters.ActorId) ||
+               !string.IsNullOrWhiteSpace(_auditFilters.TargetType) ||
+               !string.IsNullOrWhiteSpace(_auditFilters.GuildIdInput) ||
+               !string.IsNullOrWhiteSpace(_auditFilters.SearchTerm);
+    }
+
+    private static IEnumerable<int> GetPageNumbers(int currentPage, int totalPages)
+    {
+        const int maxVisible = 5;
+        int start = Math.Max(1, currentPage - maxVisible / 2);
+        int end = Math.Min(totalPages, start + maxVisible - 1);
+        start = Math.Max(1, end - maxVisible + 1);
+
+        for (int i = start; i <= end; i++)
+        {
+            yield return i;
+        }
+    }
+
+    // Filter models for Blazor EditForm binding
+    private class MessageFilterModel
+    {
+        public string? AuthorIdInput { get; set; }
+        public string? GuildIdInput { get; set; }
+        public string? ChannelIdInput { get; set; }
+        public string? Source { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? SearchTerm { get; set; }
+        public int CurrentPage { get; set; } = 1;
+    }
+
+    private class AuditFilterModel
+    {
+        public string? Category { get; set; }
+        public string? Action { get; set; }
+        public string? ActorId { get; set; }
+        public string? TargetType { get; set; }
+        public string? GuildIdInput { get; set; }
+        public DateTime? StartDate { get; set; }
+        public DateTime? EndDate { get; set; }
+        public string? SearchTerm { get; set; }
+    }
+}

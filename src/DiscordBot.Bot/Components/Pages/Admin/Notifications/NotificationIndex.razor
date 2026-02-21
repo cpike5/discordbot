@@ -1,0 +1,1028 @@
+@page "/Admin/Notifications"
+@attribute [Authorize(Policy = "RequireViewer")]
+@rendermode InteractiveServer
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Bot.ViewModels.Pages
+@using System.Security.Claims
+@inject INotificationService NotificationService
+@inject IGuildService GuildService
+@inject ILogger<NotificationIndex> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ToastInterop Toast
+
+<PageTitle>Notifications - Discord Bot Admin</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div class="flex items-center gap-3">
+            <h1 class="text-h1 text-text-primary">Notifications</h1>
+            <Badge Text="@_totalCount.ToString()" Variant="BadgeVariant.Blue" Size="BadgeSize.Medium" />
+        </div>
+        <div class="flex items-center gap-3">
+            <!-- Bulk Actions (shown when items selected) -->
+            @if (_selectedIds.Count > 0)
+            {
+                <span class="text-sm text-text-secondary">@_selectedIds.Count selected</span>
+                <Button Text="Mark Read" Variant="ButtonVariant.Secondary" Size="ButtonSize.Small"
+                        OnClick="MarkSelectedReadAsync" IsLoading="_isBulkProcessing"
+                        IconLeft="M5 13l4 4L19 7" />
+                <Button Text="Delete" Variant="ButtonVariant.Danger" Size="ButtonSize.Small"
+                        OnClick="ShowDeleteSelectedConfirmation" IsLoading="_isBulkProcessing"
+                        IconLeft="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            }
+            <Button Text="Mark All Read" Variant="ButtonVariant.Secondary"
+                    OnClick="MarkAllReadAsync" IsLoading="_isBulkProcessing"
+                    IconLeft="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            <Button Text="Delete All" Variant="ButtonVariant.Secondary"
+                    OnClick="ShowDeleteAllConfirmation" IsLoading="_isBulkProcessing"
+                    IconLeft="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            @if (_hasActiveFilters)
+            {
+                <Button Text="Clear Filters" Variant="ButtonVariant.Secondary" OnClick="ClearFilters"
+                        IconLeft="M6 18L18 6M6 6l12 12" />
+            }
+        </div>
+    </div>
+
+    <!-- Filter Panel -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <button type="button"
+                class="w-full flex items-center justify-between px-5 py-4 text-left"
+                @onclick="ToggleFilterPanel"
+                aria-expanded="@_filtersExpanded"
+                aria-controls="filterContent">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-lg font-semibold text-text-primary">Filters</span>
+                @if (_activeFilterCount > 0)
+                {
+                    <Badge Text="@($"{_activeFilterCount} active")" Variant="BadgeVariant.Orange" Size="BadgeSize.Small" />
+                }
+            </div>
+            <svg class="w-5 h-5 text-text-secondary transition-transform duration-200 @(_filtersExpanded ? "" : "-rotate-90")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        @if (_filtersExpanded)
+        {
+            <div id="filterContent" class="border-t border-border-primary p-6">
+                <!-- Quick Date Presets -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="button" @onclick='() => SetDatePreset("today")'
+                                class="@GetPresetClass(IsPresetToday())">
+                            Today
+                        </button>
+                        <button type="button" @onclick='() => SetDatePreset("7days")'
+                                class="@GetPresetClass(IsPreset7Days())">
+                            Last 7 Days
+                        </button>
+                        <button type="button" @onclick='() => SetDatePreset("30days")'
+                                class="@GetPresetClass(IsPreset30Days())">
+                            Last 30 Days
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                    <!-- Start Date -->
+                    <div>
+                        <label for="startDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                        <input type="date"
+                               id="startDate"
+                               value="@_startDateValue"
+                               @onchange="e => _startDateValue = e.Value?.ToString()"
+                               class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                    </div>
+
+                    <!-- End Date -->
+                    <div>
+                        <label for="endDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                        <input type="date"
+                               id="endDate"
+                               value="@_endDateValue"
+                               @onchange="e => _endDateValue = e.Value?.ToString()"
+                               class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                    </div>
+
+                    <!-- Type Filter -->
+                    <FormSelect
+                        Id="typeFilter"
+                        Label="Type"
+                        Placeholder="All Types"
+                        SelectedValue="@_typeFilterValue"
+                        SelectedValueChanged="HandleTypeFilterChanged"
+                        Options="@_typeOptions" />
+
+                    <!-- Status Filter -->
+                    <FormSelect
+                        Id="readFilter"
+                        Label="Status"
+                        Placeholder="All"
+                        SelectedValue="@_readFilterValue"
+                        SelectedValueChanged="HandleReadFilterChanged"
+                        Options="@_readOptions" />
+
+                    <!-- Severity Filter -->
+                    <FormSelect
+                        Id="severityFilter"
+                        Label="Severity"
+                        Placeholder="All"
+                        SelectedValue="@_severityFilterValue"
+                        SelectedValueChanged="HandleSeverityFilterChanged"
+                        Options="@_severityOptions" />
+
+                    <!-- Guild Filter -->
+                    <FormSelect
+                        Id="guildFilter"
+                        Label="Server"
+                        Placeholder="All Servers"
+                        SelectedValue="@_guildFilterValue"
+                        SelectedValueChanged="HandleGuildFilterChanged"
+                        Options="@_guildOptions" />
+                </div>
+
+                <!-- Search Input -->
+                <div class="mt-4">
+                    <label for="searchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                    <div class="relative max-w-md">
+                        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="search"
+                               id="searchTerm"
+                               @bind="_searchTerm"
+                               @bind:event="oninput"
+                               @onkeydown="HandleSearchKeyDown"
+                               placeholder="Search by title or message..."
+                               class="w-full pl-10 pr-4 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+                    </div>
+                </div>
+
+                <!-- Filter Actions -->
+                <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+                    <Button Text="Apply Filters" Variant="ButtonVariant.Primary" OnClick="ApplyFilters"
+                            IconLeft="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    <Button Text="Reset" Variant="ButtonVariant.Secondary" OnClick="ClearFilters" />
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Loading State -->
+    @if (_isLoading)
+    {
+        <div class="flex items-center justify-center py-12">
+            <div class="text-text-secondary">Loading notifications...</div>
+        </div>
+    }
+    else
+    {
+        <!-- Desktop Table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="px-4 py-4 text-left">
+                                <input type="checkbox"
+                                       checked="@_selectAll"
+                                       @onchange="HandleSelectAllChanged"
+                                       class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer" />
+                            </th>
+                            <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Type</th>
+                            <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Title</th>
+                            <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Server</th>
+                            <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Time</th>
+                            <th scope="col" class="px-4 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @if (_notifications.Any())
+                        {
+                            @foreach (var notification in _notifications)
+                            {
+                                <tr class="hover:bg-bg-hover/50 transition-colors @(!notification.IsRead ? "bg-bg-hover/30" : "")">
+                                    <!-- Checkbox -->
+                                    <td class="px-4 py-4">
+                                        <input type="checkbox"
+                                               checked="@_selectedIds.Contains(notification.Id)"
+                                               @onchange="e => HandleCheckboxChanged(notification.Id, e)"
+                                               class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer" />
+                                    </td>
+                                    <!-- Type -->
+                                    <td class="px-4 py-4">
+                                        <Badge Text="@notification.TypeDisplay" Variant="@GetTypeBadgeVariant(notification.Type)" Size="BadgeSize.Small" />
+                                        @if (notification.Severity.HasValue)
+                                        {
+                                            <Badge Text="@(notification.SeverityDisplay!)" Variant="@GetSeverityBadgeVariant(notification.Severity)" Size="BadgeSize.Small" />
+                                        }
+                                    </td>
+                                    <!-- Title & Message -->
+                                    <td class="px-4 py-4">
+                                        <div class="@(!notification.IsRead ? "font-semibold" : "") text-text-primary text-sm">
+                                            @if (!string.IsNullOrEmpty(notification.LinkUrl))
+                                            {
+                                                <a href="@notification.LinkUrl" class="hover:text-accent-blue transition-colors">@notification.Title</a>
+                                            }
+                                            else
+                                            {
+                                                @notification.Title
+                                            }
+                                        </div>
+                                        <div class="text-xs text-text-secondary mt-1 truncate max-w-md" title="@notification.Message">
+                                            @notification.Message
+                                        </div>
+                                    </td>
+                                    <!-- Server -->
+                                    <td class="px-4 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                        @if (notification.GuildId.HasValue)
+                                        {
+                                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@notification.GuildId">@notification.GuildName</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-text-tertiary">-</span>
+                                        }
+                                    </td>
+                                    <!-- Status -->
+                                    <td class="px-4 py-4">
+                                        @if (notification.IsRead)
+                                        {
+                                            <Badge Text="Read" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                                        }
+                                        else
+                                        {
+                                            <Badge Text="Unread" Variant="BadgeVariant.Blue" Size="BadgeSize.Small" />
+                                        }
+                                    </td>
+                                    <!-- Time -->
+                                    <td class="px-4 py-4 text-text-secondary text-sm whitespace-nowrap">
+                                        <span data-utc="@notification.CreatedAtUtcIso" data-format="datetime">@notification.TimeAgo</span>
+                                    </td>
+                                    <!-- Actions -->
+                                    <td class="px-4 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <button type="button"
+                                                    @onclick="() => ToggleReadAsync(notification)"
+                                                    class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors"
+                                                    title="@(notification.IsRead ? "Mark as unread" : "Mark as read")">
+                                                @(notification.IsRead ? "Mark Unread" : "Mark Read")
+                                            </button>
+                                            <button type="button"
+                                                    @onclick="() => DeleteNotificationAsync(notification.Id)"
+                                                    class="text-error hover:text-error/80 text-sm font-medium transition-colors"
+                                                    title="Delete notification">
+                                                Delete
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        }
+                        else
+                        {
+                            <tr>
+                                <td colspan="7" class="px-6 py-12 text-center">
+                                    @{
+                                        var emptyTitle = _hasActiveFilters ? "No notifications found" : "No notifications yet";
+                                        var emptyDesc = _hasActiveFilters ? "Try adjusting your search or filters" : "Notifications will appear here when you receive them";
+                                    }
+                                    <EmptyState Type="EmptyStateType.NoResults" Title="@emptyTitle" Description="@emptyDesc" />
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mobile Card Layout -->
+        <div class="md:hidden space-y-4">
+            @if (_notifications.Any())
+            {
+                @foreach (var notification in _notifications)
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 @(!notification.IsRead ? "border-l-4 border-l-accent-blue" : "")">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-center gap-2">
+                                <input type="checkbox"
+                                       checked="@_selectedIds.Contains(notification.Id)"
+                                       @onchange="e => HandleCheckboxChanged(notification.Id, e)"
+                                       class="w-4 h-4 rounded border-border-primary bg-bg-primary text-accent-blue focus:ring-accent-blue cursor-pointer" />
+                                <Badge Text="@notification.TypeDisplay" Variant="@GetTypeBadgeVariant(notification.Type)" Size="BadgeSize.Small" />
+                            </div>
+                            @if (notification.IsRead)
+                            {
+                                <Badge Text="Read" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            }
+                            else
+                            {
+                                <Badge Text="Unread" Variant="BadgeVariant.Blue" Size="BadgeSize.Small" />
+                            }
+                        </div>
+
+                        <div class="mb-2">
+                            <div class="@(!notification.IsRead ? "font-semibold" : "") text-text-primary text-sm">
+                                @if (!string.IsNullOrEmpty(notification.LinkUrl))
+                                {
+                                    <a href="@notification.LinkUrl" class="hover:text-accent-blue transition-colors">@notification.Title</a>
+                                }
+                                else
+                                {
+                                    @notification.Title
+                                }
+                            </div>
+                            <p class="text-xs text-text-secondary mt-1">@notification.Message</p>
+                        </div>
+
+                        <div class="flex items-center justify-between text-xs text-text-tertiary">
+                            <span data-utc="@notification.CreatedAtUtcIso" data-format="datetime">@notification.TimeAgo</span>
+                            @if (notification.GuildId.HasValue)
+                            {
+                                <span class="preview-trigger" data-preview-type="guild" data-guild-id="@notification.GuildId.Value.ToString()">@notification.GuildName</span>
+                            }
+                        </div>
+
+                        <div class="mt-3 pt-3 border-t border-border-secondary flex items-center gap-4">
+                            <button type="button"
+                                    @onclick="() => ToggleReadAsync(notification)"
+                                    class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                @(notification.IsRead ? "Mark Unread" : "Mark Read")
+                            </button>
+                            <button type="button"
+                                    @onclick="() => DeleteNotificationAsync(notification.Id)"
+                                    class="text-error hover:text-error/80 text-sm font-medium transition-colors">
+                                Delete
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                    @{
+                        var mobileEmptyTitle = _hasActiveFilters ? "No notifications found" : "No notifications yet";
+                        var mobileEmptyDesc = _hasActiveFilters ? "Try adjusting your search or filters" : "Notifications will appear here when you receive them";
+                    }
+                    <EmptyState Type="EmptyStateType.NoResults" Title="@mobileEmptyTitle" Description="@mobileEmptyDesc" />
+                </div>
+            }
+        </div>
+
+        <!-- Pagination -->
+        @if (_totalPages > 1)
+        {
+            <div class="mt-6">
+                <Pagination
+                    CurrentPage="@_currentPage"
+                    TotalPages="@_totalPages"
+                    TotalItems="@_totalCount"
+                    PageSize="@_pageSize"
+                    BaseUrl="@BuildPaginationBaseUrl()"
+                    Style="PaginationStyle.Full"
+                    ShowPageSizeSelector="true"
+                    ShowItemCount="true"
+                    PageParameterName="pageNumber" />
+            </div>
+        }
+
+        <!-- Results Summary -->
+        @if (_totalCount > 0)
+        {
+            <div class="mt-4 text-sm text-text-secondary">
+                Showing @((_currentPage - 1) * _pageSize + 1) to @(Math.Min(_currentPage * _pageSize, _totalCount)) of @_totalCount notifications
+            </div>
+        }
+    }
+</div>
+
+<!-- Delete Selected Confirmation Modal -->
+<ConfirmationModal
+    Id="deleteSelectedModal"
+    Title="Delete Selected Notifications"
+    Message="@($"Are you sure you want to delete {_selectedIds.Count} selected notification(s)? This action cannot be undone.")"
+    ConfirmText="Delete"
+    Variant="ConfirmationVariant.Danger"
+    @bind-IsVisible="_showDeleteSelectedModal"
+    OnConfirm="DeleteSelectedAsync" />
+
+<!-- Delete All Confirmation Modal -->
+<ConfirmationModal
+    Id="deleteAllModal"
+    Title="Delete All Notifications"
+    Message="Are you sure you want to delete all notifications? This action cannot be undone."
+    ConfirmText="Delete All"
+    Variant="ConfirmationVariant.Danger"
+    @bind-IsVisible="_showDeleteAllModal"
+    OnConfirm="DeleteAllAsync" />
+
+@code {
+    [SupplyParameterFromQuery(Name = "Type")]
+    public string? QueryType { get; set; }
+
+    [SupplyParameterFromQuery(Name = "IsRead")]
+    public string? QueryIsRead { get; set; }
+
+    [SupplyParameterFromQuery(Name = "Severity")]
+    public string? QuerySeverity { get; set; }
+
+    [SupplyParameterFromQuery(Name = "StartDate")]
+    public string? QueryStartDate { get; set; }
+
+    [SupplyParameterFromQuery(Name = "EndDate")]
+    public string? QueryEndDate { get; set; }
+
+    [SupplyParameterFromQuery(Name = "SearchTerm")]
+    public string? QuerySearchTerm { get; set; }
+
+    [SupplyParameterFromQuery(Name = "GuildId")]
+    public string? QueryGuildId { get; set; }
+
+    [SupplyParameterFromQuery(Name = "pageNumber")]
+    public int? QueryPage { get; set; }
+
+    [SupplyParameterFromQuery(Name = "PageSize")]
+    public int? QueryPageSize { get; set; }
+
+    private bool _isLoading = true;
+    private bool _isBulkProcessing;
+    private bool _filtersExpanded = true;
+    private bool _selectAll;
+    private bool _showDeleteSelectedModal;
+    private bool _showDeleteAllModal;
+
+    private string? _currentUserId;
+    private string? _searchTerm;
+    private NotificationType? _typeFilter;
+    private bool? _readFilter;
+    private AlertSeverity? _severityFilter;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private ulong? _guildFilter;
+    private int _currentPage = 1;
+    private int _pageSize = 25;
+    private int _totalPages;
+    private int _totalCount;
+
+    // String values for form binding
+    private string? _typeFilterValue;
+    private string? _readFilterValue;
+    private string? _severityFilterValue;
+    private string? _guildFilterValue;
+    private string? _startDateValue;
+    private string? _endDateValue;
+
+    private IReadOnlyList<NotificationListItem> _notifications = Array.Empty<NotificationListItem>();
+    private HashSet<Guid> _selectedIds = new();
+    private IReadOnlyList<GuildDto> _availableGuilds = Array.Empty<GuildDto>();
+
+    // Filter options
+    private List<SelectOption> _typeOptions = new()
+    {
+        new SelectOption { Value = "", Text = "All Types" },
+        new SelectOption { Value = ((int)NotificationType.PerformanceAlert).ToString(), Text = "Performance Alert" },
+        new SelectOption { Value = ((int)NotificationType.BotStatus).ToString(), Text = "Bot Status" },
+        new SelectOption { Value = ((int)NotificationType.GuildEvent).ToString(), Text = "Guild Event" },
+        new SelectOption { Value = ((int)NotificationType.CommandError).ToString(), Text = "Command Error" }
+    };
+
+    private readonly List<SelectOption> _readOptions = new()
+    {
+        new SelectOption { Value = "", Text = "All" },
+        new SelectOption { Value = "false", Text = "Unread" },
+        new SelectOption { Value = "true", Text = "Read" }
+    };
+
+    private readonly List<SelectOption> _severityOptions = new()
+    {
+        new SelectOption { Value = "", Text = "All" },
+        new SelectOption { Value = ((int)AlertSeverity.Critical).ToString(), Text = "Critical" },
+        new SelectOption { Value = ((int)AlertSeverity.Warning).ToString(), Text = "Warning" },
+        new SelectOption { Value = ((int)AlertSeverity.Info).ToString(), Text = "Info" }
+    };
+
+    private List<SelectOption> _guildOptions = new() { new SelectOption { Value = "", Text = "All Servers" } };
+
+    private bool _hasActiveFilters =>
+        _typeFilter.HasValue || _readFilter.HasValue || _severityFilter.HasValue ||
+        _startDate.HasValue || _endDate.HasValue ||
+        !string.IsNullOrWhiteSpace(_searchTerm) || _guildFilter.HasValue;
+
+    private int _activeFilterCount
+    {
+        get
+        {
+            int count = 0;
+            if (_typeFilter.HasValue) count++;
+            if (_readFilter.HasValue) count++;
+            if (_severityFilter.HasValue) count++;
+            if (_startDate.HasValue) count++;
+            if (_endDate.HasValue) count++;
+            if (!string.IsNullOrWhiteSpace(_searchTerm)) count++;
+            if (_guildFilter.HasValue) count++;
+            return count;
+        }
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // Parse query parameters
+        _searchTerm = QuerySearchTerm;
+        _currentPage = QueryPage ?? 1;
+        _pageSize = QueryPageSize ?? 25;
+
+        if (int.TryParse(QueryType, out var typeVal) && Enum.IsDefined(typeof(NotificationType), typeVal))
+        {
+            _typeFilter = (NotificationType)typeVal;
+            _typeFilterValue = QueryType;
+        }
+        else
+        {
+            _typeFilter = null;
+            _typeFilterValue = "";
+        }
+
+        _readFilter = QueryIsRead switch
+        {
+            "true" or "True" => true,
+            "false" or "False" => false,
+            _ => null
+        };
+        _readFilterValue = _readFilter?.ToString().ToLower() ?? "";
+
+        if (int.TryParse(QuerySeverity, out var sevVal) && Enum.IsDefined(typeof(AlertSeverity), sevVal))
+        {
+            _severityFilter = (AlertSeverity)sevVal;
+            _severityFilterValue = QuerySeverity;
+        }
+        else
+        {
+            _severityFilter = null;
+            _severityFilterValue = "";
+        }
+
+        if (DateTime.TryParse(QueryStartDate, out var startDt))
+        {
+            _startDate = startDt;
+            _startDateValue = startDt.ToString("yyyy-MM-dd");
+        }
+        else
+        {
+            _startDate = null;
+            _startDateValue = null;
+        }
+
+        if (DateTime.TryParse(QueryEndDate, out var endDt))
+        {
+            _endDate = endDt;
+            _endDateValue = endDt.ToString("yyyy-MM-dd");
+        }
+        else
+        {
+            _endDate = null;
+            _endDateValue = null;
+        }
+
+        if (ulong.TryParse(QueryGuildId, out var guildVal))
+        {
+            _guildFilter = guildVal;
+            _guildFilterValue = QueryGuildId;
+        }
+        else
+        {
+            _guildFilter = null;
+            _guildFilterValue = "";
+        }
+
+        await LoadDataAsync();
+    }
+
+    private async Task LoadDataAsync()
+    {
+        _isLoading = true;
+        _selectedIds.Clear();
+        _selectAll = false;
+        StateHasChanged();
+
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(_currentUserId))
+                return;
+
+            Logger.LogInformation("User {UserId} accessing notification history. Type={Type}, IsRead={IsRead}, Page={Page}",
+                _currentUserId, _typeFilter, _readFilter, _currentPage);
+
+            // Load guilds for dropdown
+            _availableGuilds = await GuildService.GetAllGuildsAsync();
+            _guildOptions = new List<SelectOption> { new() { Value = "", Text = "All Servers" } };
+            _guildOptions.AddRange(_availableGuilds.Select(g => new SelectOption { Value = g.Id.ToString(), Text = g.Name }));
+
+            // Default to last 7 days if no filters provided
+            var effectiveStartDate = _startDate;
+            var effectiveEndDate = _endDate;
+            if (!_hasActiveFilters)
+            {
+                effectiveStartDate = DateTime.UtcNow.AddDays(-7);
+                effectiveEndDate = DateTime.UtcNow;
+            }
+
+            var query = new NotificationQueryDto
+            {
+                Type = _typeFilter,
+                IsRead = _readFilter,
+                Severity = _severityFilter,
+                StartDate = effectiveStartDate,
+                EndDate = effectiveEndDate?.Date.AddDays(1).AddTicks(-1), // End of day
+                SearchTerm = _searchTerm,
+                GuildId = _guildFilter,
+                Page = _currentPage,
+                PageSize = _pageSize
+            };
+
+            var result = await NotificationService.GetUserNotificationsPagedAsync(
+                _currentUserId, query);
+
+            var filters = new NotificationFilterOptions
+            {
+                Type = _typeFilter,
+                IsRead = _readFilter,
+                Severity = _severityFilter,
+                StartDate = effectiveStartDate,
+                EndDate = effectiveEndDate,
+                SearchTerm = _searchTerm,
+                GuildId = _guildFilter
+            };
+
+            var viewModel = NotificationListViewModel.FromPaginatedDto(result, filters);
+            _notifications = viewModel.Notifications;
+            _totalCount = viewModel.TotalCount;
+            _totalPages = viewModel.TotalPages;
+            _currentPage = viewModel.CurrentPage;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading notifications");
+            await Toast.ShowAsync("error", "Failed to load notifications. Please try again.");
+        }
+        finally
+        {
+            _isLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ToggleFilterPanel()
+    {
+        _filtersExpanded = !_filtersExpanded;
+    }
+
+    private void HandleSearchKeyDown(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter")
+        {
+            ApplyFilters();
+        }
+    }
+
+    private void HandleTypeFilterChanged(string? value)
+    {
+        _typeFilterValue = value;
+        if (int.TryParse(value, out var v) && Enum.IsDefined(typeof(NotificationType), v))
+            _typeFilter = (NotificationType)v;
+        else
+            _typeFilter = null;
+    }
+
+    private void HandleReadFilterChanged(string? value)
+    {
+        _readFilterValue = value;
+        _readFilter = value switch
+        {
+            "true" => true,
+            "false" => false,
+            _ => null
+        };
+    }
+
+    private void HandleSeverityFilterChanged(string? value)
+    {
+        _severityFilterValue = value;
+        if (int.TryParse(value, out var v) && Enum.IsDefined(typeof(AlertSeverity), v))
+            _severityFilter = (AlertSeverity)v;
+        else
+            _severityFilter = null;
+    }
+
+    private void HandleGuildFilterChanged(string? value)
+    {
+        _guildFilterValue = value;
+        if (ulong.TryParse(value, out var v))
+            _guildFilter = v;
+        else
+            _guildFilter = null;
+    }
+
+    private void SetDatePreset(string preset)
+    {
+        var today = DateTime.UtcNow.Date;
+        _endDate = today;
+        _endDateValue = today.ToString("yyyy-MM-dd");
+
+        _startDate = preset switch
+        {
+            "today" => today,
+            "7days" => today.AddDays(-7),
+            "30days" => today.AddDays(-30),
+            _ => today.AddDays(-7)
+        };
+        _startDateValue = _startDate.Value.ToString("yyyy-MM-dd");
+
+        ApplyFilters();
+    }
+
+    private bool IsPresetToday()
+    {
+        var today = DateTime.UtcNow.Date;
+        return _startDate.HasValue && _endDate.HasValue &&
+               _startDate.Value.Date == today && _endDate.Value.Date == today;
+    }
+
+    private bool IsPreset7Days()
+    {
+        var today = DateTime.UtcNow.Date;
+        return _startDate.HasValue && _endDate.HasValue &&
+               _startDate.Value.Date == today.AddDays(-7) && _endDate.Value.Date == today;
+    }
+
+    private bool IsPreset30Days()
+    {
+        var today = DateTime.UtcNow.Date;
+        return _startDate.HasValue && _endDate.HasValue &&
+               _startDate.Value.Date == today.AddDays(-30) && _endDate.Value.Date == today;
+    }
+
+    private static string GetPresetClass(bool isActive) => isActive
+        ? "px-3 py-1.5 text-xs font-medium bg-accent-blue text-white border border-accent-blue rounded-md hover:bg-accent-blue/90 transition-colors"
+        : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
+
+    private void ApplyFilters()
+    {
+        // Parse date inputs back to DateTime
+        if (DateTime.TryParse(_startDateValue, out var startDt))
+            _startDate = startDt;
+        else
+            _startDate = null;
+
+        if (DateTime.TryParse(_endDateValue, out var endDt))
+            _endDate = endDt;
+        else
+            _endDate = null;
+
+        var queryParams = new Dictionary<string, object?>();
+        if (_typeFilter.HasValue) queryParams["Type"] = ((int)_typeFilter.Value).ToString();
+        if (_readFilter.HasValue) queryParams["IsRead"] = _readFilter.Value.ToString();
+        if (_severityFilter.HasValue) queryParams["Severity"] = ((int)_severityFilter.Value).ToString();
+        if (_startDate.HasValue) queryParams["StartDate"] = _startDate.Value.ToString("yyyy-MM-dd");
+        if (_endDate.HasValue) queryParams["EndDate"] = _endDate.Value.ToString("yyyy-MM-dd");
+        if (!string.IsNullOrWhiteSpace(_searchTerm)) queryParams["SearchTerm"] = _searchTerm;
+        if (_guildFilter.HasValue) queryParams["GuildId"] = _guildFilter.Value.ToString();
+        queryParams["pageNumber"] = 1;
+        if (_pageSize != 25) queryParams["PageSize"] = _pageSize;
+
+        var url = NavigationManager.GetUriWithQueryParameters("/Admin/Notifications", queryParams);
+        NavigationManager.NavigateTo(url);
+    }
+
+    private void ClearFilters()
+    {
+        _searchTerm = null;
+        _typeFilter = null;
+        _readFilter = null;
+        _severityFilter = null;
+        _startDate = null;
+        _endDate = null;
+        _guildFilter = null;
+        _typeFilterValue = "";
+        _readFilterValue = "";
+        _severityFilterValue = "";
+        _guildFilterValue = "";
+        _startDateValue = null;
+        _endDateValue = null;
+        NavigationManager.NavigateTo("/Admin/Notifications");
+    }
+
+    private string BuildPaginationBaseUrl()
+    {
+        var queryParams = new Dictionary<string, object?>();
+        if (_typeFilter.HasValue) queryParams["Type"] = ((int)_typeFilter.Value).ToString();
+        if (_readFilter.HasValue) queryParams["IsRead"] = _readFilter.Value.ToString();
+        if (_severityFilter.HasValue) queryParams["Severity"] = ((int)_severityFilter.Value).ToString();
+        if (_startDate.HasValue) queryParams["StartDate"] = _startDate.Value.ToString("yyyy-MM-dd");
+        if (_endDate.HasValue) queryParams["EndDate"] = _endDate.Value.ToString("yyyy-MM-dd");
+        if (!string.IsNullOrWhiteSpace(_searchTerm)) queryParams["SearchTerm"] = _searchTerm;
+        if (_guildFilter.HasValue) queryParams["GuildId"] = _guildFilter.Value.ToString();
+        if (_pageSize != 25) queryParams["PageSize"] = _pageSize;
+
+        return NavigationManager.GetUriWithQueryParameters("/Admin/Notifications", queryParams);
+    }
+
+    // Selection handlers
+    private void HandleSelectAllChanged(ChangeEventArgs e)
+    {
+        _selectAll = (bool)(e.Value ?? false);
+        if (_selectAll)
+        {
+            foreach (var n in _notifications)
+                _selectedIds.Add(n.Id);
+        }
+        else
+        {
+            _selectedIds.Clear();
+        }
+    }
+
+    private void HandleCheckboxChanged(Guid id, ChangeEventArgs e)
+    {
+        var isChecked = (bool)(e.Value ?? false);
+        if (isChecked)
+            _selectedIds.Add(id);
+        else
+            _selectedIds.Remove(id);
+
+        _selectAll = _notifications.Count > 0 && _selectedIds.Count == _notifications.Count;
+    }
+
+    // Individual actions
+    private async Task ToggleReadAsync(NotificationListItem notification)
+    {
+        if (string.IsNullOrEmpty(_currentUserId)) return;
+
+        try
+        {
+            if (notification.IsRead)
+            {
+                await NotificationService.MarkAsUnreadAsync(_currentUserId, notification.Id);
+                await Toast.ShowAsync("success", "Notification marked as unread");
+            }
+            else
+            {
+                await NotificationService.MarkAsReadAsync(_currentUserId, notification.Id);
+                await Toast.ShowAsync("success", "Notification marked as read");
+            }
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error toggling read status for notification {NotificationId}", notification.Id);
+            await Toast.ShowAsync("error", "Failed to update notification status");
+        }
+    }
+
+    private async Task DeleteNotificationAsync(Guid notificationId)
+    {
+        if (string.IsNullOrEmpty(_currentUserId)) return;
+
+        try
+        {
+            await NotificationService.DeleteAsync(_currentUserId, notificationId);
+            await Toast.ShowAsync("success", "Notification deleted");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting notification {NotificationId}", notificationId);
+            await Toast.ShowAsync("error", "Failed to delete notification");
+        }
+    }
+
+    // Bulk actions
+    private async Task MarkSelectedReadAsync()
+    {
+        if (string.IsNullOrEmpty(_currentUserId) || _selectedIds.Count == 0) return;
+
+        _isBulkProcessing = true;
+        try
+        {
+            await NotificationService.MarkMultipleAsReadAsync(_currentUserId, _selectedIds);
+            await Toast.ShowAsync("success", $"{_selectedIds.Count} notification(s) marked as read");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error marking {Count} notifications as read", _selectedIds.Count);
+            await Toast.ShowAsync("error", "Failed to mark notifications as read");
+        }
+        finally
+        {
+            _isBulkProcessing = false;
+        }
+    }
+
+    private void ShowDeleteSelectedConfirmation()
+    {
+        _showDeleteSelectedModal = true;
+    }
+
+    private async Task DeleteSelectedAsync()
+    {
+        if (string.IsNullOrEmpty(_currentUserId) || _selectedIds.Count == 0) return;
+
+        _isBulkProcessing = true;
+        try
+        {
+            var count = await NotificationService.DeleteMultipleAsync(_currentUserId, _selectedIds);
+            await Toast.ShowAsync("success", $"{count} notification(s) deleted");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting {Count} notifications", _selectedIds.Count);
+            await Toast.ShowAsync("error", "Failed to delete notifications");
+        }
+        finally
+        {
+            _isBulkProcessing = false;
+        }
+    }
+
+    private async Task MarkAllReadAsync()
+    {
+        if (string.IsNullOrEmpty(_currentUserId)) return;
+
+        _isBulkProcessing = true;
+        try
+        {
+            await NotificationService.MarkAllAsReadAsync(_currentUserId);
+            await Toast.ShowAsync("success", "All notifications marked as read");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error marking all notifications as read");
+            await Toast.ShowAsync("error", "Failed to mark all notifications as read");
+        }
+        finally
+        {
+            _isBulkProcessing = false;
+        }
+    }
+
+    private void ShowDeleteAllConfirmation()
+    {
+        _showDeleteAllModal = true;
+    }
+
+    private async Task DeleteAllAsync()
+    {
+        if (string.IsNullOrEmpty(_currentUserId)) return;
+
+        _isBulkProcessing = true;
+        try
+        {
+            var count = await NotificationService.DeleteAllAsync(_currentUserId);
+            await Toast.ShowAsync("success", $"{count} notification(s) deleted");
+            await LoadDataAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error deleting all notifications");
+            await Toast.ShowAsync("error", "Failed to delete all notifications");
+        }
+        finally
+        {
+            _isBulkProcessing = false;
+        }
+    }
+
+    // Badge variant helpers
+    private static BadgeVariant GetTypeBadgeVariant(NotificationType type) => type switch
+    {
+        NotificationType.PerformanceAlert => BadgeVariant.Error,
+        NotificationType.BotStatus => BadgeVariant.Blue,
+        NotificationType.GuildEvent => BadgeVariant.Info,
+        NotificationType.CommandError => BadgeVariant.Warning,
+        _ => BadgeVariant.Default
+    };
+
+    private static BadgeVariant GetSeverityBadgeVariant(AlertSeverity? severity) => severity switch
+    {
+        AlertSeverity.Critical => BadgeVariant.Error,
+        AlertSeverity.Warning => BadgeVariant.Warning,
+        AlertSeverity.Info => BadgeVariant.Info,
+        _ => BadgeVariant.Default
+    };
+}
