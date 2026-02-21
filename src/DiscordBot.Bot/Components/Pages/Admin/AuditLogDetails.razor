@@ -2,8 +2,11 @@
 @attribute [Authorize(Policy = "RequireAdmin")]
 @using DiscordBot.Bot.ViewModels.Pages
 @using DiscordBot.Core.Interfaces
+@using DiscordBot.Bot.Components.Interop
 @inject IAuditLogService AuditLogService
 @inject ILogger<AuditLogDetails> Logger
+@inject ClipboardInterop ClipboardInterop
+@inject IJSRuntime JS
 
 <PageTitle>Audit Entry Details - Discord Bot Admin</PageTitle>
 
@@ -218,14 +221,14 @@ else
                             </svg>
                             Raw Change Data
                         </h2>
-                        <button id="toggleRawData" type="button" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="false">
-                            <span id="rawDataToggleText">Expand</span>
-                            <svg id="rawDataToggleIcon" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <button type="button" @onclick="ToggleRawData" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="@_isRawDataExpanded">
+                            <span>@(_isRawDataExpanded ? "Collapse" : "Expand")</span>
+                            <svg class="w-4 h-4 transition-transform @(_isRawDataExpanded ? "rotate-180" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
                         </button>
                     </div>
-                    <div id="rawDataContent" class="json-collapsed relative">
+                    <div class="@(_isRawDataExpanded ? "" : "json-collapsed") relative">
                         <pre class="p-4 text-xs font-mono text-text-secondary overflow-x-auto">@_viewModel.FormattedDetails</pre>
                     </div>
                 </div>
@@ -309,13 +312,13 @@ else
                     </svg>
                     Back to Audit Logs
                 </a>
-                <button id="copyEntryIdBtn" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Copy entry ID to clipboard">
+                <button type="button" @onclick="CopyEntryId" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Copy entry ID to clipboard">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                     </svg>
-                    <span id="copyEntryIdText">Copy Entry ID</span>
+                    <span>@_copyButtonText</span>
                 </button>
-                <button id="exportJsonBtn" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export this entry as JSON">
+                <button type="button" @onclick="ExportJson" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export this entry as JSON">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                     </svg>
@@ -338,73 +341,17 @@ else
             left: 0;
             right: 0;
             height: 40px;
-            background: linear-gradient(transparent, #262a2d);
+            background: linear-gradient(transparent, var(--color-bg-secondary));
         }
     </style>
-
-    <script suppress-error="BL9992">
-        // Toggle raw data expand/collapse
-        (function() {
-            const toggleRawDataBtn = document.getElementById('toggleRawData');
-            const rawDataContent = document.getElementById('rawDataContent');
-            const rawDataToggleText = document.getElementById('rawDataToggleText');
-            const rawDataToggleIcon = document.getElementById('rawDataToggleIcon');
-
-            if (toggleRawDataBtn && rawDataContent) {
-                toggleRawDataBtn.addEventListener('click', function() {
-                    const isExpanded = this.getAttribute('aria-expanded') === 'true';
-
-                    if (isExpanded) {
-                        rawDataContent.classList.add('json-collapsed');
-                        rawDataToggleText.textContent = 'Expand';
-                        rawDataToggleIcon.style.transform = 'rotate(0deg)';
-                        this.setAttribute('aria-expanded', 'false');
-                    } else {
-                        rawDataContent.classList.remove('json-collapsed');
-                        rawDataToggleText.textContent = 'Collapse';
-                        rawDataToggleIcon.style.transform = 'rotate(180deg)';
-                        this.setAttribute('aria-expanded', 'true');
-                    }
-                });
-            }
-
-            // Copy Entry ID
-            const copyEntryIdBtn = document.getElementById('copyEntryIdBtn');
-            const copyEntryIdText = document.getElementById('copyEntryIdText');
-            if (copyEntryIdBtn) {
-                copyEntryIdBtn.addEventListener('click', function() {
-                    navigator.clipboard.writeText('@_viewModel.Id').then(() => {
-                        const originalText = copyEntryIdText.textContent;
-                        copyEntryIdText.textContent = 'Copied!';
-                        setTimeout(() => { copyEntryIdText.textContent = originalText; }, 2000);
-                    }).catch(err => console.error('Failed to copy entry ID:', err));
-                });
-            }
-
-            // Export JSON
-            const exportJsonBtn = document.getElementById('exportJsonBtn');
-            if (exportJsonBtn) {
-                exportJsonBtn.addEventListener('click', function() {
-                    const jsonData = @((Microsoft.AspNetCore.Components.MarkupString)BuildExportJson());
-                    const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'audit-entry-' + @_viewModel.Id + '.json';
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
-                    URL.revokeObjectURL(url);
-                });
-            }
-        })();
-    </script>
 }
 
 @code {
     [Parameter] public long Id { get; set; }
 
     private AuditLogDetailViewModel? _viewModel;
+    private bool _isRawDataExpanded = false;
+    private string _copyButtonText = "Copy Entry ID";
 
     protected override async Task OnInitializedAsync()
     {
@@ -429,34 +376,57 @@ else
         _viewModel = AuditLogDetailViewModel.FromDto(log, relatedEntries);
     }
 
+    private void ToggleRawData() => _isRawDataExpanded = !_isRawDataExpanded;
+
+    private async Task CopyEntryId()
+    {
+        await ClipboardInterop.CopyTextAsync(_viewModel!.Id.ToString());
+        _copyButtonText = "Copied!";
+        StateHasChanged();
+        await Task.Delay(2000);
+        _copyButtonText = "Copy Entry ID";
+        StateHasChanged();
+    }
+
+    private async Task ExportJson()
+    {
+        var json = BuildExportJson();
+        await JS.InvokeVoidAsync("eval", $@"
+            const blob = new Blob([{System.Text.Json.JsonSerializer.Serialize(json)}], {{ type: 'application/json' }});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'audit-entry-{_viewModel!.Id}.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        ");
+    }
+
     private string BuildExportJson()
     {
         if (_viewModel is null) return "{}";
 
-        var sb = new System.Text.StringBuilder();
-        sb.Append('{');
-        sb.Append($"\"entryId\":{_viewModel.Id},");
-        sb.Append($"\"timestamp\":\"{_viewModel.Timestamp:yyyy-MM-ddTHH:mm:ss.fffZ}\",");
-        sb.Append($"\"category\":\"{EscapeJson(_viewModel.Category)}\",");
-        sb.Append($"\"action\":\"{EscapeJson(_viewModel.Action)}\",");
-        sb.Append($"\"actor\":{{\"id\":\"{EscapeJson(_viewModel.ActorId)}\",\"name\":\"{EscapeJson(_viewModel.ActorName)}\",\"type\":\"{EscapeJson(_viewModel.ActorTypeName)}\"}},");
-        sb.Append($"\"target\":{{\"type\":\"{EscapeJson(_viewModel.TargetType)}\",\"id\":\"{EscapeJson(_viewModel.TargetId)}\"}}");
+        var export = new Dictionary<string, object?>
+        {
+            ["entryId"] = _viewModel.Id,
+            ["timestamp"] = _viewModel.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            ["category"] = _viewModel.Category,
+            ["action"] = _viewModel.Action,
+            ["actor"] = new { id = _viewModel.ActorId, name = _viewModel.ActorName, type = _viewModel.ActorTypeName },
+            ["target"] = new { type = _viewModel.TargetType, id = _viewModel.TargetId }
+        };
 
         if (_viewModel.HasGuild)
-            sb.Append($",\"guild\":{{\"id\":\"{_viewModel.GuildId}\",\"name\":\"{EscapeJson(_viewModel.GuildName ?? "")}\"}}");
+            export["guild"] = new { id = _viewModel.GuildId, name = _viewModel.GuildName ?? "" };
         if (!string.IsNullOrEmpty(_viewModel.IpAddress))
-            sb.Append($",\"ipAddress\":\"{EscapeJson(_viewModel.IpAddress)}\"");
+            export["ipAddress"] = _viewModel.IpAddress;
         if (!string.IsNullOrEmpty(_viewModel.CorrelationId))
-            sb.Append($",\"correlationId\":\"{EscapeJson(_viewModel.CorrelationId)}\"");
+            export["correlationId"] = _viewModel.CorrelationId;
         if (_viewModel.HasDetails && _viewModel.Details != null)
-            sb.Append($",\"details\":{_viewModel.Details}");
+            export["details"] = System.Text.Json.JsonSerializer.Deserialize<System.Text.Json.JsonElement>(_viewModel.Details);
 
-        sb.Append('}');
-        return sb.ToString();
-    }
-
-    private static string EscapeJson(string value)
-    {
-        return value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\n", "\\n").Replace("\r", "\\r");
+        return System.Text.Json.JsonSerializer.Serialize(export, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
     }
 }
