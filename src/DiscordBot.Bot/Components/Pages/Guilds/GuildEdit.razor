@@ -1,0 +1,223 @@
+@page "/Guilds/Edit/{GuildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Entities
+@using DiscordBot.Core.Interfaces
+@inject IGuildService GuildService
+@inject IGuildAudioSettingsService GuildAudioSettingsService
+@inject NavigationManager NavigationManager
+@inject ToastInterop Toast
+@inject ILogger<GuildEdit> Logger
+
+<PageTitle>Edit Guild Settings - Discord Bot Admin</PageTitle>
+
+@if (_guild is null && !_notFound)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else if (_notFound)
+{
+    <div class="flex flex-col items-center justify-center py-12">
+        <svg class="w-16 h-16 text-text-tertiary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        <h2 class="text-xl font-semibold text-text-primary mb-2">Guild Not Found</h2>
+        <p class="text-text-secondary mb-4">The guild you are looking for does not exist or you do not have access.</p>
+        <a href="/Guilds" class="text-accent-blue hover:text-accent-blue-hover transition-colors">Back to Guilds</a>
+    </div>
+}
+else
+{
+    <!-- Breadcrumb -->
+    <GuildBreadcrumb Items="@_breadcrumbItems" />
+
+    <!-- Guild Header -->
+    <GuildHeader GuildId="(ulong)GuildId"
+                 GuildName="@_guild!.Name"
+                 GuildIconUrl="@_guild.IconUrl"
+                 PageTitle="Edit Guild Settings"
+                 PageDescription="@($"Configure settings for {_guild.Name}")" />
+
+    <!-- Error Alert -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error"
+                   Title="Error"
+                   Message="@_errorMessage"
+                   IsDismissible="true"
+                   OnDismiss="@(() => _errorMessage = null)" />
+        </div>
+    }
+
+    <!-- General Settings Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">General Settings</h2>
+        </div>
+        <div class="p-6 space-y-6">
+            <FormToggle Id="botActive"
+                        Name="botActive"
+                        Label="Bot Active"
+                        Description="When disabled, the bot will not respond to commands in this guild."
+                        IsChecked="_isActive"
+                        IsCheckedChanged="@((bool val) => _isActive = val)"
+                        IsDisabled="_isSaving" />
+        </div>
+    </div>
+
+    <!-- Audio Settings Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">Audio Settings</h2>
+        </div>
+        <div class="p-6 space-y-6">
+            <FormToggle Id="audioEnabled"
+                        Name="audioEnabled"
+                        Label="Audio Enabled"
+                        Description="Enable or disable audio features such as soundboard, TTS, and VOX for this guild."
+                        IsChecked="_audioEnabled"
+                        IsCheckedChanged="@((bool val) => _audioEnabled = val)"
+                        IsDisabled="_isSaving" />
+
+            <FormInput Id="autoLeaveTimeout"
+                       Name="autoLeaveTimeout"
+                       Label="Auto-Leave Timeout (minutes)"
+                       Type="number"
+                       Value="@_autoLeaveTimeoutMinutes"
+                       ValueChanged="@((string? val) => _autoLeaveTimeoutMinutes = val)"
+                       HelpText="Minutes of inactivity before auto-leave. Set to 0 for indefinite."
+                       IsDisabled="_isSaving" />
+
+            <FormToggle Id="queueEnabled"
+                        Name="queueEnabled"
+                        Label="Queue Enabled"
+                        Description="When enabled, sounds are queued instead of replacing the currently playing sound."
+                        IsChecked="_queueEnabled"
+                        IsCheckedChanged="@((bool val) => _queueEnabled = val)"
+                        IsDisabled="_isSaving" />
+        </div>
+    </div>
+
+    <!-- Footer Actions -->
+    <div class="flex items-center justify-end gap-3">
+        <a href="/Guilds/Details/@GuildId"
+           class="px-5 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary bg-bg-secondary border border-border-primary rounded-lg hover:border-border-focus transition-colors">
+            Cancel
+        </a>
+        <Button Text="Save Settings"
+                Variant="ButtonVariant.Primary"
+                OnClick="HandleSaveAsync"
+                IsLoading="_isSaving"
+                LoadingText="Saving..."
+                IsDisabled="_isSaving" />
+    </div>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private GuildDto? _guild;
+    private List<BreadcrumbItem>? _breadcrumbItems;
+    private bool _notFound;
+    private string? _errorMessage;
+    private bool _isSaving;
+
+    // General settings
+    private bool _isActive;
+
+    // Audio settings
+    private bool _audioEnabled;
+    private string? _autoLeaveTimeoutMinutes;
+    private bool _queueEnabled;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guildId = (ulong)GuildId;
+
+        Logger.LogInformation("User accessing guild edit page for guild {GuildId}", guildId);
+
+        var guild = await GuildService.GetGuildByIdAsync(guildId);
+        if (guild is null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found for editing", guildId);
+            _notFound = true;
+            return;
+        }
+
+        _guild = guild;
+        _isActive = guild.IsActive;
+
+        var audioSettings = await GuildAudioSettingsService.GetSettingsAsync(guildId);
+        _audioEnabled = audioSettings.AudioEnabled;
+        _autoLeaveTimeoutMinutes = audioSettings.AutoLeaveTimeoutMinutes.ToString();
+        _queueEnabled = audioSettings.QueueEnabled;
+
+        _breadcrumbItems = new List<BreadcrumbItem>
+        {
+            new() { Label = "Home", Url = "/" },
+            new() { Label = "Servers", Url = "/Guilds" },
+            new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildId}" },
+            new() { Label = "Edit", IsCurrent = true }
+        };
+    }
+
+    private async Task HandleSaveAsync()
+    {
+        if (_isSaving) return;
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            // Validate auto-leave timeout
+            if (!int.TryParse(_autoLeaveTimeoutMinutes, out var timeoutMinutes) || timeoutMinutes < 0 || timeoutMinutes > 1440)
+            {
+                _errorMessage = "Auto-leave timeout must be a number between 0 and 1440.";
+                return;
+            }
+
+            // Update general guild settings
+            var updateRequest = new GuildUpdateRequestDto
+            {
+                IsActive = _isActive
+            };
+
+            var updatedGuild = await GuildService.UpdateGuildAsync(guildId, updateRequest);
+            if (updatedGuild is null)
+            {
+                _errorMessage = "Failed to update guild settings. The guild may have been deleted.";
+                return;
+            }
+
+            // Update audio settings
+            await GuildAudioSettingsService.UpdateSettingsAsync(guildId, settings =>
+            {
+                settings.AudioEnabled = _audioEnabled;
+                settings.AutoLeaveTimeoutMinutes = timeoutMinutes;
+                settings.QueueEnabled = _queueEnabled;
+            });
+
+            Logger.LogInformation("Guild settings updated for guild {GuildId}", guildId);
+
+            await Toast.ShowAsync("success", "Guild settings saved successfully.");
+            NavigationManager.NavigateTo($"/Guilds/Details/{GuildId}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving guild settings for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "An unexpected error occurred while saving settings. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

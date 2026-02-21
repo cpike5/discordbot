@@ -13,7 +13,7 @@
         </div>
         @if (Model.ViewModel.CanCreateUsers)
         {
-            <a asp-page="Create" class="btn btn-primary">
+            <a href="/Admin/Users/Create" class="btn btn-primary">
                 <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                 </svg>
@@ -205,7 +205,7 @@
                                         <a asp-page="Details" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">
                                             View
                                         </a>
-                                        <a asp-page="Edit" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                                        <a href="/Admin/Users/@user.Id/Edit" class="text-accent-blue hover:text-accent-blue/80">
                                             Edit
                                         </a>
                                     </div>
