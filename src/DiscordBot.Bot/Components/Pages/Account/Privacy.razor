@@ -26,29 +26,10 @@
 <!-- Status Message -->
 @if (!string.IsNullOrEmpty(_statusMessage))
 {
-    <div class="mb-6 p-4 rounded-lg flex items-start gap-3 @(_isSuccess ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border")" role="alert">
-        @if (_isSuccess)
-        {
-            <!-- Success Icon -->
-            <svg class="w-5 h-5 text-success flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-            </svg>
-        }
-        else
-        {
-            <!-- Error Icon -->
-            <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-            </svg>
-        }
-        <div>
-            <p class="text-sm font-semibold @(_isSuccess ? "text-success" : "text-error")">
-                @(_isSuccess ? "Success" : "Error")
-            </p>
-            <p class="text-sm @(_isSuccess ? "text-success" : "text-error") mt-1">
-                @_statusMessage
-            </p>
-        </div>
+    <div class="mb-6">
+        <Alert Variant="@(_isSuccess ? AlertVariant.Success : AlertVariant.Error)"
+               Title="@(_isSuccess ? "Success" : "Error")"
+               Message="@_statusMessage" />
     </div>
 }
 
@@ -104,9 +85,7 @@ else
             <div class="flex-1">
                 <div class="flex items-center gap-2">
                     <h2 class="text-lg font-semibold text-text-primary">@(_discordUsername ?? "Discord User")</h2>
-                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
-                        Linked
-                    </span>
+                    <Badge Text="Linked" Variant="BadgeVariant.Success" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                 </div>
                 @if (_discordUserId.HasValue)
                 {
@@ -157,9 +136,7 @@ else
                             <div class="mt-3 flex items-center gap-2">
                                 @if (consent.IsGranted)
                                 {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-success-bg text-success border border-success-border">
-                                        Enabled
-                                    </span>
+                                    <Badge Text="Enabled" Variant="BadgeVariant.Success" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                     @if (consent.GrantedAt.HasValue)
                                     {
                                         <span class="text-xs text-text-tertiary">Since <span data-utc="@consent.GrantedAtUtcIso" data-format="date">...</span></span>
@@ -167,9 +144,7 @@ else
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary">
-                                        Disabled
-                                    </span>
+                                    <Badge Text="Disabled" Variant="BadgeVariant.Default" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                     <span class="text-xs text-text-tertiary">Never enabled</span>
                                 }
                             </div>
@@ -298,9 +273,10 @@ else
                                 <div>
                                     <div class="flex items-center gap-2 mb-1">
                                         <span class="text-sm font-semibold text-text-primary">@entry.TypeDisplayName</span>
-                                        <span class="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium @(isGranted ? "bg-success-bg text-success" : "bg-error-bg text-error")">
-                                            @entry.Action
-                                        </span>
+                                        <Badge Text="@entry.Action"
+                                               Variant="@(isGranted ? BadgeVariant.Success : BadgeVariant.Error)"
+                                               Style="BadgeStyle.Subtle"
+                                               Size="BadgeSize.Small" />
                                     </div>
                                     <p class="text-xs text-text-tertiary" data-utc="@entry.TimestampUtcIso" data-format="datetime-short"></p>
                                     <p class="text-sm text-text-secondary mt-1">Consent @entry.Action.ToLower() via @entry.Source</p>
@@ -383,70 +359,6 @@ else
 }
 
 <style>
-    /* Toggle Switch Component */
-    .form-toggle {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-    }
-
-    .form-toggle-input {
-        position: absolute;
-        opacity: 0;
-        width: 0;
-        height: 0;
-    }
-
-    .form-toggle-track {
-        position: relative;
-        display: inline-block;
-        width: 2.75rem;
-        height: 1.5rem;
-        background-color: #3f4447;
-        border-radius: 9999px;
-        flex-shrink: 0;
-        transition: background-color 0.2s ease-in-out;
-    }
-
-    .form-toggle-thumb {
-        position: absolute;
-        top: 0.125rem;
-        left: 0.125rem;
-        width: 1.25rem;
-        height: 1.25rem;
-        background-color: #d7d3d0;
-        border-radius: 50%;
-        transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
-    }
-
-    .form-toggle:hover .form-toggle-track {
-        background-color: #4a4f52;
-    }
-
-    .form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
-        background-color: #e5591f;
-    }
-
-    .form-toggle-input:focus-visible + .form-toggle-track {
-        outline: 2px solid #098ecf;
-        outline-offset: 2px;
-    }
-
-    .form-toggle-input:checked + .form-toggle-track {
-        background-color: #cb4e1b;
-    }
-
-    .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
-        transform: translateX(1.25rem);
-        background-color: white;
-    }
-
-    .form-toggle-input:disabled + .form-toggle-track {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }
-
-    /* Timeline styles */
     .timeline-item::before {
         content: '';
         position: absolute;
@@ -454,7 +366,7 @@ else
         top: 2.25rem;
         bottom: -0.5rem;
         width: 2px;
-        background-color: #3f4447;
+        background-color: var(--color-border-primary);
     }
 
     .timeline-item:last-child::before {

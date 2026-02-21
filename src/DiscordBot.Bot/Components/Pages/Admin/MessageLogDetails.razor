@@ -38,15 +38,11 @@ else
                     <h1 class="text-xl font-bold text-text-primary">Message Details</h1>
                     @if (isDM)
                     {
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
-                            DM
-                        </span>
+                        <Badge Text="DM" Variant="BadgeVariant.Blue" />
                     }
                     else
                     {
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
-                            Server
-                        </span>
+                        <Badge Text="Server" Variant="BadgeVariant.Success" />
                     }
                 </div>
             </div>
@@ -194,11 +190,11 @@ else
                                 <span class="text-sm text-text-secondary">Has Attachments</span>
                                 @if (msg.HasAttachments)
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Yes</span>
+                                    <Badge Text="Yes" Variant="BadgeVariant.Success" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">No</span>
+                                    <Badge Text="No" Variant="BadgeVariant.Error" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                 }
                             </div>
                             <!-- Has Embeds -->
@@ -206,11 +202,11 @@ else
                                 <span class="text-sm text-text-secondary">Has Embeds</span>
                                 @if (msg.HasEmbeds)
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Yes</span>
+                                    <Badge Text="Yes" Variant="BadgeVariant.Success" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">No</span>
+                                    <Badge Text="No" Variant="BadgeVariant.Error" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                 }
                             </div>
                             <!-- Is Reply -->
@@ -218,11 +214,11 @@ else
                                 <span class="text-sm text-text-secondary">Is Reply</span>
                                 @if (msg.ReplyToMessageId.HasValue)
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">Yes</span>
+                                    <Badge Text="Yes" Variant="BadgeVariant.Success" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                 }
                                 else
                                 {
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">No</span>
+                                    <Badge Text="No" Variant="BadgeVariant.Error" Style="BadgeStyle.Subtle" Size="BadgeSize.Small" />
                                 }
                             </div>
                             <!-- Reply To -->
