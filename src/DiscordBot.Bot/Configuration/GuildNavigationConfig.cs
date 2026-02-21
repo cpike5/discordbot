@@ -50,8 +50,8 @@ public static class GuildNavigationConfig
             {
                 Id = "messages",
                 Label = "Messages",
-                PageName = "/Guilds/ScheduledMessages",
-                UrlPattern = "/Guilds/ScheduledMessages/{guildId}",
+                PageName = "/guilds/{guildId}/scheduled-messages",
+                UrlPattern = "/guilds/{guildId}/scheduled-messages",
                 Order = 4,
                 IconOutline = "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z",
                 IconSolid = "M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5zm15 0a2 2 0 012 2v4a2 2 0 01-2 2h-1v3l-3-3h-2a2 2 0 01-2-2V7a2 2 0 012-2h6z"
@@ -80,8 +80,8 @@ public static class GuildNavigationConfig
             {
                 Id = "reminders",
                 Label = "Reminders",
-                PageName = "/Guilds/Reminders",
-                UrlPattern = "/Guilds/Reminders/{guildId}",
+                PageName = "/guilds/{guildId}/reminders",
+                UrlPattern = "/guilds/{guildId}/reminders",
                 Order = 7,
                 IconOutline = "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9",
                 IconSolid = "M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"
