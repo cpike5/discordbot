@@ -1,0 +1,411 @@
+@page "/Guilds/Welcome/{GuildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@using DiscordBot.Bot.Components.Interop
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Discord.WebSocket
+@inject IGuildService GuildService
+@inject IWelcomeService WelcomeService
+@inject DiscordSocketClient DiscordClient
+@inject ToastInterop Toast
+@inject ILogger<GuildWelcome> Logger
+
+<PageTitle>Welcome Configuration - Discord Bot Admin</PageTitle>
+
+@if (_guild is null && !_notFound)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else if (_notFound)
+{
+    <div class="flex flex-col items-center justify-center py-12 space-y-4">
+        <div class="text-text-secondary text-lg">Guild not found</div>
+        <a href="/Guilds" class="text-accent-blue hover:text-accent-blue-hover transition-colors text-sm">Back to Guilds</a>
+    </div>
+}
+else
+{
+    <!-- Breadcrumb -->
+    <GuildBreadcrumb Items="@_breadcrumbItems" />
+
+    <!-- Guild Header -->
+    <GuildHeader GuildId="(ulong)GuildId"
+                 GuildName="@_guild.Name"
+                 GuildIconUrl="@_guild.IconUrl"
+                 PageTitle="Welcome Configuration"
+                 PageDescription="Configure the welcome message sent when new members join" />
+
+    <!-- Error Alert -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Title="Error" Message="@_errorMessage" IsDismissible="true" />
+        </div>
+    }
+
+    <!-- Enable Toggle Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <FormToggle Id="welcome-enabled"
+                    Name="IsEnabled"
+                    Label="Enable Welcome Messages"
+                    Description="Send a welcome message when a new member joins"
+                    IsChecked="_isEnabled"
+                    IsCheckedChanged="OnEnabledChanged" />
+    </div>
+
+    <!-- Configuration Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="relative">
+            @if (!_isEnabled)
+            {
+                <div class="absolute inset-0 bg-bg-secondary/60 z-10 rounded-lg"></div>
+            }
+
+            <div class="p-6 space-y-6">
+                <!-- Welcome Channel -->
+                <FormSelect Id="welcome-channel"
+                            Name="WelcomeChannelId"
+                            Label="Welcome Channel"
+                            Placeholder="Select a channel..."
+                            SelectedValue="@_selectedChannelId"
+                            SelectedValueChanged="OnChannelChanged"
+                            Options="@_channelOptions"
+                            IsRequired="true"
+                            IsDisabled="!_isEnabled"
+                            ValidationState="@_channelValidationState"
+                            ValidationMessage="@_channelValidationMessage" />
+
+                <!-- Welcome Message -->
+                <div class="space-y-1.5">
+                    <label for="welcome-message" class="block text-sm font-medium text-text-primary">
+                        Welcome Message
+                        <span class="text-error">*</span>
+                    </label>
+                    <textarea id="welcome-message"
+                              name="WelcomeMessage"
+                              class="w-full py-2.5 px-3.5 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px] focus:border-accent-blue focus:ring-accent-blue/15 min-h-[120px] resize-y"
+                              maxlength="2000"
+                              disabled="@(!_isEnabled)"
+                              placeholder="Welcome to {server}, {user}!"
+                              @bind="_welcomeMessage"
+                              @bind:event="oninput"></textarea>
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs text-text-tertiary">Supports message tokens (see below)</span>
+                        <span class="text-xs text-text-tertiary">@((_welcomeMessage ?? "").Length) / 2,000</span>
+                    </div>
+                </div>
+
+                <!-- Token Help (Collapsible) -->
+                <details class="group">
+                    <summary class="flex items-center gap-2 cursor-pointer text-sm font-medium text-text-secondary hover:text-text-primary transition-colors select-none">
+                        <svg class="w-4 h-4 transition-transform group-open:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                        Available Tokens
+                    </summary>
+                    <div class="mt-3 bg-bg-primary border border-border-primary rounded-lg p-4 space-y-3">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm">
+                            <div class="flex items-center justify-between gap-2 px-3 py-2 bg-bg-secondary rounded">
+                                <div>
+                                    <code class="text-accent-blue font-mono text-xs">{user}</code>
+                                    <span class="text-text-secondary ml-2">@@NewMember (mention)</span>
+                                </div>
+                                <Button Text="Insert" Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="@(() => InsertToken("{user}"))" IsDisabled="!_isEnabled" />
+                            </div>
+                            <div class="flex items-center justify-between gap-2 px-3 py-2 bg-bg-secondary rounded">
+                                <div>
+                                    <code class="text-accent-blue font-mono text-xs">{username}</code>
+                                    <span class="text-text-secondary ml-2">NewMember</span>
+                                </div>
+                                <Button Text="Insert" Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="@(() => InsertToken("{username}"))" IsDisabled="!_isEnabled" />
+                            </div>
+                            <div class="flex items-center justify-between gap-2 px-3 py-2 bg-bg-secondary rounded">
+                                <div>
+                                    <code class="text-accent-blue font-mono text-xs">{server}</code>
+                                    <span class="text-text-secondary ml-2">Server name</span>
+                                </div>
+                                <Button Text="Insert" Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="@(() => InsertToken("{server}"))" IsDisabled="!_isEnabled" />
+                            </div>
+                            <div class="flex items-center justify-between gap-2 px-3 py-2 bg-bg-secondary rounded">
+                                <div>
+                                    <code class="text-accent-blue font-mono text-xs">{memberCount}</code>
+                                    <span class="text-text-secondary ml-2">1,234</span>
+                                </div>
+                                <Button Text="Insert" Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" OnClick="@(() => InsertToken("{memberCount}"))" IsDisabled="!_isEnabled" />
+                            </div>
+                        </div>
+                    </div>
+                </details>
+
+                <!-- Include Avatar Toggle -->
+                <FormToggle Id="include-avatar"
+                            Name="IncludeAvatar"
+                            Label="Include Avatar"
+                            Description="Show the new member's avatar in the welcome message"
+                            IsChecked="_includeAvatar"
+                            IsCheckedChanged="OnIncludeAvatarChanged"
+                            IsDisabled="!_isEnabled" />
+
+                <!-- Use Embed Toggle -->
+                <FormToggle Id="use-embed"
+                            Name="UseEmbed"
+                            Label="Use Embed"
+                            Description="Send the welcome message as a rich embed instead of plain text"
+                            IsChecked="_useEmbed"
+                            IsCheckedChanged="OnUseEmbedChanged"
+                            IsDisabled="!_isEnabled" />
+
+                <!-- Embed Color (shown when UseEmbed is true) -->
+                @if (_useEmbed)
+                {
+                    <div class="space-y-1.5">
+                        <label for="embed-color" class="block text-sm font-medium text-text-primary">
+                            Embed Color
+                        </label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   id="embed-color-picker"
+                                   class="w-10 h-10 rounded cursor-pointer border border-border-primary"
+                                   value="@_embedColor"
+                                   disabled="@(!_isEnabled)"
+                                   @onchange="OnColorPickerChanged" />
+                            <input type="text"
+                                   id="embed-color"
+                                   class="w-32 py-2.5 px-3.5 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md font-mono placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px] focus:border-accent-blue focus:ring-accent-blue/15"
+                                   maxlength="7"
+                                   placeholder="#5865F2"
+                                   value="@_embedColor"
+                                   disabled="@(!_isEnabled)"
+                                   @onchange="OnColorTextChanged" />
+                        </div>
+                        @if (!string.IsNullOrEmpty(_colorValidationMessage))
+                        {
+                            <p class="text-xs text-error">@_colorValidationMessage</p>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer: Save Button -->
+    <div class="flex justify-end">
+        <Button Text="Save Configuration"
+                Variant="ButtonVariant.Primary"
+                IsLoading="_isSaving"
+                LoadingText="Saving..."
+                OnClick="SaveAsync"
+                IconLeft="M5 13l4 4L19 7" />
+    </div>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private GuildDto? _guild;
+    private List<BreadcrumbItem>? _breadcrumbItems;
+
+    // Form state
+    private bool _isEnabled;
+    private string? _selectedChannelId;
+    private string? _welcomeMessage;
+    private bool _includeAvatar;
+    private bool _useEmbed;
+    private string _embedColor = "#5865F2";
+
+    // Channel options
+    private List<SelectOption> _channelOptions = new();
+
+    // Validation
+    private ValidationState _channelValidationState = ValidationState.None;
+    private string? _channelValidationMessage;
+    private string? _colorValidationMessage;
+    private string? _errorMessage;
+
+    // UI state
+    private bool _isSaving;
+    private bool _notFound;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guildId = (ulong)GuildId;
+
+        Logger.LogInformation("User accessing welcome configuration for guild {GuildId}", guildId);
+
+        var guildDto = await GuildService.GetGuildByIdAsync(guildId);
+        if (guildDto is null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", guildId);
+            _notFound = true;
+            return;
+        }
+
+        _guild = guildDto;
+
+        // Load welcome configuration (or use defaults)
+        var config = await WelcomeService.GetConfigurationAsync(guildId);
+        if (config is not null)
+        {
+            _isEnabled = config.IsEnabled;
+            _selectedChannelId = config.WelcomeChannelId?.ToString();
+            _welcomeMessage = config.WelcomeMessage;
+            _includeAvatar = config.IncludeAvatar;
+            _useEmbed = config.UseEmbed;
+            _embedColor = config.EmbedColor ?? "#5865F2";
+        }
+        else
+        {
+            // Defaults when no configuration exists
+            _isEnabled = false;
+            _welcomeMessage = "Welcome to {server}, {user}! You are member #{memberCount}.";
+            _includeAvatar = true;
+            _useEmbed = true;
+            _embedColor = "#5865F2";
+        }
+
+        // Load text channels from Discord
+        var socketGuild = DiscordClient.GetGuild(guildId);
+        if (socketGuild is not null)
+        {
+            _channelOptions = socketGuild.TextChannels
+                .OrderBy(c => c.Position)
+                .Select(c => new SelectOption
+                {
+                    Value = c.Id.ToString(),
+                    Text = $"# {c.Name}"
+                })
+                .ToList();
+        }
+
+        _breadcrumbItems = new List<BreadcrumbItem>
+        {
+            new() { Label = "Home", Url = "/" },
+            new() { Label = "Servers", Url = "/Guilds" },
+            new() { Label = guildDto.Name, Url = $"/Guilds/Details/{GuildId}" },
+            new() { Label = "Welcome", IsCurrent = true }
+        };
+    }
+
+    private void OnEnabledChanged(bool value)
+    {
+        _isEnabled = value;
+        ClearValidation();
+    }
+
+    private void OnChannelChanged(string? value)
+    {
+        _selectedChannelId = value;
+        ClearValidation();
+    }
+
+    private void OnIncludeAvatarChanged(bool value)
+    {
+        _includeAvatar = value;
+    }
+
+    private void OnUseEmbedChanged(bool value)
+    {
+        _useEmbed = value;
+    }
+
+    private void OnColorPickerChanged(ChangeEventArgs e)
+    {
+        _embedColor = e.Value?.ToString() ?? "#5865F2";
+        _colorValidationMessage = null;
+    }
+
+    private void OnColorTextChanged(ChangeEventArgs e)
+    {
+        _embedColor = e.Value?.ToString() ?? "#5865F2";
+        _colorValidationMessage = null;
+    }
+
+    private void InsertToken(string token)
+    {
+        _welcomeMessage = (_welcomeMessage ?? "") + token;
+    }
+
+    private void ClearValidation()
+    {
+        _channelValidationState = ValidationState.None;
+        _channelValidationMessage = null;
+        _colorValidationMessage = null;
+        _errorMessage = null;
+    }
+
+    private bool Validate()
+    {
+        ClearValidation();
+        var isValid = true;
+
+        if (_isEnabled && string.IsNullOrEmpty(_selectedChannelId))
+        {
+            _channelValidationState = ValidationState.Error;
+            _channelValidationMessage = "A welcome channel is required when welcome messages are enabled.";
+            isValid = false;
+        }
+
+        if (_useEmbed && !string.IsNullOrEmpty(_embedColor))
+        {
+            if (!System.Text.RegularExpressions.Regex.IsMatch(_embedColor, @"^#[0-9A-Fa-f]{6}$"))
+            {
+                _colorValidationMessage = "Embed color must be a valid hex color (e.g., #5865F2).";
+                isValid = false;
+            }
+        }
+
+        return isValid;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving) return;
+        if (!Validate())
+            return;
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            var updateDto = new WelcomeConfigurationUpdateDto
+            {
+                IsEnabled = _isEnabled,
+                WelcomeChannelId = !string.IsNullOrEmpty(_selectedChannelId) ? ulong.Parse(_selectedChannelId) : null,
+                WelcomeMessage = _welcomeMessage,
+                IncludeAvatar = _includeAvatar,
+                UseEmbed = _useEmbed,
+                EmbedColor = _useEmbed ? _embedColor : null
+            };
+
+            var result = await WelcomeService.UpdateConfigurationAsync(guildId, updateDto);
+
+            if (result is not null)
+            {
+                Logger.LogInformation("Welcome configuration updated for guild {GuildId}", guildId);
+                await Toast.ShowAsync("success", "Welcome configuration saved successfully.");
+            }
+            else
+            {
+                Logger.LogWarning("Failed to update welcome configuration for guild {GuildId}", guildId);
+                _errorMessage = "Failed to save welcome configuration. Please try again.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving welcome configuration for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "An unexpected error occurred while saving. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

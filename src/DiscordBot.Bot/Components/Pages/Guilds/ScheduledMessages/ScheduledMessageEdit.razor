@@ -1,0 +1,612 @@
+@page "/Guilds/ScheduledMessages/Edit/{GuildId:long}/{MessageId:guid}"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@using Discord.WebSocket
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Bot.ViewModels.Pages
+@using System.Security.Claims
+@inject IScheduledMessageService ScheduledMessageService
+@inject IGuildService GuildService
+@inject DiscordSocketClient DiscordClient
+@inject ILogger<ScheduledMessageEdit> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ToastInterop Toast
+
+<PageTitle>Edit Scheduled Message - Discord Bot Admin</PageTitle>
+
+@if (_message is null)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else
+{
+    <!-- Breadcrumb -->
+    <GuildBreadcrumb Items="@_breadcrumbItems" />
+
+    <!-- Back Link -->
+    <div class="mb-6">
+        <a href="/Guilds/ScheduledMessages/@GuildId" class="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent-blue transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Back to Scheduled Messages
+        </a>
+    </div>
+
+    <!-- Page Header -->
+    <div class="mb-8 flex items-start justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-text-primary">Edit Scheduled Message</h1>
+            <p class="mt-1 text-sm text-text-secondary">Edit scheduled message for @_guildName</p>
+        </div>
+        <div class="flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold @GetStatusBadgeClass()">
+                <span class="w-1.5 h-1.5 rounded-full @GetStatusDotClass()"></span>
+                @GetStatusDisplay()
+            </span>
+        </div>
+    </div>
+
+    <!-- Error Alert -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" />
+        </div>
+    }
+
+    <!-- Message Content Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Message Content</h2>
+        </div>
+        <div class="p-6 space-y-6">
+            <!-- Title -->
+            <FormInput Id="title"
+                       Name="title"
+                       Label="Title"
+                       Placeholder="Enter a title for this scheduled message"
+                       Value="@_title"
+                       ValueChanged="@((v) => _title = v)"
+                       IsRequired="true"
+                       MaxLength="200"
+                       ShowCharacterCount="true"
+                       ValidationState="@GetValidationState(nameof(_title))"
+                       ValidationMessage="@GetValidationMessage(nameof(_title))" />
+
+            <!-- Content (textarea) -->
+            <div class="space-y-1.5">
+                <label for="content" class="block text-sm font-medium text-text-primary">
+                    Message Content
+                    <span class="text-error">*</span>
+                </label>
+                <textarea id="content"
+                          name="content"
+                          rows="6"
+                          maxlength="2000"
+                          placeholder="Enter the message content to send (supports Discord markdown)"
+                          class="w-full py-2.5 px-3.5 text-sm text-text-primary bg-bg-primary border @(_validationErrors.ContainsKey(nameof(_content)) ? "border-error focus:border-error focus:ring-error/15" : "border-border-primary focus:border-accent-blue focus:ring-accent-blue/15") rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px]"
+                          @bind="_content"
+                          @bind:event="oninput"></textarea>
+                @if (_validationErrors.ContainsKey(nameof(_content)))
+                {
+                    <p class="flex items-center gap-1.5 text-xs text-error" role="alert">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        @_validationErrors[nameof(_content)]
+                    </p>
+                }
+                <div class="flex justify-end">
+                    <span class="text-xs text-text-tertiary">
+                        @(_content?.Length ?? 0)/2000
+                    </span>
+                </div>
+            </div>
+
+            <!-- Target Channel -->
+            <FormSelect Id="channelId"
+                        Name="channelId"
+                        Label="Target Channel"
+                        Placeholder="Select a channel..."
+                        SelectedValue="@_selectedChannelId"
+                        SelectedValueChanged="@((v) => _selectedChannelId = v)"
+                        Options="@_channelOptions"
+                        IsRequired="true"
+                        ValidationState="@GetValidationState(nameof(_selectedChannelId))"
+                        ValidationMessage="@GetValidationMessage(nameof(_selectedChannelId))" />
+        </div>
+    </div>
+
+    <!-- Schedule Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Schedule</h2>
+        </div>
+        <div class="p-6 space-y-6">
+            <!-- Frequency -->
+            <FormSelect Id="frequency"
+                        Name="frequency"
+                        Label="Frequency"
+                        SelectedValue="@(((int)_frequency).ToString())"
+                        SelectedValueChanged="@OnFrequencyChanged"
+                        Options="@_frequencyOptions"
+                        IsRequired="true" />
+
+            <!-- Next Execution -->
+            <FormInput Id="nextExecution"
+                       Name="nextExecution"
+                       Label="Next Execution (UTC)"
+                       Type="datetime-local"
+                       Value="@_nextExecutionLocal"
+                       ValueChanged="@((v) => _nextExecutionLocal = v)"
+                       IsRequired="true"
+                       HelpText="Date and time in UTC when the message should next be sent"
+                       ValidationState="@GetValidationState(nameof(_nextExecutionLocal))"
+                       ValidationMessage="@GetValidationMessage(nameof(_nextExecutionLocal))" />
+
+            <!-- Cron Expression (Custom frequency only) -->
+            @if (_frequency == ScheduleFrequency.Custom)
+            {
+                <FormInput Id="cronExpression"
+                           Name="cronExpression"
+                           Label="Cron Expression"
+                           Placeholder="e.g., 0 9 * * 1 (every Monday at 9 AM)"
+                           Value="@_cronExpression"
+                           ValueChanged="@((v) => _cronExpression = v)"
+                           IsRequired="true"
+                           MaxLength="100"
+                           HelpText="Standard cron expression (minute hour day-of-month month day-of-week)"
+                           ValidationState="@GetValidationState(nameof(_cronExpression))"
+                           ValidationMessage="@GetValidationMessage(nameof(_cronExpression))" />
+            }
+        </div>
+    </div>
+
+    <!-- Status Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Status</h2>
+        </div>
+        <div class="p-6">
+            <FormToggle Id="isEnabled"
+                        Name="isEnabled"
+                        Label="Enabled"
+                        Description="When enabled, the message will be sent on schedule. Disable to pause execution."
+                        IsChecked="@_isEnabled"
+                        IsCheckedChanged="@((v) => _isEnabled = v)" />
+        </div>
+    </div>
+
+    <!-- Metadata Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Details</h2>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div>
+                    <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Created</span>
+                    <p class="mt-1 text-sm text-text-primary" data-utc="@_createdAtUtcIso" data-format="datetime-seconds"></p>
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Last Updated</span>
+                    <p class="mt-1 text-sm text-text-primary" data-utc="@_updatedAtUtcIso" data-format="datetime-seconds"></p>
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Last Executed</span>
+                    @if (_lastExecutedAtUtcIso is not null)
+                    {
+                        <p class="mt-1 text-sm text-text-primary" data-utc="@_lastExecutedAtUtcIso" data-format="datetime-seconds"></p>
+                    }
+                    else
+                    {
+                        <p class="mt-1 text-sm text-text-tertiary">Never</p>
+                    }
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Created By</span>
+                    <p class="mt-1 text-sm text-text-primary">@_message.CreatedBy</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex items-center justify-between">
+        <Button Text="Delete Message"
+                Variant="ButtonVariant.Danger"
+                OnClick="@ShowDeleteConfirmation"
+                IsLoading="@_isDeleting"
+                LoadingText="Deleting..."
+                IconLeft="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+
+        <div class="flex items-center gap-3">
+            <a href="/Guilds/ScheduledMessages/@GuildId"
+               class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                Cancel
+            </a>
+            <Button Text="Save Changes"
+                    Variant="ButtonVariant.Primary"
+                    OnClick="@HandleSave"
+                    IsLoading="@_isSaving"
+                    LoadingText="Saving..." />
+        </div>
+    </div>
+
+    <!-- Delete Confirmation Modal -->
+    <ConfirmationModal Id="deleteMessageModal"
+                       Title="Delete Scheduled Message"
+                       Message="@($"Are you sure you want to delete \"{_message.Title}\"? This action cannot be undone.")"
+                       ConfirmText="Delete"
+                       CancelText="Cancel"
+                       Variant="ConfirmationVariant.Danger"
+                       IsVisible="@_showDeleteConfirmation"
+                       IsVisibleChanged="@((v) => _showDeleteConfirmation = v)"
+                       OnConfirm="@HandleDelete" />
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+    [Parameter] public Guid MessageId { get; set; }
+
+    private ScheduledMessageDto? _message;
+    private string? _guildName;
+    private List<BreadcrumbItem>? _breadcrumbItems;
+    private List<SelectOption> _channelOptions = new();
+    private List<SelectOption> _frequencyOptions = new();
+
+    // Form fields
+    private string? _title;
+    private string? _content;
+    private string? _selectedChannelId;
+    private ScheduleFrequency _frequency = ScheduleFrequency.Daily;
+    private string? _nextExecutionLocal;
+    private string? _cronExpression;
+    private bool _isEnabled = true;
+
+    // Metadata
+    private string? _createdAtUtcIso;
+    private string? _updatedAtUtcIso;
+    private string? _lastExecutedAtUtcIso;
+
+    // State
+    private bool _isSaving;
+    private bool _isDeleting;
+    private bool _showDeleteConfirmation;
+    private string? _errorMessage;
+    private Dictionary<string, string> _validationErrors = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guildId = (ulong)GuildId;
+        Logger.LogInformation("User accessing scheduled message edit page for message {MessageId} in guild {GuildId}", MessageId, guildId);
+
+        // Load the message
+        var message = await ScheduledMessageService.GetByIdAsync(MessageId);
+        if (message == null)
+        {
+            Logger.LogWarning("Scheduled message {MessageId} not found", MessageId);
+            return;
+        }
+
+        // Verify message belongs to this guild
+        if (message.GuildId != guildId)
+        {
+            Logger.LogWarning("Scheduled message {MessageId} does not belong to guild {GuildId}", MessageId, guildId);
+            return;
+        }
+
+        _message = message;
+
+        // Load guild info
+        var guild = await GuildService.GetGuildByIdAsync(guildId);
+        if (guild == null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", guildId);
+            return;
+        }
+
+        _guildName = guild.Name;
+
+        // Load channels from Discord
+        LoadChannelOptions(guildId);
+
+        // Build frequency options
+        _frequencyOptions = new List<SelectOption>
+        {
+            new() { Value = ((int)ScheduleFrequency.Once).ToString(), Text = "Once" },
+            new() { Value = ((int)ScheduleFrequency.Hourly).ToString(), Text = "Hourly" },
+            new() { Value = ((int)ScheduleFrequency.Daily).ToString(), Text = "Daily" },
+            new() { Value = ((int)ScheduleFrequency.Weekly).ToString(), Text = "Weekly" },
+            new() { Value = ((int)ScheduleFrequency.Monthly).ToString(), Text = "Monthly" },
+            new() { Value = ((int)ScheduleFrequency.Custom).ToString(), Text = "Custom (Cron)" }
+        };
+
+        // Populate form fields from existing message
+        _title = message.Title;
+        _content = message.Content;
+        _selectedChannelId = message.ChannelId.ToString();
+        _frequency = message.Frequency;
+        _cronExpression = message.CronExpression;
+        _isEnabled = message.IsEnabled;
+
+        // Format next execution for datetime-local input (yyyy-MM-ddTHH:mm)
+        if (message.NextExecutionAt.HasValue)
+        {
+            var utcTime = DateTime.SpecifyKind(message.NextExecutionAt.Value, DateTimeKind.Utc);
+            _nextExecutionLocal = utcTime.ToString("yyyy-MM-ddTHH:mm");
+        }
+
+        // Metadata for display
+        _createdAtUtcIso = DateTime.SpecifyKind(message.CreatedAt, DateTimeKind.Utc).ToString("o");
+        _updatedAtUtcIso = DateTime.SpecifyKind(message.UpdatedAt, DateTimeKind.Utc).ToString("o");
+        _lastExecutedAtUtcIso = message.LastExecutedAt.HasValue
+            ? DateTime.SpecifyKind(message.LastExecutedAt.Value, DateTimeKind.Utc).ToString("o")
+            : null;
+
+        _breadcrumbItems = new List<BreadcrumbItem>
+        {
+            new() { Label = "Home", Url = "/" },
+            new() { Label = "Servers", Url = "/Guilds" },
+            new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildId}" },
+            new() { Label = "Messages", Url = $"/Guilds/ScheduledMessages/{GuildId}" },
+            new() { Label = "Edit", IsCurrent = true }
+        };
+    }
+
+    private void LoadChannelOptions(ulong guildId)
+    {
+        var discordGuild = DiscordClient.GetGuild(guildId);
+        if (discordGuild == null)
+        {
+            Logger.LogWarning("Could not fetch Discord guild {GuildId} from client", guildId);
+            return;
+        }
+
+        var channels = new List<(ulong Id, string Name, int Position, string Prefix)>();
+
+        foreach (var channel in discordGuild.TextChannels.Where(c => c != null))
+        {
+            var prefix = channel is SocketNewsChannel ? "\ud83d\udce2 " : "# ";
+            channels.Add((channel.Id, channel.Name, channel.Position, prefix));
+        }
+
+        foreach (var channel in discordGuild.VoiceChannels.Where(c => c != null))
+        {
+            channels.Add((channel.Id, channel.Name, channel.Position, "\ud83d\udd0a "));
+        }
+
+        foreach (var channel in discordGuild.StageChannels.Where(c => c != null))
+        {
+            channels.Add((channel.Id, channel.Name, channel.Position, "\ud83c\udfa4 "));
+        }
+
+        _channelOptions = channels
+            .OrderBy(c => c.Position)
+            .Select(c => new SelectOption
+            {
+                Value = c.Id.ToString(),
+                Text = $"{c.Prefix}{c.Name}"
+            })
+            .ToList();
+
+        Logger.LogDebug("Retrieved {ChannelCount} text-capable channels for guild {GuildId}",
+            _channelOptions.Count, guildId);
+    }
+
+    private void OnFrequencyChanged(string? value)
+    {
+        if (int.TryParse(value, out var intVal) && Enum.IsDefined(typeof(ScheduleFrequency), intVal))
+        {
+            _frequency = (ScheduleFrequency)intVal;
+        }
+
+        if (_frequency != ScheduleFrequency.Custom)
+        {
+            _cronExpression = null;
+            _validationErrors.Remove(nameof(_cronExpression));
+        }
+    }
+
+    private bool Validate()
+    {
+        _validationErrors.Clear();
+
+        if (string.IsNullOrWhiteSpace(_title))
+        {
+            _validationErrors[nameof(_title)] = "Title is required.";
+        }
+        else if (_title.Length > 200)
+        {
+            _validationErrors[nameof(_title)] = "Title cannot exceed 200 characters.";
+        }
+
+        if (string.IsNullOrWhiteSpace(_content))
+        {
+            _validationErrors[nameof(_content)] = "Message content is required.";
+        }
+        else if (_content.Length > 2000)
+        {
+            _validationErrors[nameof(_content)] = "Message content cannot exceed 2000 characters (Discord limit).";
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedChannelId))
+        {
+            _validationErrors[nameof(_selectedChannelId)] = "A channel must be selected.";
+        }
+
+        if (string.IsNullOrWhiteSpace(_nextExecutionLocal))
+        {
+            _validationErrors[nameof(_nextExecutionLocal)] = "Next execution time is required.";
+        }
+
+        if (_frequency == ScheduleFrequency.Custom && string.IsNullOrWhiteSpace(_cronExpression))
+        {
+            _validationErrors[nameof(_cronExpression)] = "Cron expression is required for custom schedules.";
+        }
+
+        return _validationErrors.Count == 0;
+    }
+
+    private async Task HandleSave()
+    {
+        _errorMessage = null;
+
+        if (!Validate())
+        {
+            return;
+        }
+
+        _isSaving = true;
+
+        try
+        {
+            // Validate cron expression for custom frequency
+            if (_frequency == ScheduleFrequency.Custom && !string.IsNullOrWhiteSpace(_cronExpression))
+            {
+                var (isValid, errorMessage) = await ScheduledMessageService.ValidateCronExpressionAsync(_cronExpression);
+                if (!isValid)
+                {
+                    _validationErrors[nameof(_cronExpression)] = errorMessage ?? "Invalid cron expression.";
+                    return;
+                }
+            }
+
+            // Parse the datetime-local value (treat as UTC)
+            if (!DateTime.TryParse(_nextExecutionLocal, out var nextExecution))
+            {
+                _validationErrors[nameof(_nextExecutionLocal)] = "Invalid date/time format.";
+                return;
+            }
+
+            var nextExecutionUtc = DateTime.SpecifyKind(nextExecution, DateTimeKind.Utc);
+
+            // Parse channel ID
+            if (!ulong.TryParse(_selectedChannelId, out var channelId))
+            {
+                _validationErrors[nameof(_selectedChannelId)] = "Invalid channel selection.";
+                return;
+            }
+
+            var updateDto = new ScheduledMessageUpdateDto
+            {
+                ChannelId = channelId,
+                Title = _title!.Trim(),
+                Content = _content!.Trim(),
+                Frequency = _frequency,
+                CronExpression = _frequency == ScheduleFrequency.Custom ? _cronExpression : null,
+                IsEnabled = _isEnabled,
+                NextExecutionAt = nextExecutionUtc
+            };
+
+            var result = await ScheduledMessageService.UpdateAsync(MessageId, updateDto);
+
+            if (result == null)
+            {
+                Logger.LogWarning("Scheduled message {MessageId} not found during update", MessageId);
+                _errorMessage = "Scheduled message not found. It may have been deleted.";
+                return;
+            }
+
+            Logger.LogInformation("Successfully updated scheduled message {MessageId} for guild {GuildId}",
+                MessageId, GuildId);
+
+            await Toast.ShowAsync("success", "Scheduled message updated successfully.");
+            NavigationManager.NavigateTo($"/Guilds/ScheduledMessages/{GuildId}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update scheduled message {MessageId} for guild {GuildId}", MessageId, GuildId);
+            _errorMessage = "An error occurred while updating the scheduled message. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private void ShowDeleteConfirmation()
+    {
+        _showDeleteConfirmation = true;
+    }
+
+    private async Task HandleDelete()
+    {
+        _errorMessage = null;
+        _isDeleting = true;
+
+        try
+        {
+            var deleted = await ScheduledMessageService.DeleteAsync(MessageId);
+
+            if (!deleted)
+            {
+                Logger.LogWarning("Failed to delete scheduled message {MessageId}", MessageId);
+                _errorMessage = "Failed to delete the scheduled message.";
+                return;
+            }
+
+            Logger.LogInformation("Successfully deleted scheduled message {MessageId} for guild {GuildId}",
+                MessageId, GuildId);
+
+            await Toast.ShowAsync("success", "Scheduled message deleted successfully.");
+            NavigationManager.NavigateTo($"/Guilds/ScheduledMessages/{GuildId}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to delete scheduled message {MessageId} for guild {GuildId}", MessageId, GuildId);
+            _errorMessage = "An error occurred while deleting the scheduled message. Please try again.";
+        }
+        finally
+        {
+            _isDeleting = false;
+        }
+    }
+
+    private string GetStatusDisplay()
+    {
+        if (!_isEnabled) return "Paused";
+        if (_frequency == ScheduleFrequency.Once && _message?.LastExecutedAt.HasValue == true) return "Expired";
+        return "Active";
+    }
+
+    private string GetStatusBadgeClass()
+    {
+        return GetStatusDisplay() switch
+        {
+            "Active" => "bg-success/20 text-success",
+            "Paused" => "bg-warning/20 text-warning",
+            "Expired" => "bg-bg-tertiary text-text-tertiary",
+            _ => "bg-bg-tertiary text-text-tertiary"
+        };
+    }
+
+    private string GetStatusDotClass()
+    {
+        return GetStatusDisplay() switch
+        {
+            "Active" => "bg-success",
+            "Paused" => "bg-warning",
+            "Expired" => "bg-text-tertiary",
+            _ => "bg-text-tertiary"
+        };
+    }
+
+    private ValidationState GetValidationState(string fieldName)
+    {
+        return _validationErrors.ContainsKey(fieldName) ? ValidationState.Error : ValidationState.None;
+    }
+
+    private string? GetValidationMessage(string fieldName)
+    {
+        return _validationErrors.TryGetValue(fieldName, out var message) ? message : null;
+    }
+}

@@ -125,9 +125,7 @@
                                     <div class="flex items-center justify-end gap-1 row-actions">
                                         <!-- Edit Button -->
                                         <a
-                                            asp-page="Edit"
-                                            asp-route-guildId="@Model.ViewModel.GuildId"
-                                            asp-route-id="@message.Id"
+                                            href="/Guilds/ScheduledMessages/Edit/@Model.ViewModel.GuildId/@message.Id"
                                             class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
                                             title="Edit"
                                         >
@@ -256,8 +254,7 @@
                 You haven't created any scheduled messages yet. Create your first one to automate messages in your server.
             </p>
             <a
-                asp-page="Create"
-                asp-route-guildId="@Model.ViewModel.GuildId"
+                href="/Guilds/ScheduledMessages/Create/@Model.ViewModel.GuildId"
                 class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
             >
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

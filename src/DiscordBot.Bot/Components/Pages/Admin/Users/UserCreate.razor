@@ -1,0 +1,272 @@
+@page "/Admin/Users/Create"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Core.DTOs
+@using System.Security.Claims
+@inject IUserManagementService UserManagementService
+@inject ILogger<UserCreate> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ToastInterop Toast
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Create User - Discord Bot Admin</PageTitle>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+            <a href="/Admin/Users" class="hover:text-text-primary">Users</a>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-text-primary">Create</span>
+        </div>
+        <h1 class="text-2xl font-bold text-text-primary">Create User</h1>
+        <p class="mt-1 text-sm text-text-secondary">Add a new user account to the system</p>
+    </div>
+
+    <!-- Error Alert -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Title="Error" Message="@_errorMessage" IsDismissible="true" />
+        </div>
+    }
+
+    <!-- Form Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">Account Information</h2>
+        </div>
+        <div class="p-6 space-y-6">
+            <FormInput Id="email"
+                       Name="email"
+                       Label="Email"
+                       Type="email"
+                       Placeholder="user@example.com"
+                       Value="@_email"
+                       ValueChanged="@(v => _email = v)"
+                       IsRequired="true"
+                       ValidationState="@_emailValidation"
+                       ValidationMessage="@_emailValidationMessage" />
+
+            <FormInput Id="displayName"
+                       Name="displayName"
+                       Label="Display Name"
+                       Type="text"
+                       Placeholder="Optional display name"
+                       Value="@_displayName"
+                       ValueChanged="@(v => _displayName = v)"
+                       MaxLength="100" />
+
+            <FormInput Id="password"
+                       Name="password"
+                       Label="Password"
+                       Type="password"
+                       Placeholder="Minimum 8 characters"
+                       Value="@_password"
+                       ValueChanged="@(v => _password = v)"
+                       IsRequired="true"
+                       ValidationState="@_passwordValidation"
+                       ValidationMessage="@_passwordValidationMessage" />
+
+            <FormInput Id="confirmPassword"
+                       Name="confirmPassword"
+                       Label="Confirm Password"
+                       Type="password"
+                       Placeholder="Re-enter password"
+                       Value="@_confirmPassword"
+                       ValueChanged="@(v => _confirmPassword = v)"
+                       IsRequired="true"
+                       ValidationState="@_confirmPasswordValidation"
+                       ValidationMessage="@_confirmPasswordValidationMessage" />
+
+            <FormSelect Id="role"
+                        Name="role"
+                        Label="Role"
+                        Placeholder="Select a role"
+                        SelectedValue="@_selectedRole"
+                        SelectedValueChanged="@(v => _selectedRole = v)"
+                        Options="@_roleOptions"
+                        IsRequired="true"
+                        ValidationState="@_roleValidation"
+                        ValidationMessage="@_roleValidationMessage" />
+
+            <FormToggle Id="sendWelcomeEmail"
+                        Name="sendWelcomeEmail"
+                        Label="Send Welcome Email"
+                        Description="Send an email to the user with their login credentials"
+                        IsChecked="@_sendWelcomeEmail"
+                        IsCheckedChanged="@(v => _sendWelcomeEmail = v)" />
+        </div>
+
+        <!-- Footer -->
+        <div class="flex justify-end gap-3 px-6 py-4 border-t border-border-primary">
+            <a href="/Admin/Users" class="inline-flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+                Cancel
+            </a>
+            <Button Text="Create User"
+                    Variant="ButtonVariant.Primary"
+                    OnClick="HandleSubmitAsync"
+                    IsLoading="_isSaving"
+                    LoadingText="Creating..."
+                    IsDisabled="_isSaving" />
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? _email;
+    private string? _displayName;
+    private string? _password;
+    private string? _confirmPassword;
+    private string? _selectedRole = "Viewer";
+    private bool _sendWelcomeEmail = true;
+    private bool _isSaving;
+    private string? _errorMessage;
+    private string? _currentUserId;
+
+    private List<SelectOption> _roleOptions = new();
+
+    // Validation state
+    private ValidationState _emailValidation = ValidationState.None;
+    private string? _emailValidationMessage;
+    private ValidationState _passwordValidation = ValidationState.None;
+    private string? _passwordValidationMessage;
+    private ValidationState _confirmPasswordValidation = ValidationState.None;
+    private string? _confirmPasswordValidationMessage;
+    private ValidationState _roleValidation = ValidationState.None;
+    private string? _roleValidationMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+
+        if (string.IsNullOrEmpty(_currentUserId))
+            return;
+
+        var roles = await UserManagementService.GetAvailableRolesAsync(_currentUserId);
+        _roleOptions = roles.Select(r => new SelectOption { Value = r, Text = r }).ToList();
+    }
+
+    private void ClearValidation()
+    {
+        _emailValidation = ValidationState.None;
+        _emailValidationMessage = null;
+        _passwordValidation = ValidationState.None;
+        _passwordValidationMessage = null;
+        _confirmPasswordValidation = ValidationState.None;
+        _confirmPasswordValidationMessage = null;
+        _roleValidation = ValidationState.None;
+        _roleValidationMessage = null;
+        _errorMessage = null;
+    }
+
+    private bool Validate()
+    {
+        ClearValidation();
+        var isValid = true;
+
+        if (string.IsNullOrWhiteSpace(_email))
+        {
+            _emailValidation = ValidationState.Error;
+            _emailValidationMessage = "Email is required.";
+            isValid = false;
+        }
+        else if (!_email.Contains('@') || !_email.Contains('.'))
+        {
+            _emailValidation = ValidationState.Error;
+            _emailValidationMessage = "Please enter a valid email address.";
+            isValid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_password))
+        {
+            _passwordValidation = ValidationState.Error;
+            _passwordValidationMessage = "Password is required.";
+            isValid = false;
+        }
+        else if (_password.Length < 8)
+        {
+            _passwordValidation = ValidationState.Error;
+            _passwordValidationMessage = "Password must be at least 8 characters.";
+            isValid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_confirmPassword))
+        {
+            _confirmPasswordValidation = ValidationState.Error;
+            _confirmPasswordValidationMessage = "Please confirm the password.";
+            isValid = false;
+        }
+        else if (_password != _confirmPassword)
+        {
+            _confirmPasswordValidation = ValidationState.Error;
+            _confirmPasswordValidationMessage = "Passwords do not match.";
+            isValid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedRole))
+        {
+            _roleValidation = ValidationState.Error;
+            _roleValidationMessage = "Please select a role.";
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (_isSaving || string.IsNullOrEmpty(_currentUserId))
+            return;
+
+        if (!Validate())
+            return;
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var dto = new UserCreateDto
+            {
+                Email = _email!.Trim(),
+                DisplayName = string.IsNullOrWhiteSpace(_displayName) ? null : _displayName.Trim(),
+                Password = _password!,
+                ConfirmPassword = _confirmPassword!,
+                Role = _selectedRole!,
+                SendWelcomeEmail = _sendWelcomeEmail
+            };
+
+            var ipAddress = HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            var result = await UserManagementService.CreateUserAsync(dto, _currentUserId, ipAddress);
+
+            if (result.Succeeded)
+            {
+                await Toast.ShowAsync("success", "User created successfully.");
+                NavigationManager.NavigateTo("/Admin/Users");
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "An unexpected error occurred while creating the user.";
+                Logger.LogWarning("Failed to create user: {ErrorCode} - {ErrorMessage}",
+                    result.ErrorCode, result.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating user");
+            _errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+}

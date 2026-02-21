@@ -1,0 +1,426 @@
+@page "/Admin/Users/{UserId}/Edit"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Core.DTOs
+@using System.Security.Claims
+@inject IUserManagementService UserManagementService
+@inject ILogger<UserEdit> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject NavigationManager NavigationManager
+@inject ToastInterop Toast
+@inject IHttpContextAccessor HttpContextAccessor
+
+<PageTitle>Edit User - Discord Bot Admin</PageTitle>
+
+@if (_user is null)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else
+{
+    <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Header -->
+        <div class="mb-6">
+            <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+                <a href="/Admin/Users" class="hover:text-text-primary">Users</a>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <a href="/Admin/Users/Details/@UserId" class="hover:text-text-primary">Details</a>
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+                <span class="text-text-primary">Edit</span>
+            </div>
+            <h1 class="text-2xl font-bold text-text-primary">Edit User</h1>
+            <p class="mt-1 text-sm text-text-secondary">Update user account settings for @(_user.DisplayName ?? _user.Email)</p>
+        </div>
+
+        <!-- Error Alert -->
+        @if (!string.IsNullOrEmpty(_errorMessage))
+        {
+            <div class="mb-6">
+                <Alert Variant="AlertVariant.Error" Title="Error" Message="@_errorMessage" IsDismissible="true" />
+            </div>
+        }
+
+        <!-- Account Information Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">Account Information</h2>
+            </div>
+            <div class="p-6 space-y-6">
+                <FormInput Id="email"
+                           Name="email"
+                           Label="Email"
+                           Type="email"
+                           Placeholder="user@example.com"
+                           Value="@_email"
+                           ValueChanged="@(v => _email = v)"
+                           IsRequired="true"
+                           ValidationState="@_emailValidation"
+                           ValidationMessage="@_emailValidationMessage" />
+
+                <FormInput Id="displayName"
+                           Name="displayName"
+                           Label="Display Name"
+                           Type="text"
+                           Placeholder="Optional display name"
+                           Value="@_displayName"
+                           ValueChanged="@(v => _displayName = v)"
+                           MaxLength="100" />
+
+                <FormSelect Id="role"
+                            Name="role"
+                            Label="Role"
+                            Placeholder="Select a role"
+                            SelectedValue="@_selectedRole"
+                            SelectedValueChanged="@(v => _selectedRole = v)"
+                            Options="@_roleOptions"
+                            IsRequired="true"
+                            IsDisabled="_isSelf"
+                            ValidationState="@_roleValidation"
+                            ValidationMessage="@_roleValidationMessage" />
+
+                <FormToggle Id="isActive"
+                            Name="isActive"
+                            Label="Active"
+                            Description="Inactive users cannot sign in to the application"
+                            IsChecked="@_isActive"
+                            IsCheckedChanged="@(v => _isActive = v)"
+                            IsDisabled="_isSelf" />
+            </div>
+
+            <!-- Footer -->
+            <div class="flex justify-end gap-3 px-6 py-4 border-t border-border-primary">
+                <a href="/Admin/Users/Details/@UserId" class="inline-flex items-center gap-2 px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                    </svg>
+                    Cancel
+                </a>
+                <Button Text="Save Changes"
+                        Variant="ButtonVariant.Primary"
+                        OnClick="HandleSubmitAsync"
+                        IsLoading="_isSaving"
+                        LoadingText="Saving..."
+                        IsDisabled="_isSaving" />
+            </div>
+        </div>
+
+        <!-- Discord Account Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">Discord Account</h2>
+            </div>
+            <div class="p-6">
+                @if (_user.IsDiscordLinked)
+                {
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            @if (!string.IsNullOrEmpty(_user.DiscordAvatarUrl))
+                            {
+                                <img class="h-12 w-12 rounded-full" src="@_user.DiscordAvatarUrl" alt="@_user.DiscordUsername" />
+                            }
+                            else
+                            {
+                                <div class="h-12 w-12 rounded-full bg-accent-blue flex items-center justify-center">
+                                    <span class="text-white font-bold text-lg">@(_user.DiscordUsername?.Substring(0, 1).ToUpper() ?? "?")</span>
+                                </div>
+                            }
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <svg class="w-5 h-5 text-accent-blue" fill="currentColor" viewBox="0 0 24 24">
+                                        <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                                    </svg>
+                                    <span class="text-sm font-medium text-text-primary">@_user.DiscordUsername</span>
+                                </div>
+                                <p class="text-xs text-text-tertiary mt-1">ID: @_user.DiscordUserId</p>
+                            </div>
+                        </div>
+                        <Button Text="Unlink Discord"
+                                Variant="ButtonVariant.Danger"
+                                OnClick="@(() => _showUnlinkModal = true)"
+                                IsDisabled="_isUnlinking" />
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center py-4">
+                        <svg class="w-12 h-12 mx-auto text-text-tertiary mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                        <p class="text-sm text-text-secondary">No Discord account linked</p>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <!-- Password Management Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider">Password Management</h2>
+            </div>
+            <div class="p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <p class="text-sm text-text-primary font-medium">Reset Password</p>
+                        <p class="text-xs text-text-secondary mt-1">Generate a new random password for this user. The current password will be invalidated.</p>
+                    </div>
+                    <Button Text="Reset Password"
+                            Variant="ButtonVariant.Danger"
+                            OnClick="@(() => _showResetPasswordModal = true)"
+                            IsDisabled="_isResettingPassword" />
+                </div>
+
+                @if (!string.IsNullOrEmpty(_generatedPassword))
+                {
+                    <div class="mt-4">
+                        <Alert Variant="AlertVariant.Warning"
+                               Title="New Password Generated"
+                               Message="@($"The new password is: {_generatedPassword} — Please copy this password now. It will not be shown again.")" />
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Confirmation Modals -->
+    <ConfirmationModal Id="resetPasswordModal"
+                       Title="Reset Password"
+                       Message="Are you sure you want to reset the password for this user? Their current password will be invalidated and a new one will be generated."
+                       ConfirmText="Reset Password"
+                       Variant="ConfirmationVariant.Danger"
+                       IsVisible="_showResetPasswordModal"
+                       IsVisibleChanged="@(v => _showResetPasswordModal = v)"
+                       OnConfirm="HandleResetPasswordAsync" />
+
+    <ConfirmationModal Id="unlinkDiscordModal"
+                       Title="Unlink Discord Account"
+                       Message="@($"Are you sure you want to unlink the Discord account ({_user.DiscordUsername}) from this user? They will need to re-link their account to use Discord features.")"
+                       ConfirmText="Unlink"
+                       Variant="ConfirmationVariant.Danger"
+                       IsVisible="_showUnlinkModal"
+                       IsVisibleChanged="@(v => _showUnlinkModal = v)"
+                       OnConfirm="HandleUnlinkDiscordAsync" />
+}
+
+@code {
+    [Parameter] public string UserId { get; set; } = string.Empty;
+
+    private UserDto? _user;
+    private string? _currentUserId;
+    private bool _isSelf;
+    private bool _isSaving;
+    private bool _isResettingPassword;
+    private bool _isUnlinking;
+    private string? _errorMessage;
+    private string? _generatedPassword;
+    private bool _showResetPasswordModal;
+    private bool _showUnlinkModal;
+
+    // Form fields
+    private string? _email;
+    private string? _displayName;
+    private string? _selectedRole;
+    private bool _isActive;
+
+    private List<SelectOption> _roleOptions = new();
+
+    // Validation state
+    private ValidationState _emailValidation = ValidationState.None;
+    private string? _emailValidationMessage;
+    private ValidationState _roleValidation = ValidationState.None;
+    private string? _roleValidationMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (string.IsNullOrEmpty(UserId))
+            return;
+
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(_currentUserId))
+            return;
+
+        _user = await UserManagementService.GetUserByIdAsync(UserId);
+        if (_user is null)
+        {
+            Logger.LogWarning("User {UserId} not found for editing", UserId);
+            return;
+        }
+
+        _isSelf = _currentUserId == UserId;
+
+        // Populate form fields from user data
+        _email = _user.Email;
+        _displayName = _user.DisplayName;
+        _selectedRole = _user.HighestRole;
+        _isActive = _user.IsActive;
+
+        // Load available roles
+        var roles = await UserManagementService.GetAvailableRolesAsync(_currentUserId);
+        _roleOptions = roles.Select(r => new SelectOption { Value = r, Text = r }).ToList();
+
+        Logger.LogInformation("User {CurrentUserId} editing user {TargetUserId}",
+            _currentUserId, UserId);
+    }
+
+    private void ClearValidation()
+    {
+        _emailValidation = ValidationState.None;
+        _emailValidationMessage = null;
+        _roleValidation = ValidationState.None;
+        _roleValidationMessage = null;
+        _errorMessage = null;
+    }
+
+    private bool Validate()
+    {
+        ClearValidation();
+        var isValid = true;
+
+        if (string.IsNullOrWhiteSpace(_email))
+        {
+            _emailValidation = ValidationState.Error;
+            _emailValidationMessage = "Email is required.";
+            isValid = false;
+        }
+        else if (!_email.Contains('@') || !_email.Contains('.'))
+        {
+            _emailValidation = ValidationState.Error;
+            _emailValidationMessage = "Please enter a valid email address.";
+            isValid = false;
+        }
+
+        if (string.IsNullOrWhiteSpace(_selectedRole))
+        {
+            _roleValidation = ValidationState.Error;
+            _roleValidationMessage = "Please select a role.";
+            isValid = false;
+        }
+
+        return isValid;
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        if (_isSaving || string.IsNullOrEmpty(_currentUserId))
+            return;
+
+        if (!Validate())
+            return;
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var dto = new UserUpdateDto
+            {
+                Email = _email?.Trim(),
+                DisplayName = string.IsNullOrWhiteSpace(_displayName) ? null : _displayName.Trim(),
+                Role = _isSelf ? null : _selectedRole,
+                IsActive = _isSelf ? null : _isActive
+            };
+
+            var ipAddress = HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            var result = await UserManagementService.UpdateUserAsync(UserId, dto, _currentUserId, ipAddress);
+
+            if (result.Succeeded)
+            {
+                await Toast.ShowAsync("success", "User updated successfully.");
+                NavigationManager.NavigateTo($"/Admin/Users/Details/{UserId}");
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "An unexpected error occurred while updating the user.";
+                Logger.LogWarning("Failed to update user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    UserId, result.ErrorCode, result.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating user {UserId}", UserId);
+            _errorMessage = "An unexpected error occurred. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private async Task HandleResetPasswordAsync()
+    {
+        if (_isResettingPassword || string.IsNullOrEmpty(_currentUserId))
+            return;
+
+        _isResettingPassword = true;
+        _generatedPassword = null;
+
+        try
+        {
+            var ipAddress = HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            var result = await UserManagementService.ResetPasswordAsync(UserId, _currentUserId, ipAddress);
+
+            if (result.Succeeded)
+            {
+                _generatedPassword = result.GeneratedPassword;
+                await Toast.ShowAsync("success", "Password has been reset.");
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "Failed to reset password.";
+                Logger.LogWarning("Failed to reset password for user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    UserId, result.ErrorCode, result.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error resetting password for user {UserId}", UserId);
+            _errorMessage = "An unexpected error occurred while resetting the password.";
+        }
+        finally
+        {
+            _isResettingPassword = false;
+        }
+    }
+
+    private async Task HandleUnlinkDiscordAsync()
+    {
+        if (_isUnlinking || string.IsNullOrEmpty(_currentUserId))
+            return;
+
+        _isUnlinking = true;
+
+        try
+        {
+            var ipAddress = HttpContextAccessor.HttpContext?.Connection.RemoteIpAddress?.ToString();
+            var result = await UserManagementService.UnlinkDiscordAccountAsync(UserId, _currentUserId, ipAddress);
+
+            if (result.Succeeded)
+            {
+                await Toast.ShowAsync("success", "Discord account unlinked.");
+                // Reload the user data to reflect the change
+                _user = await UserManagementService.GetUserByIdAsync(UserId);
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "Failed to unlink Discord account.";
+                Logger.LogWarning("Failed to unlink Discord for user {UserId}: {ErrorCode} - {ErrorMessage}",
+                    UserId, result.ErrorCode, result.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error unlinking Discord for user {UserId}", UserId);
+            _errorMessage = "An unexpected error occurred while unlinking the Discord account.";
+        }
+        finally
+        {
+            _isUnlinking = false;
+        }
+    }
+}
