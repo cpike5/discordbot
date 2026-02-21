@@ -1,0 +1,37 @@
+@using DiscordBot.Bot.Helpers
+@using Microsoft.AspNetCore.Components
+
+@if (ShowContext && MaxLength > 0)
+{
+    @((MarkupString)TextHighlightHelper.HighlightWithContext(Text, SearchTerm, MaxLength))
+}
+else if (MaxLength > 0)
+{
+    @((MarkupString)TextHighlightHelper.TruncateAndHighlight(Text, SearchTerm, MaxLength))
+}
+else
+{
+    @((MarkupString)TextHighlightHelper.HighlightMatches(Text, SearchTerm))
+}
+
+@code {
+    /// <summary>
+    /// The text to display and highlight.
+    /// </summary>
+    [Parameter] public string? Text { get; set; }
+
+    /// <summary>
+    /// The search term to highlight within the text.
+    /// </summary>
+    [Parameter] public string? SearchTerm { get; set; }
+
+    /// <summary>
+    /// Maximum length before truncation. 0 means no truncation.
+    /// </summary>
+    [Parameter] public int MaxLength { get; set; }
+
+    /// <summary>
+    /// When true, uses HighlightWithContext to ensure the match is visible in long text.
+    /// </summary>
+    [Parameter] public bool ShowContext { get; set; }
+}
