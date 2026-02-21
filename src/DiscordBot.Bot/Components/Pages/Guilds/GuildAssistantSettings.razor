@@ -1,0 +1,429 @@
+@page "/Guilds/AssistantSettings/{GuildId:long}"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@using Discord.WebSocket
+@using DiscordBot.Bot.Components.Interop
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Configuration
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.Options
+@inject IAssistantGuildSettingsService AssistantSettingsService
+@inject IGuildService GuildService
+@inject DiscordSocketClient DiscordClient
+@inject IOptions<AssistantOptions> AssistantOptions
+@inject ISettingsService SettingsService
+@inject ToastInterop Toast
+@inject ILogger<GuildAssistantSettings> Logger
+
+<PageTitle>Assistant Settings - Discord Bot Admin</PageTitle>
+
+@if (_guild is null && !_notFound)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else if (_notFound)
+{
+    <div class="flex flex-col items-center justify-center py-12 space-y-4">
+        <div class="text-text-secondary text-lg">Guild not found</div>
+        <a href="/Guilds" class="text-accent-blue hover:text-accent-blue-hover transition-colors text-sm">Back to Guilds</a>
+    </div>
+}
+else
+{
+    <!-- Breadcrumb -->
+    <GuildBreadcrumb Items="@_breadcrumbItems" />
+
+    <!-- Guild Header -->
+    <GuildHeader GuildId="(ulong)GuildId"
+                 GuildName="@_guild!.Name"
+                 GuildIconUrl="@_guild.IconUrl"
+                 PageTitle="AI Assistant Settings"
+                 PageDescription="@($"Configure AI assistant for {_guild.Name}")"
+                 Actions="@_headerActions" />
+
+    <!-- Global Status Warning -->
+    @if (!_globallyEnabled)
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Warning"
+                   Message="The AI assistant is globally disabled. Guild-level settings will take effect once the feature is enabled globally." />
+        </div>
+    }
+
+    <!-- Error Alert -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Title="Error" Message="@_errorMessage" IsDismissible="true" />
+        </div>
+    }
+
+    <!-- Enable Toggle Card -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <FormToggle Id="assistant-enabled"
+                    Name="IsEnabled"
+                    Label="Enable AI Assistant"
+                    Description="Allow users to ask questions by mentioning the bot"
+                    IsChecked="_isEnabled"
+                    IsCheckedChanged="OnEnabledChanged" />
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Configuration Form Column -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Main Configuration Form -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg relative">
+                @if (!_isEnabled)
+                {
+                    <div class="absolute inset-0 bg-bg-secondary/60 z-10 rounded-lg pointer-events-none"></div>
+                }
+
+                <div class="p-6 space-y-6">
+                    <!-- Channel Selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-2">Allowed Channels</label>
+                        <p class="text-xs text-text-secondary mb-3">Select channels where the assistant can respond. Leave empty to allow all channels.</p>
+
+                        <div class="max-h-64 overflow-y-auto border border-border-primary rounded-md bg-bg-primary">
+                            @if (_availableChannels.Count > 0)
+                            {
+                                @foreach (var channel in _availableChannels)
+                                {
+                                    <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover cursor-pointer border-b border-border-secondary last:border-b-0">
+                                        <input type="checkbox"
+                                               checked="@channel.IsSelected"
+                                               @onchange="@(e => OnChannelToggled(channel.Id, (bool)(e.Value ?? false)))"
+                                               disabled="@(!_isEnabled)"
+                                               class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange focus:ring-offset-bg-primary" />
+                                        <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            @if (channel.Type == "Announcement")
+                                            {
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
+                                            }
+                                            else
+                                            {
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                            }
+                                        </svg>
+                                        <span class="text-sm text-text-primary">@channel.Name</span>
+                                        <span class="text-xs text-text-tertiary">@channel.Type</span>
+                                    </label>
+                                }
+                            }
+                            else
+                            {
+                                <div class="px-4 py-6 text-center text-text-secondary text-sm">
+                                    No text channels available
+                                </div>
+                            }
+                        </div>
+                        <p class="text-xs text-text-tertiary mt-2">
+                            @_availableChannels.Count(c => c.IsSelected) of @_availableChannels.Count channels selected
+                        </p>
+                    </div>
+
+                    <!-- Rate Limit Override -->
+                    <div class="max-w-xs">
+                        <FormInput Id="rate-limit-override"
+                                   Name="RateLimitOverride"
+                                   Label="Rate Limit Override"
+                                   Type="number"
+                                   Placeholder="@($"{_defaultRateLimit} (default)")"
+                                   Value="@_rateLimitOverrideStr"
+                                   ValueChanged="OnRateLimitChanged"
+                                   HelpText="@($"Maximum questions per user per {_rateLimitWindowMinutes} minute window. Leave empty to use the default ({_defaultRateLimit}).")"
+                                   IsDisabled="!_isEnabled"
+                                   ValidationState="@_rateLimitValidationState"
+                                   ValidationMessage="@_rateLimitValidationMessage" />
+                    </div>
+                </div>
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <Button Text="Save Settings"
+                        Variant="ButtonVariant.Primary"
+                        IsLoading="_isSaving"
+                        LoadingText="Saving..."
+                        OnClick="SaveAsync"
+                        IconLeft="M5 13l4 4L19 7" />
+                <a href="@($"/Guilds/Details/{GuildId}")"
+                   class="btn btn-secondary inline-flex items-center justify-center gap-2">
+                    Cancel
+                </a>
+                <a href="@($"/Guilds/AssistantMetrics/{GuildId}")"
+                   class="btn btn-glass inline-flex items-center justify-center gap-2 ml-auto">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                    </svg>
+                    View Metrics
+                </a>
+            </div>
+        </div>
+
+        <!-- Help Panel Column -->
+        <div class="space-y-6">
+            <!-- How It Works -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h3 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                        <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        How It Works
+                    </h3>
+                </div>
+                <div class="p-6 space-y-4 text-sm text-text-secondary">
+                    <p>
+                        When enabled, users can ask questions by mentioning the bot:
+                    </p>
+                    <div class="bg-bg-primary border border-border-primary rounded-md p-3 font-mono text-xs">
+                        <span class="text-accent-blue">@@BotName</span> How do I use the soundboard?
+                    </div>
+                    <p>
+                        The bot uses AI to answer questions about its features and commands.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Consent Notice -->
+            <div class="bg-info-bg border border-info-border rounded-lg p-4">
+                <div class="flex items-start gap-3">
+                    <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                        <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                    </svg>
+                    <div class="text-sm text-info">
+                        <p class="font-semibold mb-1">User Consent Required</p>
+                        <p class="text-info/90">
+                            Users must grant consent via <code class="px-1 py-0.5 bg-info/20 rounded font-mono text-xs">/consent</code> before using the assistant. Questions and responses are logged for debugging.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rate Limiting Info -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <h4 class="text-sm font-semibold text-text-primary mb-2">Rate Limiting</h4>
+                <p class="text-xs text-text-secondary">
+                    Rate limits prevent API cost abuse. Each user can ask @_defaultRateLimit questions per @_rateLimitWindowMinutes minutes (by default).
+                    Admins can bypass this limit.
+                </p>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    private Core.DTOs.GuildDto? _guild;
+    private List<BreadcrumbItem>? _breadcrumbItems;
+    private List<HeaderAction>? _headerActions;
+
+    // Form state
+    private bool _isEnabled;
+    private string? _rateLimitOverrideStr;
+    private List<ChannelSelectItem> _availableChannels = new();
+
+    // Config values
+    private int _defaultRateLimit;
+    private int _rateLimitWindowMinutes;
+    private bool _globallyEnabled;
+
+    // Validation
+    private ValidationState _rateLimitValidationState = ValidationState.None;
+    private string? _rateLimitValidationMessage;
+    private string? _errorMessage;
+
+    // UI state
+    private bool _isSaving;
+    private bool _notFound;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guildId = (ulong)GuildId;
+
+        Logger.LogInformation("User accessing assistant settings page for guild {GuildId}", guildId);
+
+        var guildDto = await GuildService.GetGuildByIdAsync(guildId);
+        if (guildDto is null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", guildId);
+            _notFound = true;
+            return;
+        }
+
+        _guild = guildDto;
+
+        // Load configuration defaults
+        _defaultRateLimit = AssistantOptions.Value.DefaultRateLimit;
+        _rateLimitWindowMinutes = AssistantOptions.Value.RateLimitWindowMinutes;
+
+        // Check global status
+        _globallyEnabled = await SettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled");
+
+        // Get assistant settings
+        var settings = await AssistantSettingsService.GetOrCreateSettingsAsync(guildId);
+        var allowedChannelIds = settings.GetAllowedChannelIdsList();
+
+        _isEnabled = settings.IsEnabled;
+        _rateLimitOverrideStr = settings.RateLimitOverride?.ToString();
+
+        // Load text channels from Discord
+        LoadTextChannels(guildId, allowedChannelIds);
+
+        // Build breadcrumb
+        _breadcrumbItems = new List<BreadcrumbItem>
+        {
+            new() { Label = "Home", Url = "/" },
+            new() { Label = "Servers", Url = "/Guilds" },
+            new() { Label = guildDto.Name, Url = $"/Guilds/Details/{GuildId}" },
+            new() { Label = "AI Assistant Settings", IsCurrent = true }
+        };
+
+        // Build header actions
+        _headerActions = new List<HeaderAction>
+        {
+            new()
+            {
+                Label = "View Metrics",
+                Url = $"/Guilds/AssistantMetrics/{GuildId}",
+                Style = HeaderActionStyle.Link,
+                Icon = "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            }
+        };
+    }
+
+    private void LoadTextChannels(ulong guildId, List<ulong> selectedChannelIds)
+    {
+        var socketGuild = DiscordClient.GetGuild(guildId);
+        if (socketGuild is null)
+        {
+            Logger.LogWarning("Could not fetch Discord guild {GuildId} from client", guildId);
+            return;
+        }
+
+        _availableChannels = socketGuild.TextChannels
+            .Where(c => c is not null)
+            .OrderBy(c => c.Position)
+            .Select(c => new ChannelSelectItem
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Position = c.Position,
+                Type = c is SocketNewsChannel ? "Announcement" : "Text",
+                IsSelected = selectedChannelIds.Contains(c.Id)
+            })
+            .ToList();
+    }
+
+    private void OnEnabledChanged(bool value)
+    {
+        _isEnabled = value;
+        ClearValidation();
+    }
+
+    private void OnChannelToggled(ulong channelId, bool isChecked)
+    {
+        var channel = _availableChannels.FirstOrDefault(c => c.Id == channelId);
+        if (channel is not null)
+        {
+            channel.IsSelected = isChecked;
+        }
+    }
+
+    private void OnRateLimitChanged(string? value)
+    {
+        _rateLimitOverrideStr = value;
+        ClearValidation();
+    }
+
+    private void ClearValidation()
+    {
+        _rateLimitValidationState = ValidationState.None;
+        _rateLimitValidationMessage = null;
+        _errorMessage = null;
+    }
+
+    private bool Validate()
+    {
+        ClearValidation();
+
+        if (!string.IsNullOrWhiteSpace(_rateLimitOverrideStr))
+        {
+            if (!int.TryParse(_rateLimitOverrideStr, out var rateLimitValue))
+            {
+                _rateLimitValidationState = ValidationState.Error;
+                _rateLimitValidationMessage = "Rate limit must be a valid number.";
+                return false;
+            }
+
+            if (rateLimitValue < 1 || rateLimitValue > 100)
+            {
+                _rateLimitValidationState = ValidationState.Error;
+                _rateLimitValidationMessage = "Rate limit must be between 1 and 100.";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_isSaving) return;
+        if (!Validate()) return;
+
+        _isSaving = true;
+        _errorMessage = null;
+
+        try
+        {
+            var guildId = (ulong)GuildId;
+
+            // Get current settings
+            var settings = await AssistantSettingsService.GetOrCreateSettingsAsync(guildId);
+
+            // Update settings
+            settings.IsEnabled = _isEnabled;
+            settings.RateLimitOverride = string.IsNullOrWhiteSpace(_rateLimitOverrideStr)
+                ? null
+                : int.Parse(_rateLimitOverrideStr);
+
+            // Set allowed channels
+            var selectedChannelIds = _availableChannels
+                .Where(c => c.IsSelected)
+                .Select(c => c.Id)
+                .ToList();
+            settings.SetAllowedChannelIdsList(selectedChannelIds);
+
+            // Save
+            await AssistantSettingsService.UpdateSettingsAsync(settings);
+
+            Logger.LogInformation("Successfully updated assistant settings for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "Assistant settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error saving assistant settings for guild {GuildId}", (ulong)GuildId);
+            _errorMessage = "An unexpected error occurred while saving. Please try again.";
+        }
+        finally
+        {
+            _isSaving = false;
+        }
+    }
+
+    private class ChannelSelectItem
+    {
+        public ulong Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public int Position { get; set; }
+        public string Type { get; set; } = "Text";
+        public bool IsSelected { get; set; }
+    }
+}

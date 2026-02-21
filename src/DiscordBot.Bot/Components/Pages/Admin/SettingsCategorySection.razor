@@ -1,0 +1,108 @@
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+
+<div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+    <div class="px-6 py-4 border-b border-border-primary">
+        <h2 class="text-lg font-semibold text-text-primary">@Title</h2>
+        <p class="text-sm text-text-secondary mt-1">@Description</p>
+    </div>
+    <div class="p-6">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            @foreach (var setting in Settings)
+            {
+                var currentValue = SettingValues.GetValueOrDefault(setting.Key, setting.Value);
+                <div>
+                    @if (setting.DataType == SettingDataType.Boolean)
+                    {
+                        <FormToggle Id="@($"setting_{setting.Key}")"
+                                    Name="@setting.Key"
+                                    Label="@setting.DisplayName"
+                                    Description="@GetSettingDescription(setting)"
+                                    IsChecked="@(string.Equals(currentValue, "true", StringComparison.OrdinalIgnoreCase))"
+                                    IsCheckedChanged="(val) => OnToggleChanged(setting.Key, val)" />
+                    }
+                    else if (setting.DataType == SettingDataType.String && setting.AllowedValues is { Count: > 0 })
+                    {
+                        <FormSelect Id="@($"setting_{setting.Key}")"
+                                    Name="@setting.Key"
+                                    Label="@setting.DisplayName"
+                                    HelpText="@GetSettingDescription(setting)"
+                                    SelectedValue="@currentValue"
+                                    SelectedValueChanged="(val) => OnSelectChanged(setting.Key, val)"
+                                    Options="@(setting.AllowedValues.Select(v => new SelectOption { Value = v, Text = v }).ToList())" />
+                    }
+                    else if (setting.DataType == SettingDataType.Integer || setting.DataType == SettingDataType.Decimal)
+                    {
+                        <FormInput Id="@($"setting_{setting.Key}")"
+                                   Name="@setting.Key"
+                                   Label="@setting.DisplayName"
+                                   HelpText="@GetSettingDescription(setting)"
+                                   Type="number"
+                                   Value="@currentValue"
+                                   ValueChanged="(val) => OnInputChanged(setting.Key, val)" />
+                    }
+                    else
+                    {
+                        <FormInput Id="@($"setting_{setting.Key}")"
+                                   Name="@setting.Key"
+                                   Label="@setting.DisplayName"
+                                   HelpText="@GetSettingDescription(setting)"
+                                   Type="text"
+                                   Value="@currentValue"
+                                   ValueChanged="(val) => OnInputChanged(setting.Key, val)" />
+                    }
+                </div>
+            }
+        </div>
+    </div>
+    <div class="px-6 py-4 border-t border-border-primary">
+        <div class="flex justify-end gap-3">
+            <Button Text="Reset"
+                    Variant="ButtonVariant.Secondary"
+                    OnClick="OnReset" />
+            <Button Text="Save Changes"
+                    Variant="ButtonVariant.Primary"
+                    IsLoading="IsSaving"
+                    LoadingText="Saving..."
+                    OnClick="OnSave" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Description { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public IReadOnlyList<SettingDto> Settings { get; set; } = Array.Empty<SettingDto>();
+    [Parameter, EditorRequired] public Dictionary<string, string> SettingValues { get; set; } = new();
+    [Parameter] public EventCallback<(string Key, string Value)> OnSettingChanged { get; set; }
+    [Parameter] public EventCallback OnSave { get; set; }
+    [Parameter] public EventCallback OnReset { get; set; }
+    [Parameter] public bool IsSaving { get; set; }
+
+    private string GetSettingDescription(SettingDto setting)
+    {
+        var desc = setting.Description ?? string.Empty;
+        if (setting.RequiresRestart)
+        {
+            desc = string.IsNullOrEmpty(desc)
+                ? "Requires restart"
+                : $"{desc} (requires restart)";
+        }
+        return desc;
+    }
+
+    private async Task OnToggleChanged(string key, bool value)
+    {
+        await OnSettingChanged.InvokeAsync((key, value.ToString().ToLowerInvariant()));
+    }
+
+    private async Task OnSelectChanged(string key, string? value)
+    {
+        await OnSettingChanged.InvokeAsync((key, value ?? string.Empty));
+    }
+
+    private async Task OnInputChanged(string key, string? value)
+    {
+        await OnSettingChanged.InvokeAsync((key, value ?? string.Empty));
+    }
+}

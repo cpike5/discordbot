@@ -1,0 +1,994 @@
+@page "/Guilds/AudioSettings/{GuildId:long}"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@using DiscordBot.Core.Configuration
+@using DiscordBot.Core.Entities
+@using DiscordBot.Core.Interfaces
+@using Discord.WebSocket
+@using Microsoft.Extensions.Options
+@inject IGuildAudioSettingsService AudioSettingsService
+@inject IGuildService GuildService
+@inject ISoundService SoundService
+@inject DiscordSocketClient DiscordClient
+@inject IOptions<SoundboardOptions> SoundboardOptions
+@inject ISettingsService SettingsService
+@inject ITtsSettingsService TtsSettingsService
+@inject ToastInterop Toast
+@inject ILogger<GuildAudioSettings> Logger
+
+<PageTitle>Audio Settings - Discord Bot Admin</PageTitle>
+
+@if (_loading)
+{
+    <div class="flex items-center justify-center py-12">
+        <div class="text-text-secondary">Loading...</div>
+    </div>
+}
+else if (_notFound)
+{
+    <div class="flex flex-col items-center justify-center py-12 space-y-4">
+        <div class="text-text-secondary text-lg">Guild not found</div>
+        <a href="/Guilds" class="text-accent-blue hover:text-accent-blue-hover transition-colors text-sm">Back to Guilds</a>
+    </div>
+}
+else
+{
+    <!-- Breadcrumb -->
+    <GuildBreadcrumb Items="@_breadcrumbItems" />
+
+    <!-- Guild Header -->
+    <GuildHeader GuildId="(ulong)GuildId"
+                 GuildName="@_guild!.Name"
+                 GuildIconUrl="@_guild.IconUrl"
+                 PageTitle="Audio"
+                 PageDescription="@($"Configure audio settings for {_guild.Name}")" />
+
+    <!-- Audio Tabs Navigation -->
+    <nav class="flex gap-2 mb-6" aria-label="Audio sections">
+        <a href="/Guilds/Soundboard/@GuildId"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-colors bg-bg-secondary text-text-secondary border border-border-primary hover:text-text-primary hover:border-border-focus">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+            </svg>
+            Soundboard
+            @if (_soundCount > 0)
+            {
+                <span class="inline-flex items-center justify-center px-2 py-0.5 text-xs font-medium rounded-full bg-info/15 text-info">@_soundCount</span>
+            }
+        </a>
+        <a href="/Guilds/TextToSpeech/@GuildId"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-colors bg-bg-secondary text-text-secondary border border-border-primary hover:text-text-primary hover:border-border-focus">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            Text-to-Speech
+        </a>
+        <a href="/Guilds/VOX/@GuildId"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-colors bg-bg-secondary text-text-secondary border border-border-primary hover:text-text-primary hover:border-border-focus">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" />
+            </svg>
+            VOX
+        </a>
+        <a href="/Guilds/AudioSettings/@GuildId"
+           class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-full transition-colors bg-accent-blue/15 text-accent-blue border border-accent-blue/30">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Settings
+        </a>
+    </nav>
+
+    <!-- Audio Globally Disabled Warning -->
+    @if (_isAudioGloballyDisabled)
+    {
+        <div class="mb-6 max-w-4xl mx-auto">
+            <Alert Variant="AlertVariant.Warning"
+                   Title="Audio Features Disabled"
+                   Message="Audio features have been disabled globally by an administrator. Audio commands will not work until audio is re-enabled in Settings."
+                   IsDismissible="false" />
+        </div>
+    }
+
+    <div class="max-w-4xl mx-auto">
+        <!-- General Settings Section -->
+        <section class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="flex items-center gap-3 px-6 py-4 border-b border-border-primary">
+                <div class="w-8 h-8 flex items-center justify-center rounded-lg" style="background: var(--color-accent-blue-muted); color: var(--color-accent-blue);">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-text-primary">General Settings</h2>
+                    <p class="text-xs text-text-tertiary">Core audio feature configuration</p>
+                </div>
+            </div>
+            <div class="p-6 space-y-1">
+                <!-- Audio Enabled -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Audio Features Enabled</div>
+                        <div class="text-xs text-text-tertiary">Enable or disable all audio and soundboard features for this server</div>
+                    </div>
+                    <FormToggle Id="audioEnabled"
+                                Name="AudioEnabled"
+                                IsChecked="_audioEnabled"
+                                IsCheckedChanged="OnAudioEnabledChanged" />
+                </div>
+
+                <!-- Auto-leave Timeout -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Auto-leave Timeout</div>
+                        <div class="text-xs text-text-tertiary">Minutes of inactivity before the bot automatically leaves the voice channel. Set to 0 to stay indefinitely.</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="autoLeaveTimeout"
+                               class="w-24 py-2 px-3 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-[3px] focus:border-accent-blue focus:ring-accent-blue/15"
+                               min="0" max="60"
+                               value="@_autoLeaveTimeout"
+                               @onchange="OnAutoLeaveTimeoutChanged" />
+                        <span class="text-xs text-text-tertiary">minutes</span>
+                    </div>
+                </div>
+
+                <!-- Queue Enabled -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Queue Mode</div>
+                        <div class="text-xs text-text-tertiary">When enabled, sounds queue up and play in order. When disabled, new sounds replace the currently playing sound.</div>
+                    </div>
+                    <FormToggle Id="queueEnabled"
+                                Name="QueueEnabled"
+                                IsChecked="_queueEnabled"
+                                IsCheckedChanged="OnQueueEnabledChanged" />
+                </div>
+
+                <!-- Enable Member Portal -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Member Portal</div>
+                        <div class="text-xs text-text-tertiary">Allow guild members to access the soundboard portal page. When disabled, only admins can access the portal.</div>
+                    </div>
+                    <FormToggle Id="enableMemberPortal"
+                                Name="EnableMemberPortal"
+                                IsChecked="_enableMemberPortal"
+                                IsCheckedChanged="OnEnableMemberPortalChanged" />
+                </div>
+
+                <!-- Silent Playback -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Silent Playback</div>
+                        <div class="text-xs text-text-tertiary">Suppress "Now Playing" and "Sound Queued" confirmation messages for /play commands. Error messages are always shown regardless of this setting.</div>
+                    </div>
+                    <FormToggle Id="silentPlayback"
+                                Name="SilentPlayback"
+                                IsChecked="_silentPlayback"
+                                IsCheckedChanged="OnSilentPlaybackChanged" />
+                </div>
+
+                <!-- Portal Links (shown when Member Portal is enabled) -->
+                @if (_enableMemberPortal)
+                {
+                    <div class="flex justify-between items-start py-4 px-4 -mx-6 bg-bg-tertiary border-t border-dashed border-border-secondary border-b border-b-border-secondary">
+                        <div class="flex-1 pr-4">
+                            <div class="text-sm font-medium text-text-primary mb-0.5">Portal Links</div>
+                            <div class="text-xs text-text-tertiary">Open the member portal pages. These links open in a new tab using Discord OAuth authentication.</div>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <a href="/Portal/Soundboard/@GuildId" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 px-3 py-2 text-[0.8125rem] font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover hover:border-border-focus hover:text-accent-blue transition-all no-underline">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                </svg>
+                                Soundboard Portal
+                                <svg class="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </a>
+                            <a href="/Portal/TTS/@GuildId" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 px-3 py-2 text-[0.8125rem] font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover hover:border-border-focus hover:text-accent-blue transition-all no-underline">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                                </svg>
+                                TTS Portal
+                                <svg class="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </a>
+                            <a href="/Portal/VOX/@GuildId" target="_blank" rel="noopener noreferrer"
+                               class="inline-flex items-center gap-1.5 px-3 py-2 text-[0.8125rem] font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover hover:border-border-focus hover:text-accent-blue transition-all no-underline">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" />
+                                </svg>
+                                VOX Portal
+                                <svg class="w-3 h-3 opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                            </a>
+                        </div>
+                    </div>
+                }
+
+                <!-- Sound Storage Path (Read-only) -->
+                <div class="flex justify-between items-start py-4">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Sound Storage Path</div>
+                        <div class="text-xs text-text-tertiary">The folder where audio files for this server are stored</div>
+                    </div>
+                    <div class="flex items-center gap-2 px-3 py-2 bg-bg-tertiary border border-border-secondary rounded-lg text-sm text-text-secondary">
+                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
+                        </svg>
+                        <code class="font-mono text-text-primary">@_soundFolderPath</code>
+                    </div>
+                </div>
+
+                <!-- Save General Settings Button -->
+                <div class="mt-4 pt-4 border-t border-border-secondary flex justify-end">
+                    <Button Text="Save General Settings"
+                            Variant="ButtonVariant.Primary"
+                            IsLoading="_isSavingGeneral"
+                            LoadingText="Saving..."
+                            OnClick="SaveGeneralSettingsAsync"
+                            IconLeft="M5 13l4 4L19 7" />
+                </div>
+            </div>
+        </section>
+
+        <!-- Limits Section -->
+        <section class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="flex items-center gap-3 px-6 py-4 border-b border-border-primary">
+                <div class="w-8 h-8 flex items-center justify-center rounded-lg" style="background: var(--color-warning-bg); color: var(--color-warning);">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-text-primary">Limits</h2>
+                    <p class="text-xs text-text-tertiary">Resource limits for audio files and storage</p>
+                </div>
+            </div>
+            <div class="p-6 space-y-1">
+                <!-- Max Duration -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Maximum Sound Duration</div>
+                        <div class="text-xs text-text-tertiary">The maximum length allowed for uploaded sound files (1-300 seconds)</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="maxDuration"
+                               class="w-24 py-2 px-3 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-[3px] focus:border-accent-blue focus:ring-accent-blue/15"
+                               min="1" max="300"
+                               value="@_maxDurationSeconds"
+                               @onchange="OnMaxDurationChanged" />
+                        <span class="text-xs text-text-tertiary">seconds</span>
+                    </div>
+                </div>
+
+                <!-- Max File Size -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Maximum File Size</div>
+                        <div class="text-xs text-text-tertiary">The maximum file size allowed for uploaded audio files (1-50 MB)</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="maxFileSize"
+                               class="w-24 py-2 px-3 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-[3px] focus:border-accent-blue focus:ring-accent-blue/15"
+                               min="1" max="50"
+                               value="@_maxFileSizeMB"
+                               @onchange="OnMaxFileSizeChanged" />
+                        <span class="text-xs text-text-tertiary">MB</span>
+                    </div>
+                </div>
+
+                <!-- Max Sounds Per Guild -->
+                <div class="flex justify-between items-start py-4">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Maximum Sounds</div>
+                        <div class="text-xs text-text-tertiary">The maximum number of sounds this server can store (1-500)</div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <input type="number" id="maxSounds"
+                               class="w-24 py-2 px-3 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-[3px] focus:border-accent-blue focus:ring-accent-blue/15"
+                               min="1" max="500"
+                               value="@_maxSoundsPerGuild"
+                               @onchange="OnMaxSoundsChanged" />
+                        <span class="text-xs text-text-tertiary">sounds</span>
+                    </div>
+                </div>
+
+                <!-- Save Limits Button -->
+                <div class="mt-4 pt-4 border-t border-border-secondary flex justify-end">
+                    <Button Text="Save Limit Settings"
+                            Variant="ButtonVariant.Primary"
+                            IsLoading="_isSavingLimits"
+                            LoadingText="Saving..."
+                            OnClick="SaveLimitSettingsAsync"
+                            IconLeft="M5 13l4 4L19 7" />
+                </div>
+            </div>
+        </section>
+
+        <!-- TTS Settings Section -->
+        <section class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="flex items-center gap-3 px-6 py-4 border-b border-border-primary">
+                <div class="w-8 h-8 flex items-center justify-center rounded-lg" style="background: var(--color-info-bg); color: var(--color-info);">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-text-primary">TTS Settings</h2>
+                    <p class="text-xs text-text-tertiary">Configure SSML and advanced TTS features</p>
+                </div>
+            </div>
+            <div class="p-6 space-y-1">
+                <!-- SSML Enabled -->
+                <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                    <div class="flex-1 pr-4">
+                        <div class="text-sm font-medium text-text-primary mb-0.5">Enable SSML Mode</div>
+                        <div class="text-xs text-text-tertiary">Allow SSML (Speech Synthesis Markup Language) for advanced voice control including prosody, emphasis, and styles</div>
+                    </div>
+                    <FormToggle Id="ssmlEnabled"
+                                Name="SsmlEnabled"
+                                IsChecked="_ssmlEnabled"
+                                IsCheckedChanged="OnSsmlEnabledChanged" />
+                </div>
+
+                @if (_ssmlEnabled)
+                {
+                    <!-- Strict SSML Validation -->
+                    <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                        <div class="flex-1 pr-4">
+                            <div class="text-sm font-medium text-text-primary mb-0.5">Strict SSML Validation</div>
+                            <div class="text-xs text-text-tertiary">When enabled, invalid SSML will be rejected. When disabled, invalid SSML falls back to plain text.</div>
+                        </div>
+                        <FormToggle Id="strictSsmlValidation"
+                                    Name="StrictSsmlValidation"
+                                    IsChecked="_strictSsmlValidation"
+                                    IsCheckedChanged="OnStrictSsmlValidationChanged" />
+                    </div>
+
+                    <!-- Max SSML Complexity -->
+                    <div class="flex justify-between items-start py-4 border-b border-border-secondary">
+                        <div class="flex-1 pr-4">
+                            <div class="text-sm font-medium text-text-primary mb-0.5">Max SSML Complexity</div>
+                            <div class="text-xs text-text-tertiary">Maximum complexity score for SSML elements. Higher values allow more nested elements and prosody modifications (10-200).</div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <input type="number" id="maxSsmlComplexity"
+                                   class="w-24 py-2 px-3 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-[3px] focus:border-accent-blue focus:ring-accent-blue/15"
+                                   min="10" max="200"
+                                   value="@_maxSsmlComplexity"
+                                   @onchange="OnMaxSsmlComplexityChanged" />
+                        </div>
+                    </div>
+
+                    <!-- Default Style -->
+                    <div class="flex justify-between items-start py-4">
+                        <div class="flex-1 pr-4">
+                            <div class="text-sm font-medium text-text-primary mb-0.5">Default Style</div>
+                            <div class="text-xs text-text-tertiary">Default speaking style for voices that support it (applies when no style is specified in SSML)</div>
+                        </div>
+                        <FormSelect Id="defaultStyle"
+                                    Name="DefaultStyle"
+                                    SelectedValue="@_defaultStyle"
+                                    SelectedValueChanged="OnDefaultStyleChanged"
+                                    Options="@_styleOptions"
+                                    Placeholder="" />
+                    </div>
+                }
+
+                <!-- Save TTS Settings Button -->
+                <div class="mt-4 pt-4 border-t border-border-secondary flex justify-end">
+                    <Button Text="Save TTS Settings"
+                            Variant="ButtonVariant.Primary"
+                            IsLoading="_isSavingTts"
+                            LoadingText="Saving..."
+                            OnClick="SaveTtsSettingsAsync"
+                            IconLeft="M5 13l4 4L19 7" />
+                </div>
+            </div>
+        </section>
+
+        <!-- Command Permissions Section -->
+        <section class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="flex items-center gap-3 px-6 py-4 border-b border-border-primary">
+                <div class="w-8 h-8 flex items-center justify-center rounded-lg" style="background: var(--color-success-bg); color: var(--color-success);">
+                    <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-text-primary">Command Permissions</h2>
+                    <p class="text-xs text-text-tertiary">Restrict audio commands to specific roles. Leave empty to allow everyone.</p>
+                </div>
+            </div>
+            <div class="p-6">
+                @foreach (var command in SoundboardCommands)
+                {
+                    var cmd = command;
+                    var allowedRoleIds = GetAllowedRoleIdsForCommand(cmd);
+                    <div class="bg-bg-tertiary border border-border-secondary rounded-lg p-4 mb-3 last:mb-0">
+                        <div class="inline-flex items-center gap-1 px-2 py-1 bg-bg-hover rounded-md font-mono text-[0.8125rem] font-medium text-accent-blue mb-3">
+                            @GetCommandIconMarkup(cmd)
+                            /@cmd
+                        </div>
+                        <p class="text-xs text-text-tertiary mb-3">@GetCommandDescription(cmd)</p>
+
+                        <!-- Role selector -->
+                        <div class="relative">
+                            <div class="flex items-center justify-between w-full min-h-[2.5rem] px-3 py-2 bg-bg-primary border border-border-primary rounded-lg cursor-pointer hover:border-border-focus transition-colors"
+                                 tabindex="0"
+                                 @onclick="() => ToggleRoleDropdown(cmd)"
+                                 @onclick:stopPropagation="true">
+                                <div class="flex flex-wrap gap-1.5">
+                                    @if (allowedRoleIds.Count == 0)
+                                    {
+                                        <span class="text-sm text-text-tertiary">Everyone can use this command</span>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var roleId in allowedRoleIds)
+                                        {
+                                            var role = _availableRoles.FirstOrDefault(r => r.Id == roleId);
+                                            if (role != null)
+                                            {
+                                                var capturedRoleId = roleId;
+                                                <div class="inline-flex items-center gap-1 px-2 py-0.5 bg-accent-blue/15 text-accent-blue rounded-full text-xs font-medium">
+                                                    @role.Name
+                                                    <span class="flex items-center justify-center w-4 h-4 rounded-full hover:bg-accent-blue hover:text-white cursor-pointer transition-colors"
+                                                          @onclick="() => RemoveRoleFromCommand(cmd, capturedRoleId)"
+                                                          @onclick:stopPropagation="true">
+                                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                                        </svg>
+                                                    </span>
+                                                </div>
+                                            }
+                                        }
+                                    }
+                                </div>
+                                <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+
+                            @if (_openDropdownCommand == cmd)
+                            {
+                                <div class="absolute top-[calc(100%+0.25rem)] left-0 right-0 bg-bg-secondary border border-border-primary rounded-lg shadow-lg z-50 max-h-48 overflow-y-auto">
+                                    @if (_availableRoles.Count == 0)
+                                    {
+                                        <div class="px-4 py-2 text-sm text-text-tertiary">No roles available</div>
+                                    }
+                                    else
+                                    {
+                                        @foreach (var role in _availableRoles)
+                                        {
+                                            var isSelected = allowedRoleIds.Contains(role.Id);
+                                            var capturedRole = role;
+                                            <div class="flex items-center gap-2 px-3 py-2.5 cursor-pointer transition-colors hover:bg-bg-hover @(isSelected ? "bg-accent-blue/10" : "")"
+                                                 @onclick="() => ToggleRoleForCommand(cmd, capturedRole.Id)"
+                                                 @onclick:stopPropagation="true">
+                                                <span class="w-3 h-3 rounded-full flex-shrink-0"
+                                                      style="background: @(GetRoleColor(capturedRole.Color));"></span>
+                                                <span class="text-sm text-text-primary">@capturedRole.Name</span>
+                                            </div>
+                                        }
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+        </section>
+
+        <!-- Reset to Defaults -->
+        <div class="flex items-center justify-between pt-4 mb-8">
+            <Button Text="Reset to Defaults"
+                    Variant="ButtonVariant.Secondary"
+                    IsLoading="_isResetting"
+                    LoadingText="Resetting..."
+                    OnClick="ResetToDefaultsAsync"
+                    IconLeft="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public long GuildId { get; set; }
+
+    // Data
+    private Core.DTOs.GuildDto? _guild;
+    private List<BreadcrumbItem>? _breadcrumbItems;
+    private List<RoleInfo> _availableRoles = new();
+    private string _soundFolderPath = string.Empty;
+    private int _soundCount;
+    private bool _isAudioGloballyDisabled;
+
+    // Command permissions state
+    private Dictionary<string, List<ulong>> _commandRoles = new();
+    private string? _openDropdownCommand;
+    private string? _savingCommand;
+
+    // General settings form state
+    private bool _audioEnabled;
+    private int _autoLeaveTimeout;
+    private bool _queueEnabled;
+    private bool _enableMemberPortal;
+    private bool _silentPlayback;
+
+    // Limits form state
+    private int _maxDurationSeconds;
+    private int _maxFileSizeMB;
+    private int _maxSoundsPerGuild;
+
+    // TTS form state
+    private bool _ssmlEnabled;
+    private bool _strictSsmlValidation;
+    private int _maxSsmlComplexity;
+    private string? _defaultStyle;
+
+    // Style options
+    private readonly List<SelectOption> _styleOptions = new()
+    {
+        new() { Value = "", Text = "(None)" },
+        new() { Value = "cheerful", Text = "Cheerful" },
+        new() { Value = "excited", Text = "Excited" },
+        new() { Value = "friendly", Text = "Friendly" },
+        new() { Value = "sad", Text = "Sad" },
+        new() { Value = "angry", Text = "Angry" },
+        new() { Value = "whispering", Text = "Whispering" },
+        new() { Value = "shouting", Text = "Shouting" },
+        new() { Value = "newscast", Text = "Newscast" }
+    };
+
+    // UI state
+    private bool _loading = true;
+    private bool _notFound;
+    private bool _isSavingGeneral;
+    private bool _isSavingLimits;
+    private bool _isSavingTts;
+    private bool _isResetting;
+
+    // Soundboard commands
+    private static readonly string[] SoundboardCommands = { "join", "leave", "play", "sounds", "stop" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var guildId = (ulong)GuildId;
+
+        Logger.LogInformation("User accessing audio settings for guild {GuildId}", guildId);
+
+        try
+        {
+            // Check if audio is globally disabled
+            var isGloballyEnabled = await SettingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+            _isAudioGloballyDisabled = !isGloballyEnabled;
+
+            // Load guild
+            _guild = await GuildService.GetGuildByIdAsync(guildId);
+            if (_guild is null)
+            {
+                Logger.LogWarning("Guild {GuildId} not found", guildId);
+                _notFound = true;
+                return;
+            }
+
+            // Load audio settings
+            var settings = await AudioSettingsService.GetSettingsAsync(guildId);
+            _audioEnabled = settings.AudioEnabled;
+            _autoLeaveTimeout = settings.AutoLeaveTimeoutMinutes;
+            _queueEnabled = settings.QueueEnabled;
+            _enableMemberPortal = settings.EnableMemberPortal;
+            _silentPlayback = settings.SilentPlayback;
+            _maxDurationSeconds = settings.MaxDurationSeconds;
+            _maxFileSizeMB = (int)(settings.MaxFileSizeBytes / (1024 * 1024));
+            _maxSoundsPerGuild = settings.MaxSoundsPerGuild;
+
+            // Build command roles dictionary
+            foreach (var cmd in SoundboardCommands)
+            {
+                var restriction = settings.CommandRoleRestrictions
+                    .FirstOrDefault(r => r.CommandName.Equals(cmd, StringComparison.OrdinalIgnoreCase));
+                _commandRoles[cmd] = restriction?.AllowedRoleIds?.ToList() ?? new List<ulong>();
+            }
+
+            // Load TTS settings
+            var ttsSettings = await TtsSettingsService.GetOrCreateSettingsAsync(guildId);
+            _ssmlEnabled = ttsSettings.SsmlEnabled;
+            _strictSsmlValidation = ttsSettings.StrictSsmlValidation;
+            _maxSsmlComplexity = ttsSettings.MaxSsmlComplexity;
+            _defaultStyle = ttsSettings.DefaultStyle ?? "";
+
+            // Load guild roles from Discord
+            var discordGuild = DiscordClient.GetGuild(guildId);
+            if (discordGuild != null)
+            {
+                _availableRoles = discordGuild.Roles
+                    .Where(r => !r.IsEveryone && !r.IsManaged)
+                    .OrderByDescending(r => r.Position)
+                    .Select(r => new RoleInfo
+                    {
+                        Id = r.Id,
+                        Name = r.Name,
+                        Color = r.Color.ToString()
+                    })
+                    .ToList();
+            }
+
+            // Sound folder path
+            _soundFolderPath = Path.Combine(SoundboardOptions.Value.BasePath, guildId.ToString());
+
+            // Sound count for tab badge
+            _soundCount = await SoundService.GetSoundCountAsync(guildId);
+
+            // Breadcrumb
+            _breadcrumbItems = new List<BreadcrumbItem>
+            {
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = _guild.Name, Url = $"/Guilds/Details/{GuildId}" },
+                new() { Label = "Audio", Url = $"/Guilds/Soundboard/{GuildId}" },
+                new() { Label = "Settings", IsCurrent = true }
+            };
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error loading audio settings for guild {GuildId}", guildId);
+            _notFound = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    // --- General Settings Handlers ---
+
+    private void OnAudioEnabledChanged(bool value) => _audioEnabled = value;
+    private void OnAutoLeaveTimeoutChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            _autoLeaveTimeout = val;
+    }
+    private void OnQueueEnabledChanged(bool value) => _queueEnabled = value;
+    private void OnEnableMemberPortalChanged(bool value) => _enableMemberPortal = value;
+    private void OnSilentPlaybackChanged(bool value) => _silentPlayback = value;
+
+    private async Task SaveGeneralSettingsAsync()
+    {
+        if (_isSavingGeneral) return;
+
+        // Validate
+        if (_autoLeaveTimeout < 0 || _autoLeaveTimeout > 60)
+        {
+            await Toast.ShowAsync("error", "Auto-leave timeout must be between 0 and 60 minutes.");
+            return;
+        }
+
+        _isSavingGeneral = true;
+        try
+        {
+            var guildId = (ulong)GuildId;
+            await AudioSettingsService.UpdateSettingsAsync(guildId, settings =>
+            {
+                settings.AudioEnabled = _audioEnabled;
+                settings.AutoLeaveTimeoutMinutes = _autoLeaveTimeout;
+                settings.QueueEnabled = _queueEnabled;
+                settings.EnableMemberPortal = _enableMemberPortal;
+                settings.SilentPlayback = _silentPlayback;
+            });
+
+            Logger.LogInformation("General audio settings saved for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "General settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save general audio settings for guild {GuildId}", (ulong)GuildId);
+            await Toast.ShowAsync("error", "Failed to save settings. Please try again.");
+        }
+        finally
+        {
+            _isSavingGeneral = false;
+        }
+    }
+
+    // --- Limits Handlers ---
+
+    private void OnMaxDurationChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            _maxDurationSeconds = val;
+    }
+    private void OnMaxFileSizeChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            _maxFileSizeMB = val;
+    }
+    private void OnMaxSoundsChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            _maxSoundsPerGuild = val;
+    }
+
+    private async Task SaveLimitSettingsAsync()
+    {
+        if (_isSavingLimits) return;
+
+        // Validate
+        var errors = new List<string>();
+        if (_maxDurationSeconds < 1 || _maxDurationSeconds > 300)
+            errors.Add("Max duration must be between 1 and 300 seconds.");
+        if (_maxFileSizeMB < 1 || _maxFileSizeMB > 50)
+            errors.Add("Max file size must be between 1 and 50 MB.");
+        if (_maxSoundsPerGuild < 1 || _maxSoundsPerGuild > 500)
+            errors.Add("Max sounds must be between 1 and 500.");
+
+        if (errors.Count > 0)
+        {
+            await Toast.ShowAsync("error", string.Join(" ", errors));
+            return;
+        }
+
+        _isSavingLimits = true;
+        try
+        {
+            var guildId = (ulong)GuildId;
+            await AudioSettingsService.UpdateSettingsAsync(guildId, settings =>
+            {
+                settings.MaxDurationSeconds = _maxDurationSeconds;
+                settings.MaxFileSizeBytes = (long)_maxFileSizeMB * 1024 * 1024;
+                settings.MaxSoundsPerGuild = _maxSoundsPerGuild;
+            });
+
+            Logger.LogInformation("Limit settings saved for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "Limit settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save limit settings for guild {GuildId}", (ulong)GuildId);
+            await Toast.ShowAsync("error", "Failed to save settings. Please try again.");
+        }
+        finally
+        {
+            _isSavingLimits = false;
+        }
+    }
+
+    // --- TTS Settings Handlers ---
+
+    private void OnSsmlEnabledChanged(bool value) => _ssmlEnabled = value;
+    private void OnStrictSsmlValidationChanged(bool value) => _strictSsmlValidation = value;
+    private void OnMaxSsmlComplexityChanged(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var val))
+            _maxSsmlComplexity = val;
+    }
+    private void OnDefaultStyleChanged(string? value) => _defaultStyle = value;
+
+    private async Task SaveTtsSettingsAsync()
+    {
+        if (_isSavingTts) return;
+
+        // Validate
+        if (_maxSsmlComplexity < 10 || _maxSsmlComplexity > 200)
+        {
+            await Toast.ShowAsync("error", "Max SSML complexity must be between 10 and 200.");
+            return;
+        }
+
+        _isSavingTts = true;
+        try
+        {
+            var guildId = (ulong)GuildId;
+            var ttsSettings = await TtsSettingsService.GetOrCreateSettingsAsync(guildId);
+            ttsSettings.SsmlEnabled = _ssmlEnabled;
+            ttsSettings.StrictSsmlValidation = _strictSsmlValidation;
+            ttsSettings.MaxSsmlComplexity = _maxSsmlComplexity;
+            ttsSettings.DefaultStyle = string.IsNullOrWhiteSpace(_defaultStyle) ? null : _defaultStyle;
+            ttsSettings.UpdatedAt = DateTime.UtcNow;
+
+            await TtsSettingsService.UpdateSettingsAsync(ttsSettings);
+
+            Logger.LogInformation("TTS settings saved for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "TTS settings saved successfully.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to save TTS settings for guild {GuildId}", (ulong)GuildId);
+            await Toast.ShowAsync("error", "Failed to save settings. Please try again.");
+        }
+        finally
+        {
+            _isSavingTts = false;
+        }
+    }
+
+    // --- Command Permissions Handlers ---
+
+    private List<ulong> GetAllowedRoleIdsForCommand(string command)
+    {
+        return _commandRoles.TryGetValue(command, out var roles) ? roles : new List<ulong>();
+    }
+
+    private void ToggleRoleDropdown(string command)
+    {
+        _openDropdownCommand = _openDropdownCommand == command ? null : command;
+    }
+
+    private async Task ToggleRoleForCommand(string command, ulong roleId)
+    {
+        if (!_commandRoles.ContainsKey(command))
+            _commandRoles[command] = new List<ulong>();
+
+        var roles = _commandRoles[command];
+        if (roles.Contains(roleId))
+        {
+            roles.Remove(roleId);
+        }
+        else
+        {
+            roles.Add(roleId);
+        }
+
+        await SaveCommandPermissionsAsync(command);
+    }
+
+    private async Task RemoveRoleFromCommand(string command, ulong roleId)
+    {
+        if (_commandRoles.TryGetValue(command, out var roles))
+        {
+            roles.Remove(roleId);
+            await SaveCommandPermissionsAsync(command);
+        }
+    }
+
+    private async Task SaveCommandPermissionsAsync(string command)
+    {
+        if (_savingCommand == command) return;
+        _savingCommand = command;
+
+        var guildId = (ulong)GuildId;
+        var roleIds = GetAllowedRoleIdsForCommand(command);
+
+        try
+        {
+            // Get current settings to find existing restrictions
+            var settings = await AudioSettingsService.GetSettingsAsync(guildId);
+            var restriction = settings.CommandRoleRestrictions
+                .FirstOrDefault(r => r.CommandName.Equals(command, StringComparison.OrdinalIgnoreCase));
+
+            // Remove all existing roles for this command
+            if (restriction != null)
+            {
+                foreach (var existingRoleId in restriction.AllowedRoleIds.ToList())
+                {
+                    await AudioSettingsService.RemoveCommandRestrictionAsync(guildId, command, existingRoleId);
+                }
+            }
+
+            // Add new roles
+            foreach (var roleId in roleIds)
+            {
+                await AudioSettingsService.AddCommandRestrictionAsync(guildId, command, roleId);
+            }
+
+            Logger.LogInformation("Command roles updated for '{CommandName}' in guild {GuildId}: {RoleCount} roles",
+                command, guildId, roleIds.Count);
+            await Toast.ShowAsync("success", $"/{command} permissions saved.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update command roles for '{CommandName}' in guild {GuildId}",
+                command, guildId);
+            await Toast.ShowAsync("error", "Failed to save permissions. Please try again.");
+        }
+        finally
+        {
+            _savingCommand = null;
+        }
+    }
+
+    // --- Reset to Defaults ---
+
+    private async Task ResetToDefaultsAsync()
+    {
+        if (_isResetting) return;
+
+        _isResetting = true;
+        try
+        {
+            var guildId = (ulong)GuildId;
+            await AudioSettingsService.UpdateSettingsAsync(guildId, settings =>
+            {
+                settings.AudioEnabled = true;
+                settings.AutoLeaveTimeoutMinutes = 5;
+                settings.QueueEnabled = true;
+                settings.EnableMemberPortal = false;
+                settings.SilentPlayback = false;
+                settings.MaxDurationSeconds = 30;
+                settings.MaxFileSizeBytes = 5_242_880; // 5 MB
+                settings.MaxSoundsPerGuild = 50;
+                settings.CommandRoleRestrictions.Clear();
+            });
+
+            // Update local state
+            _audioEnabled = true;
+            _autoLeaveTimeout = 5;
+            _queueEnabled = true;
+            _enableMemberPortal = false;
+            _silentPlayback = false;
+            _maxDurationSeconds = 30;
+            _maxFileSizeMB = 5;
+            _maxSoundsPerGuild = 50;
+            foreach (var cmd in SoundboardCommands)
+            {
+                _commandRoles[cmd] = new List<ulong>();
+            }
+
+            Logger.LogInformation("Audio settings reset to defaults for guild {GuildId}", guildId);
+            await Toast.ShowAsync("success", "Audio settings have been reset to defaults.");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to reset audio settings for guild {GuildId}", (ulong)GuildId);
+            await Toast.ShowAsync("error", "Failed to reset settings. Please try again.");
+        }
+        finally
+        {
+            _isResetting = false;
+        }
+    }
+
+    // --- Helpers ---
+
+    private static string GetCommandDescription(string command) => command.ToLower() switch
+    {
+        "join" => "Join a voice channel",
+        "leave" => "Leave the current voice channel",
+        "play" => "Play a sound from the soundboard",
+        "sounds" => "List available sounds in the soundboard",
+        "stop" => "Stop the currently playing sound and clear the queue",
+        _ => "Execute this command"
+    };
+
+    private static MarkupString GetCommandIconMarkup(string command)
+    {
+        var iconPath = command.ToLower() switch
+        {
+            "join" => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z\" />",
+            "leave" => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z\" /><path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2\" />",
+            "play" => "<path d=\"M8 5v14l11-7z\" fill=\"currentColor\" />",
+            "sounds" => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M4 6h16M4 10h16M4 14h16M4 18h16\" />",
+            "stop" => "<path d=\"M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z\" fill=\"currentColor\" />",
+            _ => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M13 10V3L4 14h7v7l9-11h-7z\" />"
+        };
+        return new MarkupString($"<svg class=\"w-3.5 h-3.5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\">{iconPath}</svg>");
+    }
+
+    private static string GetRoleColor(string color)
+    {
+        if (string.IsNullOrEmpty(color) || color == "0")
+            return "#99AAB5";
+        return color.StartsWith('#') ? color : $"#{color}";
+    }
+
+    /// <summary>
+    /// Represents a Discord role for display purposes.
+    /// </summary>
+    private class RoleInfo
+    {
+        public ulong Id { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Color { get; set; } = string.Empty;
+    }
+}
