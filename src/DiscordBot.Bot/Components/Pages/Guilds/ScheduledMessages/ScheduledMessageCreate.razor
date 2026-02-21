@@ -32,7 +32,7 @@ else
 
     <!-- Back Link -->
     <div class="mb-6">
-        <a href="/Guilds/ScheduledMessages/@GuildId" class="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent-blue transition-colors">
+        <a href="/guilds/@GuildId/scheduled-messages" class="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-accent-blue transition-colors">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
@@ -179,7 +179,7 @@ else
 
     <!-- Actions -->
     <div class="flex items-center justify-end gap-3">
-        <a href="/Guilds/ScheduledMessages/@GuildId"
+        <a href="/guilds/@GuildId/scheduled-messages"
            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
             Cancel
         </a>
@@ -244,9 +244,9 @@ else
         _breadcrumbItems = new List<BreadcrumbItem>
         {
             new() { Label = "Home", Url = "/" },
-            new() { Label = "Servers", Url = "/Guilds" },
+            new() { Label = "Servers", Url = "/guilds" },
             new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildId}" },
-            new() { Label = "Messages", Url = $"/Guilds/ScheduledMessages/{GuildId}" },
+            new() { Label = "Messages", Url = $"/guilds/{GuildId}/scheduled-messages" },
             new() { Label = "Create", IsCurrent = true }
         };
     }
@@ -409,7 +409,7 @@ else
                 result.Id, GuildId);
 
             await Toast.ShowAsync("success", "Scheduled message created successfully.");
-            NavigationManager.NavigateTo($"/Guilds/ScheduledMessages/{GuildId}");
+            NavigationManager.NavigateTo($"/guilds/{GuildId}/scheduled-messages");
         }
         catch (Exception ex)
         {

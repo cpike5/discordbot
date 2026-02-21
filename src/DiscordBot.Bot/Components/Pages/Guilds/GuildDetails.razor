@@ -136,7 +136,7 @@ else
     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
         <!-- Scheduled Messages Widget -->
         <DashboardWidget Title="Scheduled Messages"
-                         DetailUrl="@($"/Guilds/ScheduledMessages/{GuildId}")">
+                         DetailUrl="@($"/guilds/{GuildId}/scheduled-messages")">
             <BodyContent>
                 @if (_scheduledMessagesTotal > 0)
                 {
