@@ -1,0 +1,421 @@
+@page "/Admin/BulkPurge"
+@rendermode InteractiveServer
+@attribute [Authorize(Policy = "RequireSuperAdmin")]
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using System.Security.Claims
+@inject IBulkPurgeService BulkPurgeService
+@inject ILogger<AdminBulkPurge> Logger
+@inject AuthenticationStateProvider AuthenticationStateProvider
+
+<PageTitle>Bulk Data Purge - Discord Bot Admin</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <h1 class="text-h1 text-text-primary">Bulk Data Purge</h1>
+        <p class="mt-1 text-sm text-text-secondary">Permanently delete historical data by entity type, date range, and guild</p>
+    </div>
+
+    <!-- Warning Notice -->
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Error"
+               Title="Warning: Irreversible Operation"
+               Message="This action permanently deletes data from the database. This operation cannot be undone. Always preview before executing." />
+    </div>
+
+    <!-- Success/Error Messages -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <!-- Filter Form -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Select Purge Criteria</h2>
+        <div class="space-y-6">
+            <!-- Entity Type Selection -->
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-2">
+                    Entity Type <span class="text-error">*</span>
+                </label>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    @foreach (var entityType in Enum.GetValues<BulkPurgeEntityType>())
+                    {
+                        var isSelected = _entityType == entityType;
+                        var description = entityType switch
+                        {
+                            BulkPurgeEntityType.Messages => "Discord message history",
+                            BulkPurgeEntityType.AuditLogs => "System audit trail",
+                            BulkPurgeEntityType.CommandLogs => "Command execution logs",
+                            BulkPurgeEntityType.ModerationCases => "Moderation case records",
+                            _ => ""
+                        };
+                        var current = entityType;
+                        <button type="button"
+                                @onclick="() => _entityType = current"
+                                class="block text-left border-2 rounded-lg p-4 transition-all @(isSelected ? "border-accent-orange bg-accent-orange-muted" : "border-border-primary bg-bg-primary hover:border-border-focus hover:bg-bg-tertiary")">
+                            <div class="flex flex-col">
+                                <span class="font-medium text-text-primary">@entityType</span>
+                                <span class="text-xs text-text-secondary mt-1">@description</span>
+                            </div>
+                        </button>
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(_entityTypeError))
+                {
+                    <p class="mt-2 text-sm text-error">@_entityTypeError</p>
+                }
+            </div>
+
+            <!-- Date Range -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                    <label for="start-date" class="block text-sm font-medium text-text-primary mb-2">
+                        Start Date (inclusive)
+                    </label>
+                    <input type="date"
+                           id="start-date"
+                           @bind="_startDate"
+                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                    <p class="mt-1 text-xs text-text-tertiary">Leave empty for no lower bound</p>
+                    @if (!string.IsNullOrEmpty(_dateRangeError))
+                    {
+                        <p class="mt-1 text-sm text-error">@_dateRangeError</p>
+                    }
+                </div>
+                <div>
+                    <label for="end-date" class="block text-sm font-medium text-text-primary mb-2">
+                        End Date (exclusive)
+                    </label>
+                    <input type="date"
+                           id="end-date"
+                           @bind="_endDate"
+                           class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                    <p class="mt-1 text-xs text-text-tertiary">Leave empty for no upper bound</p>
+                </div>
+            </div>
+
+            <!-- Guild ID Filter -->
+            <div>
+                <label for="guild-id" class="block text-sm font-medium text-text-primary mb-2">
+                    Guild ID (optional)
+                </label>
+                <input type="text"
+                       id="guild-id"
+                       @bind="_guildIdInput"
+                       placeholder="Enter Discord guild ID to limit purge to specific server"
+                       class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                <p class="mt-1 text-xs text-text-tertiary">Leave empty to purge across all guilds</p>
+                @if (!string.IsNullOrEmpty(_guildIdError))
+                {
+                    <p class="mt-1 text-sm text-error">@_guildIdError</p>
+                }
+            </div>
+
+            <!-- Actions -->
+            <div class="flex gap-3 pt-4 border-t border-border-primary">
+                <Button Text="Preview Records"
+                        Variant="ButtonVariant.Primary"
+                        OnClick="HandlePreview"
+                        IsLoading="_isPreviewLoading"
+                        IconLeft="M15 12a3 3 0 11-6 0 3 3 0 016 0zM2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                <Button Text="Reset"
+                        Variant="ButtonVariant.Secondary"
+                        OnClick="HandleReset" />
+            </div>
+        </div>
+    </div>
+
+    <!-- Preview Results -->
+    @if (_previewResult is { Success: true })
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+            <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                <h2 class="text-lg font-semibold text-text-primary">Preview: Records to be Deleted</h2>
+                <p class="text-sm text-text-secondary mt-1">
+                    The following records match your criteria and will be permanently deleted.
+                </p>
+            </div>
+
+            <div class="p-6">
+                @if (_previewResult.EstimatedCount > 0)
+                {
+                    <!-- Preview Summary -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div class="bg-bg-tertiary rounded-lg p-4">
+                            <p class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Entity Type</p>
+                            <p class="text-lg font-semibold text-text-primary">@_previewResult.EntityType</p>
+                        </div>
+                        <div class="bg-bg-tertiary rounded-lg p-4">
+                            <p class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Date Range</p>
+                            <p class="text-lg font-semibold text-text-primary">@_previewResult.DateRange</p>
+                        </div>
+                        <div class="bg-bg-tertiary rounded-lg p-4">
+                            <p class="text-xs font-medium text-text-secondary uppercase tracking-wider mb-1">Estimated Records</p>
+                            <p class="text-lg font-semibold text-error">@_previewResult.EstimatedCount.ToString("N0")</p>
+                        </div>
+                    </div>
+
+                    @if (_previewResult.GuildId.HasValue)
+                    {
+                        <div class="mb-6">
+                            <Alert Variant="AlertVariant.Info"
+                                   Message="@($"Guild Filter: {_previewResult.GuildId}")" />
+                        </div>
+                    }
+
+                    <!-- Execute Purge -->
+                    <div class="pt-6 border-t border-border-primary">
+                        <Button Text="@($"Execute Purge ({_previewResult.EstimatedCount:N0} records)")"
+                                Variant="ButtonVariant.Danger"
+                                OnClick="HandleExecuteClick"
+                                IsLoading="_isExecuteLoading"
+                                IconLeft="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        <p class="mt-2 text-xs text-text-tertiary">
+                            This operation will permanently delete the records shown above. You will be asked to confirm before proceeding.
+                        </p>
+                    </div>
+                }
+                else
+                {
+                    <!-- No Records Found -->
+                    <div class="text-center py-8">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                            <svg class="w-10 h-10 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
+                            </svg>
+                        </div>
+                        <h3 class="text-lg font-semibold text-text-primary mb-2">No Records Found</h3>
+                        <p class="text-sm text-text-secondary">
+                            No @_previewResult.EntityType records match the specified criteria. Try adjusting your date range or guild filter.
+                        </p>
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Purge Result -->
+    @if (_purgeResult is { Success: true })
+    {
+        <div class="bg-success/10 border border-success/30 rounded-lg p-6 mb-6">
+            <div class="flex items-start gap-3">
+                <svg class="w-6 h-6 text-success flex-shrink-0" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                </svg>
+                <div class="flex-1">
+                    <h3 class="text-lg font-semibold text-success mb-2">Purge Complete</h3>
+                    <p class="text-sm text-success/90 mb-4">
+                        Successfully deleted <span class="font-mono font-bold">@_purgeResult.DeletedCount.ToString("N0")</span> @_purgeResult.EntityType records.
+                    </p>
+                    @if (!string.IsNullOrEmpty(_purgeResult.AuditLogCorrelationId))
+                    {
+                        <p class="text-xs text-success/80">
+                            Audit Correlation ID: <span class="font-mono">@_purgeResult.AuditLogCorrelationId</span>
+                        </p>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+
+    <!-- Additional Information -->
+    <div class="mt-6">
+        <Alert Variant="AlertVariant.Info"
+               Title="Data Retention"
+               Message="This tool is intended for manual data cleanup operations. For automated retention, configure the retention options in Settings. All bulk purge operations are logged in the audit trail for compliance tracking." />
+    </div>
+</div>
+
+<!-- Typed Confirmation Modal -->
+<TypedConfirmationModal @bind-IsVisible="_showConfirmModal"
+                        Title="Permanently Delete Records"
+                        Message="@_confirmMessage"
+                        RequiredText="CONFIRM"
+                        InputLabel="Type CONFIRM to proceed"
+                        ConfirmText="Execute Purge"
+                        Variant="ConfirmationVariant.Danger"
+                        OnConfirm="ExecutePurge" />
+
+@code {
+    private BulkPurgeEntityType? _entityType;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private string? _guildIdInput;
+
+    private BulkPurgePreviewDto? _previewResult;
+    private BulkPurgeCriteriaDto? _previewCriteria;
+    private BulkPurgeResultDto? _purgeResult;
+
+    private string? _successMessage;
+    private string? _errorMessage;
+    private string? _entityTypeError;
+    private string? _dateRangeError;
+    private string? _guildIdError;
+
+    private bool _isPreviewLoading;
+    private bool _isExecuteLoading;
+    private bool _showConfirmModal;
+    private string _confirmMessage = string.Empty;
+
+    private void ClearValidationErrors()
+    {
+        _entityTypeError = null;
+        _dateRangeError = null;
+        _guildIdError = null;
+    }
+
+    private BulkPurgeCriteriaDto? BuildCriteria()
+    {
+        ClearValidationErrors();
+        var isValid = true;
+
+        if (!_entityType.HasValue)
+        {
+            _entityTypeError = "Please select an entity type.";
+            isValid = false;
+        }
+
+        if (_startDate.HasValue && _endDate.HasValue && _startDate.Value > _endDate.Value)
+        {
+            _dateRangeError = "Start date cannot be after end date.";
+            isValid = false;
+        }
+
+        ulong? guildId = null;
+        if (!string.IsNullOrWhiteSpace(_guildIdInput))
+        {
+            if (!ulong.TryParse(_guildIdInput, out var parsedGuildId))
+            {
+                _guildIdError = "Invalid Guild ID format.";
+                isValid = false;
+            }
+            else
+            {
+                guildId = parsedGuildId;
+            }
+        }
+
+        if (!isValid) return null;
+
+        return new BulkPurgeCriteriaDto
+        {
+            EntityType = _entityType!.Value,
+            StartDate = _startDate?.ToUniversalTime(),
+            EndDate = _endDate?.ToUniversalTime(),
+            GuildId = guildId
+        };
+    }
+
+    private async Task HandlePreview()
+    {
+        _previewResult = null;
+        _purgeResult = null;
+        _errorMessage = null;
+        _successMessage = null;
+
+        var criteria = BuildCriteria();
+        if (criteria is null) return;
+
+        _isPreviewLoading = true;
+        try
+        {
+            Logger.LogDebug(
+                "Preview requested for {EntityType}, DateRange: {DateRange}, GuildId: {GuildId}",
+                criteria.EntityType, criteria.GetDateRangeDescription(), criteria.GuildId);
+
+            _previewResult = await BulkPurgeService.PreviewPurgeAsync(criteria);
+            _previewCriteria = criteria;
+
+            if (!_previewResult.Success)
+            {
+                _errorMessage = _previewResult.ErrorMessage ?? "Failed to generate preview.";
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during bulk purge preview for {EntityType}", criteria.EntityType);
+            _errorMessage = "An unexpected error occurred while generating the preview.";
+        }
+        finally
+        {
+            _isPreviewLoading = false;
+        }
+    }
+
+    private void HandleExecuteClick()
+    {
+        if (_previewResult is null) return;
+
+        _confirmMessage = $"You are about to permanently delete {_previewResult.EstimatedCount:N0} {_previewResult.EntityType} records (Date Range: {_previewResult.DateRange}). This action CANNOT be undone.";
+        _showConfirmModal = true;
+    }
+
+    private async Task ExecutePurge()
+    {
+        var criteria = _previewCriteria;
+        if (criteria is null) return;
+
+        _isExecuteLoading = true;
+        try
+        {
+            var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+            var adminUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "unknown";
+
+            Logger.LogInformation(
+                "Bulk purge execution requested by {AdminUserId} for {EntityType}, DateRange: {DateRange}, GuildId: {GuildId}",
+                adminUserId, criteria.EntityType, criteria.GetDateRangeDescription(), criteria.GuildId);
+
+            _purgeResult = await BulkPurgeService.ExecutePurgeAsync(criteria, adminUserId);
+
+            if (_purgeResult.Success)
+            {
+                _successMessage = $"Successfully purged {_purgeResult.DeletedCount:N0} {_purgeResult.EntityType} records.";
+                _previewResult = null;
+                Logger.LogInformation(
+                    "Bulk purge completed: {DeletedCount} {EntityType} records deleted",
+                    _purgeResult.DeletedCount, _purgeResult.EntityType);
+            }
+            else
+            {
+                _errorMessage = _purgeResult.ErrorMessage ?? "An error occurred during purge.";
+                Logger.LogError(
+                    "Bulk purge failed for {EntityType}: {Error}",
+                    criteria.EntityType, _purgeResult.ErrorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error during bulk purge execution for {EntityType}", criteria.EntityType);
+            _errorMessage = "An unexpected error occurred during the purge operation.";
+        }
+        finally
+        {
+            _isExecuteLoading = false;
+        }
+    }
+
+    private void HandleReset()
+    {
+        _entityType = null;
+        _startDate = null;
+        _endDate = null;
+        _guildIdInput = null;
+        _previewResult = null;
+        _previewCriteria = null;
+        _purgeResult = null;
+        _successMessage = null;
+        _errorMessage = null;
+        ClearValidationErrors();
+    }
+}
