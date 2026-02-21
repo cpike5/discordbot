@@ -62,28 +62,21 @@ public class GuildAccessAuthorizationHandler : AuthorizationHandler<GuildAccessR
             return;
         }
 
-        ulong guildId;
-        if (context.Resource is ulong resourceGuildId)
+        var httpContext = _httpContextAccessor.HttpContext;
+        if (httpContext == null)
         {
-            guildId = resourceGuildId;
+            _logger.LogWarning("GuildAccess check failed: No HTTP context available");
+            return;
         }
-        else
+
+        // Extract guild ID from route or query string
+        var guildIdString = httpContext.Request.RouteValues["guildId"]?.ToString()
+            ?? httpContext.Request.Query["guildId"].FirstOrDefault();
+
+        if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out var guildId))
         {
-            var httpContext = _httpContextAccessor.HttpContext;
-            if (httpContext == null)
-            {
-                _logger.LogWarning("GuildAccess check failed: No HTTP context available and no resource guild ID");
-                return;
-            }
-
-            var guildIdString = httpContext.Request.RouteValues["guildId"]?.ToString()
-                ?? httpContext.Request.Query["guildId"].FirstOrDefault();
-
-            if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out guildId))
-            {
-                _logger.LogWarning("GuildAccess check failed: No valid guildId found in route or query string");
-                return;
-            }
+            _logger.LogWarning("GuildAccess check failed: No valid guildId found in route or query string");
+            return;
         }
 
         var userId = context.User.FindFirstValue(ClaimTypes.NameIdentifier);

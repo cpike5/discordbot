@@ -44,29 +44,19 @@ public static class ServiceCollectionExtensions
 
         if (isPostgreSql)
         {
-            services.AddPooledDbContextFactory<PostgresBotDbContext>((serviceProvider, options) =>
+            services.AddDbContext<PostgresBotDbContext>((serviceProvider, options) =>
             {
                 var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
                 options.UseNpgsql(connectionString, npgsql =>
                     npgsql.MigrationsAssembly("DiscordBot.Infrastructure"))
                     .AddInterceptors(interceptor);
             });
-            // Explicitly register scoped PostgresBotDbContext from the factory
-            // (AddPooledDbContextFactory's auto-registration may not surface the type reliably)
-            services.AddScoped(sp =>
-                sp.GetRequiredService<IDbContextFactory<PostgresBotDbContext>>().CreateDbContext());
-            // Forward BotDbContext to resolve as PostgresBotDbContext for existing code
+            // Forward BotDbContext to resolve as PostgresBotDbContext
             services.AddScoped<BotDbContext>(sp => sp.GetRequiredService<PostgresBotDbContext>());
-            // Register IDbContextFactory<BotDbContext> for Blazor components
-            services.AddSingleton<IDbContextFactory<BotDbContext>>(sp =>
-            {
-                var factory = sp.GetRequiredService<IDbContextFactory<PostgresBotDbContext>>();
-                return new BotDbContextFactoryAdapter<PostgresBotDbContext>(factory);
-            });
         }
         else
         {
-            services.AddPooledDbContextFactory<BotDbContext>((serviceProvider, options) =>
+            services.AddDbContext<BotDbContext>((serviceProvider, options) =>
             {
                 var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
                 options.UseSqlite(connectionString, sqlite =>
@@ -135,16 +125,4 @@ public static class ServiceCollectionExtensions
         return connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase)
             || connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase);
     }
-}
-
-/// <summary>
-/// Adapts IDbContextFactory&lt;TDerived&gt; to IDbContextFactory&lt;BotDbContext&gt;
-/// so Blazor components can use the base type regardless of provider.
-/// </summary>
-internal class BotDbContextFactoryAdapter<TContext> : IDbContextFactory<BotDbContext>
-    where TContext : BotDbContext
-{
-    private readonly IDbContextFactory<TContext> _inner;
-    public BotDbContextFactoryAdapter(IDbContextFactory<TContext> inner) => _inner = inner;
-    public BotDbContext CreateDbContext() => _inner.CreateDbContext();
 }

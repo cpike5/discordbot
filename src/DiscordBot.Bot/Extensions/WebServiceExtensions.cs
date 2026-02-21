@@ -1,7 +1,4 @@
-using DiscordBot.Bot.Components.Services;
 using DiscordBot.Bot.Handlers;
-using Microsoft.AspNetCore.Components.Authorization;
-using Microsoft.AspNetCore.Components.Server.Circuits;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Extensions;
@@ -35,23 +32,6 @@ public static class WebServiceExtensions
                 options.Filters.Add<DiscordBot.Bot.Filters.DashboardAnonymousRedirectFilter>();
             });
         services.AddEndpointsApiExplorer();
-
-        // Add Blazor Server components
-        services.AddRazorComponents()
-            .AddInteractiveServerComponents();
-
-        // Add cascading authentication state for Blazor component tree
-        services.AddCascadingAuthenticationState();
-
-        // Revalidate auth state periodically in Blazor Server circuits
-        services.AddScoped<AuthenticationStateProvider, RevalidatingAuthStateProvider>();
-
-        // Add Blazor JS interop services
-        services.AddBlazorInteropServices();
-
-        // Capture client IP during circuit initialization for audit logging
-        services.AddScoped<CircuitClientInfoService>();
-        services.AddScoped<CircuitHandler, CircuitClientInfoService>(sp => sp.GetRequiredService<CircuitClientInfoService>());
 
         return services;
     }

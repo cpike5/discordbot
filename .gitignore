@@ -445,4 +445,3 @@ cache
 
 # Claude Code temp files
 tmpclaude-*-cwd
-docker-rebuild.sh

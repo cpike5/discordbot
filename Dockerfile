@@ -1,7 +1,7 @@
 # =============================================================================
 # Build Stage
 # =============================================================================
-FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
 
 WORKDIR /src
 
@@ -16,7 +16,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy solution and project files for layer-cached restore
 COPY DiscordBot.sln ./
-COPY Directory.Build.props ./
 COPY src/DiscordBot.Core/DiscordBot.Core.csproj src/DiscordBot.Core/
 COPY src/DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj src/DiscordBot.Infrastructure/
 COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/
@@ -40,7 +39,7 @@ RUN dotnet publish src/DiscordBot.Bot/DiscordBot.Bot.csproj \
 # =============================================================================
 # Runtime Stage
 # =============================================================================
-FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
 
 # Install runtime dependencies (audio libs + curl for health checks)
 RUN apt-get update && apt-get install -y --no-install-recommends \

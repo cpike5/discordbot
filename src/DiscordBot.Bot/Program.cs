@@ -279,7 +279,6 @@ try
     // Enable authentication and authorization middleware
     app.UseAuthentication();
     app.UseAuthorization();
-    app.UseAntiforgery();    // Required by Blazor, must be after UseAuthorization
 
     app.MapControllers();
     app.MapDiscordBotHealthChecks();
@@ -287,10 +286,6 @@ try
 
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");
-
-    // Map Blazor Server components hosted within _Layout.cshtml
-    app.MapBlazorHub();
-    app.MapFallbackToPage("/_BlazorHost");
 
     // Map Prometheus metrics endpoint
     app.UseOpenTelemetryPrometheusScrapingEndpoint();

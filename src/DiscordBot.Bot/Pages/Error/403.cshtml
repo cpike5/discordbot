@@ -1,0 +1,80 @@
+@page "/Error/403"
+@model ForbiddenModel
+@{
+    ViewData["Title"] = "Access Forbidden";
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] - Discord Bot Admin</title>
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body class="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-8 font-sans">
+
+    <div class="w-full max-w-md">
+        <!-- Error Icon -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 bg-error rounded-xl mb-4">
+                <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-text-primary">Access Forbidden</h1>
+            <p class="text-text-secondary mt-2">You don't have permission to access this resource.</p>
+        </div>
+
+        <!-- Message Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
+            <div class="mb-6 p-4 bg-error-bg border border-error-border rounded-lg">
+                <p class="text-sm text-error">
+                    <strong>403 Forbidden:</strong> Access to this resource is restricted.
+                </p>
+            </div>
+
+            @if (User.Identity?.IsAuthenticated == true)
+            {
+                <p class="text-sm text-text-primary mb-4">
+                    You are currently signed in, but you don't have the necessary permissions to access this resource.
+                </p>
+
+                <p class="text-sm text-text-secondary mb-6">
+                    If you believe you should have access, please contact your administrator.
+                </p>
+
+                <div class="flex gap-3">
+                    <a asp-page="/Index" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        Go to Dashboard
+                    </a>
+                    <button onclick="history.back()" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        Go Back
+                    </button>
+                </div>
+            }
+            else
+            {
+                <p class="text-sm text-text-primary mb-4">
+                    You need to be signed in to access this resource. Please sign in with your credentials.
+                </p>
+
+                <p class="text-sm text-text-secondary mb-6">
+                    After signing in, you may be able to access this page if you have the necessary permissions.
+                </p>
+
+                <div class="flex gap-3">
+                    <a asp-page="/Index" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        Go to Dashboard
+                    </a>
+                    <a asp-page="/Account/Login" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        Sign In
+                    </a>
+                </div>
+            }
+        </div>
+    </div>
+
+</body>
+</html>
