@@ -218,7 +218,7 @@ public class EditModel : PageModel
         _logger.LogInformation("Successfully updated guild {GuildId}", Input.GuildId);
         SuccessMessage = "Guild settings saved successfully.";
 
-        return RedirectToPage("Details", new { id = Input.GuildId });
+        return Redirect($"/Guilds/Details/{Input.GuildId}");
     }
 
     /// <summary>
