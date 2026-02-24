@@ -4,6 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1d2022" />
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <!-- Blocking theme application script - runs before first paint to prevent flash -->
     <script>
@@ -49,9 +50,12 @@
 
     <!-- Main Content Area -->
     <main id="main-content" class="main-content-redesign">
-        <div class="p-6 lg:p-8">
+        <div class="p-4 lg:p-6 max-w-screen-2xl mx-auto">
             <!-- Breadcrumb Navigation -->
-            @await Html.PartialAsync("_Breadcrumb")
+            @if (ViewData["Breadcrumbs"] != null)
+            {
+                @await Html.PartialAsync("_Breadcrumb")
+            }
 
             <!-- Page Content -->
             @RenderBody()

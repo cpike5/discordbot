@@ -23,8 +23,8 @@
       class="hidden lg:flex p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
       aria-label="Toggle sidebar"
     >
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+      <svg class="w-5 h-5 transition-transform" id="sidebarCollapseIcon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
       </svg>
     </button>
 
@@ -51,7 +51,7 @@
         id="navbar-search"
         name="q"
         placeholder="Search servers, commands, logs..."
-        class="w-full pl-10 pr-24 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+        class="w-full pl-10 pr-24 py-2 text-sm bg-bg-tertiary border border-transparent rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
       />
       <!-- Keyboard Shortcut Hint (desktop only) -->
       <div class="absolute right-3 top-1/2 -translate-y-1/2 hidden lg:flex items-center gap-0.5 pointer-events-none">
@@ -72,12 +72,6 @@
         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
       </svg>
     </button>
-
-    <!-- Bot Status (Desktop) -->
-    <div class="hidden lg:flex bot-status-indicator online">
-      <span class="status-dot pulse"></span>
-      <span>Online</span>
-    </div>
 
     <!-- Connection status is now shown via toast notifications (see dashboard-realtime.js) -->
 
@@ -120,16 +114,6 @@
           <!-- Notifications will be rendered here by JavaScript -->
         </div>
 
-        <!-- Footer -->
-        @* TODO: Create /Admin/Notifications page (issue #XXX) *@
-        <div class="notification-dropdown-footer">
-          <button onclick="NotificationBell.close()" class="notification-view-all" title="Full notification center coming soon">
-            Close
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
       </div>
 
       <!-- Screen reader announcements -->
@@ -149,7 +133,7 @@
         <button
           id="userMenuButton"
           onclick="toggleUserMenu()"
-          class="flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
+          class="group flex items-center gap-2 p-1.5 rounded-lg hover:bg-bg-hover transition-colors"
           aria-label="User menu"
           aria-expanded="false"
           aria-haspopup="menu"
@@ -165,7 +149,7 @@
               @initials
             </div>
           }
-          <svg class="hidden sm:block w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+          <svg class="hidden sm:block w-4 h-4 text-text-secondary group-hover:text-text-primary transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
           </svg>
         </button>
