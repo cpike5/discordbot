@@ -106,6 +106,12 @@ function toggleSidebarCollapse() {
     document.documentElement.classList.remove('sidebar-collapsed');
   }
 
+  // Rotate the collapse icon to indicate expand/collapse direction
+  const collapseIcon = document.getElementById('sidebarCollapseIcon');
+  if (collapseIcon) {
+    collapseIcon.style.transform = sidebarCollapsed ? 'rotate(180deg)' : '';
+  }
+
   // Persist state in localStorage
   try {
     localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed.toString());
@@ -310,6 +316,11 @@ document.addEventListener('DOMContentLoaded', function() {
         sidebar.classList.add('collapsed');
         // Ensure html element also has the class (should already be set by inline script)
         document.documentElement.classList.add('sidebar-collapsed');
+        // Rotate collapse icon to indicate "expand" direction
+        const collapseIcon = document.getElementById('sidebarCollapseIcon');
+        if (collapseIcon) {
+          collapseIcon.style.transform = 'rotate(180deg)';
+        }
       }
     } else {
       // Ensure classes are removed if not collapsed
