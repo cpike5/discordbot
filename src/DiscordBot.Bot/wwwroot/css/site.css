@@ -53,6 +53,7 @@
     --color-accent-orange-hover: #e5591f;
     --color-accent-orange-active: #b3440f;
     --color-accent-orange-muted: rgba(203, 78, 27, 0.2);
+    --color-accent-purple: #8b5cf6;
 
     /* Semantic colors */
     --color-success: #10b981;
@@ -127,6 +128,7 @@
     --color-accent-orange-hover: #7A5C8F;
     --color-accent-orange-active: #4F214A;
     --color-accent-orange-muted: rgba(97, 73, 120, 0.2);
+    --color-accent-purple: #7C3AED;
 
     /* Blue → Pink mapping (secondary accent)
        Maps existing accent-blue Tailwind classes to pink.

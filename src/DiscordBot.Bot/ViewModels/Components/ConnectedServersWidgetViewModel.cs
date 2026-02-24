@@ -13,7 +13,7 @@ public record ConnectedServersWidgetViewModel
     /// <summary>
     /// Gets the URL to the full servers list page.
     /// </summary>
-    public string ViewAllUrl { get; init; } = "/Servers";
+    public string ViewAllUrl { get; init; } = "/Guilds";
 
     /// <summary>
     /// Gets the list of servers to display in the widget.

@@ -8,7 +8,6 @@
     <div class="activity-item">
         <div class="bg-bg-primary/50 rounded-lg p-3">
             <div class="flex items-center gap-2 mb-1">
-                <span class="activity-icon text-sm"></span>
                 <span class="activity-timestamp text-xs text-text-tertiary font-mono"></span>
             </div>
             <p class="text-sm text-text-primary activity-description"></p>
@@ -57,7 +56,6 @@
                     <div class="activity-item @item.TypeClassName">
                         <div class="bg-bg-primary/50 rounded-lg p-3">
                             <div class="flex items-center gap-2 mb-1">
-                                <span class="activity-icon text-sm">@(item.Type == DiscordBot.Bot.ViewModels.Components.Enums.ActivityItemType.Success ? "🔧" : "⚠️")</span>
                                 <span class="activity-timestamp text-xs text-text-tertiary font-mono">@item.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
                             </div>
                             <p class="text-sm text-text-primary activity-description">
