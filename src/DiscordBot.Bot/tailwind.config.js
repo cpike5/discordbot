@@ -45,24 +45,24 @@ module.exports = {
         // Semantic colors - mapped to CSS variables for theme support
         success: {
           DEFAULT: 'var(--color-success)',
-          bg: '#10b98120',
-          border: '#10b98150',
+          bg: 'var(--color-success-bg)',
+          border: 'var(--color-success-border)',
         },
         warning: {
           DEFAULT: 'var(--color-warning)',
-          bg: '#f59e0b20',
-          border: '#f59e0b50',
+          bg: 'var(--color-warning-bg)',
+          border: 'var(--color-warning-border)',
         },
         error: {
           DEFAULT: 'var(--color-error)',
           hover: '#dc2626',
-          bg: '#ef444420',
-          border: '#ef444450',
+          bg: 'var(--color-error-bg)',
+          border: 'var(--color-error-border)',
         },
         info: {
           DEFAULT: 'var(--color-info)',
-          bg: '#06b6d420',
-          border: '#06b6d450',
+          bg: 'var(--color-info-bg)',
+          border: 'var(--color-info-border)',
         },
         // Border colors - mapped to CSS variables for theme support
         border: {
@@ -77,6 +77,16 @@ module.exports = {
         },
       },
       fontFamily: {
+        heading: [
+          '"Plus Jakarta Sans"',
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"Segoe UI"',
+          'Roboto',
+          '"Helvetica Neue"',
+          'Arial',
+          'sans-serif',
+        ],
         sans: [
           '-apple-system',
           'BlinkMacSystemFont',
@@ -115,13 +125,13 @@ module.exports = {
         '144': '36rem',
       },
       boxShadow: {
-        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
-        'DEFAULT': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
-        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
-        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
-        'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
-        'glow-orange': '0 0 20px rgba(203, 78, 27, 0.4)',
-        'glow-blue': '0 0 20px rgba(9, 142, 207, 0.4)',
+        'sm': 'var(--shadow-sm)',
+        'DEFAULT': 'var(--shadow-md)',
+        'md': 'var(--shadow-md)',
+        'lg': 'var(--shadow-lg)',
+        'xl': 'var(--shadow-xl)',
+        'glow-orange': '0 0 20px var(--glow-primary)',
+        'glow-blue': '0 0 20px var(--glow-secondary)',
       },
       borderRadius: {
         'sm': '0.25rem',

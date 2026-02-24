@@ -15,6 +15,11 @@
     min-height: 100vh;
   }
 
+  /* Heading typeface - distinctive font for headings */
+  h1, h2, h3, .text-display, .text-h1, .text-h2, .text-h3 {
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
   /* Focus styles for accessibility */
   *:focus-visible {
     outline: 2px solid var(--color-border-focus);
@@ -69,6 +74,32 @@
     /* Discord brand colors */
     --color-discord: #5865F2;
     --color-discord-hover: #4752C4;
+
+    /* Semantic color backgrounds and borders (theme-aware) */
+    --color-success-bg: rgba(16, 185, 129, 0.15);
+    --color-success-border: rgba(16, 185, 129, 0.3);
+    --color-warning-bg: rgba(245, 158, 11, 0.15);
+    --color-warning-border: rgba(245, 158, 11, 0.3);
+    --color-error-bg: rgba(239, 68, 68, 0.15);
+    --color-error-border: rgba(239, 68, 68, 0.3);
+    --color-info-bg: rgba(6, 182, 212, 0.15);
+    --color-info-border: rgba(6, 182, 212, 0.3);
+
+    /* Transition timing tokens */
+    --transition-fast: 120ms ease-out;
+    --transition-normal: 180ms ease-in-out;
+    --transition-smooth: 250ms cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-enter: 300ms cubic-bezier(0, 0, 0.2, 1);
+
+    /* Glow effect colors (theme-aware) */
+    --glow-primary: rgba(203, 78, 27, 0.3);
+    --glow-secondary: rgba(9, 142, 207, 0.3);
+
+    /* Shadow tokens (theme-aware) */
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+    --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2);
+    --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2);
 
     /* Z-index layers */
     --z-fixed: 300;
@@ -172,6 +203,26 @@
     --color-status-inactive-bg: rgba(107, 114, 128, 0.15);
     --color-status-inactive-border: rgba(107, 114, 128, 0.35);
 
+    /* Semantic color backgrounds and borders - lighter for light theme */
+    --color-success-bg: rgba(5, 150, 105, 0.12);
+    --color-success-border: rgba(5, 150, 105, 0.3);
+    --color-warning-bg: rgba(217, 119, 6, 0.12);
+    --color-warning-border: rgba(217, 119, 6, 0.3);
+    --color-error-bg: rgba(220, 38, 38, 0.12);
+    --color-error-border: rgba(220, 38, 38, 0.3);
+    --color-info-bg: rgba(8, 145, 178, 0.12);
+    --color-info-border: rgba(8, 145, 178, 0.3);
+
+    /* Glow effects - mapped to purple-dusk accent colors */
+    --glow-primary: rgba(97, 73, 120, 0.3);
+    --glow-secondary: rgba(213, 52, 91, 0.3);
+
+    /* Shadows - lighter for light theme */
+    --shadow-sm: 0 1px 2px 0 rgba(80, 50, 40, 0.1);
+    --shadow-md: 0 4px 6px -1px rgba(80, 50, 40, 0.1), 0 2px 4px -1px rgba(80, 50, 40, 0.06);
+    --shadow-lg: 0 10px 15px -3px rgba(80, 50, 40, 0.1), 0 4px 6px -2px rgba(80, 50, 40, 0.06);
+    --shadow-xl: 0 20px 25px -5px rgba(80, 50, 40, 0.1), 0 10px 10px -5px rgba(80, 50, 40, 0.06);
+
     /* Text inverse - for button text on colored backgrounds
        White provides excellent contrast on purple accent colors */
     --color-text-inverse: #FFFFFF;
@@ -224,7 +275,8 @@
     @apply inline-flex items-center justify-center gap-2 px-5 py-2.5;
     @apply text-sm font-semibold leading-6;
     @apply border border-transparent rounded-md;
-    @apply cursor-pointer transition-all duration-150 ease-in-out;
+    @apply cursor-pointer;
+    transition: all var(--transition-fast);
     @apply whitespace-nowrap;
   }
 
@@ -237,6 +289,9 @@
   }
   .btn-primary:active {
     @apply bg-accent-orange-active border-accent-orange-active;
+  }
+  .btn-primary:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-bg-primary), 0 0 12px var(--glow-primary);
   }
   .btn-primary:disabled {
     @apply bg-text-tertiary border-text-tertiary cursor-not-allowed opacity-50;
@@ -260,6 +315,9 @@
   }
   .btn-accent:active {
     @apply bg-accent-blue-active border-accent-blue-active;
+  }
+  .btn-accent:focus-visible {
+    box-shadow: 0 0 0 2px var(--color-bg-primary), 0 0 12px var(--glow-secondary);
   }
 
   .btn-danger {
@@ -309,7 +367,8 @@
   }
 
   .card-interactive {
-    @apply cursor-pointer transition-all duration-200 ease-in-out;
+    @apply cursor-pointer;
+    transition: all var(--transition-smooth);
   }
   .card-interactive:hover {
     @apply border-accent-blue -translate-y-0.5 shadow-md;
@@ -320,7 +379,7 @@
   .card-enhanced {
     @apply relative bg-bg-secondary border border-border-primary rounded-xl overflow-hidden;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: all var(--transition-smooth);
   }
 
   .card-enhanced:hover {
@@ -337,7 +396,7 @@
     right: 0;
     height: 3px;
     background: transparent;
-    transition: background 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    transition: background var(--transition-smooth);
   }
 
   /* Accent color variants */
@@ -404,7 +463,7 @@
   .form-input {
     @apply w-full px-3.5 py-2.5 text-sm text-text-primary;
     @apply bg-bg-primary border border-border-primary rounded-md;
-    @apply transition-all duration-150 ease-in-out;
+    transition: all var(--transition-normal);
   }
   .form-input::placeholder {
     @apply text-text-placeholder;
@@ -434,7 +493,7 @@
     @apply w-full px-3.5 py-2.5 text-sm text-text-primary;
     @apply bg-bg-primary border border-border-primary rounded-md;
     @apply cursor-pointer appearance-none;
-    @apply transition-all duration-150 ease-in-out;
+    transition: all var(--transition-normal);
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23a8a5a3' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
     background-position: right 0.5rem center;
     background-repeat: no-repeat;
@@ -513,7 +572,8 @@
 
   .navbar-link {
     @apply px-4 py-2 text-sm font-medium text-text-secondary;
-    @apply no-underline rounded-md transition-all duration-150 ease-in-out;
+    @apply no-underline rounded-md;
+    transition: all var(--transition-fast);
   }
   .navbar-link:hover {
     @apply text-text-primary bg-bg-hover;
@@ -538,7 +598,8 @@
 
   .sidebar-link {
     @apply flex items-center gap-3 px-4 py-3 text-sm font-medium text-text-secondary;
-    @apply no-underline rounded-lg transition-all duration-150 ease-in-out;
+    @apply no-underline rounded-lg;
+    transition: all var(--transition-fast);
   }
   .sidebar-link:hover {
     @apply text-text-primary bg-bg-hover;
@@ -577,7 +638,8 @@
   }
 
   .breadcrumb-link {
-    @apply text-text-secondary no-underline transition-colors duration-150 ease-in-out;
+    @apply text-text-secondary no-underline;
+    transition: color var(--transition-fast);
   }
   .breadcrumb-link:hover {
     @apply text-accent-blue;
