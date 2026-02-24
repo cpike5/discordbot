@@ -1,408 +1,17 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Portal.TTS.IndexModel
 @using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Portal
 @{
-    ViewData["Title"] = Model.IsAuthenticated ? "TTS Portal" : "Verify Your Membership";
+    ViewData["Title"] = Model.IsAuthenticated ? "Text-to-Speech" : "Verify Your Membership";
 }
 
 <style>
     /* ===============================================
-       Landing Page Styles (Unauthenticated View)
+       TTS Portal Page-Specific Styles
+       Shared styles (landing, header, layout, sidebar,
+       toasts, responsive) are in portal.css
        =============================================== */
-    .landing-container {
-        min-height: 100vh;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 1rem;
-        background-color: var(--color-bg-primary);
-    }
-
-    .landing-card {
-        width: 100%;
-        max-width: 480px;
-        background-color: var(--color-bg-secondary);
-        border: 1px solid var(--color-border-primary);
-        border-radius: 0.5rem;
-        padding: 2.5rem 2rem;
-        text-align: center;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-    }
-
-    .landing-guild-icon {
-        width: 120px;
-        height: 120px;
-        margin: 0 auto 1.5rem;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        border: 2px solid var(--color-border-primary);
-        box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
-        overflow: hidden;
-        background: linear-gradient(135deg, var(--color-accent-orange) 0%, var(--color-accent-orange-hover) 100%);
-    }
-
-    .landing-guild-icon img {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-
-    .landing-guild-icon-placeholder {
-        font-size: 3rem;
-        color: white;
-    }
-
-    .landing-guild-name {
-        font-size: 1.75rem;
-        font-weight: 600;
-        color: var(--color-text-primary);
-        margin-bottom: 0.5rem;
-        word-wrap: break-word;
-        word-break: break-word;
-    }
-
-    .landing-portal-badge {
-        display: inline-block;
-        font-size: 0.75rem;
-        font-weight: 500;
-        color: var(--color-accent-orange);
-        background-color: rgba(203, 78, 27, 0.1);
-        border: 1px solid rgba(203, 78, 27, 0.3);
-        padding: 0.375rem 0.75rem;
-        border-radius: 999px;
-        margin-bottom: 1.5rem;
-    }
-
-    .landing-description {
-        font-size: 1rem;
-        color: var(--color-text-primary);
-        margin-bottom: 1.5rem;
-        line-height: 1.6;
-    }
-
-    .landing-description-highlight {
-        color: var(--color-accent-orange);
-        font-weight: 500;
-    }
-
-    .landing-discord-button {
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        width: 100%;
-        padding: 0.875rem 1.5rem;
-        background-color: var(--color-discord);
-        color: white;
-        border: none;
-        border-radius: 0.5rem;
-        font-size: 1rem;
-        font-weight: 600;
-        cursor: pointer;
-        transition: all 0.2s;
-        text-decoration: none;
-        margin-bottom: 1.5rem;
-    }
-
-    .landing-discord-button:hover {
-        background-color: var(--color-discord-hover);
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
-        color: white;
-        text-decoration: none;
-    }
-
-    .landing-discord-button:active {
-        transform: translateY(0);
-    }
-
-    .landing-discord-logo {
-        width: 20px;
-        height: 20px;
-    }
-
-    .landing-permissions-notice {
-        background-color: var(--color-bg-primary);
-        border: 1px solid var(--color-border-primary);
-        border-radius: 0.5rem;
-        padding: 1rem;
-        margin-bottom: 1.5rem;
-        text-align: left;
-    }
-
-    .landing-permissions-title {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: var(--color-text-primary);
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        margin-bottom: 0.5rem;
-    }
-
-    .landing-permissions-item {
-        display: flex;
-        align-items: flex-start;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
-        font-size: 0.813rem;
-        color: var(--color-text-secondary);
-        line-height: 1.5;
-    }
-
-    .landing-permissions-item:last-child {
-        margin-bottom: 0;
-    }
-
-    .landing-permission-icon {
-        color: var(--color-accent-orange);
-        font-weight: bold;
-        flex-shrink: 0;
-        margin-top: 0.125rem;
-    }
-
-    .landing-footer-text {
-        font-size: 0.813rem;
-        color: var(--color-text-secondary);
-        line-height: 1.5;
-    }
-
-    .landing-footer-text a {
-        color: var(--color-accent-orange);
-        text-decoration: none;
-        transition: color 0.2s;
-    }
-
-    .landing-footer-text a:hover {
-        color: var(--color-accent-orange-hover);
-        text-decoration: underline;
-    }
-
-    /* Landing page responsive */
-    @@media (max-width: 480px) {
-        .landing-card {
-            padding: 2rem 1.5rem;
-        }
-
-        .landing-guild-icon {
-            width: 100px;
-            height: 100px;
-        }
-
-        .landing-guild-icon-placeholder {
-            font-size: 2.5rem;
-        }
-
-        .landing-guild-name {
-            font-size: 1.5rem;
-            margin-bottom: 0.375rem;
-        }
-
-        .landing-description {
-            font-size: 0.9375rem;
-            margin-bottom: 1.25rem;
-        }
-
-        .landing-discord-button {
-            padding: 0.75rem 1.25rem;
-            font-size: 0.9375rem;
-        }
-    }
-
-    @@media (max-width: 360px) {
-        .landing-card {
-            padding: 1.5rem 1.25rem;
-        }
-
-        .landing-guild-icon {
-            width: 80px;
-            height: 80px;
-            margin-bottom: 1rem;
-        }
-
-        .landing-guild-icon-placeholder {
-            font-size: 2rem;
-        }
-
-        .landing-guild-name {
-            font-size: 1.25rem;
-            margin-bottom: 0.25rem;
-        }
-
-        .landing-portal-badge {
-            font-size: 0.7rem;
-            padding: 0.25rem 0.625rem;
-        }
-
-        .landing-description {
-            font-size: 0.875rem;
-            margin-bottom: 1rem;
-        }
-
-        .landing-permissions-notice {
-            padding: 0.75rem;
-        }
-
-        .landing-permissions-title {
-            font-size: 0.75rem;
-        }
-
-        .landing-permissions-item {
-            font-size: 0.75rem;
-        }
-    }
-
-    /* ===============================================
-       TTS Portal Styles (Authenticated View)
-       =============================================== */
-    :root {
-        --portal-header-height: 106px; /* Header with nav tabs */
-    }
-
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    /* Prevent body/html scroll - portal pages fill viewport exactly */
-    html.portal-page,
-    html.portal-page body {
-        overflow: hidden;
-        height: 100%;
-    }
-
-    /* Header */
-    .portal-header {
-        background-color: var(--color-bg-primary);
-        border-bottom: 1px solid var(--color-border-primary);
-        padding: 1rem 1.5rem;
-    }
-
-    .portal-header .header-content {
-        max-width: 1600px;
-        margin: 0 auto;
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-    }
-
-    .header-left {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-
-    .bot-icon {
-        width: 40px;
-        height: 40px;
-        border-radius: 0.5rem;
-        background-color: var(--color-accent-orange);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex-shrink: 0;
-    }
-
-    .bot-icon svg {
-        width: 24px;
-        height: 24px;
-        color: white;
-    }
-
-    .header-text h1 {
-        font-size: 1.125rem;
-        font-weight: bold;
-        color: var(--color-text-primary);
-    }
-
-    .header-text p {
-        font-size: 0.875rem;
-        color: var(--color-text-secondary);
-    }
-
-    .status-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.375rem;
-        padding: 0.375rem 0.75rem;
-        font-size: 0.75rem;
-        font-weight: 500;
-        border-radius: 9999px;
-    }
-
-    .status-badge.online {
-        background-color: rgba(87, 171, 90, 0.1);
-        color: var(--color-success);
-    }
-
-    .status-badge.offline {
-        background-color: rgba(239, 68, 68, 0.1);
-        color: var(--color-error);
-    }
-
-    .status-dot {
-        width: 6px;
-        height: 6px;
-        border-radius: 50%;
-        background-color: currentColor;
-    }
-
-    /* Main layout - constrained to viewport height */
-    .main-container {
-        max-width: 1600px;
-        margin: 0 auto;
-        padding: 1.5rem;
-        height: calc(100vh - var(--portal-header-height));
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    .portal-content {
-        display: flex;
-        gap: 1.5rem;
-        flex: 1 1 0; /* Grow, shrink, and use 0 basis to allow proper sizing */
-        min-height: 0; /* Critical: allows flex child to shrink below content size */
-    }
-
-    /* Sidebar - Fixed width on LEFT with internal scrolling */
-    .sidebar {
-        width: 300px;
-        flex: 0 0 300px;
-        min-height: 0;
-        background-color: var(--color-bg-secondary);
-        border: 1px solid var(--color-border-primary);
-        border-radius: 0.5rem;
-        padding: 1.25rem;
-        overflow-y: auto;
-        overflow-x: hidden;
-
-        /* Custom scrollbar - Firefox */
-        scrollbar-width: thin;
-        scrollbar-color: var(--color-border-primary) transparent;
-    }
-
-    /* Webkit scrollbar styling for sidebar */
-    .sidebar::-webkit-scrollbar {
-        width: 6px;
-        margin-right: 4px;
-    }
-
-    .sidebar::-webkit-scrollbar-track {
-        background: transparent;
-        margin: 6px 0; /* Add margin to keep scrollbar away from rounded corners */
-    }
-
-    .sidebar::-webkit-scrollbar-thumb {
-        background: var(--color-border-primary);
-        border-radius: 3px;
-    }
-
-    .sidebar::-webkit-scrollbar-thumb:hover {
-        background: var(--color-text-secondary);
-    }
 
     /* TTS Form Panel - Flexible on RIGHT with internal scrolling */
     .tts-panel {
@@ -482,7 +91,7 @@
         color: var(--color-text-primary);
         font-family: inherit;
         resize: vertical;
-        transition: all 0.2s;
+        transition: var(--transition-normal);
     }
 
     .form-textarea:hover {
@@ -492,7 +101,7 @@
     .form-textarea:focus {
         outline: none;
         border-color: var(--color-accent-orange);
-        box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.1);
+        box-shadow: 0 0 0 2px var(--color-accent-orange-muted);
     }
 
     .form-textarea::placeholder {
@@ -530,7 +139,7 @@
         font-size: 0.875rem;
         color: var(--color-text-primary);
         cursor: pointer;
-        transition: all 0.2s;
+        transition: var(--transition-normal);
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23949ba4'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 0.5rem center;
@@ -544,7 +153,7 @@
     .form-select:focus {
         outline: none;
         border-color: var(--color-accent-orange);
-        box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.1);
+        box-shadow: 0 0 0 2px var(--color-accent-orange-muted);
     }
 
 
@@ -582,9 +191,9 @@
         border-radius: 50%;
         background-color: var(--color-accent-orange);
         cursor: pointer;
-        transition: all 0.2s;
+        transition: var(--transition-normal);
         border: 2px solid var(--color-bg-secondary);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        box-shadow: var(--shadow-sm);
     }
 
     .form-range::-webkit-slider-thumb:hover {
@@ -603,8 +212,8 @@
         background-color: var(--color-accent-orange);
         cursor: pointer;
         border: 2px solid var(--color-bg-secondary);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-        transition: all 0.2s;
+        box-shadow: var(--shadow-sm);
+        transition: var(--transition-normal);
     }
 
     .form-range::-moz-range-thumb:hover {
@@ -637,7 +246,7 @@
         font-size: 0.875rem;
         font-weight: 500;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: var(--transition-normal);
         display: flex;
         align-items: center;
         justify-content: center;
@@ -662,18 +271,6 @@
         height: 16px;
     }
 
-    /* Toast container for portal */
-    .portal-toast-container {
-        position: fixed;
-        bottom: 1.5rem;
-        right: 1.5rem;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-        max-width: 400px;
-    }
-
     /* Collapsible Voice Settings */
     .collapsible-header {
         display: flex;
@@ -685,7 +282,7 @@
         border-radius: 0.5rem;
         cursor: pointer;
         min-height: 44px;
-        transition: all 0.2s;
+        transition: var(--transition-normal);
         user-select: none;
     }
 
@@ -703,7 +300,7 @@
         width: 20px;
         height: 20px;
         color: var(--color-text-secondary);
-        transition: transform 0.2s;
+        transition: transform var(--transition-normal);
     }
 
     .collapsible-chevron.expanded {
@@ -726,118 +323,8 @@
         max-height: 1000px;
     }
 
-    .portal-toast {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        padding: 1rem 1.25rem;
-        border-radius: 0.5rem;
-        background-color: var(--color-bg-secondary);
-        border: 1px solid var(--color-border-primary);
-        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
-        animation: toast-slide-in 0.3s ease-out;
-    }
-
-    .portal-toast.success {
-        border-color: rgba(87, 171, 90, 0.3);
-    }
-
-    .portal-toast.error {
-        border-color: rgba(239, 68, 68, 0.3);
-    }
-
-    .portal-toast.warning {
-        border-color: rgba(251, 191, 36, 0.3);
-    }
-
-    .portal-toast.info {
-        border-color: rgba(59, 130, 246, 0.3);
-    }
-
-    .portal-toast-icon {
-        width: 20px;
-        height: 20px;
-        flex-shrink: 0;
-    }
-
-    .portal-toast.success .portal-toast-icon {
-        color: var(--color-success);
-    }
-
-    .portal-toast.error .portal-toast-icon {
-        color: var(--color-error);
-    }
-
-    .portal-toast.warning .portal-toast-icon {
-        color: var(--color-warning);
-    }
-
-    .portal-toast.info .portal-toast-icon {
-        color: #3b82f6;
-    }
-
-    .portal-toast-message {
-        flex: 1;
-        font-size: 0.875rem;
-        color: var(--color-text-primary);
-    }
-
-    .portal-toast-close {
-        background: none;
-        border: none;
-        cursor: pointer;
-        color: var(--color-text-secondary);
-        padding: 0.25rem;
-        transition: color 0.2s;
-    }
-
-    .portal-toast-close:hover {
-        color: var(--color-text-primary);
-    }
-
-    @@keyframes toast-slide-in {
-        from {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-        to {
-            transform: translateX(0);
-            opacity: 1;
-        }
-    }
-
-    .portal-toast.dismissing {
-        animation: toast-slide-out 0.2s ease-in forwards;
-    }
-
-    @@keyframes toast-slide-out {
-        from {
-            transform: translateX(0);
-            opacity: 1;
-        }
-        to {
-            transform: translateX(100%);
-            opacity: 0;
-        }
-    }
-
-    .hidden {
-        display: none !important;
-    }
-
     /* Responsive */
     @@media (max-width: 767px) {
-        .portal-toast-container {
-            bottom: 1rem;
-            left: 1rem;
-            right: 1rem;
-            max-width: none;
-        }
-
-        .portal-toast {
-            width: 100%;
-        }
-
         /* Show collapsible voice settings on mobile */
         .mobile-collapsible-section {
             display: block !important;
@@ -876,31 +363,6 @@
     }
 
     @@media (max-width: 1023px) {
-        /* Allow normal scrolling on mobile/tablet */
-        html.portal-page,
-        html.portal-page body {
-            overflow: auto;
-            height: auto;
-        }
-
-        .main-container {
-            height: auto; /* Allow natural height on mobile */
-            min-height: calc(100vh - var(--portal-header-height));
-            overflow: visible;
-        }
-
-        .portal-content {
-            flex-direction: column;
-            overflow: visible;
-        }
-
-        .sidebar {
-            width: 100%;
-            flex: none;
-            max-height: none;
-            overflow: visible;
-        }
-
         .tts-panel {
             max-height: none;
             overflow: visible;
@@ -922,19 +384,6 @@
     }
 
     @@media (max-width: 640px) {
-        .portal-header {
-            padding: 1rem;
-        }
-
-        .main-container {
-            padding: 1rem;
-        }
-
-        .portal-content {
-            gap: 1rem;
-        }
-
-
         .tts-form-wrapper {
             padding: 1rem;
         }
@@ -943,61 +392,14 @@
 
 @if (!Model.IsAuthenticated)
 {
-    <!-- ===============================================
-         Landing Page (Unauthenticated Users)
-         =============================================== -->
-    <div class="landing-container">
-        <div class="landing-card">
-            <!-- Guild Icon -->
-            <div class="landing-guild-icon">
-                @if (!string.IsNullOrEmpty(Model.GuildIconUrl))
-                {
-                    <img src="@Model.GuildIconUrl" alt="@Model.GuildName" />
-                }
-                else
-                {
-                    <span class="landing-guild-icon-placeholder">@(Model.GuildName.Length > 0 ? Model.GuildName[0].ToString().ToUpper() : "?")</span>
-                }
-            </div>
-
-            <!-- Guild Name -->
-            <h1 class="landing-guild-name">@Model.GuildName</h1>
-
-            <!-- Portal Badge -->
-            <span class="landing-portal-badge">TTS Portal</span>
-
-            <!-- Description -->
-            <p class="landing-description">
-                To send TTS messages, we need to verify you're a member of <span class="landing-description-highlight">this server</span>
-            </p>
-
-            <!-- Discord Login Button -->
-            <a href="@Model.LoginUrl" class="landing-discord-button">
-                <svg class="landing-discord-logo" fill="currentColor" viewBox="0 0 24 24">
-                    <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z"/>
-                </svg>
-                Login with Discord
-            </a>
-
-            <!-- Permissions Notice -->
-            <div class="landing-permissions-notice">
-                <div class="landing-permissions-title">What we'll request</div>
-                <div class="landing-permissions-item">
-                    <span class="landing-permission-icon">✓</span>
-                    <span>Access to see your server memberships</span>
-                </div>
-                <div class="landing-permissions-item">
-                    <span class="landing-permission-icon">✓</span>
-                    <span>Your Discord username and avatar</span>
-                </div>
-            </div>
-
-            <!-- Footer -->
-            <p class="landing-footer-text">
-                By logging in, you agree to our <a href="/Account/Privacy">Privacy Policy</a>
-            </p>
-        </div>
-    </div>
+    @await Html.PartialAsync("../Shared/_PortalLanding", new PortalLandingViewModel
+    {
+        GuildName = Model.GuildName,
+        GuildIconUrl = Model.GuildIconUrl,
+        LoginUrl = Model.LoginUrl,
+        PortalBadgeText = "Text-to-Speech Portal",
+        DescriptionText = "To send TTS messages, we need to verify you're a member of this server"
+    })
 }
 else
 {
@@ -1017,21 +419,7 @@ else
     <!-- Audio Globally Disabled Warning -->
     @if (Model.IsAudioGloballyDisabled)
     {
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-4">
-            <div class="bg-yellow-900/20 border border-yellow-600/50 rounded-lg p-4">
-                <div class="flex items-start gap-3">
-                    <div class="flex-shrink-0">
-                        <svg class="w-5 h-5 text-yellow-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <div>
-                        <h3 class="text-sm font-semibold text-yellow-500">Audio Features Disabled</h3>
-                        <p class="text-sm text-gray-400 mt-1">Audio features have been temporarily disabled. TTS messages cannot be sent at this time.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
+        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning")
     }
 
     <!-- Main Content -->
@@ -1259,7 +647,6 @@ else
     <script>
         // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
         window.guildId = '@Model.GuildId';
-        console.log('[PortalTTS] Scripts section rendered, guildId:', window.guildId);
 
         // Collapsible voice settings toggle
         function toggleVoiceSettings() {

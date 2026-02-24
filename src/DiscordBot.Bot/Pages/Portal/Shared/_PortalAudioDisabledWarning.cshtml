@@ -1,0 +1,13 @@
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Audio disabled warning for portal pages. Displays when audio features are globally turned off. *@
+<div class="portal-audio-warning">
+    @await Html.PartialAsync("../../Shared/Components/_Alert", new AlertViewModel
+    {
+        Variant = AlertVariant.Warning,
+        Title = "Audio Features Disabled",
+        Message = "Audio features have been temporarily disabled. Audio cannot be played at this time.",
+        ShowIcon = true,
+        IsDismissible = false
+    })
+</div>

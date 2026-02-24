@@ -51,15 +51,11 @@
             guildId = guildIdElement.dataset.guildId;
         } else if (window.guildId) {
             guildId = window.guildId;
-            console.log('[PortalTTS] Using window.guildId fallback');
         }
 
         if (!guildId) {
-            console.log('[PortalTTS] No guild ID provided, skipping initialization');
             return;
         }
-
-        console.log('[PortalTTS] Initializing for guild:', guildId);
 
         setupEventHandlers();
         loadSavedVoice();
@@ -121,10 +117,9 @@
             const savedVoice = localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
             if (savedVoice && window.voiceSelector_setValue) {
                 window.voiceSelector_setValue('portalVoiceSelector', savedVoice, true);
-                console.log('[PortalTTS] Restored saved voice:', savedVoice);
             }
         } catch (error) {
-            console.warn('[PortalTTS] Failed to load saved voice:', error);
+            // Failed to load saved voice
         }
     }
 
@@ -132,10 +127,9 @@
         try {
             if (voice) {
                 localStorage.setItem(CONFIG.STORAGE_KEY_VOICE, voice);
-                console.log('[PortalTTS] Saved voice preference:', voice);
             }
         } catch (error) {
-            console.warn('[PortalTTS] Failed to save voice:', error);
+            // Failed to save voice
         }
     }
 
@@ -147,10 +141,9 @@
             const savedMode = localStorage.getItem('tts_mode_preference');
             if (savedMode && ['simple', 'standard', 'pro'].includes(savedMode)) {
                 currentMode = savedMode;
-                console.log('[PortalTTS] Restored saved mode:', savedMode);
             }
         } catch (error) {
-            console.warn('[PortalTTS] Failed to load saved mode:', error);
+            // Failed to load saved mode
         }
 
         // Always apply mode visibility on init (use requestAnimationFrame to ensure
@@ -166,7 +159,6 @@
     function observeConnectionState() {
         const panel = document.getElementById('voice-channel-panel');
         if (!panel) {
-            console.warn('[PortalTTS] Voice channel panel not found, cannot observe connection state');
             return;
         }
 
@@ -177,7 +169,6 @@
         const observer = new MutationObserver(function(mutations) {
             mutations.forEach(function(mutation) {
                 if (mutation.type === 'attributes' && mutation.attributeName === 'data-connected') {
-                    console.log('[PortalTTS] Connection state changed via voice panel');
                     updateCharacterCount(); // Update send button state
                 }
             });
@@ -188,7 +179,6 @@
             attributeFilter: ['data-connected']
         });
 
-        console.log('[PortalTTS] Observing connection state from voice panel');
     }
 
     function checkIsConnected() {
@@ -202,7 +192,6 @@
     async function sendTtsMessage() {
         const messageInput = document.getElementById('ttsMessage');
         if (!messageInput) {
-            console.error('[PortalTTS] Message input element not found');
             return;
         }
         const message = messageInput.value.trim();
@@ -280,7 +269,7 @@
 
             showToast('success', 'Message sent successfully');
         } catch (error) {
-            console.error('[PortalTTS] Send error:', error);
+            // Send error occurred
             showToast('error', error.message);
         } finally {
             isSending = false;
@@ -374,7 +363,7 @@
     function showToast(type, message) {
         const container = document.getElementById('portalToastContainer');
         if (!container) {
-            console.warn('[PortalTTS] Toast container not found');
+            // Toast container not found
             return;
         }
 
@@ -508,7 +497,7 @@
                 }
             }
         } catch (error) {
-            console.error('[PortalTTS] Error building SSML:', error);
+            // Error building SSML
         }
     }
 
@@ -643,5 +632,4 @@
         showToast: showToast
     };
 
-    console.log('[PortalTTS] Module loaded');
 })();
