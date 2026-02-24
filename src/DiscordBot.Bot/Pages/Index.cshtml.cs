@@ -178,7 +178,7 @@ public class IndexModel : PageModel
         BotStatusBanner = new BotStatusBannerViewModel
         {
             IsOnline = statusDto.ConnectionState == "Connected",
-            StatusText = statusDto.ConnectionState == "Connected" ? "Bot is Online" : "Bot is Offline",
+            StatusText = statusDto.ConnectionState == "Connected" ? "Connected" : "Disconnected",
             ServerCount = guildList.Count,
             TotalMembers = totalMembers,
             UptimeDisplay = BotStatusViewModel.FormatUptime(statusDto.Uptime),
@@ -204,10 +204,10 @@ public class IndexModel : PageModel
 
         HeroMetrics = new List<HeroMetricCardViewModel>
         {
-            new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "this week", AccentColor = CardAccent.Blue, IconSvg = serverIcon, ShowSparkline = false },
-            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), DataAttribute = "data-active-users", TrendValue = "+0", TrendDirection = TrendDirection.Neutral, TrendLabel = "today", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
-            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), DataAttribute = "data-total-commands", TrendValue = "0%", TrendDirection = TrendDirection.Neutral, TrendLabel = "vs yesterday", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
-            new() { Title = "Uptime", Value = uptimeDisplay, DataAttribute = "data-uptime-24h", TrendValue = "", TrendDirection = TrendDirection.Up, TrendLabel = "last 24h", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
+            new() { Title = "Total Servers", Value = guildList.Count.ToString("N0"), AccentColor = CardAccent.Blue, IconSvg = serverIcon, ShowSparkline = false },
+            new() { Title = "Active Users", Value = activeUsers.ToString("N0"), DataAttribute = "data-active-users", AccentColor = CardAccent.Success, IconSvg = usersIcon, ShowSparkline = false },
+            new() { Title = "Commands Today", Value = commandsToday.ToString("N0"), DataAttribute = "data-total-commands", AccentColor = CardAccent.Orange, IconSvg = commandIcon, ShowSparkline = false },
+            new() { Title = "Uptime", Value = uptimeDisplay, DataAttribute = "data-uptime-24h", AccentColor = CardAccent.Info, IconSvg = uptimeIcon, ShowSparkline = false }
         };
     }
 
@@ -345,7 +345,7 @@ public class IndexModel : PageModel
         ConnectedServers = new ConnectedServersWidgetViewModel
         {
             Title = "Connected Servers",
-            ViewAllUrl = "/Servers",
+            ViewAllUrl = "/Guilds",
             Servers = serverItems,
             TotalServerCount = guildList.Count
         };

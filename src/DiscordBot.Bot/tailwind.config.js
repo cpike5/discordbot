@@ -38,6 +38,9 @@ module.exports = {
             active: 'var(--color-accent-blue-active)',
             muted: 'var(--color-accent-blue-muted)',
           },
+          purple: {
+            DEFAULT: 'var(--color-accent-purple)',
+          },
         },
         // Semantic colors - mapped to CSS variables for theme support
         success: {
