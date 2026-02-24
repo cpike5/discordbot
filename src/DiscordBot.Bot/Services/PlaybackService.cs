@@ -323,6 +323,10 @@ public class PlaybackService : IPlaybackService
     /// </summary>
     private async Task PlaybackLoopAsync(ulong guildId)
     {
+        using var loopActivity = BotActivitySource.StartBackgroundServiceActivity(
+            "PlaybackLoop", executionCycle: 0, asRootSpan: true);
+        loopActivity?.SetTag("guild.id", guildId);
+
         if (!_playbackStates.TryGetValue(guildId, out var state))
         {
             return;

@@ -26,7 +26,7 @@ public class DatabaseSettings
     /// When enabled, parameters are sanitized to mask sensitive values.
     /// Default: true.
     /// </summary>
-    public bool LogQueryParameters { get; set; } = true;
+    public bool LogQueryParameters { get; set; } = false;
 
     /// <summary>
     /// Gets or sets the database provider to use. Valid values: "Sqlite", "PostgreSql".

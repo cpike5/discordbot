@@ -257,6 +257,7 @@ public class VoxService : IVoxService
             catch (OperationCanceledException)
             {
                 stopwatch.Stop();
+                activity?.SetStatus(ActivityStatusCode.Error, "Cancelled");
                 _logger.LogInformation("VOX playback cancelled for guild {GuildId}", guildId);
                 return new VoxPlaybackResult
                 {

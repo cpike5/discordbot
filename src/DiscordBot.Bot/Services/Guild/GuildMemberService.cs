@@ -148,7 +148,7 @@ public class GuildMemberService : IGuildMemberService
             return null;
         }
 
-        _logger.LogInformation("GetMemberAsync: Found in DB - Username={Username}", member.User?.Username ?? "NULL USER");
+        _logger.LogDebug("Member retrieved from database for guild {GuildId}, user {UserId}", guildId, userId);
 
         // Get Discord guild for role information
         var guild = _client.GetGuild(guildId);

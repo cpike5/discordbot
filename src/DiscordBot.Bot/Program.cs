@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Commands;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Logging;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Infrastructure.Data;
@@ -74,7 +75,8 @@ try
             .Enrich.WithThreadName()
             .Enrich.WithClientIp()
             .Enrich.WithCorrelationId()
-            .Enrich.WithExceptionDetails();
+            .Enrich.WithExceptionDetails()
+            .Enrich.With<LogSanitizingEnricher>();
 
         // Add Elasticsearch sink programmatically if configured
         var elasticUrl = context.Configuration["ElasticSearch:Url"];

@@ -2,6 +2,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Utilities;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -175,7 +176,7 @@ public class UserManagementService : IUserManagementService
         CancellationToken cancellationToken = default)
     {
         _logger.LogInformation("Creating new user with email: {Email} by actor: {ActorId}",
-            request.Email, actorUserId);
+            LogSanitizer.SanitizeString(request.Email), actorUserId);
 
         // Validate password match
         if (request.Password != request.ConfirmPassword)
@@ -189,7 +190,7 @@ public class UserManagementService : IUserManagementService
         var existingUser = await _userManager.FindByEmailAsync(request.Email);
         if (existingUser != null)
         {
-            _logger.LogWarning("Attempt to create user with existing email: {Email}", request.Email);
+            _logger.LogWarning("Attempt to create user with existing email: {Email}", LogSanitizer.SanitizeString(request.Email));
             return UserManagementResult.Failure(
                 UserManagementResult.EmailAlreadyExists,
                 "A user with this email already exists");
@@ -221,7 +222,7 @@ public class UserManagementService : IUserManagementService
         if (!createResult.Succeeded)
         {
             var errors = string.Join(", ", createResult.Errors.Select(e => e.Description));
-            _logger.LogError("Failed to create user {Email}: {Errors}", request.Email, errors);
+            _logger.LogError("Failed to create user {Email}: {Errors}", LogSanitizer.SanitizeString(request.Email), errors);
             return UserManagementResult.Failure(
                 UserManagementResult.PasswordValidationFailed,
                 errors);
@@ -263,7 +264,7 @@ public class UserManagementService : IUserManagementService
         }
 
         _logger.LogInformation("Successfully created user {UserId} with email {Email}",
-            user.Id, user.Email);
+            user.Id, LogSanitizer.SanitizeString(user.Email));
 
         var roles = await _userManager.GetRolesAsync(user);
         return UserManagementResult.Success(MapToDto(user, roles.ToList()));
