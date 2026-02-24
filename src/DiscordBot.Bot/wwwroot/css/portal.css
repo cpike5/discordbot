@@ -1,0 +1,714 @@
+/* ============================================================
+   Portal Shared Stylesheet
+   Extracted shared styles from Soundboard, TTS, and VOX portals.
+   ============================================================ */
+
+/* -----------------------------------------------
+   Portal Layout Resets
+   ----------------------------------------------- */
+:root {
+    --portal-header-height: 106px;
+}
+
+html.portal-page,
+html.portal-page body {
+    overflow: hidden;
+    height: 100%;
+}
+
+/* -----------------------------------------------
+   Landing Page (Card Pattern)
+   ----------------------------------------------- */
+.landing-container {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background-color: var(--color-bg-primary);
+}
+
+.landing-card {
+    width: 100%;
+    max-width: 480px;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.5rem;
+    padding: 2.5rem 2rem;
+    text-align: center;
+    box-shadow: var(--shadow-md);
+}
+
+.landing-guild-icon {
+    width: 120px;
+    height: 120px;
+    margin: 0 auto 1.5rem;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 2px solid var(--color-border-primary);
+    box-shadow: 0 4px 12px var(--glow-primary);
+    overflow: hidden;
+    background: linear-gradient(135deg, var(--color-accent-orange) 0%, var(--color-accent-orange-hover) 100%);
+}
+
+.landing-guild-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.landing-guild-icon-placeholder {
+    font-size: 3rem;
+    color: white;
+}
+
+.landing-guild-name {
+    font-size: 1.75rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 0.5rem;
+    word-wrap: break-word;
+    word-break: break-word;
+}
+
+.landing-portal-badge {
+    display: inline-block;
+    font-size: 0.75rem;
+    font-weight: 500;
+    color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange-muted);
+    border: 1px solid var(--glow-primary);
+    padding: 0.375rem 0.75rem;
+    border-radius: 999px;
+    margin-bottom: 1.5rem;
+}
+
+.landing-description {
+    font-size: 1rem;
+    color: var(--color-text-primary);
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+}
+
+.landing-description-highlight {
+    color: var(--color-accent-orange);
+    font-weight: 500;
+}
+
+.landing-discord-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem;
+    width: 100%;
+    padding: 0.875rem 1.5rem;
+    background-color: var(--color-discord);
+    color: white;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+}
+
+.landing-discord-button:hover {
+    background-color: var(--color-discord-hover);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(88, 101, 242, 0.4);
+    color: white;
+    text-decoration: none;
+}
+
+.landing-discord-button:active {
+    transform: translateY(0);
+}
+
+.landing-discord-logo {
+    width: 20px;
+    height: 20px;
+}
+
+.landing-permissions-notice {
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.5rem;
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+    text-align: left;
+}
+
+.landing-permissions-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+}
+
+.landing-permissions-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.813rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.landing-permissions-item:last-child {
+    margin-bottom: 0;
+}
+
+.landing-permission-icon {
+    color: var(--color-accent-orange);
+    font-weight: bold;
+    flex-shrink: 0;
+    margin-top: 0.125rem;
+}
+
+.landing-footer-text {
+    font-size: 0.813rem;
+    color: var(--color-text-secondary);
+    line-height: 1.5;
+}
+
+.landing-footer-text a {
+    color: var(--color-accent-orange);
+    text-decoration: none;
+    transition: color var(--transition-normal);
+}
+
+.landing-footer-text a:hover {
+    color: var(--color-accent-orange-hover);
+    text-decoration: underline;
+}
+
+/* Landing page responsive */
+@media (max-width: 480px) {
+    .landing-card {
+        padding: 2rem 1.5rem;
+    }
+
+    .landing-guild-icon {
+        width: 100px;
+        height: 100px;
+    }
+
+    .landing-guild-icon-placeholder {
+        font-size: 2.5rem;
+    }
+
+    .landing-guild-name {
+        font-size: 1.5rem;
+        margin-bottom: 0.375rem;
+    }
+
+    .landing-description {
+        font-size: 0.9375rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .landing-discord-button {
+        padding: 0.75rem 1.25rem;
+        font-size: 0.9375rem;
+    }
+}
+
+@media (max-width: 360px) {
+    .landing-card {
+        padding: 1.5rem 1.25rem;
+    }
+
+    .landing-guild-icon {
+        width: 80px;
+        height: 80px;
+        margin-bottom: 1rem;
+    }
+
+    .landing-guild-icon-placeholder {
+        font-size: 2rem;
+    }
+
+    .landing-guild-name {
+        font-size: 1.25rem;
+        margin-bottom: 0.25rem;
+    }
+
+    .landing-portal-badge {
+        font-size: 0.7rem;
+        padding: 0.25rem 0.625rem;
+    }
+
+    .landing-description {
+        font-size: 0.875rem;
+        margin-bottom: 1rem;
+    }
+
+    .landing-permissions-notice {
+        padding: 0.75rem;
+    }
+
+    .landing-permissions-title {
+        font-size: 0.75rem;
+    }
+
+    .landing-permissions-item {
+        font-size: 0.75rem;
+    }
+}
+
+/* -----------------------------------------------
+   Unauthorized View
+   ----------------------------------------------- */
+.portal-unauthorized {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem 1rem;
+    background-color: var(--color-bg-primary);
+}
+
+.unauthorized-content {
+    text-align: center;
+    max-width: 400px;
+}
+
+.unauthorized-icon {
+    width: 80px;
+    height: 80px;
+    margin: 0 auto 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--color-error-bg);
+    border-radius: 50%;
+    color: var(--color-error);
+}
+
+.unauthorized-icon svg {
+    width: 40px;
+    height: 40px;
+}
+
+.unauthorized-content h2 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+    margin-bottom: 0.75rem;
+}
+
+.unauthorized-content p {
+    font-size: 1rem;
+    color: var(--color-text-secondary);
+    margin-bottom: 1.5rem;
+    line-height: 1.5;
+}
+
+.btn-secondary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.75rem 1.5rem;
+    background-color: var(--color-bg-secondary);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition-normal);
+    text-decoration: none;
+}
+
+.btn-secondary:hover {
+    background-color: var(--color-bg-hover);
+    border-color: var(--color-accent-orange);
+    color: var(--color-text-primary);
+    text-decoration: none;
+}
+
+/* -----------------------------------------------
+   Portal Header
+   ----------------------------------------------- */
+.portal-header {
+    background-color: var(--color-bg-secondary);
+    border-bottom: 1px solid var(--color-border-primary);
+}
+
+.portal-header .header-content {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 0;
+}
+
+.header-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding-right: 1em;
+}
+
+.guild-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    overflow: hidden;
+    border: 2px solid var(--color-border-primary);
+}
+
+.guild-icon img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.guild-icon-fallback {
+    width: 100%;
+    height: 100%;
+    background-color: var(--color-discord);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.25rem;
+    font-weight: bold;
+    color: white;
+}
+
+.header-text h1 {
+    font-size: 1.125rem;
+    font-weight: bold;
+    color: var(--color-text-primary);
+    margin: 0;
+}
+
+.header-text p {
+    font-size: 0.875rem;
+    color: var(--color-text-secondary);
+    margin: 0;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.status-badge.online {
+    background-color: var(--color-success-bg);
+    color: var(--color-success);
+}
+
+.status-badge.offline {
+    background-color: var(--color-error-bg);
+    color: var(--color-error);
+}
+
+.status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background-color: currentColor;
+}
+
+/* -----------------------------------------------
+   Authenticated Layout (Main Container + Sidebar)
+   ----------------------------------------------- */
+.main-container {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    height: calc(100vh - var(--portal-header-height));
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.portal-content {
+    display: flex;
+    gap: 1.5rem;
+    flex: 1 1 0;
+    min-height: 0;
+}
+
+.sidebar {
+    width: 300px;
+    flex: 0 0 300px;
+    min-height: 0;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    overflow-y: auto;
+    overflow-x: hidden;
+
+    /* Custom scrollbar - Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border-primary) transparent;
+}
+
+/* Webkit scrollbar styling for sidebar */
+.sidebar::-webkit-scrollbar {
+    width: 6px;
+    margin-right: 4px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+    background: transparent;
+    margin: 6px 0;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+    background: var(--color-border-primary);
+    border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+    background: var(--color-text-secondary);
+}
+
+.sidebar-panel {
+    padding-bottom: 1.25rem;
+    margin-bottom: 1.25rem;
+    border-bottom: 1px solid var(--color-border-primary);
+}
+
+.sidebar-panel:last-child {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+}
+
+.sidebar-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-text-secondary);
+    margin-bottom: 0.75rem;
+}
+
+/* -----------------------------------------------
+   Toast Styles (Portal-specific)
+   ----------------------------------------------- */
+.portal-toast-container {
+    position: fixed;
+    bottom: 1.5rem;
+    right: 1.5rem;
+    z-index: var(--z-toast);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 400px;
+}
+
+.portal-toast {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 1rem 1.25rem;
+    border-radius: 0.5rem;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    box-shadow: var(--shadow-xl);
+    animation: toast-slide-in 0.3s ease-out;
+}
+
+.portal-toast.success {
+    border-color: rgba(87, 171, 90, 0.3);
+}
+
+.portal-toast.error {
+    border-color: rgba(239, 68, 68, 0.3);
+}
+
+.portal-toast.warning {
+    border-color: rgba(251, 191, 36, 0.3);
+}
+
+.portal-toast.info {
+    border-color: rgba(59, 130, 246, 0.3);
+}
+
+.portal-toast-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+}
+
+.portal-toast.success .portal-toast-icon {
+    color: var(--color-success);
+}
+
+.portal-toast.error .portal-toast-icon {
+    color: var(--color-error);
+}
+
+.portal-toast.warning .portal-toast-icon {
+    color: var(--color-warning);
+}
+
+.portal-toast.info .portal-toast-icon {
+    color: var(--color-accent-blue);
+}
+
+.portal-toast-message {
+    flex: 1;
+    font-size: 0.875rem;
+    color: var(--color-text-primary);
+}
+
+.portal-toast-close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-secondary);
+    padding: 0.25rem;
+    transition: color var(--transition-fast);
+}
+
+.portal-toast-close:hover {
+    color: var(--color-text-primary);
+}
+
+@keyframes toast-slide-in {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.portal-toast.dismissing {
+    animation: toast-slide-out 0.2s ease-in forwards;
+}
+
+@keyframes toast-slide-out {
+    from {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    to {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* -----------------------------------------------
+   Audio Disabled Warning
+   ----------------------------------------------- */
+.portal-audio-warning {
+    max-width: 1600px;
+    margin: 0 auto;
+    padding: 1rem 1.5rem 0;
+}
+
+/* -----------------------------------------------
+   Shared Responsive Breakpoints
+   ----------------------------------------------- */
+@media (max-width: 1023px) {
+    /* Allow normal scrolling on mobile/tablet */
+    html.portal-page,
+    html.portal-page body {
+        overflow: auto;
+        height: auto;
+    }
+
+    .main-container {
+        height: auto;
+        min-height: calc(100vh - var(--portal-header-height));
+        overflow: visible;
+    }
+
+    .portal-content {
+        flex-direction: column;
+        overflow: visible;
+    }
+
+    .sidebar {
+        width: 100%;
+        flex: none;
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+@media (max-width: 767px) {
+    .portal-toast-container {
+        bottom: 1rem;
+        left: 1rem;
+        right: 1rem;
+        max-width: none;
+    }
+
+    .portal-toast {
+        width: 100%;
+    }
+}
+
+@media (max-width: 640px) {
+    .portal-header .header-content {
+        padding: 1rem 1rem 0;
+    }
+
+    .header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .main-container {
+        padding: 1rem;
+    }
+
+    .portal-content {
+        gap: 1rem;
+    }
+}
+
+/* -----------------------------------------------
+   Reduced Motion
+   ----------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+    .landing-discord-button,
+    .portal-toast,
+    .portal-toast-close,
+    .status-dot,
+    .btn-secondary {
+        transition: none;
+        animation: none;
+    }
+
+    .landing-discord-button:hover {
+        transform: none;
+    }
+
+    .portal-toast {
+        animation: none;
+    }
+
+    .portal-toast.dismissing {
+        animation: none;
+    }
+}
