@@ -349,7 +349,7 @@ public class EditModel : PageModel
                 id, guildId);
 
             SuccessMessage = "Scheduled message updated successfully.";
-            return RedirectToPage("Index", new { guildId });
+            return Redirect($"/guilds/{guildId}/scheduled-messages");
         }
         catch (Exception ex)
         {
@@ -424,19 +424,19 @@ public class EditModel : PageModel
             {
                 _logger.LogWarning("Failed to delete scheduled message {MessageId}", id);
                 ErrorMessage = "Failed to delete the scheduled message.";
-                return RedirectToPage("Index", new { guildId });
+                return Redirect($"/guilds/{guildId}/scheduled-messages");
             }
 
             _logger.LogInformation("Successfully deleted scheduled message {MessageId} for guild {GuildId}", id, guildId);
 
             SuccessMessage = "Scheduled message deleted successfully.";
-            return RedirectToPage("Index", new { guildId });
+            return Redirect($"/guilds/{guildId}/scheduled-messages");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete scheduled message {MessageId} for guild {GuildId}", id, guildId);
             ErrorMessage = "An error occurred while deleting the scheduled message. Please try again.";
-            return RedirectToPage("Index", new { guildId });
+            return Redirect($"/guilds/{guildId}/scheduled-messages");
         }
     }
 

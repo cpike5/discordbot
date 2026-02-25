@@ -282,7 +282,7 @@ public class CreateModel : PageModel
                 result.Id, Input.GuildId);
 
             SuccessMessage = "Scheduled message created successfully.";
-            return RedirectToPage("Index", new { guildId = Input.GuildId });
+            return Redirect($"/guilds/{Input.GuildId}/scheduled-messages");
         }
         catch (Exception ex)
         {

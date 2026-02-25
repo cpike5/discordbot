@@ -226,7 +226,7 @@
                     <h3 class="text-sm font-medium text-text-primary">View Activity Log</h3>
                     <p class="text-xs text-text-secondary mt-1">See detailed user activity and management history</p>
                 </div>
-                <a asp-page="Details" asp-route-id="@Model.Input.UserId" class="btn btn-secondary">
+                <a href="/Admin/Users/Details/@Model.Input.UserId" class="btn btn-secondary">
                     View Details
                 </a>
             </div>

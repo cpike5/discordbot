@@ -225,8 +225,7 @@
                         Create Message
                     </button>
                     <a
-                        asp-page="Index"
-                        asp-route-guildId="@Model.ViewModel.GuildId"
+                        href="/guilds/@Model.ViewModel.GuildId/scheduled-messages"
                         class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary"
                     >
                         Cancel
