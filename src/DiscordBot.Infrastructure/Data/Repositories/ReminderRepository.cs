@@ -229,4 +229,22 @@ public class ReminderRepository : Repository<Reminder>, IReminderRepository
 
         return upcomingReminders;
     }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<Reminder>> SearchAsync(string searchTerm, int maxResults, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Searching reminders for term: {SearchTerm}, maxResults: {MaxResults}", searchTerm, maxResults);
+
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        var results = await DbSet
+            .AsNoTracking()
+            .Where(r => r.Message.ToLower().Contains(searchLower) ||
+                       r.UserId.ToString().Contains(searchLower))
+            .Take(maxResults)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Found {Count} reminders matching search term", results.Count);
+        return results;
+    }
 }

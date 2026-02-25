@@ -3,9 +3,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
-using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
@@ -24,7 +22,8 @@ public class SearchService : ISearchService
     private readonly ICommandMetadataService _commandMetadataService;
     private readonly IAuditLogService _auditLogService;
     private readonly IMessageLogService _messageLogService;
-    private readonly BotDbContext _dbContext;
+    private readonly IReminderRepository _reminderRepository;
+    private readonly IScheduledMessageRepository _scheduledMessageRepository;
     private readonly IAuthorizationService _authorizationService;
     private readonly IMemoryCache _cache;
     private readonly CachingOptions _cachingOptions;
@@ -42,7 +41,8 @@ public class SearchService : ISearchService
         ICommandMetadataService commandMetadataService,
         IAuditLogService auditLogService,
         IMessageLogService messageLogService,
-        BotDbContext dbContext,
+        IReminderRepository reminderRepository,
+        IScheduledMessageRepository scheduledMessageRepository,
         IAuthorizationService authorizationService,
         IMemoryCache cache,
         IOptions<CachingOptions> cachingOptions,
@@ -55,7 +55,8 @@ public class SearchService : ISearchService
         _commandMetadataService = commandMetadataService;
         _auditLogService = auditLogService;
         _messageLogService = messageLogService;
-        _dbContext = dbContext;
+        _reminderRepository = reminderRepository;
+        _scheduledMessageRepository = scheduledMessageRepository;
         _authorizationService = authorizationService;
         _cache = cache;
         _cachingOptions = cachingOptions.Value;
@@ -102,7 +103,7 @@ public class SearchService : ISearchService
         // Determine which categories to search
         var categoriesToSearch = DetermineCategoriesToSearch(query.CategoryFilter, canViewAdminCategories);
 
-        // Execute searches sequentially — DbContext is not thread-safe
+        // Execute searches sequentially — underlying DbContext is not thread-safe
         var categoryResults = new List<SearchCategoryResult>();
         foreach (var category in categoriesToSearch)
         {
@@ -610,13 +611,7 @@ public class SearchService : ISearchService
 
         var searchLower = searchTerm.ToLowerInvariant();
 
-        // Query reminders from DbContext with filtering applied in SQL
-        var allReminders = await _dbContext.Reminders
-            .AsNoTracking()
-            .Where(r => r.Message.ToLower().Contains(searchLower) ||
-                       r.UserId.ToString().Contains(searchLower))
-            .Take(75)
-            .ToListAsync(cancellationToken);
+        var allReminders = (await _reminderRepository.SearchAsync(searchLower, 75, cancellationToken)).ToList();
 
         // Score reminders once, then filter and project
         var scoredReminders = allReminders
@@ -683,14 +678,7 @@ public class SearchService : ISearchService
 
         var searchLower = searchTerm.ToLowerInvariant();
 
-        // Query scheduled messages from DbContext with filtering applied in SQL
-        var allMessages = await _dbContext.ScheduledMessages
-            .AsNoTracking()
-            .Where(m => m.Content.ToLower().Contains(searchLower) ||
-                       m.Title.ToLower().Contains(searchLower) ||
-                       m.ChannelId.ToString().Contains(searchLower))
-            .Take(75)
-            .ToListAsync(cancellationToken);
+        var allMessages = (await _scheduledMessageRepository.SearchAsync(searchLower, 75, cancellationToken)).ToList();
 
         // Score scheduled messages once, then filter and project
         var scoredMessages = allMessages

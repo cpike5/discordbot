@@ -36,4 +36,13 @@ public interface IScheduledMessageRepository : IRepository<ScheduledMessage>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The scheduled message with guild navigation property, or null if not found.</returns>
     Task<ScheduledMessage?> GetByIdWithGuildAsync(Guid id, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches scheduled messages by matching on Content, Title, or ChannelId.
+    /// </summary>
+    /// <param name="searchTerm">The search term to match (case-insensitive).</param>
+    /// <param name="maxResults">Maximum number of results to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of scheduled messages matching the search term.</returns>
+    Task<IEnumerable<ScheduledMessage>> SearchAsync(string searchTerm, int maxResults, CancellationToken cancellationToken = default);
 }

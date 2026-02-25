@@ -91,4 +91,13 @@ public interface IReminderRepository : IRepository<Reminder>
         ulong guildId,
         int count,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Searches reminders by matching on Message or UserId.
+    /// </summary>
+    /// <param name="searchTerm">The search term to match (case-insensitive).</param>
+    /// <param name="maxResults">Maximum number of results to return.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Collection of reminders matching the search term.</returns>
+    Task<IEnumerable<Reminder>> SearchAsync(string searchTerm, int maxResults, CancellationToken cancellationToken = default);
 }

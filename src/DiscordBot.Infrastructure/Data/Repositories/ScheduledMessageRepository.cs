@@ -103,4 +103,23 @@ public class ScheduledMessageRepository : Repository<ScheduledMessage>, ISchedul
         _logger.LogDebug("Scheduled message {Id} found: {Found}", id, result != null);
         return result;
     }
+
+    /// <inheritdoc/>
+    public async Task<IEnumerable<ScheduledMessage>> SearchAsync(string searchTerm, int maxResults, CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Searching scheduled messages for term: {SearchTerm}, maxResults: {MaxResults}", searchTerm, maxResults);
+
+        var searchLower = searchTerm.ToLowerInvariant();
+
+        var results = await DbSet
+            .AsNoTracking()
+            .Where(m => m.Content.ToLower().Contains(searchLower) ||
+                       m.Title.ToLower().Contains(searchLower) ||
+                       m.ChannelId.ToString().Contains(searchLower))
+            .Take(maxResults)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Found {Count} scheduled messages matching search term", results.Count);
+        return results;
+    }
 }
