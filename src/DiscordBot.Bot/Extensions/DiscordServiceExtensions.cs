@@ -37,7 +37,8 @@ public static class DiscordServiceExtensions
                 GatewayIntents = GatewayIntents.Guilds | GatewayIntents.GuildMessages | GatewayIntents.MessageContent | GatewayIntents.DirectMessages | GatewayIntents.GuildMembers | GatewayIntents.GuildVoiceStates,
                 LogLevel = LogSeverity.Info,
                 AlwaysDownloadUsers = false,
-                MessageCacheSize = 100
+                MessageCacheSize = 100,
+                EnableVoiceDaveEncryption = true
             };
 
             return new DiscordSocketClient(config);
