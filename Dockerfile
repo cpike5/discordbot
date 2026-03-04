@@ -16,6 +16,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Copy solution and project files for layer-cached restore
 COPY DiscordBot.sln ./
+COPY Directory.Build.props ./
 COPY src/DiscordBot.Core/DiscordBot.Core.csproj src/DiscordBot.Core/
 COPY src/DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj src/DiscordBot.Infrastructure/
 COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/
@@ -28,6 +29,13 @@ COPY src/ src/
 # Build Tailwind CSS
 WORKDIR /src/src/DiscordBot.Bot
 RUN npm ci && npm run build:css
+
+# Download libdave native library for Discord DAVE E2EE protocol
+RUN curl -fsSL -o /tmp/libdave.zip \
+        https://github.com/discord/libdave/releases/download/v1.1.1/libdave-binary-linux-x64.zip \
+    && apt-get update && apt-get install -y --no-install-recommends unzip \
+    && unzip /tmp/libdave.zip -d /tmp/libdave \
+    && rm /tmp/libdave.zip
 
 # Publish the application
 WORKDIR /src
@@ -50,6 +58,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -s /usr/lib/x86_64-linux-gnu/libopus.so.0 /usr/lib/x86_64-linux-gnu/libopus.so \
     && ln -s /usr/lib/x86_64-linux-gnu/libsodium.so.23 /usr/lib/x86_64-linux-gnu/libsodium.so
+
+# Copy libdave native library for Discord DAVE E2EE protocol
+COPY --from=build /tmp/libdave/libdave.so /usr/lib/x86_64-linux-gnu/libdave.so
 
 # Create non-root user
 RUN adduser --disabled-password --gecos "" appuser
