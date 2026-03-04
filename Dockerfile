@@ -63,7 +63,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY --from=build /tmp/libdave/lib/libdave.so /usr/lib/x86_64-linux-gnu/libdave.so
 
 # Create non-root user
-RUN adduser --disabled-password --gecos "" appuser
+RUN useradd --no-create-home --shell /bin/false appuser
 
 WORKDIR /app
 
