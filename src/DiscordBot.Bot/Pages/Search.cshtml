@@ -481,33 +481,73 @@
                     <div class="divide-y divide-border-primary">
                         @foreach (var pageItem in Model.ViewModel.Pages)
                         {
-                            <a href="@pageItem.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
-                                <div class="flex items-center justify-between gap-4">
-                                    <div class="flex-1 min-w-0">
-                                        <div class="flex items-center gap-3 flex-wrap">
-                                            <h3 class="font-semibold text-text-primary"><highlight text="@pageItem.Title" search-term="@Model.ViewModel.SearchTerm" /></h3>
-                                            @if (!string.IsNullOrEmpty(pageItem.BadgeText))
-                                            {
-                                                var pageBadgeVariant = ParseBadgeVariant(pageItem.BadgeVariant);
-                                                var pageBadge = new BadgeViewModel
+                            if (pageItem.RequiresGuildContext)
+                            {
+                                <div class="px-6 py-4">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <h3 class="font-semibold text-text-primary"><highlight text="@pageItem.Title" search-term="@Model.ViewModel.SearchTerm" /></h3>
+                                                @if (!string.IsNullOrEmpty(pageItem.BadgeText))
                                                 {
-                                                    Text = pageItem.BadgeText,
-                                                    Variant = pageBadgeVariant,
-                                                    Size = BadgeSize.Small
-                                                };
-                                                <partial name="Shared/Components/_Badge" model="pageBadge" />
+                                                    var pageBadgeVariant = ParseBadgeVariant(pageItem.BadgeVariant);
+                                                    var pageBadge = new BadgeViewModel
+                                                    {
+                                                        Text = pageItem.BadgeText,
+                                                        Variant = pageBadgeVariant,
+                                                        Size = BadgeSize.Small
+                                                    };
+                                                    <partial name="Shared/Components/_Badge" model="pageBadge" />
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(pageItem.Description))
+                                            {
+                                                <p class="text-sm text-text-secondary mt-1"><highlight text="@pageItem.Description" search-term="@Model.ViewModel.SearchTerm" max-length="100" /></p>
+                                            }
+                                            <div class="mt-2">
+                                                @{
+                                                    var selectorModel = new GuildContextSelectorViewModel
+                                                    {
+                                                        RouteTemplate = pageItem.RouteTemplate ?? string.Empty,
+                                                        Guilds = Model.UserGuilds
+                                                    };
+                                                }
+                                                <partial name="Shared/Components/_GuildContextSelector" model="selectorModel" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <a href="@pageItem.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <h3 class="font-semibold text-text-primary"><highlight text="@pageItem.Title" search-term="@Model.ViewModel.SearchTerm" /></h3>
+                                                @if (!string.IsNullOrEmpty(pageItem.BadgeText))
+                                                {
+                                                    var pageBadgeVariant2 = ParseBadgeVariant(pageItem.BadgeVariant);
+                                                    var pageBadge2 = new BadgeViewModel
+                                                    {
+                                                        Text = pageItem.BadgeText,
+                                                        Variant = pageBadgeVariant2,
+                                                        Size = BadgeSize.Small
+                                                    };
+                                                    <partial name="Shared/Components/_Badge" model="pageBadge2" />
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(pageItem.Description))
+                                            {
+                                                <p class="text-sm text-text-secondary mt-1"><highlight text="@pageItem.Description" search-term="@Model.ViewModel.SearchTerm" max-length="100" /></p>
                                             }
                                         </div>
-                                        @if (!string.IsNullOrEmpty(pageItem.Description))
-                                        {
-                                            <p class="text-sm text-text-secondary mt-1"><highlight text="@pageItem.Description" search-term="@Model.ViewModel.SearchTerm" max-length="100" /></p>
-                                        }
+                                        <svg class="w-5 h-5 text-text-tertiary flex-shrink-0 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                        </svg>
                                     </div>
-                                    <svg class="w-5 h-5 text-text-tertiary flex-shrink-0 hidden sm:block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
-                                    </svg>
-                                </div>
-                            </a>
+                                </a>
+                            }
                         }
                     </div>
                 </div>

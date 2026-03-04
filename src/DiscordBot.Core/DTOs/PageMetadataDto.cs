@@ -9,4 +9,6 @@ public class PageMetadataDto
     public IReadOnlyList<string> Keywords { get; set; } = [];
     public string? IconName { get; set; }
     public string? Section { get; set; }
+    public bool RequiresGuildContext { get; set; }
+    public string? RouteTemplate { get; set; }
 }

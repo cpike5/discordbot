@@ -203,6 +203,16 @@ public class SearchResultItemDto
     public DateTime? Timestamp { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether this result requires a guild context to navigate.
+    /// </summary>
+    public bool RequiresGuildContext { get; set; }
+
+    /// <summary>
+    /// Gets or sets the route template with a {guildId} placeholder for guild-scoped pages.
+    /// </summary>
+    public string? RouteTemplate { get; set; }
+
+    /// <summary>
     /// Gets or sets additional metadata as key-value pairs.
     /// </summary>
     public Dictionary<string, string> Metadata { get; set; } = new();

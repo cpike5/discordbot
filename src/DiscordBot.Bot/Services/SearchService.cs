@@ -584,7 +584,9 @@ public class SearchService : ISearchService
                 Description = x.Page.Description ?? string.Empty,
                 BadgeText = x.Page.Section ?? "Main",
                 BadgeVariant = GetSectionBadgeVariant(x.Page.Section),
-                Url = x.Page.Route,
+                Url = x.Page.RequiresGuildContext ? string.Empty : x.Page.Route,
+                RequiresGuildContext = x.Page.RequiresGuildContext,
+                RouteTemplate = x.Page.RouteTemplate,
                 RelevanceScore = Math.Min(x.Score, 100),
                 Metadata = new Dictionary<string, string>
                 {
