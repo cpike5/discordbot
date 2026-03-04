@@ -59,7 +59,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "View detailed server information",
                 Section = "Guild",
                 IconName = "information-circle",
-                Keywords = new[] { "server info", "details", "guild info" }
+                Keywords = new[] { "server info", "details", "guild info" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Details/{guildId}"
             },
             new()
             {
@@ -68,7 +70,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Edit guild configuration",
                 Section = "Guild",
                 IconName = "cog",
-                Keywords = new[] { "settings", "config", "configuration", "edit guild" }
+                Keywords = new[] { "settings", "config", "configuration", "edit guild" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Edit/{guildId}"
             },
             new()
             {
@@ -77,7 +81,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Configure welcome messages for new members",
                 Section = "Guild",
                 IconName = "hand-raised",
-                Keywords = new[] { "welcome", "greeting", "new members", "join message" }
+                Keywords = new[] { "welcome", "greeting", "new members", "join message" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Welcome/{guildId}"
             },
             new()
             {
@@ -86,7 +92,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Guild auto-moderation configuration",
                 Section = "Guild",
                 IconName = "shield-check",
-                Keywords = new[] { "moderation", "auto-mod", "filters", "rules" }
+                Keywords = new[] { "moderation", "auto-mod", "filters", "rules" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/ModerationSettings/{guildId}"
             },
             new()
             {
@@ -95,7 +103,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Manage scheduled and recurring messages",
                 Section = "Guild",
                 IconName = "clock",
-                Keywords = new[] { "automated", "recurring", "scheduled", "messages", "automation" }
+                Keywords = new[] { "automated", "recurring", "scheduled", "messages", "automation" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/ScheduledMessages/{guildId}"
             },
             new()
             {
@@ -104,7 +114,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Accountability and incident tracking",
                 Section = "Guild",
                 IconName = "eye",
-                Keywords = new[] { "accountability", "incidents", "rat watch", "tracking" }
+                Keywords = new[] { "accountability", "incidents", "rat watch", "tracking" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/RatWatch/{guildId}"
             },
             new()
             {
@@ -113,7 +125,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Rat Watch metrics and analytics",
                 Section = "Guild",
                 IconName = "chart-pie",
-                Keywords = new[] { "rat watch stats", "analytics", "metrics", "reports" }
+                Keywords = new[] { "rat watch stats", "analytics", "metrics", "reports" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/RatWatch/Analytics/{guildId}"
             },
             new()
             {
@@ -122,7 +136,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Browse and filter Rat Watch incidents",
                 Section = "Guild",
                 IconName = "exclamation-triangle",
-                Keywords = new[] { "incidents", "reports", "rat watch", "violations" }
+                Keywords = new[] { "incidents", "reports", "rat watch", "violations" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/RatWatch/Incidents/{guildId}"
             },
             new()
             {
@@ -131,7 +147,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Guild member list with search and filter",
                 Section = "Guild",
                 IconName = "users",
-                Keywords = new[] { "users", "roster", "members", "directory" }
+                Keywords = new[] { "users", "roster", "members", "directory" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Members/{guildId}"
             },
             new()
             {
@@ -140,7 +158,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Manage guild reminders",
                 Section = "Guild",
                 IconName = "bell",
-                Keywords = new[] { "reminders", "notifications", "alerts" }
+                Keywords = new[] { "reminders", "notifications", "alerts" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Reminders/{guildId}"
             },
             new()
             {
@@ -149,7 +169,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Public Rat Watch leaderboard",
                 Section = "Guild",
                 IconName = "trophy",
-                Keywords = new[] { "leaderboard", "rankings", "top users", "rat watch" }
+                Keywords = new[] { "leaderboard", "rankings", "top users", "rat watch" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Leaderboard/{guildId}"
             },
             new()
             {
@@ -158,7 +180,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Guild soundboard management",
                 Section = "Guild",
                 IconName = "speaker-wave",
-                Keywords = new[] { "sounds", "audio", "soundboard", "sound effects" }
+                Keywords = new[] { "sounds", "audio", "soundboard", "sound effects" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Soundboard/{guildId}"
             },
             new()
             {
@@ -167,7 +191,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Guild audio configuration",
                 Section = "Guild",
                 IconName = "musical-note",
-                Keywords = new[] { "audio", "voice", "settings", "audio config" }
+                Keywords = new[] { "audio", "voice", "settings", "audio config" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/AudioSettings/{guildId}"
             },
             new()
             {
@@ -176,7 +202,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Guild TTS message management",
                 Section = "Guild",
                 IconName = "microphone",
-                Keywords = new[] { "tts", "text to speech", "voice", "speech" }
+                Keywords = new[] { "tts", "text to speech", "voice", "speech" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/TextToSpeech/{guildId}"
             },
             new()
             {
@@ -185,7 +213,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "AI assistant configuration",
                 Section = "Guild",
                 IconName = "cpu-chip",
-                Keywords = new[] { "ai", "assistant", "claude", "bot settings" }
+                Keywords = new[] { "ai", "assistant", "claude", "bot settings" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/AssistantSettings/{guildId}"
             },
             new()
             {
@@ -194,7 +224,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "AI assistant usage metrics",
                 Section = "Guild",
                 IconName = "chart-bar",
-                Keywords = new[] { "ai metrics", "assistant stats", "usage", "analytics" }
+                Keywords = new[] { "ai metrics", "assistant stats", "usage", "analytics" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/AssistantMetrics/{guildId}"
             },
             new()
             {
@@ -203,7 +235,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Auto-moderation flagged content",
                 Section = "Guild",
                 IconName = "flag",
-                Keywords = new[] { "flagged", "auto-mod", "violations", "moderation" }
+                Keywords = new[] { "flagged", "auto-mod", "violations", "moderation" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/FlaggedEvents/{guildId}"
             },
             new()
             {
@@ -212,7 +246,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "View flagged event details",
                 Section = "Guild",
                 IconName = "document-magnifying-glass",
-                Keywords = new[] { "flagged details", "event details", "violation" }
+                Keywords = new[] { "flagged details", "event details", "violation" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/FlaggedEvents/Details/{guildId}"
             },
             new()
             {
@@ -221,7 +257,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Guild analytics overview",
                 Section = "Guild",
                 IconName = "chart-pie",
-                Keywords = new[] { "analytics", "stats", "guild metrics", "overview" }
+                Keywords = new[] { "analytics", "stats", "guild metrics", "overview" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Analytics/{guildId}"
             },
             new()
             {
@@ -230,7 +268,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Member engagement metrics",
                 Section = "Guild",
                 IconName = "users",
-                Keywords = new[] { "engagement", "activity", "member analytics", "participation" }
+                Keywords = new[] { "engagement", "activity", "member analytics", "participation" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Analytics/Engagement/{guildId}"
             },
             new()
             {
@@ -239,7 +279,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Moderation activity analytics",
                 Section = "Guild",
                 IconName = "shield-check",
-                Keywords = new[] { "moderation stats", "mod analytics", "enforcement" }
+                Keywords = new[] { "moderation stats", "mod analytics", "enforcement" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Analytics/Moderation/{guildId}"
             },
             new()
             {
@@ -248,7 +290,9 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Member moderation history",
                 Section = "Guild",
                 IconName = "user-minus",
-                Keywords = new[] { "member history", "user moderation", "warnings", "actions" }
+                Keywords = new[] { "member history", "user moderation", "warnings", "actions" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/Members/Moderation/{guildId}"
             },
 
             // Portal Pages (Member Access)

@@ -1,7 +1,11 @@
+using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
@@ -16,15 +20,24 @@ public class SearchModel : PageModel
 {
     private readonly ISearchService _searchService;
     private readonly IAuthorizationService _authorizationService;
+    private readonly IUserDiscordGuildService _userDiscordGuildService;
+    private readonly UserManager<ApplicationUser> _userManager;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<SearchModel> _logger;
 
     public SearchModel(
         ISearchService searchService,
         IAuthorizationService authorizationService,
+        IUserDiscordGuildService userDiscordGuildService,
+        UserManager<ApplicationUser> userManager,
+        DiscordSocketClient discordClient,
         ILogger<SearchModel> logger)
     {
         _searchService = searchService;
         _authorizationService = authorizationService;
+        _userDiscordGuildService = userDiscordGuildService;
+        _userManager = userManager;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -38,6 +51,11 @@ public class SearchModel : PageModel
     /// The view model containing all search results.
     /// </summary>
     public SearchResultsViewModel ViewModel { get; set; } = new();
+
+    /// <summary>
+    /// Guild selector items for guild-scoped page results, intersected with bot's active guilds.
+    /// </summary>
+    public IReadOnlyList<GuildSelectorItem> UserGuilds { get; set; } = [];
 
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
@@ -121,10 +139,38 @@ public class SearchModel : PageModel
             ScheduledMessagesViewAllUrl = unifiedResult.ScheduledMessages.ViewAllUrl
         };
 
+        // Load user guilds if any page results require guild context
+        if (ViewModel.Pages.Any(p => p.RequiresGuildContext))
+        {
+            UserGuilds = await LoadUserGuildsAsync(cancellationToken);
+        }
+
         _logger.LogInformation("Search completed. Found {TotalResults} total results across all categories",
             unifiedResult.TotalResultCount);
 
         return Page();
+    }
+
+    private async Task<IReadOnlyList<GuildSelectorItem>> LoadUserGuildsAsync(CancellationToken cancellationToken)
+    {
+        var appUser = await _userManager.GetUserAsync(User);
+        if (appUser == null)
+            return [];
+
+        var userGuilds = await _userDiscordGuildService.GetUserGuildsAsync(appUser.Id, cancellationToken);
+        var botGuildIds = _discordClient.Guilds.Select(g => g.Id).ToHashSet();
+
+        return userGuilds
+            .Where(g => botGuildIds.Contains(g.GuildId))
+            .Select(g => new GuildSelectorItem
+            {
+                GuildId = g.GuildId.ToString(),
+                GuildName = g.GuildName,
+                GuildIconUrl = g.GuildIconUrl
+            })
+            .OrderBy(g => g.GuildName)
+            .ToList()
+            .AsReadOnly();
     }
 
     /// <summary>
