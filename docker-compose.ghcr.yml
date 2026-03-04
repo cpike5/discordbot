@@ -32,7 +32,7 @@ services:
       - bot-data:/app/data            # SQLite database persistence
       - ./sounds:/app/sounds:ro       # Optional: custom sound clips
     ports:
-      - "5000:5000"
+      - "7300:5000"
     restart: unless-stopped
     depends_on:
       postgres:
@@ -55,7 +55,7 @@ services:
     volumes:
       - postgres-data:/var/lib/postgresql/data
     ports:
-      - "5432:5432"
+      - "7302:5432"
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-discordbot} -d ${POSTGRES_DB:-discordbot}"]
@@ -76,7 +76,7 @@ services:
     volumes:
       - seq-data:/data
     ports:
-      - "5343:80"
+      - "7301:80"
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "--fail", "--silent", "http://localhost:80/health"]
