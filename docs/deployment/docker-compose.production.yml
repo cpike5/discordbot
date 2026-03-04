@@ -1,0 +1,68 @@
+# Discord Bot — Production Docker Compose (VPS with bind mounts)
+#
+# This compose file is designed for VPS deployments where data already exists
+# at /var/lib/discordbot/. It uses bind mounts instead of named volumes so
+# data remains accessible for backup jobs, log rotation, and manual inspection.
+#
+# Usage:
+#   cd /opt/discordbot-docker
+#   cp docker-compose.production.yml docker-compose.yml
+#   cp .env.production.example .env   # then edit with real secrets
+#
+#   docker compose --profile postgres up -d          # Full stack
+#   docker compose --profile postgres logs -f bot    # Tail bot logs
+#
+# Prerequisites:
+#   - Docker Engine 24+ and Docker Compose v2
+#   - Directories created: /var/lib/discordbot/{postgres,cache,logs,exports,backups}
+#   - Existing data at: /var/lib/discordbot/{sounds,assistant}
+
+services:
+  # ===========================================================================
+  # Bot
+  # ===========================================================================
+  bot:
+    image: ghcr.io/cpike5/discordbot:${IMAGE_TAG:-latest}
+    container_name: discordbot
+    env_file: .env
+    environment:
+      Database__Provider: ${DATABASE_PROVIDER:-}
+      ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:-Data Source=data/discordbot.db}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - /var/lib/discordbot/sounds:/app/sounds          # Soundboard + VOX clips (rw for uploads)
+      - /var/lib/discordbot/data:/app/data               # SQLite DB (temporary, remove after PG migration)
+      - /var/lib/discordbot/assistant:/app/assistant:ro   # AI assistant prompt + docs
+      - /var/lib/discordbot/cache:/app/cache              # Audio PCM cache
+      - /var/lib/discordbot/logs:/app/logs                # Serilog file output
+      - /var/lib/discordbot/exports:/app/wwwroot/exports  # User data export ZIPs
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+        required: false
+
+  # ===========================================================================
+  # PostgreSQL (--profile postgres)
+  # ===========================================================================
+  postgres:
+    image: postgres:16-alpine
+    container_name: discordbot-postgres
+    profiles: [postgres]
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-discordbot}
+      POSTGRES_USER: ${POSTGRES_USER:-discordbot}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+    volumes:
+      - /var/lib/discordbot/postgres:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"   # Localhost-only — no external exposure
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-discordbot} -d ${POSTGRES_DB:-discordbot}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
