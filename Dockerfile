@@ -23,19 +23,23 @@ COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/
 
 RUN dotnet restore src/DiscordBot.Bot/DiscordBot.Bot.csproj
 
-# Copy remaining source code
-COPY src/ src/
+# Install npm dependencies (cached separately from source changes)
+COPY src/DiscordBot.Bot/package.json src/DiscordBot.Bot/package-lock.json src/DiscordBot.Bot/
+RUN cd src/DiscordBot.Bot && npm ci
 
-# Build Tailwind CSS
-WORKDIR /src/src/DiscordBot.Bot
-RUN npm ci && npm run build:css
-
-# Download libdave native library for Discord DAVE E2EE protocol
+# Download libdave native library for Discord DAVE E2EE protocol (cached separately from source changes)
 RUN curl -fsSL -o /tmp/libdave.zip \
         https://github.com/discord/libdave/releases/download/v1.1.1/cpp/libdave-Linux-X64-boringssl.zip \
     && apt-get update && apt-get install -y --no-install-recommends unzip \
     && unzip /tmp/libdave.zip -d /tmp/libdave \
     && rm /tmp/libdave.zip
+
+# Copy remaining source code
+COPY src/ src/
+
+# Build Tailwind CSS (npm packages already installed above)
+WORKDIR /src/src/DiscordBot.Bot
+RUN npm run build:css
 
 # Publish the application
 WORKDIR /src
