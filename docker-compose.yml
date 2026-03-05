@@ -42,7 +42,7 @@ services:
   # ===========================================================================
   postgres:
     image: postgres:16-alpine
-    profiles: [postgres]
+    #profiles: [postgres]
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-discordbot}
       POSTGRES_USER: ${POSTGRES_USER:-discordbot}
