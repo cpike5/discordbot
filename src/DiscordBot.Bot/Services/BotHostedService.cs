@@ -28,6 +28,7 @@ public class BotHostedService : IHostedService
     private readonly VoiceStateHandler _voiceStateHandler;
     private readonly AutoModerationHandler _autoModerationHandler;
     private readonly AssistantMessageHandler _assistantMessageHandler;
+    private readonly DmAssistantMessageHandler _dmAssistantMessageHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IAuditLogQueue _auditLogQueue;
@@ -58,6 +59,7 @@ public class BotHostedService : IHostedService
         VoiceStateHandler voiceStateHandler,
         AutoModerationHandler autoModerationHandler,
         AssistantMessageHandler assistantMessageHandler,
+        DmAssistantMessageHandler dmAssistantMessageHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
@@ -85,6 +87,7 @@ public class BotHostedService : IHostedService
         _voiceStateHandler = voiceStateHandler;
         _autoModerationHandler = autoModerationHandler;
         _assistantMessageHandler = assistantMessageHandler;
+        _dmAssistantMessageHandler = dmAssistantMessageHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
@@ -144,6 +147,9 @@ public class BotHostedService : IHostedService
 
             // Wire AI assistant handler for bot mentions
             _client.MessageReceived += _assistantMessageHandler.HandleMessageReceivedAsync;
+
+            // Wire DM assistant handler for DM messages
+            _client.MessageReceived += _dmAssistantMessageHandler.HandleMessageReceivedAsync;
 
             // Wire welcome handler for new member joins
             _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
@@ -247,6 +253,7 @@ public class BotHostedService : IHostedService
             _client.MessageReceived -= _autoModerationHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _autoModerationHandler.HandleUserJoinedAsync;
             _client.MessageReceived -= _assistantMessageHandler.HandleMessageReceivedAsync;
+            _client.MessageReceived -= _dmAssistantMessageHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
             _client.UserJoined -= _memberEventHandler.HandleUserJoinedAsync;
             _client.UserLeft -= _memberEventHandler.HandleUserLeftAsync;

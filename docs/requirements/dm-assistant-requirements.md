@@ -6,7 +6,7 @@
 
 ## Executive Summary
 
-A Discord DM-based AI assistant that provides general-purpose conversational support via direct messages. Initially restricted to the bot owner with an unrestricted system prompt, with infrastructure to expand to other users later. Foundation for future MCP/Claude Code tooling integration.
+A Discord DM-based AI assistant that provides multi-turn conversational support via direct messages. Initially restricted to the bot owner with an unrestricted system prompt, with infrastructure to expand to other users later. Foundation for future MCP/Claude Code tooling integration.
 
 ---
 
@@ -81,6 +81,17 @@ Enable/disable toggle and prompt path configuration.
 - System prompt paths are configurable
 - Configuration follows existing `IOptions<T>` pattern
 
+### 7. Conversation History
+Maintain a sliding-window conversation history per user, stored in the database.
+
+**Acceptance Criteria:**
+- Each user has a single conversation thread (sliding window, not session-based)
+- Maximum messages retained is configurable via `MaxConversationMessages` (default 20)
+- History is loaded before each LLM call and included in the messages array
+- Both user messages and assistant responses are stored
+- Oldest messages are trimmed when the limit is exceeded
+- History persists across bot restarts
+
 ---
 
 ## Future Features
@@ -88,7 +99,6 @@ Enable/disable toggle and prompt path configuration.
 | Feature | Description | Priority |
 |---------|-------------|----------|
 | Non-owner access | Restricted prompts for non-owner users | Medium |
-| Multi-turn conversations | Session-based or persistent conversation history | Medium |
 | MCP/Claude Code tooling | Dev tooling integration via MCP | High |
 | Rate limiting | Per-user rate limits for non-owners | Low |
 | Per-user prompts | Customizable prompts per user | Low |
@@ -99,7 +109,6 @@ Enable/disable toggle and prompt path configuration.
 
 - **Rate limiting** — Deferred until non-owner access is implemented
 - **Production-to-dev communication** — Separate tooling phase
-- **Multi-turn conversations** — Single-turn for MVP
 - **Tool use** — Start with pure conversation, add tools later
 
 ---
@@ -131,6 +140,8 @@ public interface IDmAssistantService
 }
 ```
 
+> **Conversation flow:** The service loads the user's recent conversation history (up to `MaxConversationMessages`) before each LLM call, builds the messages array with history + current message, calls the LLM, then saves both the user message and assistant response. Messages exceeding the limit are trimmed (oldest first).
+
 ### Configuration
 
 ```csharp
@@ -140,6 +151,7 @@ public class DmAssistantOptions
     public string OwnerSystemPromptPath { get; set; } = "docs/agents/dm-owner-agent.md";
     public string DefaultSystemPromptPath { get; set; } = "docs/agents/dm-assistant-agent.md";
     public string PlaceholderMessage { get; set; } = "DM assistant support is coming soon! Stay tuned.";
+    public int MaxConversationMessages { get; set; } = 20;
 }
 ```
 
@@ -150,7 +162,8 @@ public class DmAssistantOptions
     "Enabled": true,
     "OwnerSystemPromptPath": "docs/agents/dm-owner-agent.md",
     "DefaultSystemPromptPath": "docs/agents/dm-assistant-agent.md",
-    "PlaceholderMessage": "DM assistant support is coming soon! Stay tuned."
+    "PlaceholderMessage": "DM assistant support is coming soon! Stay tuned.",
+    "MaxConversationMessages": 20
   }
 }
 ```
@@ -179,6 +192,18 @@ public class DmAssistantOptions
 
 Daily aggregated metrics, similar structure to `AssistantUsageMetrics` but for DM interactions.
 
+#### DmConversationMessage
+
+| Field | Type | Description |
+|-------|------|-------------|
+| Id | long | Primary key |
+| UserId | ulong | Discord user ID |
+| Role | string | "user" or "assistant" |
+| Content | string | Message content |
+| Timestamp | DateTime | When message was created |
+
+**Index:** Composite index on `(UserId, Timestamp)` for efficient history retrieval.
+
 ---
 
 ## Decisions Made
@@ -188,7 +213,7 @@ Daily aggregated metrics, similar structure to `AssistantUsageMetrics` but for D
 | Separate service | Different concerns from guild assistant (permissions, context, prompts) |
 | Owner via Discord API | Built-in, reliable, no extra config needed |
 | Skip rate limiting | Owner-only initially, add later when opening to others |
-| Single-turn first | Simpler foundation, multi-turn can be added later |
+| Sliding window history | Single conversation thread per user with configurable message limit; simpler than session-based and sufficient for owner-only use |
 | Same metrics detail | Consistency, cost tracking still valuable |
 | Placeholder for non-owners | Friendly UX, signals feature is planned |
 
@@ -234,3 +259,4 @@ Daily aggregated metrics, similar structure to `AssistantUsageMetrics` but for D
 | Date | Version | Changes |
 |------|---------|---------|
 | 2026-02-03 | 0.1 | Initial draft from requirements gathering |
+| 2026-03-05 | 0.2 | Added conversation history (sliding window) to MVP scope |

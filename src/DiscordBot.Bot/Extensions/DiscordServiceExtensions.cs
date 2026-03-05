@@ -90,6 +90,9 @@ public static class DiscordServiceExtensions
         // Register AssistantMessageHandler for AI assistant mentions
         services.AddSingleton<AssistantMessageHandler>();
 
+        // Register DmAssistantMessageHandler for DM-based AI assistant
+        services.AddSingleton<DmAssistantMessageHandler>();
+
         // Register member sync services
         services.AddSingleton<IMemberSyncQueue, MemberSyncQueue>();
         services.AddHostedService<MemberSyncService>();

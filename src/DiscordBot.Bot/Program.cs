@@ -187,6 +187,9 @@ try
     // AI Assistant (LLM integration)
     builder.Services.AddAssistant(builder.Configuration);
 
+    // DM Assistant (owner DM-based AI assistant)
+    builder.Services.AddDmAssistant(builder.Configuration);
+
     // Analytics and metrics
     builder.Services.AddAnalytics(builder.Configuration);
 

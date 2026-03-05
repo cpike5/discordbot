@@ -54,7 +54,7 @@ C4Container
         Container(gateway, "Discord Gateway Client", "Discord.Net 3.19", "Manages WebSocket connection, receives events, dispatches slash commands")
         Container(web, "Web Portal", "ASP.NET Core, Razor Pages, Tailwind CSS", "Admin dashboard, guild management, member portal with HTMX/Alpine.js")
         Container(api, "REST API Controllers", "ASP.NET Core MVC", "30+ controllers serving AJAX/HTMX backends")
-        Container(services, "Application Services", "C# / DI", "Business logic, moderation, scheduling, audio orchestration, AI assistant")
+        Container(services, "Application Services", "C# / DI", "Business logic, moderation, scheduling, audio orchestration, AI assistants (guild + DM)")
         Container(bgServices, "Background Services", "IHostedService", "25+ hosted services for scheduling, aggregation, cleanup, metrics")
         Container(signalr, "SignalR Hub", "ASP.NET Core SignalR", "Real-time dashboard updates, notifications, audio status")
         ContainerDb(db, "Database", "SQLite or PostgreSQL", "All application data via EF Core with dual-provider support")
@@ -162,6 +162,14 @@ flowchart LR
         agent["AgentRunner\nAgentic tool-use loop"]
         tools["Tool Providers\nDocs, RatWatch, GuildInfo"]
     end
+
+    subgraph dmAssistant["DM Assistant"]
+        dmSvc["DmAssistantService\nOwner detection, history"]
+        dmHandler["DmAssistantMessageHandler"]
+        dmConvMsg["DmConversationMessage\nSliding window history"]
+    end
+
+    dmSvc -.->|"shared ILlmClient"| assistant
 
     subgraph community["Community"]
         ratwatch["RatWatch\nAccountability + voting"]
@@ -274,6 +282,49 @@ sequenceDiagram
     Svc ->> Svc: Log interaction + usage metrics
     Svc -->> Handler: Response text
     Handler ->> Discord: Reply to message
+    Discord -->> User: Bot response
+```
+
+---
+
+## 6b. DM Assistant Sequence
+
+```mermaid
+sequenceDiagram
+    actor User as Discord User (DM)
+    participant Discord as Discord Gateway
+    participant Handler as DmAssistantMessageHandler
+    participant Svc as DmAssistantService
+    participant Repo as DmConversationMessageRepository
+    participant LLM as ILlmClient
+    participant API as Anthropic API
+
+    User ->> Discord: DM to bot
+    Discord ->> Handler: MessageReceived (DM)
+    Handler ->> Svc: ProcessMessageAsync(userId, message)
+
+    Svc ->> Svc: IsOwnerAsync(userId)
+
+    alt Owner
+        Svc ->> Repo: GetRecentByUserAsync(userId, limit)
+        Repo -->> Svc: Conversation history
+        Svc ->> Svc: Build messages array (history + current)
+        Svc ->> LLM: SendMessageAsync(messages)
+        LLM ->> API: POST /messages
+        API -->> LLM: Response
+        LLM -->> Svc: LlmResponse
+
+        Svc ->> Repo: AddAsync(user message)
+        Svc ->> Repo: AddAsync(assistant response)
+        Svc ->> Repo: DeleteOldestByUserAsync(userId, keepCount)
+
+        Svc ->> Svc: Log interaction + usage metrics
+        Svc -->> Handler: DmAssistantResponse
+    else Non-Owner
+        Svc -->> Handler: Placeholder response
+    end
+
+    Handler ->> Discord: Reply to DM
     Discord -->> User: Bot response
 ```
 
@@ -430,6 +481,10 @@ erDiagram
 
     Guild ||--o{ AssistantInteractionLog : "logs AI"
     Guild ||--o{ AssistantUsageMetrics : "tracks AI cost"
+
+    User ||--o{ DmConversationMessage : "has DM history"
+    User ||--o{ DmAssistantInteractionLog : "logs DM interactions"
+    User ||--o{ DmAssistantUsageMetrics : "tracks DM usage"
 
     ApplicationUser ||--o| DiscordOAuthToken : "authenticates with"
     ApplicationUser ||--o{ UserGuildAccess : "has portal access"
