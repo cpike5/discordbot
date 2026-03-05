@@ -108,6 +108,9 @@ Example:
             {
                 var totalRows = 0;
 
+                // === Tables referenced by Identity ===
+                totalRows += await MigrateTableAsync<Theme>(sourceDb, targetDb, "Themes");
+
                 // === Identity tables (parents first) ===
                 totalRows += await MigrateTableAsync<IdentityRole>(sourceDb, targetDb, "AspNetRoles");
                 totalRows += await MigrateTableAsync<ApplicationUser>(sourceDb, targetDb, "AspNetUsers");
@@ -139,7 +142,6 @@ Example:
                 // === Entities with Guild/User FK ===
                 totalRows += await MigrateTableAsync<GuildMember>(sourceDb, targetDb, "GuildMembers");
                 totalRows += await MigrateTableAsync<WelcomeConfiguration>(sourceDb, targetDb, "WelcomeConfigurations");
-                totalRows += await MigrateTableAsync<Theme>(sourceDb, targetDb, "Themes");
                 totalRows += await MigrateTableAsync<VerificationCode>(sourceDb, targetDb, "VerificationCodes");
 
                 // === Content tables ===
