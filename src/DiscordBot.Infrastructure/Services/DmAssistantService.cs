@@ -61,6 +61,17 @@ public class DmAssistantService : IDmAssistantService
 
         try
         {
+            if (string.IsNullOrWhiteSpace(message))
+            {
+                return DmAssistantResponse.ErrorResult("Message cannot be empty.");
+            }
+
+            // Discord messages are capped at 4000 chars; truncate if somehow longer
+            if (message.Length > 4000)
+            {
+                message = message[..4000];
+            }
+
             var isOwner = await IsOwnerAsync(userId);
 
             // Non-owner: return placeholder and log interaction
@@ -206,8 +217,7 @@ public class DmAssistantService : IDmAssistantService
         }
     }
 
-    /// <inheritdoc />
-    public async Task<bool> IsOwnerAsync(ulong userId)
+    private async Task<bool> IsOwnerAsync(ulong userId)
     {
         try
         {

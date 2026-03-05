@@ -77,7 +77,7 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .Annotation("Sqlite:Autoincrement", true),
                     UserId = table.Column<long>(type: "INTEGER", nullable: false),
                     Role = table.Column<string>(type: "TEXT", maxLength: 20, nullable: false),
-                    Content = table.Column<string>(type: "TEXT", nullable: false),
+                    Content = table.Column<string>(type: "TEXT", maxLength: 4096, nullable: false),
                     Timestamp = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>

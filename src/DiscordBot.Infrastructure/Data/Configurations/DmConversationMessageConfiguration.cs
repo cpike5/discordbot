@@ -22,7 +22,8 @@ public class DmConversationMessageConfiguration : IEntityTypeConfiguration<DmCon
             .HasMaxLength(20);
 
         builder.Property(m => m.Content)
-            .IsRequired();
+            .IsRequired()
+            .HasMaxLength(4096);
 
         builder.Property(m => m.Timestamp)
             .IsRequired();

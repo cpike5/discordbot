@@ -21,11 +21,12 @@ public class DmConversationMessageRepository : Repository<DmConversationMessage>
     public async Task<IEnumerable<DmConversationMessage>> GetRecentByUserAsync(
         ulong userId, int limit, CancellationToken ct = default)
     {
-        // Get most recent messages, then reverse to oldest-first for conversation order
+        // Order by Id (auto-increment) to guarantee deterministic ordering
+        // even when user+assistant messages share the same Timestamp
         var messages = await DbSet
             .AsNoTracking()
             .Where(m => m.UserId == userId)
-            .OrderByDescending(m => m.Timestamp)
+            .OrderByDescending(m => m.Id)
             .Take(limit)
             .ToListAsync(ct);
 
@@ -36,28 +37,22 @@ public class DmConversationMessageRepository : Repository<DmConversationMessage>
     public async Task DeleteOldestByUserAsync(
         ulong userId, int keepCount, CancellationToken ct = default)
     {
-        var totalCount = await DbSet
-            .CountAsync(m => m.UserId == userId, ct);
-
-        if (totalCount <= keepCount)
-            return;
-
-        var deleteCount = totalCount - keepCount;
-
-        _logger.LogDebug(
-            "Trimming {DeleteCount} oldest DM conversation messages for user {UserId}",
-            deleteCount, userId);
-
-        // Delete oldest messages beyond the keep count
-        var oldestIds = await DbSet
+        // Single subquery delete — no separate COUNT needed, atomic
+        var keepIds = DbSet
             .Where(m => m.UserId == userId)
-            .OrderBy(m => m.Timestamp)
-            .Take(deleteCount)
-            .Select(m => m.Id)
-            .ToListAsync(ct);
+            .OrderByDescending(m => m.Id)
+            .Take(keepCount)
+            .Select(m => m.Id);
 
-        await DbSet
-            .Where(m => oldestIds.Contains(m.Id))
+        var deleted = await DbSet
+            .Where(m => m.UserId == userId && !keepIds.Contains(m.Id))
             .ExecuteDeleteAsync(ct);
+
+        if (deleted > 0)
+        {
+            _logger.LogDebug(
+                "Trimmed {DeleteCount} oldest DM conversation messages for user {UserId}",
+                deleted, userId);
+        }
     }
 }

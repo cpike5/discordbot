@@ -829,6 +829,7 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
 
                     b.Property<string>("Content")
                         .IsRequired()
+                        .HasMaxLength(4096)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Role")

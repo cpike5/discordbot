@@ -23,12 +23,6 @@ public class DmAssistantOptions
     public string OwnerSystemPromptPath { get; set; } = "docs/agents/dm-owner-agent.md";
 
     /// <summary>
-    /// Gets or sets the path to the default (non-owner) system prompt file.
-    /// Default is "docs/agents/dm-assistant-agent.md".
-    /// </summary>
-    public string DefaultSystemPromptPath { get; set; } = "docs/agents/dm-assistant-agent.md";
-
-    /// <summary>
     /// Gets or sets the placeholder message shown to non-owner users.
     /// </summary>
     public string PlaceholderMessage { get; set; } = "DM assistant support is coming soon! Stay tuned.";
