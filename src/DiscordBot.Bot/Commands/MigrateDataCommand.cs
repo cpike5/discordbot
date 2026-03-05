@@ -293,12 +293,26 @@ Example:
     {
         try
         {
+            // Use setval(seq, 1, false) for empty tables — 'false' means next nextval() returns 1.
+            // For non-empty tables, setval(seq, max) means next nextval() returns max+1.
             await target.Database.ExecuteSqlRawAsync(
-                $"SELECT setval(pg_get_serial_sequence('\"{tableName}\"', '{idColumn}'), COALESCE((SELECT MAX(\"{idColumn}\") FROM \"{tableName}\"), 0))");
+                $@"DO $$
+                DECLARE seq_name text;
+                DECLARE max_val bigint;
+                BEGIN
+                    seq_name := pg_get_serial_sequence('""{tableName}""', '{idColumn}');
+                    IF seq_name IS NULL THEN RETURN; END IF;
+                    SELECT MAX(""{idColumn}"") INTO max_val FROM ""{tableName}"";
+                    IF max_val IS NULL THEN
+                        PERFORM setval(seq_name, 1, false);
+                    ELSE
+                        PERFORM setval(seq_name, max_val);
+                    END IF;
+                END $$;");
         }
         catch (Exception ex)
         {
-            // Some tables may not have sequences (e.g., if empty or using non-serial PKs)
+            // Tables without sequences (e.g., non-serial PKs) — log and continue
             Console.WriteLine($"  Warning: Could not reset sequence for {tableName}.{idColumn}: {ex.Message}");
         }
     }
