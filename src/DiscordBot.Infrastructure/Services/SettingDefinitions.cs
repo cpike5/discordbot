@@ -142,6 +142,15 @@ public static class SettingDefinitions
             requiresRestart: false,
             description: "Enable or disable the AI assistant feature globally (responds to @bot mentions)"
         ),
+        new(
+            key: "DmAssistant:Enabled",
+            displayName: "DM Assistant",
+            category: SettingCategory.Features,
+            dataType: SettingDataType.Boolean,
+            defaultValue: "false",
+            requiresRestart: false,
+            description: "Enable or disable the DM assistant feature (responds to direct messages from the bot owner)"
+        ),
 
         // Advanced Category
         new(
