@@ -29,9 +29,8 @@ public class DmAssistantService : IDmAssistantService
     private readonly IDmAssistantInteractionLogRepository _interactionLogRepo;
     private readonly IDmAssistantUsageMetricsRepository _metricsRepo;
     private readonly IBotOwnerResolver _ownerResolver;
+    private readonly IPromptTemplate _promptTemplate;
     private readonly DmAssistantOptions _options;
-
-    private string? _cachedOwnerSystemPrompt;
 
     public DmAssistantService(
         ILogger<DmAssistantService> logger,
@@ -40,6 +39,7 @@ public class DmAssistantService : IDmAssistantService
         IDmAssistantInteractionLogRepository interactionLogRepo,
         IDmAssistantUsageMetricsRepository metricsRepo,
         IBotOwnerResolver ownerResolver,
+        IPromptTemplate promptTemplate,
         IOptions<DmAssistantOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
@@ -48,6 +48,7 @@ public class DmAssistantService : IDmAssistantService
         _interactionLogRepo = interactionLogRepo ?? throw new ArgumentNullException(nameof(interactionLogRepo));
         _metricsRepo = metricsRepo ?? throw new ArgumentNullException(nameof(metricsRepo));
         _ownerResolver = ownerResolver ?? throw new ArgumentNullException(nameof(ownerResolver));
+        _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -233,16 +234,9 @@ public class DmAssistantService : IDmAssistantService
 
     private async Task<string> LoadSystemPromptAsync(CancellationToken ct)
     {
-        if (_cachedOwnerSystemPrompt != null)
-        {
-            return _cachedOwnerSystemPrompt;
-        }
-
         try
         {
-            _cachedOwnerSystemPrompt = await File.ReadAllTextAsync(
-                _options.OwnerSystemPromptPath, ct);
-            return _cachedOwnerSystemPrompt;
+            return await _promptTemplate.LoadAsync(_options.OwnerSystemPromptPath, ct);
         }
         catch (Exception ex)
         {
@@ -268,8 +262,9 @@ public class DmAssistantService : IDmAssistantService
         var inputCost = usage.InputTokens * _options.CostPerMillionInputTokens / 1_000_000m;
         var outputCost = usage.OutputTokens * _options.CostPerMillionOutputTokens / 1_000_000m;
         var cachedCost = usage.CachedTokens * _options.CostPerMillionCachedTokens / 1_000_000m;
+        var cacheWriteCost = usage.CacheWriteTokens * _options.CostPerMillionCacheWriteTokens / 1_000_000m;
 
-        return inputCost + outputCost + cachedCost;
+        return inputCost + outputCost + cachedCost + cacheWriteCost;
     }
 
     private async Task LogInteractionAsync(

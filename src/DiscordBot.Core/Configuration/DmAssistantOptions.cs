@@ -109,6 +109,12 @@ public class DmAssistantOptions
     /// </summary>
     public decimal CostPerMillionCachedTokens { get; set; } = 0.30m;
 
+    /// <summary>
+    /// Gets or sets the cost per million cache write tokens in USD.
+    /// Cache writes occur on cache miss (first request or after expiry).
+    /// </summary>
+    public decimal CostPerMillionCacheWriteTokens { get; set; } = 3.75m;
+
     #endregion
 
     #region Privacy and Audit
