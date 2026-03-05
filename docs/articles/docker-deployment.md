@@ -230,6 +230,16 @@ dotnet run --project src/DiscordBot.Bot -- migrate-data \
 3. Update `.env` to set `DATABASE_PROVIDER=PostgreSql` and the new `CONNECTION_STRING`
 4. Restart: `docker compose --profile postgres up -d`
 
+## Base Image
+
+The Docker image uses **Ubuntu Noble (`8.0-noble`)** rather than the default Debian Bookworm or Alpine base images. This is required because `libdave.so` — the native library for Discord's [DAVE E2EE voice protocol](https://github.com/discord/libdave) — is compiled against glibc and requires GLIBC 2.38 / GLIBCXX 3.4.32:
+
+- **Debian Bookworm** (default `8.0` tag) ships older glibc/glibcxx versions that don't meet the requirement.
+- **Alpine** uses musl libc instead of glibc, so the prebuilt libdave binary cannot load at all.
+- **Ubuntu Noble** (24.04) provides both GLIBC 2.38+ and GLIBCXX 3.4.32+.
+
+If Discord publishes a musl-compatible or statically-linked libdave in the future, Alpine could be reconsidered for smaller image sizes.
+
 ## Audio Support
 
 The Docker image includes all audio dependencies pre-installed:
