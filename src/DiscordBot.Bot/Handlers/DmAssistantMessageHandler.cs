@@ -54,7 +54,6 @@ public class DmAssistantMessageHandler
         }
 
         var userId = message.Author.Id;
-        var messageId = message.Id;
 
         using var activity = BotActivitySource.StartEventActivity(
             "dm_assistant.message.process",

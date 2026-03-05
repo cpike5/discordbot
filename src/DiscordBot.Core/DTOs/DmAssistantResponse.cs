@@ -26,16 +26,6 @@ public class DmAssistantResponse
         };
     }
 
-    public static DmAssistantResponse SuccessResult(string response)
-    {
-        return new DmAssistantResponse
-        {
-            Success = true,
-            Response = response,
-            IsOwner = true
-        };
-    }
-
     public static DmAssistantResponse ErrorResult(string errorMessage)
     {
         return new DmAssistantResponse

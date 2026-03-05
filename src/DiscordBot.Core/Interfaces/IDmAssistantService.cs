@@ -17,12 +17,4 @@ public interface IDmAssistantService
     /// <param name="ct">Cancellation token.</param>
     /// <returns>The assistant response including success status, response text, and metrics.</returns>
     Task<DmAssistantResponse> ProcessMessageAsync(ulong userId, string message, CancellationToken ct = default);
-
-    /// <summary>
-    /// Checks whether the specified user is the bot owner.
-    /// Caches the owner ID after first lookup.
-    /// </summary>
-    /// <param name="userId">The Discord user ID to check.</param>
-    /// <returns>True if the user is the bot owner.</returns>
-    Task<bool> IsOwnerAsync(ulong userId);
 }

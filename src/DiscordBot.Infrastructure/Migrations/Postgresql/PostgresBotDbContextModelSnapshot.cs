@@ -852,7 +852,8 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
 
                     b.Property<string>("Content")
                         .IsRequired()
-                        .HasColumnType("text");
+                        .HasMaxLength(4096)
+                        .HasColumnType("character varying(4096)");
 
                     b.Property<string>("Role")
                         .IsRequired()
