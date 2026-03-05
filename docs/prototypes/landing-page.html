@@ -1,0 +1,1692 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>cpike's Discord Bot — Open Source Server Management</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800;900&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    /* =========================================================
+       DESIGN TOKENS
+       ========================================================= */
+    :root {
+      /* Backgrounds — lifted from design-system.md */
+      --bg-deep: #151718;
+      --bg-primary: #1d2022;
+      --bg-secondary: #262a2d;
+      --bg-tertiary: #2f3336;
+      --bg-hover: #363a3e;
+      --bg-elevated: #3d4245;
+
+      /* Text */
+      --text-primary: #d7d3d0;
+      --text-secondary: #a8a5a3;
+      --text-tertiary: #7a7876;
+      --text-inverse: #1d2022;
+
+      /* Accents */
+      --accent-orange: #cb4e1b;
+      --accent-orange-hover: #e5591f;
+      --accent-orange-glow: rgba(203, 78, 27, 0.15);
+      --accent-orange-muted: rgba(203, 78, 27, 0.08);
+      --accent-blue: #098ecf;
+      --accent-blue-hover: #0ba3ea;
+      --accent-blue-glow: rgba(9, 142, 207, 0.12);
+
+      /* Semantic */
+      --color-success: #2ea043;
+      --color-warning: #d4a017;
+      --color-error: #cf3b1b;
+      --color-info: #098ecf;
+
+      /* Spacing */
+      --space-xs: 0.25rem;
+      --space-sm: 0.5rem;
+      --space-md: 1rem;
+      --space-lg: 2rem;
+      --space-xl: 3rem;
+      --space-2xl: 5rem;
+      --space-3xl: 8rem;
+
+      /* Type */
+      --font-display: 'Outfit', system-ui, sans-serif;
+      --font-mono: 'IBM Plex Mono', 'Consolas', monospace;
+
+      /* Motion */
+      --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+      --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+
+      /* Borders */
+      --border-subtle: 1px solid rgba(255, 255, 255, 0.06);
+      --border-medium: 1px solid rgba(255, 255, 255, 0.1);
+      --radius-sm: 6px;
+      --radius-md: 10px;
+      --radius-lg: 16px;
+      --radius-xl: 24px;
+    }
+
+    /* =========================================================
+       RESET & BASE
+       ========================================================= */
+    *, *::before, *::after {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    body {
+      font-family: var(--font-display);
+      background: var(--bg-deep);
+      color: var(--text-primary);
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    ::selection {
+      background: var(--accent-orange);
+      color: white;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    /* =========================================================
+       BACKGROUND GRID / ATMOSPHERE
+       ========================================================= */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 80% 50% at 50% -20%, var(--accent-orange-glow), transparent),
+        radial-gradient(ellipse 60% 40% at 80% 60%, var(--accent-blue-glow), transparent);
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .grid-overlay {
+      position: fixed;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+      background-size: 80px 80px;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* =========================================================
+       NAVIGATION
+       ========================================================= */
+    .nav {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 100;
+      padding: 0 var(--space-lg);
+      transition: background 0.3s ease, backdrop-filter 0.3s ease;
+    }
+
+    .nav.scrolled {
+      background: rgba(21, 23, 24, 0.85);
+      backdrop-filter: blur(20px) saturate(1.5);
+      border-bottom: var(--border-subtle);
+    }
+
+    .nav-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      height: 64px;
+    }
+
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--space-sm);
+      font-weight: 700;
+      font-size: 1.1rem;
+      letter-spacing: -0.02em;
+    }
+
+    .nav-brand .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      box-shadow: 0 0 12px var(--accent-orange);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse-dot {
+      0%, 100% { opacity: 1; box-shadow: 0 0 12px var(--accent-orange); }
+      50% { opacity: 0.6; box-shadow: 0 0 6px var(--accent-orange); }
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+      list-style: none;
+    }
+
+    .nav-links a {
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      transition: color 0.2s ease;
+      letter-spacing: 0.01em;
+    }
+
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .nav-github {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: var(--radius-sm);
+      border: var(--border-medium);
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      transition: all 0.2s ease;
+    }
+
+    .nav-github:hover {
+      background: rgba(255, 255, 255, 0.06);
+      border-color: rgba(255, 255, 255, 0.15);
+    }
+
+    .nav-github svg {
+      width: 16px;
+      height: 16px;
+    }
+
+    /* Login button — intentionally subtle per requirements */
+    .login-trigger {
+      position: fixed;
+      bottom: 24px;
+      right: 24px;
+      z-index: 200;
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--bg-tertiary);
+      border: var(--border-subtle);
+      color: var(--text-tertiary);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.3s ease, background 0.2s ease, color 0.2s ease, transform 0.2s var(--ease-spring);
+    }
+
+    .login-trigger:hover {
+      opacity: 1 !important;
+      background: var(--accent-orange);
+      color: white;
+      transform: scale(1.1);
+    }
+
+    .login-trigger svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    /* Show on hover near bottom-right corner */
+    body:hover .login-trigger {
+      opacity: 0.3;
+    }
+
+    /* =========================================================
+       SECTIONS — SHARED
+       ========================================================= */
+    section {
+      position: relative;
+      z-index: 1;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 var(--space-lg);
+    }
+
+    .section-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--accent-orange);
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      margin-bottom: var(--space-md);
+    }
+
+    .section-label::before {
+      content: '';
+      width: 20px;
+      height: 1px;
+      background: var(--accent-orange);
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 1.2rem + 2.5vw, 2.75rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.15;
+      margin-bottom: var(--space-md);
+    }
+
+    .section-subtitle {
+      font-size: 1.1rem;
+      color: var(--text-secondary);
+      max-width: 560px;
+      line-height: 1.7;
+    }
+
+    /* =========================================================
+       HERO
+       ========================================================= */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      padding-top: 80px;
+      padding-bottom: var(--space-3xl);
+    }
+
+    .hero-content {
+      max-width: 720px;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      border-radius: 100px;
+      background: var(--accent-orange-muted);
+      border: 1px solid rgba(203, 78, 27, 0.2);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--accent-orange-hover);
+      margin-bottom: var(--space-lg);
+      animation: fade-in-up 0.8s var(--ease-out) both;
+    }
+
+    .hero-badge .badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--color-success);
+      animation: pulse-dot 2s ease-in-out infinite;
+    }
+
+    .hero h1 {
+      font-size: clamp(2.5rem, 2rem + 4vw, 5rem);
+      font-weight: 900;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      margin-bottom: var(--space-lg);
+      animation: fade-in-up 0.8s var(--ease-out) 0.1s both;
+    }
+
+    .hero h1 .highlight {
+      background: linear-gradient(135deg, var(--accent-orange), var(--accent-orange-hover));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .hero-description {
+      font-size: clamp(1.1rem, 1rem + 0.5vw, 1.3rem);
+      color: var(--text-secondary);
+      line-height: 1.7;
+      max-width: 520px;
+      margin-bottom: var(--space-xl);
+      animation: fade-in-up 0.8s var(--ease-out) 0.2s both;
+    }
+
+    .hero-actions {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      flex-wrap: wrap;
+      animation: fade-in-up 0.8s var(--ease-out) 0.3s both;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 28px;
+      border-radius: var(--radius-md);
+      background: var(--accent-orange);
+      color: white;
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-primary:hover {
+      background: var(--accent-orange-hover);
+      transform: translateY(-1px);
+      box-shadow: 0 8px 24px rgba(203, 78, 27, 0.3);
+    }
+
+    .btn-primary svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 14px 28px;
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: var(--text-primary);
+      font-weight: 600;
+      font-size: 0.95rem;
+      border: var(--border-medium);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      text-decoration: none;
+    }
+
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.2);
+    }
+
+    .hero-meta {
+      display: flex;
+      gap: var(--space-xl);
+      margin-top: var(--space-2xl);
+      animation: fade-in-up 0.8s var(--ease-out) 0.4s both;
+    }
+
+    .hero-meta-item {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .hero-meta-value {
+      font-family: var(--font-mono);
+      font-size: 1.5rem;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .hero-meta-label {
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    /* =========================================================
+       FEATURES
+       ========================================================= */
+    .features {
+      padding: var(--space-3xl) 0;
+    }
+
+    .features-header {
+      margin-bottom: var(--space-2xl);
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+      gap: var(--space-lg);
+    }
+
+    .feature-card {
+      position: relative;
+      background: var(--bg-primary);
+      border: var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: var(--space-xl);
+      transition: all 0.3s var(--ease-out);
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+      background: linear-gradient(90deg, transparent, var(--card-accent, var(--accent-orange)), transparent);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .feature-card:hover {
+      border-color: rgba(255, 255, 255, 0.1);
+      transform: translateY(-2px);
+      box-shadow: 0 12px 40px rgba(0, 0, 0, 0.3);
+    }
+
+    .feature-card:hover::before {
+      opacity: 1;
+    }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: var(--radius-md);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: var(--space-lg);
+      background: var(--icon-bg, var(--accent-orange-muted));
+    }
+
+    .feature-icon svg {
+      width: 22px;
+      height: 22px;
+      color: var(--icon-color, var(--accent-orange));
+    }
+
+    .feature-card h3 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      margin-bottom: var(--space-sm);
+    }
+
+    .feature-card p {
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+      line-height: 1.65;
+      margin-bottom: var(--space-lg);
+    }
+
+    .feature-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .feature-tag {
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      padding: 3px 10px;
+      border-radius: 100px;
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-tertiary);
+      letter-spacing: 0.02em;
+    }
+
+    /* Screenshot placeholder */
+    .feature-screenshot {
+      margin-top: var(--space-lg);
+      border-radius: var(--radius-md);
+      background: var(--bg-secondary);
+      border: var(--border-subtle);
+      aspect-ratio: 16 / 9;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-tertiary);
+      font-size: 0.8rem;
+      font-family: var(--font-mono);
+      overflow: hidden;
+      position: relative;
+    }
+
+    .feature-screenshot::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        linear-gradient(135deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+        linear-gradient(225deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+        linear-gradient(315deg, rgba(255,255,255,0.02) 25%, transparent 25%),
+        linear-gradient(45deg, rgba(255,255,255,0.02) 25%, transparent 25%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+    }
+
+    /* Card accent color variants */
+    .feature-card[data-accent="blue"] {
+      --card-accent: var(--accent-blue);
+      --icon-bg: var(--accent-blue-glow);
+      --icon-color: var(--accent-blue);
+    }
+
+    .feature-card[data-accent="green"] {
+      --card-accent: var(--color-success);
+      --icon-bg: rgba(46, 160, 67, 0.1);
+      --icon-color: var(--color-success);
+    }
+
+    .feature-card[data-accent="amber"] {
+      --card-accent: var(--color-warning);
+      --icon-bg: rgba(212, 160, 23, 0.1);
+      --icon-color: var(--color-warning);
+    }
+
+    /* =========================================================
+       SHOWCASE — Full-width screenshot callouts
+       ========================================================= */
+    .showcase {
+      padding: var(--space-3xl) 0;
+    }
+
+    .showcase-block {
+      margin-bottom: var(--space-3xl);
+    }
+
+    .showcase-block:last-child {
+      margin-bottom: 0;
+    }
+
+    .showcase-content {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2xl);
+      align-items: center;
+    }
+
+    .showcase-content.reversed {
+      direction: rtl;
+    }
+
+    .showcase-content.reversed > * {
+      direction: ltr;
+    }
+
+    .showcase-text {
+      max-width: 480px;
+    }
+
+    .showcase-text h3 {
+      font-size: clamp(1.5rem, 1.2rem + 1.5vw, 2rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: var(--space-md);
+    }
+
+    .showcase-text p {
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: var(--space-lg);
+    }
+
+    .showcase-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+    }
+
+    .showcase-features li {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .showcase-features li svg {
+      width: 16px;
+      height: 16px;
+      color: var(--accent-orange);
+      flex-shrink: 0;
+    }
+
+    .showcase-preview {
+      border-radius: var(--radius-xl);
+      background: var(--bg-primary);
+      border: var(--border-subtle);
+      aspect-ratio: 4 / 3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .showcase-preview .window-chrome {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(0,0,0,0.3);
+      border-bottom: var(--border-subtle);
+    }
+
+    .window-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--bg-elevated);
+    }
+
+    .window-dot.red { background: #ff5f57; }
+    .window-dot.yellow { background: #ffbd2e; }
+    .window-dot.green { background: #28c840; }
+
+    .window-url {
+      flex: 1;
+      margin-left: 8px;
+      padding: 4px 12px;
+      border-radius: 4px;
+      background: rgba(255,255,255,0.05);
+      font-family: var(--font-mono);
+      font-size: 0.7rem;
+      color: var(--text-tertiary);
+    }
+
+    .showcase-placeholder {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+    }
+
+    /* =========================================================
+       TECH STACK
+       ========================================================= */
+    .tech-stack {
+      padding: var(--space-3xl) 0;
+    }
+
+    .tech-header {
+      margin-bottom: var(--space-2xl);
+    }
+
+    .tech-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1px;
+      background: rgba(255, 255, 255, 0.04);
+      border-radius: var(--radius-lg);
+      overflow: hidden;
+      border: var(--border-subtle);
+    }
+
+    .tech-item {
+      background: var(--bg-primary);
+      padding: var(--space-xl) var(--space-lg);
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      transition: background 0.2s ease;
+    }
+
+    .tech-item:hover {
+      background: var(--bg-secondary);
+    }
+
+    .tech-item-name {
+      font-weight: 700;
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+    }
+
+    .tech-item-desc {
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+      line-height: 1.5;
+    }
+
+    .tech-item-category {
+      font-family: var(--font-mono);
+      font-size: 0.65rem;
+      color: var(--accent-orange);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: 4px;
+    }
+
+    /* =========================================================
+       CAPABILITIES STRIP
+       ========================================================= */
+    .capabilities {
+      padding: var(--space-2xl) 0;
+      border-top: var(--border-subtle);
+      border-bottom: var(--border-subtle);
+      overflow: hidden;
+    }
+
+    .capabilities-track {
+      display: flex;
+      gap: var(--space-2xl);
+      animation: scroll-left 40s linear infinite;
+      white-space: nowrap;
+    }
+
+    .capabilities-track:hover {
+      animation-play-state: paused;
+    }
+
+    .capability-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+
+    .capability-item .cap-dot {
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--accent-orange);
+      opacity: 0.5;
+    }
+
+    @keyframes scroll-left {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    /* =========================================================
+       OPEN SOURCE
+       ========================================================= */
+    .open-source {
+      padding: var(--space-3xl) 0;
+    }
+
+    .oss-card {
+      background: var(--bg-primary);
+      border: var(--border-subtle);
+      border-radius: var(--radius-xl);
+      padding: var(--space-2xl);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--space-2xl);
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .oss-card::before {
+      content: '';
+      position: absolute;
+      top: -100px;
+      right: -100px;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent-orange-glow), transparent 70%);
+      pointer-events: none;
+    }
+
+    .oss-text h2 {
+      font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      margin-bottom: var(--space-md);
+    }
+
+    .oss-text p {
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: var(--space-lg);
+    }
+
+    .oss-text blockquote {
+      border-left: 3px solid var(--accent-orange);
+      padding-left: var(--space-md);
+      color: var(--text-secondary);
+      font-style: italic;
+      margin-bottom: var(--space-lg);
+    }
+
+    .oss-quickstart {
+      position: relative;
+      z-index: 1;
+    }
+
+    .oss-quickstart h4 {
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      font-weight: 500;
+      color: var(--accent-orange);
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      margin-bottom: var(--space-md);
+    }
+
+    .code-block {
+      background: var(--bg-deep);
+      border: var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: var(--space-lg);
+      font-family: var(--font-mono);
+      font-size: 0.8rem;
+      line-height: 1.8;
+      overflow-x: auto;
+    }
+
+    .code-block .comment {
+      color: var(--text-tertiary);
+    }
+
+    .code-block .cmd {
+      color: var(--text-primary);
+    }
+
+    .code-block .flag {
+      color: var(--accent-orange);
+    }
+
+    .code-block .string {
+      color: var(--accent-blue);
+    }
+
+    .prereqs {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-sm);
+      margin-bottom: var(--space-lg);
+    }
+
+    .prereq {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.85rem;
+      color: var(--text-secondary);
+    }
+
+    .prereq svg {
+      width: 16px;
+      height: 16px;
+      color: var(--color-success);
+    }
+
+    /* =========================================================
+       ABOUT
+       ========================================================= */
+    .about {
+      padding: var(--space-3xl) 0;
+    }
+
+    .about-content {
+      max-width: 640px;
+    }
+
+    .about-content p {
+      color: var(--text-secondary);
+      line-height: 1.8;
+      font-size: 1.05rem;
+      margin-bottom: var(--space-md);
+    }
+
+    /* =========================================================
+       FOOTER
+       ========================================================= */
+    .footer {
+      padding: var(--space-2xl) 0;
+      border-top: var(--border-subtle);
+    }
+
+    .footer-inner {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-left {
+      display: flex;
+      align-items: center;
+      gap: var(--space-lg);
+    }
+
+    .footer-left .footer-brand {
+      font-weight: 700;
+      font-size: 0.9rem;
+      color: var(--text-secondary);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: var(--space-md);
+      list-style: none;
+    }
+
+    .footer-links a {
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+      transition: color 0.2s ease;
+    }
+
+    .footer-links a:hover {
+      color: var(--text-primary);
+    }
+
+    .footer-right {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      font-size: 0.8rem;
+      color: var(--text-tertiary);
+    }
+
+    .footer-version {
+      font-family: var(--font-mono);
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    /* =========================================================
+       DIVIDERS
+       ========================================================= */
+    .section-divider {
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(255,255,255,0.06), transparent);
+      margin: 0;
+    }
+
+    /* =========================================================
+       ANIMATIONS
+       ========================================================= */
+    @keyframes fade-in-up {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .reveal {
+      opacity: 0;
+      transform: translateY(30px);
+      transition: opacity 0.6s var(--ease-out), transform 0.6s var(--ease-out);
+    }
+
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .reveal-delay-1 { transition-delay: 0.1s; }
+    .reveal-delay-2 { transition-delay: 0.2s; }
+    .reveal-delay-3 { transition-delay: 0.3s; }
+    .reveal-delay-4 { transition-delay: 0.4s; }
+    .reveal-delay-5 { transition-delay: 0.5s; }
+
+    /* =========================================================
+       RESPONSIVE
+       ========================================================= */
+    @media (max-width: 768px) {
+      .nav-links {
+        display: none;
+      }
+
+      .hero-meta {
+        gap: var(--space-lg);
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .showcase-content,
+      .showcase-content.reversed {
+        grid-template-columns: 1fr;
+        direction: ltr;
+      }
+
+      .oss-card {
+        grid-template-columns: 1fr;
+      }
+
+      .tech-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .footer-inner {
+        flex-direction: column;
+        gap: var(--space-md);
+        text-align: center;
+      }
+
+      .footer-left {
+        flex-direction: column;
+      }
+
+      .login-trigger {
+        display: none;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .tech-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-meta {
+        flex-direction: column;
+        gap: var(--space-md);
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="grid-overlay"></div>
+
+  <!-- ===================== NAVIGATION ===================== -->
+  <nav class="nav" id="nav">
+    <div class="nav-inner">
+      <div class="nav-brand">
+        <span class="dot"></span>
+        <span>cpike/discordbot</span>
+      </div>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#showcase">Dashboard</a></li>
+        <li><a href="#tech">Tech Stack</a></li>
+        <li><a href="#open-source">Open Source</a></li>
+        <li>
+          <a href="https://github.com" class="nav-github" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            GitHub
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+
+  <!-- Login button — subtle, bottom-right, desktop only -->
+  <a href="/Account/Login" class="login-trigger" title="Admin Login">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+  </a>
+
+  <!-- ===================== HERO ===================== -->
+  <section class="hero" id="hero">
+    <div class="container">
+      <div class="hero-content">
+        <div class="hero-badge">
+          <span class="badge-dot"></span>
+          Open Source &middot; MIT License
+        </div>
+        <h1>A Discord bot that does a <span class="highlight">bunch of stuff.</span></h1>
+        <p class="hero-description">
+          Server management, moderation, voice audio, AI assistant, analytics,
+          and a web dashboard. Built with .NET. Free to use, fork, and make your own.
+        </p>
+        <div class="hero-actions">
+          <a href="https://github.com" class="btn-primary" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+          </a>
+          <a href="#features" class="btn-secondary">
+            Explore Features
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+          </a>
+        </div>
+        <div class="hero-meta">
+          <div class="hero-meta-item">
+            <span class="hero-meta-value">40+</span>
+            <span class="hero-meta-label">Slash Commands</span>
+          </div>
+          <div class="hero-meta-item">
+            <span class="hero-meta-value">.NET 9</span>
+            <span class="hero-meta-label">Framework</span>
+          </div>
+          <div class="hero-meta-item">
+            <span class="hero-meta-value">v0.5</span>
+            <span class="hero-meta-label">Current Release</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== CAPABILITIES MARQUEE ===================== -->
+  <div class="capabilities">
+    <div class="capabilities-track" aria-hidden="true">
+      <span class="capability-item"><span class="cap-dot"></span>Slash Commands</span>
+      <span class="capability-item"><span class="cap-dot"></span>Moderation</span>
+      <span class="capability-item"><span class="cap-dot"></span>Auto-Moderation</span>
+      <span class="capability-item"><span class="cap-dot"></span>Soundboard</span>
+      <span class="capability-item"><span class="cap-dot"></span>Text-to-Speech</span>
+      <span class="capability-item"><span class="cap-dot"></span>VOX Announcements</span>
+      <span class="capability-item"><span class="cap-dot"></span>AI Assistant</span>
+      <span class="capability-item"><span class="cap-dot"></span>Web Dashboard</span>
+      <span class="capability-item"><span class="cap-dot"></span>Scheduled Messages</span>
+      <span class="capability-item"><span class="cap-dot"></span>Reminders</span>
+      <span class="capability-item"><span class="cap-dot"></span>Analytics</span>
+      <span class="capability-item"><span class="cap-dot"></span>Member Portal</span>
+      <span class="capability-item"><span class="cap-dot"></span>Welcome System</span>
+      <span class="capability-item"><span class="cap-dot"></span>Audit Logging</span>
+      <span class="capability-item"><span class="cap-dot"></span>GDPR Compliance</span>
+      <span class="capability-item"><span class="cap-dot"></span>Multi-Database</span>
+      <!-- Duplicate for seamless loop -->
+      <span class="capability-item"><span class="cap-dot"></span>Slash Commands</span>
+      <span class="capability-item"><span class="cap-dot"></span>Moderation</span>
+      <span class="capability-item"><span class="cap-dot"></span>Auto-Moderation</span>
+      <span class="capability-item"><span class="cap-dot"></span>Soundboard</span>
+      <span class="capability-item"><span class="cap-dot"></span>Text-to-Speech</span>
+      <span class="capability-item"><span class="cap-dot"></span>VOX Announcements</span>
+      <span class="capability-item"><span class="cap-dot"></span>AI Assistant</span>
+      <span class="capability-item"><span class="cap-dot"></span>Web Dashboard</span>
+      <span class="capability-item"><span class="cap-dot"></span>Scheduled Messages</span>
+      <span class="capability-item"><span class="cap-dot"></span>Reminders</span>
+      <span class="capability-item"><span class="cap-dot"></span>Analytics</span>
+      <span class="capability-item"><span class="cap-dot"></span>Member Portal</span>
+      <span class="capability-item"><span class="cap-dot"></span>Welcome System</span>
+      <span class="capability-item"><span class="cap-dot"></span>Audit Logging</span>
+      <span class="capability-item"><span class="cap-dot"></span>GDPR Compliance</span>
+      <span class="capability-item"><span class="cap-dot"></span>Multi-Database</span>
+    </div>
+  </div>
+
+  <!-- ===================== FEATURES ===================== -->
+  <section class="features" id="features">
+    <div class="container">
+      <div class="features-header reveal">
+        <div class="section-label">What it does</div>
+        <h2 class="section-title">Everything you'd want from<br>a server management bot.</h2>
+        <p class="section-subtitle">Built for server admins who care about their communities. Every feature works out of the box with sensible defaults.</p>
+      </div>
+
+      <div class="features-grid">
+
+        <!-- Moderation -->
+        <div class="feature-card reveal reveal-delay-1">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          </div>
+          <h3>Moderation Suite</h3>
+          <p>Full moderation toolkit with warn, kick, ban, mute, and timed actions. Moderation cases with notes, tags, and exportable history. Watchlists for keeping an eye on members.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">/warn</span>
+            <span class="feature-tag">/kick</span>
+            <span class="feature-tag">/ban</span>
+            <span class="feature-tag">/mute</span>
+            <span class="feature-tag">/purge</span>
+            <span class="feature-tag">/modlog</span>
+            <span class="feature-tag">/watchlist</span>
+          </div>
+          <div class="feature-screenshot">screenshot: moderation case view</div>
+        </div>
+
+        <!-- Auto-Moderation -->
+        <div class="feature-card reveal reveal-delay-2" data-accent="amber">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          </div>
+          <h3>Auto-Moderation</h3>
+          <p>Configurable spam and raid detection with automatic responses. Flagged events dashboard for reviewing automated actions. Fine-tune thresholds per guild.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">spam detection</span>
+            <span class="feature-tag">raid protection</span>
+            <span class="feature-tag">flagged events</span>
+            <span class="feature-tag">configurable thresholds</span>
+          </div>
+        </div>
+
+        <!-- AI Assistant -->
+        <div class="feature-card reveal reveal-delay-3" data-accent="blue">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+          </div>
+          <h3>AI Assistant</h3>
+          <p>Claude-powered conversational AI with tool use. The assistant can look up server info, check moderation cases, and answer questions with context about your server.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">Anthropic Claude</span>
+            <span class="feature-tag">tool calling</span>
+            <span class="feature-tag">cost tracking</span>
+            <span class="feature-tag">rate limiting</span>
+          </div>
+          <div class="feature-screenshot">screenshot: AI assistant interaction</div>
+        </div>
+
+        <!-- Audio / Soundboard -->
+        <div class="feature-card reveal reveal-delay-1" data-accent="green">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+          </div>
+          <h3>Audio & Soundboard</h3>
+          <p>Play custom sound clips in voice channels. Upload and manage sounds per guild. Web-based soundboard portal lets members trigger sounds from their browser.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">/play</span>
+            <span class="feature-tag">/sounds</span>
+            <span class="feature-tag">web portal</span>
+            <span class="feature-tag">FFmpeg</span>
+          </div>
+        </div>
+
+        <!-- TTS & VOX -->
+        <div class="feature-card reveal reveal-delay-2">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="23"/><line x1="8" y1="23" x2="16" y2="23"/></svg>
+          </div>
+          <h3>Text-to-Speech & VOX</h3>
+          <p>Azure-powered TTS with SSML support, voice selection, and style presets. Plus a Half-Life inspired VOX system that concatenates clip libraries for retro announcements.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">/tts</span>
+            <span class="feature-tag">/vox</span>
+            <span class="feature-tag">/fvox</span>
+            <span class="feature-tag">SSML editor</span>
+            <span class="feature-tag">Azure Speech</span>
+          </div>
+          <div class="feature-screenshot">screenshot: TTS portal with voice selector</div>
+        </div>
+
+        <!-- Analytics -->
+        <div class="feature-card reveal reveal-delay-3" data-accent="blue">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+          </div>
+          <h3>Analytics & Metrics</h3>
+          <p>Engagement analytics, moderation stats, command performance tracking, and real-time health monitoring. Historical metrics with hourly and daily aggregation.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">engagement</span>
+            <span class="feature-tag">performance</span>
+            <span class="feature-tag">real-time</span>
+            <span class="feature-tag">SignalR</span>
+          </div>
+        </div>
+
+        <!-- Scheduling -->
+        <div class="feature-card reveal reveal-delay-1" data-accent="green">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          </div>
+          <h3>Scheduling & Reminders</h3>
+          <p>Cron-based scheduled messages for recurring announcements. Personal reminders with natural language time parsing. Manage everything from Discord or the web dashboard.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">/schedule-create</span>
+            <span class="feature-tag">/remind set</span>
+            <span class="feature-tag">cron expressions</span>
+            <span class="feature-tag">natural language</span>
+          </div>
+        </div>
+
+        <!-- Welcome System -->
+        <div class="feature-card reveal reveal-delay-2" data-accent="amber">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+          </div>
+          <h3>Welcome System</h3>
+          <p>Customizable welcome messages for new members. Configure per-channel, set custom messages with variables, and test before going live.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">/welcome</span>
+            <span class="feature-tag">custom messages</span>
+            <span class="feature-tag">per-channel</span>
+          </div>
+        </div>
+
+        <!-- Web Dashboard -->
+        <div class="feature-card reveal reveal-delay-3">
+          <div class="feature-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="9" y1="21" x2="9" y2="9"/></svg>
+          </div>
+          <h3>Web Dashboard</h3>
+          <p>Full-featured admin dashboard with guild management, member directories, log browsers, and settings. Member portals let users interact with audio features from their browser.</p>
+          <div class="feature-tags">
+            <span class="feature-tag">Razor Pages</span>
+            <span class="feature-tag">Discord OAuth</span>
+            <span class="feature-tag">role-based access</span>
+            <span class="feature-tag">real-time updates</span>
+          </div>
+          <div class="feature-screenshot">screenshot: admin dashboard overview</div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ===================== SHOWCASE ===================== -->
+  <section class="showcase" id="showcase">
+    <div class="container">
+      <div class="features-header reveal">
+        <div class="section-label">Dashboard</div>
+        <h2 class="section-title">Manage everything from<br>your browser.</h2>
+        <p class="section-subtitle">A complete admin portal with real-time updates, guild management, and member-facing portals.</p>
+      </div>
+
+      <!-- Showcase 1: Dashboard -->
+      <div class="showcase-block reveal">
+        <div class="showcase-content">
+          <div class="showcase-text">
+            <h3>Admin Dashboard</h3>
+            <p>At-a-glance bot status, connected guilds, command stats, and recent activity. Everything updates in real-time via SignalR.</p>
+            <ul class="showcase-features">
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Bot health and uptime at a glance
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Real-time performance metrics
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Command execution logs and analytics
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                System notifications and alerts
+              </li>
+            </ul>
+          </div>
+          <div class="showcase-preview">
+            <div class="window-chrome">
+              <span class="window-dot red"></span>
+              <span class="window-dot yellow"></span>
+              <span class="window-dot green"></span>
+              <span class="window-url">yourbot.example.com</span>
+            </div>
+            <span class="showcase-placeholder">screenshot: main dashboard</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Showcase 2: Guild Management -->
+      <div class="showcase-block reveal">
+        <div class="showcase-content reversed">
+          <div class="showcase-text">
+            <h3>Guild Management</h3>
+            <p>Per-guild settings, member directories, moderation history, and analytics. Configure everything from module toggles to auto-moderation thresholds.</p>
+            <ul class="showcase-features">
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Per-guild feature configuration
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Member directory with search and filter
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Engagement and moderation analytics
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Audio, TTS, and assistant settings
+              </li>
+            </ul>
+          </div>
+          <div class="showcase-preview">
+            <div class="window-chrome">
+              <span class="window-dot red"></span>
+              <span class="window-dot yellow"></span>
+              <span class="window-dot green"></span>
+              <span class="window-url">yourbot.example.com/Guilds/Details?id=...</span>
+            </div>
+            <span class="showcase-placeholder">screenshot: guild details page</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Showcase 3: Member Portals -->
+      <div class="showcase-block reveal">
+        <div class="showcase-content">
+          <div class="showcase-text">
+            <h3>Member Portals</h3>
+            <p>Web-based interfaces that let guild members interact with audio features directly from their browser. Login with Discord, pick a voice channel, and go.</p>
+            <ul class="showcase-features">
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Soundboard portal with instant playback
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                TTS portal with voice selection and SSML
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                VOX portal for retro announcements
+              </li>
+              <li>
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+                Discord OAuth &mdash; guild membership verified
+              </li>
+            </ul>
+          </div>
+          <div class="showcase-preview">
+            <div class="window-chrome">
+              <span class="window-dot red"></span>
+              <span class="window-dot yellow"></span>
+              <span class="window-dot green"></span>
+              <span class="window-url">yourbot.example.com/Portal/Soundboard/...</span>
+            </div>
+            <span class="showcase-placeholder">screenshot: soundboard portal</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ===================== TECH STACK ===================== -->
+  <section class="tech-stack" id="tech">
+    <div class="container">
+      <div class="tech-header reveal">
+        <div class="section-label">Under the hood</div>
+        <h2 class="section-title">Built on solid foundations.</h2>
+        <p class="section-subtitle">Production-grade infrastructure with enterprise patterns. Not over-engineered &mdash; just well-engineered.</p>
+      </div>
+
+      <div class="tech-grid reveal">
+        <div class="tech-item">
+          <span class="tech-item-category">Framework</span>
+          <span class="tech-item-name">.NET 9</span>
+          <span class="tech-item-desc">Latest LTS runtime with AOT-ready architecture</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Discord</span>
+          <span class="tech-item-name">Discord.NET</span>
+          <span class="tech-item-desc">Slash commands, interactions, voice, and gateway events</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Data</span>
+          <span class="tech-item-name">Entity Framework Core</span>
+          <span class="tech-item-desc">Code-first with dual provider support</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Database</span>
+          <span class="tech-item-name">SQLite &amp; PostgreSQL</span>
+          <span class="tech-item-desc">Start with SQLite, scale to Postgres when ready</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">AI</span>
+          <span class="tech-item-name">Anthropic Claude</span>
+          <span class="tech-item-desc">Agentic assistant with tool use and cost tracking</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Voice</span>
+          <span class="tech-item-name">Azure Speech Services</span>
+          <span class="tech-item-desc">Neural TTS with SSML and multiple voices</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Frontend</span>
+          <span class="tech-item-name">Razor Pages + Tailwind</span>
+          <span class="tech-item-desc">Server-rendered UI with HTMX and Alpine.js</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Real-time</span>
+          <span class="tech-item-name">SignalR</span>
+          <span class="tech-item-desc">Live metrics, notifications, and playback status</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Logging</span>
+          <span class="tech-item-name">Serilog + Seq</span>
+          <span class="tech-item-desc">Structured logging with centralized search</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Tracing</span>
+          <span class="tech-item-name">OpenTelemetry</span>
+          <span class="tech-item-desc">Distributed tracing with Elastic APM</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Audio</span>
+          <span class="tech-item-name">FFmpeg + libopus</span>
+          <span class="tech-item-desc">Audio transcoding and Opus encoding for Discord</span>
+        </div>
+        <div class="tech-item">
+          <span class="tech-item-category">Deploy</span>
+          <span class="tech-item-name">Docker</span>
+          <span class="tech-item-desc">Containerized with multi-stage builds</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="section-divider"></div>
+
+  <!-- ===================== OPEN SOURCE ===================== -->
+  <section class="open-source" id="open-source">
+    <div class="container">
+      <div class="oss-card reveal">
+        <div class="oss-text">
+          <div class="section-label">Open Source</div>
+          <h2>Fork it. Customize it.<br>Make it yours.</h2>
+          <p>This is a personal project released under the MIT License. It's not a SaaS product and it's not seeking contributors. It's a bot built for my friends' server that grew into something others might find useful.</p>
+          <blockquote>
+            Started as a side project to learn .NET and have a bot for my friends' server. Still adding stuff. Feel free to use it or fork it.
+          </blockquote>
+          <a href="https://github.com" class="btn-primary" target="_blank" rel="noopener">
+            <svg viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            View on GitHub
+          </a>
+        </div>
+        <div class="oss-quickstart">
+          <h4>Quick Start</h4>
+          <div class="prereqs">
+            <div class="prereq">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              .NET 9 SDK
+            </div>
+            <div class="prereq">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              Discord Developer Portal app
+            </div>
+            <div class="prereq">
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+              FFmpeg (optional, for audio)
+            </div>
+          </div>
+          <div class="code-block">
+            <span class="comment"># Clone and run</span><br>
+            <span class="cmd">git clone</span> <span class="string">https://github.com/your/repo</span><br>
+            <span class="cmd">cd</span> <span class="string">discordbot</span><br><br>
+            <span class="comment"># Set your Discord token</span><br>
+            <span class="cmd">dotnet user-secrets set</span> <span class="flag">"Discord:Token"</span> <span class="string">"your-token"</span><br><br>
+            <span class="comment"># Run it</span><br>
+            <span class="cmd">dotnet run</span> <span class="flag">--project</span> <span class="string">src/DiscordBot.Bot</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== ABOUT ===================== -->
+  <section class="about" id="about">
+    <div class="container">
+      <div class="about-content reveal">
+        <div class="section-label">About</div>
+        <h2 class="section-title">A side project that<br>kept growing.</h2>
+        <p>What started as "let me learn .NET by making a Discord bot" turned into a full management platform with moderation, analytics, voice features, an AI assistant, and a web dashboard.</p>
+        <p>It runs one server. It does that well. If you want something similar for yours, the code is right there.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== FOOTER ===================== -->
+  <footer class="footer">
+    <div class="container">
+      <div class="footer-inner">
+        <div class="footer-left">
+          <span class="footer-brand">cpike/discordbot</span>
+          <ul class="footer-links">
+            <li><a href="https://github.com" target="_blank" rel="noopener">GitHub</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#tech">Tech Stack</a></li>
+          </ul>
+        </div>
+        <div class="footer-right">
+          <span class="footer-version">v0.5.1</span>
+          <span>&copy; 2025 cpike</span>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ===================== SCRIPTS ===================== -->
+  <script>
+    // Sticky nav background on scroll
+    const nav = document.getElementById('nav');
+    window.addEventListener('scroll', () => {
+      nav.classList.toggle('scrolled', window.scrollY > 40);
+    }, { passive: true });
+
+    // Scroll-reveal animation
+    const reveals = document.querySelectorAll('.reveal');
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          entry.target.classList.add('visible');
+          observer.unobserve(entry.target);
+        }
+      });
+    }, {
+      threshold: 0.1,
+      rootMargin: '0px 0px -60px 0px'
+    });
+
+    reveals.forEach(el => observer.observe(el));
+
+    // Smooth anchor scrolling with offset
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', (e) => {
+        e.preventDefault();
+        const target = document.querySelector(anchor.getAttribute('href'));
+        if (target) {
+          const offset = 80;
+          const top = target.getBoundingClientRect().top + window.scrollY - offset;
+          window.scrollTo({ top, behavior: 'smooth' });
+        }
+      });
+    });
+  </script>
+</body>
+</html>
