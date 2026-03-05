@@ -47,12 +47,6 @@ public class DmAssistantMessageHandler
         if (message.Channel is not IDMChannel)
             return;
 
-        if (!_options.Enabled)
-        {
-            _logger.LogDebug("DM assistant is disabled, ignoring DM from {UserId}", message.Author.Id);
-            return;
-        }
-
         var userId = message.Author.Id;
 
         using var activity = BotActivitySource.StartEventActivity(
@@ -63,6 +57,20 @@ public class DmAssistantMessageHandler
         try
         {
             using var scope = _scopeFactory.CreateScope();
+
+            // Check enabled state from settings service (runtime-togglable via Settings UI),
+            // falling back to IOptions config value
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+            var isEnabled = await settingsService.GetSettingValueAsync<bool?>("DmAssistant:Enabled")
+                ?? _options.Enabled;
+
+            if (!isEnabled)
+            {
+                _logger.LogDebug("DM assistant is disabled, ignoring DM from {UserId}", userId);
+                BotActivitySource.SetSuccess(activity);
+                return;
+            }
+
             var dmAssistantService = scope.ServiceProvider.GetService<IDmAssistantService>();
             if (dmAssistantService is null)
             {
