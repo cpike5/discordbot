@@ -726,6 +726,9 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0);
 
+                    b.Property<int>("LoopCount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -746,6 +749,12 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasDefaultValue(true);
 
                     b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ToolCalls")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ToolNames")
                         .HasColumnType("TEXT");
 
                     b.Property<long>("UserId")

@@ -163,7 +163,8 @@ public class DmAssistantService : IDmAssistantService
 
                 if (_options.LogInteractions)
                 {
-                    await LogInteractionAsync(userId, true, message, errorResponse, ct);
+                    await LogInteractionAsync(userId, true, message, errorResponse, ct,
+                        agentResult.TotalToolCalls, agentResult.LoopCount, agentResult.ToolNames);
                 }
 
                 return errorResponse;
@@ -214,7 +215,8 @@ public class DmAssistantService : IDmAssistantService
             // Log interaction (swallow errors)
             if (_options.LogInteractions)
             {
-                await LogInteractionAsync(userId, true, message, result, ct);
+                await LogInteractionAsync(userId, true, message, result, ct,
+                    agentResult.TotalToolCalls, agentResult.LoopCount, agentResult.ToolNames);
             }
 
             // Update daily metrics (swallow errors)
@@ -310,7 +312,8 @@ public class DmAssistantService : IDmAssistantService
 
     private async Task LogInteractionAsync(
         ulong userId, bool isOwner, string message,
-        DmAssistantResponse result, CancellationToken ct)
+        DmAssistantResponse result, CancellationToken ct,
+        int toolCalls = 0, int loopCount = 0, List<string>? toolNames = null)
     {
         try
         {
@@ -324,6 +327,9 @@ public class DmAssistantService : IDmAssistantService
                 InputTokens = result.InputTokens,
                 OutputTokens = result.OutputTokens,
                 CachedTokens = result.CachedTokens,
+                ToolCalls = toolCalls,
+                ToolNames = toolNames?.Count > 0 ? string.Join(", ", toolNames) : null,
+                LoopCount = loopCount,
                 LatencyMs = result.LatencyMs,
                 Success = result.Success,
                 ErrorMessage = result.ErrorMessage,

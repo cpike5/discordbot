@@ -67,6 +67,7 @@ public class AgentRunner : IAgentRunner
         var totalToolCalls = 0;
         var loopCount = 0;
         var conversationCleared = false;
+        var toolNames = new List<string>();
 
         // Build the initial LLM request
         var request = new LlmRequest
@@ -113,6 +114,7 @@ public class AgentRunner : IAgentRunner
                     ErrorMessage = response.ErrorMessage ?? "LLM completion failed",
                     LoopCount = loopCount,
                     TotalToolCalls = totalToolCalls,
+                    ToolNames = toolNames,
                     TotalUsage = totalUsage
                 };
             }
@@ -152,6 +154,7 @@ public class AgentRunner : IAgentRunner
                         Response = response.Content ?? string.Empty,
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
+                        ToolNames = toolNames,
                         TotalUsage = totalUsage,
                         ConversationCleared = conversationCleared
                     };
@@ -206,6 +209,7 @@ public class AgentRunner : IAgentRunner
                     foreach (var toolCall in response.ToolCalls)
                     {
                         totalToolCalls++;
+                        toolNames.Add(toolCall.Name);
 
                         _logger.LogDebug(
                             "Executing tool {ToolName} (ID: {ToolCallId})",
@@ -315,6 +319,7 @@ public class AgentRunner : IAgentRunner
                         Response = response.Content ?? string.Empty,
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
+                        ToolNames = toolNames,
                         TotalUsage = totalUsage,
                         ErrorMessage = "Response truncated due to max tokens limit"
                     };
@@ -360,6 +365,7 @@ public class AgentRunner : IAgentRunner
             ErrorMessage = $"Exceeded maximum tool call iterations ({context.MaxToolCallIterations})",
             LoopCount = loopCount,
             TotalToolCalls = totalToolCalls,
+            ToolNames = toolNames,
             TotalUsage = totalUsage
         };
     }

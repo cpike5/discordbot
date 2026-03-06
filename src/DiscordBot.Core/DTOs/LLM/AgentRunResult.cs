@@ -36,6 +36,11 @@ public class AgentRunResult
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// Names of tools that were invoked during this run, in order of execution.
+    /// </summary>
+    public List<string> ToolNames { get; set; } = new();
+
+    /// <summary>
     /// Whether the clear_conversation tool was invoked during this run.
     /// When true, callers should not save the exchange to conversation history.
     /// </summary>
