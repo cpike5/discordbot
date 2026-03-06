@@ -173,10 +173,11 @@ public class AzureTtsService : ITtsService
             ? ExtractVoiceFromSsml(ssml)
             : options?.Voice ?? _options.DefaultVoice;
 
-        using var activity = BotActivitySource.StartAzureSpeechActivity(
+        using var scope = BotActivitySource.StartAzureSpeechActivityWithApm(
             textLength: input.Length,
             voice: voiceForTracing,
             region: _options.Region);
+        var activity = scope.Activity;
 
         try
         {
@@ -205,7 +206,7 @@ public class AzureTtsService : ITtsService
                 // Convert mono PCM to stereo PCM for Discord
                 var stereoData = ConvertMonoToStereo(result.AudioData);
 
-                BotActivitySource.SetSuccess(activity);
+                scope.SetSuccess();
                 return new MemoryStream(stereoData);
             }
             else if (result.Reason == ResultReason.Canceled)
@@ -217,14 +218,14 @@ public class AzureTtsService : ITtsService
                 activity?.SetTag(TracingConstants.Attributes.TtsCancellationReason, cancellation.Reason.ToString());
 
                 var ex = new InvalidOperationException($"Speech synthesis failed: {cancellation.ErrorDetails}");
-                BotActivitySource.RecordException(activity, ex);
+                scope.RecordException(ex);
                 throw ex;
             }
             else
             {
                 _logger.LogError("Speech synthesis failed with reason: {Reason}", result.Reason);
                 var ex = new InvalidOperationException($"Speech synthesis failed: {result.Reason}");
-                BotActivitySource.RecordException(activity, ex);
+                scope.RecordException(ex);
                 throw ex;
             }
         }
@@ -236,7 +237,7 @@ public class AzureTtsService : ITtsService
         catch (Exception ex) when (ex is not ArgumentException && ex is not InvalidOperationException)
         {
             _logger.LogError(ex, "Unexpected error during speech synthesis");
-            BotActivitySource.RecordException(activity, ex);
+            scope.RecordException(ex);
             throw new InvalidOperationException("Speech synthesis failed. See inner exception for details.", ex);
         }
     }
@@ -355,7 +356,8 @@ public class AzureTtsService : ITtsService
             _logger.LogInformation("Fetching available voices from Azure Speech service for locale '{Locale}'", cacheKey);
 
             // Start tracing activity for voice retrieval
-            using var activity = BotActivitySource.StartGetVoicesActivity(locale);
+            using var scope = BotActivitySource.StartGetVoicesActivityWithApm(locale);
+            var activity = scope.Activity;
 
             try
             {
@@ -382,21 +384,21 @@ public class AzureTtsService : ITtsService
                     // Cache the results
                     _voiceCache[cacheKey] = voices;
 
-                    BotActivitySource.SetSuccess(activity);
+                    scope.SetSuccess();
                     return voices;
                 }
                 else
                 {
                     _logger.LogError("Failed to retrieve voices. Reason: {Reason}", result.Reason);
                     activity?.SetTag("tts.retrieval_failed", result.Reason.ToString());
-                    BotActivitySource.SetSuccess(activity); // Not an error, just no voices
+                    scope.SetSuccess(); // Not an error, just no voices
                     return Enumerable.Empty<Core.Models.VoiceInfo>();
                 }
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Error retrieving available voices for locale '{Locale}'", locale);
-                BotActivitySource.RecordException(activity, ex);
+                scope.RecordException(ex);
                 return Enumerable.Empty<Core.Models.VoiceInfo>();
             }
         }
@@ -483,10 +485,11 @@ public class AzureTtsService : ITtsService
     private byte[] ConvertMonoToStereo(byte[] monoData)
     {
         // Start activity for audio conversion
-        using var activity = BotActivitySource.StartAudioConversionActivity(
+        using var scope = BotActivitySource.StartAudioConversionActivityWithApm(
             fromFormat: "mono_48khz_16bit",
             toFormat: "stereo_48khz_16bit",
             bytesIn: monoData.Length);
+        var activity = scope.Activity;
 
         try
         {
@@ -513,14 +516,14 @@ public class AzureTtsService : ITtsService
 
             // Record output size
             activity?.SetTag("audio.bytes_out", stereoData.Length);
-            BotActivitySource.SetSuccess(activity);
+            scope.SetSuccess();
 
             return stereoData;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error converting mono to stereo");
-            BotActivitySource.RecordException(activity, ex);
+            scope.RecordException(ex);
             throw;
         }
     }

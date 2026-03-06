@@ -4,6 +4,7 @@ using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
+using Elastic.Apm;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Portal;
 using DiscordBot.Core.DTOs.Tts;
@@ -237,6 +238,23 @@ public class PortalTtsController : ControllerBase
 
         // Check rate limit
         var userId = User.GetDiscordUserId();
+
+        // Enrich APM transaction for Kibana visibility
+        try
+        {
+            var transaction = Elastic.Apm.Agent.Tracer.CurrentTransaction;
+            if (transaction != null)
+            {
+                transaction.Name = "portal.tts.send";
+                transaction.SetLabel("guild_id", guildId.ToString());
+                transaction.SetLabel("voice", request.Voice ?? "default");
+                transaction.SetLabel("text_length", request.Message?.Length ?? 0);
+                transaction.SetLabel("synthesis_mode", !string.IsNullOrWhiteSpace(request.Ssml) ? "ssml" : !string.IsNullOrWhiteSpace(request.Style) ? "style" : "plain");
+                transaction.SetLabel("user_id", userId.ToString());
+            }
+        }
+        catch { /* APM not available */ }
+
         if (await _ttsSettingsService.IsUserRateLimitedAsync(guildId, userId, cancellationToken))
         {
             _logger.LogWarning("User {UserId} rate limited for TTS in guild {GuildId}", userId, guildId);
@@ -632,6 +650,20 @@ public class PortalTtsController : ControllerBase
         _logger.LogInformation("Synthesize SSML request for guild {GuildId}, PlayInVoiceChannel: {PlayInVoiceChannel}",
             guildId, request.PlayInVoiceChannel);
 
+        // Enrich APM transaction for Kibana visibility
+        try
+        {
+            var transaction = Elastic.Apm.Agent.Tracer.CurrentTransaction;
+            if (transaction != null)
+            {
+                transaction.Name = "portal.tts.synthesize_ssml";
+                transaction.SetLabel("guild_id", guildId.ToString());
+                transaction.SetLabel("ssml_length", request.Ssml?.Length ?? 0);
+                transaction.SetLabel("play_in_voice_channel", request.PlayInVoiceChannel);
+            }
+        }
+        catch { /* APM not available */ }
+
         // Check if SSML is empty
         if (string.IsNullOrWhiteSpace(request.Ssml))
         {
@@ -675,6 +707,14 @@ public class PortalTtsController : ControllerBase
 
         // Validate SSML
         var validationResult = _ssmlValidator.Validate(request.Ssml);
+
+        // Add voice count label to APM transaction
+        try
+        {
+            var transaction = Elastic.Apm.Agent.Tracer.CurrentTransaction;
+            transaction?.SetLabel("voice_count", validationResult.DetectedVoices.Count);
+        }
+        catch { /* APM not available */ }
 
         // If strict validation is enabled and SSML is invalid, reject
         if (settings.StrictSsmlValidation && !validationResult.IsValid)
