@@ -749,7 +749,6 @@ public static class BotActivitySource
         return new ServiceActivityScope(activity, apmSpan);
     }
 
-
     /// <summary>
     /// Tries to start an APM child span under the current transaction.
     /// Returns null if APM is not available or no transaction is active.
@@ -988,23 +987,30 @@ public static class BotActivitySource
         if (activity is null)
             return;
 
-        var transaction = Agent.Tracer.CurrentTransaction;
-        if (transaction is null)
-            return;
-
-        // Copy relevant tags to APM labels
-        foreach (var tag in activity.Tags)
+        try
         {
-            // Skip very long values to avoid APM label size limits
-            if (tag.Value?.Length > 256)
-                continue;
+            var transaction = Agent.Tracer.CurrentTransaction;
+            if (transaction is null)
+                return;
 
-            // Skip internal OpenTelemetry tags
-            if (tag.Key.StartsWith("otel.", StringComparison.OrdinalIgnoreCase))
-                continue;
+            // Copy relevant tags to APM labels
+            foreach (var tag in activity.Tags)
+            {
+                // Skip very long values to avoid APM label size limits
+                if (tag.Value?.Length > 256)
+                    continue;
 
-            // Set the label on the APM transaction
-            transaction.SetLabel(tag.Key, tag.Value ?? string.Empty);
+                // Skip internal OpenTelemetry tags
+                if (tag.Key.StartsWith("otel.", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                // Set the label on the APM transaction
+                transaction.SetLabel(tag.Key, tag.Value ?? string.Empty);
+            }
+        }
+        catch
+        {
+            // APM not available
         }
     }
 
@@ -1018,22 +1024,29 @@ public static class BotActivitySource
         if (activity is null)
             return;
 
-        var span = Agent.Tracer.CurrentSpan;
-        if (span is null)
-            return;
-
-        // Copy relevant tags to APM span labels
-        foreach (var tag in activity.Tags)
+        try
         {
-            // Skip very long values
-            if (tag.Value?.Length > 256)
-                continue;
+            var span = Agent.Tracer.CurrentSpan;
+            if (span is null)
+                return;
 
-            // Skip internal OpenTelemetry tags
-            if (tag.Key.StartsWith("otel.", StringComparison.OrdinalIgnoreCase))
-                continue;
+            // Copy relevant tags to APM span labels
+            foreach (var tag in activity.Tags)
+            {
+                // Skip very long values
+                if (tag.Value?.Length > 256)
+                    continue;
 
-            span.SetLabel(tag.Key, tag.Value ?? string.Empty);
+                // Skip internal OpenTelemetry tags
+                if (tag.Key.StartsWith("otel.", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                span.SetLabel(tag.Key, tag.Value ?? string.Empty);
+            }
+        }
+        catch
+        {
+            // APM not available
         }
     }
 }

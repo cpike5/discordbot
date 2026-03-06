@@ -7,11 +7,8 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.Vox;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.Vox;
-using Elastic.Apm;
-using Elastic.Apm.Api;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
-using OpenTelemetry.Trace;
 
 namespace DiscordBot.Bot.Services;
 
@@ -260,10 +257,11 @@ public class VoxService : IVoxService
                     EstimatedDurationSeconds = totalDuration
                 };
             }
-            catch (OperationCanceledException)
+            catch (OperationCanceledException ex)
             {
                 stopwatch.Stop();
                 _logger.LogInformation("VOX playback cancelled for guild {GuildId}", guildId);
+                commandScope.RecordException(ex);
                 return new VoxPlaybackResult
                 {
                     Success = false,
