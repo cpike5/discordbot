@@ -726,6 +726,9 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasColumnType("INTEGER")
                         .HasDefaultValue(0);
 
+                    b.Property<int>("LoopCount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -748,6 +751,12 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("TEXT");
 
+                    b.Property<int>("ToolCalls")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ToolNames")
+                        .HasColumnType("TEXT");
+
                     b.Property<long>("UserId")
                         .HasColumnType("INTEGER");
 
@@ -760,6 +769,38 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasDatabaseName("IX_DmAssistantInteractionLogs_UserId_Timestamp");
 
                     b.ToTable("DmAssistantInteractionLogs", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.DmAssistantNote", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(4096)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Tag")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId", "Tag")
+                        .HasDatabaseName("IX_DmAssistantNotes_UserId_Tag");
+
+                    b.ToTable("DmAssistantNotes", (string)null);
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.DmAssistantUsageMetrics", b =>
@@ -2904,6 +2945,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.DmAssistantInteractionLog", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.DmAssistantNote", b =>
                 {
                     b.HasOne("DiscordBot.Core.Entities.User", "User")
                         .WithMany()

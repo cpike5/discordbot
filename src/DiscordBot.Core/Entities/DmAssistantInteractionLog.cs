@@ -15,6 +15,9 @@ public class DmAssistantInteractionLog
     public int InputTokens { get; set; }
     public int OutputTokens { get; set; }
     public int CachedTokens { get; set; }
+    public int ToolCalls { get; set; }
+    public string? ToolNames { get; set; }
+    public int LoopCount { get; set; }
     public int LatencyMs { get; set; }
     public bool Success { get; set; } = true;
     public string? ErrorMessage { get; set; }

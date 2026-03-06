@@ -3,6 +3,7 @@ using System;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace DiscordBot.Infrastructure.Migrations.Postgresql
 {
     [DbContext(typeof(PostgresBotDbContext))]
-    partial class PostgresBotDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260306014331_AddDmAssistantNotes")]
+    partial class AddDmAssistantNotes
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -745,9 +748,6 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
-                    b.Property<int>("LoopCount")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(2000)
@@ -769,12 +769,6 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
 
                     b.Property<DateTime>("Timestamp")
                         .HasColumnType("timestamp without time zone");
-
-                    b.Property<int>("ToolCalls")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("ToolNames")
-                        .HasColumnType("text");
 
                     b.Property<long>("UserId")
                         .HasColumnType("bigint");

@@ -42,4 +42,13 @@ public class AgentContext
     /// Maximum number of tool call iterations allowed.
     /// </summary>
     public int MaxToolCallIterations { get; set; } = 10;
+
+    /// <summary>
+    /// Optional pre-existing conversation history.
+    /// When set, the agent runner initializes from this history + appends the user message,
+    /// instead of starting with only the user message. Used by the DM assistant to carry
+    /// multi-turn conversation context through the agentic loop.
+    /// Null = default behavior (guild assistant unaffected).
+    /// </summary>
+    public List<LlmMessage>? ConversationHistory { get; set; }
 }

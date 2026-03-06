@@ -41,20 +41,33 @@ public class AgentRunner : IAgentRunner
             context.ExecutionContext.GuildId,
             context.MaxToolCallIterations);
 
-        // Initialize conversation history with the user's message
-        var conversationHistory = new List<LlmMessage>
+        // Initialize conversation history: use pre-existing history if provided, else start fresh
+        List<LlmMessage> conversationHistory;
+        if (context.ConversationHistory is { Count: > 0 })
         {
-            new()
+            conversationHistory = new List<LlmMessage>(context.ConversationHistory)
             {
-                Role = LlmRole.User,
-                Content = userMessage
-            }
-        };
+                new() { Role = LlmRole.User, Content = userMessage }
+            };
+
+            _logger.LogDebug(
+                "Initialized conversation from {HistoryCount} existing messages + new user message",
+                context.ConversationHistory.Count);
+        }
+        else
+        {
+            conversationHistory = new List<LlmMessage>
+            {
+                new() { Role = LlmRole.User, Content = userMessage }
+            };
+        }
 
         // Initialize token usage tracking
         var totalUsage = new LlmUsage();
         var totalToolCalls = 0;
         var loopCount = 0;
+        var conversationCleared = false;
+        var toolNames = new List<string>();
 
         // Build the initial LLM request
         var request = new LlmRequest
@@ -101,6 +114,7 @@ public class AgentRunner : IAgentRunner
                     ErrorMessage = response.ErrorMessage ?? "LLM completion failed",
                     LoopCount = loopCount,
                     TotalToolCalls = totalToolCalls,
+                    ToolNames = toolNames,
                     TotalUsage = totalUsage
                 };
             }
@@ -140,7 +154,9 @@ public class AgentRunner : IAgentRunner
                         Response = response.Content ?? string.Empty,
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
-                        TotalUsage = totalUsage
+                        ToolNames = toolNames,
+                        TotalUsage = totalUsage,
+                        ConversationCleared = conversationCleared
                     };
 
                 case LlmStopReason.ToolUse:
@@ -193,6 +209,7 @@ public class AgentRunner : IAgentRunner
                     foreach (var toolCall in response.ToolCalls)
                     {
                         totalToolCalls++;
+                        toolNames.Add(toolCall.Name);
 
                         _logger.LogDebug(
                             "Executing tool {ToolName} (ID: {ToolCallId})",
@@ -242,6 +259,11 @@ public class AgentRunner : IAgentRunner
                                 _logger.LogDebug(
                                     "Tool {ToolName} executed successfully",
                                     toolCall.Name);
+
+                                if (string.Equals(toolCall.Name, "clear_conversation", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    conversationCleared = true;
+                                }
                             }
                             else
                             {
@@ -297,6 +319,7 @@ public class AgentRunner : IAgentRunner
                         Response = response.Content ?? string.Empty,
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
+                        ToolNames = toolNames,
                         TotalUsage = totalUsage,
                         ErrorMessage = "Response truncated due to max tokens limit"
                     };
@@ -342,6 +365,7 @@ public class AgentRunner : IAgentRunner
             ErrorMessage = $"Exceeded maximum tool call iterations ({context.MaxToolCallIterations})",
             LoopCount = loopCount,
             TotalToolCalls = totalToolCalls,
+            ToolNames = toolNames,
             TotalUsage = totalUsage
         };
     }
