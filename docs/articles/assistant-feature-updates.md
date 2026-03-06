@@ -62,7 +62,7 @@ If the feature has a portal page, add a URL section:
 ```markdown
 ## VOX URL
 
-The VOX Portal URL is https://discordbot.cpike.ca/Portal/VOX/{{GUILD_ID}}
+The VOX Portal URL is {BASE_URL}/Portal/VOX/{GUILD_ID}
 
 VOX is a Half-Life style concatenated clip announcement system. It plays pre-recorded word clips in sequence to create robotic, word-by-word announcements. Three clip groups are available:
 - **VOX** (`/vox`) - Half-Life PA system announcements
