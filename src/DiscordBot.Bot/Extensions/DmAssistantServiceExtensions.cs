@@ -1,8 +1,11 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.LLM.Providers;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
+using DiscordBot.Infrastructure.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,6 +37,23 @@ public static class DmAssistantServiceExtensions
 
         // Register bot owner resolver (singleton — caches owner ID)
         services.AddSingleton<IBotOwnerResolver, DiscordBotOwnerResolver>();
+
+        // Register DM tool provider repositories
+        services.AddScoped<IDmAssistantNoteRepository, DmAssistantNoteRepository>();
+
+        // Register DM tool providers
+        services.AddScoped<IDmToolProvider, MemoryToolProvider>();
+        services.AddScoped<IDmToolProvider, ConversationToolProvider>();
+        services.AddScoped<IDmToolProvider, BotManagementToolProvider>();
+        services.AddScoped<IDmToolProvider, DmModerationToolProvider>();
+        services.AddScoped<IDmToolProvider, DmAnalyticsToolProvider>();
+        services.AddHttpClient("DmAssistantWebFetch", client =>
+        {
+            client.Timeout = TimeSpan.FromSeconds(10);
+            client.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot-DmAssistant/1.0");
+            client.MaxResponseContentBufferSize = 512 * 1024;
+        });
+        services.AddScoped<IDmToolProvider, WebFetchToolProvider>();
 
         // Only register LLM-dependent service if API key is configured
         // This prevents DI validation failures when running migrations without API key

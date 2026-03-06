@@ -41,15 +41,26 @@ public class AgentRunner : IAgentRunner
             context.ExecutionContext.GuildId,
             context.MaxToolCallIterations);
 
-        // Initialize conversation history with the user's message
-        var conversationHistory = new List<LlmMessage>
+        // Initialize conversation history: use pre-existing history if provided, else start fresh
+        List<LlmMessage> conversationHistory;
+        if (context.ConversationHistory is { Count: > 0 })
         {
-            new()
+            conversationHistory = new List<LlmMessage>(context.ConversationHistory)
             {
-                Role = LlmRole.User,
-                Content = userMessage
-            }
-        };
+                new() { Role = LlmRole.User, Content = userMessage }
+            };
+
+            _logger.LogDebug(
+                "Initialized conversation from {HistoryCount} existing messages + new user message",
+                context.ConversationHistory.Count);
+        }
+        else
+        {
+            conversationHistory = new List<LlmMessage>
+            {
+                new() { Role = LlmRole.User, Content = userMessage }
+            };
+        }
 
         // Initialize token usage tracking
         var totalUsage = new LlmUsage();

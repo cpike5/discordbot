@@ -6,6 +6,8 @@ using DiscordBot.Core.DTOs.LLM.Enums;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Infrastructure.Services.LLM;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -13,7 +15,7 @@ namespace DiscordBot.Infrastructure.Services;
 
 /// <summary>
 /// Service implementation for DM-based AI assistant operations.
-/// Handles owner detection, conversation history management, and LLM interactions.
+/// Routes messages through the AgentRunner agentic loop with DM-scoped tools.
 /// </summary>
 /// <remarks>
 /// Error Handling Strategy (matches guild assistant):
@@ -24,7 +26,10 @@ namespace DiscordBot.Infrastructure.Services;
 public class DmAssistantService : IDmAssistantService
 {
     private readonly ILogger<DmAssistantService> _logger;
-    private readonly ILlmClient _llmClient;
+    private readonly IAgentRunner _agentRunner;
+    private readonly IEnumerable<IDmToolProvider> _dmToolProviders;
+    private readonly IMemoryCache _memoryCache;
+    private readonly ILoggerFactory _loggerFactory;
     private readonly IDmConversationMessageRepository _conversationRepo;
     private readonly IDmAssistantInteractionLogRepository _interactionLogRepo;
     private readonly IDmAssistantUsageMetricsRepository _metricsRepo;
@@ -32,9 +37,14 @@ public class DmAssistantService : IDmAssistantService
     private readonly IPromptTemplate _promptTemplate;
     private readonly DmAssistantOptions _options;
 
+    public const string ActiveGuildCacheKeyPrefix = "dm_active_guild:";
+
     public DmAssistantService(
         ILogger<DmAssistantService> logger,
-        ILlmClient llmClient,
+        IAgentRunner agentRunner,
+        IEnumerable<IDmToolProvider> dmToolProviders,
+        IMemoryCache memoryCache,
+        ILoggerFactory loggerFactory,
         IDmConversationMessageRepository conversationRepo,
         IDmAssistantInteractionLogRepository interactionLogRepo,
         IDmAssistantUsageMetricsRepository metricsRepo,
@@ -43,7 +53,10 @@ public class DmAssistantService : IDmAssistantService
         IOptions<DmAssistantOptions> options)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
-        _llmClient = llmClient ?? throw new ArgumentNullException(nameof(llmClient));
+        _agentRunner = agentRunner ?? throw new ArgumentNullException(nameof(agentRunner));
+        _dmToolProviders = dmToolProviders ?? throw new ArgumentNullException(nameof(dmToolProviders));
+        _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
         _conversationRepo = conversationRepo ?? throw new ArgumentNullException(nameof(conversationRepo));
         _interactionLogRepo = interactionLogRepo ?? throw new ArgumentNullException(nameof(interactionLogRepo));
         _metricsRepo = metricsRepo ?? throw new ArgumentNullException(nameof(metricsRepo));
@@ -99,42 +112,53 @@ public class DmAssistantService : IDmAssistantService
             var history = await _conversationRepo.GetRecentByUserAsync(
                 userId, _options.MaxConversationMessages, ct);
 
-            // Build message list from history + current message
-            var messages = new List<LlmMessage>();
+            // Build message list from history
+            var conversationHistory = new List<LlmMessage>();
             foreach (var historyMsg in history)
             {
-                messages.Add(new LlmMessage
+                conversationHistory.Add(new LlmMessage
                 {
                     Role = historyMsg.Role == "assistant" ? LlmRole.Assistant : LlmRole.User,
                     Content = historyMsg.Content
                 });
             }
-            messages.Add(new LlmMessage { Role = LlmRole.User, Content = message });
 
-            // Build LLM request
-            var request = new LlmRequest
+            // Build local ToolRegistry with only DM tool providers
+            var toolRegistry = BuildDmToolRegistry();
+
+            // Read active guild from cache
+            var activeGuildId = _memoryCache.Get<ulong?>(ActiveGuildCacheKeyPrefix + userId);
+
+            // Build AgentContext
+            var context = new AgentContext
             {
                 SystemPrompt = systemPrompt,
-                Messages = messages,
+                ToolRegistry = toolRegistry,
+                ExecutionContext = new ToolContext
+                {
+                    UserId = userId,
+                    ActiveGuildId = activeGuildId
+                },
+                ConversationHistory = conversationHistory,
                 Model = _options.Model,
                 MaxTokens = _options.MaxTokens,
                 Temperature = _options.Temperature,
-                EnablePromptCaching = _options.EnablePromptCaching
+                MaxToolCallIterations = 10
             };
 
-            // Call LLM
-            var llmResponse = await _llmClient.CompleteAsync(request, ct);
+            // Call AgentRunner (replaces direct ILlmClient.CompleteAsync)
+            var agentResult = await _agentRunner.RunAsync(message, context, ct);
 
             stopwatch.Stop();
             var latencyMs = (int)stopwatch.ElapsedMilliseconds;
 
-            if (!llmResponse.Success || string.IsNullOrWhiteSpace(llmResponse.Content))
+            if (!agentResult.Success || string.IsNullOrWhiteSpace(agentResult.Response))
             {
-                _logger.LogWarning("LLM call failed for user {UserId}: {Error}",
-                    userId, llmResponse.ErrorMessage ?? "Empty response");
+                _logger.LogWarning("Agent run failed for user {UserId}: {Error}",
+                    userId, agentResult.ErrorMessage ?? "Empty response");
 
                 var errorResponse = DmAssistantResponse.ErrorResult(
-                    llmResponse.ErrorMessage ?? _options.ErrorMessage);
+                    agentResult.ErrorMessage ?? _options.ErrorMessage);
                 errorResponse.LatencyMs = latencyMs;
 
                 if (_options.LogInteractions)
@@ -145,7 +169,7 @@ public class DmAssistantService : IDmAssistantService
                 return errorResponse;
             }
 
-            var responseText = TruncateResponse(llmResponse.Content);
+            var responseText = TruncateResponse(agentResult.Response);
 
             // Save conversation messages
             var utcNow = DateTime.UtcNow;
@@ -169,17 +193,17 @@ public class DmAssistantService : IDmAssistantService
             await _conversationRepo.DeleteOldestByUserAsync(
                 userId, _options.MaxConversationMessages, ct);
 
-            // Calculate cost
-            var cost = CalculateCost(llmResponse.Usage);
+            // Calculate cost from aggregated usage
+            var cost = CalculateCost(agentResult.TotalUsage);
 
             var result = new DmAssistantResponse
             {
                 Success = true,
                 Response = responseText,
                 IsOwner = true,
-                InputTokens = llmResponse.Usage.InputTokens,
-                OutputTokens = llmResponse.Usage.OutputTokens,
-                CachedTokens = llmResponse.Usage.CachedTokens,
+                InputTokens = agentResult.TotalUsage.InputTokens,
+                OutputTokens = agentResult.TotalUsage.OutputTokens,
+                CachedTokens = agentResult.TotalUsage.CachedTokens,
                 EstimatedCostUsd = cost,
                 LatencyMs = latencyMs
             };
@@ -199,9 +223,9 @@ public class DmAssistantService : IDmAssistantService
             _logger.LogInformation(
                 "DM assistant response sent to user {UserId}. " +
                 "Tokens: {InputTokens} in / {OutputTokens} out / {CachedTokens} cached. " +
-                "Cost: ${Cost:F4}. Latency: {LatencyMs}ms",
+                "Cost: ${Cost:F4}. Latency: {LatencyMs}ms. ToolCalls: {ToolCalls}. Loops: {Loops}",
                 userId, result.InputTokens, result.OutputTokens, result.CachedTokens,
-                result.EstimatedCostUsd, result.LatencyMs);
+                result.EstimatedCostUsd, result.LatencyMs, agentResult.TotalToolCalls, agentResult.LoopCount);
 
             return result;
         }
@@ -216,6 +240,20 @@ public class DmAssistantService : IDmAssistantService
             _logger.LogError(ex, "Error processing DM assistant message from user {UserId}", userId);
             return DmAssistantResponse.ErrorResult(_options.ErrorMessage);
         }
+    }
+
+    private IToolRegistry BuildDmToolRegistry()
+    {
+        var registry = new ToolRegistry(
+            _loggerFactory.CreateLogger<ToolRegistry>(),
+            Enumerable.Empty<IToolProvider>());
+
+        foreach (var provider in _dmToolProviders)
+        {
+            registry.RegisterProvider(provider);
+        }
+
+        return registry;
     }
 
     private async Task<bool> IsOwnerAsync(ulong userId)
