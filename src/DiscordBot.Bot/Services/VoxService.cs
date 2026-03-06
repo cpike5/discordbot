@@ -2,10 +2,13 @@ using System.Diagnostics;
 using Discord.Audio;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Metrics;
+using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.Vox;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.Vox;
+using Elastic.Apm;
+using Elastic.Apm.Api;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using OpenTelemetry.Trace;
@@ -25,8 +28,6 @@ public class VoxService : IVoxService
     private readonly IAudioService _audioService;
     private readonly VoxMetrics _voxMetrics;
     private readonly BusinessMetrics _businessMetrics;
-
-    private static readonly ActivitySource ActivitySource = new("DiscordBot.Vox");
 
     public VoxService(
         ILogger<VoxService> logger,
@@ -57,7 +58,9 @@ public class VoxService : IVoxService
         var stopwatch = Stopwatch.StartNew();
         var groupName = group.ToString().ToUpperInvariant();
 
-        using var activity = ActivitySource.StartActivity("VoxCommand");
+        using var commandScope = BotActivitySource.StartServiceActivityWithApm(
+            "vox", "command", guildId: guildId);
+        var activity = commandScope.Activity;
         activity?.SetTag("group", groupName);
         activity?.SetTag("guild_id", guildId);
         activity?.SetTag("word_gap_ms", options.WordGapMs);
@@ -96,11 +99,12 @@ public class VoxService : IVoxService
 
             // Tokenization span
             List<string> tokens;
-            using (var tokenizeActivity = ActivitySource.StartActivity("Tokenization", ActivityKind.Internal))
+            using (var tokenScope = BotActivitySource.StartServiceActivityWithApm("vox", "tokenization", guildId: guildId))
             {
                 tokens = TokenizeMessage(message);
-                tokenizeActivity?.SetTag("token_count", tokens.Count);
+                tokenScope.Activity?.SetTag("token_count", tokens.Count);
                 activity?.SetTag("total_words", tokens.Count);
+                tokenScope.SetSuccess();
             }
 
             // Validate token count
@@ -120,7 +124,7 @@ public class VoxService : IVoxService
             var matchedWords = new List<string>();
             var skippedWords = new List<string>();
 
-            using (var lookupActivity = ActivitySource.StartActivity("ClipLookup", ActivityKind.Internal))
+            using (var lookupScope = BotActivitySource.StartServiceActivityWithApm("vox", "clip_lookup", guildId: guildId))
             {
                 foreach (var token in tokens)
                 {
@@ -137,10 +141,11 @@ public class VoxService : IVoxService
                     }
                 }
 
-                lookupActivity?.SetTag("matched_count", matchedClips.Count);
-                lookupActivity?.SetTag("skipped_count", skippedWords.Count);
+                lookupScope.Activity?.SetTag("matched_count", matchedClips.Count);
+                lookupScope.Activity?.SetTag("skipped_count", skippedWords.Count);
                 activity?.SetTag("matched_words", matchedClips.Count);
                 activity?.SetTag("skipped_words", skippedWords.Count);
+                lookupScope.SetSuccess();
             }
 
             // Check if at least one clip matched
@@ -219,9 +224,10 @@ public class VoxService : IVoxService
                 }
 
                 // Playback span
-                using (var playbackActivity = ActivitySource.StartActivity("Playback", ActivityKind.Internal))
+                using (var playbackScope = BotActivitySource.StartServiceActivityWithApm("vox", "playback", guildId: guildId))
                 {
                     await StreamPcmToDiscordAsync(audioClient, concatenationResult.OutputPath, guildId, cancellationToken);
+                    playbackScope.SetSuccess();
                 }
 
                 // Update last activity
@@ -244,7 +250,7 @@ public class VoxService : IVoxService
                     "VOX_COMMAND_COMPLETED: {Group} playback finished. Matched: {MatchedCount}/{TotalWords} ({MatchPercentage:F1}%), Skipped: {SkippedCount}, Duration: {DurationMs}ms",
                     groupName, matchedWords.Count, tokens.Count, matchPercentage, skippedWords.Count, durationMs);
 
-                activity?.SetStatus(ActivityStatusCode.Ok);
+                commandScope.SetSuccess();
 
                 return new VoxPlaybackResult
                 {
@@ -278,8 +284,7 @@ public class VoxService : IVoxService
                 _voxMetrics.RecordError(groupName, "UnknownError");
                 _voxMetrics.RecordCommandExecution(groupName, "slash_command", false, durationMs);
 
-                activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-                activity?.AddException(ex);
+                commandScope.RecordException(ex);
 
                 return new VoxPlaybackResult
                 {
@@ -318,8 +323,7 @@ public class VoxService : IVoxService
             _voxMetrics.RecordError(groupName, "UnknownError");
             _voxMetrics.RecordCommandExecution(groupName, "slash_command", false, durationMs);
 
-            activity?.SetStatus(ActivityStatusCode.Error, ex.Message);
-            activity?.AddException(ex);
+            commandScope.RecordException(ex);
 
             throw;
         }
@@ -429,6 +433,9 @@ public class VoxService : IVoxService
         ulong guildId,
         CancellationToken cancellationToken)
     {
+        using var streamScope = BotActivitySource.StartDiscordAudioStreamActivityWithApm(
+            guildId, durationSeconds: 0);
+
         const int bufferSize = 3840; // 20ms of audio at 48kHz stereo 16-bit
 
         var discord = _audioService.GetOrCreatePcmStream(guildId);
@@ -441,14 +448,23 @@ public class VoxService : IVoxService
 
         var buffer = new byte[bufferSize];
         int bytesRead;
+        long totalBytesWritten = 0;
+        int bufferCount = 0;
 
         while ((bytesRead = await fileStream.ReadAsync(buffer, cancellationToken)) > 0)
         {
             await discord.WriteAsync(buffer.AsMemory(0, bytesRead), cancellationToken);
+            totalBytesWritten += bytesRead;
+            bufferCount++;
         }
 
         await discord.FlushAsync(cancellationToken);
 
+        BotActivitySource.RecordAudioStreamMetrics(streamScope.Activity,
+            bytesWritten: totalBytesWritten,
+            bufferCount: bufferCount);
+
+        streamScope.SetSuccess();
         _logger.LogDebug("Finished streaming PCM to Discord");
     }
 }

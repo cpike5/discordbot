@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
 using DiscordBot.Bot.Interfaces;
+using Elastic.Apm.Api;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Constants;
@@ -65,11 +66,12 @@ public class PlaybackService : IPlaybackService
     /// <inheritdoc/>
     public async Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, AudioFilter filter = AudioFilter.None, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
+        using var scope = BotActivitySource.StartServiceActivityWithApm(
             "playback",
             "play",
             guildId: guildId,
             entityId: sound.Id.ToString());
+        var activity = scope.Activity;
 
         try
         {
@@ -80,7 +82,7 @@ public class PlaybackService : IPlaybackService
                 var ex = new InvalidOperationException($"No audio client available for guild {guildId}. Join a voice channel first.");
                 _logger.LogError(ex, "Cannot play sound {SoundName} - not connected to voice channel in guild {GuildId}",
                     sound.Name, guildId);
-                BotActivitySource.RecordException(activity, ex);
+                scope.RecordException(ex);
                 throw ex;
             }
 
@@ -91,7 +93,7 @@ public class PlaybackService : IPlaybackService
                 var ex = new FileNotFoundException($"Sound file not found: {filePath}", filePath);
                 _logger.LogError(ex, "Sound file not found for sound {SoundId} ({SoundName}) in guild {GuildId}",
                     sound.Id, sound.Name, guildId);
-                BotActivitySource.RecordException(activity, ex);
+                scope.RecordException(ex);
                 throw ex;
             }
 
@@ -151,13 +153,13 @@ public class PlaybackService : IPlaybackService
                 guildLock.Release();
             }
 
-            BotActivitySource.SetSuccess(activity);
+            scope.SetSuccess();
         }
         catch (Exception ex) when (ex is not InvalidOperationException && ex is not FileNotFoundException)
         {
             _logger.LogError(ex, "Unexpected error queueing sound {SoundId} for playback in guild {GuildId}",
                 sound.Id, guildId);
-            BotActivitySource.RecordException(activity, ex);
+            scope.RecordException(ex);
             throw;
         }
     }
@@ -165,10 +167,11 @@ public class PlaybackService : IPlaybackService
     /// <inheritdoc/>
     public async Task StopAsync(ulong guildId, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
+        using var scope = BotActivitySource.StartServiceActivityWithApm(
             "playback",
             "stop",
             guildId: guildId);
+        var activity = scope.Activity;
 
         try
         {
@@ -180,7 +183,7 @@ public class PlaybackService : IPlaybackService
                 if (!_playbackStates.TryGetValue(guildId, out var state))
                 {
                     _logger.LogDebug("No playback state for guild {GuildId}, nothing to stop", guildId);
-                    BotActivitySource.SetSuccess(activity);
+                    scope.SetSuccess();
                     return;
                 }
 
@@ -202,12 +205,12 @@ public class PlaybackService : IPlaybackService
                 guildLock.Release();
             }
 
-            BotActivitySource.SetSuccess(activity);
+            scope.SetSuccess();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error stopping playback in guild {GuildId}", guildId);
-            BotActivitySource.RecordException(activity, ex);
+            scope.RecordException(ex);
             throw;
         }
     }
@@ -239,10 +242,11 @@ public class PlaybackService : IPlaybackService
     /// <inheritdoc/>
     public async Task<bool> RemoveFromQueueAsync(ulong guildId, int position, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
+        using var scope = BotActivitySource.StartServiceActivityWithApm(
             "playback",
             "remove_from_queue",
             guildId: guildId);
+        var activity = scope.Activity;
 
         try
         {
@@ -269,7 +273,7 @@ public class PlaybackService : IPlaybackService
                     _logger.LogInformation("Skipping current sound in guild {GuildId}", guildId);
                     state.CancellationTokenSource?.Cancel();
                     activity?.SetTag("playback.skipped_current", true);
-                    BotActivitySource.SetSuccess(activity);
+                    scope.SetSuccess();
                     return true;
                 }
 
@@ -306,13 +310,13 @@ public class PlaybackService : IPlaybackService
                 guildLock.Release();
             }
 
-            BotActivitySource.SetSuccess(activity);
+            scope.SetSuccess();
             return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error removing from queue at position {Position} in guild {GuildId}", position, guildId);
-            BotActivitySource.RecordException(activity, ex);
+            scope.RecordException(ex);
             throw;
         }
     }
@@ -327,6 +331,13 @@ public class PlaybackService : IPlaybackService
         {
             return;
         }
+
+        using var loopScope = BotActivitySource.StartBackgroundServiceActivityWithApm(
+            "PlaybackLoop",
+            executionCycle: 0,
+            correlationId: null,
+            asRootSpan: true);
+        loopScope.ApmTransaction?.SetLabel("guild_id", guildId.ToString());
 
         var guildLock = _guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
 
@@ -349,6 +360,7 @@ public class PlaybackService : IPlaybackService
                         state.CancellationTokenSource?.Dispose();
                         state.CancellationTokenSource = null;
                         _logger.LogDebug("Playback queue empty, stopping playback loop for guild {GuildId}", guildId);
+                        loopScope.SetSuccess();
                         return;
                     }
 
@@ -416,11 +428,12 @@ public class PlaybackService : IPlaybackService
     /// <param name="cancellationToken">Cancellation token.</param>
     private async Task PlaySoundAsync(ulong guildId, Sound sound, AudioFilter filter, CancellationToken cancellationToken)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
+        using var scope = BotActivitySource.StartServiceActivityWithApm(
             "playback",
             "play_sound",
             guildId: guildId,
             entityId: sound.Id.ToString());
+        var activity = scope.Activity;
 
         var wasCancelled = false;
         var durationSeconds = sound.DurationSeconds;
@@ -446,9 +459,9 @@ public class PlaybackService : IPlaybackService
             activity?.SetTag("playback.filter", filter.ToString());
 
             // Update play count (use scoped service)
-            using (var scope = _serviceScopeFactory.CreateScope())
+            using (var serviceScope = _serviceScopeFactory.CreateScope())
             {
-                var soundService = scope.ServiceProvider.GetRequiredService<ISoundService>();
+                var soundService = serviceScope.ServiceProvider.GetRequiredService<ISoundService>();
                 await soundService.IncrementPlayCountAsync(sound.Id, cancellationToken);
             }
 
@@ -510,7 +523,7 @@ public class PlaybackService : IPlaybackService
             _logger.LogInformation("Completed playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
                 sound.Name, sound.Id, guildId);
 
-            BotActivitySource.SetSuccess(activity);
+            scope.SetSuccess();
         }
         catch (OperationCanceledException)
         {
@@ -521,7 +534,7 @@ public class PlaybackService : IPlaybackService
         {
             _logger.LogError(ex, "Error during playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
                 sound.Name, sound.Id, guildId);
-            BotActivitySource.RecordException(activity, ex);
+            scope.RecordException(ex);
             throw;
         }
     }
@@ -572,9 +585,10 @@ public class PlaybackService : IPlaybackService
         double durationSeconds,
         CancellationToken cancellationToken)
     {
-        using var streamActivity = BotActivitySource.StartSoundboardStreamActivity(
+        using var streamScope = BotActivitySource.StartSoundboardStreamActivityWithApm(
             guildId: guildId,
             soundId: sound.Id);
+        var streamActivity = streamScope.Activity;
 
         streamActivity?.SetTag("audio.source", "cache");
 
@@ -626,17 +640,17 @@ public class PlaybackService : IPlaybackService
                 bytesWritten: totalBytesRead,
                 bufferCount: bufferCount);
 
-            BotActivitySource.SetSuccess(streamActivity);
+            streamScope.SetSuccess();
             return (true, false, wasCancelled);
         }
         catch (OperationCanceledException)
         {
-            BotActivitySource.RecordException(streamActivity, new OperationCanceledException("Playback cancelled"));
+            streamScope.RecordException(new OperationCanceledException("Playback cancelled"));
             throw;
         }
         catch (Exception ex)
         {
-            BotActivitySource.RecordException(streamActivity, ex);
+            streamScope.RecordException(ex);
             throw;
         }
         finally
@@ -664,10 +678,11 @@ public class PlaybackService : IPlaybackService
         _logger.LogDebug("FFmpeg arguments: {Arguments}", ffmpegArguments);
 
         // Start activity for FFmpeg transcode
-        using var transcodeActivity = BotActivitySource.StartFfmpegTranscodeActivity(
+        using var transcodeScope = BotActivitySource.StartFfmpegTranscodeActivityWithApm(
             soundName: sound.Name,
             filePath: Path.GetFileName(filePath), // Relative path only for security
             filter: filter.ToString());
+        var transcodeActivity = transcodeScope.Activity;
 
         transcodeActivity?.SetTag("audio.source", "ffmpeg");
 
@@ -704,9 +719,10 @@ public class PlaybackService : IPlaybackService
         const long progressBroadcastIntervalTicks = TimeSpan.TicksPerSecond;
 
         // Start child activity for audio streaming
-        using var streamActivity = BotActivitySource.StartSoundboardStreamActivity(
+        using var streamScope = BotActivitySource.StartSoundboardStreamActivityWithApm(
             guildId: guildId,
             soundId: sound.Id);
+        var streamActivity = streamScope.Activity;
 
         try
         {
@@ -750,21 +766,21 @@ public class PlaybackService : IPlaybackService
                 bytesWritten: totalBytesRead,
                 bufferCount: bufferCount);
 
-            BotActivitySource.SetSuccess(streamActivity);
+            streamScope.SetSuccess();
         }
         catch (OperationCanceledException)
         {
             wasCancelled = true;
             cacheBuffer?.Dispose();
             cacheBuffer = null; // Don't cache cancelled playbacks
-            BotActivitySource.RecordException(streamActivity, new OperationCanceledException("Playback cancelled"));
+            streamScope.RecordException(new OperationCanceledException("Playback cancelled"));
             throw;
         }
         catch (Exception ex)
         {
             cacheBuffer?.Dispose();
             cacheBuffer = null; // Don't cache failed playbacks
-            BotActivitySource.RecordException(streamActivity, ex);
+            streamScope.RecordException(ex);
             throw;
         }
         finally
@@ -803,7 +819,7 @@ public class PlaybackService : IPlaybackService
             }
 
             cacheBuffer?.Dispose(); // Don't cache failed transcodes
-            BotActivitySource.SetSuccess(transcodeActivity); // Mark as handled (not an unhandled error)
+            transcodeScope.SetSuccess(); // Mark as handled (not an unhandled error)
             return (false, filterFailed, wasCancelled);
         }
 
@@ -834,7 +850,7 @@ public class PlaybackService : IPlaybackService
             cacheBuffer?.Dispose();
         }
 
-        BotActivitySource.SetSuccess(transcodeActivity);
+        transcodeScope.SetSuccess();
         return (true, false, wasCancelled);
     }
 

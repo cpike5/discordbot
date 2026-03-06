@@ -3,6 +3,7 @@ using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs.Tts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using Elastic.Apm;
 
 namespace DiscordBot.Bot.Services.Tts;
 
@@ -48,6 +49,9 @@ public class TtsPlaybackService : ITtsPlaybackService
         ArgumentException.ThrowIfNullOrWhiteSpace(message);
         ArgumentException.ThrowIfNullOrWhiteSpace(voice);
 
+        using var playScope = BotActivitySource.StartServiceActivityWithApm(
+            "tts_playback", "play", guildId: guildId, userId: userId);
+
         // Calculate duration from audio stream
         var durationSeconds = CalculateAudioDuration(audioStream);
 
@@ -59,6 +63,7 @@ public class TtsPlaybackService : ITtsPlaybackService
         if (pcmStream == null)
         {
             _logger.LogError("Failed to get PCM stream for guild {GuildId}", guildId);
+            playScope.RecordException(new InvalidOperationException($"Failed to get PCM stream for guild {guildId}"));
             return new TtsPlaybackResult
             {
                 Success = false,
@@ -71,9 +76,10 @@ public class TtsPlaybackService : ITtsPlaybackService
         try
         {
             // Start activity for Discord audio streaming
-            using var streamActivity = BotActivitySource.StartDiscordAudioStreamActivity(
+            using var streamScope = BotActivitySource.StartDiscordAudioStreamActivityWithApm(
                 guildId: guildId,
                 durationSeconds: durationSeconds);
+            var streamActivity = streamScope.Activity;
 
             try
             {
@@ -101,18 +107,19 @@ public class TtsPlaybackService : ITtsPlaybackService
                 _logger.LogInformation("Successfully played TTS message for guild {GuildId}. Bytes written: {BytesWritten}",
                     guildId, bytesWritten);
 
-                BotActivitySource.SetSuccess(streamActivity);
+                streamScope.SetSuccess();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
-                BotActivitySource.RecordException(streamActivity, ex);
+                streamScope.RecordException(ex);
                 throw;
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
+            playScope.RecordException(ex);
             return new TtsPlaybackResult
             {
                 Success = false,
@@ -143,6 +150,8 @@ public class TtsPlaybackService : ITtsPlaybackService
             _logger.LogError(ex, "Failed to log TTS message to history for guild {GuildId}", guildId);
             // Don't fail the playback if history logging fails
         }
+
+        playScope.SetSuccess();
 
         return new TtsPlaybackResult
         {

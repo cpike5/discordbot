@@ -5,6 +5,7 @@ using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using Elastic.Apm;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -227,6 +228,20 @@ public class PortalSoundboardController : ControllerBase
         // Get user ID from claims (default to 0 if not found, which indicates portal/API play)
         var userIdClaim = User.FindFirst("discord_id")?.Value;
         var userId = userIdClaim != null && ulong.TryParse(userIdClaim, out var parsed) ? parsed : 0UL;
+
+        // Enrich APM transaction for Kibana visibility
+        try
+        {
+            var transaction = Elastic.Apm.Agent.Tracer.CurrentTransaction;
+            if (transaction != null)
+            {
+                transaction.Name = "portal.soundboard.play";
+                transaction.SetLabel("guild_id", guildId.ToString());
+                transaction.SetLabel("sound_id", soundId.ToString());
+                transaction.SetLabel("user_id", userId.ToString());
+            }
+        }
+        catch { /* APM not available */ }
 
         // Delegate to orchestration service
         var result = await _orchestrationService.PlaySoundAsync(

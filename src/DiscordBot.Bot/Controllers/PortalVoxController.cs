@@ -6,6 +6,7 @@ using DiscordBot.Core.DTOs.Vox;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.Vox;
+using Elastic.Apm;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -344,6 +345,23 @@ public class PortalVoxController : ControllerBase
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
+
+        // Enrich APM transaction for Kibana visibility
+        try
+        {
+            var transaction = Elastic.Apm.Agent.Tracer.CurrentTransaction;
+            if (transaction != null)
+            {
+                transaction.Name = "portal.vox.play";
+                transaction.SetLabel("guild_id", guildId.ToString());
+                transaction.SetLabel("clip_group", clipGroup.ToString());
+                transaction.SetLabel("message_length", request.Message!.Length);
+                transaction.SetLabel("word_gap_ms", wordGapMs);
+                transaction.SetLabel("matched_clips", preview.MatchedCount);
+                transaction.SetLabel("skipped_words", preview.SkippedCount);
+            }
+        }
+        catch { /* APM not available */ }
 
         // Play the VOX message
         var options = new VoxPlaybackOptions { WordGapMs = wordGapMs };

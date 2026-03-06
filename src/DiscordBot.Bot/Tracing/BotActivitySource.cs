@@ -75,6 +75,75 @@ public sealed class BackgroundServiceActivityScope : IDisposable
 }
 
 /// <summary>
+/// Represents both an OpenTelemetry Activity and Elastic APM Span
+/// for service-level operations within an existing APM transaction.
+/// Implements IDisposable to ensure proper cleanup of both resources.
+/// </summary>
+public sealed class ServiceActivityScope : IDisposable
+{
+    /// <summary>
+    /// Gets the OpenTelemetry Activity for distributed tracing.
+    /// </summary>
+    public Activity? Activity { get; }
+
+    /// <summary>
+    /// Gets the Elastic APM Span for APM visibility.
+    /// </summary>
+    public ISpan? ApmSpan { get; }
+
+    private bool _disposed;
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="ServiceActivityScope"/> class.
+    /// </summary>
+    /// <param name="activity">The OpenTelemetry activity.</param>
+    /// <param name="apmSpan">The Elastic APM span.</param>
+    public ServiceActivityScope(Activity? activity, ISpan? apmSpan)
+    {
+        Activity = activity;
+        ApmSpan = apmSpan;
+    }
+
+    /// <summary>
+    /// Marks both the Activity and APM Span as successful.
+    /// </summary>
+    public void SetSuccess()
+    {
+        BotActivitySource.SetSuccess(Activity);
+        if (ApmSpan != null)
+        {
+            ApmSpan.Outcome = Outcome.Success;
+        }
+    }
+
+    /// <summary>
+    /// Records an exception on both the Activity and APM Span.
+    /// </summary>
+    /// <param name="ex">The exception to record.</param>
+    public void RecordException(Exception ex)
+    {
+        BotActivitySource.RecordException(Activity, ex);
+        if (ApmSpan != null)
+        {
+            ApmSpan.CaptureException(ex);
+            ApmSpan.Outcome = Outcome.Failure;
+        }
+    }
+
+    /// <summary>
+    /// Disposes both the Activity and APM Span.
+    /// </summary>
+    public void Dispose()
+    {
+        if (_disposed) return;
+        _disposed = true;
+
+        Activity?.Dispose();
+        ApmSpan?.End();
+    }
+}
+
+/// <summary>
 /// Provides the ActivitySource for Discord bot tracing.
 /// Follows the singleton pattern to ensure consistent source naming.
 /// </summary>
@@ -380,15 +449,23 @@ public static class BotActivitySource
         var activity = StartBackgroundServiceActivity(serviceName, executionCycle, correlationId, asRootSpan);
 
         // Create APM Transaction for Elastic APM visibility
-        var transactionName = $"background.service.{serviceName}";
-        var apmTransaction = Agent.Tracer.StartTransaction(transactionName, "background");
-
-        // Set labels matching Activity tags for consistent filtering
-        apmTransaction.SetLabel("service.name", serviceName);
-        apmTransaction.SetLabel("execution.cycle", executionCycle);
-        if (!string.IsNullOrEmpty(correlationId))
+        ITransaction? apmTransaction = null;
+        try
         {
-            apmTransaction.SetLabel("correlation_id", correlationId);
+            var transactionName = $"background.service.{serviceName}";
+            apmTransaction = Agent.Tracer.StartTransaction(transactionName, "background");
+
+            // Set labels matching Activity tags for consistent filtering
+            apmTransaction.SetLabel("service.name", serviceName);
+            apmTransaction.SetLabel("execution.cycle", executionCycle);
+            if (!string.IsNullOrEmpty(correlationId))
+            {
+                apmTransaction.SetLabel("correlation_id", correlationId);
+            }
+        }
+        catch
+        {
+            // APM not available — continue with OTel only
         }
 
         return new BackgroundServiceActivityScope(activity, apmTransaction);
@@ -533,6 +610,165 @@ public static class BotActivitySource
     public static void SetRecordsDeleted(Activity? activity, int recordsDeleted)
     {
         activity?.SetTag(TracingConstants.Attributes.BackgroundRecordsDeleted, recordsDeleted);
+    }
+
+    /// <summary>
+    /// Starts an Activity and a companion APM child span for a service-level operation.
+    /// The APM span appears under the current APM transaction (e.g., the auto-instrumented HTTP request).
+    /// Returns a <see cref="ServiceActivityScope"/> that manages both resources.
+    /// </summary>
+    /// <param name="serviceName">The name of the service (e.g., "playback", "vox").</param>
+    /// <param name="operation">The operation being performed (e.g., "play", "stop").</param>
+    /// <param name="guildId">Optional guild ID for the operation.</param>
+    /// <param name="userId">Optional user ID for the operation.</param>
+    /// <param name="entityId">Optional entity ID being operated on.</param>
+    /// <returns>A scope containing both the Activity and APM Span.</returns>
+    public static ServiceActivityScope StartServiceActivityWithApm(
+        string serviceName,
+        string operation,
+        ulong? guildId = null,
+        ulong? userId = null,
+        string? entityId = null)
+    {
+        // Create the OTel Activity (existing logic)
+        var activity = StartServiceActivity(serviceName, operation, guildId, userId, entityId);
+
+        // Create companion APM child span under the current transaction
+        ISpan? apmSpan = null;
+        try
+        {
+            var currentTransaction = Agent.Tracer.CurrentTransaction;
+            if (currentTransaction != null)
+            {
+                var spanName = $"service.{serviceName}.{operation}";
+                apmSpan = currentTransaction.StartSpan(spanName, "app", "audio");
+
+                // Copy key labels for filtering
+                apmSpan.SetLabel("service.name", serviceName);
+                apmSpan.SetLabel("service.operation", operation);
+                if (guildId.HasValue)
+                    apmSpan.SetLabel("guild_id", guildId.Value.ToString());
+                if (userId.HasValue)
+                    apmSpan.SetLabel("user_id", userId.Value.ToString());
+                if (!string.IsNullOrEmpty(entityId))
+                    apmSpan.SetLabel("entity_id", entityId);
+            }
+        }
+        catch
+        {
+            // APM not available — silently continue with OTel only
+        }
+
+        return new ServiceActivityScope(activity, apmSpan);
+    }
+
+    /// <summary>
+    /// Starts an Activity and a companion APM child span for soundboard audio streaming.
+    /// </summary>
+    public static ServiceActivityScope StartSoundboardStreamActivityWithApm(
+        ulong guildId,
+        Guid soundId)
+    {
+        var activity = StartSoundboardStreamActivity(guildId, soundId);
+        var apmSpan = TryStartApmSpan("soundboard.stream", "app", "audio");
+        apmSpan?.SetLabel("guild_id", guildId.ToString());
+        apmSpan?.SetLabel("sound_id", soundId.ToString());
+        return new ServiceActivityScope(activity, apmSpan);
+    }
+
+    /// <summary>
+    /// Starts an Activity and a companion APM child span for FFmpeg transcoding.
+    /// </summary>
+    public static ServiceActivityScope StartFfmpegTranscodeActivityWithApm(
+        string soundName,
+        string filePath,
+        string filter)
+    {
+        var activity = StartFfmpegTranscodeActivity(soundName, filePath, filter);
+        var apmSpan = TryStartApmSpan("ffmpeg.transcode", "app", "audio");
+        apmSpan?.SetLabel("sound.name", soundName);
+        apmSpan?.SetLabel("audio.filter", filter);
+        return new ServiceActivityScope(activity, apmSpan);
+    }
+
+    /// <summary>
+    /// Starts an Activity and a companion APM child span for Azure Speech synthesis.
+    /// </summary>
+    public static ServiceActivityScope StartAzureSpeechActivityWithApm(
+        int textLength,
+        string voice,
+        string region)
+    {
+        var activity = StartAzureSpeechActivity(textLength, voice, region);
+        var apmSpan = TryStartApmSpan("azure.speech.synthesize", "external", "azure");
+        apmSpan?.SetLabel("tts.text_length", textLength);
+        apmSpan?.SetLabel("tts.voice", voice);
+        apmSpan?.SetLabel("tts.region", region);
+        return new ServiceActivityScope(activity, apmSpan);
+    }
+
+    /// <summary>
+    /// Starts an Activity and a companion APM child span for audio conversion.
+    /// </summary>
+    public static ServiceActivityScope StartAudioConversionActivityWithApm(
+        string fromFormat,
+        string toFormat,
+        int bytesIn)
+    {
+        var activity = StartAudioConversionActivity(fromFormat, toFormat, bytesIn);
+        var apmSpan = TryStartApmSpan("audio.convert", "app", "audio");
+        apmSpan?.SetLabel("audio.format_from", fromFormat);
+        apmSpan?.SetLabel("audio.format_to", toFormat);
+        apmSpan?.SetLabel("audio.bytes_in", bytesIn);
+        return new ServiceActivityScope(activity, apmSpan);
+    }
+
+    /// <summary>
+    /// Starts an Activity and a companion APM child span for Discord audio streaming.
+    /// </summary>
+    public static ServiceActivityScope StartDiscordAudioStreamActivityWithApm(
+        ulong guildId,
+        double durationSeconds)
+    {
+        var activity = StartDiscordAudioStreamActivity(guildId, durationSeconds);
+        var apmSpan = TryStartApmSpan("discord.audio.stream", "app", "audio");
+        apmSpan?.SetLabel("guild_id", guildId.ToString());
+        apmSpan?.SetLabel("audio.duration_seconds", durationSeconds);
+        return new ServiceActivityScope(activity, apmSpan);
+    }
+
+    /// <summary>
+    /// Starts an Activity and a companion APM child span for retrieving available voices.
+    /// </summary>
+    public static ServiceActivityScope StartGetVoicesActivityWithApm(string? locale)
+    {
+        var activity = StartGetVoicesActivity(locale);
+        var apmSpan = TryStartApmSpan("azure.speech.get_voices", "external", "azure");
+        if (!string.IsNullOrEmpty(locale))
+            apmSpan?.SetLabel("tts.locale", locale);
+        return new ServiceActivityScope(activity, apmSpan);
+    }
+
+
+    /// <summary>
+    /// Tries to start an APM child span under the current transaction.
+    /// Returns null if APM is not available or no transaction is active.
+    /// </summary>
+    private static ISpan? TryStartApmSpan(string spanName, string type, string subType)
+    {
+        try
+        {
+            var currentTransaction = Agent.Tracer.CurrentTransaction;
+            if (currentTransaction != null)
+            {
+                return currentTransaction.StartSpan(spanName, type, subType);
+            }
+        }
+        catch
+        {
+            // APM not available
+        }
+        return null;
     }
 
     /// <summary>
