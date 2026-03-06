@@ -47,6 +47,9 @@ public static class DmAssistantServiceExtensions
         services.AddScoped<IDmToolProvider, BotManagementToolProvider>();
         services.AddScoped<IDmToolProvider, DmModerationToolProvider>();
         services.AddScoped<IDmToolProvider, DmAnalyticsToolProvider>();
+        services.AddScoped<DocumentationToolProvider>();
+        services.AddScoped<IDmToolProvider, DmDocumentationToolProvider>();
+        services.AddScoped<IDmToolProvider, CodeExecutionToolProvider>();
         services.AddHttpClient("DmAssistantWebFetch", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(10);

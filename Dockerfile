@@ -62,6 +62,7 @@ FROM mcr.microsoft.com/dotnet/aspnet:8.0-noble AS runtime
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl \
         ffmpeg \
+        python3 \
         libsodium23 \
         libopus0 \
     && rm -rf /var/lib/apt/lists/* \

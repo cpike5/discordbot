@@ -171,27 +171,30 @@ public class DmAssistantService : IDmAssistantService
 
             var responseText = TruncateResponse(agentResult.Response);
 
-            // Save conversation messages
-            var utcNow = DateTime.UtcNow;
-            await _conversationRepo.AddAsync(new DmConversationMessage
+            // Save conversation messages (skip if conversation was cleared to avoid leaking context)
+            if (!agentResult.ConversationCleared)
             {
-                UserId = userId,
-                Role = "user",
-                Content = message,
-                Timestamp = utcNow
-            }, ct);
+                var utcNow = DateTime.UtcNow;
+                await _conversationRepo.AddAsync(new DmConversationMessage
+                {
+                    UserId = userId,
+                    Role = "user",
+                    Content = message,
+                    Timestamp = utcNow
+                }, ct);
 
-            await _conversationRepo.AddAsync(new DmConversationMessage
-            {
-                UserId = userId,
-                Role = "assistant",
-                Content = responseText,
-                Timestamp = utcNow
-            }, ct);
+                await _conversationRepo.AddAsync(new DmConversationMessage
+                {
+                    UserId = userId,
+                    Role = "assistant",
+                    Content = responseText,
+                    Timestamp = utcNow
+                }, ct);
 
-            // Trim conversation history to sliding window
-            await _conversationRepo.DeleteOldestByUserAsync(
-                userId, _options.MaxConversationMessages, ct);
+                // Trim conversation history to sliding window
+                await _conversationRepo.DeleteOldestByUserAsync(
+                    userId, _options.MaxConversationMessages, ct);
+            }
 
             // Calculate cost from aggregated usage
             var cost = CalculateCost(agentResult.TotalUsage);

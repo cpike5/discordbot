@@ -66,6 +66,7 @@ public class AgentRunner : IAgentRunner
         var totalUsage = new LlmUsage();
         var totalToolCalls = 0;
         var loopCount = 0;
+        var conversationCleared = false;
 
         // Build the initial LLM request
         var request = new LlmRequest
@@ -151,7 +152,8 @@ public class AgentRunner : IAgentRunner
                         Response = response.Content ?? string.Empty,
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
-                        TotalUsage = totalUsage
+                        TotalUsage = totalUsage,
+                        ConversationCleared = conversationCleared
                     };
 
                 case LlmStopReason.ToolUse:
@@ -253,6 +255,11 @@ public class AgentRunner : IAgentRunner
                                 _logger.LogDebug(
                                     "Tool {ToolName} executed successfully",
                                     toolCall.Name);
+
+                                if (string.Equals(toolCall.Name, "clear_conversation", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    conversationCleared = true;
+                                }
                             }
                             else
                             {
