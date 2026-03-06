@@ -3,7 +3,6 @@ using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs.Tts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
-using Elastic.Apm;
 
 namespace DiscordBot.Bot.Services.Tts;
 

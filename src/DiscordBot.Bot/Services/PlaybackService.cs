@@ -253,6 +253,7 @@ public class PlaybackService : IPlaybackService
             if (position < 0)
             {
                 _logger.LogWarning("Invalid queue position {Position} for guild {GuildId}", position, guildId);
+                scope.SetSuccess();
                 return false;
             }
 
@@ -340,6 +341,7 @@ public class PlaybackService : IPlaybackService
         loopScope.ApmTransaction?.SetLabel("guild_id", guildId.ToString());
 
         var guildLock = _guildLocks.GetOrAdd(guildId, _ => new SemaphoreSlim(1, 1));
+        var loopFailed = false;
 
         try
         {
@@ -402,8 +404,17 @@ public class PlaybackService : IPlaybackService
                 }
             }
         }
+        catch (Exception ex)
+        {
+            loopFailed = true;
+            loopScope.RecordException(ex);
+            throw;
+        }
         finally
         {
+            if (!loopFailed)
+                loopScope.SetSuccess();
+
             // Clean up state when loop exits
             await guildLock.WaitAsync();
             try
@@ -525,9 +536,9 @@ public class PlaybackService : IPlaybackService
 
             scope.SetSuccess();
         }
-        catch (OperationCanceledException)
+        catch (OperationCanceledException ex)
         {
-            // Already handled - re-throw to let the caller handle it
+            scope.RecordException(ex);
             throw;
         }
         catch (Exception ex)
