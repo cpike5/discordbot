@@ -308,7 +308,7 @@ public class AssistantOptions
     /// <summary>
     /// Gets or sets the base URL for generating links in responses.
     /// Uses ApplicationOptions.BaseUrl by default if not set.
-    /// Example: "https://discordbot.cpike.ca"
+    /// Falls back to <see cref="ApplicationOptions.BaseUrl"/> (default: "https://localhost:5001").
     /// </summary>
     /// <remarks>
     /// Base URL is passed to tools (not embedded in cached system prompt).

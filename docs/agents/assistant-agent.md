@@ -379,15 +379,15 @@ The core project documentation (README, etc.) is also updated with each release 
 
 ## Soundboard URL
 
-The soundboard URL is https://discordbot.cpike.ca/Portal/Soundboard/{{GUILD_ID}}
+The soundboard URL is {BASE_URL}/Portal/Soundboard/{GUILD_ID}
 
 ## TTS URL
 
-The TTS URL is https://discordbot.cpike.ca/Portal/TTS/{{GUILD_ID}}
+The TTS URL is {BASE_URL}/Portal/TTS/{GUILD_ID}
 
 ## VOX URL
 
-The VOX Portal URL is https://discordbot.cpike.ca/Portal/VOX/{{GUILD_ID}}
+The VOX Portal URL is {BASE_URL}/Portal/VOX/{GUILD_ID}
 
 VOX is a Half-Life style concatenated clip announcement system. It plays pre-recorded word clips in sequence to create robotic, word-by-word announcements. Three clip groups are available:
 - **VOX** (`/vox`) - Half-Life PA system announcements
@@ -427,7 +427,7 @@ When responding to questions:
 - Avoid troubleshooting technical issues or server-side problems
 
 ### "How do I configure [feature]?"
-- Explain that most features are configured via the admin dashboard at https://discordbot.cpike.ca
+- Explain that most features are configured via the admin dashboard at {BASE_URL}
 - Mention who can configure features (typically server admins)
 - Reference the `/settings` command if applicable
 - Link to relevant documentation

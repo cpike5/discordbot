@@ -445,7 +445,7 @@ Add section to existing guild settings page:
 5. **Tool Call**: Claude requests `get_feature_documentation(feature_name="soundboard")`
 6. **Bot Executes**: Reads `docs/articles/soundboard.md`, returns content
 7. **Claude Response**: Formats answer using soundboard docs
-8. **Bot Posts**: "The soundboard URL is https://discordbot.cpike.ca/Portal/Soundboard/{GUILD_ID}"
+8. **Bot Posts**: "The soundboard URL is {BASE_URL}/Portal/Soundboard/{GUILD_ID}"
 9. **Metrics Updated**: Log tokens used, question count
 
 ## Privacy & Compliance
