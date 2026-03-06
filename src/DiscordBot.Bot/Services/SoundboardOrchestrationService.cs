@@ -319,8 +319,8 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
             _logger.LogInformation("Successfully started playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
                 sound.Name, sound.Id, guildId);
 
-            // Log play event (fire-and-forget - don't block on logging)
-            _ = _soundService.LogPlayAsync(sound.Id, guildId, userId, cancellationToken);
+            // Log play event
+            await _soundService.LogPlayAsync(sound.Id, guildId, userId, cancellationToken);
 
             BotActivitySource.SetSuccess(activity);
 
