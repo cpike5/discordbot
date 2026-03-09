@@ -20,4 +20,9 @@ public record PortalSoundViewModel
     /// Gets the number of times this sound has been played.
     /// </summary>
     public int PlayCount { get; init; }
+
+    /// <summary>
+    /// Gets the audio duration in seconds.
+    /// </summary>
+    public double DurationSeconds { get; init; }
 }
