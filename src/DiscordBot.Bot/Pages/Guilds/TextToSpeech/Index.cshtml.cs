@@ -5,6 +5,7 @@ using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
@@ -30,6 +31,7 @@ public class IndexModel : PageModel
     private readonly IGuildService _guildService;
     private readonly ISettingsService _settingsService;
     private readonly IGuildAudioSettingsRepository _audioSettingsRepository;
+    private readonly ISsmlBuilder _ssmlBuilder;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -42,6 +44,7 @@ public class IndexModel : PageModel
         IGuildService guildService,
         ISettingsService settingsService,
         IGuildAudioSettingsRepository audioSettingsRepository,
+        ISsmlBuilder ssmlBuilder,
         ILogger<IndexModel> logger)
     {
         _ttsHistoryService = ttsHistoryService;
@@ -53,6 +56,7 @@ public class IndexModel : PageModel
         _guildService = guildService;
         _settingsService = settingsService;
         _audioSettingsRepository = audioSettingsRepository;
+        _ssmlBuilder = ssmlBuilder;
         _logger = logger;
     }
 
@@ -468,19 +472,53 @@ public class IndexModel : PageModel
                 Volume = settings.DefaultVolume
             };
 
-            // TODO: Integrate style and SSML parameters with TTS synthesis when backend support is added
-            // For now, we just log these values to confirm form submission works
-            if (!string.IsNullOrEmpty(style))
+            // Synthesize the speech using the appropriate mode based on provided parameters
+            Stream audioStream;
+
+            // If SSML is provided, use SSML synthesis directly
+            if (!string.IsNullOrWhiteSpace(ssml))
             {
-                _logger.LogDebug("TTS style parameter received: {Style} with intensity {Intensity}", style, styleIntensity ?? 1.0m);
+                _logger.LogDebug("Using SSML synthesis for guild {GuildId}", guildId);
+                audioStream = await _ttsService.SynthesizeSpeechAsync(ssml, null, SynthesisMode.Ssml, cancellationToken);
             }
-            if (!string.IsNullOrEmpty(ssml))
+            // If Style is provided, use SSML builder to wrap message with style
+            else if (!string.IsNullOrWhiteSpace(style))
             {
-                _logger.LogDebug("TTS SSML parameter received: {SsmlLength} characters", ssml.Length);
+                var intensity = styleIntensity ?? 1.0m;
+                _logger.LogDebug("Using style '{Style}' with intensity {Intensity} for guild {GuildId}",
+                    style, intensity, guildId);
+
+                var builder = _ssmlBuilder.Reset()
+                    .BeginDocument("en-US")
+                    .WithVoice(options.Voice ?? "en-US-JennyNeural")
+                    .WithStyle(style, (double)intensity);
+
+                // Apply prosody adjustments (speed/pitch) if different from defaults
+                if (Math.Abs(options.Speed - 1.0) > 0.01 || Math.Abs(options.Pitch - 1.0) > 0.01)
+                {
+                    builder.WithProsody(rate: options.Speed, pitch: options.Pitch);
+                    builder.AddText(message);
+                    builder.EndProsody();
+                }
+                else
+                {
+                    builder.AddText(message);
+                }
+
+                builder.EndStyle().EndVoice();
+                var builtSsml = builder.Build();
+
+                _logger.LogDebug("Built SSML with style: {SsmlLength} characters", builtSsml.Length);
+                audioStream = await _ttsService.SynthesizeSpeechAsync(builtSsml, null, SynthesisMode.Ssml, cancellationToken);
+            }
+            // Otherwise, use standard TTS synthesis
+            else
+            {
+                _logger.LogDebug("Using standard TTS synthesis for guild {GuildId}", guildId);
+                audioStream = await _ttsService.SynthesizeSpeechAsync(message, options, cancellationToken);
             }
 
-            // Synthesize the speech
-            using var audioStream = await _ttsService.SynthesizeSpeechAsync(message, options, cancellationToken);
+            using var _ = audioStream;
 
             // Play the audio using the TTS playback service
             var playbackResult = await _ttsPlaybackService.PlayAsync(
