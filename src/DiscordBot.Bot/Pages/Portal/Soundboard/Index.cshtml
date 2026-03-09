@@ -1386,7 +1386,7 @@ else
             .then(async response => {
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    if (errorData.message === 'Not connected to voice channel') {
+                    if (errorData.errorCode === 'not_connected') {
                         PortalToast.warning('Please join a voice channel first!');
                         return Promise.reject('not_connected');
                     }

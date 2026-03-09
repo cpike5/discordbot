@@ -24,4 +24,9 @@ public class ApiErrorDto
     /// Gets or sets the trace ID for correlation.
     /// </summary>
     public string? TraceId { get; set; }
+
+    /// <summary>
+    /// Gets or sets a machine-readable error code for programmatic handling.
+    /// </summary>
+    public string? ErrorCode { get; set; }
 }

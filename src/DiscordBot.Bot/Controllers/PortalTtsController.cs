@@ -178,7 +178,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Audio features disabled",
                 Detail = "Audio features have been disabled by an administrator.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_disabled"
             });
         }
 
@@ -192,7 +193,8 @@ public class PortalTtsController : ControllerBase
                 Message = "TTS is not enabled for this guild",
                 Detail = "Contact a server administrator to enable TTS in guild settings.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "tts_not_enabled"
             });
         }
 
@@ -205,7 +207,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Not connected to voice channel",
                 Detail = "The bot must be connected to a voice channel before sending TTS messages.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_connected"
             });
         }
 
@@ -218,7 +221,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Message cannot be empty",
                 Detail = "Please provide a message to synthesize.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "empty_message"
             });
         }
 
@@ -232,7 +236,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Message too long",
                 Detail = $"Message length ({request.Message.Length}) exceeds the maximum allowed ({settings.MaxMessageLength}).",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "message_too_long"
             });
         }
 
@@ -263,7 +268,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Rate limit exceeded",
                 Detail = $"You have exceeded the rate limit of {settings.RateLimitPerMinute} messages per minute. Please wait before sending more messages.",
                 StatusCode = StatusCodes.Status429TooManyRequests,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "rate_limited"
             });
         }
 
@@ -329,7 +335,8 @@ public class PortalTtsController : ControllerBase
                 Message = "TTS service not available",
                 Detail = "The text-to-speech service is not properly configured.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "tts_not_configured"
             });
         }
         catch (SsmlValidationException ex)
@@ -340,7 +347,8 @@ public class PortalTtsController : ControllerBase
                 Message = "SSML validation failed",
                 Detail = string.Join("; ", ex.Errors),
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_validation_failed"
             });
         }
         catch (ArgumentException ex)
@@ -351,7 +359,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Invalid TTS request",
                 Detail = ex.Message,
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
             });
         }
 
@@ -392,7 +401,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Failed to play TTS",
                 Detail = playbackResult.ErrorMessage ?? "An error occurred while streaming audio to Discord.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "play_failed"
             });
         }
 
@@ -421,7 +431,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Guild not found",
                 Detail = "The requested guild was not found or the bot is not a member.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "guild_not_found"
             });
         }
 
@@ -465,7 +476,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Audio features disabled",
                 Detail = "Audio features have been disabled by an administrator.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_disabled"
             });
         }
 
@@ -479,7 +491,8 @@ public class PortalTtsController : ControllerBase
                 Message = "TTS is not enabled for this guild",
                 Detail = "Contact a server administrator to enable TTS in guild settings.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "tts_not_enabled"
             });
         }
 
@@ -492,7 +505,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Failed to join voice channel",
                 Detail = "The guild or voice channel was not found, or the bot lacks permission to join.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "channel_not_found"
             });
         }
 
@@ -521,7 +535,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Not connected to voice",
                 Detail = "The bot is not currently connected to a voice channel in this guild.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_connected"
             });
         }
 
@@ -541,7 +556,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Failed to leave voice channel",
                 Detail = "An error occurred while disconnecting from the voice channel.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "leave_failed"
             });
         }
 
@@ -570,7 +586,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Not connected to voice",
                 Detail = "The bot is not currently connected to a voice channel in this guild.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_connected"
             });
         }
 
@@ -618,7 +635,8 @@ public class PortalTtsController : ControllerBase
                 Message = "SSML cannot be empty",
                 Detail = "Please provide SSML markup to validate.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_empty"
             });
         }
 
@@ -672,7 +690,8 @@ public class PortalTtsController : ControllerBase
                 Message = "SSML cannot be empty",
                 Detail = "Please provide SSML markup to synthesize.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_empty"
             });
         }
 
@@ -688,7 +707,8 @@ public class PortalTtsController : ControllerBase
                 Message = "SSML is not enabled for this guild",
                 Detail = "Contact a server administrator to enable SSML features in guild TTS settings.",
                 StatusCode = StatusCodes.Status403Forbidden,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_not_enabled"
             });
         }
 
@@ -701,7 +721,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Audio features disabled",
                 Detail = "Audio features have been disabled by an administrator.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_disabled"
             });
         }
 
@@ -726,7 +747,8 @@ public class PortalTtsController : ControllerBase
                 Message = "SSML validation failed",
                 Detail = $"Validation errors: {string.Join("; ", validationResult.Errors)}",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_validation_failed"
             });
         }
 
@@ -741,7 +763,8 @@ public class PortalTtsController : ControllerBase
                 Message = "SSML complexity exceeds limit",
                 Detail = $"The SSML complexity ({complexity}) exceeds the guild limit ({settings.MaxSsmlComplexity}). Simplify the markup or contact an administrator to increase the limit.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_complexity_exceeded"
             });
         }
 
@@ -759,7 +782,8 @@ public class PortalTtsController : ControllerBase
                 Message = "TTS service not available",
                 Detail = "The text-to-speech service is not properly configured.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "tts_not_configured"
             });
         }
         catch (SsmlValidationException ex)
@@ -770,7 +794,8 @@ public class PortalTtsController : ControllerBase
                 Message = "SSML validation failed",
                 Detail = string.Join("; ", ex.Errors),
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_validation_failed"
             });
         }
         catch (ArgumentException ex)
@@ -781,7 +806,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Invalid SSML",
                 Detail = ex.Message,
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
             });
         }
 
@@ -802,7 +828,8 @@ public class PortalTtsController : ControllerBase
                         Message = "Not connected to voice channel",
                         Detail = "The bot must be connected to a voice channel to play SSML audio.",
                         StatusCode = StatusCodes.Status400BadRequest,
-                        TraceId = HttpContext.GetCorrelationId()
+                        TraceId = HttpContext.GetCorrelationId(),
+                        ErrorCode = "not_connected"
                     });
                 }
 
@@ -857,7 +884,8 @@ public class PortalTtsController : ControllerBase
                         Message = "Failed to play SSML audio",
                         Detail = playbackResult.ErrorMessage ?? "An error occurred while streaming audio to Discord.",
                         StatusCode = StatusCodes.Status400BadRequest,
-                        TraceId = HttpContext.GetCorrelationId()
+                        TraceId = HttpContext.GetCorrelationId(),
+                        ErrorCode = "play_failed"
                     });
                 }
 
@@ -910,7 +938,8 @@ public class PortalTtsController : ControllerBase
                 Message = "No segments provided",
                 Detail = "Please provide at least one SSML segment to build.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
             });
         }
 
@@ -1042,7 +1071,8 @@ public class PortalTtsController : ControllerBase
                 Message = "Failed to build SSML",
                 Detail = ex.Message,
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
             });
         }
     }
