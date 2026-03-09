@@ -62,6 +62,23 @@ public class UserModTagRepository : Repository<UserModTag>, IUserModTagRepositor
         return results;
     }
 
+    public async Task<int> GetUserCountByTagAsync(
+        Guid tagId,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Counting users with tag {TagId}", tagId);
+
+        var count = await DbSet
+            .AsNoTracking()
+            .Where(ut => ut.TagId == tagId)
+            .Select(ut => ut.UserId)
+            .Distinct()
+            .CountAsync(cancellationToken);
+
+        _logger.LogDebug("Tag {TagId} has {Count} users assigned", tagId, count);
+        return count;
+    }
+
     public async Task<bool> ExistsAsync(
         ulong guildId,
         ulong userId,
