@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Logging;
 
@@ -226,6 +227,87 @@ public class EngagementAnalyticsService : IEngagementAnalyticsService
         catch (Exception ex)
         {
             BotActivitySource.RecordException(activity, ex);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Gets channel engagement metrics showing message counts, unique authors, and engagement rates.
+    /// </summary>
+    public async Task<IReadOnlyList<ChannelEngagementDto>> GetChannelEngagementAsync(
+        ulong guildId,
+        DateTime start,
+        DateTime end,
+        CancellationToken ct = default)
+    {
+        using var activity = BotActivitySource.StartServiceActivity(
+            "engagement_analytics",
+            "get_channel_engagement",
+            guildId: guildId);
+
+        try
+        {
+            _logger.LogDebug(
+                "Generating channel engagement metrics for guild {GuildId} from {Start} to {End}",
+                guildId, start, end);
+
+            // Get all guild messages from the repository (need raw data for grouping)
+            var query = _messageLogRepository.GetGuildMessagesAsync(
+                guildId,
+                since: start,
+                limit: int.MaxValue,
+                cancellationToken: ct);
+
+            var messages = await query;
+
+            // Filter to the date range (GetGuildMessagesAsync uses "since" but we need an upper bound too)
+            var filteredMessages = messages
+                .Where(m => m.Timestamp >= start && m.Timestamp < end)
+                .Where(m => m.Source == MessageSource.ServerChannel)
+                .ToList();
+
+            if (filteredMessages.Count == 0)
+            {
+                _logger.LogDebug("No server channel messages found for guild {GuildId}", guildId);
+                BotActivitySource.SetSuccess(activity);
+                return Array.Empty<ChannelEngagementDto>();
+            }
+
+            // Get guild member count for engagement rate calculation
+            var memberCount = await _guildMemberRepository.GetMemberCountAsync(guildId, activeOnly: true, cancellationToken: ct);
+
+            if (memberCount == 0)
+            {
+                _logger.LogWarning("Guild {GuildId} has no active members for engagement rate calculation", guildId);
+                memberCount = 1; // Prevent division by zero
+            }
+
+            // Group by channel and calculate metrics
+            var channelMetrics = filteredMessages
+                .GroupBy(m => m.ChannelId)
+                .Select(g => new ChannelEngagementDto
+                {
+                    ChannelId = g.Key,
+                    ChannelName = g.First().ChannelName ?? "unknown",
+                    MessageCount = g.LongCount(),
+                    UniqueAuthors = g.Select(m => m.AuthorId).Distinct().Count(),
+                    EngagementRate = (decimal)g.Select(m => m.AuthorId).Distinct().Count() / memberCount * 100m
+                })
+                .OrderByDescending(x => x.MessageCount)
+                .Take(20)
+                .ToList();
+
+            _logger.LogDebug(
+                "Generated channel engagement metrics for {Count} channels in guild {GuildId}",
+                channelMetrics.Count, guildId);
+
+            BotActivitySource.SetSuccess(activity);
+            return channelMetrics;
+        }
+        catch (Exception ex)
+        {
+            BotActivitySource.RecordException(activity, ex);
+            _logger.LogError(ex, "Error generating channel engagement metrics for guild {GuildId}", guildId);
             throw;
         }
     }
