@@ -64,7 +64,7 @@ public class PlaybackService : IPlaybackService
     }
 
     /// <inheritdoc/>
-    public async Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, AudioFilter filter = AudioFilter.None, CancellationToken cancellationToken = default)
+    public async Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, AudioFilter filter = AudioFilter.None, string? requestedByDisplayName = null, CancellationToken cancellationToken = default)
     {
         using var scope = BotActivitySource.StartServiceActivityWithApm(
             "playback",
@@ -117,7 +117,7 @@ public class PlaybackService : IPlaybackService
                 if (queueEnabled)
                 {
                     // Queue mode: Add to queue
-                    state.Queue.Enqueue(new QueuedSound(sound, filter));
+                    state.Queue.Enqueue(new QueuedSound(sound, filter, requestedByDisplayName));
                     _logger.LogDebug("Added sound {SoundName} to queue (position {QueuePosition}) in guild {GuildId} with filter {Filter}",
                         sound.Name, state.Queue.Count, guildId, filter);
 
@@ -135,7 +135,7 @@ public class PlaybackService : IPlaybackService
                         state.Queue.Clear();
                     }
 
-                    state.Queue.Enqueue(new QueuedSound(sound, filter));
+                    state.Queue.Enqueue(new QueuedSound(sound, filter, requestedByDisplayName));
 
                     // Broadcast queue update
                     BroadcastQueueUpdate(guildId, state);
@@ -359,6 +359,7 @@ public class PlaybackService : IPlaybackService
                         // Queue empty, stop playback loop
                         state.IsPlaying = false;
                         state.CurrentSound = null;
+                        state.CurrentRequestedByDisplayName = null;
                         state.CancellationTokenSource?.Dispose();
                         state.CancellationTokenSource = null;
                         _logger.LogDebug("Playback queue empty, stopping playback loop for guild {GuildId}", guildId);
@@ -369,6 +370,7 @@ public class PlaybackService : IPlaybackService
                     queuedSound = state.Queue.Dequeue();
                     state.IsPlaying = true;
                     state.CurrentSound = queuedSound.Sound;
+                    state.CurrentRequestedByDisplayName = queuedSound.RequestedByDisplayName;
                     state.CancellationTokenSource?.Dispose();
                     state.CancellationTokenSource = new CancellationTokenSource();
 
@@ -388,7 +390,7 @@ public class PlaybackService : IPlaybackService
                 // Play the sound
                 try
                 {
-                    await PlaySoundAsync(guildId, queuedSound.Sound, queuedSound.Filter, state.CancellationTokenSource.Token);
+                    await PlaySoundAsync(guildId, queuedSound.Sound, queuedSound.Filter, queuedSound.RequestedByDisplayName, state.CancellationTokenSource.Token);
                 }
                 catch (OperationCanceledException)
                 {
@@ -437,7 +439,7 @@ public class PlaybackService : IPlaybackService
     /// <param name="sound">The sound to play.</param>
     /// <param name="filter">The audio filter to apply.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task PlaySoundAsync(ulong guildId, Sound sound, AudioFilter filter, CancellationToken cancellationToken)
+    private async Task PlaySoundAsync(ulong guildId, Sound sound, AudioFilter filter, string? requestedByDisplayName, CancellationToken cancellationToken)
     {
         using var scope = BotActivitySource.StartServiceActivityWithApm(
             "playback",
@@ -480,7 +482,7 @@ public class PlaybackService : IPlaybackService
             _audioService.UpdateLastActivity(guildId);
 
             // Broadcast PlaybackStarted event
-            _ = _audioNotifier.NotifyPlaybackStartedAsync(guildId, sound.Id, sound.Name, durationSeconds, cancellationToken);
+            _ = _audioNotifier.NotifyPlaybackStartedAsync(guildId, sound.Id, sound.Name, durationSeconds, requestedByDisplayName, cancellationToken);
 
             // Determine FFmpeg executable path - handle null or empty string
             // If not configured, look for ffmpeg in the application's base directory first, then fall back to PATH
@@ -914,7 +916,7 @@ public class PlaybackService : IPlaybackService
     /// <summary>
     /// Represents a queued sound with its optional audio filter.
     /// </summary>
-    private record QueuedSound(Sound Sound, AudioFilter Filter);
+    private record QueuedSound(Sound Sound, AudioFilter Filter, string? RequestedByDisplayName = null);
 
     /// <summary>
     /// Represents the playback state for a guild.
@@ -941,5 +943,10 @@ public class PlaybackService : IPlaybackService
         /// The currently playing sound (used for notifications).
         /// </summary>
         public Sound? CurrentSound { get; set; }
+
+        /// <summary>
+        /// The display name of the user who requested the currently playing sound.
+        /// </summary>
+        public string? CurrentRequestedByDisplayName { get; set; }
     }
 }

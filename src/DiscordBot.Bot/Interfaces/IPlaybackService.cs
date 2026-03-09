@@ -29,7 +29,7 @@ public interface IPlaybackService
     /// </remarks>
     /// <exception cref="InvalidOperationException">Thrown if no audio client is available for the guild.</exception>
     /// <exception cref="FileNotFoundException">Thrown if the sound file does not exist.</exception>
-    Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, AudioFilter filter = AudioFilter.None, CancellationToken cancellationToken = default);
+    Task PlayAsync(ulong guildId, Sound sound, bool queueEnabled, AudioFilter filter = AudioFilter.None, string? requestedByDisplayName = null, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Stops the currently playing sound in the specified guild and clears the queue.

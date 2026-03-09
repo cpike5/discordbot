@@ -1,3 +1,4 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs.Soundboard;
@@ -20,6 +21,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ISettingsService _settingsService;
     private readonly IAudioNotifier _audioNotifier;
+    private readonly DiscordSocketClient _discordClient;
     private readonly ILogger<SoundboardOrchestrationService> _logger;
 
     /// <summary>
@@ -32,6 +34,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
     /// <param name="audioSettingsService">The audio settings service.</param>
     /// <param name="settingsService">The bot-level settings service.</param>
     /// <param name="audioNotifier">The audio notifier for real-time updates.</param>
+    /// <param name="discordClient">The Discord socket client for resolving user display names.</param>
     /// <param name="logger">The logger.</param>
     public SoundboardOrchestrationService(
         ISoundService soundService,
@@ -41,6 +44,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         IGuildAudioSettingsService audioSettingsService,
         ISettingsService settingsService,
         IAudioNotifier audioNotifier,
+        DiscordSocketClient discordClient,
         ILogger<SoundboardOrchestrationService> logger)
     {
         _soundService = soundService;
@@ -50,6 +54,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         _audioSettingsService = audioSettingsService;
         _settingsService = settingsService;
         _audioNotifier = audioNotifier;
+        _discordClient = discordClient;
         _logger = logger;
     }
 
@@ -308,6 +313,19 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 };
             }
 
+            // Resolve the requesting user's display name
+            string? requestedByDisplayName = null;
+            try
+            {
+                var guild = _discordClient.GetGuild(guildId);
+                var guildUser = guild?.GetUser(userId);
+                requestedByDisplayName = guildUser?.DisplayName ?? _discordClient.GetUser(userId)?.Username;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogDebug(ex, "Could not resolve display name for user {UserId} in guild {GuildId}", userId, guildId);
+            }
+
             // Determine if sound will be queued based on current playback state
             var wasPlaying = _playbackService.IsPlaying(guildId);
             var queueLengthBefore = _playbackService.GetQueueLength(guildId);
@@ -315,7 +333,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
             int? queuePosition = willBeQueued ? queueLengthBefore + 1 : null;
 
             // Play the sound
-            await _playbackService.PlayAsync(guildId, sound, queueEnabled, filter, cancellationToken);
+            await _playbackService.PlayAsync(guildId, sound, queueEnabled, filter, requestedByDisplayName, cancellationToken);
             _logger.LogInformation("Successfully started playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
                 sound.Name, sound.Id, guildId);
 
