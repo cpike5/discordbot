@@ -26,11 +26,7 @@ public static class WebServiceExtensions
 
         // Add Web API services
         services.AddControllers();
-        services.AddRazorPages()
-            .AddMvcOptions(options =>
-            {
-                options.Filters.Add<DiscordBot.Bot.Filters.DashboardAnonymousRedirectFilter>();
-            });
+        services.AddRazorPages();
         services.AddEndpointsApiExplorer();
 
         return services;

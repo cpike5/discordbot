@@ -12,7 +12,7 @@ namespace DiscordBot.Bot.Pages;
 
 /// <summary>
 /// Dashboard page for authenticated users.
-/// Anonymous users are redirected to the public landing page via DashboardAnonymousRedirectFilter.
+/// Anonymous users are redirected to the public landing page via middleware in Program.cs.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 public class IndexModel : PageModel
@@ -62,7 +62,7 @@ public class IndexModel : PageModel
     public async Task<IActionResult> OnGetAsync()
     {
         // Authorization is handled by [Authorize(Policy = "RequireViewer")] attribute
-        // Anonymous users are redirected to /Landing by DashboardAnonymousRedirectFilter
+        // Anonymous users are redirected to /landing by middleware before authorization runs
         _logger.LogDebug("Dashboard accessed by authenticated user {UserId}", User.Identity?.Name);
 
         var statusDto = _botService.GetStatus();
