@@ -75,7 +75,7 @@
                 // Debounced SSML preview for Pro mode
                 if (currentMode === 'pro') {
                     clearTimeout(ssmlDebounceTimer);
-                    ssmlDebounceTimer = setTimeout(buildSsmlFromCurrentState, 500);
+                    ssmlDebounceTimer = setTimeout(buildSsmlFromCurrentState, 250);
                 }
             });
             messageInput.addEventListener('keypress', function(e) {
