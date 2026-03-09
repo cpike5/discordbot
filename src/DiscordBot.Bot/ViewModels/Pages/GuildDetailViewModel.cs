@@ -61,7 +61,7 @@ public record GuildDetailViewModel
     /// <summary>
     /// Gets whether the current user can edit this guild's settings.
     /// </summary>
-    public bool CanEdit { get; init; }
+    public bool CanEdit { get; set; }
 
     /// <summary>
     /// Creates a <see cref="GuildDetailViewModel"/> from a <see cref="GuildDto"/>.
@@ -82,7 +82,7 @@ public record GuildDetailViewModel
             Prefix = dto.Prefix,
             Settings = GuildSettingsViewModel.Parse(dto.Settings),
             RecentCommandLogs = recentLogs?.Select(RecentCommandLogItem.FromDto).ToList() ?? (IReadOnlyList<RecentCommandLogItem>)Array.Empty<RecentCommandLogItem>(),
-            CanEdit = true // Will be set by PageModel based on authorization
+            CanEdit = false // Will be set by PageModel based on actual guild permissions
         };
     }
 }
