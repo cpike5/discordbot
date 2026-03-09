@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -157,8 +158,7 @@ public class EngagementModel : PageModel
     }
 
     /// <summary>
-    /// Gets channel engagement metrics (placeholder implementation).
-    /// This will be replaced with actual service call once channel tracking is implemented.
+    /// Gets channel engagement metrics from the analytics service.
     /// </summary>
     /// <param name="guildId">Guild ID.</param>
     /// <param name="start">Start date.</param>
@@ -173,9 +173,12 @@ public class EngagementModel : PageModel
     {
         _logger.LogDebug("Retrieving channel engagement metrics for guild {GuildId}", guildId);
 
-        // TODO: Implement actual channel engagement tracking
-        // For now, return empty list - this will be populated once channel message tracking is added
-        await Task.CompletedTask;
-        return new List<ChannelEngagementDto>();
+        var channelEngagement = await _engagementAnalyticsService.GetChannelEngagementAsync(
+            guildId,
+            start,
+            end,
+            cancellationToken);
+
+        return channelEngagement.ToList();
     }
 }
