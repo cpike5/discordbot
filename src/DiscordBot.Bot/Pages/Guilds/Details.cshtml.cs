@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
+using System.Security.Claims;
 
 // ReSharper disable MemberCanBePrivate.Global
 
@@ -32,6 +33,7 @@ public class DetailsModel : PageModel
     private readonly ISoundRepository _soundRepository;
     private readonly ITtsMessageRepository _ttsMessageRepository;
     private readonly IAssistantGuildSettingsService _assistantGuildSettingsService;
+    private readonly IGuildMembershipService _guildMembershipService;
     private readonly AssistantOptions _assistantOptions;
     private readonly ILogger<DetailsModel> _logger;
 
@@ -49,6 +51,7 @@ public class DetailsModel : PageModel
         ISoundRepository soundRepository,
         ITtsMessageRepository ttsMessageRepository,
         IAssistantGuildSettingsService assistantGuildSettingsService,
+        IGuildMembershipService guildMembershipService,
         IOptions<AssistantOptions> assistantOptions,
         ILogger<DetailsModel> logger)
     {
@@ -63,6 +66,7 @@ public class DetailsModel : PageModel
         _soundRepository = soundRepository;
         _ttsMessageRepository = ttsMessageRepository;
         _assistantGuildSettingsService = assistantGuildSettingsService;
+        _guildMembershipService = guildMembershipService;
         _assistantOptions = assistantOptions.Value;
         _logger = logger;
     }
@@ -374,8 +378,14 @@ public class DetailsModel : PageModel
         // Build view model
         ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
 
-        // TODO: Set CanEdit based on user's guild-specific permissions
-        // For now, all moderators can view but edit capability depends on future authorization
+        // Set CanEdit based on user's actual guild and application permissions
+        var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            var isGuildAdmin = await _guildMembershipService.IsGuildAdminAsync(currentUserId, guildId, cancellationToken);
+            var isAppAdmin = User.IsInRole("Admin") || User.IsInRole("SuperAdmin");
+            ViewModel.CanEdit = isGuildAdmin || isAppAdmin;
+        }
 
         // Populate guild layout ViewModels
         Breadcrumb = new GuildBreadcrumbViewModel
