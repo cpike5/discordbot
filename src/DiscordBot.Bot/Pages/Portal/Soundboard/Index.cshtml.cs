@@ -141,7 +141,8 @@ public class IndexModel : PortalPageModelBase
                 {
                     Id = s.Id,
                     Name = s.Name,
-                    PlayCount = s.PlayCount
+                    PlayCount = s.PlayCount,
+                    DurationSeconds = s.DurationSeconds
                 })
                 .ToList();
 

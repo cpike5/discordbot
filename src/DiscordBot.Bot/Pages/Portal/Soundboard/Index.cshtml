@@ -1,6 +1,15 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Portal.Soundboard.IndexModel
 @using DiscordBot.Bot.ViewModels.Portal
+@functions {
+    static string FormatDuration(double seconds)
+    {
+        var totalSeconds = (int)seconds;
+        return totalSeconds < 60
+            ? $"{totalSeconds}s"
+            : $"{totalSeconds / 60}:{totalSeconds % 60:D2}";
+    }
+}
 @{
     ViewData["Title"] = Model.IsAuthenticated ? "Soundboard" : "Verify Your Membership";
 }
@@ -636,6 +645,11 @@
         color: var(--color-text-secondary);
     }
 
+    .sound-duration {
+        font-size: 0.75rem;
+        color: var(--color-text-secondary);
+    }
+
     /* Empty State */
     .empty-state {
         text-align: center;
@@ -875,6 +889,10 @@ else
                             </div>
                             <div class="sound-name">@sound.Name</div>
                             <div class="sound-plays">@sound.PlayCount plays</div>
+                            @if (sound.DurationSeconds > 0)
+                            {
+                                <div class="sound-duration">@FormatDuration(sound.DurationSeconds)</div>
+                            }
                         </div>
                     }
                 </div>
@@ -1630,6 +1648,12 @@ else
             xhr.send(formData);
         }
 
+        function formatDuration(seconds) {
+            seconds = Math.floor(seconds);
+            if (seconds < 60) return seconds + 's';
+            return Math.floor(seconds / 60) + ':' + String(seconds % 60).padStart(2, '0');
+        }
+
         function addSoundToGrid(sound) {
             const grid = document.getElementById('soundGrid');
             const emptyState = document.getElementById('emptyState');
@@ -1659,6 +1683,7 @@ else
                 </div>
                 <div class="sound-name">${sound.name}</div>
                 <div class="sound-plays">0 plays</div>
+                ${sound.durationSeconds > 0 ? `<div class="sound-duration">${formatDuration(sound.durationSeconds)}</div>` : ''}
             `;
 
             // Add event listeners
