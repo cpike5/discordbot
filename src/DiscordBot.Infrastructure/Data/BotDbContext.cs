@@ -32,6 +32,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<VerificationCode> VerificationCodes => Set<VerificationCode>();
     public DbSet<ApplicationSetting> ApplicationSettings => Set<ApplicationSetting>();
     public DbSet<UserConsent> UserConsents => Set<UserConsent>();
+    public DbSet<UserSoundFavorite> UserSoundFavorites => Set<UserSoundFavorite>();
     public DbSet<WelcomeConfiguration> WelcomeConfigurations => Set<WelcomeConfiguration>();
     public DbSet<ScheduledMessage> ScheduledMessages => Set<ScheduledMessage>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();

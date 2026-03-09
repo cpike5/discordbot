@@ -96,6 +96,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<ISoundRepository, SoundRepository>();
         services.AddScoped<ISoundPlayLogRepository, SoundPlayLogRepository>();
         services.AddScoped<IGuildAudioSettingsRepository, GuildAudioSettingsRepository>();
+        services.AddScoped<IUserSoundFavoriteRepository, UserSoundFavoriteRepository>();
         services.AddScoped<ITtsMessageRepository, TtsMessageRepository>();
         services.AddScoped<IGuildTtsSettingsRepository, GuildTtsSettingsRepository>();
         services.AddScoped<ICommandModuleConfigurationRepository, CommandModuleConfigurationRepository>();
