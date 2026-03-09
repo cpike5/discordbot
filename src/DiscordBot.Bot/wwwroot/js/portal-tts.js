@@ -506,8 +506,11 @@
 
         container.appendChild(toast);
 
-        // Auto dismiss after 5 seconds
-        setTimeout(() => dismissToast(toast), 5000);
+        // Error toasts persist until manually dismissed; success=3s, info/warning=5s
+        if (type !== 'error') {
+            const delay = type === 'success' ? 3000 : 5000;
+            setTimeout(() => dismissToast(toast), delay);
+        }
     }
 
     function dismissToast(toast) {

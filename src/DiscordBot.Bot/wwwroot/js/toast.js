@@ -31,7 +31,7 @@ const ToastManager = {
    * @param {string} message - The message to display
    * @param {object} options - Optional configuration
    * @param {string} options.title - Optional title
-   * @param {number} options.duration - Auto-dismiss duration in ms (default: 5000)
+   * @param {number} options.duration - Auto-dismiss duration in ms (default: 3000 for success, 5000 for info/warning, 0/no auto-dismiss for error)
    * @param {object} options.action - Optional action button { label: string, onClick: function }
    */
   show(type, message, options = {}) {
@@ -39,9 +39,11 @@ const ToastManager = {
       this.init();
     }
 
+    // Default durations by type: success=3s, info=5s, error=no auto-dismiss
+    const defaultDuration = type === 'error' ? 0 : type === 'success' ? 3000 : 5000;
     const {
       title = null,
-      duration = 5000,
+      duration = defaultDuration,
       action = null
     } = options;
 
@@ -98,6 +100,8 @@ const ToastManager = {
     toast.setAttribute('role', 'alert');
     toast.setAttribute('aria-live', 'polite');
 
+    const autoDismiss = duration > 0;
+
     // Build content HTML
     let contentHTML = '';
     if (title) {
@@ -134,7 +138,7 @@ const ToastManager = {
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
         </svg>
       </button>
-      <div class="toast-progress animating" style="animation-duration: ${duration}ms;"></div>
+      ${autoDismiss ? `<div class="toast-progress animating" style="animation-duration: ${duration}ms;"></div>` : ''}
     `;
 
     // Store timer reference
@@ -145,35 +149,37 @@ const ToastManager = {
       startTime: Date.now()
     };
 
-    // Set up auto-dismiss
-    toastData.timeoutId = setTimeout(() => {
-      this.dismissToast(toastData);
-    }, duration);
-
-    // Pause on hover
-    toast.addEventListener('mouseenter', () => {
-      const elapsed = Date.now() - toastData.startTime;
-      toastData.remainingTime = Math.max(0, toastData.remainingTime - elapsed);
-
-      clearTimeout(toastData.timeoutId);
-
-      const progressBar = toast.querySelector('.toast-progress');
-      if (progressBar) {
-        progressBar.classList.add('paused');
-      }
-    });
-
-    toast.addEventListener('mouseleave', () => {
-      toastData.startTime = Date.now();
+    // Set up auto-dismiss (only for non-persistent toasts)
+    if (autoDismiss) {
       toastData.timeoutId = setTimeout(() => {
         this.dismissToast(toastData);
-      }, toastData.remainingTime);
+      }, duration);
 
-      const progressBar = toast.querySelector('.toast-progress');
-      if (progressBar) {
-        progressBar.classList.remove('paused');
-      }
-    });
+      // Pause on hover
+      toast.addEventListener('mouseenter', () => {
+        const elapsed = Date.now() - toastData.startTime;
+        toastData.remainingTime = Math.max(0, toastData.remainingTime - elapsed);
+
+        clearTimeout(toastData.timeoutId);
+
+        const progressBar = toast.querySelector('.toast-progress');
+        if (progressBar) {
+          progressBar.classList.add('paused');
+        }
+      });
+
+      toast.addEventListener('mouseleave', () => {
+        toastData.startTime = Date.now();
+        toastData.timeoutId = setTimeout(() => {
+          this.dismissToast(toastData);
+        }, toastData.remainingTime);
+
+        const progressBar = toast.querySelector('.toast-progress');
+        if (progressBar) {
+          progressBar.classList.remove('paused');
+        }
+      });
+    }
 
     // Close button handler
     const closeBtn = toast.querySelector('.toast-close');

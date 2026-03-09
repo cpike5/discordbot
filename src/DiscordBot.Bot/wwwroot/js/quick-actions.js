@@ -290,10 +290,15 @@
       info: '<svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
     };
 
+    const isError = variant === 'error';
+
     toast.className = `flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg transform transition-all duration-300 ${variantClasses[variant] || variantClasses.info}`;
     toast.innerHTML = `
       ${icons[variant] || icons.info}
-      <span class="text-sm font-medium">${message}</span>
+      <span class="text-sm font-medium flex-1">${message}</span>
+      ${isError ? `<button class="toast-dismiss-btn ml-2 opacity-80 hover:opacity-100 transition-opacity" aria-label="Dismiss notification">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>` : ''}
     `;
 
     // Start offscreen
@@ -310,14 +315,25 @@
       });
     });
 
-    // Remove after 3 seconds
-    setTimeout(() => {
-      toast.style.transform = 'translateX(100%)';
-      toast.style.opacity = '0';
+    // Error toasts persist until manually dismissed
+    if (isError) {
+      const dismissBtn = toast.querySelector('.toast-dismiss-btn');
+      dismissBtn.addEventListener('click', () => {
+        toast.style.transform = 'translateX(100%)';
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+      });
+    } else {
+      // Success/info/warning: auto-dismiss (success=3s, info=5s, warning=5s)
+      const delay = variant === 'success' ? 3000 : 5000;
       setTimeout(() => {
-        toast.remove();
-      }, 300);
-    }, 3000);
+        toast.style.transform = 'translateX(100%)';
+        toast.style.opacity = '0';
+        setTimeout(() => {
+          toast.remove();
+        }, 300);
+      }, delay);
+    }
   }
 
   // ============================================

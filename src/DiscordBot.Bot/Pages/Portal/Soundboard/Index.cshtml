@@ -934,7 +934,11 @@ else
                 this.container = document.getElementById('portalToastContainer');
             },
 
-            show(type, message, duration = 5000) {
+            show(type, message, duration) {
+                // Default durations by type: success=3s, info/warning=5s, error=no auto-dismiss
+                if (duration === undefined) {
+                    duration = type === 'error' ? 0 : type === 'success' ? 3000 : 5000;
+                }
                 if (!this.container) this.init();
 
                 const toast = document.createElement('div');

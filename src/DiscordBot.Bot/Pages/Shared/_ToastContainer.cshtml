@@ -4,7 +4,7 @@
 
     Usage from JavaScript:
         ToastManager.show('success', 'Your changes have been saved.');
-        ToastManager.show('error', 'Something went wrong.', { title: 'Error', duration: 10000 });
+        ToastManager.show('error', 'Something went wrong.', { title: 'Error' });
         ToastManager.show('warning', 'Rate limit approaching.');
         ToastManager.show('info', 'New features available.');
 *@
@@ -46,8 +46,7 @@
             {
                 <text>
                 ToastManager.show('error', @Html.Raw(Json.Serialize(toastError)), {
-                    title: @Html.Raw(Json.Serialize(toastErrorTitle)),
-                    duration: 10000
+                    title: @Html.Raw(Json.Serialize(toastErrorTitle))
                 });
                 </text>
             }
