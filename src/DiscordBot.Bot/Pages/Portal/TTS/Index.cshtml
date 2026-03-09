@@ -441,6 +441,17 @@ else
             <div class="tts-panel">
                 <div class="tts-form-wrapper">
 
+                    <!-- Draft Restored Banner -->
+                    <div id="draftRestoredBanner" class="draft-banner hidden" role="status" aria-live="polite">
+                        <div class="draft-banner-content">
+                            <svg class="draft-banner-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="draft-banner-text">Draft restored — you have unsaved changes</span>
+                        </div>
+                        <button id="clearDraftBtn" class="draft-banner-clear" type="button">Clear draft</button>
+                    </div>
+
                     <!-- Mode Switcher (always visible) -->
                     <div id="portalModeSwitcherContainer" class="form-group">
                         <partial name="../../Shared/Components/_ModeSwitcher" model="Model.ModeSwitcher" />
