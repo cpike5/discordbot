@@ -29,6 +29,8 @@ const VoiceChannelPanel = (function() {
     // State
     let guildId = null;
     let isConnected = false;
+    let isConnecting = false;
+    let connectingTimeoutId = null;
     let connectedChannelId = null;
     let isHubConnected = false;
 
@@ -195,9 +197,12 @@ const VoiceChannelPanel = (function() {
             return;
         }
 
-        try {
-            setChannelSelectorLoading(true);
+        if (isConnecting) return;
 
+        // Immediately show connecting state
+        setConnectingState();
+
+        try {
             const url = `/api/guilds/${guildId}/audio/join/${selectedChannelId}`;
             console.log('[VoiceChannelPanel] Calling API:', url);
 
@@ -213,20 +218,22 @@ const VoiceChannelPanel = (function() {
             if (!response.ok) {
                 const error = await response.json();
                 console.error('[VoiceChannelPanel] API error:', error);
+                clearConnectingState();
+                updateConnectionStatus(false);
                 showToast(error.message || 'Failed to join channel', 'error');
-                // Reset selector to previous value
                 channelSelector.value = connectedChannelId || '';
             } else {
                 const result = await response.json();
                 console.log('[VoiceChannelPanel] API success:', result);
                 console.log('[VoiceChannelPanel] Waiting for AudioConnected SignalR event...');
+                // Keep connecting state — will be cleared by SignalR event or timeout
             }
         } catch (error) {
             console.error('[VoiceChannelPanel] Error joining channel:', error);
+            clearConnectingState();
+            updateConnectionStatus(false);
             showToast('Failed to join channel', 'error');
             channelSelector.value = connectedChannelId || '';
-        } finally {
-            setChannelSelectorLoading(false);
         }
     }
 
@@ -320,6 +327,7 @@ const VoiceChannelPanel = (function() {
 
         console.log('[VoiceChannelPanel] Processing AudioConnected for this guild');
 
+        clearConnectingState();
         isConnected = true;
         connectedChannelId = data.channelId;
 
@@ -348,6 +356,7 @@ const VoiceChannelPanel = (function() {
 
         console.log('[VoiceChannelPanel] Audio disconnected:', data);
 
+        clearConnectingState();
         isConnected = false;
         connectedChannelId = null;
 
@@ -596,6 +605,71 @@ const VoiceChannelPanel = (function() {
     function setChannelSelectorLoading(loading) {
         if (channelSelector) {
             channelSelector.disabled = loading;
+        }
+    }
+
+    /**
+     * Enters the "Connecting..." intermediate state.
+     * Disables the channel selector, shows a spinner on the status badge,
+     * and starts a timeout that reverts to disconnected after 10 seconds.
+     */
+    function setConnectingState() {
+        isConnecting = true;
+
+        // Disable channel selector to prevent duplicate requests
+        setChannelSelectorLoading(true);
+
+        // Update status badge to connecting state
+        if (connectionStatusDot) {
+            connectionStatusDot.className = 'w-4 h-4 animate-spin';
+            connectionStatusDot.innerHTML = `
+                <svg class="w-full h-full" fill="none" viewBox="0 0 24 24">
+                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+            `;
+        }
+
+        if (connectionStatusText) {
+            connectionStatusText.textContent = 'Connecting...';
+        }
+
+        if (connectionStatusBadge) {
+            connectionStatusBadge.className = 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-warning/20 text-warning';
+        }
+
+        // Start timeout — revert to disconnected if no SignalR confirmation within 10s
+        clearTimeout(connectingTimeoutId);
+        connectingTimeoutId = setTimeout(function() {
+            if (isConnecting) {
+                console.warn('[VoiceChannelPanel] Connection timed out after 10s');
+                clearConnectingState();
+                updateConnectionStatus(false);
+                showToast('Connection timed out. Please try again.', 'error');
+                if (channelSelector) {
+                    channelSelector.value = connectedChannelId || '';
+                }
+            }
+        }, 10000);
+    }
+
+    /**
+     * Clears the connecting state and timeout.
+     * Re-enables the channel selector and restores the status dot to its default element.
+     */
+    function clearConnectingState() {
+        if (!isConnecting) return;
+
+        isConnecting = false;
+        clearTimeout(connectingTimeoutId);
+        connectingTimeoutId = null;
+
+        // Re-enable channel selector
+        setChannelSelectorLoading(false);
+
+        // Remove spinner SVG; callers set the correct class via updateConnectionStatus
+        if (connectionStatusDot) {
+            connectionStatusDot.innerHTML = '';
         }
     }
 
