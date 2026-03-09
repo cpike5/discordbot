@@ -281,6 +281,24 @@ try
 
     // Enable authentication and authorization middleware
     app.UseAuthentication();
+
+    // Redirect unauthenticated users from the dashboard root to the public landing page.
+    // This must run BEFORE UseAuthorization() so the authorization middleware never
+    // rejects the request and redirects to /Account/Login.
+    app.Use(async (context, next) =>
+    {
+        // Normalize: "/" becomes "" and "/Index/" becomes "/Index"
+        var path = context.Request.Path.Value?.TrimEnd('/');
+        if ((string.IsNullOrEmpty(path) || string.Equals(path, "/Index", StringComparison.OrdinalIgnoreCase))
+            && context.User.Identity?.IsAuthenticated != true)
+        {
+            context.Response.Redirect("/landing");
+            return;
+        }
+
+        await next();
+    });
+
     app.UseAuthorization();
 
     app.MapControllers();
