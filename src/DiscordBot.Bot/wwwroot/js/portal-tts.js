@@ -12,7 +12,8 @@
         PITCH_MIN: 0.5,
         PITCH_MAX: 2.0,
         PITCH_DEFAULT: 1.0,
-        STORAGE_KEY_VOICE: 'tts_selected_voice'  // localStorage key for voice persistence
+        STORAGE_KEY_VOICE: 'tts_selected_voice',  // localStorage key for voice persistence
+        DRAFT_DEBOUNCE_MS: 2000                    // 2-second debounce for draft auto-save
     };
 
     // ========================================
@@ -40,6 +41,8 @@
     let currentSsml = '';
     // formattedTextState removed - SSML builder parses visual markers directly from textarea
     let ssmlDebounceTimer = null;
+    let draftDebounceTimer = null;
+    let isInitializing = false;
 
     // ========================================
     // Initialization
@@ -57,9 +60,12 @@
             return;
         }
 
+        isInitializing = true;
         setupEventHandlers();
         loadSavedVoice();
         loadSavedMode();
+        loadDraft();
+        isInitializing = false;
         observeConnectionState();
     }
 
@@ -77,6 +83,7 @@
                     clearTimeout(ssmlDebounceTimer);
                     ssmlDebounceTimer = setTimeout(buildSsmlFromCurrentState, 500);
                 }
+                saveDraftDebounced();
             });
             messageInput.addEventListener('keypress', function(e) {
                 if (e.key === 'Enter' && !e.shiftKey) {
@@ -90,6 +97,19 @@
         const sendBtn = document.getElementById('sendBtn');
         if (sendBtn) {
             sendBtn.addEventListener('click', sendTtsMessage);
+        }
+
+        // Clear draft button
+        const clearDraftBtn = document.getElementById('clearDraftBtn');
+        if (clearDraftBtn) {
+            clearDraftBtn.addEventListener('click', function() {
+                const messageInput = document.getElementById('ttsMessage');
+                if (messageInput) {
+                    messageInput.value = '';
+                    updateCharacterCount();
+                }
+                clearDraft();
+            });
         }
 
         // Note: Voice channel join/leave are handled by voice-channel-panel.js
@@ -151,6 +171,97 @@
         requestAnimationFrame(() => {
             window.portalHandleModeChange(currentMode);
         });
+    }
+
+    // ========================================
+    // Draft Persistence
+    // ========================================
+    function getDraftKey() {
+        return `portal:tts:draft:${guildId}`;
+    }
+
+    function saveDraft() {
+        if (isInitializing) return;
+        try {
+            const messageInput = document.getElementById('ttsMessage');
+            const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+            const draft = {
+                message: messageInput?.value || '',
+                voice: voice || '',
+                mode: currentMode,
+                timestamp: Date.now()
+            };
+            // Only save if there's actual content
+            if (draft.message || draft.voice) {
+                localStorage.setItem(getDraftKey(), JSON.stringify(draft));
+            }
+        } catch (error) {
+            // Failed to save draft
+        }
+    }
+
+    function saveDraftDebounced() {
+        clearTimeout(draftDebounceTimer);
+        draftDebounceTimer = setTimeout(saveDraft, CONFIG.DRAFT_DEBOUNCE_MS);
+    }
+
+    function loadDraft() {
+        try {
+            const raw = localStorage.getItem(getDraftKey());
+            if (!raw) return;
+
+            const draft = JSON.parse(raw);
+            if (!draft || (!draft.message && !draft.voice)) return;
+
+            // Restore message
+            const messageInput = document.getElementById('ttsMessage');
+            if (messageInput && draft.message) {
+                messageInput.value = draft.message;
+                updateCharacterCount();
+            }
+
+            // Restore voice (if saved and different from current)
+            if (draft.voice && window.voiceSelector_setValue) {
+                window.voiceSelector_setValue('portalVoiceSelector', draft.voice, true);
+            }
+
+            // Restore mode (if saved)
+            if (draft.mode && ['simple', 'standard', 'pro'].includes(draft.mode)) {
+                currentMode = draft.mode;
+                // Re-apply mode UI. Use requestAnimationFrame to ensure DOM is settled.
+                requestAnimationFrame(() => {
+                    window.portalHandleModeChange(currentMode);
+                });
+            }
+
+            // Show draft restored indicator
+            showDraftBanner();
+        } catch (error) {
+            // Failed to load draft
+        }
+    }
+
+    function clearDraft() {
+        try {
+            localStorage.removeItem(getDraftKey());
+        } catch (error) {
+            // Failed to clear draft
+        }
+        hideDraftBanner();
+    }
+
+    function showDraftBanner() {
+        const banner = document.getElementById('draftRestoredBanner');
+        if (banner) {
+            banner.classList.remove('hidden');
+        }
+    }
+
+    function hideDraftBanner() {
+        const banner = document.getElementById('draftRestoredBanner');
+        if (banner) {
+            banner.classList.add('hidden');
+        }
     }
 
     // ========================================
@@ -268,6 +379,7 @@
             }
 
             showToast('success', 'Message sent successfully');
+            clearDraft();
         } catch (error) {
             // Send error occurred
             showToast('error', error.message);
@@ -532,6 +644,10 @@
             ssmlPreview?.classList.remove('hidden');
             buildSsmlFromCurrentState();
         }
+
+        // Save mode change immediately
+        try { localStorage.setItem('tts_mode_preference', mode); } catch(e) {}
+        saveDraft();
     };
 
     /**
@@ -539,6 +655,7 @@
      */
     window.portalHandleVoiceChange = function(voiceValue) {
         saveSelectedVoice(voiceValue);
+        saveDraft();
         if (window.styleSelector_loadStyles) {
             window.styleSelector_loadStyles('portalStyleSelector', voiceValue);
         }
@@ -629,7 +746,8 @@
     // Export public API for testing/debugging
     window.PortalTTS = {
         init: init,
-        showToast: showToast
+        showToast: showToast,
+        clearDraft: clearDraft
     };
 
 })();
