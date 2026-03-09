@@ -2619,6 +2619,40 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.ToTable("UserNotifications", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.UserSoundFavorite", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("FavoritedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("bigint");
+
+                    b.Property<Guid>("SoundId")
+                        .HasColumnType("uuid");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SoundId");
+
+                    b.HasIndex("UserId", "GuildId")
+                        .HasDatabaseName("IX_UserSoundFavorites_UserId_GuildId");
+
+                    b.HasIndex("UserId", "SoundId", "GuildId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserSoundFavorites_UserId_SoundId_GuildId");
+
+                    b.ToTable("UserSoundFavorites", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.VerificationCode", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3379,6 +3413,17 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.Navigation("Guild");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.UserSoundFavorite", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Sound", "Sound")
+                        .WithMany()
+                        .HasForeignKey("SoundId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Sound");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.VerificationCode", b =>

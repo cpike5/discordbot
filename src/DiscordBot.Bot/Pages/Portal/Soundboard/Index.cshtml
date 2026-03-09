@@ -931,7 +931,7 @@ else
         window.guildId = '@Model.GuildId';
 
         // State
-        let favorites = JSON.parse(localStorage.getItem('soundboard_favorites_' + window.guildId) || '[]');
+        let favorites = [];
         let currentlyPlaying = null;
         let searchDebounceTimer = null;
         let signalRConnected = false;
@@ -1007,7 +1007,7 @@ else
         // ========================================
         document.addEventListener('DOMContentLoaded', async function() {
             PortalToast.init();
-            initializeFavorites();
+            await loadFavorites();
             setupEventHandlers();
             await initSignalR();
         });
@@ -1191,11 +1191,11 @@ else
                         currentlyPlaying = null;
                     }
 
-                    // Remove from favorites if present
+                    // Remove from local favorites array if present
+                    // (server cascades the delete via foreign key)
                     const favIndex = favorites.indexOf(data.soundId);
                     if (favIndex > -1) {
                         favorites.splice(favIndex, 1);
-                        localStorage.setItem('soundboard_favorites_' + window.guildId, JSON.stringify(favorites));
                     }
 
                     // Show empty state if no sounds remain
@@ -1218,8 +1218,19 @@ else
             // Future enhancement: Display queue in the Now Playing panel
         }
 
-        // Initialize favorites from localStorage
-        function initializeFavorites() {
+        // Load favorites from server API
+        async function loadFavorites() {
+            try {
+                const response = await fetch(`/api/portal/soundboard/${window.guildId}/favorites`);
+                if (response.ok) {
+                    const data = await response.json();
+                    favorites = data.favorites || [];
+                }
+            } catch (error) {
+                console.warn('Failed to load favorites from server:', error);
+            }
+
+            // Apply favorite state to UI
             favorites.forEach(soundId => {
                 const btn = document.querySelector(`.favorite-btn[data-sound-id="${soundId}"]`);
                 if (btn) {
@@ -1361,8 +1372,10 @@ else
             const btn = document.querySelector(`.favorite-btn[data-sound-id="${soundId}"]`);
             const svg = btn.querySelector('svg');
             const index = favorites.indexOf(soundId);
+            const adding = index === -1;
 
-            if (index === -1) {
+            // Optimistic UI update
+            if (adding) {
                 favorites.push(soundId);
                 btn.classList.add('active');
                 btn.setAttribute('aria-pressed', 'true');
@@ -1374,11 +1387,32 @@ else
                 svg.setAttribute('fill', 'none');
             }
 
-            // Save to localStorage
-            localStorage.setItem('soundboard_favorites_' + window.guildId, JSON.stringify(favorites));
-
             // Re-sort grid
             sortSoundGrid();
+
+            // Persist to server
+            const method = adding ? 'POST' : 'DELETE';
+            fetch(`/api/portal/soundboard/${window.guildId}/favorites/${soundId}`, { method })
+                .then(response => {
+                    if (!response.ok) throw new Error('Failed to update favorite');
+                })
+                .catch(error => {
+                    // Revert optimistic update on failure
+                    if (adding) {
+                        const revertIndex = favorites.indexOf(soundId);
+                        if (revertIndex > -1) favorites.splice(revertIndex, 1);
+                        btn.classList.remove('active');
+                        btn.setAttribute('aria-pressed', 'false');
+                        svg.setAttribute('fill', 'none');
+                    } else {
+                        if (!favorites.includes(soundId)) favorites.push(soundId);
+                        btn.classList.add('active');
+                        btn.setAttribute('aria-pressed', 'true');
+                        svg.setAttribute('fill', 'currentColor');
+                    }
+                    sortSoundGrid();
+                    PortalToast.error('Failed to update favorite. Please try again.');
+                });
         }
 
         // ========================================
@@ -1755,7 +1789,7 @@ else
             grid.insertBefore(card, grid.firstChild);
 
             // Re-sort with favorites
-            initializeFavorites();
+            sortSoundGrid();
         }
 
         // Setup additional upload event handlers
