@@ -16,6 +16,7 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
     private readonly BusinessMetrics _businessMetrics;
     private readonly SloMetrics _sloMetrics;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
+    private readonly IApiRequestTracker _apiRequestTracker;
 
     public override string ServiceName => "Business Metrics Update Service";
 
@@ -30,6 +31,7 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
         BusinessMetrics businessMetrics,
         SloMetrics sloMetrics,
         IOptions<BackgroundServicesOptions> bgOptions,
+        IApiRequestTracker apiRequestTracker,
         ILogger<BusinessMetricsUpdateService> logger)
         : base(serviceProvider, logger)
     {
@@ -37,6 +39,7 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
         _businessMetrics = businessMetrics;
         _sloMetrics = sloMetrics;
         _bgOptions = bgOptions;
+        _apiRequestTracker = apiRequestTracker;
     }
 
     protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
@@ -175,11 +178,14 @@ public class BusinessMetricsUpdateService : MonitoredBackgroundService
             cancellationToken: cancellationToken);
         _sloMetrics.UpdateCommandSuccessRate24h((double)successRate24h.SuccessRate);
 
-        // API success rate (last 24 hours)
-        // Note: This would require tracking API request logs similar to command logs
-        // For now, we'll use a placeholder or calculate from command success rate
-        // TODO: Implement API request logging for accurate API success rate
-        _sloMetrics.UpdateApiSuccessRate24h((double)successRate24h.SuccessRate);
+        // API success rate (last 24 hours) - computed from actual API request tracking
+        var apiUsage = _apiRequestTracker.GetUsageStatistics(24);
+        var totalApiRequests = apiUsage.Sum(u => u.RequestCount);
+        var totalApiErrors = apiUsage.Sum(u => u.ErrorCount);
+        var apiSuccessRate = totalApiRequests > 0
+            ? (totalApiRequests - totalApiErrors) / (double)totalApiRequests * 100
+            : 100.0;
+        _sloMetrics.UpdateApiSuccessRate24h(apiSuccessRate);
 
         // P99 latency (last 1 hour)
         // Calculate p99 from command performance data

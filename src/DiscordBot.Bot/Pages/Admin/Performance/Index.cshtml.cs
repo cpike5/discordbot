@@ -200,14 +200,14 @@ public class IndexModel : PageModel
             {
                 workingSetMB = process.WorkingSet64 / 1024 / 1024;
             }
-            var maxMemoryMB = 1024; // Placeholder - could be from config or system info
+            var maxMemoryMB = (long)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024);
             var memoryUsagePercent = (workingSetMB * 100.0) / maxMemoryMB;
 
             // Get API metrics
             var apiUsage = _apiRequestTracker.GetUsageStatistics(1); // Last hour
             var totalApiRequests = apiUsage.Sum(u => u.RequestCount);
-            var apiLimit = 50; // Placeholder - Discord's per-second rate limit varies by endpoint
-            var apiUsagePercent = totalApiRequests > 0 ? Math.Min((totalApiRequests * 100.0) / apiLimit, 100) : 0;
+            var rateLimitEvents = _apiRequestTracker.GetRateLimitEvents(1);
+            var rateLimitHits = rateLimitEvents.Count;
 
             // Determine overall status based on alerts and health
             var overallHealthStatus = DetermineOverallStatus(overallStatus, activeAlerts.Count);
@@ -227,8 +227,10 @@ public class IndexModel : PageModel
                 MemoryUsagePercent = memoryUsagePercent,
                 MemoryUsageFormatted = $"{workingSetMB} MB / {maxMemoryMB} MB",
                 CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
-                ApiRateLimitFormatted = $"{totalApiRequests} / {apiLimit} requests",
-                ApiRateLimitPercent = apiUsagePercent
+                ApiRateLimitFormatted = rateLimitHits > 0
+                    ? $"{totalApiRequests} requests ({rateLimitHits} rate limited)"
+                    : $"{totalApiRequests} requests (last hour)",
+                ApiRateLimitPercent = rateLimitHits > 0 ? Math.Min(rateLimitHits * 10.0, 100) : 0
             };
 
             // Create the shell view model

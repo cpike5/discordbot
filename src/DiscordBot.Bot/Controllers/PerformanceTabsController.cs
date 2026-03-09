@@ -236,13 +236,13 @@ public class PerformanceTabsController : Controller
         {
             workingSetMB = process.WorkingSet64 / 1024 / 1024;
         }
-        var maxMemoryMB = 1024;
+        var maxMemoryMB = (long)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024);
         var memoryUsagePercent = (workingSetMB * 100.0) / maxMemoryMB;
 
         var apiUsage = _apiRequestTracker.GetUsageStatistics(1);
         var totalApiRequests = apiUsage.Sum(u => u.RequestCount);
-        var apiLimit = 50;
-        var apiUsagePercent = totalApiRequests > 0 ? Math.Min((totalApiRequests * 100.0) / apiLimit, 100) : 0;
+        var rateLimitEvents = _apiRequestTracker.GetRateLimitEvents(1);
+        var rateLimitHits = rateLimitEvents.Count;
 
         var overallHealthStatus = DetermineOverallStatus(overallStatus, activeAlerts.Count);
 
@@ -260,8 +260,10 @@ public class PerformanceTabsController : Controller
             MemoryUsagePercent = memoryUsagePercent,
             MemoryUsageFormatted = $"{workingSetMB} MB / {maxMemoryMB} MB",
             CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
-            ApiRateLimitFormatted = $"{totalApiRequests} / {apiLimit} requests",
-            ApiRateLimitPercent = apiUsagePercent
+            ApiRateLimitFormatted = rateLimitHits > 0
+                ? $"{totalApiRequests} requests ({rateLimitHits} rate limited)"
+                : $"{totalApiRequests} requests (last hour)",
+            ApiRateLimitPercent = rateLimitHits > 0 ? Math.Min(rateLimitHits * 10.0, 100) : 0
         };
     }
 
