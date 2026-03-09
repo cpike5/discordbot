@@ -34,6 +34,16 @@ public interface IUserModTagRepository : IRepository<UserModTag>
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the count of distinct users assigned a specific tag.
+    /// </summary>
+    /// <param name="tagId">Tag definition ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Number of users with the tag assigned.</returns>
+    Task<int> GetUserCountByTagAsync(
+        Guid tagId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gets a specific tag assignment for removal.
     /// </summary>
     /// <param name="guildId">Discord guild ID.</param>

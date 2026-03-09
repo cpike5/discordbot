@@ -404,9 +404,7 @@ public class ModTagService : IModTagService
     /// </summary>
     private async Task<ModTagDto> MapToDtoAsync(ModTag tag, CancellationToken ct = default)
     {
-        // Get count of users with this tag
-        var userTags = await _userTagRepository.GetByUserAsync(tag.GuildId, 0, ct); // This won't work - need a different method
-        // For now, we'll set UserCount to 0 - repository needs a GetByTagAsync method for proper count
+        var userCount = await _userTagRepository.GetUserCountByTagAsync(tag.Id, ct);
 
         return new ModTagDto
         {
@@ -418,7 +416,7 @@ public class ModTagService : IModTagService
             Description = tag.Description,
             IsFromTemplate = tag.IsFromTemplate,
             CreatedAt = tag.CreatedAt,
-            UserCount = 0 // TODO: Implement proper count once repository method is available
+            UserCount = userCount
         };
     }
 
