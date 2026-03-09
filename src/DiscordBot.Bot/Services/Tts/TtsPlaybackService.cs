@@ -108,12 +108,21 @@ public class TtsPlaybackService : ITtsPlaybackService
 
                 streamScope.SetSuccess();
             }
+            catch (OperationCanceledException)
+            {
+                _logger.LogInformation("TTS audio streaming cancelled for guild {GuildId}", guildId);
+                throw; // Let the caller decide how to handle cancellation
+            }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to stream TTS audio for guild {GuildId}", guildId);
                 streamScope.RecordException(ex);
                 throw;
             }
+        }
+        catch (OperationCanceledException)
+        {
+            throw; // Propagate cancellation so the controller can distinguish stop vs error
         }
         catch (Exception ex)
         {

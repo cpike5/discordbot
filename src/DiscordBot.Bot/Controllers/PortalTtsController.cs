@@ -49,6 +49,9 @@ public class PortalTtsController : ControllerBase
     // Track whether TTS is currently playing per guild
     private static readonly ConcurrentDictionary<ulong, bool> _ttsPlaybackState = new();
 
+    // Track active playback cancellation tokens per guild for stop support
+    private static readonly ConcurrentDictionary<ulong, CancellationTokenSource> _playbackCancellationTokens = new();
+
     private const int MaxDisplayMessageLength = 50;
 
     /// <summary>
@@ -364,6 +367,24 @@ public class PortalTtsController : ControllerBase
         // Mark TTS as playing
         _ttsPlaybackState.AddOrUpdate(guildId, true, (k, v) => true);
 
+        // Create a cancellation token that can be triggered by the stop endpoint
+        // Link it with the request token so both HTTP disconnect and stop button work
+        // Do NOT use 'using' — lifetime is managed explicitly via TryRemove in finally/StopPlayback
+        var playbackCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        // Atomically swap in the new CTS, capturing any previous one for disposal
+        CancellationTokenSource? previousCts = null;
+        _playbackCancellationTokens.AddOrUpdate(guildId, playbackCts, (_, existing) =>
+        {
+            previousCts = existing;
+            return playbackCts;
+        });
+        if (previousCts != null)
+        {
+            await previousCts.CancelAsync();
+            previousCts.Dispose();
+        }
+
         // Play the audio using the TTS playback service
         TtsPlaybackResult playbackResult;
         try
@@ -375,11 +396,19 @@ public class PortalTtsController : ControllerBase
                 request.Message,
                 request.Voice,
                 audioStream,
-                cancellationToken);
+                playbackCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            // Cancelled by the stop endpoint, not by HTTP disconnect — return success
+            _logger.LogInformation("TTS playback was stopped by user for guild {GuildId}", guildId);
+            return Ok(new { Message = "Playback stopped" });
         }
         finally
         {
-            // Clear TTS playback state and message tracking after streaming completes
+            // Whoever wins TryRemove owns disposal — prevents double-dispose with StopPlayback
+            if (_playbackCancellationTokens.TryRemove(guildId, out var removedCts))
+                removedCts.Dispose();
             _ttsPlaybackState.TryRemove(guildId, out _);
             _currentMessages.TryRemove(guildId, out _);
         }
@@ -588,6 +617,13 @@ public class PortalTtsController : ControllerBase
         if (isSoundboardPlaying)
         {
             await _playbackService.StopAsync(guildId, cancellationToken);
+        }
+
+        // Cancel active TTS playback if in progress
+        if (_playbackCancellationTokens.TryRemove(guildId, out var cts))
+        {
+            await cts.CancelAsync();
+            cts.Dispose();
         }
 
         // Clear TTS playback state and message tracking
