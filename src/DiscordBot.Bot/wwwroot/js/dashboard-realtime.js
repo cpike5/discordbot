@@ -198,8 +198,7 @@ const DashboardRealtime = (function() {
                     // Skip initial connection toast
                 } else {
                     ToastManager.show(config.type, config.message, {
-                        title: config.title,
-                        duration: state === 'connected' ? 3000 : 5000
+                        title: config.title
                     });
                 }
             }

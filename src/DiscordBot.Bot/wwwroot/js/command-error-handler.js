@@ -223,9 +223,9 @@
    * @param {string} message - Error message to display
    * @param {Object} [options={}] - Toast options
    * @param {string} [options.title='Error'] - Toast title
-   * @param {number} [options.duration=5000] - Display duration in milliseconds
+   * @param {number} [options.duration] - Display duration in ms (defaults to no auto-dismiss for errors)
    * @example
-   * CommandErrorHandler.showErrorToast('Failed to load data', { duration: 3000 });
+   * CommandErrorHandler.showErrorToast('Failed to load data');
    */
   function showErrorToast(message, options = {}) {
     if (!checkToastManager()) {
@@ -235,8 +235,7 @@
     }
 
     const defaultOptions = {
-      title: 'Error',
-      duration: 5000
+      title: 'Error'
     };
 
     const toastOptions = { ...defaultOptions, ...options };
