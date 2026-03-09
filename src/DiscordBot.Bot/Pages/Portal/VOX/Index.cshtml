@@ -844,7 +844,10 @@
         async function loadClipsForGroup(group) {
             try {
                 const response = await fetch(`/api/portal/vox/${window.guildId}/clips?group=${group}`);
-                if (!response.ok) throw new Error('Failed to load clips');
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.message || 'Failed to load clips');
+                }
 
                 const data = await response.json();
                 voxState.clipCache[group] = data.clips || [];
@@ -852,9 +855,13 @@
                 renderClipGrid();
                 updateTokenPreview();
             } catch (error) {
-                // Show error state in clip grid
+                // Show specific error message in clip grid
                 if (voxEls.clipGrid) {
-                    voxEls.clipGrid.innerHTML = '<div class="vox-token-empty">Failed to load clips</div>';
+                    const msg = document.createElement('div');
+                    msg.className = 'vox-token-empty';
+                    msg.textContent = error.message || 'Failed to load clips';
+                    voxEls.clipGrid.innerHTML = '';
+                    voxEls.clipGrid.appendChild(msg);
                 }
             }
         }
@@ -1085,27 +1092,28 @@
                 });
 
                 if (!response.ok) {
-                    const error = await response.json();
+                    const error = await response.json().catch(() => ({}));
                     throw new Error(error.message || 'Failed to play VOX message');
                 }
 
                 // Success - clear the message input
                 voxEls.messageInput.value = '';
                 updateTokenPreview();
+                voxEls.playBtnText.textContent = 'Play VOX Announcement';
             } catch (error) {
-                // Display error inline instead of alert
+                // Display specific error message inline
                 if (voxEls.playBtnText) {
-                    voxEls.playBtnText.textContent = 'Error: ' + (error.message || 'Failed to play').substring(0, 50);
+                    const errMsg = (error.message || 'Failed to play').substring(0, 100);
+                    voxEls.playBtnText.textContent = 'Error: ' + errMsg;
                     setTimeout(() => {
                         if (voxEls.playBtnText) {
                             voxEls.playBtnText.textContent = 'Play VOX Announcement';
                         }
-                    }, 3000);
+                    }, 4000);
                 }
             } finally {
                 voxState.isLoading = false;
                 voxEls.playBtn.classList.remove('loading');
-                voxEls.playBtnText.textContent = 'Play VOX Announcement';
                 updateTokenPreview();
             }
         }

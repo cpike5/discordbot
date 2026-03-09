@@ -257,7 +257,7 @@
             });
 
             if (response.status === 429) {
-                const data = await response.json();
+                const data = await response.json().catch(() => ({}));
                 showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
                 return;
             }

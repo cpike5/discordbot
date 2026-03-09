@@ -92,7 +92,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Audio features disabled",
                 Detail = "Audio features have been disabled by an administrator.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_disabled"
             });
         }
 
@@ -106,7 +107,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Audio is not enabled for this guild",
                 Detail = "Enable audio in the guild settings before using soundboard features.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_not_enabled"
             });
         }
 
@@ -154,7 +156,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "No file provided",
                 Detail = "Please select an audio file to upload.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "no_file"
             });
         }
 
@@ -167,7 +170,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Sound name is required",
                 Detail = "Please provide a name for the sound.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "no_name"
             });
         }
 
@@ -188,7 +192,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Upload failed",
                 Detail = result.ErrorMessage ?? "Unknown error occurred during upload.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "upload_failed"
             });
         }
 
@@ -262,7 +267,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = result.Success ? "Playing sound" : "Failed to play sound",
                 Detail = result.ErrorMessage ?? "Unknown error occurred during playback.",
                 StatusCode = statusCode,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = statusCode == StatusCodes.Status404NotFound ? "sound_not_found" : "play_failed"
             });
         }
 
@@ -290,7 +296,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Guild not found",
                 Detail = "The requested guild was not found or the bot is not a member.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "guild_not_found"
             });
         }
 
@@ -334,7 +341,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Audio features disabled",
                 Detail = "Audio features have been disabled by an administrator.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_disabled"
             });
         }
 
@@ -348,7 +356,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Audio is not enabled for this guild",
                 Detail = "Enable audio in the guild settings before using voice features.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_not_enabled"
             });
         }
 
@@ -361,7 +370,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Failed to join voice channel",
                 Detail = "The guild or voice channel was not found, or the bot lacks permission to join.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "channel_not_found"
             });
         }
 
@@ -390,7 +400,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Not connected to voice",
                 Detail = "The bot is not currently connected to a voice channel in this guild.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_connected"
             });
         }
 
@@ -406,7 +417,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Failed to leave voice channel",
                 Detail = "An error occurred while disconnecting from the voice channel.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "leave_failed"
             });
         }
 
@@ -435,7 +447,8 @@ public class PortalSoundboardController : ControllerBase
                 Message = "Not connected to voice",
                 Detail = "The bot is not currently connected to a voice channel in this guild.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_connected"
             });
         }
 

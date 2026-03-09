@@ -102,7 +102,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Guild not found",
                 Detail = "The requested guild was not found or the bot is not a member.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "guild_not_found"
             });
         }
 
@@ -115,7 +116,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Invalid group name",
                 Detail = $"The group '{group}' is not valid. Valid groups are: vox, fvox, hgrunt.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_group"
             });
         }
 
@@ -175,7 +177,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Guild not found",
                 Detail = "The requested guild was not found or the bot is not a member.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "guild_not_found"
             });
         }
 
@@ -195,7 +198,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Invalid group name",
                 Detail = $"The group '{group}' is not valid. Valid groups are: vox, fvox, hgrunt.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_group"
             });
         }
 
@@ -250,7 +254,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Audio features disabled",
                 Detail = "Audio features have been disabled by an administrator.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_disabled"
             });
         }
 
@@ -264,7 +269,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Audio is not enabled for this guild",
                 Detail = "Enable audio in the guild settings before using VOX features.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_not_enabled"
             });
         }
 
@@ -278,7 +284,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Guild not found",
                 Detail = "The requested guild was not found or the bot is not a member.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "guild_not_found"
             });
         }
 
@@ -291,7 +298,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Not connected to voice channel",
                 Detail = "The bot must be connected to a voice channel before playing VOX announcements.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_connected"
             });
         }
 
@@ -326,7 +334,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Invalid word gap",
                 Detail = $"Word gap must be between {MinWordGapMs} and {MaxWordGapMs} milliseconds.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_word_gap"
             });
         }
 
@@ -342,7 +351,8 @@ public class PortalVoxController : ControllerBase
                 Message = "No matching clips found",
                 Detail = $"None of the words in the message have matching VOX clips. Unmatched words: {string.Join(", ", unmatchedWords)}",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "no_matching_clips"
             });
         }
 
@@ -379,7 +389,8 @@ public class PortalVoxController : ControllerBase
                 Message = "VOX playback failed",
                 Detail = ex.Message,
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "vox_validation_failed"
             });
         }
 
@@ -391,7 +402,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Failed to play VOX message",
                 Detail = result.ErrorMessage ?? "An error occurred during playback.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "play_failed"
             });
         }
 
@@ -434,7 +446,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Guild not found",
                 Detail = "The requested guild was not found or the bot is not a member.",
                 StatusCode = StatusCodes.Status404NotFound,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "guild_not_found"
             });
         }
 
@@ -447,7 +460,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Not connected to voice channel",
                 Detail = "The bot is not currently connected to a voice channel in this guild.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_connected"
             });
         }
 
@@ -474,7 +488,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Message cannot be empty",
                 Detail = "Please provide a message to convert to VOX speech.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "empty_message"
             });
         }
 
@@ -486,7 +501,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Message too long",
                 Detail = $"Message length ({message.Length}) exceeds the maximum allowed ({MaxMessageLength}).",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "message_too_long"
             });
         }
 
@@ -499,7 +515,8 @@ public class PortalVoxController : ControllerBase
                 Message = "Too many words",
                 Detail = $"Message contains {words.Length} words, exceeding the maximum of {MaxWordCount}.",
                 StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId()
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "too_many_words"
             });
         }
 
