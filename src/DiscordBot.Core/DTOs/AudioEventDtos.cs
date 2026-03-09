@@ -117,6 +117,12 @@ public class PlaybackStartedDto
     public double DurationSeconds { get; set; }
 
     /// <summary>
+    /// Gets or sets the display name of the user who requested playback.
+    /// Null if the requester is unknown.
+    /// </summary>
+    public string? RequestedByDisplayName { get; set; }
+
+    /// <summary>
     /// Gets or sets the timestamp when playback started.
     /// </summary>
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

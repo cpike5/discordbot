@@ -122,6 +122,7 @@ public class AudioNotifier : IAudioNotifier
         Guid soundId,
         string name,
         double durationSeconds,
+        string? requestedByDisplayName = null,
         CancellationToken cancellationToken = default)
     {
         var groupName = DashboardHub.GetGuildAudioGroupName(guildId);
@@ -131,15 +132,17 @@ public class AudioNotifier : IAudioNotifier
             SoundId = soundId,
             Name = name,
             DurationSeconds = durationSeconds,
+            RequestedByDisplayName = requestedByDisplayName,
             Timestamp = DateTime.UtcNow
         };
 
         _logger.LogDebug(
-            "Broadcasting PlaybackStarted: GuildId={GuildId}, SoundId={SoundId}, Name={Name}, Duration={DurationSeconds}s",
+            "Broadcasting PlaybackStarted: GuildId={GuildId}, SoundId={SoundId}, Name={Name}, Duration={DurationSeconds}s, RequestedBy={RequestedBy}",
             guildId,
             soundId,
             name,
-            durationSeconds);
+            durationSeconds,
+            requestedByDisplayName);
 
         await _hubContext.Clients.Group(groupName).SendAsync(
             Events.PlaybackStarted,

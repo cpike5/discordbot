@@ -219,6 +219,7 @@
                    title="@(Model.NowPlaying?.Name ?? "Nothing playing")">
                     @(Model.NowPlaying?.Name ?? "Nothing playing")
                 </p>
+                <p id="now-playing-requested-by" class="text-xs text-text-tertiary hidden"></p>
                 @if (Model.ShowProgress)
                 {
                     <div class="mt-1.5">

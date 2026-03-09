@@ -1442,6 +1442,7 @@ DashboardHub.on('PlaybackStarted', (data) => {
 - `soundId` (Guid): The sound ID
 - `name` (string): The sound name
 - `durationSeconds` (double): Duration in seconds
+- `requestedByDisplayName` (string?): Display name of the user who requested playback (null if unknown)
 - `timestamp` (DateTime): UTC timestamp
 
 ---
