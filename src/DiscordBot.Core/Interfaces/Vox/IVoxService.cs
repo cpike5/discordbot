@@ -25,6 +25,13 @@ public interface IVoxService
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the message text currently being played for the specified guild, or null if no VOX message is playing.
+    /// </summary>
+    /// <param name="guildId">The Discord guild ID.</param>
+    /// <returns>The truncated message text, or null if nothing is playing.</returns>
+    string? GetCurrentMessage(ulong guildId);
+
+    /// <summary>
     /// Tokenizes a message and returns a preview showing which words match clips.
     /// </summary>
     /// <param name="message">The text message to tokenize.</param>
