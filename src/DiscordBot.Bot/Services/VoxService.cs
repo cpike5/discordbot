@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using Discord.Audio;
 using DiscordBot.Bot.Interfaces;
@@ -25,6 +26,7 @@ public class VoxService : IVoxService
     private readonly IAudioService _audioService;
     private readonly VoxMetrics _voxMetrics;
     private readonly BusinessMetrics _businessMetrics;
+    private readonly ConcurrentDictionary<ulong, string> _currentMessages = new();
 
     public VoxService(
         ILogger<VoxService> logger,
@@ -199,6 +201,9 @@ public class VoxService : IVoxService
                 matchedClips.Count,
                 skippedWords.Count);
 
+            // Set now-playing message (truncated to 80 chars)
+            _currentMessages[guildId] = message.Length > 80 ? message[..80] + "..." : message;
+
             VoxConcatenationResult? concatenationResult = null;
 
             try
@@ -294,6 +299,9 @@ public class VoxService : IVoxService
             }
             finally
             {
+                // Clear now-playing message
+                _currentMessages.TryRemove(guildId, out _);
+
                 // Clean up temporary file
                 if (concatenationResult != null && File.Exists(concatenationResult.OutputPath))
                 {
@@ -325,6 +333,12 @@ public class VoxService : IVoxService
 
             throw;
         }
+    }
+
+    /// <inheritdoc/>
+    public string? GetCurrentMessage(ulong guildId)
+    {
+        return _currentMessages.TryGetValue(guildId, out var message) ? message : null;
     }
 
     /// <inheritdoc/>

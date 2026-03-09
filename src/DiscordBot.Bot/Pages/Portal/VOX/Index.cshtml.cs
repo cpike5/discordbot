@@ -20,12 +20,14 @@ namespace DiscordBot.Bot.Pages.Portal.VOX;
 public class IndexModel : PortalPageModelBase
 {
     private readonly IVoxClipLibrary _voxClipLibrary;
+    private readonly IVoxService _voxService;
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IVoxClipLibrary voxClipLibrary,
+        IVoxService voxService,
         IAudioService audioService,
         IPlaybackService playbackService,
         IGuildService guildService,
@@ -35,6 +37,7 @@ public class IndexModel : PortalPageModelBase
         : base(guildService, discordClient, userManager, logger)
     {
         _voxClipLibrary = voxClipLibrary;
+        _voxService = voxService;
         _audioService = audioService;
         _playbackService = playbackService;
         _logger = logger;
@@ -129,10 +132,11 @@ public class IndexModel : PortalPageModelBase
                 }
             }
 
-            // Get now playing info if available
-            if (_playbackService.IsPlaying(guildId))
+            // Get now playing info — check both soundboard and VOX playback
+            NowPlayingMessage = _voxService.GetCurrentMessage(guildId);
+            if (string.IsNullOrEmpty(NowPlayingMessage) && _playbackService.IsPlaying(guildId))
             {
-                NowPlayingMessage = "VOX Message"; // Will be enhanced in future issues
+                NowPlayingMessage = "Now Playing";
             }
 
             VoicePanel = new VoiceChannelPanelViewModel
