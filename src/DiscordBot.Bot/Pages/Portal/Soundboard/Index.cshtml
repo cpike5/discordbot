@@ -1438,9 +1438,11 @@ else
         // ========================================
         let selectedFile = null;
         let isUploading = false;
+        let uploadMessageSource = null; // tracks which validation set the current message
         const maxSizeBytes = @Model.MaxFileSizeMB * 1024 * 1024;
         const maxSounds = @Model.MaxSounds;
         const currentSoundCount = @Model.CurrentSoundCount;
+        const maxDurationSeconds = @Model.MaxDurationSeconds;
 
         function handleFileSelect(event) {
             const files = event.target.files;
@@ -1496,6 +1498,28 @@ else
                 return;
             }
 
+            // Check audio duration
+            const audio = new Audio();
+            const objectUrl = URL.createObjectURL(file);
+            audio.src = objectUrl;
+            audio.onloadedmetadata = function() {
+                URL.revokeObjectURL(objectUrl);
+                if (!isFinite(audio.duration) || audio.duration > maxDurationSeconds) {
+                    showUploadMessage('error', !isFinite(audio.duration)
+                        ? 'Could not determine audio duration. Please try a different file.'
+                        : `Audio too long (${Math.round(audio.duration)}s). Maximum duration is ${maxDurationSeconds} seconds.`);
+                    return;
+                }
+                // Duration is valid, proceed to show upload form
+                showFileReady(file);
+            };
+            audio.onerror = function() {
+                URL.revokeObjectURL(objectUrl);
+                showUploadMessage('error', 'Could not read audio file. The file may be corrupted.');
+            };
+        }
+
+        function showFileReady(file) {
             // Store selected file
             selectedFile = file;
 
@@ -1540,6 +1564,20 @@ else
         function updateUploadButton() {
             const btn = document.getElementById('uploadBtn');
             const name = document.getElementById('soundNameInput').value.trim();
+
+            // Check for duplicate name
+            if (name) {
+                const existingNames = Array.from(document.querySelectorAll('.sound-card[data-sound-name]'))
+                    .map(card => card.getAttribute('data-sound-name').toLowerCase());
+                if (existingNames.includes(name.toLowerCase())) {
+                    btn.disabled = true;
+                    showUploadMessage('error', `A sound named "${name}" already exists. Please choose a different name.`, 'duplicate');
+                    return;
+                } else if (uploadMessageSource === 'duplicate') {
+                    hideUploadMessage();
+                }
+            }
+
             btn.disabled = !selectedFile || !name || isUploading;
         }
 
@@ -1549,11 +1587,12 @@ else
             return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
         }
 
-        function showUploadMessage(type, message) {
+        function showUploadMessage(type, message, source) {
             const container = document.getElementById('uploadMessage');
             const icon = document.getElementById('uploadMessageIcon');
             const text = document.getElementById('uploadMessageText');
 
+            uploadMessageSource = source || null;
             container.classList.remove('hidden', 'success', 'error');
             container.classList.add(type);
 
@@ -1567,6 +1606,7 @@ else
         }
 
         function hideUploadMessage() {
+            uploadMessageSource = null;
             document.getElementById('uploadMessage').classList.add('hidden');
         }
 
@@ -1576,6 +1616,14 @@ else
             const name = document.getElementById('soundNameInput').value.trim();
             if (!name) {
                 showUploadMessage('error', 'Please enter a name for the sound.');
+                return;
+            }
+
+            // Check for duplicate name
+            const existingNames = Array.from(document.querySelectorAll('.sound-card[data-sound-name]'))
+                .map(card => card.getAttribute('data-sound-name').toLowerCase());
+            if (existingNames.includes(name.toLowerCase())) {
+                showUploadMessage('error', `A sound named "${name}" already exists. Please choose a different name.`);
                 return;
             }
 
