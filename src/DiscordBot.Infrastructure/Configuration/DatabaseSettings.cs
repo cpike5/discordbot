@@ -33,4 +33,26 @@ public class DatabaseSettings
     /// When null, the provider is auto-detected from the connection string.
     /// </summary>
     public string? Provider { get; set; }
+
+    /// <summary>
+    /// Determines whether the configured provider is PostgreSQL, using the explicit
+    /// <see cref="Provider"/> setting first, then falling back to connection string heuristics.
+    /// </summary>
+    /// <param name="connectionString">The connection string to inspect when Provider is not set.</param>
+    /// <returns><c>true</c> if the provider is PostgreSQL; <c>false</c> for SQLite.</returns>
+    public bool IsPostgreSql(string connectionString)
+    {
+        if (!string.IsNullOrEmpty(Provider))
+            return Provider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase);
+
+        return connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase)
+            || connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// Returns the display name of the active database provider ("PostgreSQL" or "SQLite").
+    /// </summary>
+    /// <param name="connectionString">The connection string to inspect when Provider is not set.</param>
+    public string GetProviderDisplayName(string connectionString)
+        => IsPostgreSql(connectionString) ? "PostgreSQL" : "SQLite";
 }
