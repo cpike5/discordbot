@@ -417,9 +417,35 @@
     }
 
     .search-container {
-        position: relative;
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
         margin-bottom: 1.5rem;
         flex-shrink: 0; /* Keep search bar fixed at top */
+    }
+
+    .search-input-wrapper {
+        position: relative;
+        flex: 1;
+    }
+
+    .fullscreen-toggle-btn {
+        padding: 0.5rem;
+        background: transparent;
+        border: 1px solid var(--color-border-primary);
+        color: var(--color-text-secondary);
+        flex-shrink: 0;
+        border-radius: 0.5rem;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: var(--transition-fast);
+    }
+
+    .fullscreen-toggle-btn:hover {
+        background-color: var(--color-bg-hover);
+        color: var(--color-text-primary);
     }
 
     .search-icon {
@@ -861,13 +887,20 @@ else
 
                 <!-- Search Bar -->
                 <div class="search-container">
-                    <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
-                    <input type="text" id="searchInput" class="search-input" placeholder="Search sounds..." style="padding-right: 2.5rem;">
-                    <button type="button" id="searchClearBtn" class="search-clear-btn" title="Clear search">
-                        <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    <div class="search-input-wrapper">
+                        <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        <input type="text" id="searchInput" class="search-input" placeholder="Search sounds..." style="padding-right: 2.5rem;">
+                        <button type="button" id="searchClearBtn" class="search-clear-btn" title="Clear search">
+                            <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                        </button>
+                    </div>
+                    <button type="button" id="fullscreenToggle" class="fullscreen-toggle-btn" title="Enter full screen" aria-label="Enter full screen">
+                        <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
                         </svg>
                     </button>
                 </div>
@@ -912,6 +945,16 @@ else
     </div>
 </main>
 
+<!-- Full-Screen Floating Toolbar -->
+<div id="fullscreenToolbar" class="fullscreen-toolbar">
+    <input type="text" id="fullscreenSearchInput" class="fullscreen-search" placeholder="Search sounds...">
+    <button type="button" id="fullscreenExitBtn" class="toolbar-btn" title="Exit full screen (Esc)" aria-label="Exit full screen">
+        <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
+        </svg>
+    </button>
+</div>
+
     <!-- Hidden file input for upload -->
     <input type="file" id="fileInput" accept="audio/mp3,audio/wav,audio/ogg,.mp3,.wav,.ogg" class="hidden">
 } @* End of IsAuthenticated else block *@
@@ -935,6 +978,8 @@ else
         let currentlyPlaying = null;
         let searchDebounceTimer = null;
         let signalRConnected = false;
+        let isFullscreen = localStorage.getItem('soundboard_fullscreen_' + window.guildId) === 'true';
+        let fullscreenAutoHideTimer = null;
 
         // ========================================
         // Toast Notification System
@@ -1009,6 +1054,7 @@ else
             PortalToast.init();
             await loadFavorites();
             setupEventHandlers();
+            initializeFullscreen();
             await initSignalR();
         });
 
@@ -1333,6 +1379,48 @@ else
 
             // Upload form handlers
             setupUploadHandlers();
+
+            // Fullscreen toggle button
+            document.getElementById('fullscreenToggle').addEventListener('click', toggleFullscreen);
+
+            // Fullscreen exit button
+            document.getElementById('fullscreenExitBtn').addEventListener('click', exitFullscreen);
+
+            // Fullscreen search input - sync with main search
+            const fsSearch = document.getElementById('fullscreenSearchInput');
+            fsSearch.addEventListener('input', function() {
+                document.getElementById('searchInput').value = this.value;
+                clearBtn.classList.toggle('visible', this.value.length > 0);
+                clearTimeout(searchDebounceTimer);
+                if (this.value === '') {
+                    filterSounds();
+                } else {
+                    searchDebounceTimer = setTimeout(filterSounds, 150);
+                }
+                resetFullscreenAutoHide();
+            });
+
+            // Auto-hide toolbar on mouse/touch activity
+            document.addEventListener('mousemove', function() {
+                if (isFullscreen) resetFullscreenAutoHide();
+            });
+            document.addEventListener('touchstart', function() {
+                if (isFullscreen) resetFullscreenAutoHide();
+            });
+
+            // Escape key to exit fullscreen
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'Escape' && isFullscreen) {
+                    exitFullscreen();
+                }
+            });
+
+            // Listen for browser fullscreen change
+            document.addEventListener('fullscreenchange', function() {
+                if (!document.fullscreenElement && isFullscreen) {
+                    exitFullscreen();
+                }
+            });
         }
 
         // ========================================
@@ -1805,6 +1893,91 @@ else
                     uploadFile();
                 }
             });
+        }
+
+        // ========================================
+        // Full-Screen Mode
+        // ========================================
+        function initializeFullscreen() {
+            if (isFullscreen) {
+                enterFullscreen();
+            }
+        }
+
+        function toggleFullscreen() {
+            if (isFullscreen) {
+                exitFullscreen();
+            } else {
+                enterFullscreen();
+            }
+        }
+
+        function enterFullscreen() {
+            isFullscreen = true;
+            document.body.classList.add('portal-fullscreen');
+            localStorage.setItem('soundboard_fullscreen_' + window.guildId, 'true');
+
+            // Update toggle button label
+            const toggle = document.getElementById('fullscreenToggle');
+            toggle.setAttribute('title', 'Exit full screen');
+            toggle.setAttribute('aria-label', 'Exit full screen');
+
+            // Sync fullscreen search with main search
+            const mainSearch = document.getElementById('searchInput');
+            const fsSearch = document.getElementById('fullscreenSearchInput');
+            if (mainSearch && fsSearch) {
+                fsSearch.value = mainSearch.value;
+            }
+
+            resetFullscreenAutoHide();
+
+            // Try Fullscreen API for true fullscreen on mobile
+            if (document.documentElement.requestFullscreen) {
+                document.documentElement.requestFullscreen().catch(() => {});
+            }
+        }
+
+        function exitFullscreen() {
+            isFullscreen = false;
+            document.body.classList.remove('portal-fullscreen');
+            localStorage.setItem('soundboard_fullscreen_' + window.guildId, 'false');
+
+            // Update toggle button label
+            const toggle = document.getElementById('fullscreenToggle');
+            toggle.setAttribute('title', 'Enter full screen');
+            toggle.setAttribute('aria-label', 'Enter full screen');
+
+            // Sync search back to main input
+            const mainSearch = document.getElementById('searchInput');
+            const fsSearch = document.getElementById('fullscreenSearchInput');
+            if (mainSearch && fsSearch) {
+                mainSearch.value = fsSearch.value;
+                const clearBtn = document.getElementById('searchClearBtn');
+                clearBtn.classList.toggle('visible', mainSearch.value.length > 0);
+            }
+
+            clearTimeout(fullscreenAutoHideTimer);
+
+            // Exit browser fullscreen if active
+            if (document.fullscreenElement) {
+                document.exitFullscreen().catch(() => {});
+            }
+        }
+
+        function resetFullscreenAutoHide() {
+            const toolbar = document.getElementById('fullscreenToolbar');
+            if (!toolbar) return;
+
+            toolbar.classList.remove('auto-hidden');
+            clearTimeout(fullscreenAutoHideTimer);
+
+            fullscreenAutoHideTimer = setTimeout(() => {
+                if (isFullscreen) {
+                    const fsSearch = document.getElementById('fullscreenSearchInput');
+                    if (document.activeElement === fsSearch) return;
+                    toolbar.classList.add('auto-hidden');
+                }
+            }, 3000);
         }
     </script>
 }

@@ -741,6 +741,143 @@ html.portal-page body {
 }
 
 /* -----------------------------------------------
+   Full-Screen Mode
+   ----------------------------------------------- */
+
+/* Transitions for elements that can animate (gap, border-radius, padding) */
+.main-container {
+    transition: height var(--transition-smooth), padding var(--transition-smooth);
+}
+
+.portal-content {
+    transition: gap var(--transition-smooth);
+}
+
+.sound-grid-wrapper {
+    transition: border-radius var(--transition-smooth), border-color var(--transition-smooth);
+}
+
+body.portal-fullscreen .portal-header {
+    display: none;
+}
+
+body.portal-fullscreen .portal-audio-warning {
+    display: none;
+}
+
+body.portal-fullscreen .main-container {
+    height: 100vh;
+    max-width: none;
+    padding: 0;
+}
+
+body.portal-fullscreen .sidebar {
+    display: none;
+}
+
+body.portal-fullscreen .portal-content {
+    gap: 0;
+}
+
+body.portal-fullscreen .sound-grid-wrapper {
+    border-radius: 0;
+    border: none;
+}
+
+body.portal-fullscreen .sound-grid {
+    padding: 1rem;
+}
+
+/* Override mobile breakpoint scroll behavior when fullscreen is active.
+   :has() is needed because the mobile breakpoint sets overflow:auto on <html>. */
+body.portal-fullscreen,
+html.portal-page:has(body.portal-fullscreen) {
+    overflow: hidden !important;
+    height: 100% !important;
+}
+
+/* Hide fullscreen toolbar when not in fullscreen */
+body:not(.portal-fullscreen) .fullscreen-toolbar {
+    display: none;
+}
+
+/* Floating fullscreen toolbar */
+.fullscreen-toolbar {
+    position: fixed;
+    top: 0.75rem;
+    right: 0.75rem;
+    z-index: var(--z-modal-backdrop);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background-color: color-mix(in srgb, var(--color-bg-secondary) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.5rem;
+    box-shadow: var(--shadow-xl);
+    opacity: 1;
+    transition: opacity 0.3s ease;
+}
+
+.fullscreen-toolbar.auto-hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+.fullscreen-toolbar .toolbar-btn {
+    background: transparent;
+    border: none;
+    color: var(--color-text-secondary);
+    cursor: pointer;
+    padding: 0.75rem;
+    border-radius: 0.375rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition-fast);
+}
+
+.fullscreen-toolbar .toolbar-btn:hover {
+    background-color: var(--color-bg-hover);
+    color: var(--color-text-primary);
+}
+
+.fullscreen-toolbar .fullscreen-search {
+    width: 200px;
+    background-color: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.375rem;
+    padding: 0.375rem 0.625rem;
+    font-size: 0.8125rem;
+    color: var(--color-text-primary);
+}
+
+.fullscreen-toolbar .fullscreen-search::placeholder {
+    color: var(--color-text-secondary);
+}
+
+/* Fullscreen grid responsive overrides */
+@media (max-width: 768px) {
+    body.portal-fullscreen .sound-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.75rem;
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+    body.portal-fullscreen .sound-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    body.portal-fullscreen .sound-grid {
+        grid-template-columns: repeat(5, 1fr);
+    }
+}
+
+/* -----------------------------------------------
    Reduced Motion
    ----------------------------------------------- */
 @media (prefers-reduced-motion: reduce) {
@@ -763,5 +900,12 @@ html.portal-page body {
 
     .portal-toast.dismissing {
         animation: none;
+    }
+
+    .main-container,
+    .portal-content,
+    .sound-grid-wrapper,
+    .fullscreen-toolbar {
+        transition: none;
     }
 }
