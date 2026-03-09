@@ -3,6 +3,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Infrastructure.Configuration;
 using Microsoft.Extensions.Options;
 using System.Reflection;
 
@@ -18,6 +19,7 @@ public class BotService : IBotService
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly ILogger<BotService> _logger;
     private readonly BotConfiguration _config;
+    private readonly string _databaseProviderName;
     private static readonly DateTime _startTime = DateTime.UtcNow;
 
     /// <summary>
@@ -28,18 +30,25 @@ public class BotService : IBotService
     /// <param name="dashboardUpdateService">The dashboard update service.</param>
     /// <param name="logger">The logger.</param>
     /// <param name="config">The bot configuration.</param>
+    /// <param name="dbSettings">The database settings.</param>
+    /// <param name="configuration">The application configuration.</param>
     public BotService(
         DiscordSocketClient client,
         IHostApplicationLifetime lifetime,
         IDashboardUpdateService dashboardUpdateService,
         ILogger<BotService> logger,
-        IOptions<BotConfiguration> config)
+        IOptions<BotConfiguration> config,
+        IOptions<DatabaseSettings> dbSettings,
+        IConfiguration configuration)
     {
         _client = client;
         _lifetime = lifetime;
         _dashboardUpdateService = dashboardUpdateService;
         _logger = logger;
         _config = config.Value;
+
+        var connectionString = configuration.GetConnectionString("DefaultConnection") ?? string.Empty;
+        _databaseProviderName = dbSettings.Value.GetProviderDisplayName(connectionString);
     }
 
     /// <inheritdoc/>
@@ -205,7 +214,7 @@ public class BotService : IBotService
                 TokenMasked = maskedToken,
                 TestGuildId = _config.TestGuildId,
                 HasTestGuild = _config.TestGuildId.HasValue,
-                DatabaseProvider = "SQLite", // TODO: Get from actual configuration
+                DatabaseProvider = _databaseProviderName,
                 DiscordNetVersion = discordNetVersion,
                 AppVersion = appVersion,
                 RuntimeVersion = Environment.Version.ToString(),

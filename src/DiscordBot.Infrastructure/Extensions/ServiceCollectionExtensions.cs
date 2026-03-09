@@ -36,10 +36,9 @@ public static class ServiceCollectionExtensions
 
         var dbSettings = configuration.GetSection(DatabaseSettings.SectionName).Get<DatabaseSettings>()
             ?? new DatabaseSettings();
-        var isPostgreSql = dbSettings.Provider?.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase) == true
-            || (string.IsNullOrEmpty(dbSettings.Provider) && IsPostgreSqlConnectionString(connectionString));
+        var isPostgreSql = dbSettings.IsPostgreSql(connectionString);
 
-        var providerName = isPostgreSql ? "PostgreSQL" : "SQLite";
+        var providerName = dbSettings.GetProviderDisplayName(connectionString);
         Log.Information("Database provider: {Provider}", providerName);
 
         if (isPostgreSql)
@@ -114,15 +113,4 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>
-    /// Heuristic to detect PostgreSQL connection strings.
-    /// PostgreSQL strings typically contain Host= or Server=, while SQLite strings reference file paths.
-    /// Note: Npgsql accepts "Data Source=" as an alias for "Host=", making pure keyword matching
-    /// unreliable — this is why the explicit Database:Provider config is the primary mechanism.
-    /// </summary>
-    private static bool IsPostgreSqlConnectionString(string connectionString)
-    {
-        return connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase)
-            || connectionString.Contains("Server=", StringComparison.OrdinalIgnoreCase);
-    }
 }
