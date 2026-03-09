@@ -406,7 +406,7 @@ public class IndexModel : PageModel
             var p50 = aggregates.Any() ? aggregates.Average(a => a.P50Ms) : 0;
 
             var timeouts = slowest
-                .Where(s => s.DurationMs > 3000)
+                .Where(s => s.DurationMs > DiscordConstants.InteractionTimeoutMs)
                 .GroupBy(s => s.CommandName)
                 .Select(g => new CommandTimeoutDto
                 {
