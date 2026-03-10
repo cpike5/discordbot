@@ -7,6 +7,7 @@ using DiscordBot.Infrastructure.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Npgsql;
 using Serilog;
 
 namespace DiscordBot.Infrastructure.Extensions;
@@ -43,11 +44,23 @@ public static class ServiceCollectionExtensions
 
         if (isPostgreSql)
         {
+            // Ensure TCP keepalive is set to detect dead connections early
+            var csBuilder = new NpgsqlConnectionStringBuilder(connectionString);
+            if (csBuilder.KeepAlive == 0)
+                csBuilder.KeepAlive = 30;
+            var npgsqlConnectionString = csBuilder.ToString();
+
             services.AddDbContext<PostgresBotDbContext>((serviceProvider, options) =>
             {
                 var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
-                options.UseNpgsql(connectionString, npgsql =>
-                    npgsql.MigrationsAssembly("DiscordBot.Infrastructure"))
+                options.UseNpgsql(npgsqlConnectionString, npgsql =>
+                {
+                    npgsql.MigrationsAssembly("DiscordBot.Infrastructure");
+                    npgsql.EnableRetryOnFailure(
+                        maxRetryCount: 3,
+                        maxRetryDelay: TimeSpan.FromSeconds(5),
+                        errorCodesToAdd: null);
+                })
                     .AddInterceptors(interceptor);
             });
             // Forward BotDbContext to resolve as PostgresBotDbContext
