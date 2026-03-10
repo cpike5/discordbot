@@ -4,8 +4,7 @@
 
 - **Elasticsearch 8.12.0** at `http://cpike.ca:9200`
 - **Kibana** at `https://kibana.cpike.ca`
-- **API Key**: `MmpKUjJKd0JlQW1kS3JIdFRDVXI6OThCMWpGd01TR3lkVzEwYjdEcE9tZw==`
-- **ES auth**: `Authorization: ApiKey <key>` over HTTP
+- **ES auth**: `Authorization: ApiKey <key>` over HTTP (key stored in user secrets)
 - **Kibana auth**: Same API key over HTTPS, mutations require `kbn-xsrf: true`
 
 ## Data Sources
