@@ -19,6 +19,9 @@ services:
   bot:
     build: .
     env_file: .env
+    networks:
+      - elastic-network
+      - db-network
     environment:
       Observability__SeqUrl: ${SEQ_URL:-}
       Database__Provider: ${DATABASE_PROVIDER:-}
@@ -45,6 +48,8 @@ services:
   postgres:
     image: postgres:16-alpine
     #profiles: [postgres]
+    networks:
+      - db-network
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-discordbot}
       POSTGRES_USER: ${POSTGRES_USER:-discordbot}
@@ -65,6 +70,8 @@ services:
   # ===========================================================================
   seq:
     image: datalust/seq:latest
+    networks:
+      - seq-network
     profiles: [seq]
     environment:
       ACCEPT_EULA: "Y"
@@ -85,3 +92,11 @@ volumes:
   bot-data:
   postgres-data:
   seq-data:
+
+networks:
+  elastic-network:
+    external: true
+  db-network:
+    external: false
+  seq-network:
+    external: false
