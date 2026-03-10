@@ -580,30 +580,23 @@ public class IndexModel : PageModel
             var authResult = await _authorizationService.AuthorizeAsync(User, "RequireAdmin");
             var canEdit = authResult.Succeeded;
 
-            var activeIncidentsTask = _alertService.GetActiveIncidentsAsync();
-            var alertConfigsTask = _alertService.GetAllConfigsAsync();
-            var recentIncidentsTask = _alertService.GetIncidentHistoryAsync(
+            // Execute sequentially — DbContext is not thread-safe
+            var activeIncidents = await _alertService.GetActiveIncidentsAsync();
+            var alertConfigs = await _alertService.GetAllConfigsAsync();
+            var recentIncidents = await _alertService.GetIncidentHistoryAsync(
                 new IncidentQueryDto { PageNumber = 1, PageSize = 10 });
-            var autoRecoveryEventsTask = _alertService.GetAutoRecoveryEventsAsync(10);
-            var alertFrequencyTask = _alertService.GetAlertFrequencyDataAsync(30);
-            var summaryTask = _alertService.GetActiveAlertSummaryAsync();
-
-            await Task.WhenAll(
-                activeIncidentsTask,
-                alertConfigsTask,
-                recentIncidentsTask,
-                autoRecoveryEventsTask,
-                alertFrequencyTask,
-                summaryTask);
+            var autoRecoveryEvents = await _alertService.GetAutoRecoveryEventsAsync(10);
+            var alertFrequency = await _alertService.GetAlertFrequencyDataAsync(30);
+            var alertSummary = await _alertService.GetActiveAlertSummaryAsync();
 
             return new AlertsPageViewModel
             {
-                ActiveIncidents = activeIncidentsTask.Result,
-                AlertConfigs = alertConfigsTask.Result,
-                RecentIncidents = recentIncidentsTask.Result.Items,
-                AutoRecoveryEvents = autoRecoveryEventsTask.Result,
-                AlertFrequencyData = alertFrequencyTask.Result,
-                AlertSummary = summaryTask.Result,
+                ActiveIncidents = activeIncidents,
+                AlertConfigs = alertConfigs,
+                RecentIncidents = recentIncidents.Items,
+                AutoRecoveryEvents = autoRecoveryEvents,
+                AlertFrequencyData = alertFrequency,
+                AlertSummary = alertSummary,
                 CanEdit = canEdit
             };
         }
