@@ -203,6 +203,7 @@ function Main {
 
     # Import objects in dependency order
     $ImportOrder = @(
+        @{ File = "tags.ndjson"; Description = "Tags" },
         @{ File = "data-views.ndjson"; Description = "Data Views (Index Patterns)" },
         @{ File = "saved-searches.ndjson"; Description = "Saved Searches" },
         @{ File = "visualizations.ndjson"; Description = "Visualizations" },
