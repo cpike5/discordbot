@@ -191,6 +191,19 @@ public class PlaybackService : IPlaybackService
                 {
                     _logger.LogInformation("Stopping playback and clearing queue in guild {GuildId}", guildId);
                     state.CancellationTokenSource?.Cancel();
+
+                    // Notify clients that playback has finished so now-playing UI clears.
+                    // Natural completion notifications are handled in PlaySoundAsync;
+                    // StopAsync owns the cancellation-path notification.
+                    if (state.CurrentSound != null)
+                    {
+                        _ = _audioNotifier.NotifyPlaybackFinishedAsync(
+                            guildId, state.CurrentSound.Id, wasCancelled: true, CancellationToken.None);
+                    }
+                    else
+                    {
+                        _logger.LogWarning("StopAsync: IsPlaying=true but CurrentSound is null for guild {GuildId}; PlaybackFinished not sent", guildId);
+                    }
                 }
 
                 state.Queue.Clear();
@@ -525,8 +538,12 @@ public class PlaybackService : IPlaybackService
                 wasCancelled = cancelled;
             }
 
-            // Broadcast PlaybackFinished event
-            _ = _audioNotifier.NotifyPlaybackFinishedAsync(guildId, sound.Id, wasCancelled, CancellationToken.None);
+            // Broadcast PlaybackFinished event for natural completion only.
+            // Cancellation-path notifications are handled by StopAsync to avoid double-fire.
+            if (!wasCancelled)
+            {
+                _ = _audioNotifier.NotifyPlaybackFinishedAsync(guildId, sound.Id, wasCancelled: false, CancellationToken.None);
+            }
 
             if (!success && !wasCancelled)
             {
