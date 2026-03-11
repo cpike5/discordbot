@@ -786,6 +786,16 @@ body.portal-fullscreen .sound-grid-wrapper {
 
 body.portal-fullscreen .sound-grid {
     padding: 1rem;
+    scrollbar-width: none;           /* Firefox */
+    -ms-overflow-style: none;        /* IE/Edge */
+}
+
+body.portal-fullscreen .sound-grid::-webkit-scrollbar {
+    display: none;                   /* Chrome/Safari/Edge */
+}
+
+body.portal-fullscreen .search-container {
+    display: none;
 }
 
 /* Override mobile breakpoint scroll behavior when fullscreen is active.
@@ -873,7 +883,7 @@ body:not(.portal-fullscreen) .fullscreen-toolbar {
 
 @media (min-width: 1024px) {
     body.portal-fullscreen .sound-grid {
-        grid-template-columns: repeat(5, 1fr);
+        grid-template-columns: repeat(7, 1fr);
     }
 }
 
