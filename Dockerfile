@@ -25,6 +25,10 @@ COPY src/DiscordBot.Core/DiscordBot.Core.csproj src/DiscordBot.Core/
 COPY src/DiscordBot.Infrastructure/DiscordBot.Infrastructure.csproj src/DiscordBot.Infrastructure/
 COPY src/DiscordBot.Bot/DiscordBot.Bot.csproj src/DiscordBot.Bot/
 
+# Local NuGet feed for forked Discord.Net packages (DAVE multi-party voice fix)
+COPY nuget.config ./
+COPY local-packages/ local-packages/
+
 RUN dotnet restore src/DiscordBot.Bot/DiscordBot.Bot.csproj
 
 # Install npm dependencies (cached separately from source changes)

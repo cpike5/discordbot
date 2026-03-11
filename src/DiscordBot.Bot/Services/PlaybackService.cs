@@ -804,9 +804,10 @@ public class PlaybackService : IPlaybackService
             }
         }
 
-        // Check for FFmpeg errors
+        // Check for FFmpeg errors (only non-zero exit code is a real failure;
+        // FFmpeg writes harmless warnings like "Estimating duration from bitrate" to stderr)
         var errorOutput = await ffmpeg.StandardError.ReadToEndAsync();
-        var hasError = !string.IsNullOrWhiteSpace(errorOutput) || ffmpeg.ExitCode != 0;
+        var hasError = ffmpeg.ExitCode != 0;
 
         // Record FFmpeg completion
         BotActivitySource.RecordFfmpegDetails(
@@ -814,6 +815,13 @@ public class PlaybackService : IPlaybackService
             processId: ffmpeg.Id,
             exitCode: ffmpeg.ExitCode,
             arguments: ffmpegArguments);
+
+        // Log FFmpeg stderr output even on success (as debug) for diagnostics
+        if (!string.IsNullOrWhiteSpace(errorOutput) && !hasError)
+        {
+            _logger.LogDebug("FFmpeg stderr for sound {SoundName} in guild {GuildId} (exit code 0): {ErrorOutput}",
+                sound.Name, guildId, errorOutput);
+        }
 
         if (hasError)
         {
