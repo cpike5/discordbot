@@ -30,7 +30,7 @@ services:
       DmAssistant__EnableCodeExecution: ${DmAssistant__EnableCodeExecution:-false}
     volumes:
       - bot-data:/app/data            # SQLite database persistence
-      - ./sounds:/app/sounds:ro       # Optional: custom sound clips
+      - ./sounds:/app/sounds:rw       # Optional: custom sound clips
     ports:
       - "7300:5000"
     restart: unless-stopped
