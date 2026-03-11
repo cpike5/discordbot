@@ -95,24 +95,29 @@ public class UserRepository : Repository<User>, IUserRepository
         var totalAffected = 0;
         var batchSize = 500;
 
+        var executionStrategy = Context.Database.CreateExecutionStrategy();
+
         for (int i = 0; i < usersList.Count; i += batchSize)
         {
             cancellationToken.ThrowIfCancellationRequested();
 
             var batch = usersList.Skip(i).Take(batchSize).ToList();
             var batchUserIds = batch.Select(u => u.Id).ToList();
+            var batchStart = i + 1;
+            var batchEnd = Math.Min(i + batchSize, usersList.Count);
 
             _logger.LogDebug(
                 "Processing batch {BatchStart}-{BatchEnd} of {Total}",
-                i + 1, Math.Min(i + batchSize, usersList.Count), usersList.Count);
+                batchStart, batchEnd, usersList.Count);
 
-            using var transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
-            try
+            var affected = await executionStrategy.ExecuteAsync(async ct =>
             {
+                using var transaction = await Context.Database.BeginTransactionAsync(ct);
+
                 // Load existing users for this batch
                 var existingUsers = await DbSet
                     .Where(u => batchUserIds.Contains(u.Id))
-                    .ToListAsync(cancellationToken);
+                    .ToListAsync(ct);
 
                 var existingUserIds = existingUsers.Select(u => u.Id).ToHashSet();
 
@@ -123,7 +128,7 @@ public class UserRepository : Repository<User>, IUserRepository
                 // Add new users
                 if (newUsers.Any())
                 {
-                    await DbSet.AddRangeAsync(newUsers, cancellationToken);
+                    await DbSet.AddRangeAsync(newUsers, ct);
                     _logger.LogDebug("Adding {Count} new users in batch", newUsers.Count);
                 }
 
@@ -144,23 +149,16 @@ public class UserRepository : Repository<User>, IUserRepository
                     _logger.LogDebug("Updating {Count} existing users in batch", updateUsers.Count);
                 }
 
-                var affected = await Context.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
+                var result = await Context.SaveChangesAsync(ct);
+                await transaction.CommitAsync(ct);
+                return result;
+            }, cancellationToken);
 
-                totalAffected += affected;
+            totalAffected += affected;
 
-                _logger.LogDebug(
-                    "Batch upsert completed: {BatchStart}-{BatchEnd} of {Total}, {Affected} records affected",
-                    i + 1, Math.Min(i + batchSize, usersList.Count), usersList.Count, affected);
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                _logger.LogError(ex,
-                    "Batch upsert failed for batch {BatchStart}-{BatchEnd}",
-                    i + 1, Math.Min(i + batchSize, usersList.Count));
-                throw;
-            }
+            _logger.LogDebug(
+                "Batch upsert completed: {BatchStart}-{BatchEnd} of {Total}, {Affected} records affected",
+                batchStart, batchEnd, usersList.Count, affected);
         }
 
         _logger.LogInformation(
