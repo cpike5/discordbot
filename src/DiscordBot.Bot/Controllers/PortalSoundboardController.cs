@@ -237,7 +237,7 @@ public class PortalSoundboardController : ControllerBase
         var queueEnabled = audioSettings?.QueueEnabled ?? false;
 
         // Get user ID from claims (default to 0 if not found, which indicates portal/API play)
-        var userIdClaim = User.FindFirst("discord_id")?.Value;
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
         var userId = userIdClaim != null && ulong.TryParse(userIdClaim, out var parsed) ? parsed : 0UL;
 
         // Enrich APM transaction for Kibana visibility
@@ -518,7 +518,7 @@ public class PortalSoundboardController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetFavorites(ulong guildId, CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirst("discord_id")?.Value;
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
         if (userIdClaim == null || !ulong.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
@@ -543,7 +543,7 @@ public class PortalSoundboardController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> AddFavorite(ulong guildId, Guid soundId, CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirst("discord_id")?.Value;
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
         if (userIdClaim == null || !ulong.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
@@ -593,7 +593,7 @@ public class PortalSoundboardController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> RemoveFavorite(ulong guildId, Guid soundId, CancellationToken cancellationToken)
     {
-        var userIdClaim = User.FindFirst("discord_id")?.Value;
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
         if (userIdClaim == null || !ulong.TryParse(userIdClaim, out var userId))
             return Unauthorized();
 
