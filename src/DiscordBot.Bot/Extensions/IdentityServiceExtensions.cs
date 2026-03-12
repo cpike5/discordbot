@@ -1,3 +1,4 @@
+using System.Net;
 using AspNet.Security.OAuth.Discord;
 using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Services;
@@ -137,12 +138,63 @@ public static class IdentityServiceExtensions
                 discordOptions.Scope.Add("email");
                 discordOptions.Scope.Add("guilds"); // Required for fetching user's guild list
                 discordOptions.SaveTokens = true;
+
+                discordOptions.Events.OnRemoteFailure = context =>
+                {
+                    var logger = context.HttpContext.RequestServices
+                        .GetRequiredService<ILoggerFactory>()
+                        .CreateLogger("DiscordOAuth");
+
+                    var exception = context.Failure;
+                    logger.LogWarning(exception, "Discord OAuth remote failure");
+
+                    var errorType = ClassifyOAuthError(exception);
+                    context.Response.Redirect($"/Account/Login?authError={errorType}");
+                    context.HandleResponse();
+                    return Task.CompletedTask;
+                };
             });
 
         // Register that Discord OAuth is configured for UI to consume
         services.AddSingleton(new DiscordOAuthSettings { IsConfigured = true });
 
         return services;
+    }
+
+    /// <summary>
+    /// Classifies an OAuth exception into a user-facing error type.
+    /// </summary>
+    private static string ClassifyOAuthError(Exception? exception)
+    {
+        if (exception is null)
+            return "discord_error";
+
+        // Check the full exception chain for HTTP status codes and known messages
+        var current = exception;
+        while (current != null)
+        {
+            if (current is HttpRequestException httpEx &&
+                httpEx.StatusCode is HttpStatusCode.ServiceUnavailable or HttpStatusCode.BadGateway or HttpStatusCode.GatewayTimeout)
+            {
+                return "discord_unavailable";
+            }
+
+            var message = current.Message;
+            if (message.Contains("invalid_grant", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("expired", StringComparison.OrdinalIgnoreCase) ||
+                message.Contains("code was already redeemed", StringComparison.OrdinalIgnoreCase))
+            {
+                return "discord_expired";
+            }
+
+            current = current.InnerException;
+        }
+
+        // Network-level failures (DNS, connection refused, timeouts)
+        if (exception is HttpRequestException or TaskCanceledException)
+            return "discord_unavailable";
+
+        return "discord_error";
     }
 
     /// <summary>

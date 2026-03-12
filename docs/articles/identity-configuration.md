@@ -442,6 +442,53 @@ builder.Services.AddAuthentication()
     });
 ```
 
+### OAuth Error Handling
+
+Discord OAuth failures (API downtime, expired authorization codes, network errors) are intercepted before they reach ASP.NET's default error handler. This prevents generic 500 error pages from being shown to users.
+
+#### How It Works
+
+The `OnRemoteFailure` event on `DiscordAuthenticationOptions` is configured in `IdentityServiceExtensions.AddDiscordOAuth`. When the OAuth middleware encounters any failure during the callback, the event handler:
+
+1. Logs the exception at Warning level.
+2. Calls `ClassifyOAuthError` to determine an error type string.
+3. Redirects to `/Account/Login?authError={errorType}`.
+4. Calls `context.HandleResponse()` to suppress the default error response.
+
+#### Error Classification
+
+`ClassifyOAuthError` walks the full exception chain and returns one of three values:
+
+| Error Type | Trigger Conditions | User-Facing Title |
+|---|---|---|
+| `discord_unavailable` | `HttpRequestException` with status 502/503/504, any `HttpRequestException` or `TaskCanceledException` (DNS, connection refused, timeout) | "Discord is currently unavailable" |
+| `discord_expired` | Exception message contains `invalid_grant`, `expired`, or `code was already redeemed` | "Login session expired" |
+| `discord_error` | Any other failure, or null exception | "Discord login failed" |
+
+#### Login Page Rendering
+
+`Login.cshtml.cs` reads the `authError` query parameter (bound via `[FromQuery(Name = "authError")]`) on `OnGet`. The value is mapped to a title and description using a `switch` expression, then exposed as `AuthErrorTitle` and `AuthErrorMessage` properties.
+
+`Login.cshtml` renders these properties inside a styled amber alert block when `AuthErrorTitle` is set. The block includes:
+
+- A "Try Again" button that re-submits the Discord OAuth form.
+- A "Status" link to `https://discordstatus.com` shown only when `AuthError == "discord_unavailable"`.
+
+#### ExternalLogin Callback Handling
+
+`ExternalLogin.cshtml.cs` `OnGetCallbackAsync` receives a `remoteError` query parameter when the OAuth provider itself returns an error string (e.g., user denied authorization). Previously this fell through to a generic error; it now redirects to `/Account/Login?authError=discord_error` to use the same styled error display.
+
+#### Relevant Files
+
+| File | Role |
+|---|---|
+| `src/DiscordBot.Bot/Extensions/IdentityServiceExtensions.cs` | `OnRemoteFailure` handler and `ClassifyOAuthError` method |
+| `src/DiscordBot.Bot/Pages/Account/Login.cshtml.cs` | `AuthError`, `AuthErrorTitle`, `AuthErrorMessage` properties and error mapping |
+| `src/DiscordBot.Bot/Pages/Account/Login.cshtml` | Amber alert block with retry button and status link |
+| `src/DiscordBot.Bot/Pages/Account/ExternalLogin.cshtml.cs` | `remoteError` redirect to `authError` query param |
+
+---
+
 ### OAuth Scopes
 
 The application requests the following OAuth scopes:
@@ -601,6 +648,23 @@ public static async Task SeedAsync(IServiceProvider services)
 ## Troubleshooting
 
 ### Common Issues and Solutions
+
+#### Issue: Discord login shows an error message on the login page
+
+**Cause:** The OAuth flow failed before completing. Common causes and their displayed error types:
+
+| Displayed Title | `authError` Value | Likely Cause |
+|---|---|---|
+| "Discord is currently unavailable" | `discord_unavailable` | Discord API is down or unreachable; DNS/network failure |
+| "Login session expired" | `discord_expired` | Authorization code was already used, or the OAuth session timed out |
+| "Discord login failed" | `discord_error` | User denied authorization, or an unclassified error occurred |
+
+**Solution:**
+- For `discord_unavailable`: Check [discordstatus.com](https://discordstatus.com) (linked directly from the error block) and retry once Discord is available.
+- For `discord_expired`: Click "Try Again" — a fresh authorization code will be issued.
+- For `discord_error`: Click "Try Again". If the problem persists, check server logs for the `DiscordOAuth` warning entry which includes the full exception.
+
+---
 
 #### Issue: "Invalid redirect_uri" error during Discord OAuth
 
@@ -865,6 +929,7 @@ var roles = _roleManager.Roles.ToList();
 
 | Version | Date | Author | Changes |
 |---------|------|--------|---------|
+| 1.2 | 2026-03-12 | Claude Code | Added OAuth error handling section and troubleshooting entry |
 | 1.1 | 2025-12-09 | Claude Code | Added tag helper documentation for Issue #65 |
 | 1.0 | 2025-12-09 | docs-writer | Initial documentation for Issue #64 |
 
