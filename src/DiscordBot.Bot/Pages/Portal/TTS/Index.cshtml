@@ -323,16 +323,11 @@
         max-height: 1000px;
     }
 
-    /* Responsive */
+    /* Responsive Voice Controls */
     @@media (max-width: 767px) {
-        /* Show collapsible voice settings on mobile */
-        .mobile-collapsible-section {
-            display: block !important;
-        }
-
-        /* Hide non-collapsible versions on mobile */
-        .desktop-voice-controls {
-            display: none !important;
+        /* On mobile: show the collapsible header */
+        .voice-controls-collapsible-header {
+            display: flex !important;
         }
 
         .form-range::-webkit-slider-thumb {
@@ -356,9 +351,17 @@
     }
 
     @@media (min-width: 768px) {
-        /* Hide collapsible version on desktop */
-        .mobile-collapsible-section {
+        /* On desktop: hide the collapsible header, show controls directly */
+        .voice-controls-collapsible-header {
             display: none !important;
+        }
+
+        /* Override collapsible content to always be visible on desktop */
+        .voice-controls-body {
+            max-height: none !important;
+            overflow: visible !important;
+            padding: 0 !important;
+            border: none !important;
         }
     }
 
@@ -479,35 +482,25 @@ else
                         </div>
                     </div>
 
-                    <!-- Mobile Collapsible Voice Settings Section -->
-                    <div class="form-group mobile-collapsible-section" style="display: none;">
-                        <div class="collapsible-header" onclick="toggleVoiceSettings()" role="button" aria-expanded="false" aria-controls="voiceSettingsContent">
+                    <!-- Voice Controls (single set, responsive via CSS) -->
+                    <!-- Mobile: collapsible accordion | Desktop: always visible inline -->
+                    <div class="form-group">
+                        <div class="collapsible-header voice-controls-collapsible-header" onclick="toggleVoiceSettings()" role="button" aria-expanded="false" aria-controls="voiceSettingsContent" style="display: none;">
                             <span class="collapsible-header-title">Voice Settings</span>
-                            <svg class="collapsible-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="collapsible-chevron" id="voiceSettingsChevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
                         </div>
-                        <div id="voiceSettingsContent" class="collapsible-content">
+                        <div id="voiceSettingsContent" class="collapsible-content voice-controls-body">
                             <!-- Voice Selection -->
                             <div class="form-group">
                                 <label class="form-label">Voice</label>
-                                <select id="voiceSelectMobile" class="form-select">
-                                    <option value="">-- Select a voice --</option>
-                                    @foreach (var localeGroup in Model.AvailableVoices.GroupBy(v => v.Locale).OrderBy(g => g.Key))
-                                    {
-                                        <optgroup label="@localeGroup.Key">
-                                            @foreach (var voice in localeGroup.OrderBy(v => v.DisplayName))
-                                            {
-                                                <option value="@voice.Name">@voice.DisplayName</option>
-                                            }
-                                        </optgroup>
-                                    }
-                                </select>
+                                <partial name="../../Shared/Components/_VoiceSelector" model="Model.VoiceSelector" />
                             </div>
 
                             <!-- Style Selector (visible in Standard and Pro modes, hidden by default) -->
-                            <div id="portalStyleSelectorContainerMobile" class="form-group hidden">
-                                <!-- Note: Style selector component already rendered, just sync state -->
+                            <div id="portalStyleSelectorContainer" class="form-group hidden">
+                                <partial name="../../Shared/Components/_StyleSelector" model="Model.StyleSelector" />
                             </div>
 
                             <!-- Speed and Pitch Controls -->
@@ -517,12 +510,12 @@ else
                                     <label class="form-label">
                                         Speed
                                         <span class="form-label-small">
-                                            <span id="speedValueMobile">1.0x</span>
+                                            <span id="speedValue">1.0x</span>
                                         </span>
                                     </label>
                                     <div class="slider-group">
                                         <input type="range"
-                                               id="speedSliderMobile"
+                                               id="speedSlider"
                                                class="form-range"
                                                min="0.5"
                                                max="2.0"
@@ -537,12 +530,12 @@ else
                                     <label class="form-label">
                                         Pitch
                                         <span class="form-label-small">
-                                            <span id="pitchValueMobile">1.0x</span>
+                                            <span id="pitchValue">1.0x</span>
                                         </span>
                                     </label>
                                     <div class="slider-group">
                                         <input type="range"
-                                               id="pitchSliderMobile"
+                                               id="pitchSlider"
                                                class="form-range"
                                                min="0.5"
                                                max="2.0"
@@ -550,63 +543,6 @@ else
                                                value="1.0"
                                                aria-label="Pitch adjustment">
                                     </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Desktop Voice Controls -->
-                    <div class="desktop-voice-controls">
-                        <!-- Voice Selection -->
-                        <div class="form-group">
-                            <label class="form-label">Voice</label>
-                            <partial name="../../Shared/Components/_VoiceSelector" model="Model.VoiceSelector" />
-                        </div>
-
-                        <!-- Style Selector (visible in Standard and Pro modes, hidden by default) -->
-                        <div id="portalStyleSelectorContainer" class="form-group hidden">
-                            <partial name="../../Shared/Components/_StyleSelector" model="Model.StyleSelector" />
-                        </div>
-
-                        <!-- Speed and Pitch Controls -->
-                        <div class="form-row">
-                            <!-- Speed Slider -->
-                            <div class="form-group">
-                                <label class="form-label">
-                                    Speed
-                                    <span class="form-label-small">
-                                        <span id="speedValue">1.0x</span>
-                                    </span>
-                                </label>
-                                <div class="slider-group">
-                                    <input type="range"
-                                           id="speedSlider"
-                                           class="form-range"
-                                           min="0.5"
-                                           max="2.0"
-                                           step="0.1"
-                                           value="1.0"
-                                           aria-label="Speech rate multiplier">
-                                </div>
-                            </div>
-
-                            <!-- Pitch Slider -->
-                            <div class="form-group">
-                                <label class="form-label">
-                                    Pitch
-                                    <span class="form-label-small">
-                                        <span id="pitchValue">1.0x</span>
-                                    </span>
-                                </label>
-                                <div class="slider-group">
-                                    <input type="range"
-                                           id="pitchSlider"
-                                           class="form-range"
-                                           min="0.5"
-                                           max="2.0"
-                                           step="0.1"
-                                           value="1.0"
-                                           aria-label="Pitch adjustment">
                                 </div>
                             </div>
                         </div>
@@ -665,11 +601,11 @@ else
         // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
         window.guildId = '@Model.GuildId';
 
-        // Collapsible voice settings toggle
+        // Collapsible voice settings toggle (mobile only)
         function toggleVoiceSettings() {
-            const header = document.querySelector('.collapsible-header');
+            const header = document.querySelector('.voice-controls-collapsible-header');
             const content = document.getElementById('voiceSettingsContent');
-            const chevron = document.querySelector('.collapsible-chevron');
+            const chevron = document.getElementById('voiceSettingsChevron');
             const isExpanded = content.classList.contains('expanded');
 
             if (isExpanded) {
@@ -683,61 +619,10 @@ else
             }
         }
 
-        // Sync mobile and desktop controls
+        // Connect to SignalR hub
         document.addEventListener('DOMContentLoaded', async function() {
-            // Connect to SignalR hub for voice channel panel updates
             if (typeof DashboardHub !== 'undefined') {
                 await DashboardHub.connect();
-            }
-
-            // Sync voice selection
-            const voiceSelect = document.getElementById('voiceSelect');
-            const voiceSelectMobile = document.getElementById('voiceSelectMobile');
-            if (voiceSelect && voiceSelectMobile) {
-                voiceSelect.addEventListener('change', function() {
-                    voiceSelectMobile.value = this.value;
-                });
-                voiceSelectMobile.addEventListener('change', function() {
-                    voiceSelect.value = this.value;
-                    // Trigger change event for any listeners
-                    voiceSelect.dispatchEvent(new Event('change'));
-                });
-            }
-
-            // Sync speed slider
-            const speedSlider = document.getElementById('speedSlider');
-            const speedSliderMobile = document.getElementById('speedSliderMobile');
-            const speedValue = document.getElementById('speedValue');
-            const speedValueMobile = document.getElementById('speedValueMobile');
-            if (speedSlider && speedSliderMobile) {
-                speedSlider.addEventListener('input', function() {
-                    speedSliderMobile.value = this.value;
-                    if (speedValueMobile) speedValueMobile.textContent = this.value + 'x';
-                });
-                speedSliderMobile.addEventListener('input', function() {
-                    speedSlider.value = this.value;
-                    if (speedValue) speedValue.textContent = this.value + 'x';
-                    // Trigger input event for any listeners
-                    speedSlider.dispatchEvent(new Event('input'));
-                });
-            }
-
-            // Sync pitch slider
-            const pitchSlider = document.getElementById('pitchSlider');
-            const pitchSliderMobile = document.getElementById('pitchSliderMobile');
-            const pitchValue = document.getElementById('pitchValue');
-            const pitchValueMobile = document.getElementById('pitchValueMobile');
-            if (pitchSlider && pitchSliderMobile) {
-                pitchSlider.addEventListener('input', function() {
-                    pitchSliderMobile.value = this.value;
-                    if (pitchValueMobile) pitchValueMobile.textContent = this.value + 'x';
-                });
-                pitchSliderMobile.addEventListener('input', function() {
-                    pitchSlider.value = this.value;
-                    if (pitchValue) pitchValue.textContent = this.value + 'x';
-                    // Trigger input event for any listeners
-                    pitchSlider.dispatchEvent(new Event('input'));
-                });
             }
         });
     </script>
