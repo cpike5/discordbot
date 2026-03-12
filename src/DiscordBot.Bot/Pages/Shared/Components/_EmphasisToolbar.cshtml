@@ -284,8 +284,7 @@
             return;
         }
 
-        // Regex to match all visual marker patterns for clear action
-        const MARKER_RE = /\*\*(.+?)\*\*(?!\*)|\*(?!\*)(.+?)\*(?!\*)|\[#\s(.+?)\s#\]|\[📅\s(.+?)\s📅\]|\[⏸️\s\d+ms\]/g;
+        // Shared marker utilities (loaded from ssml-markers.js)
 
         let currentSelection = { start: 0, end: 0, text: '' };
         let emphasisSupported = true;
@@ -363,10 +362,8 @@
                     break;
 
                 case 'clear':
-                    // Strip all visual markers from selected text using regex
-                    newText = currentSelection.text.replace(MARKER_RE, function(match, strong, moderate, cardinal, date) {
-                        return strong || moderate || cardinal || date || '';
-                    });
+                    // Strip all visual markers from selected text
+                    newText = window.SsmlMarkers.stripMarkers(currentSelection.text);
                     break;
             }
 
