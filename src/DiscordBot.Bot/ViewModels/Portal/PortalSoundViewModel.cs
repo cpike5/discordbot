@@ -31,4 +31,9 @@ public record PortalSoundViewModel
     /// Null for filesystem-discovered sounds or sounds uploaded before tracking was added.
     /// </summary>
     public string? UploadedById { get; init; }
+
+    /// <summary>
+    /// Gets the timestamp when the sound was uploaded (UTC).
+    /// </summary>
+    public DateTime? UploadedAt { get; init; }
 }

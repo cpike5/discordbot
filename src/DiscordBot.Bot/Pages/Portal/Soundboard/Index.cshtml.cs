@@ -153,7 +153,8 @@ public class IndexModel : PortalPageModelBase
                     Name = s.Name,
                     PlayCount = s.PlayCount,
                     DurationSeconds = s.DurationSeconds,
-                    UploadedById = s.UploadedById?.ToString()
+                    UploadedById = s.UploadedById?.ToString(),
+                    UploadedAt = s.UploadedAt
                 })
                 .ToList();
 

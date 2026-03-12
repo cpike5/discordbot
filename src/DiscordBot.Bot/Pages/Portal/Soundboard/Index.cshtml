@@ -508,6 +508,33 @@
         display: flex;
     }
 
+    .sort-select {
+        appearance: none;
+        background-color: var(--color-bg-primary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        padding: 0.5rem 2rem 0.5rem 0.75rem;
+        font-size: 0.875rem;
+        color: var(--color-text-primary);
+        cursor: pointer;
+        transition: var(--transition-normal);
+        flex-shrink: 0;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23949ba4'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 0.5rem center;
+        background-size: 1.25rem;
+    }
+
+    .sort-select:hover {
+        border-color: var(--color-border-primary);
+    }
+
+    .sort-select:focus-visible {
+        outline: none;
+        border-color: var(--color-accent-orange);
+        box-shadow: 0 0 0 2px var(--color-accent-orange-muted);
+    }
+
     /* Sound Grid - 4 columns desktop, 2 columns mobile with internal scrolling */
     .sound-grid {
         display: grid;
@@ -948,6 +975,13 @@ else
                             </svg>
                         </button>
                     </div>
+                    <select id="sortSelect" class="sort-select" title="Sort sounds" aria-label="Sort sounds">
+                        <option value="name-asc">A-Z</option>
+                        <option value="name-desc">Z-A</option>
+                        <option value="most-played">Most Played</option>
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
+                    </select>
                     <button type="button" id="fullscreenToggle" class="fullscreen-toggle-btn" title="Enter full screen" aria-label="Enter full screen">
                         <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
@@ -959,7 +993,7 @@ else
                 <div id="soundGrid" class="sound-grid">
                     @foreach (var sound in Model.Sounds)
                     {
-                        <div class="sound-card" data-sound-id="@sound.Id" data-sound-name="@sound.Name" data-uploaded-by="@(sound.UploadedById ?? "")" role="button" tabindex="0" aria-label="Play @sound.Name">
+                        <div class="sound-card" data-sound-id="@sound.Id" data-sound-name="@sound.Name" data-uploaded-by="@(sound.UploadedById ?? "")" data-play-count="@sound.PlayCount" data-uploaded-at="@(sound.UploadedAt?.ToString("o") ?? "")" role="button" tabindex="0" aria-label="Play @sound.Name">
                             <button class="preview-btn" data-sound-id="@sound.Id" title="Preview in browser" aria-label="Preview @sound.Name in browser" onclick="event.stopPropagation(); previewSound('@sound.Id');">
                                 <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
@@ -1044,6 +1078,7 @@ else
         let signalRConnected = false;
         let isFullscreen = localStorage.getItem('soundboard_fullscreen_' + window.guildId) === 'true';
         let fullscreenAutoHideTimer = null;
+        let currentSort = localStorage.getItem('portal:soundboard:sort:' + window.guildId) || 'name-asc';
 
         // ========================================
         // Toast Notification System
@@ -1116,6 +1151,9 @@ else
         // ========================================
         document.addEventListener('DOMContentLoaded', async function() {
             PortalToast.init();
+            // Apply saved sort preference to dropdown
+            const sortSelect = document.getElementById('sortSelect');
+            sortSelect.value = currentSort;
             await loadFavorites();
             setupEventHandlers();
             initializeFullscreen();
@@ -1208,7 +1246,7 @@ else
             if (playingCard) {
                 playingCard.classList.add('playing');
 
-                // Increment play count in UI
+                // Increment play count in UI and data attribute
                 const playsEl = playingCard.querySelector('.sound-plays');
                 if (playsEl) {
                     const currentText = playsEl.textContent;
@@ -1216,6 +1254,7 @@ else
                     if (match) {
                         const newCount = parseInt(match[1], 10) + 1;
                         playsEl.textContent = `${newCount} plays`;
+                        playingCard.setAttribute('data-play-count', newCount);
                     }
                 }
             }
@@ -1358,10 +1397,50 @@ else
             sortSoundGrid();
         }
 
-        // Sort sound grid: favorites first, then alphabetical
+        // Sort sound grid: favorites first, then by selected sort option
         function sortSoundGrid() {
             const grid = document.getElementById('soundGrid');
             const cards = Array.from(grid.querySelectorAll('.sound-card'));
+
+            function compareBySort(a, b) {
+                switch (currentSort) {
+                    case 'name-desc': {
+                        const aName = a.getAttribute('data-sound-name');
+                        const bName = b.getAttribute('data-sound-name');
+                        return bName.localeCompare(aName);
+                    }
+                    case 'most-played': {
+                        const aPlays = parseInt(a.getAttribute('data-play-count') || '0', 10);
+                        const bPlays = parseInt(b.getAttribute('data-play-count') || '0', 10);
+                        if (bPlays !== aPlays) return bPlays - aPlays;
+                        // Tie-break by name ascending
+                        return a.getAttribute('data-sound-name').localeCompare(b.getAttribute('data-sound-name'));
+                    }
+                    case 'newest': {
+                        const aDate = a.getAttribute('data-uploaded-at');
+                        const bDate = b.getAttribute('data-uploaded-at');
+                        // Empty dates sort last
+                        if (!aDate && !bDate) return 0;
+                        if (!aDate) return 1;
+                        if (!bDate) return -1;
+                        return new Date(bDate) - new Date(aDate);
+                    }
+                    case 'oldest': {
+                        const aDate = a.getAttribute('data-uploaded-at');
+                        const bDate = b.getAttribute('data-uploaded-at');
+                        if (!aDate && !bDate) return 0;
+                        if (!aDate) return 1;
+                        if (!bDate) return -1;
+                        return new Date(aDate) - new Date(bDate);
+                    }
+                    case 'name-asc':
+                    default: {
+                        const aName = a.getAttribute('data-sound-name');
+                        const bName = b.getAttribute('data-sound-name');
+                        return aName.localeCompare(bName);
+                    }
+                }
+            }
 
             cards.sort((a, b) => {
                 const aId = a.getAttribute('data-sound-id');
@@ -1369,12 +1448,11 @@ else
                 const aFav = favorites.includes(aId);
                 const bFav = favorites.includes(bId);
 
+                // Favorites always sort first
                 if (aFav && !bFav) return -1;
                 if (!aFav && bFav) return 1;
 
-                const aName = a.getAttribute('data-sound-name');
-                const bName = b.getAttribute('data-sound-name');
-                return aName.localeCompare(bName);
+                return compareBySort(a, b);
             });
 
             // Re-append in sorted order
@@ -1407,6 +1485,13 @@ else
                 clearBtn.classList.remove('visible');
                 filterSounds();
                 searchInput.focus();
+            });
+
+            // Sort dropdown
+            document.getElementById('sortSelect').addEventListener('change', function() {
+                currentSort = this.value;
+                localStorage.setItem('portal:soundboard:sort:' + window.guildId, currentSort);
+                sortSoundGrid();
             });
 
             // Favorite buttons
@@ -2020,6 +2105,8 @@ else
             card.setAttribute('data-sound-id', sound.id);
             card.setAttribute('data-sound-name', sound.name);
             card.setAttribute('data-uploaded-by', sound.uploadedById || '');
+            card.setAttribute('data-play-count', sound.playCount || 0);
+            card.setAttribute('data-uploaded-at', sound.uploadedAt || new Date().toISOString());
             card.setAttribute('role', 'button');
             card.setAttribute('tabindex', '0');
             card.setAttribute('aria-label', `Play ${sound.name}`);

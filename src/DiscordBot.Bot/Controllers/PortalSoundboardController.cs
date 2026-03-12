@@ -130,7 +130,8 @@ public class PortalSoundboardController : ControllerBase
                 name = s.Name,
                 playCount = s.PlayCount,
                 durationSeconds = s.DurationSeconds,
-                uploadedById = s.UploadedById?.ToString()
+                uploadedById = s.UploadedById?.ToString(),
+                uploadedAt = s.UploadedAt
             }).ToList(),
             totalCount = sounds.Count
         };
@@ -307,7 +308,8 @@ public class PortalSoundboardController : ControllerBase
                 name = result.Sound.Name,
                 playCount = result.Sound.PlayCount,
                 durationSeconds = result.Sound.DurationSeconds,
-                uploadedById = result.Sound.UploadedById?.ToString()
+                uploadedById = result.Sound.UploadedById?.ToString(),
+                uploadedAt = result.Sound.UploadedAt
             });
     }
 
