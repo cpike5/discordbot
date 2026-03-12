@@ -495,7 +495,7 @@ public class PlaybackService : IPlaybackService
             _audioService.UpdateLastActivity(guildId);
 
             // Broadcast PlaybackStarted event
-            _ = _audioNotifier.NotifyPlaybackStartedAsync(guildId, sound.Id, sound.Name, durationSeconds, requestedByDisplayName, cancellationToken);
+            _ = _audioNotifier.NotifyPlaybackStartedAsync(guildId, sound.Id, sound.Name, durationSeconds, requestedByDisplayName, cancellationToken: cancellationToken);
 
             // Determine FFmpeg executable path - handle null or empty string
             // If not configured, look for ffmpeg in the application's base directory first, then fall back to PATH

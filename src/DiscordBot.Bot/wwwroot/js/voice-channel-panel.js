@@ -396,7 +396,8 @@ const VoiceChannelPanel = (function() {
             name: data.name,
             durationSeconds: data.durationSeconds,
             positionSeconds: 0,
-            requestedByDisplayName: data.requestedByDisplayName
+            requestedByDisplayName: data.requestedByDisplayName,
+            source: data.source || 'Soundboard'
         });
     }
 
@@ -491,6 +492,18 @@ const VoiceChannelPanel = (function() {
             if (nowPlayingName) {
                 nowPlayingName.textContent = nowPlaying.name;
                 nowPlayingName.title = nowPlaying.name;
+            }
+
+            // Update source icon
+            var iconContainer = nowPlayingSection.querySelector('.now-playing-icon');
+            if (iconContainer) {
+                if (nowPlaying.source === 'TTS') {
+                    iconContainer.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
+                    iconContainer.className = 'w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center text-purple-400 flex-shrink-0 now-playing-icon';
+                } else {
+                    iconContainer.innerHTML = '<svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>';
+                    iconContainer.className = 'w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue flex-shrink-0 now-playing-icon';
+                }
             }
 
             if (nowPlayingRequestedBy) {
