@@ -114,6 +114,7 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
 
         var totalAffected = 0;
         var batchSize = 500;
+        var executionStrategy = Context.Database.CreateExecutionStrategy();
 
         for (int i = 0; i < membersList.Count; i += batchSize)
         {
@@ -121,66 +122,72 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
 
             var batch = membersList.Skip(i).Take(batchSize).ToList();
             var batchUserIds = batch.Select(m => m.UserId).ToList();
+            var batchStart = i + 1;
+            var batchEnd = Math.Min(i + batchSize, membersList.Count);
 
             _logger.LogDebug(
                 "Processing batch {BatchStart}-{BatchEnd} of {Total}",
-                i + 1, Math.Min(i + batchSize, membersList.Count), membersList.Count);
+                batchStart, batchEnd, membersList.Count);
 
-            using var transaction = await Context.Database.BeginTransactionAsync(cancellationToken);
-            try
+            var affected = await executionStrategy.ExecuteAsync(async ct =>
             {
-                // Load existing members for this batch
-                var existingMembers = await DbSet
-                    .Where(gm => gm.GuildId == guildId && batchUserIds.Contains(gm.UserId))
-                    .ToListAsync(cancellationToken);
-
-                var existingUserIds = existingMembers.Select(gm => gm.UserId).ToHashSet();
-
-                // Separate new and existing members
-                var newMembers = batch.Where(m => !existingUserIds.Contains(m.UserId)).ToList();
-                var updateMembers = batch.Where(m => existingUserIds.Contains(m.UserId)).ToList();
-
-                // Add new members
-                if (newMembers.Any())
+                using var transaction = await Context.Database.BeginTransactionAsync(ct);
+                try
                 {
-                    await DbSet.AddRangeAsync(newMembers, cancellationToken);
-                    _logger.LogDebug("Adding {Count} new members in batch", newMembers.Count);
-                }
+                    // Load existing members for this batch
+                    var existingMembers = await DbSet
+                        .Where(gm => gm.GuildId == guildId && batchUserIds.Contains(gm.UserId))
+                        .ToListAsync(ct);
 
-                // Update existing members
-                foreach (var member in updateMembers)
+                    var existingUserIds = existingMembers.Select(gm => gm.UserId).ToHashSet();
+
+                    // Separate new and existing members
+                    var newMembers = batch.Where(m => !existingUserIds.Contains(m.UserId)).ToList();
+                    var updateMembers = batch.Where(m => existingUserIds.Contains(m.UserId)).ToList();
+
+                    // Add new members
+                    if (newMembers.Any())
+                    {
+                        await DbSet.AddRangeAsync(newMembers, ct);
+                        _logger.LogDebug("Adding {Count} new members in batch", newMembers.Count);
+                    }
+
+                    // Update existing members
+                    foreach (var member in updateMembers)
+                    {
+                        var existing = existingMembers.First(gm => gm.UserId == member.UserId);
+                        existing.Nickname = member.Nickname;
+                        existing.CachedRolesJson = member.CachedRolesJson;
+                        existing.JoinedAt = member.JoinedAt;
+                        existing.LastActiveAt = member.LastActiveAt;
+                        existing.LastCachedAt = member.LastCachedAt;
+                        existing.IsActive = member.IsActive;
+                    }
+
+                    if (updateMembers.Any())
+                    {
+                        _logger.LogDebug("Updating {Count} existing members in batch", updateMembers.Count);
+                    }
+
+                    var result = await Context.SaveChangesAsync(ct);
+                    await transaction.CommitAsync(ct);
+                    return result;
+                }
+                catch (Exception ex)
                 {
-                    var existing = existingMembers.First(gm => gm.UserId == member.UserId);
-                    existing.Nickname = member.Nickname;
-                    existing.CachedRolesJson = member.CachedRolesJson;
-                    existing.JoinedAt = member.JoinedAt;
-                    existing.LastActiveAt = member.LastActiveAt;
-                    existing.LastCachedAt = member.LastCachedAt;
-                    existing.IsActive = member.IsActive;
+                    await transaction.RollbackAsync(ct);
+                    _logger.LogError(ex,
+                        "Batch upsert failed for batch {BatchStart}-{BatchEnd} in guild {GuildId}",
+                        batchStart, batchEnd, guildId);
+                    throw;
                 }
+            }, cancellationToken);
 
-                if (updateMembers.Any())
-                {
-                    _logger.LogDebug("Updating {Count} existing members in batch", updateMembers.Count);
-                }
+            totalAffected += affected;
 
-                var affected = await Context.SaveChangesAsync(cancellationToken);
-                await transaction.CommitAsync(cancellationToken);
-
-                totalAffected += affected;
-
-                _logger.LogDebug(
-                    "Batch upsert completed: {BatchStart}-{BatchEnd} of {Total}, {Affected} records affected",
-                    i + 1, Math.Min(i + batchSize, membersList.Count), membersList.Count, affected);
-            }
-            catch (Exception ex)
-            {
-                await transaction.RollbackAsync(cancellationToken);
-                _logger.LogError(ex,
-                    "Batch upsert failed for batch {BatchStart}-{BatchEnd} in guild {GuildId}",
-                    i + 1, Math.Min(i + batchSize, membersList.Count), guildId);
-                throw;
-            }
+            _logger.LogDebug(
+                "Batch upsert completed: {BatchStart}-{BatchEnd} of {Total}, {Affected} records affected",
+                batchStart, batchEnd, membersList.Count, affected);
         }
 
         _logger.LogInformation(
