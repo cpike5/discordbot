@@ -25,7 +25,7 @@
         voiceCapabilities: (voiceName) => `/api/portal/tts/voices/${voiceName}/capabilities`,
         validateSsml: () => `/api/portal/tts/validate-ssml`,
         buildSsml: () => `/api/portal/tts/build-ssml`,
-        customPresets: () => `/api/portal/tts/presets/custom`
+        customPresets: (guildId) => `/api/portal/tts/${guildId}/presets/custom`
     };
 
     // ========================================
