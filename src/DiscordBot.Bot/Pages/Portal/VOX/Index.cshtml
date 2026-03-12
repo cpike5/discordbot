@@ -824,6 +824,171 @@
             }
         }
 
+        /* ==========================================
+           VOX HISTORY & FAVORITES PANEL
+           ========================================== */
+
+        .vox-history-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 0.75rem;
+            flex-shrink: 0;
+        }
+
+        .vox-history-section {
+            background-color: var(--color-bg-tertiary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            overflow: hidden;
+        }
+
+        .vox-history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.625rem 0.75rem;
+            background-color: var(--color-bg-secondary);
+            border-bottom: 1px solid var(--color-border-primary);
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .vox-history-header:hover {
+            background-color: var(--color-bg-hover);
+        }
+
+        .vox-history-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--color-text-primary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .vox-history-badge {
+            background-color: var(--color-accent-orange);
+            color: white;
+            padding: 0.1rem 0.45rem;
+            border-radius: 9999px;
+            font-size: 0.65rem;
+            font-weight: 600;
+        }
+
+        .vox-history-toggle {
+            font-size: 0.75rem;
+            color: var(--color-text-tertiary);
+            transition: transform 0.2s ease-out;
+        }
+
+        .vox-history-toggle.collapsed {
+            transform: rotate(-90deg);
+        }
+
+        .vox-history-list {
+            max-height: 200px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--color-border-primary) transparent;
+        }
+
+        .vox-history-list[hidden] {
+            display: none;
+        }
+
+        .vox-history-list::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .vox-history-list::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .vox-history-list::-webkit-scrollbar-thumb {
+            background: var(--color-border-primary);
+            border-radius: 3px;
+        }
+
+        .vox-history-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 0.75rem;
+            border-bottom: 1px solid var(--color-border-primary);
+            transition: background-color 0.1s ease-out;
+        }
+
+        .vox-history-item:last-child {
+            border-bottom: none;
+        }
+
+        .vox-history-item:hover {
+            background-color: var(--color-bg-hover);
+        }
+
+        .vox-history-message {
+            flex: 1;
+            min-width: 0;
+            font-size: 0.8rem;
+            color: var(--color-text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            cursor: pointer;
+        }
+
+        .vox-history-message:hover {
+            color: var(--color-accent-orange);
+        }
+
+        .vox-history-meta {
+            font-size: 0.65rem;
+            color: var(--color-text-tertiary);
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        .vox-history-actions {
+            display: flex;
+            gap: 0.25rem;
+            flex-shrink: 0;
+        }
+
+        .vox-history-action-btn {
+            background: none;
+            border: none;
+            padding: 0.25rem;
+            cursor: pointer;
+            font-size: 0.8rem;
+            color: var(--color-text-tertiary);
+            border-radius: 0.25rem;
+            transition: color 0.1s ease-out, background-color 0.1s ease-out;
+            line-height: 1;
+        }
+
+        .vox-history-action-btn:hover {
+            color: var(--color-text-primary);
+            background-color: var(--color-bg-secondary);
+        }
+
+        .vox-history-action-btn.favorite-active {
+            color: var(--color-accent-orange);
+        }
+
+        .vox-history-action-btn.delete:hover {
+            color: #ef4444;
+        }
+
+        .vox-history-empty {
+            padding: 1rem;
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--color-text-tertiary);
+            font-style: italic;
+        }
+
         /* Screen reader only content */
         .sr-only {
             position: absolute;
@@ -918,6 +1083,9 @@
             // Load clips for initial group
             loadClipsForGroup('vox');
 
+            // Load history and favorites
+            loadVoxHistory();
+
             // Initialize word gap slider
             initWordGapSlider();
 
@@ -937,6 +1105,7 @@
                     hideAutocomplete();
                     updateTokenPreview();
                     loadClipsForGroup(newGroup);
+                    loadVoxHistory();
                 }
             });
         });
@@ -1283,6 +1452,9 @@
                 voxEls.messageInput.value = '';
                 updateTokenPreview();
                 voxEls.playBtnText.textContent = 'Play VOX Announcement';
+
+                // Refresh history panel
+                loadVoxHistory();
             } catch (error) {
                 // Display specific error message inline
                 if (voxEls.playBtnText) {
@@ -1617,6 +1789,153 @@
         }
 
         // ==========================================
+        // VOX HISTORY & FAVORITES
+        // ==========================================
+
+        function toggleHistorySection(prefix, section) {
+            const list = document.getElementById(`${prefix}-${section}-list`);
+            const toggle = document.getElementById(`${prefix}-${section}-toggle`);
+            if (!list || !toggle) return;
+
+            const isHidden = list.hidden;
+            list.hidden = !isHidden;
+            toggle.classList.toggle('collapsed', !isHidden);
+        }
+
+        async function loadVoxHistory() {
+            const prefix = `vox-${voxState.activeGroup}`;
+
+            try {
+                const [historyRes, favoritesRes] = await Promise.all([
+                    fetch(`/api/portal/vox/${window.guildId}/history?limit=20`),
+                    fetch(`/api/portal/vox/${window.guildId}/favorites`)
+                ]);
+
+                if (historyRes.ok) {
+                    const history = await historyRes.json();
+                    renderHistoryList(prefix, 'recent', history);
+                }
+
+                if (favoritesRes.ok) {
+                    const favorites = await favoritesRes.json();
+                    renderHistoryList(prefix, 'favorites', favorites);
+                }
+            } catch (error) {
+                // Silent fail - history is non-critical
+                console.warn('Failed to load VOX history:', error);
+            }
+        }
+
+        function renderHistoryList(prefix, section, entries) {
+            const list = document.getElementById(`${prefix}-${section}-list`);
+            const countBadge = document.getElementById(`${prefix}-${section}-count`);
+            if (!list) return;
+
+            if (countBadge) {
+                countBadge.textContent = entries.length;
+            }
+
+            if (entries.length === 0) {
+                list.innerHTML = `<div class="vox-history-empty">${section === 'favorites' ? 'No favorites yet' : 'No recent messages'}</div>`;
+                return;
+            }
+
+            list.innerHTML = entries.map(entry => {
+                const timeAgo = formatTimeAgo(new Date(entry.playedAt));
+                const favClass = entry.isFavorite ? 'favorite-active' : '';
+                const favIcon = entry.isFavorite ? '&#9733;' : '&#9734;';
+
+                return `
+                    <div class="vox-history-item" data-entry-id="${entry.id}">
+                        <span class="vox-history-message"
+                              title="${escapeHtml(entry.message)}"
+                              onclick="replayFromHistory(${entry.id}, '${escapeHtml(entry.message)}', '${escapeHtml(entry.clipGroup)}', ${entry.wordGapMs})">
+                            ${escapeHtml(entry.message)}
+                        </span>
+                        <span class="vox-history-meta">${escapeHtml(entry.clipGroup)} &middot; ${timeAgo}</span>
+                        <div class="vox-history-actions">
+                            <button class="vox-history-action-btn ${favClass}"
+                                    title="${entry.isFavorite ? 'Remove from favorites' : 'Add to favorites'}"
+                                    onclick="toggleFavorite(${entry.id})">
+                                ${favIcon}
+                            </button>
+                            <button class="vox-history-action-btn delete"
+                                    title="Delete"
+                                    onclick="deleteHistoryEntry(${entry.id})">
+                                &#10005;
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function replayFromHistory(entryId, message, clipGroup, wordGapMs) {
+            if (!voxEls.messageInput) return;
+
+            voxEls.messageInput.value = message;
+            updateTokenPreview();
+            voxEls.messageInput.focus();
+        }
+
+        async function toggleFavorite(entryId) {
+            try {
+                const response = await fetch(`/api/portal/vox/${window.guildId}/history/${entryId}/favorite`, {
+                    method: 'POST'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.message || 'Failed to toggle favorite');
+                }
+
+                // Refresh both lists
+                await loadVoxHistory();
+            } catch (error) {
+                console.error('Failed to toggle favorite:', error);
+                if (typeof showToast === 'function') {
+                    showToast('Failed to update favorite', 'error');
+                }
+            }
+        }
+
+        async function deleteHistoryEntry(entryId) {
+            try {
+                const response = await fetch(`/api/portal/vox/${window.guildId}/history/${entryId}`, {
+                    method: 'DELETE'
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    throw new Error(error.message || 'Failed to delete entry');
+                }
+
+                // Refresh both lists
+                await loadVoxHistory();
+            } catch (error) {
+                console.error('Failed to delete history entry:', error);
+                if (typeof showToast === 'function') {
+                    showToast('Failed to delete entry', 'error');
+                }
+            }
+        }
+
+        function formatTimeAgo(date) {
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHr = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHr / 24);
+
+            if (diffSec < 60) return 'just now';
+            if (diffMin < 60) return `${diffMin}m ago`;
+            if (diffHr < 24) return `${diffHr}h ago`;
+            if (diffDay < 30) return `${diffDay}d ago`;
+            return date.toLocaleDateString();
+        }
+
+        // ==========================================
         // KEYBOARD NAVIGATION
         // ==========================================
 
@@ -1858,6 +2177,37 @@ else
                                 aria-label="Play @groupName announcement">
                             <span id="@(prefix)-play-btn-text">Play @groupName Announcement</span>
                         </button>
+                    </div>
+
+                    <!-- Favorites & Recent History -->
+                    <div class="vox-history-panel" id="@(prefix)-history-panel">
+                        <!-- Favorites (always visible) -->
+                        <div class="vox-history-section">
+                            <div class="vox-history-header" onclick="toggleHistorySection('@prefix', 'favorites')">
+                                <span class="vox-history-title">
+                                    Favorites
+                                    <span class="vox-history-badge" id="@(prefix)-favorites-count">0</span>
+                                </span>
+                                <span class="vox-history-toggle" id="@(prefix)-favorites-toggle">&#9660;</span>
+                            </div>
+                            <div class="vox-history-list" id="@(prefix)-favorites-list">
+                                <div class="vox-history-empty">No favorites yet</div>
+                            </div>
+                        </div>
+
+                        <!-- Recent History (collapsible) -->
+                        <div class="vox-history-section">
+                            <div class="vox-history-header" onclick="toggleHistorySection('@prefix', 'recent')">
+                                <span class="vox-history-title">
+                                    Recent
+                                    <span class="vox-history-badge" id="@(prefix)-recent-count">0</span>
+                                </span>
+                                <span class="vox-history-toggle collapsed" id="@(prefix)-recent-toggle">&#9660;</span>
+                            </div>
+                            <div class="vox-history-list" id="@(prefix)-recent-list" hidden>
+                                <div class="vox-history-empty">No recent messages</div>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Clip Browser -->

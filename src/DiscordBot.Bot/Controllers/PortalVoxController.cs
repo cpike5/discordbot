@@ -3,6 +3,7 @@ using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Vox;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.Vox;
@@ -28,6 +29,7 @@ public class PortalVoxController : ControllerBase
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly ISettingsService _settingsService;
     private readonly DiscordSocketClient _discordClient;
+    private readonly IVoxMessageHistoryRepository _historyRepository;
     private readonly ILogger<PortalVoxController> _logger;
 
     private const int MaxMessageLength = 500;
@@ -55,6 +57,7 @@ public class PortalVoxController : ControllerBase
         IGuildAudioSettingsService audioSettingsService,
         ISettingsService settingsService,
         DiscordSocketClient discordClient,
+        IVoxMessageHistoryRepository historyRepository,
         ILogger<PortalVoxController> logger)
     {
         _voxService = voxService;
@@ -64,6 +67,7 @@ public class PortalVoxController : ControllerBase
         _audioSettingsService = audioSettingsService;
         _settingsService = settingsService;
         _discordClient = discordClient;
+        _historyRepository = historyRepository;
         _logger = logger;
     }
 
@@ -410,6 +414,30 @@ public class PortalVoxController : ControllerBase
         _logger.LogInformation("Successfully played VOX message in guild {GuildId}: {MatchedCount} matched, {SkippedCount} skipped",
             guildId, result.MatchedWords.Count, result.SkippedWords.Count);
 
+        // Save to history
+        try
+        {
+            var userId = User.GetDiscordUserId();
+            if (userId != 0)
+            {
+                await _historyRepository.AddAsync(new VoxMessageHistory
+                {
+                    GuildId = guildId,
+                    UserId = userId,
+                    Message = request.Message!,
+                    ClipGroup = clipGroup.ToString().ToLowerInvariant(),
+                    WordGapMs = wordGapMs,
+                    IsFavorite = false,
+                    PlayedAt = DateTime.UtcNow
+                }, cancellationToken);
+            }
+        }
+        catch (Exception ex)
+        {
+            // Non-critical: don't fail the play response if history save fails
+            _logger.LogWarning(ex, "Failed to save VOX history for guild {GuildId}", guildId);
+        }
+
         // Return response matching the spec format
         var response = new
         {
@@ -471,6 +499,150 @@ public class PortalVoxController : ControllerBase
         _logger.LogInformation("Successfully stopped playback in guild {GuildId}", guildId);
 
         return Ok(new { success = true, message = "Playback stopped" });
+    }
+
+    /// <summary>
+    /// Gets recent VOX message history for the current user.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="limit">Maximum number of entries to return (default 20).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of recent history entries.</returns>
+    [HttpGet("history")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHistory(ulong guildId, [FromQuery] int limit = 20, CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entries = await _historyRepository.GetRecentAsync(userId, guildId, Math.Clamp(limit, 1, 50), cancellationToken);
+
+        return Ok(entries.Select(e => new
+        {
+            id = e.Id,
+            message = e.Message,
+            clipGroup = e.ClipGroup,
+            wordGapMs = e.WordGapMs,
+            isFavorite = e.IsFavorite,
+            playedAt = e.PlayedAt
+        }));
+    }
+
+    /// <summary>
+    /// Gets favorited VOX messages for the current user.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of favorite history entries.</returns>
+    [HttpGet("favorites")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFavorites(ulong guildId, CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entries = await _historyRepository.GetFavoritesAsync(userId, guildId, cancellationToken);
+
+        return Ok(entries.Select(e => new
+        {
+            id = e.Id,
+            message = e.Message,
+            clipGroup = e.ClipGroup,
+            wordGapMs = e.WordGapMs,
+            isFavorite = e.IsFavorite,
+            playedAt = e.PlayedAt
+        }));
+    }
+
+    /// <summary>
+    /// Toggles the favorite status of a VOX history entry.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="id">The history entry ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Updated favorite status.</returns>
+    [HttpPost("history/{id}/favorite")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ToggleFavorite(ulong guildId, int id, CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entry = await _historyRepository.GetByIdAsync(id, cancellationToken);
+        if (entry == null)
+        {
+            return NotFound(new ApiErrorDto
+            {
+                Message = "History entry not found",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "entry_not_found"
+            });
+        }
+
+        // Verify ownership
+        if (entry.UserId != userId || entry.GuildId != guildId)
+        {
+            return Forbid();
+        }
+
+        var newFavoriteStatus = !entry.IsFavorite;
+        await _historyRepository.SetFavoriteAsync(id, newFavoriteStatus, cancellationToken);
+
+        return Ok(new { id, isFavorite = newFavoriteStatus });
+    }
+
+    /// <summary>
+    /// Deletes a VOX history entry.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="id">The history entry ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Success status.</returns>
+    [HttpDelete("history/{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeleteHistoryEntry(ulong guildId, int id, CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entry = await _historyRepository.GetByIdAsync(id, cancellationToken);
+        if (entry == null)
+        {
+            return NotFound(new ApiErrorDto
+            {
+                Message = "History entry not found",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "entry_not_found"
+            });
+        }
+
+        // Verify ownership
+        if (entry.UserId != userId || entry.GuildId != guildId)
+        {
+            return Forbid();
+        }
+
+        await _historyRepository.DeleteAsync(entry, cancellationToken);
+
+        return Ok(new { success = true });
     }
 
     /// <summary>
