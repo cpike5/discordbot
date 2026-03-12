@@ -129,7 +129,8 @@ public class PortalSoundboardController : ControllerBase
                 id = s.Id.ToString(),
                 name = s.Name,
                 playCount = s.PlayCount,
-                durationSeconds = s.DurationSeconds
+                durationSeconds = s.DurationSeconds,
+                uploadedById = s.UploadedById?.ToString()
             }).ToList(),
             totalCount = sounds.Count
         };
@@ -268,6 +269,12 @@ public class PortalSoundboardController : ControllerBase
             });
         }
 
+        // Extract uploader's Discord user ID from claims
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
+        ulong? uploadedById = userIdClaim != null && ulong.TryParse(userIdClaim, out var parsedUploaderId)
+            ? parsedUploaderId
+            : null;
+
         // Delegate to orchestration service
         using var stream = file.OpenReadStream();
         var result = await _orchestrationService.UploadSoundAsync(
@@ -276,6 +283,7 @@ public class PortalSoundboardController : ControllerBase
             name,
             stream,
             file.Length,
+            uploadedById,
             cancellationToken);
 
         if (!result.Success)
@@ -298,8 +306,82 @@ public class PortalSoundboardController : ControllerBase
                 id = result.Sound!.Id.ToString(),
                 name = result.Sound.Name,
                 playCount = result.Sound.PlayCount,
-                durationSeconds = result.Sound.DurationSeconds
+                durationSeconds = result.Sound.DurationSeconds,
+                uploadedById = result.Sound.UploadedById?.ToString()
             });
+    }
+
+    /// <summary>
+    /// Deletes a sound that was uploaded by the authenticated user.
+    /// Only the original uploader can delete their own sounds via the portal.
+    /// Filesystem-discovered sounds (null UploadedById) cannot be deleted via this endpoint.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="soundId">The sound's unique identifier.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Success status.</returns>
+    [HttpDelete("sounds/{soundId:guid}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteSound(ulong guildId, Guid soundId, CancellationToken cancellationToken)
+    {
+        // Extract user ID from claims
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
+        if (userIdClaim == null || !ulong.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        _logger.LogInformation("Delete sound request for sound {SoundId} in guild {GuildId} by user {UserId}",
+            soundId, guildId, userId);
+
+        // Fetch the sound to verify ownership
+        var sound = await _soundService.GetByIdAsync(soundId, guildId, cancellationToken);
+        if (sound == null)
+        {
+            return NotFound(new ApiErrorDto
+            {
+                Message = "Sound not found",
+                Detail = "The requested sound was not found in this guild.",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "sound_not_found"
+            });
+        }
+
+        // Verify ownership: only the original uploader can delete via portal
+        if (sound.UploadedById == null || sound.UploadedById != userId)
+        {
+            _logger.LogWarning("User {UserId} attempted to delete sound {SoundId} they did not upload (UploadedById: {UploadedById})",
+                userId, soundId, sound.UploadedById);
+            return StatusCode(StatusCodes.Status403Forbidden, new ApiErrorDto
+            {
+                Message = "Not authorized",
+                Detail = "You can only delete sounds that you uploaded.",
+                StatusCode = StatusCodes.Status403Forbidden,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "not_owner"
+            });
+        }
+
+        // Delegate to orchestration service
+        var result = await _orchestrationService.DeleteSoundAsync(guildId, soundId, cancellationToken);
+
+        if (!result.Success)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Delete failed",
+                Detail = result.ErrorMessage ?? "Unknown error occurred during deletion.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "delete_failed"
+            });
+        }
+
+        _logger.LogInformation("User {UserId} successfully deleted sound {SoundId} ({SoundName}) in guild {GuildId}",
+            userId, soundId, result.DeletedSoundName, guildId);
+        return Ok(new { message = "Sound deleted", soundName = result.DeletedSoundName });
     }
 
     /// <summary>
