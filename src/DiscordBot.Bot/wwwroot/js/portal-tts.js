@@ -651,37 +651,7 @@
 
         try {
             // Parse visual markers directly from textarea text (single source of truth).
-            // Patterns: **text** (strong), *text* (moderate), [# text #] (cardinal),
-            //           [📅 text 📅] (date), [⏸️ Nms] (break)
-            const MARKER_RE = /\*\*(.+?)\*\*(?!\*)|\*(?!\*)(.+?)\*(?!\*)|\[#\s(.+?)\s#\]|\[📅\s(.+?)\s📅\]|\[⏸️\s(\d+)ms\]/g;
-            const elements = [];
-            let cursor = 0;
-
-            for (const match of message.matchAll(MARKER_RE)) {
-                // Plain text before this match
-                if (match.index > cursor) {
-                    elements.push({ type: 'text', text: message.substring(cursor, match.index), attributes: {} });
-                }
-
-                if (match[1] != null) {
-                    elements.push({ type: 'emphasis', text: match[1], attributes: { level: 'strong' } });
-                } else if (match[2] != null) {
-                    elements.push({ type: 'emphasis', text: match[2], attributes: { level: 'moderate' } });
-                } else if (match[3] != null) {
-                    elements.push({ type: 'say-as', text: match[3], attributes: { 'interpret-as': 'cardinal' } });
-                } else if (match[4] != null) {
-                    elements.push({ type: 'say-as', text: match[4], attributes: { 'interpret-as': 'date' } });
-                } else if (match[5] != null) {
-                    elements.push({ type: 'break', text: null, attributes: { duration: match[5] + 'ms' } });
-                }
-
-                cursor = match.index + match[0].length;
-            }
-
-            // Remaining text after last match
-            if (cursor < message.length) {
-                elements.push({ type: 'text', text: message.substring(cursor), attributes: {} });
-            }
+            const elements = window.SsmlMarkers.parseMarkers(message);
 
             // Payload: text is null, all content is interleaved in elements array
             const payload = {
