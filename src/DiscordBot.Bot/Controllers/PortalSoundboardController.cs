@@ -208,7 +208,7 @@ public class PortalSoundboardController : ControllerBase
             });
         }
 
-        var filePath = _soundFileService.GetSoundFilePath(guildId, sound.FileName);
+        var filePath = Path.GetFullPath(_soundFileService.GetSoundFilePath(guildId, sound.FileName));
         var contentType = Path.GetExtension(sound.FileName).ToLowerInvariant() switch
         {
             ".mp3" => "audio/mpeg",
