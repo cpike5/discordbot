@@ -612,9 +612,15 @@ else
                         </div>
                     </div>
 
-                    <!-- Send Button -->
-                    <div class="form-group">
-                        <button id="sendBtn" class="send-btn" disabled>
+                    <!-- Send and Preview Buttons -->
+                    <div class="form-group" style="display: flex; gap: 0.5rem;">
+                        <button id="previewBtn" class="send-btn" style="flex: 0 0 auto; width: auto; padding: 0.75rem 1rem; background-color: transparent; border: 1px solid var(--color-border-primary); color: var(--color-text-primary);" title="Preview in browser">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.536 8.464a5 5 0 010 7.072M12 12h.01M18.364 5.636a9 9 0 010 12.728M5.636 18.364a9 9 0 010-12.728M8.464 15.536a5 5 0 010-7.072" />
+                            </svg>
+                            Preview
+                        </button>
+                        <button id="sendBtn" class="send-btn" style="flex: 1;" disabled>
                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                             </svg>

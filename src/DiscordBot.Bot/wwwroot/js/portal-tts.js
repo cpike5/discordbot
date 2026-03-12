@@ -21,6 +21,7 @@
     // ========================================
     const API = {
         send: (guildId) => `/api/portal/tts/${guildId}/send`,
+        preview: (guildId) => `/api/portal/tts/${guildId}/preview`,
         voiceCapabilities: (voiceName) => `/api/portal/tts/voices/${voiceName}/capabilities`,
         validateSsml: () => `/api/portal/tts/validate-ssml`,
         buildSsml: () => `/api/portal/tts/build-ssml`
@@ -31,6 +32,7 @@
     // ========================================
     let guildId = null;                    // CRITICAL: Always string, never parse to number
     let isSending = false;                 // Track if a message is currently being sent
+    let isPreviewing = false;              // Track if a preview is currently playing
     let selectedChannel = null;
     let maxMessageLength = 500;            // Dynamic max length from server (default: 500)
 
@@ -97,6 +99,12 @@
         const sendBtn = document.getElementById('sendBtn');
         if (sendBtn) {
             sendBtn.addEventListener('click', sendTtsMessage);
+        }
+
+        // Preview button
+        const previewBtn = document.getElementById('previewBtn');
+        if (previewBtn) {
+            previewBtn.addEventListener('click', previewTtsMessage);
         }
 
         // Clear draft button
@@ -298,6 +306,103 @@
     }
 
     // ========================================
+    // Request Body Builder
+    // ========================================
+
+    /**
+     * Build the common TTS request body from the current form state.
+     * Shared by both send and preview flows.
+     */
+    function buildTtsRequestBody() {
+        const messageInput = document.getElementById('ttsMessage');
+        const message = messageInput?.value?.trim() || '';
+        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        const speed = parseFloat(document.getElementById('speedSlider').value) || CONFIG.SPEED_DEFAULT;
+        const pitch = parseFloat(document.getElementById('pitchSlider').value) || CONFIG.PITCH_DEFAULT;
+
+        return {
+            message,
+            voice,
+            speed,
+            pitch,
+            ...(currentMode === 'standard' && currentStyle ? { style: currentStyle, styleIntensity: currentStyleIntensity } : {}),
+            ...(currentMode === 'pro' && currentSsml ? { ssml: currentSsml } : {})
+        };
+    }
+
+    // ========================================
+    // Preview TTS Message
+    // ========================================
+    async function previewTtsMessage() {
+        const messageInput = document.getElementById('ttsMessage');
+        if (!messageInput) return;
+
+        const message = messageInput.value.trim();
+        if (!message) {
+            showToast('error', 'Please enter a message');
+            return;
+        }
+
+        if (message.length > maxMessageLength) {
+            showToast('error', `Message exceeds maximum length of ${maxMessageLength} characters`);
+            return;
+        }
+
+        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        if (!voice) {
+            showToast('warning', 'Please select a voice first!');
+            return;
+        }
+
+        if (isPreviewing) return;
+        isPreviewing = true;
+
+        const previewBtn = document.getElementById('previewBtn');
+        const originalHtml = previewBtn.innerHTML;
+        previewBtn.disabled = true;
+        previewBtn.innerHTML = `
+            <svg class="inline-block animate-spin" fill="none" viewBox="0 0 24 24" style="width: 16px; height: 16px;">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Loading...
+        `;
+
+        try {
+            const body = buildTtsRequestBody();
+            const response = await fetch(API.preview(guildId), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+
+            if (response.status === 429) {
+                const data = await response.json().catch(() => ({}));
+                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to generate preview');
+            }
+
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.addEventListener('ended', () => URL.revokeObjectURL(url));
+            audio.addEventListener('error', () => URL.revokeObjectURL(url));
+            audio.play();
+        } catch (error) {
+            showToast('error', error.message);
+        } finally {
+            isPreviewing = false;
+            previewBtn.innerHTML = originalHtml;
+            previewBtn.disabled = false;
+        }
+    }
+
+    // ========================================
     // Send TTS Message
     // ========================================
     async function sendTtsMessage() {
@@ -328,8 +433,6 @@
             showToast('warning', 'Please select a voice first!');
             return;
         }
-        const speed = parseFloat(document.getElementById('speedSlider').value) || CONFIG.SPEED_DEFAULT;
-        const pitch = parseFloat(document.getElementById('pitchSlider').value) || CONFIG.PITCH_DEFAULT;
 
         // Mark as sending to prevent duplicate submissions
         isSending = true;
@@ -352,19 +455,13 @@
         `;
 
         try {
+            const body = buildTtsRequestBody();
             const response = await fetch(API.send(guildId), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    message,
-                    voice,
-                    speed,
-                    pitch,
-                    ...(currentMode === 'standard' && currentStyle ? { style: currentStyle, styleIntensity: currentStyleIntensity } : {}),
-                    ...(currentMode === 'pro' && currentSsml ? { ssml: currentSsml } : {})
-                })
+                body: JSON.stringify(body)
             });
 
             if (response.status === 429) {
