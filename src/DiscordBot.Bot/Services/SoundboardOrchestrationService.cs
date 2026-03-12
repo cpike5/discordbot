@@ -65,6 +65,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         string soundName,
         Stream fileStream,
         long fileSizeBytes,
+        ulong? uploadedById = null,
         CancellationToken cancellationToken = default)
     {
         // Validate parameters
@@ -180,7 +181,8 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 FileName = uniqueFileName,
                 FileSizeBytes = fileSizeBytes,
                 DurationSeconds = duration,
-                UploadedAt = DateTime.UtcNow
+                UploadedAt = DateTime.UtcNow,
+                UploadedById = uploadedById
             };
 
             var createdSound = await _soundService.CreateSoundAsync(sound, cancellationToken);

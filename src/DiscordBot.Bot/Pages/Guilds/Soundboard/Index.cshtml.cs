@@ -369,7 +369,7 @@ public class IndexModel : PageModel
             soundName,
             stream,
             file.Length,
-            cancellationToken);
+            cancellationToken: cancellationToken);
 
         if (result.Success)
         {

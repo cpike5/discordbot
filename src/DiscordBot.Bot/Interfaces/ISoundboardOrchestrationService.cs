@@ -19,6 +19,7 @@ public interface ISoundboardOrchestrationService
     /// <param name="soundName">Display name for the sound.</param>
     /// <param name="fileStream">Stream containing the audio file data.</param>
     /// <param name="fileSizeBytes">Size of the file in bytes.</param>
+    /// <param name="uploadedById">Discord user ID of the uploader (null for non-portal uploads).</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Result containing success status, error message, and created sound metadata.</returns>
     Task<SoundUploadResult> UploadSoundAsync(
@@ -27,6 +28,7 @@ public interface ISoundboardOrchestrationService
         string soundName,
         Stream fileStream,
         long fileSizeBytes,
+        ulong? uploadedById = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

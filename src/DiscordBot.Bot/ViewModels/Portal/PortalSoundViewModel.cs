@@ -25,4 +25,10 @@ public record PortalSoundViewModel
     /// Gets the audio duration in seconds.
     /// </summary>
     public double DurationSeconds { get; init; }
+
+    /// <summary>
+    /// Gets the Discord user ID of the uploader as a string (for JS snowflake safety).
+    /// Null for filesystem-discovered sounds or sounds uploaded before tracking was added.
+    /// </summary>
+    public string? UploadedById { get; init; }
 }

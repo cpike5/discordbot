@@ -86,6 +86,12 @@ public class IndexModel : PortalPageModelBase
     public bool IsAudioGloballyDisabled { get; set; }
 
     /// <summary>
+    /// Gets the current authenticated user's Discord ID as a string (for JS snowflake safety).
+    /// Null if user ID cannot be determined from claims.
+    /// </summary>
+    public string? CurrentUserId { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the Soundboard Portal page.
     /// Shows a landing page for unauthenticated users.
     /// </summary>
@@ -129,6 +135,10 @@ public class IndexModel : PortalPageModelBase
                 return Page();
             }
 
+            // Extract current user ID from claims
+            var userIdClaim = User.FindFirst("discord:user_id")?.Value;
+            CurrentUserId = userIdClaim;
+
             // User is authorized - load full soundboard
             var sounds = await _soundService.GetAllByGuildAsync(guildId, cancellationToken);
 
@@ -142,7 +152,8 @@ public class IndexModel : PortalPageModelBase
                     Id = s.Id,
                     Name = s.Name,
                     PlayCount = s.PlayCount,
-                    DurationSeconds = s.DurationSeconds
+                    DurationSeconds = s.DurationSeconds,
+                    UploadedById = s.UploadedById?.ToString()
                 })
                 .ToList();
 
