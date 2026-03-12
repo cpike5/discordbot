@@ -123,6 +123,12 @@ public class PlaybackStartedDto
     public string? RequestedByDisplayName { get; set; }
 
     /// <summary>
+    /// Gets or sets the playback source type (e.g., "Soundboard", "TTS").
+    /// Null defaults to "Soundboard" for backwards compatibility.
+    /// </summary>
+    public string? Source { get; set; }
+
+    /// <summary>
     /// Gets or sets the timestamp when playback started.
     /// </summary>
     public DateTime Timestamp { get; set; } = DateTime.UtcNow;

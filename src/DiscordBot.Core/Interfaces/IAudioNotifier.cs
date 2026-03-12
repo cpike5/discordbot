@@ -44,6 +44,7 @@ public interface IAudioNotifier
     /// <param name="name">The sound name.</param>
     /// <param name="durationSeconds">The sound duration in seconds.</param>
     /// <param name="requestedByDisplayName">The display name of the user who requested playback, or null if unknown.</param>
+    /// <param name="source">The playback source type (e.g., "Soundboard", "TTS"). Null defaults to "Soundboard".</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>A task representing the asynchronous operation.</returns>
     Task NotifyPlaybackStartedAsync(
@@ -52,6 +53,7 @@ public interface IAudioNotifier
         string name,
         double durationSeconds,
         string? requestedByDisplayName = null,
+        string? source = null,
         CancellationToken cancellationToken = default);
 
     /// <summary>

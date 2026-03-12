@@ -123,6 +123,7 @@ public class AudioNotifier : IAudioNotifier
         string name,
         double durationSeconds,
         string? requestedByDisplayName = null,
+        string? source = null,
         CancellationToken cancellationToken = default)
     {
         var groupName = DashboardHub.GetGuildAudioGroupName(guildId);
@@ -133,6 +134,7 @@ public class AudioNotifier : IAudioNotifier
             Name = name,
             DurationSeconds = durationSeconds,
             RequestedByDisplayName = requestedByDisplayName,
+            Source = source,
             Timestamp = DateTime.UtcNow
         };
 
