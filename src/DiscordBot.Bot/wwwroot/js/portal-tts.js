@@ -24,7 +24,8 @@
         preview: (guildId) => `/api/portal/tts/${guildId}/preview`,
         voiceCapabilities: (voiceName) => `/api/portal/tts/voices/${voiceName}/capabilities`,
         validateSsml: () => `/api/portal/tts/validate-ssml`,
-        buildSsml: () => `/api/portal/tts/build-ssml`
+        buildSsml: () => `/api/portal/tts/build-ssml`,
+        customPresets: () => `/api/portal/tts/presets/custom`
     };
 
     // ========================================
@@ -69,6 +70,7 @@
         loadDraft();
         isInitializing = false;
         observeConnectionState();
+        loadCustomPresets();
     }
 
     // ========================================
@@ -681,6 +683,20 @@
             }
         } catch (error) {
             // Error building SSML
+        }
+    }
+
+    // ========================================
+    // Custom Presets
+    // ========================================
+
+    /**
+     * Load custom presets from the API via the PresetBar component's loader.
+     * The actual rendering is handled by _PresetBar.cshtml's presetBar_loadCustomPresets.
+     */
+    function loadCustomPresets() {
+        if (window.presetBar_loadCustomPresets) {
+            window.presetBar_loadCustomPresets('presetBar');
         }
     }
 
