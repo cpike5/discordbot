@@ -83,8 +83,7 @@ public class ExternalLoginModel : PageModel
         if (!string.IsNullOrEmpty(remoteError))
         {
             _logger.LogWarning("External login failed with remote error: {RemoteError}", remoteError);
-            ErrorMessage = $"Error from external provider: {remoteError}";
-            return RedirectToPage("./Login", new { ReturnUrl = returnUrl });
+            return RedirectToPage("./Login", new { ReturnUrl = returnUrl, authError = "discord_error" });
         }
 
         var info = await _signInManager.GetExternalLoginInfoAsync();

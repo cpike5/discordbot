@@ -59,6 +59,23 @@ public class LoginModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
+    /// Auth error type from OAuth failure redirect (e.g. discord_unavailable, discord_expired, discord_error).
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    [FromQuery(Name = "authError")]
+    public string? AuthError { get; set; }
+
+    /// <summary>
+    /// User-friendly title for the auth error.
+    /// </summary>
+    public string? AuthErrorTitle { get; set; }
+
+    /// <summary>
+    /// User-friendly description for the auth error.
+    /// </summary>
+    public string? AuthErrorMessage { get; set; }
+
+    /// <summary>
     /// Input model for login form.
     /// </summary>
     public class InputModel
@@ -92,6 +109,23 @@ public class LoginModel : PageModel
         if (!string.IsNullOrEmpty(ErrorMessage))
         {
             ModelState.AddModelError(string.Empty, ErrorMessage);
+        }
+
+        // Map OAuth error types to user-friendly messages
+        if (!string.IsNullOrEmpty(AuthError))
+        {
+            (AuthErrorTitle, AuthErrorMessage) = AuthError switch
+            {
+                "discord_unavailable" => (
+                    "Discord is currently unavailable",
+                    "Discord's servers appear to be experiencing issues. Please wait a moment and try again."),
+                "discord_expired" => (
+                    "Login session expired",
+                    "Your login session timed out or was already used. Please try signing in again."),
+                _ => (
+                    "Discord login failed",
+                    "Something went wrong during Discord authentication. Please try again.")
+            };
         }
 
         returnUrl ??= Url.Content("~/");
