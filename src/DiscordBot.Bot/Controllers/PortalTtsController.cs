@@ -1142,7 +1142,7 @@ public class PortalTtsController : ControllerBase
     /// </summary>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>List of the user's custom presets.</returns>
-    [HttpGet("/api/portal/tts/presets/custom")]
+    [HttpGet("presets/custom")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetCustomPresets(CancellationToken cancellationToken)
@@ -1175,7 +1175,7 @@ public class PortalTtsController : ControllerBase
     /// <param name="request">The preset data to save.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The created preset.</returns>
-    [HttpPost("/api/portal/tts/presets/custom")]
+    [HttpPost("presets/custom")]
     [ProducesResponseType(StatusCodes.Status201Created)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
@@ -1274,7 +1274,7 @@ public class PortalTtsController : ControllerBase
     /// <param name="id">The preset ID to delete.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>No content on success.</returns>
-    [HttpDelete("/api/portal/tts/presets/custom/{id:int}")]
+    [HttpDelete("presets/custom/{id:int}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

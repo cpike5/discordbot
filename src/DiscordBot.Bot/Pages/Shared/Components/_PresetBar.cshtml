@@ -461,7 +461,7 @@
             const styleSelect = document.getElementById('portalStyleSelector-select');
             const style = styleSelect?.value || null;
 
-            fetch('/api/portal/tts/presets/custom', {
+            fetch('/api/portal/tts/' + window.guildId + '/presets/custom', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -496,7 +496,7 @@
          * @@param {string} containerId - The container ID of the preset bar
          */
         window.presetBar_loadCustomPresets = function(containerId) {
-            fetch('/api/portal/tts/presets/custom')
+            fetch('/api/portal/tts/' + window.guildId + '/presets/custom')
                 .then(response => {
                     if (!response.ok) return [];
                     return response.json();
@@ -627,7 +627,7 @@
         window.presetBar_deleteCustomPreset = function(containerId, presetId, buttonElement) {
             if (!confirm('Delete this custom preset?')) return;
 
-            fetch('/api/portal/tts/presets/custom/' + presetId, { method: 'DELETE' })
+            fetch('/api/portal/tts/' + window.guildId + '/presets/custom/' + presetId, { method: 'DELETE' })
                 .then(response => {
                     if (!response.ok) {
                         return response.json().then(err => { throw new Error(err.message || 'Failed to delete preset'); });
