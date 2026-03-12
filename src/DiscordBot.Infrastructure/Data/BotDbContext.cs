@@ -74,6 +74,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DmAssistantInteractionLog> DmAssistantInteractionLogs => Set<DmAssistantInteractionLog>();
     public DbSet<DmAssistantUsageMetrics> DmAssistantUsageMetrics => Set<DmAssistantUsageMetrics>();
     public DbSet<DmAssistantNote> DmAssistantNotes => Set<DmAssistantNote>();
+    public DbSet<VoxMessageHistory> VoxMessageHistory => Set<VoxMessageHistory>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

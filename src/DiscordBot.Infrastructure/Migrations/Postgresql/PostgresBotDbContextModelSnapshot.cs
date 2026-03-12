@@ -17,7 +17,7 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "8.0.23")
+                .HasAnnotation("ProductVersion", "8.0.25")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -2707,6 +2707,54 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.ToTable("VerificationCodes", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.VoxMessageHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ClipGroup")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsFavorite")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<DateTime>("PlayedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<int>("WordGapMs")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId");
+
+                    b.HasIndex("UserId", "GuildId", "IsFavorite")
+                        .HasDatabaseName("IX_VoxMessageHistory_UserId_GuildId_IsFavorite");
+
+                    b.HasIndex("UserId", "GuildId", "PlayedAt")
+                        .HasDatabaseName("IX_VoxMessageHistory_UserId_GuildId_PlayedAt");
+
+                    b.ToTable("VoxMessageHistory", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.Watchlist", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3435,6 +3483,17 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                         .IsRequired();
 
                     b.Navigation("ApplicationUser");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.VoxMessageHistory", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.Watchlist", b =>
