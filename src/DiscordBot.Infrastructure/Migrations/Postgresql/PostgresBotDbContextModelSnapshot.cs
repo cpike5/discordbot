@@ -2653,6 +2653,55 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.ToTable("UserSoundFavorites", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.UserTtsPreset", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("Icon")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal>("Pitch")
+                        .HasColumnType("numeric");
+
+                    b.Property<decimal>("Speed")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Style")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("VoiceName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_UserTtsPresets_UserId");
+
+                    b.ToTable("UserTtsPresets", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.VerificationCode", b =>
                 {
                     b.Property<Guid>("Id")

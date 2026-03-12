@@ -41,6 +41,7 @@ public class PortalTtsController : ControllerBase
     private readonly IStylePresetProvider _stylePresetProvider;
     private readonly ISsmlValidator _ssmlValidator;
     private readonly ISsmlBuilder _ssmlBuilder;
+    private readonly IUserTtsPresetRepository _userTtsPresetRepository;
     private readonly ILogger<PortalTtsController> _logger;
 
     // Track current TTS message being played per guild
@@ -85,6 +86,7 @@ public class PortalTtsController : ControllerBase
         IStylePresetProvider stylePresetProvider,
         ISsmlValidator ssmlValidator,
         ISsmlBuilder ssmlBuilder,
+        IUserTtsPresetRepository userTtsPresetRepository,
         ILogger<PortalTtsController> logger)
     {
         _ttsService = ttsService;
@@ -100,6 +102,7 @@ public class PortalTtsController : ControllerBase
         _stylePresetProvider = stylePresetProvider;
         _ssmlValidator = ssmlValidator;
         _ssmlBuilder = ssmlBuilder;
+        _userTtsPresetRepository = userTtsPresetRepository;
         _logger = logger;
     }
 
@@ -1132,6 +1135,191 @@ public class PortalTtsController : ControllerBase
         }
 
         return Ok(presets);
+    }
+
+    /// <summary>
+    /// Gets the authenticated user's custom TTS presets.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of the user's custom presets.</returns>
+    [HttpGet("/api/portal/tts/presets/custom")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> GetCustomPresets(CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
+        if (userIdClaim == null || !ulong.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var presets = await _userTtsPresetRepository.GetByUserIdAsync(userId, cancellationToken);
+
+        var result = presets.Select(p => new
+        {
+            p.Id,
+            p.Name,
+            p.VoiceName,
+            p.Style,
+            Speed = (double)p.Speed,
+            Pitch = (double)p.Pitch,
+            p.Icon,
+            p.CreatedAt
+        });
+
+        return Ok(result);
+    }
+
+    /// <summary>
+    /// Creates a new custom TTS preset for the authenticated user.
+    /// Enforces a maximum of 20 presets per user.
+    /// </summary>
+    /// <param name="request">The preset data to save.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created preset.</returns>
+    [HttpPost("/api/portal/tts/presets/custom")]
+    [ProducesResponseType(StatusCodes.Status201Created)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> CreateCustomPreset(
+        [FromBody] CreateCustomPresetRequest request,
+        CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
+        if (userIdClaim == null || !ulong.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        // Validate required fields
+        if (string.IsNullOrWhiteSpace(request.Name))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Preset name is required",
+                Detail = "Please provide a name for the preset.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
+            });
+        }
+
+        if (request.Name.Length > 50)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Preset name too long",
+                Detail = "Preset name must be 50 characters or fewer.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.VoiceName))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Voice name is required",
+                Detail = "Please select a voice for the preset.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
+            });
+        }
+
+        // Enforce maximum 20 presets per user
+        var currentCount = await _userTtsPresetRepository.GetCountByUserIdAsync(userId, cancellationToken);
+        if (currentCount >= 20)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Maximum presets reached",
+                Detail = "You can have at most 20 custom presets. Please delete an existing preset first.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "preset_limit_reached"
+            });
+        }
+
+        var preset = new UserTtsPreset
+        {
+            UserId = userId,
+            Name = request.Name.Trim(),
+            VoiceName = request.VoiceName.Trim(),
+            Style = string.IsNullOrWhiteSpace(request.Style) ? null : request.Style.Trim(),
+            Speed = (decimal)Math.Clamp(request.Speed, 0.5, 2.0),
+            Pitch = (decimal)Math.Clamp(request.Pitch, 0.5, 2.0),
+            Icon = string.IsNullOrWhiteSpace(request.Icon) ? null : request.Icon.Trim(),
+            CreatedAt = DateTime.UtcNow
+        };
+
+        var created = await _userTtsPresetRepository.AddAsync(preset, cancellationToken);
+
+        _logger.LogInformation("User {UserId} created custom TTS preset '{PresetName}' (ID: {PresetId})",
+            userId, created.Name, created.Id);
+
+        return StatusCode(StatusCodes.Status201Created, new
+        {
+            created.Id,
+            created.Name,
+            created.VoiceName,
+            created.Style,
+            Speed = (double)created.Speed,
+            Pitch = (double)created.Pitch,
+            created.Icon,
+            created.CreatedAt
+        });
+    }
+
+    /// <summary>
+    /// Deletes a custom TTS preset. Verifies the authenticated user owns the preset.
+    /// </summary>
+    /// <param name="id">The preset ID to delete.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>No content on success.</returns>
+    [HttpDelete("/api/portal/tts/presets/custom/{id:int}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteCustomPreset(int id, CancellationToken cancellationToken)
+    {
+        var userIdClaim = User.FindFirst("discord:user_id")?.Value;
+        if (userIdClaim == null || !ulong.TryParse(userIdClaim, out var userId))
+            return Unauthorized();
+
+        var preset = await _userTtsPresetRepository.GetByIdAsync(id, cancellationToken);
+        if (preset == null || preset.UserId != userId)
+        {
+            return NotFound();
+        }
+
+        await _userTtsPresetRepository.DeleteAsync(preset, cancellationToken);
+
+        _logger.LogInformation("User {UserId} deleted custom TTS preset '{PresetName}' (ID: {PresetId})",
+            userId, preset.Name, preset.Id);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// Request model for creating a custom TTS preset.
+    /// </summary>
+    public class CreateCustomPresetRequest
+    {
+        /// <summary>User-defined name for the preset.</summary>
+        public string Name { get; set; } = string.Empty;
+
+        /// <summary>Azure TTS voice name.</summary>
+        public string VoiceName { get; set; } = string.Empty;
+
+        /// <summary>Optional speaking style.</summary>
+        public string? Style { get; set; }
+
+        /// <summary>Speech rate multiplier (0.5 to 2.0).</summary>
+        public double Speed { get; set; } = 1.0;
+
+        /// <summary>Pitch adjustment multiplier (0.5 to 2.0).</summary>
+        public double Pitch { get; set; } = 1.0;
+
+        /// <summary>Optional icon identifier.</summary>
+        public string? Icon { get; set; }
     }
 
     /// <summary>

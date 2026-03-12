@@ -76,6 +76,36 @@
             }
         </button>
     }
+
+    @* Save Preset button — shown at the end of the built-in presets *@
+    <button type="button"
+            id="@(Model.ContainerId)-save-preset"
+            class="preset-button preset-button--save"
+            title="Save current settings as a custom preset"
+            tabindex="-1"
+            onclick="presetBar_saveCustomPreset('@Model.ContainerId')">
+
+        <svg class="w-6 h-6"
+             fill="none"
+             viewBox="0 0 24 24"
+             stroke="currentColor"
+             aria-hidden="true">
+            <path stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+
+        <span class="preset-button__label">Save</span>
+    </button>
+</div>
+
+@* Container for custom user presets, populated via JS *@
+<div id="@(Model.ContainerId)-custom"
+     class="presets-bar presets-bar--custom"
+     role="group"
+     aria-label="Custom voice presets"
+     data-callback="@Model.OnPresetApply">
 </div>
 
 <style>
@@ -175,6 +205,77 @@
         animation: preset-pulse 200ms ease-out;
     }
 
+    /* Save Preset Button */
+    .preset-button--save {
+        border-style: dashed;
+        border-color: var(--color-border-primary);
+        color: var(--color-text-muted);
+    }
+
+    .preset-button--save:hover {
+        border-color: var(--color-accent-orange-muted);
+        color: var(--color-accent-orange);
+        border-style: solid;
+    }
+
+    /* Custom Presets Container */
+    .presets-bar--custom {
+        margin-top: 0.5rem;
+    }
+
+    .presets-bar--custom:empty {
+        display: none;
+    }
+
+    /* Custom Preset Button */
+    .preset-button--custom {
+        border-color: var(--color-accent-orange-muted);
+        position: relative;
+    }
+
+    .preset-button--custom .preset-button__badge {
+        position: absolute;
+        top: 0.25rem;
+        left: 0.375rem;
+        padding: 0.0625rem 0.25rem;
+        background: var(--color-accent-orange-muted);
+        color: var(--color-accent-orange);
+        font-size: 0.5625rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        border-radius: 0.1875rem;
+    }
+
+    /* Delete button on hover */
+    .preset-button--custom .preset-button__delete {
+        position: absolute;
+        top: 0.25rem;
+        right: 0.25rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 50%;
+        color: var(--color-text-muted);
+        cursor: pointer;
+        padding: 0;
+        z-index: 1;
+    }
+
+    .preset-button--custom .preset-button__delete:hover {
+        background: #ef4444;
+        border-color: #ef4444;
+        color: white;
+    }
+
+    .preset-button--custom:hover .preset-button__delete {
+        display: flex;
+    }
+
     /* Mobile: Horizontal Scroll Carousel */
     @@media (max-width: 767px) {
         .presets-bar {
@@ -271,6 +372,16 @@
                 pitch: parseFloat(button.dataset.presetPitch)
             };
 
+            // Also deactivate any custom preset buttons
+            const customContainer = document.getElementById(containerId + '-custom');
+            if (customContainer) {
+                customContainer.querySelectorAll('.preset-button').forEach(btn => {
+                    btn.classList.remove('preset-button--active');
+                    btn.setAttribute('aria-pressed', 'false');
+                    btn.setAttribute('tabindex', '-1');
+                });
+            }
+
             // Update active state
             const allButtons = container.querySelectorAll('.preset-button');
             allButtons.forEach(btn => {
@@ -318,6 +429,221 @@
             if (callback && typeof window[callback] === 'function') {
                 window[callback](presetData);
             }
+        };
+
+        /**
+         * Saves the current TTS settings as a custom preset.
+         * @@param {string} containerId - The container ID of the preset bar
+         */
+        window.presetBar_saveCustomPreset = function(containerId) {
+            const name = prompt('Enter a name for this preset (max 50 characters):');
+            if (!name || !name.trim()) return;
+
+            const trimmedName = name.trim().substring(0, 50);
+
+            // Gather current settings from the form
+            const voice = window.voiceSelector_getValue
+                ? window.voiceSelector_getValue('portalVoiceSelector')
+                : null;
+            if (!voice) {
+                if (window.PortalTTS && window.PortalTTS.showToast) {
+                    window.PortalTTS.showToast('warning', 'Please select a voice first');
+                }
+                return;
+            }
+
+            const speedSlider = document.getElementById('speedSlider');
+            const pitchSlider = document.getElementById('pitchSlider');
+            const speed = parseFloat(speedSlider?.value) || 1.0;
+            const pitch = parseFloat(pitchSlider?.value) || 1.0;
+
+            // Get current style from the style selector
+            const styleSelect = document.getElementById('portalStyleSelector-select');
+            const style = styleSelect?.value || null;
+
+            fetch('/api/portal/tts/presets/custom', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name: trimmedName,
+                    voiceName: voice,
+                    style: style,
+                    speed: speed,
+                    pitch: pitch
+                })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(err => { throw new Error(err.message || 'Failed to save preset'); });
+                }
+                return response.json();
+            })
+            .then(preset => {
+                presetBar_addCustomPresetButton(containerId, preset);
+                if (window.PortalTTS && window.PortalTTS.showToast) {
+                    window.PortalTTS.showToast('success', 'Saved preset "' + preset.name + '"');
+                }
+            })
+            .catch(error => {
+                if (window.PortalTTS && window.PortalTTS.showToast) {
+                    window.PortalTTS.showToast('error', error.message);
+                }
+            });
+        };
+
+        /**
+         * Loads custom presets from the API and renders them.
+         * @@param {string} containerId - The container ID of the preset bar
+         */
+        window.presetBar_loadCustomPresets = function(containerId) {
+            fetch('/api/portal/tts/presets/custom')
+                .then(response => {
+                    if (!response.ok) return [];
+                    return response.json();
+                })
+                .then(presets => {
+                    if (!Array.isArray(presets)) return;
+                    presets.forEach(preset => {
+                        presetBar_addCustomPresetButton(containerId, preset);
+                    });
+                })
+                .catch(() => {
+                    // Silently fail - custom presets are non-critical
+                });
+        };
+
+        /**
+         * Adds a single custom preset button to the custom presets container.
+         * @@param {string} containerId - The container ID of the preset bar
+         * @@param {object} preset - Preset data from the API
+         */
+        function presetBar_addCustomPresetButton(containerId, preset) {
+            const customContainer = document.getElementById(containerId + '-custom');
+            if (!customContainer) return;
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'preset-button preset-button--custom';
+            button.title = preset.voiceName + (preset.style ? ' (' + preset.style + ')' : '');
+            button.setAttribute('data-preset-id', 'custom-' + preset.id);
+            button.setAttribute('data-preset-name', preset.name);
+            button.setAttribute('data-preset-voice', preset.voiceName);
+            button.setAttribute('data-preset-style', preset.style || '');
+            button.setAttribute('data-preset-speed', preset.speed);
+            button.setAttribute('data-preset-pitch', preset.pitch);
+            button.setAttribute('aria-pressed', 'false');
+            button.setAttribute('tabindex', '-1');
+
+            // Badge
+            const badge = document.createElement('span');
+            badge.className = 'preset-button__badge';
+            badge.textContent = 'Custom';
+            button.appendChild(badge);
+
+            // Icon (use star as default for custom presets)
+            const iconSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            iconSvg.setAttribute('class', 'w-6 h-6');
+            iconSvg.setAttribute('fill', 'none');
+            iconSvg.setAttribute('viewBox', '0 0 24 24');
+            iconSvg.setAttribute('stroke', 'currentColor');
+            iconSvg.setAttribute('aria-hidden', 'true');
+            const iconPath = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+            iconPath.setAttribute('stroke-linecap', 'round');
+            iconPath.setAttribute('stroke-linejoin', 'round');
+            iconPath.setAttribute('stroke-width', '2');
+            iconPath.setAttribute('d', 'M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z');
+            iconSvg.appendChild(iconPath);
+            button.appendChild(iconSvg);
+
+            // Label
+            const label = document.createElement('span');
+            label.className = 'preset-button__label';
+            label.textContent = preset.name;
+            button.appendChild(label);
+
+            // Delete button
+            const deleteBtn = document.createElement('button');
+            deleteBtn.className = 'preset-button__delete';
+            deleteBtn.setAttribute('aria-label', 'Delete preset');
+            deleteBtn.innerHTML = '<svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width:12px;height:12px;"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>';
+            deleteBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                presetBar_deleteCustomPreset(containerId, preset.id, button);
+            });
+            button.appendChild(deleteBtn);
+
+            // Click handler to apply preset
+            button.addEventListener('click', function() {
+                // Deactivate all buttons in both built-in and custom containers
+                const mainContainer = document.getElementById(containerId);
+                const customContainer2 = document.getElementById(containerId + '-custom');
+                [mainContainer, customContainer2].forEach(function(c) {
+                    if (!c) return;
+                    c.querySelectorAll('.preset-button').forEach(function(btn) {
+                        btn.classList.remove('preset-button--active');
+                        btn.setAttribute('aria-pressed', 'false');
+                        btn.setAttribute('tabindex', '-1');
+                        var activeBadge = btn.querySelector('.preset-button__active-badge');
+                        if (activeBadge) activeBadge.remove();
+                    });
+                });
+
+                // Activate this button
+                button.classList.add('preset-button--active');
+                button.setAttribute('aria-pressed', 'true');
+                button.setAttribute('tabindex', '0');
+                button.classList.add('preset-button--pulse');
+                button.addEventListener('animationend', function handler() {
+                    button.classList.remove('preset-button--pulse');
+                    button.removeEventListener('animationend', handler);
+                }, { once: true });
+
+                // Extract and apply preset data
+                var presetData = {
+                    id: 'custom-' + preset.id,
+                    name: preset.name,
+                    voice: preset.voiceName,
+                    style: preset.style || null,
+                    speed: preset.speed,
+                    pitch: preset.pitch
+                };
+
+                // Trigger callback
+                var callback = customContainer.dataset.callback;
+                if (callback && typeof window[callback] === 'function') {
+                    window[callback](presetData);
+                }
+            });
+
+            customContainer.appendChild(button);
+        }
+
+        /**
+         * Deletes a custom preset after confirmation.
+         * @@param {string} containerId - The container ID of the preset bar
+         * @@param {number} presetId - The preset database ID
+         * @@param {HTMLElement} buttonElement - The button to remove from DOM
+         */
+        window.presetBar_deleteCustomPreset = function(containerId, presetId, buttonElement) {
+            if (!confirm('Delete this custom preset?')) return;
+
+            fetch('/api/portal/tts/presets/custom/' + presetId, { method: 'DELETE' })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(err => { throw new Error(err.message || 'Failed to delete preset'); });
+                    }
+                    if (buttonElement && buttonElement.parentNode) {
+                        buttonElement.remove();
+                    }
+                    if (window.PortalTTS && window.PortalTTS.showToast) {
+                        window.PortalTTS.showToast('success', 'Preset deleted');
+                    }
+                })
+                .catch(error => {
+                    if (window.PortalTTS && window.PortalTTS.showToast) {
+                        window.PortalTTS.showToast('error', error.message);
+                    }
+                });
         };
     })();
 </script>
