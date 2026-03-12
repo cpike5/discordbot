@@ -1197,7 +1197,12 @@ else
 
         // Handle sound uploaded event from SignalR (another user uploaded a sound)
         function handleSoundUploaded(data) {
-            // Check if this sound already exists (uploaded by this user)
+            // Skip if this sound was already added (e.g. by the local upload handler)
+            if (recentlyAddedSoundIds.has(data.soundId)) {
+                return;
+            }
+
+            // Fallback: check if card already exists in the DOM
             const existingCard = document.querySelector(`.sound-card[data-sound-id="${data.soundId}"]`);
             if (existingCard) {
                 return;
@@ -1560,6 +1565,7 @@ else
         // ========================================
         let selectedFile = null;
         let isUploading = false;
+        const recentlyAddedSoundIds = new Set();
         let uploadMessageSource = null; // tracks which validation set the current message
         const maxSizeBytes = @Model.MaxFileSizeMB * 1024 * 1024;
         const maxSounds = @Model.MaxSounds;
@@ -1786,6 +1792,11 @@ else
                     const data = JSON.parse(xhr.responseText);
                     showUploadMessage('success', `Sound "${data.name}" uploaded successfully!`);
                     clearFileSelection();
+
+                    // Track the sound ID to prevent duplicate from SignalR broadcast.
+                    // HTTP response uses "id"; SignalR DTO uses "soundId" — same GUID value.
+                    recentlyAddedSoundIds.add(data.id);
+                    setTimeout(() => recentlyAddedSoundIds.delete(data.id), 5000);
 
                     // Add the new sound to the grid without full page reload
                     addSoundToGrid(data);
