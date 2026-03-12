@@ -280,55 +280,7 @@ public class PortalTtsController : ControllerBase
         Stream audioStream;
         try
         {
-            // If SSML is provided, use SSML synthesis directly
-            if (!string.IsNullOrWhiteSpace(request.Ssml))
-            {
-                _logger.LogDebug("Using SSML synthesis for guild {GuildId}", guildId);
-                audioStream = await _ttsService.SynthesizeSpeechAsync(request.Ssml, null, SynthesisMode.Ssml, cancellationToken);
-            }
-            // If Style is provided, use SSML builder to wrap message with style
-            else if (!string.IsNullOrWhiteSpace(request.Style))
-            {
-                _logger.LogDebug("Using style '{Style}' with intensity {Intensity} for guild {GuildId}",
-                    request.Style, request.StyleIntensity ?? 1.0m, guildId);
-
-                // Build SSML with style using the ISsmlBuilder
-                var styleIntensity = request.StyleIntensity ?? 1.0m;
-                var builder = _ssmlBuilder.Reset()
-                    .BeginDocument("en-US")
-                    .WithVoice(request.Voice)
-                    .WithStyle(request.Style, (double)styleIntensity);
-
-                // Apply prosody adjustments (speed/pitch) if different from defaults
-                if (Math.Abs(request.Speed - 1.0) > 0.01 || Math.Abs(request.Pitch - 1.0) > 0.01)
-                {
-                    builder.WithProsody(rate: request.Speed, pitch: request.Pitch);
-                    builder.AddText(request.Message);
-                    builder.EndProsody();
-                }
-                else
-                {
-                    builder.AddText(request.Message);
-                }
-
-                builder.EndStyle().EndVoice();
-                var ssml = builder.Build();
-
-                _logger.LogDebug("Built SSML with style: {SsmlLength} characters", ssml.Length);
-                audioStream = await _ttsService.SynthesizeSpeechAsync(ssml, null, SynthesisMode.Ssml, cancellationToken);
-            }
-            // Otherwise, use standard TTS synthesis
-            else
-            {
-                _logger.LogDebug("Using standard TTS synthesis for guild {GuildId}", guildId);
-                var options = new TtsOptions
-                {
-                    Voice = request.Voice,
-                    Speed = request.Speed,
-                    Pitch = request.Pitch
-                };
-                audioStream = await _ttsService.SynthesizeSpeechAsync(request.Message, options, cancellationToken);
-            }
+            audioStream = await SynthesizeFromRequestAsync(request, cancellationToken);
         }
         catch (InvalidOperationException ex)
         {
@@ -1180,6 +1132,227 @@ public class PortalTtsController : ControllerBase
         }
 
         return Ok(presets);
+    }
+
+    /// <summary>
+    /// Previews a TTS message by synthesizing speech and returning WAV audio for browser playback.
+    /// Does not require a voice channel connection and does not save to TTS history.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="request">The TTS request containing message and voice settings.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>WAV audio file for browser playback.</returns>
+    [HttpPost("preview")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> PreviewTts(
+        ulong guildId,
+        [FromBody] SendTtsRequest request,
+        CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("Preview TTS request for guild {GuildId}, voice {Voice}", guildId, request.Voice);
+
+        // Check if audio is globally enabled at the bot level
+        if (!await IsAudioGloballyEnabledAsync())
+        {
+            _logger.LogWarning("Audio features globally disabled - rejecting PreviewTts for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Audio features disabled",
+                Detail = "Audio features have been disabled by an administrator.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "audio_disabled"
+            });
+        }
+
+        // Check if TTS is enabled for this guild
+        var settings = await _ttsSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
+        if (!settings.TtsEnabled)
+        {
+            _logger.LogWarning("TTS not enabled for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "TTS is not enabled for this guild",
+                Detail = "Contact a server administrator to enable TTS in guild settings.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "tts_not_enabled"
+            });
+        }
+
+        // Validate message is not empty
+        if (string.IsNullOrWhiteSpace(request.Message))
+        {
+            _logger.LogWarning("Empty TTS message provided for preview in guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Message cannot be empty",
+                Detail = "Please provide a message to preview.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "empty_message"
+            });
+        }
+
+        // Validate message length against guild settings
+        if (request.Message.Length > settings.MaxMessageLength)
+        {
+            _logger.LogWarning("TTS preview message too long for guild {GuildId} (length: {Length}, max: {Max})",
+                guildId, request.Message.Length, settings.MaxMessageLength);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Message too long",
+                Detail = $"Message length ({request.Message.Length}) exceeds the maximum allowed ({settings.MaxMessageLength}).",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "message_too_long"
+            });
+        }
+
+        // Synthesize speech
+        Stream audioStream;
+        try
+        {
+            audioStream = await SynthesizeFromRequestAsync(request, cancellationToken);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogError(ex, "TTS service not configured for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "TTS service not available",
+                Detail = "The text-to-speech service is not properly configured.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "tts_not_configured"
+            });
+        }
+        catch (SsmlValidationException ex)
+        {
+            _logger.LogWarning(ex, "SSML validation failed for preview in guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML validation failed",
+                Detail = string.Join("; ", ex.Errors),
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_validation_failed"
+            });
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogError(ex, "Invalid TTS preview request for guild {GuildId}", guildId);
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Invalid TTS request",
+                Detail = ex.Message,
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "invalid_request"
+            });
+        }
+
+        // Wrap raw PCM as WAV for browser playback
+        using (audioStream)
+        {
+            var wavStream = WrapPcmAsWav(audioStream);
+            _logger.LogInformation("Successfully generated TTS preview for guild {GuildId}, WAV size: {Size} bytes",
+                guildId, wavStream.Length);
+            return File(wavStream, "audio/wav", "tts-preview.wav");
+        }
+    }
+
+    /// <summary>
+    /// Synthesizes speech from a TTS request, handling SSML, style, and plain text modes.
+    /// </summary>
+    /// <param name="request">The TTS request containing message and voice settings.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>A stream containing the synthesized PCM audio.</returns>
+    private async Task<Stream> SynthesizeFromRequestAsync(SendTtsRequest request, CancellationToken cancellationToken)
+    {
+        // If SSML is provided, use SSML synthesis directly
+        if (!string.IsNullOrWhiteSpace(request.Ssml))
+        {
+            _logger.LogDebug("Using SSML synthesis");
+            return await _ttsService.SynthesizeSpeechAsync(request.Ssml, null, SynthesisMode.Ssml, cancellationToken);
+        }
+
+        // If Style is provided, use SSML builder to wrap message with style
+        if (!string.IsNullOrWhiteSpace(request.Style))
+        {
+            _logger.LogDebug("Using style '{Style}' with intensity {Intensity}",
+                request.Style, request.StyleIntensity ?? 1.0m);
+
+            var styleIntensity = request.StyleIntensity ?? 1.0m;
+            var builder = _ssmlBuilder.Reset()
+                .BeginDocument("en-US")
+                .WithVoice(request.Voice)
+                .WithStyle(request.Style, (double)styleIntensity);
+
+            // Apply prosody adjustments (speed/pitch) if different from defaults
+            if (Math.Abs(request.Speed - 1.0) > 0.01 || Math.Abs(request.Pitch - 1.0) > 0.01)
+            {
+                builder.WithProsody(rate: request.Speed, pitch: request.Pitch);
+                builder.AddText(request.Message);
+                builder.EndProsody();
+            }
+            else
+            {
+                builder.AddText(request.Message);
+            }
+
+            builder.EndStyle().EndVoice();
+            var ssml = builder.Build();
+
+            _logger.LogDebug("Built SSML with style: {SsmlLength} characters", ssml.Length);
+            return await _ttsService.SynthesizeSpeechAsync(ssml, null, SynthesisMode.Ssml, cancellationToken);
+        }
+
+        // Otherwise, use standard TTS synthesis
+        _logger.LogDebug("Using standard TTS synthesis");
+        var options = new TtsOptions
+        {
+            Voice = request.Voice,
+            Speed = request.Speed,
+            Pitch = request.Pitch
+        };
+        return await _ttsService.SynthesizeSpeechAsync(request.Message, options, cancellationToken);
+    }
+
+    /// <summary>
+    /// Wraps raw PCM audio data in a WAV container for browser playback.
+    /// </summary>
+    /// <param name="pcmStream">The raw PCM audio stream.</param>
+    /// <param name="sampleRate">Sample rate in Hz (default: 48000).</param>
+    /// <param name="bitsPerSample">Bits per sample (default: 16).</param>
+    /// <param name="channels">Number of audio channels (default: 2 for stereo).</param>
+    /// <returns>A MemoryStream containing valid WAV data.</returns>
+    private static MemoryStream WrapPcmAsWav(Stream pcmStream, int sampleRate = 48000, int bitsPerSample = 16, int channels = 2)
+    {
+        var pcmData = new MemoryStream();
+        pcmStream.CopyTo(pcmData);
+        var dataLength = (int)pcmData.Length;
+
+        var wav = new MemoryStream(44 + dataLength);
+        using var writer = new BinaryWriter(wav, System.Text.Encoding.UTF8, leaveOpen: true);
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
+        writer.Write(36 + dataLength);
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
+        writer.Write(16);                                           // PCM chunk size
+        writer.Write((short)1);                                     // Audio format (PCM)
+        writer.Write((short)channels);
+        writer.Write(sampleRate);
+        writer.Write(sampleRate * channels * bitsPerSample / 8);    // Byte rate
+        writer.Write((short)(channels * bitsPerSample / 8));        // Block align
+        writer.Write((short)bitsPerSample);
+        writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
+        writer.Write(dataLength);
+        pcmData.Position = 0;
+        pcmData.CopyTo(wav);
+        wav.Position = 0;
+        return wav;
     }
 
     /// <summary>
