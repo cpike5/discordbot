@@ -199,8 +199,8 @@
                 mode: currentMode,
                 timestamp: Date.now()
             };
-            // Only save if there's actual content
-            if (draft.message || draft.voice) {
+            // Only save if there's an actual message
+            if (draft.message) {
                 localStorage.setItem(getDraftKey(), JSON.stringify(draft));
             }
         } catch (error) {
@@ -219,11 +219,12 @@
             if (!raw) return;
 
             const draft = JSON.parse(raw);
-            if (!draft || (!draft.message && !draft.voice)) return;
+            // Only restore if there's an actual message
+            if (!draft || !draft.message) return;
 
             // Restore message
             const messageInput = document.getElementById('ttsMessage');
-            if (messageInput && draft.message) {
+            if (messageInput) {
                 messageInput.value = draft.message;
                 updateCharacterCount();
             }
