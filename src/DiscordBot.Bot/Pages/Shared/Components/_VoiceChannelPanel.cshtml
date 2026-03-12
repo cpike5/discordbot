@@ -118,29 +118,13 @@
                 <span id="connection-status-text">@statusText</span>
             </span>
         </div>
-        @if (Model.IsConnected && !string.IsNullOrEmpty(Model.ConnectedChannelName))
-        {
-            <p id="connected-channel-info" class="text-sm text-text-secondary flex items-center gap-2">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <span id="connected-channel-name">@Model.ConnectedChannelName</span>
-                @if (Model.ChannelMemberCount.HasValue)
-                {
-                    <span class="text-text-tertiary">(<span id="channel-member-count">@Model.ChannelMemberCount</span> members)</span>
-                }
-            </p>
-        }
-        else
-        {
-            <p id="connected-channel-info" class="hidden text-sm text-text-secondary flex items-center gap-2">
-                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                </svg>
-                <span id="connected-channel-name"></span>
-                <span class="text-text-tertiary">(<span id="channel-member-count">0</span> members)</span>
-            </p>
-        }
+        <p id="connected-channel-info" class="text-sm text-text-secondary flex items-center gap-2 @(Model.IsConnected && !string.IsNullOrEmpty(Model.ConnectedChannelName) ? "" : "hidden")">
+            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <span id="connected-channel-name">@(Model.ConnectedChannelName ?? "")</span>
+            <span class="text-text-tertiary">(<span id="channel-member-count">@(Model.ChannelMemberCount ?? 0)</span> members)</span>
+        </p>
     </div>
 
     <!-- Channel Control Section -->
@@ -168,30 +152,15 @@
                     }
                 }
             </select>
-            @if (Model.IsConnected)
-            {
-                <button id="leave-channel-btn"
-                        type="button"
-                        class="px-3 py-1.5 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-1.5"
-                        title="Leave voice channel">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Leave
-                </button>
-            }
-            else
-            {
-                <button id="leave-channel-btn"
-                        type="button"
-                        class="hidden px-3 py-1.5 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-1.5"
-                        title="Leave voice channel">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                    </svg>
-                    Leave
-                </button>
-            }
+            <button id="leave-channel-btn"
+                    type="button"
+                    class="@(Model.IsConnected ? "" : "hidden") px-3 py-1.5 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors flex items-center gap-1.5"
+                    title="Leave voice channel">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                </svg>
+                Leave
+            </button>
         </div>
     </div>
 
