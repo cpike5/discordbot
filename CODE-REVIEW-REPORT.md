@@ -166,14 +166,193 @@ Identical Discord REST API lookups with fallback:
 
 ---
 
-#### 1.6 Oversized Services
+#### 1.6 Oversized Services — Detailed Split Recommendations
 
-| Service | Lines | Responsibilities | Action |
-|---------|------:|-----------------|--------|
-| `PlaybackService.cs` | 978 | Queue + streaming + FFmpeg + caching + broadcasting | Split into `IPlaybackQueue`, `IAudioStreamer`, `IFfmpegTranscoder` |
-| `SearchService.cs` | 947 | Auth + caching + 9 category searches + scoring + ranking | Extract `ISearchProvider<T>` per category |
-| `NotificationService.cs` | 689 | Creation + broadcast + CRUD + DTO mapping | Split creation from broadcasting |
-| `AlertMonitoringService.cs` | 629 | Monitoring + metrics + incidents + notifications | Split into `IMetricsCollector` and `IAlertManager` |
+##### PlaybackService (978 lines, 7 dependencies, 12 methods)
+
+**Current responsibilities:** Queue management, playback loop orchestration, FFmpeg process spawning, audio streaming (cache vs. FFmpeg), cache storage, SignalR broadcasting, play-count incrementing.
+
+**Shared state:** `_playbackStates` (ConcurrentDictionary per guild) and `_guildLocks` (SemaphoreSlim per guild) are accessed by 7 methods. This coupling is the main challenge.
+
+**Recommended split into 3 services:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  PlaybackService (orchestrator, ~250 lines)                 │
+│  Keeps: _playbackStates, _guildLocks, queue management      │
+│  Methods: PlayAsync, StopAsync, IsPlaying, GetQueueLength,  │
+│           RemoveFromQueueAsync, PlaybackLoopAsync            │
+│  Depends on: IAudioStreamer, IAudioNotifier                  │
+├─────────────────────────────────────────────────────────────┤
+│  AudioStreamer : IAudioStreamer (~400 lines)                 │
+│  Owns: Cache-vs-FFmpeg routing, streaming loops, progress   │
+│  Methods: StreamSoundAsync (was PlaySoundAsync),             │
+│           StreamFromCacheAsync, StreamFromFfmpegAsync,        │
+│           StreamAudioAsync                                   │
+│  Depends on: IFfmpegTranscoder, ISoundCacheService,          │
+│              IAudioNotifier                                   │
+├─────────────────────────────────────────────────────────────┤
+│  FfmpegTranscoder : IFfmpegTranscoder (~200 lines)          │
+│  Owns: FFmpeg process lifecycle, argument building            │
+│  Methods: TranscodeToOpusStreamAsync, BuildFfmpegArguments   │
+│  Depends on: IOptions<SoundboardOptions> (FfmpegPath)        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Migration path:** Start bottom-up. Extract `FfmpegTranscoder` first (no shared state dependency). Then extract `AudioStreamer`, injecting it into the slimmed `PlaybackService`. The queue state stays in `PlaybackService` since it's the natural owner.
+
+---
+
+##### SearchService (947 lines, 13 dependencies, 22 methods)
+
+**Current responsibilities:** Unified search orchestration, 9 category-specific searches (guilds, command logs, users, audit logs, message logs, commands, pages, reminders, scheduled messages), authorization filtering, relevance scoring, result caching, badge/display formatting.
+
+**Shared state:** None — stateless service. Only uses injected `IMemoryCache`.
+
+**Recommended split using `ISearchProvider` strategy pattern:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SearchService (orchestrator, ~150 lines)                   │
+│  Keeps: SearchAsync, SearchCategoryAsync, caching,           │
+│         DetermineCategoriesToSearch, authorization checks     │
+│  Depends on: IEnumerable<ISearchProvider>, IMemoryCache,     │
+│              IAuthorizationService                            │
+├─────────────────────────────────────────────────────────────┤
+│  ISearchProvider (interface)                                  │
+│  - SearchCategory Category { get; }                          │
+│  - bool RequiresAdmin { get; }                               │
+│  - Task<SearchCategoryResult> SearchAsync(string term,       │
+│        ClaimsPrincipal user, int maxResults, CancellationToken)│
+├─────────────────────────────────────────────────────────────┤
+│  Implementations (each ~60-80 lines):                        │
+│  ├─ GuildSearchProvider         (depends on IGuildService)   │
+│  ├─ CommandLogSearchProvider    (depends on ICommandLogService)│
+│  ├─ UserSearchProvider          (depends on IUserManagementService)│
+│  ├─ AuditLogSearchProvider      (depends on IAuditLogService) │
+│  ├─ MessageLogSearchProvider    (depends on IMessageLogService)│
+│  ├─ CommandMetadataSearchProvider (depends on ICommandMetadataService)│
+│  ├─ PageSearchProvider          (depends on IPageMetadataService)│
+│  ├─ ReminderSearchProvider      (depends on IReminderRepository)│
+│  └─ ScheduledMessageSearchProvider (depends on IScheduledMessageRepository)│
+├─────────────────────────────────────────────────────────────┤
+│  SearchScoringHelper (static utility, ~50 lines)            │
+│  Methods: CalculateRelevanceScore, GetRelativeTime           │
+├─────────────────────────────────────────────────────────────┤
+│  SearchDisplayHelper (static utility, ~60 lines)            │
+│  Methods: GetCategoryDisplayName, GetCategoryViewAllUrl,     │
+│           GetSectionBadgeVariant, GetAuditLogBadgeVariant,   │
+│           GetRoleBadgeVariant                                │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key benefits:**
+- `SearchService` drops from 13 dependencies to 3 (providers are resolved via `IEnumerable<ISearchProvider>`)
+- Each provider is independently testable with a single service dependency
+- Adding a new search category = adding a new `ISearchProvider` implementation (no changes to orchestrator)
+- The `switch` dispatcher in `SearchCategoryInternalAsync` is eliminated entirely
+
+**Migration path:** Extract the `ISearchProvider` interface and shared helpers first. Migrate one category at a time (start with `GuildSearchProvider` as simplest). Register all providers with `services.AddScoped<ISearchProvider, GuildSearchProvider>()` etc. Update `SearchService` to iterate `IEnumerable<ISearchProvider>` instead of switch-dispatching.
+
+---
+
+##### NotificationService (689 lines, 5 dependencies, 22 methods)
+
+**Current responsibilities:** Notification creation (3 variants: single user, all admins, guild admins), retrieval and pagination, read/unread status management, deletion and dismissal, SignalR broadcasting (4 broadcast methods), DTO mapping and formatting.
+
+**Shared state:** None — stateless, but DbContext is not thread-safe so broadcasts execute sequentially.
+
+**Recommended split into 2 services + 1 helper:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  NotificationService (CRUD + creation, ~350 lines)          │
+│  Keeps: CreateForUserAsync, CreateForAllAdminsAsync,         │
+│         CreateForGuildAdminsAsync, GetUserNotificationsAsync, │
+│         GetSummaryAsync, GetUserNotificationsPagedAsync,     │
+│         MarkAsReadAsync, MarkAllAsReadAsync, MarkAsUnreadAsync,│
+│         MarkMultipleAsReadAsync, DismissAsync, DeleteAsync,  │
+│         DeleteMultipleAsync, DeleteAllAsync                  │
+│  Depends on: INotificationRepository, UserManager,           │
+│              BotDbContext, INotificationBroadcaster           │
+├─────────────────────────────────────────────────────────────┤
+│  NotificationBroadcaster : INotificationBroadcaster          │
+│  (~200 lines)                                                │
+│  Owns: All SignalR communication for notifications           │
+│  Methods: BroadcastNewNotificationAsync,                     │
+│           BroadcastNotificationMarkedReadAsync,               │
+│           BroadcastAllNotificationsReadAsync,                 │
+│           BroadcastNotificationCountChangedAsync              │
+│  Depends on: IHubContext<DashboardHub>,                      │
+│              INotificationRepository (for summary fetch)      │
+├─────────────────────────────────────────────────────────────┤
+│  NotificationMapper (static helper, ~60 lines)              │
+│  Methods: MapToDto, GetTypeDisplayName, GetTimeAgo           │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key benefits:**
+- Broadcast logic (try-catch, SignalR calls, summary fetching) is isolated and reusable
+- `NotificationService` focuses purely on data operations and delegates all real-time communication
+- `NotificationMapper` can be shared across the service and any controllers that need notification DTOs
+- Each broadcast method currently has identical exception-safe wrapping — the broadcaster centralizes this
+
+**Migration path:** Extract `NotificationBroadcaster` first, since all 4 broadcast methods are self-contained private methods with no dependencies on `NotificationService` state. Then extract the static mapper. Finally, inject `INotificationBroadcaster` into the slimmed `NotificationService`.
+
+---
+
+##### AlertMonitoringService (629 lines, 5 constructor deps + 6 lazy-resolved, 22 methods)
+
+**Current responsibilities:** Background monitoring loop (BackgroundService), lazy service resolution, metric value collection (8 specific metrics), threshold breach/normal state tracking, incident creation/resolution via repository, admin notification creation, SignalR alert broadcasting, IMetricsProvider implementation for HTTP API.
+
+**Shared state:** `_breachCounts` and `_normalCounts` (ConcurrentDictionary) — accessed by `HandleThresholdBreachAsync` and `HandleNormalReadingAsync`.
+
+**Recommended split into 3 services:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  AlertMonitoringService (orchestrator + loop, ~200 lines)   │
+│  Keeps: ExecuteAsync (BackgroundService loop),               │
+│         MonitorMetricsAsync, CheckMetricAsync,               │
+│         CheckThresholds, _breachCounts, _normalCounts,       │
+│         IBackgroundServiceHealth implementation               │
+│  Depends on: IMetricValueCollector, IAlertIncidentManager,   │
+│              IPerformanceNotifier, IOptions<PerformanceAlertOptions>│
+├─────────────────────────────────────────────────────────────┤
+│  MetricValueCollector : IMetricValueCollector                │
+│  (also implements IMetricsProvider, ~200 lines)              │
+│  Owns: All 8 metric-specific getters + routing               │
+│  Methods: GetCurrentMetricValueAsync, GetAllCurrentValuesAsync,│
+│           GetGatewayLatency, GetCommandP95LatencyAsync,       │
+│           GetErrorRateAsync, GetMemoryUsage,                  │
+│           GetApiRateLimitUsage, GetDatabaseQueryTime,         │
+│           IsBotDisconnected, HasServiceFailure                │
+│  Depends on: ILatencyHistoryService,                         │
+│              ICommandPerformanceAggregator,                    │
+│              IApiRequestTracker, IDatabaseMetricsCollector,   │
+│              IConnectionStateService,                         │
+│              IBackgroundServiceHealthRegistry                  │
+├─────────────────────────────────────────────────────────────┤
+│  AlertIncidentManager : IAlertIncidentManager (~200 lines)  │
+│  Owns: Incident lifecycle (create, resolve, notify)           │
+│  Methods: HandleThresholdBreachAsync,                         │
+│           HandleNormalReadingAsync,                            │
+│           CreateAlertNotificationAsync,                        │
+│           MapToIncidentDto                                    │
+│  Depends on: IServiceScopeFactory (for repository),          │
+│              IPerformanceNotifier,                             │
+│              IOptions<NotificationOptions>                     │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Key benefits:**
+- `MetricValueCollector` becomes independently usable by other services (dashboards, health endpoints) without pulling in the monitoring loop
+- `AlertIncidentManager` encapsulates the incident lifecycle and notification logic, testable in isolation
+- `AlertMonitoringService` becomes a thin orchestrator: fetch value → check threshold → delegate to incident manager
+- The 6 lazy-resolved services move to `MetricValueCollector` where they naturally belong, eliminating the lazy-resolution pattern from the orchestrator
+- `IMetricsProvider` is naturally implemented by `MetricValueCollector` instead of being awkwardly bolted onto a BackgroundService
+
+**Migration path:** Extract `MetricValueCollector` first — it has no shared state and all 8 metric getters are pure lookups. Move the `IMetricsProvider` interface implementation with it. Then extract `AlertIncidentManager` with `HandleThresholdBreachAsync`, `HandleNormalReadingAsync`, and `CreateAlertNotificationAsync`. The breach/normal counters stay in `AlertMonitoringService` since they're part of the monitoring state machine.
 
 ---
 
@@ -611,13 +790,21 @@ src/DiscordBot.Infrastructure/Data/Repositories/
     └── BatchUpsertAsync()
 ```
 
-### Phase 4: Architectural Improvements
+### Phase 4: Architectural Improvements — Service Splits
 
-- Split `PlaybackService` (978 lines) → `IPlaybackQueue` + `IAudioStreamer` + `IFfmpegTranscoder`
-- Split `SearchService` (947 lines) → `ISearchProvider<T>` implementations per category
-- Split `AlertMonitoringService` (629 lines) → `IMetricsCollector` + `IAlertManager`
-- Refactor `SettingsRepository` and `ThemeRepository` to inherit `Repository<T>`
-- Consider a service activity decorator/interceptor to eliminate the 13-line tracing boilerplate
+Each split below includes a recommended migration path (bottom-up extraction) and diagrams in section 1.6.
+
+| Service | Split Into | Migration Order | Key Benefit |
+|---------|-----------|-----------------|-------------|
+| `PlaybackService` (978 lines) | `PlaybackService` (250) + `AudioStreamer` (400) + `FfmpegTranscoder` (200) | FfmpegTranscoder → AudioStreamer → slim PlaybackService | FFmpeg process mgmt is independently testable; streaming logic decoupled from queue |
+| `SearchService` (947 lines) | `SearchService` (150) + 9× `ISearchProvider` (60-80 each) + 2 static helpers | Interface + helpers → one provider at a time → slim orchestrator | New search categories added without touching orchestrator; deps drop from 13 to 3 |
+| `NotificationService` (689 lines) | `NotificationService` (350) + `NotificationBroadcaster` (200) + `NotificationMapper` (60) | Broadcaster → Mapper → slim service | SignalR logic isolated; broadcaster reusable; mapper sharable with controllers |
+| `AlertMonitoringService` (629 lines) | `AlertMonitoringService` (200) + `MetricValueCollector` (200) + `AlertIncidentManager` (200) | MetricValueCollector → AlertIncidentManager → slim orchestrator | Metrics usable without monitoring loop; eliminates lazy service resolution; IMetricsProvider naturally placed |
+
+### Phase 5: Cross-Cutting Patterns
+
+- Service activity interceptor/decorator to eliminate the 13-line tracing boilerplate (~50+ methods)
+- Resolve dual Anthropic SDK dependency (`Anthropic` v12.2.0 in Infrastructure + `Anthropic.SDK` v5.8.0 in Bot)
 
 ---
 
@@ -638,9 +825,12 @@ src/DiscordBot.Infrastructure/Data/Repositories/
 | **3** | Extend `Repository<T>` with shared patterns | MEDIUM | MEDIUM | ~300 |
 | **3** | Fix `SettingsRepository` / `ThemeRepository` | MEDIUM | LOW | ~50 |
 | **3** | Extract `IDiscordUserResolver` with caching | MEDIUM | LOW | ~100 |
-| **4** | Split `PlaybackService` into 3 services | HIGH | HIGH | ~0 (complexity) |
-| **4** | Split `SearchService` with `ISearchProvider<T>` | MEDIUM | HIGH | ~0 (complexity) |
-| **4** | Service activity interceptor/decorator | HIGH | HIGH | ~650 |
+| **4** | Split `PlaybackService` → 3 services | HIGH | HIGH | ~0 (complexity reduction) |
+| **4** | Split `SearchService` → orchestrator + 9 providers | HIGH | MEDIUM | ~0 (testability, extensibility) |
+| **4** | Split `NotificationService` → service + broadcaster | MEDIUM | LOW | ~0 (separation of concerns) |
+| **4** | Split `AlertMonitoringService` → 3 services | MEDIUM | MEDIUM | ~0 (eliminates lazy resolution) |
+| **5** | Service activity interceptor/decorator | HIGH | HIGH | ~650 |
+| **5** | Resolve dual Anthropic SDK dependency | LOW | MEDIUM | — |
 | **4** | Resolve dual Anthropic SDK dependency | LOW | MEDIUM | — |
 
 **Total estimated LOC reduction from Phases 1–3:** ~3,500 lines
