@@ -44,7 +44,7 @@ The codebase follows clean architecture principles (Core → Infrastructure → 
 ┌──────────────────────────────────────────────┐
 │            DiscordBot.Bot (~740 files)        │
 │  Razor Pages · REST API · Discord Commands   │
-│  SignalR Hubs · 80+ Services · Middleware     │
+│  SignalR Hubs · 117 Services · Middleware     │
 ├──────────────────────────────────────────────┤
 │       DiscordBot.Infrastructure (~200 files)  │
 │  EF Core · Repositories · Migrations         │
@@ -57,6 +57,165 @@ The codebase follows clean architecture principles (Core → Infrastructure → 
 ```
 
 **Tech Stack:** .NET 8, Discord.Net 3.19.0-fork, EF Core 8 (SQLite + PostgreSQL), Anthropic SDK, Azure Speech, Serilog, OpenTelemetry, Elastic APM, Tailwind CSS
+
+### Services Folder Structure
+
+Services are organized into 17 domain-aligned subdirectories matching the DI extension method groupings, with cross-cutting services at the top level.
+
+```
+Services/                                        (117 files total)
+│
+├── Analytics/                                   (5 files)
+│   ├── AnalyticsRetentionService.cs               Background cleanup of stale analytics data
+│   ├── ChannelActivityAggregationService.cs       Aggregates per-channel activity metrics
+│   ├── EngagementAnalyticsService.cs              User engagement metrics and trends
+│   ├── MemberActivityAggregationService.cs        Aggregates per-member activity metrics
+│   └── ServerAnalyticsService.cs                  Guild-level analytics and dashboards
+│
+├── Audio/                                       (13 files)
+│   ├── AudioCacheCleanupService.cs                Background cleanup of expired audio cache
+│   ├── AudioNotifier.cs                           SignalR broadcaster for playback events
+│   ├── AudioService.cs                            Voice connection management
+│   ├── AzureTtsService.cs                         Azure Cognitive Services TTS integration
+│   ├── PlaybackService.cs                         Queue-based audio playback orchestrator
+│   ├── SoundCacheService.cs                       FFmpeg-transcoded audio caching
+│   ├── SoundFileService.cs                        Sound file I/O and validation
+│   ├── SoundPlayLogRetentionService.cs            Background cleanup of play logs
+│   ├── SoundService.cs                            Sound CRUD and metadata
+│   ├── SoundboardOrchestrationService.cs          High-level soundboard operations
+│   ├── VoiceAutoLeaveService.cs                   Auto-disconnect from empty voice channels
+│   ├── VoxClipLibraryInitializer.cs               Scans and indexes VOX clip files on startup
+│   └── VoxService.cs                              Half-Life VOX concatenation and playback
+│
+├── Audit/                                       (7 files)
+│   ├── AuditLogBuilder.cs                         Fluent builder for audit log entries
+│   ├── AuditLogQueue.cs                           In-memory queue for async audit writes
+│   ├── AuditLogQueueProcessor.cs                  Background processor draining the audit queue
+│   ├── AuditLogRetentionService.cs                Background cleanup of old audit records
+│   ├── AuditLogService.cs                         Audit log CRUD and querying
+│   ├── MessageLogCleanupService.cs                Background cleanup of old message logs
+│   └── MessageLogService.cs                       Message log CRUD and search
+│
+├── Commands/                                    (6 files)
+│   ├── CommandExecutionLogger.cs                  Logs slash command executions to DB
+│   ├── CommandLogService.cs                       Command log querying and analytics
+│   ├── CommandMetadataService.cs                  Discovers and caches command metadata
+│   ├── CommandPerformanceAggregator.cs            Tracks command latency percentiles
+│   ├── CommandRegistrationService.cs              Registers slash commands with Discord
+│   └── ICommandExecutionLogger.cs                 Interface for command execution logging
+│
+├── Dashboard/                                   (2 files)
+│   ├── DashboardNotifier.cs                       SignalR broadcaster for dashboard widgets
+│   └── DashboardUpdateService.cs                  Coordinates dashboard data refreshes
+│
+├── Discord/                                     (10 files)
+│   ├── BotHostedService.cs                        Main Discord gateway lifecycle manager
+│   ├── DiscordBotOwnerResolver.cs                 Resolves bot owner from Discord application
+│   ├── DiscordClientMemoryReporter.cs             Reports Discord.Net memory usage
+│   ├── DiscordMessageAdapter.cs                   Adapts Discord messages for internal use
+│   ├── InteractionState.cs                        Generic state container for interactions
+│   ├── InteractionStateCleanupService.cs          Background cleanup of expired states
+│   ├── InteractionStateService.cs                 Manages ephemeral interaction state
+│   ├── MemberSyncQueue.cs                         Queue for batched member sync operations
+│   ├── MemberSyncService.cs                       Background service syncing guild members
+│   └── MessageLoggingHandler.cs                   Handles message events for logging
+│
+├── Guild/                                       (6 files)
+│   ├── GuildAudioSettingsService.cs               Per-guild audio/soundboard settings
+│   ├── GuildMemberService.cs                      Guild member CRUD and queries
+│   ├── GuildMembershipService.cs                  Guild membership cache and sync
+│   ├── GuildMetricsAggregationService.cs          Aggregates guild-level metrics
+│   ├── GuildModerationConfigService.cs            Per-guild moderation configuration
+│   └── GuildService.cs                            Guild CRUD, search, and management
+│
+├── Identity/                                    (9 files)
+│   ├── ConsentService.cs                          GDPR consent management
+│   ├── DiscordOAuthSettings.cs                    OAuth configuration POCO
+│   ├── DiscordTokenRefreshService.cs              Background token refresh for OAuth
+│   ├── DiscordTokenService.cs                     Discord OAuth token management
+│   ├── DiscordUserInfoService.cs                  Fetches user info from Discord API
+│   ├── UserDataExportService.cs                   GDPR data export
+│   ├── UserDiscordGuildService.cs                 Fetches user's guilds from Discord API
+│   ├── UserManagementService.cs                   User account CRUD and role management
+│   └── UserPurgeService.cs                        GDPR data deletion
+│
+├── LLM/                                         (3 files)
+│   └── Providers/
+│       ├── BotManagementToolProvider.cs            LLM tool: bot management actions
+│       ├── RatWatchToolProvider.cs                 LLM tool: Rat Watch queries
+│       └── UserGuildInfoToolProvider.cs            LLM tool: user/guild info lookups
+│
+├── Moderation/                                  (11 files)
+│   ├── BulkPurgeService.cs                        Bulk message deletion
+│   ├── ContentFilterService.cs                    Content filtering rules engine
+│   ├── FlaggedEventService.cs                     Flagged event CRUD and management
+│   ├── InvestigationService.cs                    Moderation investigation workflows
+│   ├── ModNoteService.cs                          Moderator notes CRUD
+│   ├── ModTagService.cs                           Reusable moderation tag templates
+│   ├── ModerationAnalyticsService.cs              Moderation-specific analytics
+│   ├── ModerationService.cs                       Moderation case lifecycle management
+│   ├── RaidDetectionService.cs                    Real-time raid pattern detection
+│   ├── SpamDetectionService.cs                    Real-time spam pattern detection
+│   └── WatchlistService.cs                        User watchlist management
+│
+├── Notifications/                               (2 files)
+│   ├── NotificationRetentionService.cs            Background cleanup of old notifications
+│   └── NotificationService.cs                     Notification CRUD and SignalR broadcasting
+│
+├── Performance/                                 (16 files)
+│   ├── AlertMonitoringService.cs                  Background metric threshold monitoring
+│   ├── ApiRequestTracker.cs                       Tracks API request counts and rate limits
+│   ├── BusinessMetricsUpdateService.cs            Background update of business metrics
+│   ├── ConnectionStateService.cs                  Tracks Discord gateway connection state
+│   ├── CpuHistoryService.cs                       Maintains CPU usage history
+│   ├── CpuSamplingService.cs                      Background CPU usage sampler
+│   ├── DatabaseMetricsCollector.cs                Collects DB query timing metrics
+│   ├── InstrumentedMemoryCache.cs                 Memory cache with hit/miss tracking
+│   ├── LatencyHistoryService.cs                   Maintains gateway latency history
+│   ├── MemoryDiagnosticsService.cs                Aggregates IMemoryReportable services
+│   ├── MetricsCollectionService.cs                Background snapshot of all metrics
+│   ├── MetricsUpdateService.cs                    Periodically updates metric counters
+│   ├── PerformanceAlertService.cs                 Performance incident CRUD
+│   ├── PerformanceMetricsBroadcastService.cs      Background SignalR metrics broadcaster
+│   ├── PerformanceNotifier.cs                     SignalR broadcaster for perf alerts
+│   └── PerformanceSubscriptionTracker.cs          Tracks dashboard perf subscriptions
+│
+├── RatWatch/                                    (3 files)
+│   ├── RatWatchExecutionService.cs                Background executor for scheduled checks
+│   ├── RatWatchService.cs                         Rat Watch CRUD and business logic
+│   └── RatWatchStatusService.cs                   Tracks active Rat Watch status
+│
+├── Scheduling/                                  (5 files)
+│   ├── ReminderExecutionService.cs                Background executor for due reminders
+│   ├── ReminderService.cs                         Reminder CRUD and management
+│   ├── ScheduledMessageExecutionService.cs        Background executor for scheduled messages
+│   ├── ScheduledMessageService.cs                 Scheduled message CRUD and management
+│   └── TimeParsingService.cs                      Natural language time parsing
+│
+├── Tts/                                         (7 files)
+│   ├── SsmlBuilder.cs                             Builds SSML markup for TTS
+│   ├── SsmlValidator.cs                           Validates SSML before sending to Azure
+│   ├── StylePresetProvider.cs                     Predefined TTS style presets
+│   ├── TtsHistoryService.cs                       TTS usage history tracking
+│   ├── TtsPlaybackService.cs                      Orchestrates TTS generation + playback
+│   ├── TtsSettingsService.cs                      Per-guild TTS voice/style settings
+│   └── VoiceCapabilityProvider.cs                 Available Azure TTS voices and styles
+│
+├── Verification/                                (2 files)
+│   ├── VerificationCleanupService.cs              Background cleanup of expired verifications
+│   └── VerificationService.cs                     User verification workflow
+│
+│── BackgroundServiceHealthRegistry.cs           Infrastructure: tracks background service health
+│── BotConfiguration.cs                          Core bot configuration POCO
+│── BotService.cs                                Core bot operations (guilds, users, stats)
+│── BotStatusService.cs                          Bot online/offline status tracking
+│── MonitoredBackgroundService.cs                Base class for health-monitored background services
+│── PageMetadataService.cs                       Discovers and caches Razor page metadata
+│── SearchService.cs                             Unified cross-category search orchestrator
+│── ThemeService.cs                              UI theme management
+│── VersionService.cs                            Application version info
+└── WelcomeService.cs                            New member welcome messages
+```
 
 ---
 
