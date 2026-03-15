@@ -15,9 +15,10 @@
    - [Discord Command Handler Duplication](#2-discord-command-handler-duplication)
    - [Data Access Layer Issues](#3-data-access-layer-issues)
    - [Web Layer Duplication](#4-web-layer-duplication)
-4. [Detailed Findings by Category](#detailed-findings-by-category)
-5. [Recommended Abstractions](#recommended-abstractions)
-6. [Prioritized Refactoring Roadmap](#prioritized-refactoring-roadmap)
+4. [Dependency Injection & Cross-Cutting Concerns](#5-dependency-injection--cross-cutting-concerns)
+5. [Detailed Findings by Category](#detailed-findings-by-category)
+6. [Recommended Abstractions](#recommended-abstractions)
+7. [Prioritized Refactoring Roadmap](#prioritized-refactoring-roadmap)
 
 ---
 
@@ -463,6 +464,81 @@ public string JoinedAtUtcIso => DateTime.SpecifyKind(JoinedAt, DateTimeKind.Utc)
 #### 4.8 Identical GetTextChannels() Helper (LOW — 2 files)
 
 `ScheduledMessages/Create.cshtml.cs` (lines 340–399) and `ScheduledMessages/Edit.cshtml.cs` (lines 449–507) contain the exact same channel-fetching logic.
+
+---
+
+### 5. Dependency Injection & Cross-Cutting Concerns
+
+#### 5.1 Configuration Binding Split (MEDIUM)
+
+Configuration options are bound in **two separate places**, making it hard to find where a given option is registered:
+
+- **`Program.cs`** (lines 138–149): Binds 5 options (`ApplicationOptions`, `CachingOptions`, `GuildMembershipCacheOptions`, `BackgroundServicesOptions`, `ObservabilityOptions`)
+- **Extension methods** (scattered across 24 files): Bind the remaining ~32 options
+
+**Recommendation:** Consolidate all `Configure<T>` bindings into either Program.cs or a single `AddConfigurationBindings()` extension method.
+
+---
+
+#### 5.2 Conditional Service Registration Duplication (LOW-MEDIUM)
+
+Both `AssistantServiceExtensions.cs` (lines 50–82) and `DmAssistantServiceExtensions.cs` (lines 63–67) use identical conditional registration based on API key presence:
+
+```csharp
+if (!string.IsNullOrEmpty(apiKey))
+{
+    // Register LLM-dependent services
+}
+```
+
+**Recommendation:** Extract a reusable `AddConditionalApiService()` helper or use a generic pattern for optional API-key-gated registrations.
+
+---
+
+#### 5.3 Performance Monitoring Service Overlap (LOW-MEDIUM)
+
+The performance monitoring subsystem has 10 services registered in `PerformanceMetricsServiceExtensions.cs` (lines 38–96):
+
+| Service | Tracks |
+|---------|--------|
+| `ApiRequestTracker` | API request metrics |
+| `CommandPerformanceAggregator` | Command timing |
+| `LatencyHistoryService` | Gateway latency |
+| `CpuHistoryService` | CPU sampling |
+| `ConnectionStateService` | Gateway connection |
+| `InstrumentedMemoryCache` | Cache metrics |
+| `MemoryDiagnosticsService` | Aggregates `IMemoryReportable` |
+| `AlertMonitoringService` | Threshold alerting |
+| `PerformanceNotifier` | SignalR broadcasting |
+| `PerformanceAlertService` | Alert CRUD |
+
+**Potential overlap:** `ApiRequestTracker`, `CommandPerformanceAggregator`, and `LatencyHistoryService` all track timing-related metrics with slightly different scopes. Review whether they could share a common collection interface.
+
+---
+
+#### 5.4 HttpClient Registration Scattered (LOW)
+
+Named `HttpClient` instances are configured inline in different extension methods:
+
+- `WebServiceExtensions.cs` (lines 18–25) — "Discord" client
+- `DmAssistantServiceExtensions.cs` (lines 53–58) — "DmAssistantWebFetch" client
+
+**Recommendation:** Consider grouping all `AddHttpClient` calls in a single `HttpClientExtensions.cs` for discoverability.
+
+---
+
+#### 5.5 What's Done Well
+
+The DI layer has several strengths worth noting:
+
+- **24 well-organized extension methods** following the `Add{Feature}Services(this IServiceCollection)` pattern
+- **Consistent lifetime management**: repositories are scoped, event handlers are singleton, transient for stateless builders
+- **37 strongly-typed options classes** all following `public const string SectionName` convention in `DiscordBot.Core/Configuration/`
+- **Validation on key options** using `ValidateDataAnnotations()` and `ValidateOnStart()` (e.g., `DiscordServiceExtensions.cs` lines 27–30)
+- **IMemoryReportable** pattern (9 implementations) — clean multi-interface aggregation via `IEnumerable<IMemoryReportable>`
+- **Middleware pipeline** is well-ordered: CorrelationId → ApiMetrics → Serilog → Auth
+- **QueryPerformanceInterceptor** (355 lines) with sensitive parameter masking — solid security practice
+- **No static loggers** — all 117+ services use proper `ILogger<T>` constructor injection
 
 ---
 
