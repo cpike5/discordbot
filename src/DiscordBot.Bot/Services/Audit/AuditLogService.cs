@@ -7,7 +7,7 @@ using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Audit;
 
 /// <summary>
 /// Service for managing audit log operations including querying, retrieval, and logging.

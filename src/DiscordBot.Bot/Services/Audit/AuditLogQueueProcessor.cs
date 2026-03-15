@@ -3,7 +3,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Bot.Tracing;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Audit;
 
 /// <summary>
 /// Background service that processes audit log entries from the queue.

@@ -9,7 +9,7 @@ using DiscordBot.Core.Utilities;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Guild;
 
 /// <summary>
 /// Service for guild operations and settings management.

@@ -4,7 +4,7 @@ using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Options;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Guild;
 
 /// <summary>
 /// Service for checking Discord guild membership and administrative permissions.

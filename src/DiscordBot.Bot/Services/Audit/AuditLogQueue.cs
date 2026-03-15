@@ -1,7 +1,7 @@
 using DiscordBot.Core.DTOs;
 using System.Threading.Channels;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Audit;
 
 /// <summary>
 /// Interface for a thread-safe queue that stores audit log entries for background processing.

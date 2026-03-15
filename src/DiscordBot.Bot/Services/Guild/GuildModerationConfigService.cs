@@ -5,7 +5,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using System.Text.Json;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Guild;
 
 /// <summary>
 /// Service implementation for managing guild moderation configuration.

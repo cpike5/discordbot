@@ -5,7 +5,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Options;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Guild;
 
 /// <summary>
 /// Background service that aggregates daily guild-level metrics into GuildMetricsSnapshot records.

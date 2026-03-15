@@ -3,7 +3,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using System.Text.Json;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Audit;
 
 /// <summary>
 /// Fluent builder implementation for constructing audit log entries.

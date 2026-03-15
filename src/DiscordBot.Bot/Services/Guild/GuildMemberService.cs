@@ -9,7 +9,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
-namespace DiscordBot.Bot.Services;
+namespace DiscordBot.Bot.Services.Guild;
 
 /// <summary>
 /// Service for managing guild members with business logic, caching, and export capabilities.

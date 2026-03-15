@@ -7,28 +7,28 @@ using Microsoft.Extensions.Options;
 namespace DiscordBot.Bot.Services.Audit;
 
 /// <summary>
-/// Background service that periodically cleans up old audit logs according to the retention policy.
+/// Background service that periodically cleans up old message logs according to the retention policy.
 /// Respects the configured retention period and runs cleanup at scheduled intervals.
 /// </summary>
-public class AuditLogRetentionService : MonitoredBackgroundService
+public class MessageLogCleanupService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IOptions<AuditLogRetentionOptions> _options;
+    private readonly IOptions<MessageLogRetentionOptions> _options;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
 
-    public override string ServiceName => "Audit Log Retention Service";
+    public override string ServiceName => "Message Log Cleanup Service";
 
     /// <summary>
     /// Gets the service name formatted for tracing (snake_case).
     /// </summary>
-    private string TracingServiceName => "audit_log_retention_service";
+    private string TracingServiceName => "message_log_cleanup_service";
 
-    public AuditLogRetentionService(
+    public MessageLogCleanupService(
         IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
-        IOptions<AuditLogRetentionOptions> options,
+        IOptions<MessageLogRetentionOptions> options,
         IOptions<BackgroundServicesOptions> bgOptions,
-        ILogger<AuditLogRetentionService> logger)
+        ILogger<MessageLogCleanupService> logger)
         : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
@@ -38,23 +38,23 @@ public class AuditLogRetentionService : MonitoredBackgroundService
 
     protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Audit log retention service starting");
+        _logger.LogInformation("Message log cleanup service starting");
 
         // Check if cleanup is enabled
         if (!_options.Value.Enabled)
         {
-            _logger.LogInformation("Audit log retention cleanup is disabled via configuration");
+            _logger.LogInformation("Message log cleanup is disabled via configuration");
             return;
         }
 
         _logger.LogInformation(
-            "Audit log retention service enabled. Retention: {RetentionDays} days, Interval: {IntervalHours} hours, Batch size: {BatchSize}",
+            "Message log cleanup service enabled. Retention: {RetentionDays} days, Interval: {IntervalHours} hours, Batch size: {BatchSize}",
             _options.Value.RetentionDays,
             _options.Value.CleanupIntervalHours,
             _options.Value.CleanupBatchSize);
 
         // Initial delay to let the app start up
-        var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.AuditLogCleanupInitialDelayMinutes);
+        var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.MessageLogCleanupInitialDelayMinutes);
         await Task.Delay(initialDelay, stoppingToken);
 
         var executionCycle = 0;
@@ -87,7 +87,7 @@ public class AuditLogRetentionService : MonitoredBackgroundService
             catch (Exception ex)
             {
                 BotActivitySource.RecordException(activity, ex);
-                _logger.LogError(ex, "Error during audit log cleanup");
+                _logger.LogError(ex, "Error during message log cleanup");
                 RecordError(ex);
             }
 
@@ -96,19 +96,19 @@ public class AuditLogRetentionService : MonitoredBackgroundService
             await Task.Delay(interval, stoppingToken);
         }
 
-        _logger.LogInformation("Audit log retention service stopping");
+        _logger.LogInformation("Message log cleanup service stopping");
     }
 
     /// <summary>
     /// Performs a single cleanup operation by creating a scoped service and invoking the cleanup method.
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during cleanup.</param>
-    /// <returns>The number of audit log records deleted.</returns>
+    /// <returns>The number of message log records deleted.</returns>
     private async Task<int> PerformCleanupAsync(CancellationToken stoppingToken)
     {
         using var cleanupActivity = BotActivitySource.StartBackgroundCleanupActivity(
             TracingServiceName,
-            "audit_logs");
+            "message_logs");
 
         try
         {
@@ -116,20 +116,18 @@ public class AuditLogRetentionService : MonitoredBackgroundService
             var retentionDays = await GetRetentionDaysAsync(scope);
 
             _logger.LogInformation(
-                "Starting audit log cleanup. Retention: {RetentionDays} days, Batch size: {BatchSize}",
+                "Starting message log cleanup. Retention: {RetentionDays} days, Batch size: {BatchSize}",
                 retentionDays,
                 _options.Value.CleanupBatchSize);
 
-            var auditLogRepository = scope.ServiceProvider.GetRequiredService<IAuditLogRepository>();
+            var messageLogService = scope.ServiceProvider.GetRequiredService<IMessageLogService>();
 
-            var cutoffDate = DateTime.UtcNow.AddDays(-retentionDays);
-            var deletedCount = await auditLogRepository.DeleteOlderThanAsync(cutoffDate, stoppingToken);
+            var deletedCount = await messageLogService.CleanupOldMessagesAsync(stoppingToken);
 
             _logger.LogInformation(
-                "Audit log cleanup completed. Deleted {DeletedCount} logs older than {RetentionDays} days (cutoff date: {CutoffDate:yyyy-MM-dd})",
+                "Message log cleanup completed. Deleted {DeletedCount} messages older than {RetentionDays} days",
                 deletedCount,
-                retentionDays,
-                cutoffDate);
+                retentionDays);
 
             BotActivitySource.SetRecordsDeleted(cleanupActivity, deletedCount);
             BotActivitySource.SetSuccess(cleanupActivity);
@@ -147,23 +145,23 @@ public class AuditLogRetentionService : MonitoredBackgroundService
     /// Gets the retention days from settings service with fallback to IOptions.
     /// </summary>
     /// <param name="scope">The service scope to resolve settings service from.</param>
-    /// <returns>The number of days to retain audit logs.</returns>
+    /// <returns>The number of days to retain message logs.</returns>
     private async Task<int> GetRetentionDaysAsync(IServiceScope scope)
     {
         try
         {
             var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
-            var settingValue = await settingsService.GetSettingValueAsync<int?>("Advanced:AuditLogRetentionDays");
+            var settingValue = await settingsService.GetSettingValueAsync<int?>("Advanced:MessageLogRetentionDays");
 
             if (settingValue.HasValue && settingValue.Value > 0)
             {
-                _logger.LogDebug("Using audit log retention from settings: {RetentionDays} days", settingValue.Value);
+                _logger.LogDebug("Using message log retention from settings: {RetentionDays} days", settingValue.Value);
                 return settingValue.Value;
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to get audit log retention from settings, falling back to configuration");
+            _logger.LogWarning(ex, "Failed to get message log retention from settings, falling back to configuration");
         }
 
         // Fall back to IOptions
