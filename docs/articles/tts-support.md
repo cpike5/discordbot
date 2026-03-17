@@ -176,6 +176,55 @@ Now Playing is provided by the `_VoiceChannelPanel` component with `ShowNowPlayi
 
 See [Unified Now Playing](unified-now-playing.md) for architecture details.
 
+## Voice Presets
+
+The TTS portal includes quick-access voice presets for common speaking styles and a custom preset system for saving personalized voice configurations.
+
+### Built-in Presets
+
+The preset bar displays 8 quick-access voice presets (visible in Standard and Pro modes, hidden in Simple mode):
+
+| Preset | Voice | Style | Speed | Pitch | Description |
+|---|---|---|---|---|---|
+| Excited | en-US-JennyNeural | cheerful | 1.2x | 1.1x | High energy, cheerful tone |
+| Announcer | en-US-GuyNeural | newscast | 1.0x | 0.9x | Professional announcer voice |
+| Robot | en-US-AriaNeural | — | 1.0x | 0.7x | Robotic, monotone delivery |
+| Friendly | en-US-JennyNeural | friendly | 1.0x | 1.0x | Warm, approachable tone |
+| Angry | en-US-GuyNeural | angry | 1.1x | 1.2x | Aggressive, high pitch |
+| Narrator | en-US-DavisNeural | narration-professional | 0.9x | 1.0x | Professional narration |
+| Whisper | en-US-JennyNeural | whispering | 0.8x | 0.95x | Quiet, intimate tone |
+| Shouting | en-US-GuyNeural | shouting | 1.15x | 1.3x | Loud, forceful delivery |
+
+Clicking a preset applies its voice, style, speed, and pitch settings instantly. The active preset shows an orange border with glow effect.
+
+### Custom Presets
+
+Users can save up to **20 custom presets** per account. Custom presets are global (not guild-scoped) — they appear across all guild portals.
+
+**Saving a preset:**
+1. Configure voice, style, speed, and pitch to desired settings
+2. Click the **Save** button (+ icon) at the end of the preset bar
+3. Enter a name (max 50 characters)
+4. The preset appears in a "Custom" section below the built-in presets
+
+**Using a custom preset:**
+- Click the preset button to apply all saved settings
+- Custom presets display an orange "Custom" badge and star icon
+
+**Deleting a custom preset:**
+- Hover over the preset to reveal the delete (X) button
+- Click and confirm deletion
+
+#### API Endpoints
+
+| Method | Route | Description |
+|---|---|---|
+| `GET` | `/api/portal/tts/{guildId}/presets/custom` | List user's custom presets |
+| `POST` | `/api/portal/tts/{guildId}/presets/custom` | Create a custom preset (max 20) |
+| `DELETE` | `/api/portal/tts/{guildId}/presets/custom/{id}` | Delete a custom preset |
+
+Note: Although routes include `{guildId}` for authorization, presets are stored per-user globally.
+
 ### Technical Implementation
 
 **Frontend:**
@@ -345,6 +394,23 @@ Per-guild TTS configuration.
 | `CreatedAt` | DateTime | Settings created (UTC) |
 | `UpdatedAt` | DateTime | Last updated (UTC) |
 
+### UserTtsPreset
+
+User-defined custom TTS presets.
+
+| Column | Type | Description |
+|---|---|---|
+| `Id` | `int` | Primary key (auto-increment) |
+| `UserId` | `ulong` | Discord user ID (indexed) |
+| `Name` | `string` | Preset display name (max 50) |
+| `VoiceName` | `string` | Azure TTS voice identifier (max 100) |
+| `Style` | `string?` | Speaking style (max 50) |
+| `Speed` | `decimal` | Speech rate multiplier (0.5–2.0) |
+| `Pitch` | `decimal` | Pitch adjustment (0.5–2.0) |
+| `Icon` | `string?` | Icon identifier (max 50) |
+| `CreatedAt` | `DateTime` | UTC creation timestamp |
+| `UpdatedAt` | `DateTime?` | UTC last-modified timestamp |
+
 ## Services
 
 ### Core Services
@@ -356,6 +422,7 @@ Per-guild TTS configuration.
 | `ITtsHistoryService` | TTS message logging and history retrieval |
 | `ITtsMessageRepository` | TTS message data access |
 | `IGuildTtsSettingsRepository` | TTS settings data access |
+| `IUserTtsPresetRepository` | User custom preset CRUD operations |
 | `IAudioService` | Voice channel connection management (shared with Soundboard) |
 
 ### ITtsService Interface
