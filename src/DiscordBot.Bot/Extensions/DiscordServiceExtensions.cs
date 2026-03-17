@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.DiscordIntegration;
 using DiscordBot.Bot.Services.Moderation;
 using DiscordBot.Core.Interfaces;
 
@@ -95,6 +96,9 @@ public static class DiscordServiceExtensions
 
         // Register Discord channel resolver as scoped
         services.AddScoped<IDiscordChannelResolver, DiscordChannelResolver>();
+
+        // Register Discord user resolver for shared username/avatar lookups
+        services.AddSingleton<IDiscordUserResolver, DiscordUserResolver>();
 
         // Register member sync services
         services.AddSingleton<IMemberSyncQueue, MemberSyncQueue>();

@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -13,16 +12,16 @@ namespace DiscordBot.Bot.Services;
 public class WatchlistService : IWatchlistService
 {
     private readonly IWatchlistRepository _watchlistRepository;
-    private readonly DiscordSocketClient _client;
+    private readonly IDiscordUserResolver _userResolver;
     private readonly ILogger<WatchlistService> _logger;
 
     public WatchlistService(
         IWatchlistRepository watchlistRepository,
-        DiscordSocketClient client,
+        IDiscordUserResolver userResolver,
         ILogger<WatchlistService> logger)
     {
         _watchlistRepository = watchlistRepository;
-        _client = client;
+        _userResolver = userResolver;
         _logger = logger;
     }
 
@@ -211,8 +210,8 @@ public class WatchlistService : IWatchlistService
     /// </summary>
     private async Task<WatchlistEntryDto> MapToDtoAsync(Watchlist entry, CancellationToken ct = default)
     {
-        var username = await GetUsernameAsync(entry.UserId);
-        var addedByUsername = await GetUsernameAsync(entry.AddedByUserId);
+        var (username, _) = await _userResolver.ResolveUserAsync(entry.UserId);
+        var (addedByUsername, _) = await _userResolver.ResolveUserAsync(entry.AddedByUserId);
 
         return new WatchlistEntryDto
         {
@@ -227,20 +226,4 @@ public class WatchlistService : IWatchlistService
         };
     }
 
-    /// <summary>
-    /// Resolves a Discord user ID to username.
-    /// </summary>
-    private async Task<string> GetUsernameAsync(ulong userId)
-    {
-        try
-        {
-            var user = await _client.Rest.GetUserAsync(userId);
-            return user?.Username ?? $"Unknown#{userId}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to resolve username for user {UserId}", userId);
-            return $"Unknown#{userId}";
-        }
-    }
 }

@@ -28,22 +28,16 @@ public class ModerationCaseRepository : Repository<ModerationCase>, IModerationC
     /// </remarks>
     public override async Task<ModerationCase?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving moderation case by ID: {Id}", id);
-
         if (id is not Guid guidId)
         {
             _logger.LogWarning("Invalid ID type for ModerationCase: {IdType}", id?.GetType().Name ?? "null");
             return null;
         }
 
-        var result = await DbSet
-            .AsNoTracking()
-            .Include(c => c.Guild)
-            .Include(c => c.RelatedFlaggedEvent)
-            .FirstOrDefaultAsync(c => c.Id == guidId, cancellationToken);
-
-        _logger.LogDebug("Moderation case {Id} found: {Found}", id, result != null);
-        return result;
+        return await GetByIdWithIncludesAsync(
+            guidId,
+            q => q.Include(c => c.Guild).Include(c => c.RelatedFlaggedEvent),
+            cancellationToken);
     }
 
     public async Task<(IEnumerable<ModerationCase> Items, int TotalCount)> GetByGuildAsync(
@@ -92,14 +86,8 @@ public class ModerationCaseRepository : Repository<ModerationCase>, IModerationC
             query = query.Where(c => c.CreatedAt <= endDate.Value);
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(c => c.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderByDescending(c => c.CreatedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} moderation cases for guild {GuildId} out of {TotalCount} total",
@@ -123,16 +111,10 @@ public class ModerationCaseRepository : Repository<ModerationCase>, IModerationC
             .AsNoTracking()
             .Include(c => c.Guild)
             .Include(c => c.RelatedFlaggedEvent)
-            .Where(c => c.GuildId == guildId && c.TargetUserId == userId);
+            .Where(c => c.GuildId == guildId && c.TargetUserId == userId)
+            .OrderByDescending(c => c.CreatedAt);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(c => c.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var (items, totalCount) = await GetPagedAsync(query, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} moderation cases for user {UserId} out of {TotalCount} total",

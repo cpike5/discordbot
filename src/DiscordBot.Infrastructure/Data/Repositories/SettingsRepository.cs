@@ -2,24 +2,23 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Infrastructure.Data.Repositories;
 
 /// <summary>
 /// Repository implementation for managing application settings persistence.
 /// </summary>
-public class SettingsRepository : ISettingsRepository
+public class SettingsRepository : Repository<ApplicationSetting>, ISettingsRepository
 {
-    private readonly BotDbContext _context;
-
-    public SettingsRepository(BotDbContext context)
+    public SettingsRepository(BotDbContext context, ILogger<Repository<ApplicationSetting>> logger)
+        : base(context, logger)
     {
-        _context = context;
     }
 
     public async Task<ApplicationSetting?> GetByKeyAsync(string key, CancellationToken cancellationToken = default)
     {
-        return await _context.ApplicationSettings
+        return await DbSet
             .AsNoTracking()
             .FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
     }
@@ -28,16 +27,16 @@ public class SettingsRepository : ISettingsRepository
         SettingCategory category,
         CancellationToken cancellationToken = default)
     {
-        return await _context.ApplicationSettings
+        return await DbSet
             .AsNoTracking()
             .Where(s => s.Category == category)
             .OrderBy(s => s.Key)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task<IReadOnlyList<ApplicationSetting>> GetAllAsync(CancellationToken cancellationToken = default)
+    public override async Task<IReadOnlyList<ApplicationSetting>> GetAllAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.ApplicationSettings
+        return await DbSet
             .AsNoTracking()
             .OrderBy(s => s.Category)
             .ThenBy(s => s.Key)
@@ -46,7 +45,7 @@ public class SettingsRepository : ISettingsRepository
 
     public async Task UpsertAsync(ApplicationSetting setting, CancellationToken cancellationToken = default)
     {
-        var existing = await _context.ApplicationSettings
+        var existing = await DbSet
             .FirstOrDefaultAsync(s => s.Key == setting.Key, cancellationToken);
 
         if (existing != null)
@@ -63,34 +62,34 @@ public class SettingsRepository : ISettingsRepository
         else
         {
             // Insert new setting
-            await _context.ApplicationSettings.AddAsync(setting, cancellationToken);
+            await DbSet.AddAsync(setting, cancellationToken);
         }
 
-        await _context.SaveChangesAsync(cancellationToken);
+        await Context.SaveChangesAsync(cancellationToken);
     }
 
     public async Task DeleteAsync(string key, CancellationToken cancellationToken = default)
     {
-        var setting = await _context.ApplicationSettings
+        var setting = await DbSet
             .FirstOrDefaultAsync(s => s.Key == key, cancellationToken);
 
         if (setting != null)
         {
-            _context.ApplicationSettings.Remove(setting);
-            await _context.SaveChangesAsync(cancellationToken);
+            DbSet.Remove(setting);
+            await Context.SaveChangesAsync(cancellationToken);
         }
     }
 
     public async Task DeleteByCategoryAsync(SettingCategory category, CancellationToken cancellationToken = default)
     {
-        var settings = await _context.ApplicationSettings
+        var settings = await DbSet
             .Where(s => s.Category == category)
             .ToListAsync(cancellationToken);
 
         if (settings.Any())
         {
-            _context.ApplicationSettings.RemoveRange(settings);
-            await _context.SaveChangesAsync(cancellationToken);
+            DbSet.RemoveRange(settings);
+            await Context.SaveChangesAsync(cancellationToken);
         }
     }
 }

@@ -29,22 +29,16 @@ public class MessageLogRepository : Repository<MessageLog>, IMessageLogRepositor
     /// </remarks>
     public override async Task<MessageLog?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving message log by ID: {Id}", id);
-
         if (id is not long longId)
         {
             _logger.LogWarning("Invalid ID type for MessageLog: {IdType}", id?.GetType().Name ?? "null");
             return null;
         }
 
-        var result = await DbSet
-            .AsNoTracking()
-            .Include(m => m.User)
-            .Include(m => m.Guild)
-            .FirstOrDefaultAsync(m => m.Id == longId, cancellationToken);
-
-        _logger.LogDebug("Message log {Id} found: {Found}", id, result != null);
-        return result;
+        return await GetByIdWithIncludesAsync(
+            longId,
+            q => q.Include(m => m.User).Include(m => m.Guild),
+            cancellationToken);
     }
 
     public async Task<IEnumerable<MessageLog>> GetUserMessagesAsync(
@@ -227,16 +221,9 @@ public class MessageLogRepository : Repository<MessageLog>, IMessageLogRepositor
             dbQuery = dbQuery.Where(m => m.Content.ToLower().Contains(query.SearchTerm.ToLower()));
         }
 
-        // Get total count before pagination
-        var totalCount = await dbQuery.CountAsync(cancellationToken);
-
-        // Apply pagination
-        var skip = (query.Page - 1) * query.PageSize;
-        var items = await dbQuery
-            .OrderByDescending(m => m.Timestamp)
-            .Skip(skip)
-            .Take(query.PageSize)
-            .ToListAsync(cancellationToken);
+        // Apply ordering and pagination
+        var orderedQuery = dbQuery.OrderByDescending(m => m.Timestamp);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, query.Page, query.PageSize, cancellationToken);
 
         _logger.LogDebug("Retrieved {Count} messages out of {TotalCount} total", items.Count, totalCount);
         return (items, totalCount);

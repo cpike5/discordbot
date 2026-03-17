@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -15,16 +14,16 @@ namespace DiscordBot.Bot.Services.Moderation;
 public class ModerationService : IModerationService
 {
     private readonly IModerationCaseRepository _caseRepository;
-    private readonly DiscordSocketClient _client;
+    private readonly IDiscordUserResolver _userResolver;
     private readonly ILogger<ModerationService> _logger;
 
     public ModerationService(
         IModerationCaseRepository caseRepository,
-        DiscordSocketClient client,
+        IDiscordUserResolver userResolver,
         ILogger<ModerationService> logger)
     {
         _caseRepository = caseRepository;
-        _client = client;
+        _userResolver = userResolver;
         _logger = logger;
     }
 
@@ -379,7 +378,7 @@ public class ModerationService : IModerationService
                 var topModerators = new List<ModeratorStatsEntryDto>();
                 foreach (var group in moderatorGroups)
                 {
-                    var username = await GetUsernameAsync(group.ModeratorId);
+                    var (username, _) = await _userResolver.ResolveUserAsync(group.ModeratorId);
                     topModerators.Add(new ModeratorStatsEntryDto
                     {
                         UserId = group.ModeratorId,
@@ -396,7 +395,8 @@ public class ModerationService : IModerationService
             }
             else
             {
-                summary.ModeratorUsername = await GetUsernameAsync(moderatorId.Value);
+                var (modUsername, _) = await _userResolver.ResolveUserAsync(moderatorId.Value);
+                summary.ModeratorUsername = modUsername;
             }
 
             _logger.LogDebug("Calculated moderator statistics for guild {GuildId}: {TotalCases} total cases",
@@ -444,8 +444,8 @@ public class ModerationService : IModerationService
     /// </summary>
     private async Task<ModerationCaseDto> MapToDtoAsync(ModerationCase moderationCase, CancellationToken ct = default)
     {
-        var targetUsername = await GetUsernameAsync(moderationCase.TargetUserId);
-        var moderatorUsername = await GetUsernameAsync(moderationCase.ModeratorUserId);
+        var (targetUsername, _) = await _userResolver.ResolveUserAsync(moderationCase.TargetUserId);
+        var (moderatorUsername, _) = await _userResolver.ResolveUserAsync(moderationCase.ModeratorUserId);
 
         return new ModerationCaseDto
         {
@@ -468,20 +468,4 @@ public class ModerationService : IModerationService
         };
     }
 
-    /// <summary>
-    /// Resolves a Discord user ID to username.
-    /// </summary>
-    private async Task<string> GetUsernameAsync(ulong userId)
-    {
-        try
-        {
-            var user = await _client.Rest.GetUserAsync(userId);
-            return user?.Username ?? $"Unknown#{userId}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to resolve username for user {UserId}", userId);
-            return $"Unknown#{userId}";
-        }
-    }
 }
