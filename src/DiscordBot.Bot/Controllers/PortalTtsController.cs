@@ -356,7 +356,7 @@ public class PortalTtsController : ControllerBase
             playbackResult = await _ttsPlaybackService.PlayAsync(
                 guildId,
                 userId,
-                User.Identity?.Name ?? "Portal User",
+                User.FindFirst("discord:username")?.Value ?? "Portal User",
                 request.Message,
                 request.Voice,
                 audioStream,
@@ -855,7 +855,7 @@ public class PortalTtsController : ControllerBase
                     playbackResult = await _ttsPlaybackService.PlayAsync(
                         guildId,
                         userId,
-                        User.Identity?.Name ?? "Portal User",
+                        User.FindFirst("discord:username")?.Value ?? "Portal User",
                         plainText,
                         validationResult.DetectedVoices.FirstOrDefault() ?? "SSML (multiple voices)",
                         audioStream,
