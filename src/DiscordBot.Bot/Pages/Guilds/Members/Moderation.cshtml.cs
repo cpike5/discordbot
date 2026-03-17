@@ -6,7 +6,6 @@ using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.Members;
 
@@ -15,7 +14,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Members;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class ModerationModel : PageModel
+public class ModerationModel : GuildPageModelBase
 {
     private readonly IGuildService _guildService;
     private readonly IGuildMemberService _memberService;
@@ -62,21 +61,6 @@ public class ModerationModel : PageModel
     /// The view model containing all moderation profile data.
     /// </summary>
     public UserModerationProfileViewModel ViewModel { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -156,21 +140,10 @@ public class ModerationModel : PageModel
             }
         };
 
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = $"Moderation Profile: {member.DisplayName}",
-            PageDescription = $"Moderation history and profile for {member.DisplayName}"
-        };
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            $"Moderation Profile: {member.DisplayName}", $"Moderation history and profile for {member.DisplayName}");
 
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "members",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
+        Navigation = BuildNavigation(guild.Id, "members");
 
         return Page();
     }

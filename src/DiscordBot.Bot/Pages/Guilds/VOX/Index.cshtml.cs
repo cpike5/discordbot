@@ -7,7 +7,6 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.Vox;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Pages.Guilds.VOX;
@@ -18,7 +17,7 @@ namespace DiscordBot.Bot.Pages.Guilds.VOX;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : GuildPageModelBase
 {
     private readonly IVoxClipLibrary _voxClipLibrary;
     private readonly IGuildService _guildService;
@@ -39,21 +38,6 @@ public class IndexModel : PageModel
         _voxOptions = voxOptions.Value;
         _logger = logger;
     }
-
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the guild ID from the route.
@@ -118,18 +102,6 @@ public class IndexModel : PageModel
     /// Clip counts by group.
     /// </summary>
     public Dictionary<VoxClipGroup, int> ClipCountsByGroup { get; set; } = new();
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
-    /// Error message from TempData.
-    /// </summary>
-    [TempData]
-    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Gets whether the member portal is enabled for this guild.
@@ -252,22 +224,11 @@ public class IndexModel : PageModel
                 });
             }
 
-            Header = new GuildHeaderViewModel
-            {
-                GuildId = guild.Id,
-                GuildName = guild.Name,
-                GuildIconUrl = guild.IconUrl,
-                PageTitle = "VOX",
-                PageDescription = $"Configure VOX announcements for {guild.Name}",
-                Actions = headerActions
-            };
+            Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+                "VOX", $"Configure VOX announcements for {guild.Name}");
+            Header.Actions = headerActions;
 
-            Navigation = new GuildNavBarViewModel
-            {
-                GuildId = guild.Id,
-                ActiveTab = "audio",
-                Tabs = GuildNavigationConfig.GetTabs().ToList()
-            };
+            Navigation = BuildNavigation(guild.Id, "audio");
 
             return Page();
         }

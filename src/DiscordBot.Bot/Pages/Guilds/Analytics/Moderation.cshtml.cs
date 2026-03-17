@@ -6,7 +6,6 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.Analytics;
 
@@ -16,7 +15,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Analytics;
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
 [Authorize(Policy = "GuildAccess")]
-public class ModerationModel : PageModel
+public class ModerationModel : GuildPageModelBase
 {
     private readonly IModerationAnalyticsService _analyticsService;
     private readonly IGuildService _guildService;
@@ -39,21 +38,6 @@ public class ModerationModel : PageModel
     /// The moderation analytics view model with all chart data and metrics.
     /// </summary>
     public ModerationAnalyticsViewModel ViewModel { get; private set; } = new();
-
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Start date filter (bound from query string).
@@ -146,21 +130,10 @@ public class ModerationModel : PageModel
                 }
             };
 
-            Header = new GuildHeaderViewModel
-            {
-                GuildId = guild.Id,
-                GuildName = guild.Name,
-                GuildIconUrl = guild.IconUrl,
-                PageTitle = "Moderation Analytics",
-                PageDescription = $"Moderation metrics and trends for {guild.Name}"
-            };
+            Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+                "Moderation Analytics", $"Moderation metrics and trends for {guild.Name}");
 
-            Navigation = new GuildNavBarViewModel
-            {
-                GuildId = guild.Id,
-                ActiveTab = "overview",
-                Tabs = GuildNavigationConfig.GetTabs().ToList()
-            };
+            Navigation = BuildNavigation(guild.Id, "overview");
         }
         catch (Exception ex)
         {

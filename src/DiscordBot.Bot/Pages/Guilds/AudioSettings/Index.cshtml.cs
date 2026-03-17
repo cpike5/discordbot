@@ -6,7 +6,6 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Pages.Guilds.AudioSettings;
@@ -17,7 +16,7 @@ namespace DiscordBot.Bot.Pages.Guilds.AudioSettings;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : GuildPageModelBase
 {
     private readonly IGuildAudioSettingsService _audioSettingsService;
     private readonly IGuildService _guildService;
@@ -47,10 +46,6 @@ public class IndexModel : PageModel
         _ttsSettingsService = ttsSettingsService;
         _logger = logger;
     }
-
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-    public GuildHeaderViewModel Header { get; set; } = new();
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the guild ID from the route.
@@ -133,21 +128,10 @@ public class IndexModel : PageModel
             }
         };
 
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "Audio",
-            PageDescription = $"Configure audio settings for {guild.Name}"
-        };
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            "Audio", $"Configure audio settings for {guild.Name}");
 
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "audio",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
+        Navigation = BuildNavigation(guild.Id, "audio");
 
         // Load audio settings
         Settings = await _audioSettingsService.GetSettingsAsync(GuildId, cancellationToken);

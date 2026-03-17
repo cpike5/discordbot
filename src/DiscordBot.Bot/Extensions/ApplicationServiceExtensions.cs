@@ -21,6 +21,7 @@ public static class ApplicationServiceExtensions
     public static IServiceCollection AddApplicationServices(this IServiceCollection services)
     {
         // Singleton services (application-wide state)
+        services.AddSingleton<IBackgroundTaskRunner, BackgroundTaskRunner>();
         services.AddSingleton<IVersionService, VersionService>();
         services.AddSingleton<IDashboardNotifier, DashboardNotifier>();
         services.AddSingleton<IAudioNotifier, AudioNotifier>();

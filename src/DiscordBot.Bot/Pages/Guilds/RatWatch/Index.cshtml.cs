@@ -1,10 +1,8 @@
-using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 
@@ -14,7 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : GuildPageModelBase
 {
     private readonly IRatWatchService _ratWatchService;
     private readonly IGuildService _guildService;
@@ -37,22 +35,6 @@ public class IndexModel : PageModel
     /// View model for display properties.
     /// </summary>
     public RatWatchIndexViewModel ViewModel { get; set; } = new();
-
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-    public GuildHeaderViewModel Header { get; set; } = new();
-    public GuildNavBarViewModel Navigation { get; set; } = new();
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
-    /// Error message from TempData.
-    /// </summary>
-    [TempData]
-    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Handles GET requests to display the Rat Watch management page.
@@ -87,33 +69,9 @@ public class IndexModel : PageModel
         var settings = await _ratWatchService.GetGuildSettingsAsync(guildId, cancellationToken);
 
         // Populate guild layout ViewModels
-        Breadcrumb = new GuildBreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
-                new() { Label = "Rat Watch", IsCurrent = true }
-            }
-        };
-
         var statusDescription = settings.IsEnabled ? "Enabled" : "Disabled";
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "Rat Watch",
-            PageDescription = $"Manage accountability trackers and view the hall of shame ({statusDescription})"
-        };
-
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "ratwatch",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
+        PopulateGuildLayout(guild.Id, guild.Name, guild.IconUrl, "ratwatch",
+            "Rat Watch", $"Manage accountability trackers and view the hall of shame ({statusDescription})");
 
         // Get paginated watches
         var (watches, totalCount) = await _ratWatchService.GetByGuildAsync(

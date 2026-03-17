@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -21,20 +20,20 @@ public class IndexModel : PageModel
     private readonly IServerAnalyticsService _analyticsService;
     private readonly IGuildService _guildService;
     private readonly IMessageLogRepository _messageLogRepository;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IDiscordChannelResolver _channelResolver;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IServerAnalyticsService analyticsService,
         IGuildService guildService,
         IMessageLogRepository messageLogRepository,
-        DiscordSocketClient discordClient,
+        IDiscordChannelResolver channelResolver,
         ILogger<IndexModel> logger)
     {
         _analyticsService = analyticsService;
         _guildService = guildService;
         _messageLogRepository = messageLogRepository;
-        _discordClient = discordClient;
+        _channelResolver = channelResolver;
         _logger = logger;
     }
 
@@ -201,53 +200,18 @@ public class IndexModel : PageModel
             .Take(limit)
             .ToList();
 
-        // Resolve channel names
-        var resolvedChannels = new List<TopChannelDto>();
-        foreach (var channel in topChannels)
+        // Resolve channel names using the channel resolver
+        var channelIds = topChannels.Select(c => c.ChannelId).ToList();
+        var channelNames = _channelResolver.ResolveChannelNames(guildId, channelIds);
+
+        var resolvedChannels = topChannels.Select(channel =>
         {
-            var channelName = await GetChannelNameAsync(channel.ChannelId, guildId);
-            resolvedChannels.Add(channel with { ChannelName = channelName });
-        }
+            var name = channelNames.GetValueOrDefault(channel.ChannelId, "Unknown Channel");
+            var displayName = name == "Unknown Channel" ? name : $"#{name}";
+            return channel with { ChannelName = displayName };
+        }).ToList();
 
         _logger.LogDebug("Retrieved {Count} top channels", resolvedChannels.Count);
         return resolvedChannels;
-    }
-
-    /// <summary>
-    /// Gets the display name for a Discord channel in a guild.
-    /// </summary>
-    private async Task<string> GetChannelNameAsync(ulong channelId, ulong guildId)
-    {
-        try
-        {
-            var guild = _discordClient.GetGuild(guildId);
-            if (guild == null)
-            {
-                _logger.LogWarning("Guild {GuildId} not found when resolving channel name for channel {ChannelId}", guildId, channelId);
-                return "Unknown Channel";
-            }
-
-            var channel = guild.GetChannel(channelId);
-            if (channel != null)
-            {
-                return $"#{channel.Name}";
-            }
-
-            // Try downloading channels if not in cache
-            await guild.DownloadUsersAsync(); // This also refreshes channel cache
-            channel = guild.GetChannel(channelId);
-            if (channel != null)
-            {
-                return $"#{channel.Name}";
-            }
-
-            _logger.LogDebug("Channel {ChannelId} not found in guild {GuildId}", channelId, guildId);
-            return "Unknown Channel";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to get channel name for channel {ChannelId} in guild {GuildId}", channelId, guildId);
-            return "Unknown Channel";
-        }
     }
 }

@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Autocomplete;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Preconditions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -86,14 +87,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     "TTS command used but service not configured in guild {GuildId}",
                     guildId);
 
-                var notConfiguredEmbed = new EmbedBuilder()
-                    .WithTitle("TTS Not Available")
-                    .WithDescription("Text-to-speech is not configured on this server. Please contact an administrator.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: notConfiguredEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("TTS Not Available", "Text-to-speech is not configured on this server. Please contact an administrator."), ephemeral: true);
                 return;
             }
 
@@ -109,14 +103,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     settings.MaxMessageLength,
                     guildId);
 
-                var tooLongEmbed = new EmbedBuilder()
-                    .WithTitle("Message Too Long")
-                    .WithDescription($"Message is too long. Maximum length is {settings.MaxMessageLength} characters.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: tooLongEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Message Too Long", $"Message is too long. Maximum length is {settings.MaxMessageLength} characters."), ephemeral: true);
                 return;
             }
 
@@ -129,36 +116,20 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     userId,
                     guildId);
 
-                var rateLimitEmbed = new EmbedBuilder()
-                    .WithTitle("Rate Limited")
-                    .WithDescription("You're sending TTS messages too quickly. Please wait a moment before trying again.")
-                    .WithColor(Color.Orange)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: rateLimitEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Confirmation("Rate Limited", "You're sending TTS messages too quickly. Please wait a moment before trying again."), ephemeral: true);
                 return;
             }
 
             // Get user's voice channel
-            var guildUser = Context.User as SocketGuildUser;
-            var voiceChannel = guildUser?.VoiceChannel;
-
-            if (voiceChannel == null)
+            var (isValid, voiceChannel, voiceErrorEmbed) = VoiceChannelHelper.ValidateUserInVoiceChannel(Context);
+            if (!isValid)
             {
                 _logger.LogDebug(
                     "User {UserId} not in voice channel for TTS command in guild {GuildId}",
                     userId,
                     guildId);
 
-                var noVoiceEmbed = new EmbedBuilder()
-                    .WithTitle("Not in Voice Channel")
-                    .WithDescription("You need to be in a voice channel to use this command.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: noVoiceEmbed, ephemeral: true);
+                await RespondAsync(embed: voiceErrorEmbed, ephemeral: true);
                 return;
             }
 
@@ -223,14 +194,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogError(ex, "TTS synthesis failed for guild {GuildId}", guildId);
 
-                var synthesisErrorEmbed = new EmbedBuilder()
-                    .WithTitle("Synthesis Failed")
-                    .WithDescription("Failed to generate speech. Please try again.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await FollowupAsync(embed: synthesisErrorEmbed, ephemeral: true);
+                await FollowupAsync(embed: EmbedHelper.Error("Synthesis Failed", "Failed to generate speech. Please try again."), ephemeral: true);
                 return;
             }
 
@@ -256,14 +220,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogError("TTS playback failed for guild {GuildId}: {ErrorMessage}", guildId, playbackResult.ErrorMessage);
 
-                var playbackErrorEmbed = new EmbedBuilder()
-                    .WithTitle("Playback Error")
-                    .WithDescription(playbackResult.ErrorMessage ?? "Failed to play audio. Please try again.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await FollowupAsync(embed: playbackErrorEmbed, ephemeral: true);
+                await FollowupAsync(embed: EmbedHelper.Error("Playback Error", playbackResult.ErrorMessage ?? "Failed to play audio. Please try again."), ephemeral: true);
                 return;
             }
 
@@ -290,12 +247,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 "Bot lacks permissions to join voice channel in guild {GuildId}",
                 guildId);
 
-            var permissionEmbed = new EmbedBuilder()
-                .WithTitle("Permission Denied")
-                .WithDescription("I don't have permission to join that voice channel.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
+            var permissionEmbed = EmbedHelper.Error("Permission Denied", "I don't have permission to join that voice channel.");
 
             if (Context.Interaction.HasResponded)
             {
@@ -314,12 +266,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 userId,
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("TTS Error")
-                .WithDescription("An error occurred while processing your TTS request. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
+            var errorEmbed = EmbedHelper.Error("TTS Error", "An error occurred while processing your TTS request. Please try again later.");
 
             if (Context.Interaction.HasResponded)
             {
@@ -370,14 +317,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     "TTS-styled command used but service not configured in guild {GuildId}",
                     guildId);
 
-                var notConfiguredEmbed = new EmbedBuilder()
-                    .WithTitle("TTS Not Available")
-                    .WithDescription("Text-to-speech is not configured on this server. Please contact an administrator.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: notConfiguredEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("TTS Not Available", "Text-to-speech is not configured on this server. Please contact an administrator."), ephemeral: true);
                 return;
             }
 
@@ -391,14 +331,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     "TTS-styled command used but SSML not enabled in guild {GuildId}",
                     guildId);
 
-                var ssmlNotEnabledEmbed = new EmbedBuilder()
-                    .WithTitle("SSML Not Enabled")
-                    .WithDescription("Styled TTS requires SSML to be enabled for this server. Please contact an administrator to enable it in TTS settings.")
-                    .WithColor(Color.Orange)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: ssmlNotEnabledEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Confirmation("SSML Not Enabled", "Styled TTS requires SSML to be enabled for this server. Please contact an administrator to enable it in TTS settings."), ephemeral: true);
                 return;
             }
 
@@ -411,14 +344,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     preset,
                     guildId);
 
-                var invalidPresetEmbed = new EmbedBuilder()
-                    .WithTitle("Invalid Preset")
-                    .WithDescription("The requested style preset was not found. Please select a valid preset.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: invalidPresetEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Preset", "The requested style preset was not found. Please select a valid preset."), ephemeral: true);
                 return;
             }
 
@@ -431,14 +357,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     settings.MaxMessageLength,
                     guildId);
 
-                var tooLongEmbed = new EmbedBuilder()
-                    .WithTitle("Message Too Long")
-                    .WithDescription($"Message is too long. Maximum length is {settings.MaxMessageLength} characters.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: tooLongEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Message Too Long", $"Message is too long. Maximum length is {settings.MaxMessageLength} characters."), ephemeral: true);
                 return;
             }
 
@@ -451,36 +370,20 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                     userId,
                     guildId);
 
-                var rateLimitEmbed = new EmbedBuilder()
-                    .WithTitle("Rate Limited")
-                    .WithDescription("You're sending TTS messages too quickly. Please wait a moment before trying again.")
-                    .WithColor(Color.Orange)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: rateLimitEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Confirmation("Rate Limited", "You're sending TTS messages too quickly. Please wait a moment before trying again."), ephemeral: true);
                 return;
             }
 
             // Get user's voice channel
-            var guildUser = Context.User as SocketGuildUser;
-            var voiceChannel = guildUser?.VoiceChannel;
-
-            if (voiceChannel == null)
+            var (isValid, voiceChannel, voiceErrorEmbed) = VoiceChannelHelper.ValidateUserInVoiceChannel(Context);
+            if (!isValid)
             {
                 _logger.LogDebug(
                     "User {UserId} not in voice channel for TTS-styled command in guild {GuildId}",
                     userId,
                     guildId);
 
-                var noVoiceEmbed = new EmbedBuilder()
-                    .WithTitle("Not in Voice Channel")
-                    .WithDescription("You need to be in a voice channel to use this command.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: noVoiceEmbed, ephemeral: true);
+                await RespondAsync(embed: voiceErrorEmbed, ephemeral: true);
                 return;
             }
 
@@ -554,14 +457,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogError(ex, "TTS synthesis failed for guild {GuildId}", guildId);
 
-                var synthesisErrorEmbed = new EmbedBuilder()
-                    .WithTitle("Synthesis Failed")
-                    .WithDescription("Failed to generate speech. Please try again.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await FollowupAsync(embed: synthesisErrorEmbed, ephemeral: true);
+                await FollowupAsync(embed: EmbedHelper.Error("Synthesis Failed", "Failed to generate speech. Please try again."), ephemeral: true);
                 return;
             }
 
@@ -587,14 +483,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogError("TTS playback failed for guild {GuildId}: {ErrorMessage}", guildId, playbackResult.ErrorMessage);
 
-                var playbackErrorEmbed = new EmbedBuilder()
-                    .WithTitle("Playback Error")
-                    .WithDescription(playbackResult.ErrorMessage ?? "Failed to play audio. Please try again.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await FollowupAsync(embed: playbackErrorEmbed, ephemeral: true);
+                await FollowupAsync(embed: EmbedHelper.Error("Playback Error", playbackResult.ErrorMessage ?? "Failed to play audio. Please try again."), ephemeral: true);
                 return;
             }
 
@@ -624,12 +513,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 "Bot lacks permissions to join voice channel in guild {GuildId}",
                 guildId);
 
-            var permissionEmbed = new EmbedBuilder()
-                .WithTitle("Permission Denied")
-                .WithDescription("I don't have permission to join that voice channel.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
+            var permissionEmbed = EmbedHelper.Error("Permission Denied", "I don't have permission to join that voice channel.");
 
             if (Context.Interaction.HasResponded)
             {
@@ -648,12 +532,7 @@ public class TtsModule : InteractionModuleBase<SocketInteractionContext>
                 userId,
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("TTS Error")
-                .WithDescription("An error occurred while processing your TTS request. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
+            var errorEmbed = EmbedHelper.Error("TTS Error", "An error occurred while processing your TTS request. Please try again later.");
 
             if (Context.Interaction.HasResponded)
             {

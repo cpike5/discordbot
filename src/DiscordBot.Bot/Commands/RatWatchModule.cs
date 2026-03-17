@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Components;
 using DiscordBot.Bot.Preconditions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 
@@ -67,14 +68,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogDebug("Rat Watch attempted on bot {BotId} by non-admin user {UserId}", accusedUserId, Context.User.Id);
 
-                var botEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Cannot Watch Bots")
-                    .WithDescription("Bots cannot be targeted with Rat Watch. Please select a message from a human user.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: botEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Cannot Watch Bots", "Bots cannot be targeted with Rat Watch. Please select a message from a human user."), ephemeral: true);
                 return;
             }
 
@@ -132,14 +126,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
 
         if (!scheduledTime.HasValue)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Invalid Time Format")
-                .WithDescription("Could not parse the time you provided. Use formats like:\n• `10m` - 10 minutes from now\n• `2h` - 2 hours from now\n• `1h30m` - 1 hour 30 minutes\n• `10pm` - 10 PM today\n• `22:00` - 10 PM today (24-hour)")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Invalid Time Format", "Could not parse the time you provided. Use formats like:\n• `10m` - 10 minutes from now\n• `2h` - 2 hours from now\n• `1h30m` - 1 hour 30 minutes\n• `10pm` - 10 PM today\n• `22:00` - 10 PM today (24-hour)"), ephemeral: true);
             _logger.LogDebug("Failed to parse time input: {TimeInput}", modal.Time);
             return;
         }
@@ -147,14 +134,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
         // Validate time is in the future
         if (scheduledTime.Value <= DateTime.UtcNow)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Invalid Time")
-                .WithDescription("The scheduled time must be in the future.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Invalid Time", "The scheduled time must be in the future."), ephemeral: true);
             _logger.LogDebug("Scheduled time {ScheduledTime} is in the past", scheduledTime.Value);
             return;
         }
@@ -163,14 +143,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
         var maxAdvanceTime = DateTime.UtcNow.AddHours(settings.MaxAdvanceHours);
         if (scheduledTime.Value > maxAdvanceTime)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Time Too Far Ahead")
-                .WithDescription($"Rat Watches can only be scheduled up to {settings.MaxAdvanceHours} hours in advance.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Time Too Far Ahead", $"Rat Watches can only be scheduled up to {settings.MaxAdvanceHours} hours in advance."), ephemeral: true);
             _logger.LogDebug(
                 "Scheduled time {ScheduledTime} exceeds max advance hours {MaxAdvanceHours}",
                 scheduledTime.Value,
@@ -246,14 +219,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to create Rat Watch for user {AccusedId}", accusedUserId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to create Rat Watch: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to create Rat Watch: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -281,14 +247,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
 
             if (pendingWatches.Count == 0)
             {
-                var noWatchesEmbed = new EmbedBuilder()
-                    .WithTitle("✅ No Active Watches")
-                    .WithDescription("You have no active Rat Watches to clear.")
-                    .WithColor(Color.Blue)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: noWatchesEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.EmptyState("No Active Watches", "You have no active Rat Watches to clear."), ephemeral: true);
                 _logger.LogDebug("User {UserId} has no pending Rat Watches", Context.User.Id);
                 return;
             }
@@ -310,14 +269,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
                 clearedCount,
                 pendingWatches.Count);
 
-            var embed = new EmbedBuilder()
-                .WithTitle("✅ Watches Cleared")
-                .WithDescription($"Successfully cleared {clearedCount} active Rat Watch{(clearedCount != 1 ? "es" : "")}.")
-                .WithColor(Color.Green)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: embed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Success("Watches Cleared", $"Successfully cleared {clearedCount} active Rat Watch{(clearedCount != 1 ? "es" : "")}."), ephemeral: true);
 
             // Notify that watches were cleared - may need to update bot status
             if (clearedCount > 0)
@@ -331,14 +283,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to clear Rat Watches for user {UserId}", Context.User.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to clear Rat Watches: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to clear Rat Watches: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -410,14 +355,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to get Rat stats for user {UserId}", targetUser.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to retrieve Rat stats: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to retrieve Rat stats: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -544,14 +482,7 @@ public class RatWatchModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to get Rat leaderboard for guild {GuildId}", Context.Guild.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to retrieve leaderboard: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to retrieve leaderboard: {ex.Message}"), ephemeral: true);
         }
     }
 }

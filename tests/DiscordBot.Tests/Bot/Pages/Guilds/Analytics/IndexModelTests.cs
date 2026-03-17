@@ -27,6 +27,7 @@ public class IndexModelTests
     private readonly Mock<IGuildService> _mockGuildService;
     private readonly Mock<IMessageLogRepository> _mockMessageLogRepository;
     private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IDiscordChannelResolver> _mockChannelResolver;
     private readonly Mock<ILogger<IndexModel>> _mockLogger;
     private readonly IndexModel _indexModel;
 
@@ -36,6 +37,7 @@ public class IndexModelTests
         _mockGuildService = new Mock<IGuildService>();
         _mockMessageLogRepository = new Mock<IMessageLogRepository>();
         _mockDiscordClient = new Mock<DiscordSocketClient>(new DiscordSocketConfig());
+        _mockChannelResolver = new Mock<IDiscordChannelResolver>();
         _mockLogger = new Mock<ILogger<IndexModel>>();
 
         // Default happy-path setup — return empty analytics data
@@ -64,7 +66,7 @@ public class IndexModelTests
             _mockAnalyticsService.Object,
             _mockGuildService.Object,
             _mockMessageLogRepository.Object,
-            _mockDiscordClient.Object,
+            _mockChannelResolver.Object,
             _mockLogger.Object);
 
         // Wire up a minimal PageContext so RazorPage helper methods work

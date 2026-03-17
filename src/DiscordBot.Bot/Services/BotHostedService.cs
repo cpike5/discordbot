@@ -45,6 +45,7 @@ public class BotHostedService : IHostedService
     private readonly IConnectionStateService? _connectionStateService;
     private readonly ILatencyHistoryService? _latencyHistoryService;
     private readonly IApiRequestTracker? _apiRequestTracker;
+    private readonly IBackgroundTaskRunner _backgroundTaskRunner;
     private readonly NotificationOptions _notificationOptions;
     private static readonly DateTime _startTime = DateTime.UtcNow;
     private bool _initialConnectionComplete;
@@ -73,6 +74,7 @@ public class BotHostedService : IHostedService
         ILogger<BotHostedService> logger,
         IHostApplicationLifetime lifetime,
         IHostEnvironment environment,
+        IBackgroundTaskRunner backgroundTaskRunner,
         IOptions<NotificationOptions> notificationOptions,
         IConnectionStateService? connectionStateService = null,
         ILatencyHistoryService? latencyHistoryService = null,
@@ -101,6 +103,7 @@ public class BotHostedService : IHostedService
         _logger = logger;
         _lifetime = lifetime;
         _environment = environment;
+        _backgroundTaskRunner = backgroundTaskRunner;
         _connectionStateService = connectionStateService;
         _latencyHistoryService = latencyHistoryService;
         _apiRequestTracker = apiRequestTracker;
@@ -342,10 +345,10 @@ public class BotHostedService : IHostedService
 
             // Check for active Rat Watches and set appropriate status (fire-and-forget)
             // This prioritizes Rat Watch status over custom status
-            _ = ApplyStartupStatusAsync();
+            _backgroundTaskRunner.Run(_ => ApplyStartupStatusAsync(), "ApplyStartupStatus");
 
             // Broadcast status update (fire-and-forget, failure tolerant)
-            _ = BroadcastBotStatusAsync();
+            _backgroundTaskRunner.Run(_ => BroadcastBotStatusAsync(), "BroadcastBotStatus");
 
             // Log connection event to audit log (fire-and-forget)
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -363,10 +366,12 @@ public class BotHostedService : IHostedService
             // Create admin notification for reconnection (skip initial startup)
             if (_initialConnectionComplete)
             {
-                _ = CreateBotStatusNotificationAsync(
-                    "Bot Connected",
-                    $"Bot reconnected to Discord. Latency: {_client.Latency}ms, Guilds: {_client.Guilds.Count}",
-                    isConnected: true);
+                _backgroundTaskRunner.Run(
+                    _ => CreateBotStatusNotificationAsync(
+                        "Bot Connected",
+                        $"Bot reconnected to Discord. Latency: {_client.Latency}ms, Guilds: {_client.Guilds.Count}",
+                        isConnected: true),
+                    "CreateBotStatusNotification.Connected");
             }
             else
             {
@@ -436,7 +441,7 @@ public class BotHostedService : IHostedService
             _connectionStateService?.RecordDisconnected(exception);
 
             // Broadcast status update (fire-and-forget, failure tolerant)
-            _ = BroadcastBotStatusAsync();
+            _backgroundTaskRunner.Run(_ => BroadcastBotStatusAsync(), "BroadcastBotStatus");
 
             // Log disconnection event to audit log (fire-and-forget)
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -455,7 +460,9 @@ public class BotHostedService : IHostedService
             var disconnectMessage = exception != null
                 ? $"Bot disconnected from Discord. Reason: {exception.Message}"
                 : "Bot disconnected from Discord.";
-            _ = CreateBotStatusNotificationAsync("Bot Disconnected", disconnectMessage, isConnected: false);
+            _backgroundTaskRunner.Run(
+                _ => CreateBotStatusNotificationAsync("Bot Disconnected", disconnectMessage, isConnected: false),
+                "CreateBotStatusNotification.Disconnected");
         }
         catch (Exception ex)
         {
@@ -477,7 +484,7 @@ public class BotHostedService : IHostedService
         _latencyHistoryService?.RecordSample(newLatency);
 
         // Broadcast status update periodically (fire-and-forget, failure tolerant)
-        _ = BroadcastBotStatusAsync();
+        _backgroundTaskRunner.Run(_ => BroadcastBotStatusAsync(), "BroadcastBotStatus");
 
         return Task.CompletedTask;
     }
@@ -531,17 +538,19 @@ public class BotHostedService : IHostedService
         _businessMetrics.RecordGuildJoin();
 
         // Broadcast guild activity update (fire-and-forget, failure tolerant)
-        _ = BroadcastGuildActivityAsync(guild, "BotJoined");
+        _backgroundTaskRunner.Run(_ => BroadcastGuildActivityAsync(guild, "BotJoined"), "BroadcastGuildActivity.Joined");
 
         // Update guild active status in database (fire-and-forget, failure tolerant)
-        _ = UpdateGuildActiveStatusAsync(guild.Id, isActive: true);
+        _backgroundTaskRunner.Run(_ => UpdateGuildActiveStatusAsync(guild.Id, isActive: true), "UpdateGuildActiveStatus.Joined");
 
         // Create admin notification for guild join
-        _ = CreateGuildEventNotificationAsync(
-            guild.Id,
-            $"Bot Joined {guild.Name}",
-            $"Bot was added to guild '{guild.Name}' ({guild.Id}). Members: {guild.MemberCount}",
-            isJoined: true);
+        _backgroundTaskRunner.Run(
+            _ => CreateGuildEventNotificationAsync(
+                guild.Id,
+                $"Bot Joined {guild.Name}",
+                $"Bot was added to guild '{guild.Name}' ({guild.Id}). Members: {guild.MemberCount}",
+                isJoined: true),
+            "CreateGuildEventNotification.Joined");
 
         return Task.CompletedTask;
     }
@@ -555,17 +564,19 @@ public class BotHostedService : IHostedService
         _businessMetrics.RecordGuildLeave();
 
         // Broadcast guild activity update (fire-and-forget, failure tolerant)
-        _ = BroadcastGuildActivityAsync(guild, "BotLeft");
+        _backgroundTaskRunner.Run(_ => BroadcastGuildActivityAsync(guild, "BotLeft"), "BroadcastGuildActivity.Left");
 
         // Update guild active status and LeftAt timestamp in database (fire-and-forget, failure tolerant)
-        _ = UpdateGuildActiveStatusAsync(guild.Id, isActive: false);
+        _backgroundTaskRunner.Run(_ => UpdateGuildActiveStatusAsync(guild.Id, isActive: false), "UpdateGuildActiveStatus.Left");
 
         // Create admin notification for guild leave
-        _ = CreateGuildEventNotificationAsync(
-            guild.Id,
-            $"Bot Left {guild.Name}",
-            $"Bot was removed from guild '{guild.Name}' ({guild.Id}).",
-            isJoined: false);
+        _backgroundTaskRunner.Run(
+            _ => CreateGuildEventNotificationAsync(
+                guild.Id,
+                $"Bot Left {guild.Name}",
+                $"Bot was removed from guild '{guild.Name}' ({guild.Id}).",
+                isJoined: false),
+            "CreateGuildEventNotification.Left");
 
         return Task.CompletedTask;
     }
@@ -707,7 +718,7 @@ public class BotHostedService : IHostedService
         {
             _logger.LogInformation("Bot status message setting changed, refreshing bot status");
             // Refresh status to apply the new custom status (respects priority)
-            _ = _botStatusService.RefreshStatusAsync();
+            _backgroundTaskRunner.Run(_ => _botStatusService.RefreshStatusAsync(), "RefreshBotStatus.SettingsChanged");
         }
     }
 
@@ -718,7 +729,7 @@ public class BotHostedService : IHostedService
     private void OnRatWatchStatusUpdateRequested(object? sender, EventArgs e)
     {
         _logger.LogDebug("Rat Watch status update event received, refreshing bot status");
-        _ = _botStatusService.RefreshStatusAsync();
+        _backgroundTaskRunner.Run(_ => _botStatusService.RefreshStatusAsync(), "RefreshBotStatus.RatWatchUpdate");
     }
 
     /// <summary>

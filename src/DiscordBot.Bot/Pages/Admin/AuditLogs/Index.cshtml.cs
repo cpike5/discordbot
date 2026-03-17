@@ -5,7 +5,6 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Utilities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Text;
 
 namespace DiscordBot.Bot.Pages.Admin.AuditLogs;
@@ -14,7 +13,7 @@ namespace DiscordBot.Bot.Pages.Admin.AuditLogs;
 /// Page model for listing and searching audit logs.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
-public class IndexModel : PageModel
+public class IndexModel : PaginatedPageModel
 {
     private readonly IAuditLogService _auditLogService;
     private readonly IGuildService _guildService;
@@ -31,6 +30,8 @@ public class IndexModel : PageModel
         _guildService = guildService;
         _messageLogRepository = messageLogRepository;
         _logger = logger;
+
+        PageSize = 25;
     }
 
     // Filter properties bound from query string
@@ -57,12 +58,6 @@ public class IndexModel : PageModel
 
     [BindProperty(SupportsGet = true)]
     public string? SearchTerm { get; set; }
-
-    [BindProperty(SupportsGet = true, Name = "pageNumber")]
-    public int CurrentPage { get; set; } = 1;
-
-    [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = 25;
 
     [BindProperty(SupportsGet = true)]
     public string? UserTimezone { get; set; }

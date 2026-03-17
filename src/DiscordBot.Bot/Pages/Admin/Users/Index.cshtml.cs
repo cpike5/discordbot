@@ -3,7 +3,6 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Security.Claims;
 
 namespace DiscordBot.Bot.Pages.Admin.Users;
@@ -12,7 +11,7 @@ namespace DiscordBot.Bot.Pages.Admin.Users;
 /// Page model for listing and managing users.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
-public class IndexModel : PageModel
+public class IndexModel : PaginatedPageModel
 {
     private readonly IUserManagementService _userManagementService;
     private readonly ILogger<IndexModel> _logger;
@@ -23,6 +22,8 @@ public class IndexModel : PageModel
     {
         _userManagementService = userManagementService;
         _logger = logger;
+
+        PageSize = 20;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -36,12 +37,6 @@ public class IndexModel : PageModel
 
     [BindProperty(SupportsGet = true)]
     public bool? DiscordLinkedFilter { get; set; }
-
-    [BindProperty(SupportsGet = true, Name = "pageNumber")]
-    public int CurrentPage { get; set; } = 1;
-
-    [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = 20;
 
     public UserListViewModel ViewModel { get; set; } = new();
 

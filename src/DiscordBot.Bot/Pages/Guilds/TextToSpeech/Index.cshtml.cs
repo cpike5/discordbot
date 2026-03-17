@@ -10,7 +10,6 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.TextToSpeech;
 
@@ -20,7 +19,7 @@ namespace DiscordBot.Bot.Pages.Guilds.TextToSpeech;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : GuildPageModelBase
 {
     private readonly ITtsHistoryService _ttsHistoryService;
     private readonly ITtsSettingsService _ttsSettingsService;
@@ -65,26 +64,10 @@ public class IndexModel : PageModel
     /// </summary>
     public TtsIndexViewModel ViewModel { get; set; } = new();
 
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-    public GuildHeaderViewModel Header { get; set; } = new();
-    public GuildNavBarViewModel Navigation { get; set; } = new();
-
     /// <summary>
     /// View model for the voice channel control panel.
     /// </summary>
     public VoiceChannelPanelViewModel? VoiceChannelPanel { get; set; }
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
-    /// Error message from TempData.
-    /// </summary>
-    [TempData]
-    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Gets whether audio features are globally disabled at the bot level.
@@ -180,22 +163,11 @@ public class IndexModel : PageModel
                 });
             }
 
-            Header = new GuildHeaderViewModel
-            {
-                GuildId = guild.Id,
-                GuildName = guild.Name,
-                GuildIconUrl = guild.IconUrl,
-                PageTitle = "Audio",
-                PageDescription = $"Manage audio settings and TTS for {guild.Name}",
-                Actions = headerActions
-            };
+            Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+                "Audio", $"Manage audio settings and TTS for {guild.Name}");
+            Header.Actions = headerActions;
 
-            Navigation = new GuildNavBarViewModel
-            {
-                GuildId = guild.Id,
-                ActiveTab = "audio",
-                Tabs = GuildNavigationConfig.GetTabs().ToList()
-            };
+            Navigation = BuildNavigation(guild.Id, "audio");
 
             // Get TTS statistics
             var stats = await _ttsHistoryService.GetStatsAsync(guildId, cancellationToken);

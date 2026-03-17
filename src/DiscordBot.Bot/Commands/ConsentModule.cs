@@ -1,5 +1,6 @@
 using Discord;
 using Discord.Interactions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -111,14 +112,7 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
                 userId,
                 type);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("An error occurred while granting consent. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "An error occurred while granting consent. Please try again later."), ephemeral: true);
         }
     }
 
@@ -196,14 +190,7 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
                 userId,
                 type);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("An error occurred while revoking consent. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "An error occurred while revoking consent. Please try again later."), ephemeral: true);
         }
     }
 
@@ -285,14 +272,7 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
                 "Failed to retrieve consent status for user {UserId}",
                 userId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("An error occurred while retrieving your consent status. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "An error occurred while retrieving your consent status. Please try again later."), ephemeral: true);
         }
     }
 
