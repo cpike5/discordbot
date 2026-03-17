@@ -4,7 +4,6 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds;
 
@@ -13,7 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class AssistantMetricsModel : PageModel
+public class AssistantMetricsModel : GuildPageModelBase
 {
     private readonly IAssistantService _assistantService;
     private readonly IGuildService _guildService;
@@ -39,21 +38,6 @@ public class AssistantMetricsModel : PageModel
     /// Guild information for display.
     /// </summary>
     public GuildViewModel Guild { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Daily metrics for the last 30 days.
@@ -165,37 +149,22 @@ public class AssistantMetricsModel : PageModel
         }
 
         // Populate guild layout ViewModels
-        var guildDto = await _guildService.GetGuildByIdAsync(GuildId, cancellationToken);
-        if (guildDto != null)
+        Breadcrumb = new GuildBreadcrumbViewModel
         {
-            Breadcrumb = new GuildBreadcrumbViewModel
+            Items = new List<BreadcrumbItem>
             {
-                Items = new List<BreadcrumbItem>
-                {
-                    new() { Label = "Home", Url = "/" },
-                    new() { Label = "Servers", Url = "/Guilds" },
-                    new() { Label = guildDto.Name, Url = $"/Guilds/Details/{GuildId}" },
-                    new() { Label = "Assistant", Url = $"/Guilds/AssistantSettings/{GuildId}" },
-                    new() { Label = "Metrics", IsCurrent = true }
-                }
-            };
+                new() { Label = "Home", Url = "/" },
+                new() { Label = "Servers", Url = "/Guilds" },
+                new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildId}" },
+                new() { Label = "Assistant", Url = $"/Guilds/AssistantSettings/{GuildId}" },
+                new() { Label = "Metrics", IsCurrent = true }
+            }
+        };
 
-            Header = new GuildHeaderViewModel
-            {
-                GuildId = guildDto.Id,
-                GuildName = guildDto.Name,
-                GuildIconUrl = guildDto.IconUrl,
-                PageTitle = "Assistant Usage Metrics",
-                PageDescription = $"AI assistant usage statistics for {guildDto.Name}"
-            };
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            "Assistant Usage Metrics", $"AI assistant usage statistics for {guild.Name}");
 
-            Navigation = new GuildNavBarViewModel
-            {
-                GuildId = guildDto.Id,
-                ActiveTab = "assistant",
-                Tabs = GuildNavigationConfig.GetTabs().ToList()
-            };
-        }
+        Navigation = BuildNavigation(guild.Id, "assistant");
 
         return Page();
     }

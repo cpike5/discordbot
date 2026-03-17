@@ -5,7 +5,6 @@ using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds;
 
@@ -13,7 +12,7 @@ namespace DiscordBot.Bot.Pages.Guilds;
 /// Page model for displaying the guild list with search, filter, sort, and pagination.
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
-public class IndexModel : PageModel
+public class IndexModel : PaginatedPageModel
 {
     private readonly IGuildService _guildService;
     private readonly IAuthorizationService _authorizationService;
@@ -43,30 +42,6 @@ public class IndexModel : PageModel
     /// </summary>
     [BindProperty(SupportsGet = true)]
     public bool? StatusFilter { get; set; }
-
-    /// <summary>
-    /// Field to sort by (Name, MemberCount, JoinedAt).
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public string SortBy { get; set; } = "Name";
-
-    /// <summary>
-    /// Sort in descending order if true.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public bool SortDescending { get; set; }
-
-    /// <summary>
-    /// Current page number (1-based).
-    /// </summary>
-    [BindProperty(SupportsGet = true, Name = "pageNumber")]
-    public int CurrentPage { get; set; } = 1;
-
-    /// <summary>
-    /// Number of items per page.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = 10;
 
     /// <summary>
     /// The view model containing guild list data.

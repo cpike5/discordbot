@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
@@ -19,7 +18,6 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
     private readonly IOptions<AnalyticsRetentionOptions> _analyticsOptions;
-    private readonly DiscordSocketClient _client;
 
     public override string ServiceName => "Channel Activity Aggregation Service";
 
@@ -36,21 +34,18 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
     /// <param name="scopeFactory">The service scope factory for creating scoped services.</param>
     /// <param name="bgOptions">Background services configuration options.</param>
     /// <param name="analyticsOptions">Analytics retention configuration options.</param>
-    /// <param name="client">The Discord socket client for retrieving channel names.</param>
     /// <param name="logger">The logger.</param>
     public ChannelActivityAggregationService(
         IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IOptions<BackgroundServicesOptions> bgOptions,
         IOptions<AnalyticsRetentionOptions> analyticsOptions,
-        DiscordSocketClient client,
         ILogger<ChannelActivityAggregationService> logger)
         : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _bgOptions = bgOptions;
         _analyticsOptions = analyticsOptions;
-        _client = client;
     }
 
     /// <inheritdoc/>
@@ -129,6 +124,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
         var userActivityEventRepository = scope.ServiceProvider.GetRequiredService<IUserActivityEventRepository>();
         var channelActivityRepository = scope.ServiceProvider.GetRequiredService<IChannelActivityRepository>();
         var guildRepository = scope.ServiceProvider.GetRequiredService<IGuildRepository>();
+        var channelResolver = scope.ServiceProvider.GetRequiredService<IDiscordChannelResolver>();
 
         // Get all active guilds
         var guilds = await guildRepository.GetAllAsync(stoppingToken);
@@ -154,6 +150,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
                     guild.Id,
                     userActivityEventRepository,
                     channelActivityRepository,
+                    channelResolver,
                     stoppingToken);
 
                 totalSnapshots += snapshotCount;
@@ -176,12 +173,14 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
     /// <param name="guildId">The guild ID to aggregate.</param>
     /// <param name="userActivityEventRepo">The user activity event repository.</param>
     /// <param name="channelActivityRepo">The channel activity repository.</param>
+    /// <param name="channelResolver">The channel resolver for looking up channel names.</param>
     /// <param name="stoppingToken">Cancellation token.</param>
     /// <returns>Number of snapshots created/updated.</returns>
     private async Task<int> AggregateGuildChannelActivityAsync(
         ulong guildId,
         IUserActivityEventRepository userActivityEventRepo,
         IChannelActivityRepository channelActivityRepo,
+        IDiscordChannelResolver channelResolver,
         CancellationToken stoppingToken)
     {
         // Determine the hour to aggregate (previous complete hour)
@@ -232,7 +231,7 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
             var averageMessageLength = 0.0;
 
             // Try to get channel name from Discord client
-            var channelName = await GetChannelNameAsync(guildId, channelGroup.Key);
+            var channelName = channelResolver.ResolveChannelName(guildId, channelGroup.Key);
 
             var snapshot = new ChannelActivitySnapshot
             {
@@ -259,36 +258,4 @@ public class ChannelActivityAggregationService : MonitoredBackgroundService
         return snapshotCount;
     }
 
-    /// <summary>
-    /// Gets the channel name from Discord, with fallback to "Unknown Channel".
-    /// </summary>
-    /// <param name="guildId">The guild ID.</param>
-    /// <param name="channelId">The channel ID.</param>
-    /// <returns>Channel name or "Unknown Channel" if not found.</returns>
-    private async Task<string> GetChannelNameAsync(ulong guildId, ulong channelId)
-    {
-        try
-        {
-            var guild = _client.GetGuild(guildId);
-            if (guild == null)
-            {
-                _logger.LogTrace("Guild {GuildId} not found in cache for channel name lookup", guildId);
-                return "Unknown Channel";
-            }
-
-            var channel = guild.GetChannel(channelId);
-            if (channel != null)
-            {
-                return channel.Name;
-            }
-
-            _logger.LogTrace("Channel {ChannelId} not found in guild {GuildId}", channelId, guildId);
-            return "Unknown Channel";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Error retrieving channel name for {ChannelId} in guild {GuildId}", channelId, guildId);
-            return "Unknown Channel";
-        }
-    }
 }

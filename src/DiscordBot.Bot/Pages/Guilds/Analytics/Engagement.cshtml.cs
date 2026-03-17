@@ -5,7 +5,6 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.Analytics;
 
@@ -15,7 +14,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Analytics;
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 [Authorize(Policy = "GuildAccess")]
-public class EngagementModel : PageModel
+public class EngagementModel : GuildPageModelBase
 {
     private readonly IEngagementAnalyticsService _engagementAnalyticsService;
     private readonly IGuildService _guildService;
@@ -35,21 +34,6 @@ public class EngagementModel : PageModel
     /// The analytics view model with all chart data and metrics.
     /// </summary>
     public EngagementAnalyticsViewModel ViewModel { get; private set; } = new();
-
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Start date filter (bound from query string).
@@ -131,21 +115,10 @@ public class EngagementModel : PageModel
                 }
             };
 
-            Header = new GuildHeaderViewModel
-            {
-                GuildId = guild.Id,
-                GuildName = guild.Name,
-                GuildIconUrl = guild.IconUrl,
-                PageTitle = "Engagement Metrics",
-                PageDescription = $"Message trends and member retention for {guild.Name}"
-            };
+            Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+                "Engagement Metrics", $"Message trends and member retention for {guild.Name}");
 
-            Navigation = new GuildNavBarViewModel
-            {
-                GuildId = guild.Id,
-                ActiveTab = "overview",
-                Tabs = GuildNavigationConfig.GetTabs().ToList()
-            };
+            Navigation = BuildNavigation(guild.Id, "overview");
         }
         catch (Exception ex)
         {

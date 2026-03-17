@@ -2,6 +2,7 @@ using Discord;
 using Discord.Interactions;
 using DiscordBot.Bot.Autocomplete;
 using DiscordBot.Bot.Preconditions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -56,14 +57,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
             // Prevent tagging bots
             if (user.IsBot)
             {
-                var botEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Cannot Tag Bots")
-                    .WithDescription("Bots cannot be tagged. Please select a human user.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: botEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Cannot Tag Bots", "Bots cannot be tagged. Please select a human user."), ephemeral: true);
                 _logger.LogDebug("Tag application failed: target is a bot");
                 return;
             }
@@ -77,14 +71,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
 
             if (userTag == null)
             {
-                var notFoundEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Tag Not Found")
-                    .WithDescription($"No tag named `{tag}` exists for this server. Use `/modtag create` to create it.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: notFoundEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Tag Not Found", $"No tag named `{tag}` exists for this server. Use `/modtag create` to create it."), ephemeral: true);
                 _logger.LogDebug("Tag application failed: tag '{TagName}' not found", tag);
                 return;
             }
@@ -114,14 +101,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to apply tag '{TagName}' to user {TargetId}", tag, user.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to apply tag: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to apply tag: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -151,14 +131,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
 
             if (!removed)
             {
-                var notFoundEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Tag Not Found")
-                    .WithDescription($"User <@{user.Id}> does not have the tag `{tag}`.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: notFoundEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Tag Not Found", $"User <@{user.Id}> does not have the tag `{tag}`."), ephemeral: true);
                 _logger.LogDebug("Tag removal failed: user {TargetId} does not have tag '{TagName}'", user.Id, tag);
                 return;
             }
@@ -169,15 +142,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
                 user.Id,
                 Context.User.Id);
 
-            // Build confirmation embed
-            var embed = new EmbedBuilder()
-                .WithTitle("✅ Tag Removed")
-                .WithDescription($"Removed tag **{tag}** from <@{user.Id}>")
-                .WithColor(Color.Green)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: embed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Success("Tag Removed", $"Removed tag **{tag}** from <@{user.Id}>"), ephemeral: true);
 
             _logger.LogDebug("Mod tag remove command response sent successfully");
         }
@@ -185,14 +150,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to remove tag '{TagName}' from user {TargetId}", tag, user.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to remove tag: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to remove tag: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -319,14 +277,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to list tags");
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to retrieve tags: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to retrieve tags: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -358,14 +309,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
             // Validate tag name
             if (string.IsNullOrWhiteSpace(name))
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Invalid Tag Name")
-                    .WithDescription("Tag name cannot be empty.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Tag Name", "Tag name cannot be empty."), ephemeral: true);
                 _logger.LogDebug("Tag creation failed: empty name");
                 return;
             }
@@ -373,14 +317,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
             // Validate color format (must be hex like #FF5733)
             if (!System.Text.RegularExpressions.Regex.IsMatch(color, @"^#[0-9A-Fa-f]{6}$"))
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Invalid Color Format")
-                    .WithDescription("Color must be in hex format (e.g., `#FF5733`).")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Color Format", "Color must be in hex format (e.g., `#FF5733`)."), ephemeral: true);
                 _logger.LogDebug("Tag creation failed: invalid color format '{Color}'", color);
                 return;
             }
@@ -388,14 +325,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
             // Parse category
             if (!Enum.TryParse<TagCategory>(category, out var tagCategory))
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Invalid Category")
-                    .WithDescription("Category must be Positive, Negative, or Neutral.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Category", "Category must be Positive, Negative, or Neutral."), ephemeral: true);
                 _logger.LogDebug("Tag creation failed: invalid category '{Category}'", category);
                 return;
             }
@@ -445,14 +375,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to create tag '{TagName}'", name);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to create tag: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to create tag: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -482,14 +405,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
 
             if (tagInfo == null)
             {
-                var notFoundEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Tag Not Found")
-                    .WithDescription($"No tag named `{tag}` exists for this server.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: notFoundEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Tag Not Found", $"No tag named `{tag}` exists for this server."), ephemeral: true);
                 _logger.LogDebug("Tag deletion failed: tag '{TagName}' not found", tag);
                 return;
             }
@@ -499,14 +415,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
 
             if (!deleted)
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Deletion Failed")
-                    .WithDescription("Failed to delete the tag. It may have already been deleted.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Deletion Failed", "Failed to delete the tag. It may have already been deleted."), ephemeral: true);
                 _logger.LogWarning("Tag deletion failed unexpectedly for tag '{TagName}'", tag);
                 return;
             }
@@ -537,14 +446,7 @@ public class ModTagModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to delete tag '{TagName}'", tag);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to delete tag: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to delete tag: {ex.Message}"), ephemeral: true);
         }
     }
 

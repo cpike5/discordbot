@@ -3,6 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Components;
 using DiscordBot.Bot.Preconditions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Utilities;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -165,14 +166,7 @@ public class ModerationHistoryModule : InteractionModuleBase<SocketInteractionCo
         {
             _logger.LogError(ex, "Failed to retrieve moderation history for user {UserId}", user.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to retrieve moderation history: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to retrieve moderation history: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -250,14 +244,7 @@ public class ModerationHistoryModule : InteractionModuleBase<SocketInteractionCo
         {
             _logger.LogError(ex, "Failed to retrieve case #{CaseNumber}", caseNumber);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to retrieve case details: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to retrieve case details: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -326,14 +313,7 @@ public class ModerationHistoryModule : InteractionModuleBase<SocketInteractionCo
         {
             _logger.LogError(ex, "Failed to update reason for case #{CaseNumber}", caseNumber);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to update case reason: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to update case reason: {ex.Message}"), ephemeral: true);
         }
     }
 

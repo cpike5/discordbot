@@ -33,6 +33,7 @@ public class DetailsModelSyncTests
     private readonly Mock<ISoundRepository> _mockSoundRepository;
     private readonly Mock<ITtsMessageRepository> _mockTtsMessageRepository;
     private readonly Mock<IAssistantGuildSettingsService> _mockAssistantGuildSettingsService;
+    private readonly Mock<IGuildMembershipService> _mockGuildMembershipService;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
@@ -49,6 +50,7 @@ public class DetailsModelSyncTests
         _mockSoundRepository = new Mock<ISoundRepository>();
         _mockTtsMessageRepository = new Mock<ITtsMessageRepository>();
         _mockAssistantGuildSettingsService = new Mock<IAssistantGuildSettingsService>();
+        _mockGuildMembershipService = new Mock<IGuildMembershipService>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
 
         // Setup default scheduled message service behavior
@@ -82,6 +84,7 @@ public class DetailsModelSyncTests
             _mockSoundRepository.Object,
             _mockTtsMessageRepository.Object,
             _mockAssistantGuildSettingsService.Object,
+            _mockGuildMembershipService.Object,
             assistantOptions,
             _mockLogger.Object);
 

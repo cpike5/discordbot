@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using DiscordBot.Bot.Autocomplete;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
@@ -117,27 +118,13 @@ public class ReminderModule : InteractionModuleBase<SocketInteractionContext>
 
         if (triggerAt < minTime)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Time Too Soon")
-                .WithDescription($"Reminders must be at least **{_options.MinAdvanceMinutes} minute(s)** in the future.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Time Too Soon", $"Reminders must be at least **{_options.MinAdvanceMinutes} minute(s)** in the future."), ephemeral: true);
             return;
         }
 
         if (triggerAt > maxTime)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Time Too Far")
-                .WithDescription($"Reminders cannot be more than **{_options.MaxAdvanceDays} days** in the future.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Time Too Far", $"Reminders cannot be more than **{_options.MaxAdvanceDays} days** in the future."), ephemeral: true);
             return;
         }
 

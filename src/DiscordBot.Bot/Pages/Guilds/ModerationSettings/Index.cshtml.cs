@@ -6,7 +6,6 @@ using DiscordBot.Core.Interfaces;
 using Discord.WebSocket;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.ModerationSettings;
 
@@ -16,7 +15,7 @@ namespace DiscordBot.Bot.Pages.Guilds.ModerationSettings;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : GuildPageModelBase
 {
     private readonly IGuildModerationConfigService _configService;
     private readonly IModTagService _modTagService;
@@ -48,10 +47,6 @@ public class IndexModel : PageModel
     /// Gets or sets the view model for the page.
     /// </summary>
     public ModerationSettingsViewModel ViewModel { get; set; } = new();
-
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-    public GuildHeaderViewModel Header { get; set; } = new();
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Gets or sets the guild ID from the route.
@@ -114,42 +109,22 @@ public class IndexModel : PageModel
         GuildIconUrl = guild.IconUrl;
 
         // Populate guild layout ViewModels
-        Breadcrumb = new GuildBreadcrumbViewModel
+        Breadcrumb = BuildPageBreadcrumb(guild.Id, guild.Name, "Moderation Settings");
+
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            "Moderation Settings", "Configure auto-moderation rules for this server");
+        Header.Actions = new List<HeaderAction>
         {
-            Items = new List<BreadcrumbItem>
+            new()
             {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
-                new() { Label = "Moderation Settings", IsCurrent = true }
+                Label = "View Flagged Events",
+                Url = $"/Guilds/FlaggedEvents/{GuildId}",
+                Style = HeaderActionStyle.Secondary,
+                Icon = "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
             }
         };
 
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "Moderation Settings",
-            PageDescription = "Configure auto-moderation rules for this server",
-            Actions = new List<HeaderAction>
-            {
-                new()
-                {
-                    Label = "View Flagged Events",
-                    Url = $"/Guilds/FlaggedEvents/{GuildId}",
-                    Style = HeaderActionStyle.Secondary,
-                    Icon = "M3 21v-4m0 0V5a2 2 0 012-2h6.5l1 1H21l-3 6 3 6h-8.5l-1-1H5a2 2 0 00-2 2zm9-13.5V9"
-                }
-            }
-        };
-
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "moderation",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
+        Navigation = BuildNavigation(guild.Id, "moderation");
 
         // Load moderation config and tags
         var config = await _configService.GetConfigAsync(GuildId, cancellationToken);

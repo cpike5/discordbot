@@ -6,7 +6,6 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 
@@ -16,7 +15,7 @@ namespace DiscordBot.Bot.Pages.Guilds.RatWatch;
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
 [Authorize(Policy = "GuildAccess")]
-public class IncidentsModel : PageModel
+public class IncidentsModel : GuildPageModelBase
 {
     private readonly IRatWatchService _ratWatchService;
     private readonly IGuildService _guildService;
@@ -36,21 +35,6 @@ public class IncidentsModel : PageModel
     /// View model for display properties.
     /// </summary>
     public RatWatchIncidentsViewModel ViewModel { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     // Filter parameters bound from query string
     [BindProperty(SupportsGet = true)]
@@ -194,21 +178,10 @@ public class IncidentsModel : PageModel
             }
         };
 
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "Rat Watch Incidents",
-            PageDescription = $"Browse and filter all Rat Watch incidents for {guild.Name}"
-        };
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            "Rat Watch Incidents", $"Browse and filter all Rat Watch incidents for {guild.Name}");
 
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "ratwatch",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
+        Navigation = BuildNavigation(guild.Id, "ratwatch");
 
         return Page();
     }

@@ -1,6 +1,7 @@
 // src/DiscordBot.Bot/Pages/Guilds/GuildPageModelBase.cs
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds;
@@ -25,6 +26,18 @@ public abstract class GuildPageModelBase : PageModel
     /// Guild navigation bar with tabs.
     /// </summary>
     public GuildNavBarViewModel Navigation { get; set; } = new();
+
+    /// <summary>
+    /// Success message from TempData.
+    /// </summary>
+    [TempData]
+    public string? SuccessMessage { get; set; }
+
+    /// <summary>
+    /// Error message from TempData.
+    /// </summary>
+    [TempData]
+    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Builds a basic breadcrumb with Home > Servers > Guild Name.
@@ -106,5 +119,28 @@ public abstract class GuildPageModelBase : PageModel
             PageTitle = pageTitle,
             PageDescription = pageDescription
         };
+    }
+
+    /// <summary>
+    /// Convenience method that sets Breadcrumb, Header, and Navigation in one call.
+    /// Uses <see cref="BuildPageBreadcrumb"/>, <see cref="BuildHeader"/>, and <see cref="BuildNavigation"/>.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="guildName">Guild name.</param>
+    /// <param name="iconUrl">Guild icon URL (optional).</param>
+    /// <param name="activeTab">ID of the currently active navigation tab.</param>
+    /// <param name="pageTitle">Page title to display in header and breadcrumb.</param>
+    /// <param name="pageDescription">Optional page description for header.</param>
+    protected void PopulateGuildLayout(
+        ulong guildId,
+        string guildName,
+        string? iconUrl,
+        string activeTab,
+        string pageTitle,
+        string? pageDescription = null)
+    {
+        Breadcrumb = BuildPageBreadcrumb(guildId, guildName, pageTitle);
+        Header = BuildHeader(guildId, guildName, iconUrl, pageTitle, pageDescription);
+        Navigation = BuildNavigation(guildId, activeTab);
     }
 }

@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Preconditions;
 
@@ -61,14 +62,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                     voiceChannel.Id,
                     guildId);
 
-                var alreadyConnectedEmbed = new EmbedBuilder()
-                    .WithTitle("Already Connected")
-                    .WithDescription($"I'm already in {voiceChannel.Name}!")
-                    .WithColor(Color.Orange)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: alreadyConnectedEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Confirmation("Already Connected", $"I'm already in {voiceChannel.Name}!"), ephemeral: true);
                 return;
             }
 
@@ -82,14 +76,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                     voiceChannel.Id,
                     guildId);
 
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("Error")
-                    .WithDescription("Failed to join the voice channel. The channel may no longer exist.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Error", "Failed to join the voice channel. The channel may no longer exist."), ephemeral: true);
                 return;
             }
 
@@ -99,14 +86,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                 guildId,
                 Context.User.Id);
 
-            var successEmbed = new EmbedBuilder()
-                .WithTitle("Joined Voice Channel")
-                .WithDescription($"Joined {voiceChannel.Name}")
-                .WithColor(Color.Green)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: successEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Success("Joined Voice Channel", $"Joined {voiceChannel.Name}"), ephemeral: true);
 
             _logger.LogDebug("Join command completed successfully for guild {GuildId}", guildId);
         }
@@ -118,14 +98,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                 voiceChannel?.Id,
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Error")
-                .WithDescription("I don't have permission to join that voice channel.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "I don't have permission to join that voice channel."), ephemeral: true);
         }
     }
 
@@ -160,14 +133,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                     channel.Id,
                     guildId);
 
-                var alreadyConnectedEmbed = new EmbedBuilder()
-                    .WithTitle("Already Connected")
-                    .WithDescription($"I'm already in {channel.Name}!")
-                    .WithColor(Color.Orange)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: alreadyConnectedEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Confirmation("Already Connected", $"I'm already in {channel.Name}!"), ephemeral: true);
                 return;
             }
 
@@ -181,14 +147,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                     channel.Id,
                     guildId);
 
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("Error")
-                    .WithDescription("Failed to join the voice channel. The channel may no longer exist.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Error", "Failed to join the voice channel. The channel may no longer exist."), ephemeral: true);
                 return;
             }
 
@@ -198,14 +157,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                 guildId,
                 Context.User.Id);
 
-            var successEmbed = new EmbedBuilder()
-                .WithTitle("Joined Voice Channel")
-                .WithDescription($"Joined {channel.Name}")
-                .WithColor(Color.Green)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: successEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Success("Joined Voice Channel", $"Joined {channel.Name}"), ephemeral: true);
 
             _logger.LogDebug("Join-channel command completed successfully for guild {GuildId}", guildId);
         }
@@ -217,14 +169,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                 channel.Id,
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Error")
-                .WithDescription("I don't have permission to join that voice channel.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "I don't have permission to join that voice channel."), ephemeral: true);
         }
     }
 
@@ -253,14 +198,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                     "Leave command executed but bot not connected to voice in guild {GuildId}",
                     guildId);
 
-                var notConnectedEmbed = new EmbedBuilder()
-                    .WithTitle("Not Connected")
-                    .WithDescription("I'm not in a voice channel.")
-                    .WithColor(Color.Orange)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: notConnectedEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Confirmation("Not Connected", "I'm not in a voice channel."), ephemeral: true);
                 return;
             }
 
@@ -269,14 +207,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                 guildId,
                 Context.User.Id);
 
-            var successEmbed = new EmbedBuilder()
-                .WithTitle("Left Voice Channel")
-                .WithDescription("Left the voice channel.")
-                .WithColor(Color.Green)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: successEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Success("Left Voice Channel", "Left the voice channel."), ephemeral: true);
 
             _logger.LogDebug("Leave command completed successfully for guild {GuildId}", guildId);
         }
@@ -287,14 +218,7 @@ public class VoiceModule : InteractionModuleBase<SocketInteractionContext>
                 "Failed to leave voice channel in guild {GuildId}",
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Error")
-                .WithDescription("An error occurred while leaving the voice channel. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "An error occurred while leaving the voice channel. Please try again later."), ephemeral: true);
         }
     }
 }

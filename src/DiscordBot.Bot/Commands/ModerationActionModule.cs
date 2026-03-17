@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Bot.Utilities;
 using DiscordBot.Core.DTOs;
@@ -57,14 +58,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             var isAdmin = guildUser?.GuildPermissions.Administrator ?? false;
             if (!isAdmin)
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Cannot Warn Bot")
-                    .WithDescription("You cannot warn a bot user.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Cannot Warn Bot", "You cannot warn a bot user."), ephemeral: true);
                 _logger.LogDebug("User {UserId} attempted to warn bot {BotId}", userId, targetUser.Id);
                 return;
             }
@@ -73,14 +67,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         // Prevent self-warning
         if (targetUser.Id == userId)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Cannot Warn Yourself")
-                .WithDescription("You cannot warn yourself.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Cannot Warn Yourself", "You cannot warn yourself."), ephemeral: true);
             _logger.LogDebug("User {UserId} attempted to warn themselves", userId);
             return;
         }
@@ -251,14 +238,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         {
             _logger.LogError(ex, "Failed to warn user {UserId} via message context", parsedTargetUserId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to issue warning: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await FollowupAsync(embed: errorEmbed, ephemeral: true);
+            await FollowupAsync(embed: EmbedHelper.Error("Error", $"Failed to issue warning: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -353,14 +333,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         {
             _logger.LogError(ex, "Failed to warn user {UserId}", user.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to issue warning: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to issue warning: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -492,14 +465,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         {
             _logger.LogError(ex, "Failed to kick user {UserId}", guildUser.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to kick user: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to kick user: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -565,14 +531,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
                 parsedDuration = DurationParser.Parse(duration);
                 if (!parsedDuration.HasValue)
                 {
-                    var errorEmbed = new EmbedBuilder()
-                        .WithTitle("❌ Invalid Duration Format")
-                        .WithDescription("Could not parse the duration you provided. Use formats like:\n• `7d` - 7 days\n• `24h` - 24 hours\n• `1h30m` - 1 hour 30 minutes")
-                        .WithColor(Color.Red)
-                        .WithCurrentTimestamp()
-                        .Build();
-
-                    await RespondAsync(embed: errorEmbed, ephemeral: true);
+                    await RespondAsync(embed: EmbedHelper.Error("Invalid Duration Format", "Could not parse the duration you provided. Use formats like:\n• `7d` - 7 days\n• `24h` - 24 hours\n• `1h30m` - 1 hour 30 minutes"), ephemeral: true);
                     _logger.LogDebug("Failed to parse ban duration input: {DurationInput}", duration);
                     return;
                 }
@@ -671,14 +630,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         {
             _logger.LogError(ex, "Failed to ban user {UserId}", user.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to ban user: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to ban user: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -768,14 +720,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         {
             _logger.LogError(ex, "Failed to unban user {UserId}", targetUserId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to unban user: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to unban user: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -853,14 +798,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             var parsedDuration = DurationParser.Parse(duration);
             if (!parsedDuration.HasValue)
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Invalid Duration Format")
-                    .WithDescription("Could not parse the duration you provided. Use formats like:\n• `10m` - 10 minutes\n• `1h` - 1 hour\n• `1h30m` - 1 hour 30 minutes\n• `1d` - 1 day")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Duration Format", "Could not parse the duration you provided. Use formats like:\n• `10m` - 10 minutes\n• `1h` - 1 hour\n• `1h30m` - 1 hour 30 minutes\n• `1d` - 1 day"), ephemeral: true);
                 _logger.LogDebug("Failed to parse mute duration input: {DurationInput}", duration);
                 return;
             }
@@ -868,14 +806,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
             // Validate duration (Discord timeout max is 28 days)
             if (parsedDuration.Value.TotalDays > 28)
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Duration Too Long")
-                    .WithDescription("Discord timeouts can only be applied for a maximum of 28 days.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Duration Too Long", "Discord timeouts can only be applied for a maximum of 28 days."), ephemeral: true);
                 _logger.LogDebug("Mute duration {Duration} exceeds 28 day limit", parsedDuration.Value);
                 return;
             }
@@ -934,14 +865,7 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         {
             _logger.LogError(ex, "Failed to mute user {UserId}", guildUser.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to mute user: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to mute user: {ex.Message}"), ephemeral: true);
         }
     }
 

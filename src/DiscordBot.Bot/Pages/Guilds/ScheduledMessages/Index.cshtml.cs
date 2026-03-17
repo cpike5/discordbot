@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -19,18 +18,18 @@ public class IndexModel : PageModel
 {
     private readonly IScheduledMessageService _scheduledMessageService;
     private readonly IGuildService _guildService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IDiscordChannelResolver _channelResolver;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         IScheduledMessageService scheduledMessageService,
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IDiscordChannelResolver channelResolver,
         ILogger<IndexModel> logger)
     {
         _scheduledMessageService = scheduledMessageService;
         _guildService = guildService;
-        _discordClient = discordClient;
+        _channelResolver = channelResolver;
         _logger = logger;
     }
 
@@ -138,7 +137,7 @@ public class IndexModel : PageModel
             guild.Name,
             guild.IconUrl,
             messages,
-            ResolveChannelName,
+            channelId => _channelResolver.ResolveChannelName(guildId, channelId),
             page,
             pageSize,
             totalCount);
@@ -233,46 +232,4 @@ public class IndexModel : PageModel
         return RedirectToPage("Index", new { guildId, page, pageSize });
     }
 
-    /// <summary>
-    /// Resolves a channel ID to its display name using the Discord client.
-    /// Returns "Unknown Channel" if the channel cannot be resolved.
-    /// </summary>
-    /// <param name="channelId">The Discord channel snowflake ID.</param>
-    /// <returns>The channel name or "Unknown Channel" if not found.</returns>
-    private string ResolveChannelName(ulong channelId)
-    {
-        try
-        {
-            var channel = _discordClient.GetChannel(channelId);
-            if (channel is SocketTextChannel textChannel)
-            {
-                return textChannel.Name;
-            }
-            else if (channel is SocketVoiceChannel voiceChannel)
-            {
-                return voiceChannel.Name;
-            }
-            else if (channel is SocketNewsChannel newsChannel)
-            {
-                return newsChannel.Name;
-            }
-            else if (channel is SocketStageChannel stageChannel)
-            {
-                return stageChannel.Name;
-            }
-            else if (channel != null)
-            {
-                // Generic fallback for other channel types
-                return $"Channel {channelId}";
-            }
-
-            _logger.LogWarning("Could not resolve channel name for channel {ChannelId}", channelId);
-            return "Unknown Channel";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Error resolving channel name for channel {ChannelId}", channelId);
-            return "Unknown Channel";
-        }
-    }
 }

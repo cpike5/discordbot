@@ -2,6 +2,7 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Components;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Models;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.DTOs;
