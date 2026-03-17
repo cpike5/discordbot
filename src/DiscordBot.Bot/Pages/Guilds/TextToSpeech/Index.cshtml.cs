@@ -524,7 +524,7 @@ public class IndexModel : PageModel
             var playbackResult = await _ttsPlaybackService.PlayAsync(
                 guildId,
                 User.GetDiscordUserId(),
-                User.Identity?.Name ?? "Admin UI",
+                User.FindFirst("discord:username")?.Value ?? "Admin UI",
                 message,
                 options.Voice ?? string.Empty,
                 audioStream,
