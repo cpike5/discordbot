@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Notifications;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -25,6 +26,9 @@ public static class NotificationServiceExtensions
 
         services.Configure<NotificationOptions>(
             configuration.GetSection(NotificationOptions.SectionName));
+
+        // Notification broadcaster (scoped — uses INotificationRepository which depends on DbContext)
+        services.AddScoped<INotificationBroadcaster, NotificationBroadcaster>();
 
         // Notification service (scoped for per-request)
         services.AddScoped<INotificationService, NotificationService>();

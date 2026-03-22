@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Search;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Services;
@@ -39,6 +40,17 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IUserManagementService, UserManagementService>();
         services.AddScoped<IWelcomeService, WelcomeService>();
         services.AddScoped<ISearchService, SearchService>();
+
+        // Search providers — each handles one SearchCategory
+        services.AddScoped<ISearchProvider, GuildsSearchProvider>();
+        services.AddScoped<ISearchProvider, CommandLogsSearchProvider>();
+        services.AddScoped<ISearchProvider, UsersSearchProvider>();
+        services.AddScoped<ISearchProvider, CommandsSearchProvider>();
+        services.AddScoped<ISearchProvider, AuditLogsSearchProvider>();
+        services.AddScoped<ISearchProvider, MessageLogsSearchProvider>();
+        services.AddScoped<ISearchProvider, PagesSearchProvider>();
+        services.AddScoped<ISearchProvider, RemindersSearchProvider>();
+        services.AddScoped<ISearchProvider, ScheduledMessagesSearchProvider>();
         services.AddScoped<ITimeParsingService, TimeParsingService>();
         services.AddScoped<IGuildMemberService, GuildMemberService>();
         services.AddScoped<IConsentService, ConsentService>();

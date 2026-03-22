@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Performance;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data.Repositories;
@@ -75,6 +76,10 @@ public static class PerformanceMetricsServiceExtensions
 
         // Performance notifier for SignalR broadcasting (singleton)
         services.AddSingleton<IPerformanceNotifier, PerformanceNotifier>();
+
+        // Metric value collector and alert incident manager (extracted from AlertMonitoringService)
+        services.AddSingleton<IMetricValueCollector, MetricValueCollector>();
+        services.AddSingleton<IAlertIncidentManager, AlertIncidentManager>();
 
         // Alert monitoring background service - register as singleton first, then as hosted service
         // This avoids the circular dependency deadlock caused by GetServices<IHostedService>()
