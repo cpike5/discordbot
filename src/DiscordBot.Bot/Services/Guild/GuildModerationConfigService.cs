@@ -33,125 +33,97 @@ public class GuildModerationConfigService : IGuildModerationConfigService
     /// <inheritdoc/>
     public async Task<GuildModerationConfigDto> GetConfigAsync(ulong guildId, CancellationToken ct = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "guild_moderation_config",
-            "get_config",
-            guildId: guildId);
-
-        try
-        {
-            _logger.LogDebug("Retrieving moderation configuration for guild {GuildId}", guildId);
-
-            var config = await _configRepository.GetByGuildIdAsync(guildId, ct);
-
-            if (config == null)
+        return await ServiceActivityHelper.ExecuteAsync<GuildModerationConfigDto>(
+            "guild_moderation_config", "get_config",
+            async _ =>
             {
-                _logger.LogInformation("No moderation configuration found for guild {GuildId}, returning default", guildId);
-                var defaultConfig = GetDefaultConfig();
-                BotActivitySource.SetSuccess(activity);
-                return defaultConfig;
-            }
+                _logger.LogDebug("Retrieving moderation configuration for guild {GuildId}", guildId);
 
-            var result = MapToDto(config);
-            BotActivitySource.SetSuccess(activity);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                var config = await _configRepository.GetByGuildIdAsync(guildId, ct);
+
+                if (config == null)
+                {
+                    _logger.LogInformation("No moderation configuration found for guild {GuildId}, returning default", guildId);
+                    return GetDefaultConfig();
+                }
+
+                return MapToDto(config);
+            },
+            guildId: guildId);
     }
 
     /// <inheritdoc/>
     public async Task<GuildModerationConfigDto> UpdateConfigAsync(ulong guildId, GuildModerationConfigDto configDto, CancellationToken ct = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "guild_moderation_config",
-            "update_config",
-            guildId: guildId);
-
-        try
-        {
-            _logger.LogInformation("Updating moderation configuration for guild {GuildId}", guildId);
-
-            var config = await _configRepository.GetByGuildIdAsync(guildId, ct);
-
-            if (config == null)
+        return await ServiceActivityHelper.ExecuteAsync<GuildModerationConfigDto>(
+            "guild_moderation_config", "update_config",
+            async _ =>
             {
-                // Create new configuration
-                config = new GuildModerationConfig
+                _logger.LogInformation("Updating moderation configuration for guild {GuildId}", guildId);
+
+                var config = await _configRepository.GetByGuildIdAsync(guildId, ct);
+
+                if (config == null)
                 {
-                    GuildId = guildId
-                };
-            }
+                    // Create new configuration
+                    config = new GuildModerationConfig
+                    {
+                        GuildId = guildId
+                    };
+                }
 
-            // Update fields
-            config.IsEnabled = configDto.IsEnabled;
-            config.Mode = configDto.Mode;
-            config.SimplePreset = configDto.SimplePreset;
-            config.SpamConfig = JsonSerializer.Serialize(configDto.SpamConfig, JsonOptions);
-            config.ContentFilterConfig = JsonSerializer.Serialize(configDto.ContentFilterConfig, JsonOptions);
-            config.RaidProtectionConfig = JsonSerializer.Serialize(configDto.RaidProtectionConfig, JsonOptions);
-            config.UpdatedAt = DateTime.UtcNow;
+                // Update fields
+                config.IsEnabled = configDto.IsEnabled;
+                config.Mode = configDto.Mode;
+                config.SimplePreset = configDto.SimplePreset;
+                config.SpamConfig = JsonSerializer.Serialize(configDto.SpamConfig, JsonOptions);
+                config.ContentFilterConfig = JsonSerializer.Serialize(configDto.ContentFilterConfig, JsonOptions);
+                config.RaidProtectionConfig = JsonSerializer.Serialize(configDto.RaidProtectionConfig, JsonOptions);
+                config.UpdatedAt = DateTime.UtcNow;
 
-            if (await _configRepository.GetByGuildIdAsync(guildId, ct) == null)
-            {
-                await _configRepository.AddAsync(config, ct);
-            }
-            else
-            {
-                await _configRepository.UpdateAsync(config, ct);
-            }
+                if (await _configRepository.GetByGuildIdAsync(guildId, ct) == null)
+                {
+                    await _configRepository.AddAsync(config, ct);
+                }
+                else
+                {
+                    await _configRepository.UpdateAsync(config, ct);
+                }
 
-            _logger.LogInformation("Moderation configuration updated successfully for guild {GuildId}", guildId);
+                _logger.LogInformation("Moderation configuration updated successfully for guild {GuildId}", guildId);
 
-            var result = MapToDto(config);
-            BotActivitySource.SetSuccess(activity);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                return MapToDto(config);
+            },
+            guildId: guildId);
     }
 
     /// <inheritdoc/>
     public async Task<GuildModerationConfigDto> ApplyPresetAsync(ulong guildId, string presetName, CancellationToken ct = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "guild_moderation_config",
-            "apply_preset",
-            guildId: guildId);
-
-        try
-        {
-            _logger.LogInformation("Applying preset '{PresetName}' to guild {GuildId}", presetName, guildId);
-
-            var configDto = presetName.ToLowerInvariant() switch
+        return await ServiceActivityHelper.ExecuteAsync<GuildModerationConfigDto>(
+            "guild_moderation_config", "apply_preset",
+            async _ =>
             {
-                "relaxed" => GetRelaxedPreset(),
-                "moderate" => GetModeratePreset(),
-                "strict" => GetStrictPreset(),
-                _ => throw new ArgumentException($"Unknown preset: {presetName}", nameof(presetName))
-            };
+                _logger.LogInformation("Applying preset '{PresetName}' to guild {GuildId}", presetName, guildId);
 
-            configDto.SimplePreset = presetName;
-            configDto.Mode = ConfigMode.Simple;
+                var configDto = presetName.ToLowerInvariant() switch
+                {
+                    "relaxed" => GetRelaxedPreset(),
+                    "moderate" => GetModeratePreset(),
+                    "strict" => GetStrictPreset(),
+                    _ => throw new ArgumentException($"Unknown preset: {presetName}", nameof(presetName))
+                };
 
-            var result = await UpdateConfigAsync(guildId, configDto, ct);
+                configDto.SimplePreset = presetName;
+                configDto.Mode = ConfigMode.Simple;
 
-            _logger.LogInformation("Preset '{PresetName}' applied successfully to guild {GuildId}", presetName, guildId);
+                var result = await UpdateConfigAsync(guildId, configDto, ct);
 
-            BotActivitySource.SetSuccess(activity);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogInformation("Preset '{PresetName}' applied successfully to guild {GuildId}", presetName, guildId);
+
+                return result;
+            },
+            guildId: guildId);
     }
 
     /// <inheritdoc/>
@@ -210,70 +182,46 @@ public class GuildModerationConfigService : IGuildModerationConfigService
     /// <inheritdoc/>
     public async Task<SpamDetectionConfigDto> GetSpamConfigAsync(ulong guildId, CancellationToken ct = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "guild_moderation_config",
-            "get_spam_config",
+        return await ServiceActivityHelper.ExecuteAsync<SpamDetectionConfigDto>(
+            "guild_moderation_config", "get_spam_config",
+            async _ =>
+            {
+                _logger.LogDebug("Retrieving spam detection configuration for guild {GuildId}", guildId);
+
+                var config = await GetConfigAsync(guildId, ct);
+                return config.SpamConfig;
+            },
             guildId: guildId);
-
-        try
-        {
-            _logger.LogDebug("Retrieving spam detection configuration for guild {GuildId}", guildId);
-
-            var config = await GetConfigAsync(guildId, ct);
-            BotActivitySource.SetSuccess(activity);
-            return config.SpamConfig;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     /// <inheritdoc/>
     public async Task<ContentFilterConfigDto> GetContentFilterConfigAsync(ulong guildId, CancellationToken ct = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "guild_moderation_config",
-            "get_content_filter_config",
+        return await ServiceActivityHelper.ExecuteAsync<ContentFilterConfigDto>(
+            "guild_moderation_config", "get_content_filter_config",
+            async _ =>
+            {
+                _logger.LogDebug("Retrieving content filter configuration for guild {GuildId}", guildId);
+
+                var config = await GetConfigAsync(guildId, ct);
+                return config.ContentFilterConfig;
+            },
             guildId: guildId);
-
-        try
-        {
-            _logger.LogDebug("Retrieving content filter configuration for guild {GuildId}", guildId);
-
-            var config = await GetConfigAsync(guildId, ct);
-            BotActivitySource.SetSuccess(activity);
-            return config.ContentFilterConfig;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     /// <inheritdoc/>
     public async Task<RaidProtectionConfigDto> GetRaidProtectionConfigAsync(ulong guildId, CancellationToken ct = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "guild_moderation_config",
-            "get_raid_protection_config",
+        return await ServiceActivityHelper.ExecuteAsync<RaidProtectionConfigDto>(
+            "guild_moderation_config", "get_raid_protection_config",
+            async _ =>
+            {
+                _logger.LogDebug("Retrieving raid protection configuration for guild {GuildId}", guildId);
+
+                var config = await GetConfigAsync(guildId, ct);
+                return config.RaidProtectionConfig;
+            },
             guildId: guildId);
-
-        try
-        {
-            _logger.LogDebug("Retrieving raid protection configuration for guild {GuildId}", guildId);
-
-            var config = await GetConfigAsync(guildId, ct);
-            BotActivitySource.SetSuccess(activity);
-            return config.RaidProtectionConfig;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     /// <summary>

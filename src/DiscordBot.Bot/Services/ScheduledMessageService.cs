@@ -41,34 +41,25 @@ public class ScheduledMessageService : IScheduledMessageService
     /// <inheritdoc/>
     public async Task<ScheduledMessageDto?> GetByIdAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "scheduled_message",
-            "get_by_id",
-            entityId: id.ToString());
-
-        try
-        {
-            _logger.LogDebug("Retrieving scheduled message {MessageId}", id);
-
-            var message = await _repository.GetByIdWithGuildAsync(id, cancellationToken);
-            if (message == null)
+        return await ServiceActivityHelper.ExecuteAsync<ScheduledMessageDto?>(
+            "scheduled_message", "get_by_id",
+            async _ =>
             {
-                _logger.LogWarning("Scheduled message {MessageId} not found", id);
-                BotActivitySource.SetSuccess(activity);
-                return null;
-            }
+                _logger.LogDebug("Retrieving scheduled message {MessageId}", id);
 
-            var dto = MapToDto(message);
-            _logger.LogDebug("Retrieved scheduled message {MessageId}: {Title}", id, dto.Title);
+                var message = await _repository.GetByIdWithGuildAsync(id, cancellationToken);
+                if (message == null)
+                {
+                    _logger.LogWarning("Scheduled message {MessageId} not found", id);
+                    return null;
+                }
 
-            BotActivitySource.SetSuccess(activity);
-            return dto;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                var dto = MapToDto(message);
+                _logger.LogDebug("Retrieved scheduled message {MessageId}: {Title}", id, dto.Title);
+
+                return dto;
+            },
+            entityId: id.ToString());
     }
 
     /// <inheritdoc/>
@@ -78,43 +69,32 @@ public class ScheduledMessageService : IScheduledMessageService
         int pageSize,
         CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "scheduled_message",
-            "get_by_guild",
+        return await ServiceActivityHelper.ExecuteAsync<(IEnumerable<ScheduledMessageDto> Items, int TotalCount)>(
+            "scheduled_message", "get_by_guild",
+            async activity =>
+            {
+                _logger.LogDebug("Retrieving scheduled messages for guild {GuildId}, page {Page}, pageSize {PageSize}",
+                    guildId, page, pageSize);
+
+                var (messages, totalCount) = await _repository.GetByGuildIdAsync(guildId, page, pageSize, cancellationToken);
+                var dtos = messages.Select(MapToDto);
+
+                _logger.LogInformation("Retrieved {Count} of {Total} scheduled messages for guild {GuildId}",
+                    messages.Count(), totalCount, guildId);
+
+                BotActivitySource.SetRecordsReturned(activity, messages.Count());
+                return (dtos, totalCount);
+            },
             guildId: guildId);
-
-        try
-        {
-            _logger.LogDebug("Retrieving scheduled messages for guild {GuildId}, page {Page}, pageSize {PageSize}",
-                guildId, page, pageSize);
-
-            var (messages, totalCount) = await _repository.GetByGuildIdAsync(guildId, page, pageSize, cancellationToken);
-            var dtos = messages.Select(MapToDto);
-
-            _logger.LogInformation("Retrieved {Count} of {Total} scheduled messages for guild {GuildId}",
-                messages.Count(), totalCount, guildId);
-
-            BotActivitySource.SetRecordsReturned(activity, messages.Count());
-            BotActivitySource.SetSuccess(activity);
-            return (dtos, totalCount);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     /// <inheritdoc/>
     public async Task<ScheduledMessageDto> CreateAsync(ScheduledMessageCreateDto dto, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "scheduled_message",
-            "create",
-            guildId: dto.GuildId);
-
-        try
-        {
+        return await ServiceActivityHelper.ExecuteAsync<ScheduledMessageDto>(
+            "scheduled_message", "create",
+            async _ =>
+            {
             _logger.LogInformation("Creating scheduled message for guild {GuildId}, channel {ChannelId}: {Title}",
                 dto.GuildId, dto.ChannelId, dto.Title);
 
@@ -192,197 +172,173 @@ public class ScheduledMessageService : IScheduledMessageService
             _logger.LogInformation("Scheduled message {MessageId} created successfully for guild {GuildId}",
                 message.Id, dto.GuildId);
 
-            BotActivitySource.SetSuccess(activity);
             return MapToDto(message);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+            },
+            guildId: dto.GuildId);
     }
 
     /// <inheritdoc/>
     public async Task<ScheduledMessageDto?> UpdateAsync(Guid id, ScheduledMessageUpdateDto dto, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "scheduled_message",
-            "update",
+        return await ServiceActivityHelper.ExecuteAsync<ScheduledMessageDto?>(
+            "scheduled_message", "update",
+            async _ =>
+            {
+                _logger.LogInformation("Updating scheduled message {MessageId}", id);
+
+                var message = await _repository.GetByIdAsync(id, cancellationToken);
+                if (message == null)
+                {
+                    _logger.LogWarning("Scheduled message {MessageId} not found for update", id);
+                    return null;
+                }
+
+                // Apply updates only for non-null fields
+                if (dto.ChannelId.HasValue)
+                {
+                    message.ChannelId = dto.ChannelId.Value;
+                }
+
+                if (dto.Title != null)
+                {
+                    message.Title = dto.Title;
+                }
+
+                if (dto.Content != null)
+                {
+                    message.Content = dto.Content;
+                }
+
+                if (dto.Frequency.HasValue)
+                {
+                    message.Frequency = dto.Frequency.Value;
+
+                    // Validate cron expression if frequency is changed to Custom
+                    if (dto.Frequency.Value == ScheduleFrequency.Custom)
+                    {
+                        var cronExpr = dto.CronExpression ?? message.CronExpression;
+                        if (string.IsNullOrWhiteSpace(cronExpr))
+                        {
+                            var error = "Cron expression is required when frequency is Custom";
+                            _logger.LogWarning(error);
+                            throw new ArgumentException(error, nameof(dto));
+                        }
+
+                        var (isValid, errorMessage) = await ValidateCronExpressionAsync(cronExpr);
+                        if (!isValid)
+                        {
+                            _logger.LogWarning("Invalid cron expression: {Error}", errorMessage);
+                            throw new ArgumentException(errorMessage, nameof(dto));
+                        }
+                    }
+                }
+
+                if (dto.CronExpression != null)
+                {
+                    // Validate if frequency is Custom
+                    if (message.Frequency == ScheduleFrequency.Custom)
+                    {
+                        var (isValid, errorMessage) = await ValidateCronExpressionAsync(dto.CronExpression);
+                        if (!isValid)
+                        {
+                            _logger.LogWarning("Invalid cron expression: {Error}", errorMessage);
+                            throw new ArgumentException(errorMessage, nameof(dto));
+                        }
+                    }
+
+                    message.CronExpression = dto.CronExpression;
+                }
+
+                if (dto.IsEnabled.HasValue)
+                {
+                    message.IsEnabled = dto.IsEnabled.Value;
+                }
+
+                if (dto.NextExecutionAt.HasValue)
+                {
+                    message.NextExecutionAt = dto.NextExecutionAt.Value;
+                }
+
+                message.UpdatedAt = DateTime.UtcNow;
+
+                await _repository.UpdateAsync(message, cancellationToken);
+
+                // Audit log
+                try
+                {
+                    _auditLogService.CreateBuilder()
+                        .ForCategory(AuditLogCategory.Message)
+                        .WithAction(AuditLogAction.Updated)
+                        .BySystem()
+                        .InGuild(message.GuildId)
+                        .OnTarget("ScheduledMessage", id.ToString())
+                        .WithDetails(new
+                        {
+                            title = message.Title,
+                            channelId = message.ChannelId,
+                            frequency = message.Frequency.ToString(),
+                            isEnabled = message.IsEnabled,
+                            guildId = message.GuildId
+                        })
+                        .Enqueue();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to log audit entry for scheduled message update {MessageId}", id);
+                }
+
+                _logger.LogInformation("Scheduled message {MessageId} updated successfully", id);
+
+                return MapToDto(message);
+            },
             entityId: id.ToString());
-
-        try
-        {
-            _logger.LogInformation("Updating scheduled message {MessageId}", id);
-
-            var message = await _repository.GetByIdAsync(id, cancellationToken);
-            if (message == null)
-            {
-                _logger.LogWarning("Scheduled message {MessageId} not found for update", id);
-                BotActivitySource.SetSuccess(activity);
-                return null;
-            }
-
-            // Apply updates only for non-null fields
-            if (dto.ChannelId.HasValue)
-            {
-                message.ChannelId = dto.ChannelId.Value;
-            }
-
-            if (dto.Title != null)
-            {
-                message.Title = dto.Title;
-            }
-
-            if (dto.Content != null)
-            {
-                message.Content = dto.Content;
-            }
-
-            if (dto.Frequency.HasValue)
-            {
-                message.Frequency = dto.Frequency.Value;
-
-                // Validate cron expression if frequency is changed to Custom
-                if (dto.Frequency.Value == ScheduleFrequency.Custom)
-                {
-                    var cronExpr = dto.CronExpression ?? message.CronExpression;
-                    if (string.IsNullOrWhiteSpace(cronExpr))
-                    {
-                        var error = "Cron expression is required when frequency is Custom";
-                        _logger.LogWarning(error);
-                        throw new ArgumentException(error, nameof(dto));
-                    }
-
-                    var (isValid, errorMessage) = await ValidateCronExpressionAsync(cronExpr);
-                    if (!isValid)
-                    {
-                        _logger.LogWarning("Invalid cron expression: {Error}", errorMessage);
-                        throw new ArgumentException(errorMessage, nameof(dto));
-                    }
-                }
-            }
-
-            if (dto.CronExpression != null)
-            {
-                // Validate if frequency is Custom
-                if (message.Frequency == ScheduleFrequency.Custom)
-                {
-                    var (isValid, errorMessage) = await ValidateCronExpressionAsync(dto.CronExpression);
-                    if (!isValid)
-                    {
-                        _logger.LogWarning("Invalid cron expression: {Error}", errorMessage);
-                        throw new ArgumentException(errorMessage, nameof(dto));
-                    }
-                }
-
-                message.CronExpression = dto.CronExpression;
-            }
-
-            if (dto.IsEnabled.HasValue)
-            {
-                message.IsEnabled = dto.IsEnabled.Value;
-            }
-
-            if (dto.NextExecutionAt.HasValue)
-            {
-                message.NextExecutionAt = dto.NextExecutionAt.Value;
-            }
-
-            message.UpdatedAt = DateTime.UtcNow;
-
-            await _repository.UpdateAsync(message, cancellationToken);
-
-            // Audit log
-            try
-            {
-                _auditLogService.CreateBuilder()
-                    .ForCategory(AuditLogCategory.Message)
-                    .WithAction(AuditLogAction.Updated)
-                    .BySystem()
-                    .InGuild(message.GuildId)
-                    .OnTarget("ScheduledMessage", id.ToString())
-                    .WithDetails(new
-                    {
-                        title = message.Title,
-                        channelId = message.ChannelId,
-                        frequency = message.Frequency.ToString(),
-                        isEnabled = message.IsEnabled,
-                        guildId = message.GuildId
-                    })
-                    .Enqueue();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to log audit entry for scheduled message update {MessageId}", id);
-            }
-
-            _logger.LogInformation("Scheduled message {MessageId} updated successfully", id);
-
-            BotActivitySource.SetSuccess(activity);
-            return MapToDto(message);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     /// <inheritdoc/>
     public async Task<bool> DeleteAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "scheduled_message",
-            "delete",
+        return await ServiceActivityHelper.ExecuteAsync<bool>(
+            "scheduled_message", "delete",
+            async _ =>
+            {
+                _logger.LogInformation("Deleting scheduled message {MessageId}", id);
+
+                var message = await _repository.GetByIdAsync(id, cancellationToken);
+                if (message == null)
+                {
+                    _logger.LogWarning("Scheduled message {MessageId} not found for deletion", id);
+                    return false;
+                }
+
+                // Capture details before deletion
+                var guildId = message.GuildId;
+                var title = message.Title;
+
+                await _repository.DeleteAsync(message, cancellationToken);
+
+                // Audit log
+                try
+                {
+                    _auditLogService.CreateBuilder()
+                        .ForCategory(AuditLogCategory.Message)
+                        .WithAction(AuditLogAction.Deleted)
+                        .BySystem()
+                        .InGuild(guildId)
+                        .OnTarget("ScheduledMessage", id.ToString())
+                        .WithDetails(new { title, guildId })
+                        .Enqueue();
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogError(ex, "Failed to log audit entry for scheduled message deletion {MessageId}", id);
+                }
+
+                _logger.LogInformation("Scheduled message {MessageId} deleted successfully", id);
+
+                return true;
+            },
             entityId: id.ToString());
-
-        try
-        {
-            _logger.LogInformation("Deleting scheduled message {MessageId}", id);
-
-            var message = await _repository.GetByIdAsync(id, cancellationToken);
-            if (message == null)
-            {
-                _logger.LogWarning("Scheduled message {MessageId} not found for deletion", id);
-                BotActivitySource.SetSuccess(activity);
-                return false;
-            }
-
-            // Capture details before deletion
-            var guildId = message.GuildId;
-            var title = message.Title;
-
-            await _repository.DeleteAsync(message, cancellationToken);
-
-            // Audit log
-            try
-            {
-                _auditLogService.CreateBuilder()
-                    .ForCategory(AuditLogCategory.Message)
-                    .WithAction(AuditLogAction.Deleted)
-                    .BySystem()
-                    .InGuild(guildId)
-                    .OnTarget("ScheduledMessage", id.ToString())
-                    .WithDetails(new { title, guildId })
-                    .Enqueue();
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Failed to log audit entry for scheduled message deletion {MessageId}", id);
-            }
-
-            _logger.LogInformation("Scheduled message {MessageId} deleted successfully", id);
-
-            BotActivitySource.SetSuccess(activity);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
-
     /// <inheritdoc/>
     public Task<DateTime?> CalculateNextExecutionAsync(
         ScheduleFrequency frequency,
@@ -425,32 +381,22 @@ public class ScheduledMessageService : IScheduledMessageService
     /// <inheritdoc/>
     public async Task<bool> ExecuteScheduledMessageAsync(Guid id, CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "scheduled_message",
-            "execute",
-            entityId: id.ToString());
-
-        try
-        {
-            _logger.LogInformation("Executing scheduled message {MessageId}", id);
-
-            var message = await _repository.GetByIdAsync(id, cancellationToken);
-            if (message == null)
+        return await ServiceActivityHelper.ExecuteAsync<bool>(
+            "scheduled_message", "execute",
+            async _ =>
             {
-                _logger.LogWarning("Scheduled message {MessageId} not found for execution", id);
-                BotActivitySource.SetSuccess(activity);
-                return false;
-            }
+                _logger.LogInformation("Executing scheduled message {MessageId}", id);
 
-            var result = await ExecuteScheduledMessageCoreAsync(message, cancellationToken);
-            BotActivitySource.SetSuccess(activity);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                var message = await _repository.GetByIdAsync(id, cancellationToken);
+                if (message == null)
+                {
+                    _logger.LogWarning("Scheduled message {MessageId} not found for execution", id);
+                    return false;
+                }
+
+                return await ExecuteScheduledMessageCoreAsync(message, cancellationToken);
+            },
+            entityId: id.ToString());
     }
 
     /// <inheritdoc/>
@@ -458,23 +404,14 @@ public class ScheduledMessageService : IScheduledMessageService
     {
         ArgumentNullException.ThrowIfNull(message);
 
-        using var activity = BotActivitySource.StartServiceActivity(
-            "scheduled_message",
-            "execute",
+        return await ServiceActivityHelper.ExecuteAsync<bool>(
+            "scheduled_message", "execute",
+            async _ =>
+            {
+                _logger.LogInformation("Executing scheduled message {MessageId}", message.Id);
+                return await ExecuteScheduledMessageCoreAsync(message, cancellationToken);
+            },
             entityId: message.Id.ToString());
-
-        try
-        {
-            _logger.LogInformation("Executing scheduled message {MessageId}", message.Id);
-            var result = await ExecuteScheduledMessageCoreAsync(message, cancellationToken);
-            BotActivitySource.SetSuccess(activity);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     /// <summary>

@@ -38,132 +38,116 @@ public class VerificationService : IVerificationService
         string? ipAddress = null,
         CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "verification",
-            "initiate_verification");
-
-        try
-        {
-            _logger.LogDebug("Initiating verification for user {UserId}", applicationUserId);
-
-            // Check if user exists and doesn't already have Discord linked
-            var user = await _userManager.FindByIdAsync(applicationUserId);
-            if (user == null)
+        return await ServiceActivityHelper.ExecuteAsync<VerificationInitiationResult>(
+            "verification", "initiate_verification",
+            async _ =>
             {
-                return VerificationInitiationResult.Failure(
-                    VerificationInitiationResult.UserNotFound,
-                    "User not found.");
-            }
+                _logger.LogDebug("Initiating verification for user {UserId}", applicationUserId);
 
-            if (user.DiscordUserId.HasValue)
-            {
-                return VerificationInitiationResult.Failure(
-                    VerificationInitiationResult.AlreadyLinked,
-                    "Discord account is already linked.");
-            }
+                // Check if user exists and doesn't already have Discord linked
+                var user = await _userManager.FindByIdAsync(applicationUserId);
+                if (user == null)
+                {
+                    return VerificationInitiationResult.Failure(
+                        VerificationInitiationResult.UserNotFound,
+                        "User not found.");
+                }
 
-            // Cancel any existing pending verifications
-            await CancelPendingVerificationAsync(applicationUserId, cancellationToken);
+                if (user.DiscordUserId.HasValue)
+                {
+                    return VerificationInitiationResult.Failure(
+                        VerificationInitiationResult.AlreadyLinked,
+                        "Discord account is already linked.");
+                }
 
-            // Create new pending verification
-            var verification = new VerificationCode
-            {
-                Id = Guid.NewGuid(),
-                ApplicationUserId = applicationUserId,
-                Code = string.Empty, // Code generated when Discord user runs command
-                Status = VerificationStatus.Pending,
-                CreatedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.Add(TimeSpan.FromMinutes(_verificationOptions.CodeExpiryMinutes)),
-                IpAddress = ipAddress
-            };
+                // Cancel any existing pending verifications
+                await CancelPendingVerificationAsync(applicationUserId, cancellationToken);
 
-            _context.VerificationCodes.Add(verification);
-            await _context.SaveChangesAsync(cancellationToken);
+                // Create new pending verification
+                var verification = new VerificationCode
+                {
+                    Id = Guid.NewGuid(),
+                    ApplicationUserId = applicationUserId,
+                    Code = string.Empty, // Code generated when Discord user runs command
+                    Status = VerificationStatus.Pending,
+                    CreatedAt = DateTime.UtcNow,
+                    ExpiresAt = DateTime.UtcNow.Add(TimeSpan.FromMinutes(_verificationOptions.CodeExpiryMinutes)),
+                    IpAddress = ipAddress
+                };
 
-            _logger.LogInformation(
-                "Verification initiated for user {UserId}, verification ID: {VerificationId}",
-                applicationUserId, verification.Id);
+                _context.VerificationCodes.Add(verification);
+                await _context.SaveChangesAsync(cancellationToken);
 
-            BotActivitySource.SetSuccess(activity);
-            return VerificationInitiationResult.Success(verification.Id);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogInformation(
+                    "Verification initiated for user {UserId}, verification ID: {VerificationId}",
+                    applicationUserId, verification.Id);
+
+                return VerificationInitiationResult.Success(verification.Id);
+            });
     }
 
     public async Task<CodeGenerationResult> GenerateCodeForDiscordUserAsync(
         ulong discordUserId,
         CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "verification",
-            "generate_code",
+        return await ServiceActivityHelper.ExecuteAsync<CodeGenerationResult>(
+            "verification", "generate_code",
+            async _ =>
+            {
+                _logger.LogDebug("Generating verification code for Discord user {DiscordUserId}", discordUserId);
+
+                // Check if Discord user is already linked to an account
+                var existingUser = await _userManager.Users
+                    .FirstOrDefaultAsync(u => u.DiscordUserId == discordUserId, cancellationToken);
+
+                if (existingUser != null)
+                {
+                    return CodeGenerationResult.Failure(
+                        CodeGenerationResult.AlreadyLinked,
+                        "This Discord account is already linked to a user account.");
+                }
+
+                // Check rate limit
+                if (await IsRateLimitedAsync(discordUserId, cancellationToken))
+                {
+                    return CodeGenerationResult.Failure(
+                        CodeGenerationResult.RateLimited,
+                        "Rate limit exceeded. You can request a maximum of 3 codes per hour.");
+                }
+
+                // Find any pending verification that hasn't been claimed yet
+                // (no DiscordUserId assigned means waiting for Discord command)
+                var pendingVerification = await _context.VerificationCodes
+                    .Where(v => v.Status == VerificationStatus.Pending)
+                    .Where(v => v.DiscordUserId == null)
+                    .Where(v => v.ExpiresAt > DateTime.UtcNow)
+                    .OrderBy(v => v.CreatedAt)
+                    .FirstOrDefaultAsync(cancellationToken);
+
+                if (pendingVerification == null)
+                {
+                    return CodeGenerationResult.Failure(
+                        CodeGenerationResult.NoPendingVerification,
+                        "No pending verification found. Please initiate verification from the web interface first.");
+                }
+
+                // Generate unique code
+                var code = GenerateUniqueCode();
+
+                // Update the verification with Discord user and code
+                pendingVerification.DiscordUserId = discordUserId;
+                pendingVerification.Code = code;
+                pendingVerification.ExpiresAt = DateTime.UtcNow.Add(TimeSpan.FromMinutes(_verificationOptions.CodeExpiryMinutes));
+
+                await _context.SaveChangesAsync(cancellationToken);
+
+                _logger.LogInformation(
+                    "Verification code generated for Discord user {DiscordUserId}, verification {VerificationId}",
+                    discordUserId, pendingVerification.Id);
+
+                return CodeGenerationResult.Success(code, pendingVerification.ExpiresAt);
+            },
             userId: discordUserId);
-
-        try
-        {
-            _logger.LogDebug("Generating verification code for Discord user {DiscordUserId}", discordUserId);
-
-            // Check if Discord user is already linked to an account
-            var existingUser = await _userManager.Users
-                .FirstOrDefaultAsync(u => u.DiscordUserId == discordUserId, cancellationToken);
-
-            if (existingUser != null)
-            {
-                return CodeGenerationResult.Failure(
-                    CodeGenerationResult.AlreadyLinked,
-                    "This Discord account is already linked to a user account.");
-            }
-
-            // Check rate limit
-            if (await IsRateLimitedAsync(discordUserId, cancellationToken))
-            {
-                return CodeGenerationResult.Failure(
-                    CodeGenerationResult.RateLimited,
-                    "Rate limit exceeded. You can request a maximum of 3 codes per hour.");
-            }
-
-            // Find any pending verification that hasn't been claimed yet
-            // (no DiscordUserId assigned means waiting for Discord command)
-            var pendingVerification = await _context.VerificationCodes
-                .Where(v => v.Status == VerificationStatus.Pending)
-                .Where(v => v.DiscordUserId == null)
-                .Where(v => v.ExpiresAt > DateTime.UtcNow)
-                .OrderBy(v => v.CreatedAt)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            if (pendingVerification == null)
-            {
-                return CodeGenerationResult.Failure(
-                    CodeGenerationResult.NoPendingVerification,
-                    "No pending verification found. Please initiate verification from the web interface first.");
-            }
-
-            // Generate unique code
-            var code = GenerateUniqueCode();
-
-            // Update the verification with Discord user and code
-            pendingVerification.DiscordUserId = discordUserId;
-            pendingVerification.Code = code;
-            pendingVerification.ExpiresAt = DateTime.UtcNow.Add(TimeSpan.FromMinutes(_verificationOptions.CodeExpiryMinutes));
-
-            await _context.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Verification code generated for Discord user {DiscordUserId}, verification {VerificationId}",
-                discordUserId, pendingVerification.Id);
-
-            BotActivitySource.SetSuccess(activity);
-            return CodeGenerationResult.Success(code, pendingVerification.ExpiresAt);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     public async Task<CodeValidationResult> ValidateCodeAsync(
@@ -171,257 +155,210 @@ public class VerificationService : IVerificationService
         string code,
         CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "verification",
-            "validate_code");
-
-        try
-        {
-            // Normalize code (remove dashes, uppercase)
-            code = code.Replace("-", "").Replace(" ", "").ToUpperInvariant();
-
-            _logger.LogDebug("Validating code for user {UserId}", applicationUserId);
-
-            // Check if user already has Discord linked
-            var user = await _userManager.FindByIdAsync(applicationUserId);
-            if (user == null)
+        return await ServiceActivityHelper.ExecuteAsync<CodeValidationResult>(
+            "verification", "validate_code",
+            async _ =>
             {
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.InvalidCode,
-                    "User not found.");
-            }
+                // Normalize code (remove dashes, uppercase)
+                code = code.Replace("-", "").Replace(" ", "").ToUpperInvariant();
 
-            if (user.DiscordUserId.HasValue)
-            {
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.AlreadyLinked,
-                    "Discord account is already linked.");
-            }
+                _logger.LogDebug("Validating code for user {UserId}", applicationUserId);
 
-            // Find the verification by code
-            var verification = await _context.VerificationCodes
-                .Where(v => v.Code == code)
-                .Where(v => v.ApplicationUserId == applicationUserId)
-                .FirstOrDefaultAsync(cancellationToken);
+                // Check if user already has Discord linked
+                var user = await _userManager.FindByIdAsync(applicationUserId);
+                if (user == null)
+                {
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.InvalidCode,
+                        "User not found.");
+                }
 
-            if (verification == null)
-            {
-                _logger.LogWarning("Invalid verification code attempt for user {UserId}", applicationUserId);
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.InvalidCode,
-                    "Invalid verification code.");
-            }
+                if (user.DiscordUserId.HasValue)
+                {
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.AlreadyLinked,
+                        "Discord account is already linked.");
+                }
 
-            if (verification.Status == VerificationStatus.Completed)
-            {
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.CodeAlreadyUsed,
-                    "This code has already been used.");
-            }
+                // Find the verification by code
+                var verification = await _context.VerificationCodes
+                    .Where(v => v.Code == code)
+                    .Where(v => v.ApplicationUserId == applicationUserId)
+                    .FirstOrDefaultAsync(cancellationToken);
 
-            if (verification.Status == VerificationStatus.Expired || verification.ExpiresAt <= DateTime.UtcNow)
-            {
-                verification.Status = VerificationStatus.Expired;
+                if (verification == null)
+                {
+                    _logger.LogWarning("Invalid verification code attempt for user {UserId}", applicationUserId);
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.InvalidCode,
+                        "Invalid verification code.");
+                }
+
+                if (verification.Status == VerificationStatus.Completed)
+                {
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.CodeAlreadyUsed,
+                        "This code has already been used.");
+                }
+
+                if (verification.Status == VerificationStatus.Expired || verification.ExpiresAt <= DateTime.UtcNow)
+                {
+                    verification.Status = VerificationStatus.Expired;
+                    await _context.SaveChangesAsync(cancellationToken);
+
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.CodeExpired,
+                        "Verification code has expired. Please request a new code.");
+                }
+
+                if (!verification.DiscordUserId.HasValue)
+                {
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.InvalidCode,
+                        "Verification code not yet activated. Please run /verify-account in Discord first.");
+                }
+
+                // Check if the Discord user is already linked to another account
+                var existingDiscordUser = await _userManager.Users
+                    .FirstOrDefaultAsync(u => u.DiscordUserId == verification.DiscordUserId, cancellationToken);
+
+                if (existingDiscordUser != null)
+                {
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.DiscordAlreadyLinked,
+                        "This Discord account is already linked to another user.");
+                }
+
+                // Success! Link the accounts
+                user.DiscordUserId = verification.DiscordUserId;
+                var updateResult = await _userManager.UpdateAsync(user);
+
+                if (!updateResult.Succeeded)
+                {
+                    _logger.LogError(
+                        "Failed to update user {UserId} with Discord ID: {Errors}",
+                        applicationUserId,
+                        string.Join(", ", updateResult.Errors.Select(e => e.Description)));
+
+                    return CodeValidationResult.Failure(
+                        CodeValidationResult.InvalidCode,
+                        "Failed to link accounts. Please try again.");
+                }
+
+                // Mark verification as completed
+                verification.Status = VerificationStatus.Completed;
+                verification.CompletedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync(cancellationToken);
 
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.CodeExpired,
-                    "Verification code has expired. Please request a new code.");
-            }
+                _logger.LogInformation(
+                    "Successfully linked Discord user {DiscordUserId} to user {UserId}",
+                    verification.DiscordUserId, applicationUserId);
 
-            if (!verification.DiscordUserId.HasValue)
-            {
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.InvalidCode,
-                    "Verification code not yet activated. Please run /verify-account in Discord first.");
-            }
-
-            // Check if the Discord user is already linked to another account
-            var existingDiscordUser = await _userManager.Users
-                .FirstOrDefaultAsync(u => u.DiscordUserId == verification.DiscordUserId, cancellationToken);
-
-            if (existingDiscordUser != null)
-            {
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.DiscordAlreadyLinked,
-                    "This Discord account is already linked to another user.");
-            }
-
-            // Success! Link the accounts
-            user.DiscordUserId = verification.DiscordUserId;
-            var updateResult = await _userManager.UpdateAsync(user);
-
-            if (!updateResult.Succeeded)
-            {
-                _logger.LogError(
-                    "Failed to update user {UserId} with Discord ID: {Errors}",
-                    applicationUserId,
-                    string.Join(", ", updateResult.Errors.Select(e => e.Description)));
-
-                return CodeValidationResult.Failure(
-                    CodeValidationResult.InvalidCode,
-                    "Failed to link accounts. Please try again.");
-            }
-
-            // Mark verification as completed
-            verification.Status = VerificationStatus.Completed;
-            verification.CompletedAt = DateTime.UtcNow;
-            await _context.SaveChangesAsync(cancellationToken);
-
-            _logger.LogInformation(
-                "Successfully linked Discord user {DiscordUserId} to user {UserId}",
-                verification.DiscordUserId, applicationUserId);
-
-            BotActivitySource.SetSuccess(activity);
-            return CodeValidationResult.Success(verification.DiscordUserId.Value);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                return CodeValidationResult.Success(verification.DiscordUserId.Value);
+            });
     }
 
     public async Task CancelPendingVerificationAsync(
         string applicationUserId,
         CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "verification",
-            "cancel_pending_verification");
-
-        try
-        {
-            var pendingVerifications = await _context.VerificationCodes
-                .Where(v => v.ApplicationUserId == applicationUserId)
-                .Where(v => v.Status == VerificationStatus.Pending)
-                .ToListAsync(cancellationToken);
-
-            foreach (var verification in pendingVerifications)
+        await ServiceActivityHelper.ExecuteAsync(
+            "verification", "cancel_pending_verification",
+            async _ =>
             {
-                verification.Status = VerificationStatus.Cancelled;
-            }
+                var pendingVerifications = await _context.VerificationCodes
+                    .Where(v => v.ApplicationUserId == applicationUserId)
+                    .Where(v => v.Status == VerificationStatus.Pending)
+                    .ToListAsync(cancellationToken);
 
-            if (pendingVerifications.Any())
-            {
-                await _context.SaveChangesAsync(cancellationToken);
-                _logger.LogDebug("Cancelled {Count} pending verifications for user {UserId}",
-                    pendingVerifications.Count, applicationUserId);
-            }
+                foreach (var verification in pendingVerifications)
+                {
+                    verification.Status = VerificationStatus.Cancelled;
+                }
 
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                if (pendingVerifications.Any())
+                {
+                    await _context.SaveChangesAsync(cancellationToken);
+                    _logger.LogDebug("Cancelled {Count} pending verifications for user {UserId}",
+                        pendingVerifications.Count, applicationUserId);
+                }
+            });
     }
 
     public async Task<bool> IsRateLimitedAsync(
         ulong discordUserId,
         CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "verification",
-            "check_rate_limit",
+        return await ServiceActivityHelper.ExecuteAsync<bool>(
+            "verification", "check_rate_limit",
+            async _ =>
+            {
+                var oneHourAgo = DateTime.UtcNow.AddHours(-1);
+
+                var recentCodeCount = await _context.VerificationCodes
+                    .Where(v => v.DiscordUserId == discordUserId)
+                    .Where(v => v.CreatedAt >= oneHourAgo)
+                    .CountAsync(cancellationToken);
+
+                return recentCodeCount >= _verificationOptions.MaxCodesPerHour;
+            },
             userId: discordUserId);
-
-        try
-        {
-            var oneHourAgo = DateTime.UtcNow.AddHours(-1);
-
-            var recentCodeCount = await _context.VerificationCodes
-                .Where(v => v.DiscordUserId == discordUserId)
-                .Where(v => v.CreatedAt >= oneHourAgo)
-                .CountAsync(cancellationToken);
-
-            var isRateLimited = recentCodeCount >= _verificationOptions.MaxCodesPerHour;
-
-            BotActivitySource.SetSuccess(activity);
-            return isRateLimited;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
     }
 
     public async Task<VerificationCode?> GetPendingVerificationAsync(
         string applicationUserId,
         CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "verification",
-            "get_pending_verification");
-
-        try
-        {
-            var result = await _context.VerificationCodes
-                .Where(v => v.ApplicationUserId == applicationUserId)
-                .Where(v => v.Status == VerificationStatus.Pending)
-                .Where(v => v.ExpiresAt > DateTime.UtcNow)
-                .FirstOrDefaultAsync(cancellationToken);
-
-            BotActivitySource.SetSuccess(activity);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+        return await ServiceActivityHelper.ExecuteAsync<VerificationCode?>(
+            "verification", "get_pending_verification",
+            async _ =>
+            {
+                return await _context.VerificationCodes
+                    .Where(v => v.ApplicationUserId == applicationUserId)
+                    .Where(v => v.Status == VerificationStatus.Pending)
+                    .Where(v => v.ExpiresAt > DateTime.UtcNow)
+                    .FirstOrDefaultAsync(cancellationToken);
+            });
     }
 
     public async Task<int> CleanupExpiredCodesAsync(CancellationToken cancellationToken = default)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "verification",
-            "cleanup_expired_codes");
-
-        try
-        {
-            var expiredCodes = await _context.VerificationCodes
-                .Where(v => v.Status == VerificationStatus.Pending)
-                .Where(v => v.ExpiresAt <= DateTime.UtcNow)
-                .ToListAsync(cancellationToken);
-
-            foreach (var code in expiredCodes)
+        return await ServiceActivityHelper.ExecuteAsync<int>(
+            "verification", "cleanup_expired_codes",
+            async _ =>
             {
-                code.Status = VerificationStatus.Expired;
-            }
+                var expiredCodes = await _context.VerificationCodes
+                    .Where(v => v.Status == VerificationStatus.Pending)
+                    .Where(v => v.ExpiresAt <= DateTime.UtcNow)
+                    .ToListAsync(cancellationToken);
 
-            if (expiredCodes.Any())
-            {
-                await _context.SaveChangesAsync(cancellationToken);
-                _logger.LogDebug("Marked {Count} verification codes as expired", expiredCodes.Count);
-            }
+                foreach (var code in expiredCodes)
+                {
+                    code.Status = VerificationStatus.Expired;
+                }
 
-            // Delete old completed/expired/cancelled codes (older than configured threshold)
-            var oldCutoff = DateTime.UtcNow.AddHours(-_verificationOptions.OldCodeCleanupHours);
-            var oldCodes = await _context.VerificationCodes
-                .Where(v => v.Status != VerificationStatus.Pending)
-                .Where(v => v.CreatedAt <= oldCutoff)
-                .ToListAsync(cancellationToken);
+                if (expiredCodes.Any())
+                {
+                    await _context.SaveChangesAsync(cancellationToken);
+                    _logger.LogDebug("Marked {Count} verification codes as expired", expiredCodes.Count);
+                }
 
-            if (oldCodes.Any())
-            {
-                _context.VerificationCodes.RemoveRange(oldCodes);
-                await _context.SaveChangesAsync(cancellationToken);
-                _logger.LogDebug("Deleted {Count} old verification codes", oldCodes.Count);
-            }
+                // Delete old completed/expired/cancelled codes (older than configured threshold)
+                var oldCutoff = DateTime.UtcNow.AddHours(-_verificationOptions.OldCodeCleanupHours);
+                var oldCodes = await _context.VerificationCodes
+                    .Where(v => v.Status != VerificationStatus.Pending)
+                    .Where(v => v.CreatedAt <= oldCutoff)
+                    .ToListAsync(cancellationToken);
 
-            var totalCleaned = expiredCodes.Count + oldCodes.Count;
+                if (oldCodes.Any())
+                {
+                    _context.VerificationCodes.RemoveRange(oldCodes);
+                    await _context.SaveChangesAsync(cancellationToken);
+                    _logger.LogDebug("Deleted {Count} old verification codes", oldCodes.Count);
+                }
 
-            BotActivitySource.SetSuccess(activity);
-            return totalCleaned;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                return expiredCodes.Count + oldCodes.Count;
+            });
     }
 
     private string GenerateUniqueCode()

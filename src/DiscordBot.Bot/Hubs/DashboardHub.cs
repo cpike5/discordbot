@@ -142,31 +142,22 @@ public class DashboardHub : Hub
     /// </summary>
     public override async Task OnConnectedAsync()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "on_connected");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "on_connected",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                _logger.LogInformation(
+                    "Dashboard client connected: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
 
-            _logger.LogInformation(
-                "Dashboard client connected: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            await base.OnConnectedAsync();
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                await base.OnConnectedAsync();
+            });
     }
 
     /// <summary>
@@ -175,45 +166,36 @@ public class DashboardHub : Hub
     /// <param name="exception">The exception that caused the disconnect, if any.</param>
     public override async Task OnDisconnectedAsync(Exception? exception)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "on_disconnected");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
-
-            // Clean up subscription tracking for this connection
-            _subscriptionTracker.OnClientDisconnected(Context.ConnectionId);
-
-            if (exception != null)
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "on_disconnected",
+            async activity =>
             {
-                _logger.LogWarning(
-                    exception,
-                    "Dashboard client disconnected with error: ConnectionId={ConnectionId}, User={UserName}",
-                    Context.ConnectionId,
-                    userName);
-            }
-            else
-            {
-                _logger.LogInformation(
-                    "Dashboard client disconnected: ConnectionId={ConnectionId}, User={UserName}",
-                    Context.ConnectionId,
-                    userName);
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-            await base.OnDisconnectedAsync(exception);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                // Clean up subscription tracking for this connection
+                _subscriptionTracker.OnClientDisconnected(Context.ConnectionId);
+
+                if (exception != null)
+                {
+                    _logger.LogWarning(
+                        exception,
+                        "Dashboard client disconnected with error: ConnectionId={ConnectionId}, User={UserName}",
+                        Context.ConnectionId,
+                        userName);
+                }
+                else
+                {
+                    _logger.LogInformation(
+                        "Dashboard client disconnected: ConnectionId={ConnectionId}, User={UserName}",
+                        Context.ConnectionId,
+                        userName);
+                }
+
+                await base.OnDisconnectedAsync(exception);
+            });
     }
 
     /// <summary>
@@ -229,34 +211,25 @@ public class DashboardHub : Hub
             throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
         }
 
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "join_guild_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "join_guild_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+                var groupName = GetGuildGroupName(guildId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var groupName = GetGuildGroupName(guildId);
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-
-            _logger.LogDebug(
-                "Client joined guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
-                Context.ConnectionId,
-                userName,
-                guildId);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client joined guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                    Context.ConnectionId,
+                    userName,
+                    guildId);
+            });
     }
 
     /// <summary>
@@ -272,34 +245,25 @@ public class DashboardHub : Hub
             throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
         }
 
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "leave_guild_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "leave_guild_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+                var groupName = GetGuildGroupName(guildId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var groupName = GetGuildGroupName(guildId);
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-
-            _logger.LogDebug(
-                "Client left guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
-                Context.ConnectionId,
-                userName,
-                guildId);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client left guild group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                    Context.ConnectionId,
+                    userName,
+                    guildId);
+            });
     }
 
     /// <summary>
@@ -405,31 +369,22 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task JoinAlertsGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "join_alerts_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "join_alerts_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.AddToGroupAsync(Context.ConnectionId, AlertsGroupName);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, AlertsGroupName);
-
-            _logger.LogDebug(
-                "Client joined alerts group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client joined alerts group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -438,31 +393,22 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task LeaveAlertsGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "leave_alerts_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "leave_alerts_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, AlertsGroupName);
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, AlertsGroupName);
-
-            _logger.LogDebug(
-                "Client left alerts group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client left alerts group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -471,31 +417,22 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task JoinBulkPurgeGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "join_bulk_purge_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "join_bulk_purge_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.AddToGroupAsync(Context.ConnectionId, BulkPurgeGroupName);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, BulkPurgeGroupName);
-
-            _logger.LogDebug(
-                "Client joined bulk purge group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client joined bulk purge group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -504,31 +441,22 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task LeaveBulkPurgeGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "leave_bulk_purge_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "leave_bulk_purge_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, BulkPurgeGroupName);
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, BulkPurgeGroupName);
-
-            _logger.LogDebug(
-                "Client left bulk purge group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client left bulk purge group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -537,39 +465,31 @@ public class DashboardHub : Hub
     /// <returns>The active alert summary with counts by severity.</returns>
     public async Task<ActiveAlertSummaryDto> GetActiveAlertCount()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_active_alert_count");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            _logger.LogDebug(
-                "Active alert count requested by client: ConnectionId={ConnectionId}",
-                Context.ConnectionId);
-
-            ActiveAlertSummaryDto summary;
-            using (BotActivitySource.StartServiceActivity("alert_service", "get_active_alert_summary"))
+        return await ServiceActivityHelper.ExecuteAsync<ActiveAlertSummaryDto>(
+            "dashboard_hub", "get_active_alert_count",
+            async activity =>
             {
-                summary = await _alertService.GetActiveAlertSummaryAsync();
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-            _logger.LogTrace(
-                "Active alert count retrieved: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",
-                summary.ActiveCount,
-                summary.CriticalCount,
-                summary.WarningCount);
+                _logger.LogDebug(
+                    "Active alert count requested by client: ConnectionId={ConnectionId}",
+                    Context.ConnectionId);
 
-            BotActivitySource.SetSuccess(activity);
-            return summary;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                ActiveAlertSummaryDto summary;
+                using (BotActivitySource.StartServiceActivity("alert_service", "get_active_alert_summary"))
+                {
+                    summary = await _alertService.GetActiveAlertSummaryAsync();
+                }
+
+                _logger.LogTrace(
+                    "Active alert count retrieved: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",
+                    summary.ActiveCount,
+                    summary.CriticalCount,
+                    summary.WarningCount);
+
+                return summary;
+            });
     }
 
     /// <summary>
@@ -578,35 +498,26 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task JoinPerformanceGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "join_performance_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "join_performance_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.AddToGroupAsync(Context.ConnectionId, PerformanceGroupName);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, PerformanceGroupName);
+                // Track subscription for broadcast optimization
+                _subscriptionTracker.OnJoinPerformanceGroup();
+                _subscriptionTracker.TrackSubscription(Context.ConnectionId, PerformanceGroupName);
 
-            // Track subscription for broadcast optimization
-            _subscriptionTracker.OnJoinPerformanceGroup();
-            _subscriptionTracker.TrackSubscription(Context.ConnectionId, PerformanceGroupName);
-
-            _logger.LogDebug(
-                "Client joined performance group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client joined performance group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -615,35 +526,26 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task LeavePerformanceGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "leave_performance_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "leave_performance_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, PerformanceGroupName);
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, PerformanceGroupName);
+                // Update subscription tracking
+                _subscriptionTracker.OnLeavePerformanceGroup();
+                _subscriptionTracker.UntrackSubscription(Context.ConnectionId, PerformanceGroupName);
 
-            // Update subscription tracking
-            _subscriptionTracker.OnLeavePerformanceGroup();
-            _subscriptionTracker.UntrackSubscription(Context.ConnectionId, PerformanceGroupName);
-
-            _logger.LogDebug(
-                "Client left performance group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client left performance group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -652,35 +554,26 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task JoinSystemHealthGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "join_system_health_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "join_system_health_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.AddToGroupAsync(Context.ConnectionId, SystemHealthGroupName);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, SystemHealthGroupName);
+                // Track subscription for broadcast optimization
+                _subscriptionTracker.OnJoinSystemHealthGroup();
+                _subscriptionTracker.TrackSubscription(Context.ConnectionId, SystemHealthGroupName);
 
-            // Track subscription for broadcast optimization
-            _subscriptionTracker.OnJoinSystemHealthGroup();
-            _subscriptionTracker.TrackSubscription(Context.ConnectionId, SystemHealthGroupName);
-
-            _logger.LogDebug(
-                "Client joined system health group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client joined system health group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -689,35 +582,26 @@ public class DashboardHub : Hub
     /// <returns>A task representing the asynchronous operation.</returns>
     public async Task LeaveSystemHealthGroup()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "leave_system_health_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "leave_system_health_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, SystemHealthGroupName);
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, SystemHealthGroupName);
+                // Update subscription tracking
+                _subscriptionTracker.OnLeaveSystemHealthGroup();
+                _subscriptionTracker.UntrackSubscription(Context.ConnectionId, SystemHealthGroupName);
 
-            // Update subscription tracking
-            _subscriptionTracker.OnLeaveSystemHealthGroup();
-            _subscriptionTracker.UntrackSubscription(Context.ConnectionId, SystemHealthGroupName);
-
-            _logger.LogDebug(
-                "Client left system health group: ConnectionId={ConnectionId}, User={UserName}",
-                Context.ConnectionId,
-                userName);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client left system health group: ConnectionId={ConnectionId}, User={UserName}",
+                    Context.ConnectionId,
+                    userName);
+            });
     }
 
     /// <summary>
@@ -892,63 +776,55 @@ public class DashboardHub : Hub
     /// <returns>The current command performance metrics.</returns>
     public async Task<CommandPerformanceUpdateDto> GetCurrentCommandPerformance(int hours = 24)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_current_command_performance");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag("hours", hours);
-
-        try
-        {
-            _logger.LogDebug(
-                "Command performance requested by client: ConnectionId={ConnectionId}, Hours={Hours}",
-                Context.ConnectionId,
-                hours);
-
-            IReadOnlyList<CommandPerformanceAggregateDto> aggregates;
-            using (BotActivitySource.StartServiceActivity("command_performance_aggregator", "get_aggregates"))
+        return await ServiceActivityHelper.ExecuteAsync<CommandPerformanceUpdateDto>(
+            "dashboard_hub", "get_current_command_performance",
+            async activity =>
             {
-                aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(hours);
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag("hours", hours);
 
-            // Calculate overall metrics from aggregates
-            var totalCommands = aggregates.Sum(a => a.ExecutionCount);
-            var avgResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.AvgMs) : 0;
-            var p95ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P95Ms) : 0;
-            var p99ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P99Ms) : 0;
-            var errorRate = aggregates.Any() ? aggregates.Average(a => a.ErrorRate) : 0;
+                _logger.LogDebug(
+                    "Command performance requested by client: ConnectionId={ConnectionId}, Hours={Hours}",
+                    Context.ConnectionId,
+                    hours);
 
-            // Calculate commands in the last hour (approximation: total / hours)
-            var commandsLastHour = hours > 0 ? totalCommands / hours : totalCommands;
+                IReadOnlyList<CommandPerformanceAggregateDto> aggregates;
+                using (BotActivitySource.StartServiceActivity("command_performance_aggregator", "get_aggregates"))
+                {
+                    aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(hours);
+                }
 
-            var commandMetrics = new CommandPerformanceUpdateDto
-            {
-                TotalCommands24h = totalCommands,
-                AvgResponseTimeMs = avgResponseTimeMs,
-                P95ResponseTimeMs = p95ResponseTimeMs,
-                P99ResponseTimeMs = p99ResponseTimeMs,
-                ErrorRate = errorRate,
-                CommandsLastHour = commandsLastHour,
-                Timestamp = DateTime.UtcNow
-            };
+                // Calculate overall metrics from aggregates
+                var totalCommands = aggregates.Sum(a => a.ExecutionCount);
+                var avgResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.AvgMs) : 0;
+                var p95ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P95Ms) : 0;
+                var p99ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P99Ms) : 0;
+                var errorRate = aggregates.Any() ? aggregates.Average(a => a.ErrorRate) : 0;
 
-            _logger.LogTrace(
-                "Command performance retrieved: TotalCommands={TotalCommands}, AvgResponseTime={AvgResponseTimeMs}ms, P95={P95ResponseTimeMs}ms, ErrorRate={ErrorRate}%",
-                commandMetrics.TotalCommands24h,
-                commandMetrics.AvgResponseTimeMs,
-                commandMetrics.P95ResponseTimeMs,
-                commandMetrics.ErrorRate);
+                // Calculate commands in the last hour (approximation: total / hours)
+                var commandsLastHour = hours > 0 ? totalCommands / hours : totalCommands;
 
-            BotActivitySource.SetSuccess(activity);
-            return commandMetrics;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                var commandMetrics = new CommandPerformanceUpdateDto
+                {
+                    TotalCommands24h = totalCommands,
+                    AvgResponseTimeMs = avgResponseTimeMs,
+                    P95ResponseTimeMs = p95ResponseTimeMs,
+                    P99ResponseTimeMs = p99ResponseTimeMs,
+                    ErrorRate = errorRate,
+                    CommandsLastHour = commandsLastHour,
+                    Timestamp = DateTime.UtcNow
+                };
+
+                _logger.LogTrace(
+                    "Command performance retrieved: TotalCommands={TotalCommands}, AvgResponseTime={AvgResponseTimeMs}ms, P95={P95ResponseTimeMs}ms, ErrorRate={ErrorRate}%",
+                    commandMetrics.TotalCommands24h,
+                    commandMetrics.AvgResponseTimeMs,
+                    commandMetrics.P95ResponseTimeMs,
+                    commandMetrics.ErrorRate);
+
+                return commandMetrics;
+            });
     }
 
     /// <summary>
@@ -964,34 +840,25 @@ public class DashboardHub : Hub
             throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
         }
 
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "join_guild_audio_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "join_guild_audio_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+                var groupName = GetGuildAudioGroupName(guildId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var groupName = GetGuildAudioGroupName(guildId);
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
 
-            await Groups.AddToGroupAsync(Context.ConnectionId, groupName);
-
-            _logger.LogDebug(
-                "Client joined guild audio group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
-                Context.ConnectionId,
-                userName,
-                guildId);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client joined guild audio group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                    Context.ConnectionId,
+                    userName,
+                    guildId);
+            });
     }
 
     /// <summary>
@@ -1007,34 +874,25 @@ public class DashboardHub : Hub
             throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
         }
 
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "leave_guild_audio_group");
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "leave_guild_audio_group",
+            async activity =>
+            {
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
 
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
+                var groupName = GetGuildAudioGroupName(guildId);
+                var userName = Context.User?.Identity?.Name ?? "unknown";
 
-        try
-        {
-            var groupName = GetGuildAudioGroupName(guildId);
-            var userName = Context.User?.Identity?.Name ?? "unknown";
+                await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
 
-            await Groups.RemoveFromGroupAsync(Context.ConnectionId, groupName);
-
-            _logger.LogDebug(
-                "Client left guild audio group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
-                Context.ConnectionId,
-                userName,
-                guildId);
-
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogDebug(
+                    "Client left guild audio group: ConnectionId={ConnectionId}, User={UserName}, GuildId={GuildId}",
+                    Context.ConnectionId,
+                    userName,
+                    guildId);
+            });
     }
 
     /// <summary>
@@ -1116,45 +974,37 @@ public class DashboardHub : Hub
     /// <returns>The notification summary for the current user, or an empty summary if user is not authenticated.</returns>
     public async Task<NotificationSummaryDto> GetNotificationSummary()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_notification_summary");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            var userId = GetAuthenticatedUserId();
-            if (userId == null)
+        return await ServiceActivityHelper.ExecuteAsync<NotificationSummaryDto>(
+            "dashboard_hub", "get_notification_summary",
+            async activity =>
             {
-                _logger.LogDebug("GetNotificationSummary called with no authenticated user");
-                return new NotificationSummaryDto();
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-            _logger.LogDebug(
-                "Notification summary requested by client: ConnectionId={ConnectionId}, UserId={UserId}",
-                Context.ConnectionId,
-                userId);
+                var userId = GetAuthenticatedUserId();
+                if (userId == null)
+                {
+                    _logger.LogDebug("GetNotificationSummary called with no authenticated user");
+                    return new NotificationSummaryDto();
+                }
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                _logger.LogDebug(
+                    "Notification summary requested by client: ConnectionId={ConnectionId}, UserId={UserId}",
+                    Context.ConnectionId,
+                    userId);
 
-            var summary = await notificationService.GetSummaryAsync(userId);
+                await using var scope = _serviceProvider.CreateAsyncScope();
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-            _logger.LogTrace(
-                "Notification summary retrieved: UserId={UserId}, TotalUnread={TotalUnread}",
-                userId,
-                summary.TotalUnread);
+                var summary = await notificationService.GetSummaryAsync(userId);
 
-            BotActivitySource.SetSuccess(activity);
-            return summary;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogTrace(
+                    "Notification summary retrieved: UserId={UserId}, TotalUnread={TotalUnread}",
+                    userId,
+                    summary.TotalUnread);
+
+                return summary;
+            });
     }
 
     /// <summary>
@@ -1168,47 +1018,39 @@ public class DashboardHub : Hub
         ArgumentOutOfRangeException.ThrowIfNegative(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
 
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_notifications");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag("limit", limit);
-
-        try
-        {
-            var userId = GetAuthenticatedUserId();
-            if (userId == null)
+        return await ServiceActivityHelper.ExecuteAsync<IEnumerable<UserNotificationDto>>(
+            "dashboard_hub", "get_notifications",
+            async activity =>
             {
-                _logger.LogDebug("GetNotifications called with no authenticated user");
-                return [];
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag("limit", limit);
 
-            _logger.LogDebug(
-                "Notifications requested by client: ConnectionId={ConnectionId}, UserId={UserId}, Limit={Limit}",
-                Context.ConnectionId,
-                userId,
-                limit);
+                var userId = GetAuthenticatedUserId();
+                if (userId == null)
+                {
+                    _logger.LogDebug("GetNotifications called with no authenticated user");
+                    return [];
+                }
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                _logger.LogDebug(
+                    "Notifications requested by client: ConnectionId={ConnectionId}, UserId={UserId}, Limit={Limit}",
+                    Context.ConnectionId,
+                    userId,
+                    limit);
 
-            var notifications = await notificationService.GetUserNotificationsAsync(userId, limit);
+                await using var scope = _serviceProvider.CreateAsyncScope();
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-            _logger.LogTrace(
-                "Notifications retrieved: UserId={UserId}, Count={Count}",
-                userId,
-                notifications.Count());
+                var notifications = await notificationService.GetUserNotificationsAsync(userId, limit);
 
-            BotActivitySource.SetSuccess(activity);
-            return notifications;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogTrace(
+                    "Notifications retrieved: UserId={UserId}, Count={Count}",
+                    userId,
+                    notifications.Count());
+
+                return notifications;
+            });
     }
 
     /// <summary>
@@ -1217,46 +1059,37 @@ public class DashboardHub : Hub
     /// <param name="notificationId">The notification ID to mark as read.</param>
     public async Task MarkNotificationRead(Guid notificationId)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "mark_notification_read");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag("notification_id", notificationId.ToString());
-
-        try
-        {
-            var userId = GetAuthenticatedUserId();
-            if (userId == null)
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "mark_notification_read",
+            async activity =>
             {
-                _logger.LogDebug("MarkNotificationRead called with no authenticated user");
-                return;
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag("notification_id", notificationId.ToString());
 
-            _logger.LogDebug(
-                "Mark notification read requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
-                Context.ConnectionId,
-                userId,
-                notificationId);
+                var userId = GetAuthenticatedUserId();
+                if (userId == null)
+                {
+                    _logger.LogDebug("MarkNotificationRead called with no authenticated user");
+                    return;
+                }
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                _logger.LogDebug(
+                    "Mark notification read requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
+                    Context.ConnectionId,
+                    userId,
+                    notificationId);
 
-            await notificationService.MarkAsReadAsync(userId, notificationId);
+                await using var scope = _serviceProvider.CreateAsyncScope();
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-            _logger.LogTrace(
-                "Notification marked as read: UserId={UserId}, NotificationId={NotificationId}",
-                userId,
-                notificationId);
+                await notificationService.MarkAsReadAsync(userId, notificationId);
 
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogTrace(
+                    "Notification marked as read: UserId={UserId}, NotificationId={NotificationId}",
+                    userId,
+                    notificationId);
+            });
     }
 
     /// <summary>
@@ -1264,41 +1097,32 @@ public class DashboardHub : Hub
     /// </summary>
     public async Task MarkAllNotificationsRead()
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "mark_all_notifications_read");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            var userId = GetAuthenticatedUserId();
-            if (userId == null)
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "mark_all_notifications_read",
+            async activity =>
             {
-                _logger.LogDebug("MarkAllNotificationsRead called with no authenticated user");
-                return;
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
 
-            _logger.LogDebug(
-                "Mark all notifications read requested: ConnectionId={ConnectionId}, UserId={UserId}",
-                Context.ConnectionId,
-                userId);
+                var userId = GetAuthenticatedUserId();
+                if (userId == null)
+                {
+                    _logger.LogDebug("MarkAllNotificationsRead called with no authenticated user");
+                    return;
+                }
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                _logger.LogDebug(
+                    "Mark all notifications read requested: ConnectionId={ConnectionId}, UserId={UserId}",
+                    Context.ConnectionId,
+                    userId);
 
-            await notificationService.MarkAllAsReadAsync(userId);
+                await using var scope = _serviceProvider.CreateAsyncScope();
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-            _logger.LogTrace("All notifications marked as read: UserId={UserId}", userId);
+                await notificationService.MarkAllAsReadAsync(userId);
 
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogTrace("All notifications marked as read: UserId={UserId}", userId);
+            });
     }
 
     /// <summary>
@@ -1307,46 +1131,37 @@ public class DashboardHub : Hub
     /// <param name="notificationId">The notification ID to dismiss.</param>
     public async Task DismissNotification(Guid notificationId)
     {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "dismiss_notification");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag("notification_id", notificationId.ToString());
-
-        try
-        {
-            var userId = GetAuthenticatedUserId();
-            if (userId == null)
+        await ServiceActivityHelper.ExecuteAsync(
+            "dashboard_hub", "dismiss_notification",
+            async activity =>
             {
-                _logger.LogDebug("DismissNotification called with no authenticated user");
-                return;
-            }
+                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
+                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+                activity?.SetTag("notification_id", notificationId.ToString());
 
-            _logger.LogDebug(
-                "Dismiss notification requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
-                Context.ConnectionId,
-                userId,
-                notificationId);
+                var userId = GetAuthenticatedUserId();
+                if (userId == null)
+                {
+                    _logger.LogDebug("DismissNotification called with no authenticated user");
+                    return;
+                }
 
-            await using var scope = _serviceProvider.CreateAsyncScope();
-            var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
+                _logger.LogDebug(
+                    "Dismiss notification requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
+                    Context.ConnectionId,
+                    userId,
+                    notificationId);
 
-            await notificationService.DismissAsync(userId, notificationId);
+                await using var scope = _serviceProvider.CreateAsyncScope();
+                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
-            _logger.LogTrace(
-                "Notification dismissed: UserId={UserId}, NotificationId={NotificationId}",
-                userId,
-                notificationId);
+                await notificationService.DismissAsync(userId, notificationId);
 
-            BotActivitySource.SetSuccess(activity);
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+                _logger.LogTrace(
+                    "Notification dismissed: UserId={UserId}, NotificationId={NotificationId}",
+                    userId,
+                    notificationId);
+            });
     }
 
     // ============================================================================

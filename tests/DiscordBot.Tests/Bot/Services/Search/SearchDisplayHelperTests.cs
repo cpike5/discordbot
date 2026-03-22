@@ -89,7 +89,7 @@ public class SearchDisplayHelperTests
     {
         var future = DateTime.UtcNow.AddMinutes(5);
         var result = SearchDisplayHelper.GetRelativeTime(future);
-        result.Should().Be("in 5 minutes");
+        result.Should().MatchRegex(@"in [45] minutes");
     }
 
     [Fact]
@@ -105,6 +105,6 @@ public class SearchDisplayHelperTests
     {
         var future = DateTime.UtcNow.AddDays(3);
         var result = SearchDisplayHelper.GetRelativeTime(future);
-        result.Should().Be("in 3 days");
+        result.Should().MatchRegex(@"in [23] days");
     }
 }

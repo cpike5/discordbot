@@ -3,6 +3,7 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Bot.Services.Search;
 using DiscordBot.Bot.Services.Tts;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
@@ -18,9 +19,22 @@ public static class ApplicationServiceExtensions
     /// Adds core application services to the service collection.
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
+    /// <param name="configuration">The application configuration.</param>
     /// <returns>The service collection for chaining.</returns>
-    public static IServiceCollection AddApplicationServices(this IServiceCollection services)
+    public static IServiceCollection AddApplicationServices(
+        this IServiceCollection services,
+        IConfiguration configuration)
     {
+        // Bind shared configuration options owned by core application services
+        services.Configure<ApplicationOptions>(
+            configuration.GetSection(ApplicationOptions.SectionName));
+        services.Configure<CachingOptions>(
+            configuration.GetSection(CachingOptions.SectionName));
+        services.Configure<GuildMembershipCacheOptions>(
+            configuration.GetSection(GuildMembershipCacheOptions.SectionName));
+        services.Configure<BackgroundServicesOptions>(
+            configuration.GetSection(BackgroundServicesOptions.SectionName));
+
         // Singleton services (application-wide state)
         services.AddSingleton<IBackgroundTaskRunner, BackgroundTaskRunner>();
         services.AddSingleton<IVersionService, VersionService>();

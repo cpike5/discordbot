@@ -301,6 +301,10 @@ public static class OpenTelemetryExtensions
         this IServiceCollection services,
         IConfiguration configuration)
     {
+        // Bind observability configuration options
+        services.Configure<ObservabilityOptions>(
+            configuration.GetSection(ObservabilityOptions.SectionName));
+
         services.AddOpenTelemetryMetrics(configuration);
         services.AddOpenTelemetryTracing(configuration);
         services.AddElasticApmWithPrioritySampling(configuration);
