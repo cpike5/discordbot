@@ -2,7 +2,7 @@
 
 Quick reference catalog of all services in the Discord bot system. Organized by domain area for easy discovery and understanding of service relationships.
 
-**Last Updated**: February 2026
+**Last Updated**: March 2026
 **Codebase Version**: v1.1.0
 
 ---
@@ -24,6 +24,8 @@ Quick reference catalog of all services in the Discord bot system. Organized by 
 - [Data & Repository Services](#data--repository-services)
 - [AI Assistant & Tools](#ai-assistant--tools)
 - [Configuration & Settings](#configuration--settings)
+- [Base Classes](#base-classes)
+- [Helpers & Utilities](#helpers--utilities)
 - [Utility & Support](#utility--support)
 
 ---
@@ -51,7 +53,11 @@ Services for managing sound effects, playback queuing, and audio file caching.
 | `ISoundService` | Core Interfaces | High-level sound management (CRUD operations, metadata) |
 | `SoundService` | Bot/Services | Implements sound entity management and Discord snowflake conversion |
 | `IPlaybackService` | Bot Interfaces | Sound playback orchestration with queue/replace modes |
-| `PlaybackService` | Bot/Services | FFmpeg-based playback using per-guild concurrent state and locks |
+| `PlaybackService` | Bot/Services | Orchestrates audio playback; delegates streaming to IAudioStreamer and transcoding to IFfmpegTranscoder (~500 lines) |
+| `IAudioStreamer` | Bot Interfaces | Audio streaming protocol and implementation |
+| `AudioStreamer` | Bot/Services | Handles audio data streaming to Discord voice channels |
+| `IFfmpegTranscoder` | Bot Interfaces | FFmpeg transcoding operations |
+| `FfmpegTranscoder` | Bot/Services | FFmpeg-based audio format conversion and processing |
 | `ISoundCacheService` | Core Interfaces | Caches processed audio blobs to reduce FFmpeg reprocessing |
 | `SoundCacheService` | Bot/Services | Memory-based audio cache with file I/O fallback and LRU eviction |
 | `ISoundFileService` | Core Interfaces | File system operations (upload, retrieval, validation) |
@@ -109,6 +115,10 @@ Services for Discord client operations, authentication, and token management.
 | `DiscordTokenRefreshService` | Bot/Services | Background service for periodic OAuth token refresh |
 | `IDiscordUserInfoService` | Core Interfaces | Fetch Discord user metadata (avatar, status, etc.) |
 | `DiscordUserInfoService` | Bot/Services | Retrieves user info from Discord API with caching |
+| `IDiscordChannelResolver` | Bot Interfaces | Resolves Discord channel names to IChannel objects |
+| `DiscordChannelResolver` | Bot/Services/DiscordIntegration | Channel name resolution with caching (used by 8+ pages/services) |
+| `IDiscordUserResolver` | Bot Interfaces | Resolves Discord user info with caching |
+| `DiscordUserResolver` | Bot/Services/DiscordIntegration | Discord user info resolution with IMemoryCache (used by ModerationService, WatchlistService) |
 | `DiscordClientMemoryReporter` | Bot/Services | Reports Discord client memory usage to diagnostics |
 | `DiscordMessageAdapter` | Bot/Services | Adapts Discord.Net IMessage to internal IDiscordMessage interface |
 
@@ -197,7 +207,17 @@ Services for collecting, aggregating, and reporting analytics data.
 | `MemberActivityAggregationService` | Bot/Services | Background service tracking per-member activity metrics |
 | `BusinessMetricsUpdateService` | Bot/Services | Background service aggregating business KPIs |
 | `AnalyticsRetentionService` | Bot/Services | Background service purging old analytics records |
-| `SearchService` | Bot/Services | Full-text and semantic search (919 lines) |
+| `SearchService` | Bot/Services | Search orchestrator (~200 lines); delegates to ISearchProvider implementations |
+| `ISearchProvider` | Bot Interfaces | Pluggable search provider abstraction |
+| `AuditLogsSearchProvider` | Bot/Services/Search | Searches audit logs |
+| `CommandLogsSearchProvider` | Bot/Services/Search | Searches command execution logs |
+| `CommandsSearchProvider` | Bot/Services/Search | Searches registered commands |
+| `GuildsSearchProvider` | Bot/Services/Search | Searches guild data |
+| `MessageLogsSearchProvider` | Bot/Services/Search | Searches message history |
+| `PagesSearchProvider` | Bot/Services/Search | Searches portal pages |
+| `RemindersSearchProvider` | Bot/Services/Search | Searches reminders |
+| `ScheduledMessagesSearchProvider` | Bot/Services/Search | Searches scheduled messages |
+| `UsersSearchProvider` | Bot/Services/Search | Searches user data |
 
 ---
 
@@ -225,7 +245,11 @@ Services for tracking performance metrics, latency, and system health.
 | `PerformanceMetricsBroadcastService` | Bot/Services | Broadcasts metrics via SignalR to dashboards |
 | `CpuSamplingService` | Bot/Services | Background service CPU utilization sampling |
 | `CpuHistoryService` | Bot/Services | Maintains CPU usage history with memory reporting |
-| `AlertMonitoringService` | Bot/Services | Background service monitoring alert conditions |
+| `AlertMonitoringService` | Bot/Services | Orchestrator (~270 lines); delegates to IMetricValueCollector and IAlertIncidentManager |
+| `IMetricValueCollector` | Bot Interfaces | Collects alert metric values |
+| `MetricValueCollector` | Bot/Services | Gathers metric data for alert evaluation |
+| `IAlertIncidentManager` | Bot Interfaces | Manages alert incident creation and transitions |
+| `AlertIncidentManager` | Bot/Services | Creates and manages alert incidents |
 
 ---
 
@@ -237,6 +261,8 @@ Long-running services that execute periodic or event-driven tasks.
 |---------|----------|---------|
 | `BotHostedService` | Bot/Services | Main bot lifecycle (startup, login, handlers) (739 lines) |
 | `MonitoredBackgroundService` | Bot/Services | Base class for background services with health tracking |
+| `IBackgroundTaskRunner` | Bot Interfaces | Safe fire-and-forget task execution abstraction |
+| `BackgroundTaskRunner` | Bot/Services | Manages background task execution with error handling (used by 13+ call sites) |
 | `AuditLogQueueProcessor` | Bot/Services | Processes audit log entries from IAuditLogQueue in batches for efficient bulk insertion |
 | `AuditLogRetentionService` | Bot/Services | Periodically purges old audit log records per configured retention policy |
 | `GuildMetricsAggregationService` | Bot/Services | Aggregates daily guild-level metrics into GuildMetricsSnapshot records |
@@ -258,8 +284,11 @@ Services for user notifications, performance alerts, and subscriptions.
 
 | Service | Location | Purpose |
 |---------|----------|---------|
-| `INotificationService` | Core Interfaces | Create and manage user notifications |
-| `NotificationService` | Bot/Services | Notification persistence and delivery |
+| `INotificationService` | Core Interfaces | Notification CRUD operations |
+| `NotificationService` | Bot/Services | Notification persistence and delivery (~469 lines after split) |
+| `INotificationBroadcaster` | Bot Interfaces | Broadcasts notifications to clients |
+| `NotificationBroadcaster` | Bot/Services | Real-time notification broadcasting |
+| `NotificationMapper` | Bot/Services | Maps between notification domain and DTO models |
 | `IPerformanceNotifier` | Core Interfaces | Sends performance alert notifications |
 | `PerformanceNotifier` | Bot/Services | Notifies users of SLO violations |
 | `IPerformanceSubscriptionTracker` | Core Interfaces | Manage alert subscriptions |
@@ -325,6 +354,34 @@ Services for managing application configuration and options.
 | `BotConfiguration` | Bot/Services | Central configuration options holder |
 | `DiscordOAuthSettings` | Bot/Services | OAuth2 configuration container |
 | `ISettingsRepository` | Core Interfaces | Settings persistence layer |
+
+---
+
+## Base Classes
+
+Reusable base classes for controllers, page models, and API abstractions.
+
+| Class | Location | Purpose |
+|-------|----------|---------|
+| `ApiControllerBase` | Bot/Controllers | Base controller with error helpers and common response patterns (used by 5 controllers) |
+| `GuildPageModelBase` | Bot/Pages/Guilds | Base page model with PopulateGuildLayout() method (used by 24 guild pages) |
+| `PaginatedPageModel` | Bot/Pages | Base class for paginated page models |
+| `PaginatedGuildPageModel` | Bot/Pages/Guilds | Base for paginated guild pages (used by 6 pages) |
+
+---
+
+## Helpers & Utilities
+
+Lightweight helper classes for common formatting, validation, and calculation tasks.
+
+| Helper | Location | Purpose |
+|--------|----------|---------|
+| `EmbedHelper` | Bot/Helpers | Standardized embed factory methods for Discord command responses |
+| `PaginationHelper` | Bot/Helpers | Page calculation and button building for paginated commands |
+| `VoiceChannelHelper` | Bot/Helpers | Voice channel validation for command modules |
+| `SearchDisplayHelper` | Bot/Helpers | Search result display formatting and presentation |
+| `SearchScoringHelper` | Bot/Helpers | Search result relevance scoring and ranking |
+| `ServiceActivityHelper` | Bot/Tracing | Eliminates ~757 lines of tracing boilerplate across 10 services |
 
 ---
 
@@ -420,6 +477,21 @@ graph TD
 ---
 
 ## Key Service Patterns
+
+### Pluggable Provider Pattern
+
+Search and monitoring services delegate domain-specific logic to pluggable providers:
+
+- `SearchService` orchestrates 9 `ISearchProvider` implementations (AuditLogsSearchProvider, CommandLogsSearchProvider, CommandsSearchProvider, GuildsSearchProvider, MessageLogsSearchProvider, PagesSearchProvider, RemindersSearchProvider, ScheduledMessagesSearchProvider, UsersSearchProvider)
+- `AlertMonitoringService` orchestrates `IMetricValueCollector` and `IAlertIncidentManager` for alert evaluation and incident management
+
+### Service Activity Helper Pattern
+
+`ServiceActivityHelper` eliminates boilerplate tracing code across services:
+
+- Standardizes operation timing, error logging, and observability
+- Reduces ~757 lines of duplicate instrumentation code across 10+ services
+- Provides consistent diagnostic output for monitoring and debugging
 
 ### Hosted Services
 
