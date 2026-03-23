@@ -1548,6 +1548,10 @@ public class PortalTtsController : ControllerBase
         return wav;
     }
 
+    // ========================================
+    // TTS Message History Endpoints
+    // ========================================
+
     /// <summary>
     /// Gets recent TTS message history for the current user.
     /// </summary>
@@ -1581,19 +1585,16 @@ public class PortalTtsController : ControllerBase
     }
 
     /// <summary>
-    /// Saves a new TTS message history entry.
+    /// Saves a new TTS history entry after a successful send.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
-    /// <param name="request">The history entry to save.</param>
+    /// <param name="request">The history entry data.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The created history entry.</returns>
     [HttpPost("history")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> SaveHistory(
-        ulong guildId,
-        [FromBody] SaveTtsHistoryRequest request,
-        CancellationToken cancellationToken = default)
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SaveHistory(ulong guildId, [FromBody] SaveTtsHistoryRequest request, CancellationToken cancellationToken = default)
     {
         var userId = User.GetDiscordUserId();
         if (userId == 0)
@@ -1612,23 +1613,12 @@ public class PortalTtsController : ControllerBase
             });
         }
 
-        if (string.IsNullOrWhiteSpace(request.VoiceName))
-        {
-            return BadRequest(new ApiErrorDto
-            {
-                Message = "Voice name is required",
-                StatusCode = StatusCodes.Status400BadRequest,
-                TraceId = HttpContext.GetCorrelationId(),
-                ErrorCode = "missing_voice"
-            });
-        }
-
         var entry = new TtsMessageHistory
         {
             GuildId = guildId,
             UserId = userId,
             Message = request.Message,
-            VoiceName = request.VoiceName,
+            VoiceName = request.VoiceName ?? string.Empty,
             Style = request.Style,
             Speed = (decimal)request.Speed,
             Pitch = (decimal)request.Pitch,
@@ -1638,8 +1628,7 @@ public class PortalTtsController : ControllerBase
 
         await _ttsMessageHistoryRepository.AddAsync(entry, cancellationToken);
 
-        _logger.LogInformation("Saved TTS history entry {Id} for user {UserId} in guild {GuildId}",
-            entry.Id, userId, guildId);
+        _logger.LogInformation("Saved TTS history entry {Id} for user {UserId} in guild {GuildId}", entry.Id, userId, guildId);
 
         return Ok(new
         {
@@ -1655,21 +1644,19 @@ public class PortalTtsController : ControllerBase
     }
 
     /// <summary>
-    /// Replays a TTS message from history with its original settings.
+    /// Replays a TTS history entry with its original settings.
+    /// Reuses the existing send pipeline but with settings from the history entry.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
     /// <param name="id">The history entry ID.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>Playback result.</returns>
+    /// <returns>Success status.</returns>
     [HttpPost("history/{id}/replay")]
     [ProducesResponseType(StatusCodes.Status200OK)]
-    [ProducesResponseType(StatusCodes.Status404NotFound)]
-    [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> ReplayHistory(
-        ulong guildId,
-        int id,
-        CancellationToken cancellationToken = default)
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ReplayHistory(ulong guildId, int id, CancellationToken cancellationToken = default)
     {
         var userId = User.GetDiscordUserId();
         if (userId == 0)
@@ -1695,16 +1682,17 @@ public class PortalTtsController : ControllerBase
             return Forbid();
         }
 
-        // Replay by calling SendTts with the original settings
+        // Build a SendTtsRequest from the history entry's settings
         var request = new SendTtsRequest
         {
             Message = entry.Message,
             Voice = entry.VoiceName,
-            Style = entry.Style,
             Speed = (double)entry.Speed,
-            Pitch = (double)entry.Pitch
+            Pitch = (double)entry.Pitch,
+            Style = entry.Style
         };
 
+        // Delegate to the existing send endpoint logic
         return await SendTts(guildId, request, cancellationToken);
     }
 
@@ -1719,7 +1707,7 @@ public class PortalTtsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> ToggleTtsHistoryFavorite(ulong guildId, int id, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> ToggleFavorite(ulong guildId, int id, CancellationToken cancellationToken = default)
     {
         var userId = User.GetDiscordUserId();
         if (userId == 0)
@@ -1762,7 +1750,7 @@ public class PortalTtsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
-    public async Task<IActionResult> DeleteTtsHistoryEntry(ulong guildId, int id, CancellationToken cancellationToken = default)
+    public async Task<IActionResult> DeleteHistoryEntry(ulong guildId, int id, CancellationToken cancellationToken = default)
     {
         var userId = User.GetDiscordUserId();
         if (userId == 0)
@@ -1834,4 +1822,5 @@ public class PortalTtsController : ControllerBase
         /// </summary>
         public ulong ChannelId { get; set; }
     }
+
 }

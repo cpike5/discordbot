@@ -405,6 +405,233 @@
             min-height: 120px;
         }
     }
+
+    /* ===============================================
+       TTS History Panel
+       =============================================== */
+
+    .tts-history-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        width: 100%;
+        padding: 0.5rem 1rem;
+        margin-top: 0.75rem;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        color: var(--color-text-secondary);
+        font-size: 0.8rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: var(--transition-normal);
+    }
+
+    .tts-history-toggle:hover {
+        background: var(--color-bg-hover);
+        color: var(--color-text-primary);
+    }
+
+    .tts-history-toggle svg {
+        width: 16px;
+        height: 16px;
+        transition: transform 0.2s ease;
+    }
+
+    .tts-history-toggle.expanded svg {
+        transform: rotate(180deg);
+    }
+
+    .tts-history-panel {
+        margin-top: 0.5rem;
+        background: var(--color-bg-secondary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.5rem;
+        overflow: hidden;
+        max-height: 0;
+        opacity: 0;
+        transition: max-height 0.3s ease, opacity 0.2s ease, padding 0.3s ease;
+    }
+
+    .tts-history-panel.expanded {
+        max-height: 600px;
+        opacity: 1;
+        padding: 0.75rem;
+    }
+
+    .tts-history-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+    }
+
+    .tts-history-title {
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    .tts-history-count {
+        font-size: 0.7rem;
+        color: var(--color-text-secondary);
+    }
+
+    .tts-history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        max-height: 480px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-border-primary) transparent;
+    }
+
+    .tts-history-list::-webkit-scrollbar {
+        width: 4px;
+    }
+
+    .tts-history-list::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .tts-history-list::-webkit-scrollbar-thumb {
+        background: var(--color-border-primary);
+        border-radius: 2px;
+    }
+
+    .tts-history-entry {
+        display: flex;
+        flex-direction: column;
+        gap: 0.375rem;
+        padding: 0.625rem;
+        background: var(--color-bg-primary);
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.375rem;
+        transition: var(--transition-normal);
+    }
+
+    .tts-history-entry:hover {
+        border-color: var(--color-accent-orange-muted);
+    }
+
+    .tts-history-entry.favorite {
+        border-left: 3px solid var(--color-warning);
+    }
+
+    .tts-history-message {
+        font-size: 0.8rem;
+        color: var(--color-text-primary);
+        line-height: 1.4;
+        word-break: break-word;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .tts-history-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+    }
+
+    .tts-history-voice {
+        font-size: 0.7rem;
+        color: var(--color-accent-orange);
+        font-weight: 500;
+    }
+
+    .tts-history-time {
+        font-size: 0.65rem;
+        color: var(--color-text-secondary);
+    }
+
+    .tts-history-settings {
+        font-size: 0.65rem;
+        color: var(--color-text-secondary);
+    }
+
+    .tts-history-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.25rem;
+        margin-top: 0.125rem;
+    }
+
+    .tts-history-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.25rem;
+        padding: 0.25rem 0.5rem;
+        border: 1px solid var(--color-border-primary);
+        border-radius: 0.25rem;
+        background: transparent;
+        color: var(--color-text-secondary);
+        font-size: 0.7rem;
+        cursor: pointer;
+        transition: var(--transition-normal);
+        min-height: 28px;
+    }
+
+    .tts-history-btn:hover {
+        background: var(--color-bg-hover);
+        color: var(--color-text-primary);
+    }
+
+    .tts-history-btn svg {
+        width: 12px;
+        height: 12px;
+    }
+
+    .tts-history-btn.replay-btn:hover {
+        border-color: var(--color-accent-orange-muted);
+        color: var(--color-accent-orange);
+    }
+
+    .tts-history-btn.edit-btn:hover {
+        border-color: var(--color-info);
+        color: var(--color-info);
+    }
+
+    .tts-history-btn.fav-btn.active {
+        color: var(--color-warning);
+        border-color: var(--color-warning);
+    }
+
+    .tts-history-btn.delete-btn:hover {
+        border-color: var(--color-error);
+        color: var(--color-error);
+    }
+
+    .tts-history-empty {
+        text-align: center;
+        padding: 1.5rem 1rem;
+        color: var(--color-text-secondary);
+        font-size: 0.8rem;
+    }
+
+    .tts-history-empty svg {
+        width: 32px;
+        height: 32px;
+        margin: 0 auto 0.5rem;
+        opacity: 0.4;
+    }
+
+    @@media (max-width: 767px) {
+        .tts-history-btn {
+            min-height: 36px;
+            min-width: 36px;
+            padding: 0.25rem;
+        }
+
+        .tts-history-btn span {
+            display: none;
+        }
+    }
 </style>
 
 @if (!Model.IsAuthenticated)
@@ -591,6 +818,31 @@ else
                 </div>
             </div>
 
+        </div>
+
+        <!-- TTS History Toggle + Panel (below main content) -->
+        <button id="ttsHistoryToggle" class="tts-history-toggle" type="button" aria-expanded="false" aria-controls="ttsHistoryPanel">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <span>Message History</span>
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+        <div id="ttsHistoryPanel" class="tts-history-panel" role="region" aria-label="TTS Message History">
+            <div class="tts-history-header">
+                <span class="tts-history-title">Recent Messages</span>
+                <span class="tts-history-count" id="ttsHistoryCount"></span>
+            </div>
+            <div class="tts-history-list" id="ttsHistoryList">
+                <div class="tts-history-empty" id="ttsHistoryEmpty">
+                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p>No messages yet. Send a TTS message to see it here.</p>
+                </div>
+            </div>
         </div>
     </main>
 
