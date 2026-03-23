@@ -1,3 +1,4 @@
+using System.Text;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Tracing;
@@ -90,7 +91,7 @@ public class DmAssistantMessageHandler
 
             if (response.Success && !string.IsNullOrWhiteSpace(response.Response))
             {
-                await message.Channel.SendMessageAsync(response.Response);
+                await SendResponseAsync(message.Channel, response.Response);
 
                 _logger.LogInformation(
                     "Sent DM assistant response to user {UserId}",
@@ -129,6 +130,80 @@ public class DmAssistantMessageHandler
         finally
         {
             typingState?.Dispose();
+        }
+    }
+
+    private const int DiscordMaxMessageLength = 2000;
+    private const int FileAttachmentThreshold = 8000;
+
+    /// <summary>
+    /// Sends a response to the channel, handling Discord's 2000-char message limit
+    /// by chunking into multiple messages or uploading as a file attachment.
+    /// </summary>
+    private static async Task SendResponseAsync(IMessageChannel channel, string response)
+    {
+        if (string.IsNullOrWhiteSpace(response))
+            return;
+
+        if (response.Length <= DiscordMaxMessageLength)
+        {
+            await channel.SendMessageAsync(response);
+            return;
+        }
+
+        if (response.Length > FileAttachmentThreshold)
+        {
+            await channel.SendMessageAsync("Here's the full response:");
+
+            using var stream = new MemoryStream(Encoding.UTF8.GetBytes(response));
+            await channel.SendFileAsync(stream, "response.md", text: null);
+            return;
+        }
+
+        // Split on newline boundaries into <=2000 char chunks
+        var lines = response.Split('\n');
+        var chunk = new StringBuilder();
+
+        foreach (var line in lines)
+        {
+            // If a single line exceeds the limit, hard-split it
+            if (line.Length > DiscordMaxMessageLength)
+            {
+                // Flush any accumulated content first
+                if (chunk.Length > 0)
+                {
+                    await channel.SendMessageAsync(chunk.ToString());
+                    chunk.Clear();
+                }
+
+                // Hard-split the long line at max-length boundaries
+                for (var i = 0; i < line.Length; i += DiscordMaxMessageLength)
+                {
+                    var length = Math.Min(DiscordMaxMessageLength, line.Length - i);
+                    await channel.SendMessageAsync(line.Substring(i, length));
+                }
+
+                continue;
+            }
+
+            // Check if adding this line (with newline separator) would exceed the limit
+            var addition = chunk.Length == 0 ? line.Length : line.Length + 1;
+            if (chunk.Length + addition > DiscordMaxMessageLength)
+            {
+                await channel.SendMessageAsync(chunk.ToString());
+                chunk.Clear();
+            }
+
+            if (chunk.Length > 0)
+                chunk.Append('\n');
+
+            chunk.Append(line);
+        }
+
+        // Send any remaining content
+        if (chunk.Length > 0)
+        {
+            await channel.SendMessageAsync(chunk.ToString());
         }
     }
 }

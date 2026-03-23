@@ -66,9 +66,10 @@ public class DmAssistantOptions
 
     /// <summary>
     /// Gets or sets the maximum length of Claude's response in characters.
-    /// Default is 1800 (leaves buffer for Discord's 2000 char limit).
+    /// Default is 50000. The DM handler manages Discord's 2000-char message limit
+    /// by chunking long responses or uploading them as file attachments.
     /// </summary>
-    public int MaxResponseLength { get; set; } = 1800;
+    public int MaxResponseLength { get; set; } = 50000;
 
     /// <summary>
     /// Gets or sets the suffix appended when responses are truncated.
