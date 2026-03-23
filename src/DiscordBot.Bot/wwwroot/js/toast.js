@@ -21,7 +21,24 @@ const ToastManager = {
   init() {
     this.container = document.getElementById('toastContainer');
     if (!this.container) {
-      console.error('Toast container not found. Add _ToastContainer.cshtml to your page.');
+      // Auto-create the container so ToastManager works on any page
+      // (e.g. portal pages that don't include _ToastContainer.cshtml)
+      this.container = document.createElement('div');
+      this.container.id = 'toastContainer';
+      this.container.className = 'fixed right-4 flex flex-col gap-2 pointer-events-none overflow-hidden';
+      this.container.style.cssText = 'top: 80px; max-height: calc(100vh - 96px); z-index: var(--z-toast);';
+      this.container.setAttribute('role', 'region');
+      this.container.setAttribute('aria-label', 'Notifications');
+
+      // Add screen-reader live region
+      const liveRegion = document.createElement('div');
+      liveRegion.id = 'toastLiveRegion';
+      liveRegion.className = 'sr-only';
+      liveRegion.setAttribute('aria-live', 'polite');
+      liveRegion.setAttribute('aria-atomic', 'true');
+      this.container.appendChild(liveRegion);
+
+      document.body.appendChild(this.container);
     }
   },
 

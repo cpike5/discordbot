@@ -13,81 +13,82 @@
 {
     <style>
         /* Compact Voice Channel Panel Styles */
-        .voice-panel-compact {
-            border: none !important;
-            background-color: transparent !important;
+        /* ID prefix (#voice-channel-panel) raises specificity to (1,1,0), beating Tailwind utilities (0,1,0) without !important */
+        #voice-channel-panel.voice-panel-compact {
+            border: none;
+            background-color: transparent;
         }
 
-        .voice-panel-compact > div {
-            padding: 0.75rem 0 !important;
-            border-left: none !important;
-            border-right: none !important;
+        #voice-channel-panel.voice-panel-compact > div {
+            padding: 0.75rem 0;
+            border-left: none;
+            border-right: none;
         }
 
-        .voice-panel-compact > div:first-child {
-            padding-top: 0 !important;
+        #voice-channel-panel.voice-panel-compact > div:first-child {
+            padding-top: 0;
         }
 
-        .voice-panel-compact h3 {
-            font-size: 0.8rem !important;
+        #voice-channel-panel.voice-panel-compact h3 {
+            font-size: 0.8rem;
         }
 
-        .voice-panel-compact #connection-status-badge {
-            font-size: 0.65rem !important;
-            padding: 0.125rem 0.375rem !important;
+        #voice-channel-panel.voice-panel-compact #connection-status-badge {
+            font-size: 0.65rem;
+            padding: 0.125rem 0.375rem;
         }
 
-        .voice-panel-compact #connection-status-dot {
-            width: 1px !important;
-            height: 1px !important;
+        #voice-channel-panel.voice-panel-compact #connection-status-dot {
+            width: 1px;
+            height: 1px;
         }
 
-        .voice-panel-compact #connected-channel-info {
-            font-size: 0.8rem !important;
+        #voice-channel-panel.voice-panel-compact #connected-channel-info {
+            font-size: 0.8rem;
         }
 
-        .voice-panel-compact #connected-channel-info svg {
-            width: 0.875rem !important;
-            height: 0.875rem !important;
+        #voice-channel-panel.voice-panel-compact #connected-channel-info svg {
+            width: 0.875rem;
+            height: 0.875rem;
         }
 
-        .voice-panel-compact label {
-            font-size: 0.7rem !important;
-            margin-bottom: 0.25rem !important;
+        #voice-channel-panel.voice-panel-compact label {
+            font-size: 0.7rem;
+            margin-bottom: 0.25rem;
         }
 
         /* Stack channel control vertically */
-        .voice-panel-compact .voice-channel-controls {
-            flex-direction: column !important;
-            gap: 0.5rem !important;
+        #voice-channel-panel.voice-panel-compact .voice-channel-controls {
+            flex-direction: column;
+            gap: 0.5rem;
         }
 
-        .voice-panel-compact #channel-selector {
-            width: 100% !important;
-            flex: none !important;
-            padding: 0.375rem 0.5rem !important;
-            font-size: 0.8rem !important;
+        #voice-channel-panel.voice-panel-compact #channel-selector {
+            width: 100%;
+            flex: none;
+            padding: 0.375rem 0.5rem;
+            font-size: 0.8rem;
         }
 
-        .voice-panel-compact #leave-channel-btn {
-            width: 100% !important;
-            justify-content: center !important;
-            padding: 0.375rem 0.75rem !important;
-            font-size: 0.75rem !important;
+        #voice-channel-panel.voice-panel-compact #leave-channel-btn {
+            width: 100%;
+            justify-content: center;
+            padding: 0.375rem 0.75rem;
+            font-size: 0.75rem;
         }
 
-        .voice-panel-compact #leave-channel-btn svg {
-            width: 0.875rem !important;
-            height: 0.875rem !important;
+        #voice-channel-panel.voice-panel-compact #leave-channel-btn svg {
+            width: 0.875rem;
+            height: 0.875rem;
         }
 
         /* Only hide Queue in compact mode; Now Playing controlled by ShowNowPlaying */
-        .voice-panel-compact .voice-queue-section {
-            display: none !important;
+        #voice-channel-panel.voice-panel-compact .voice-queue-section {
+            display: none;
         }
 
-        .voice-panel-compact h4 {
-            font-size: 0.65rem !important;
+        #voice-channel-panel.voice-panel-compact h4 {
+            font-size: 0.65rem;
         }
     </style>
 }
@@ -96,8 +97,8 @@
 {
     <style>
         /* Hide Now Playing when ShowNowPlaying is false (works in both compact and full modes) */
-        .voice-panel-hide-now-playing #now-playing-section {
-            display: none !important;
+        #voice-channel-panel.voice-panel-hide-now-playing #now-playing-section {
+            display: none;
         }
     </style>
 }

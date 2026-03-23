@@ -126,22 +126,15 @@ const VoiceChannelPanel = (function() {
     function setupSignalRHandlers() {
         console.log('[VoiceChannelPanel] Setting up SignalR handlers, DashboardHub.isConnected():', DashboardHub.isConnected());
 
-        // Connection state handlers
-        DashboardHub.on('connected', function() {
-            console.log('[VoiceChannelPanel] SignalR connected event received');
-            isHubConnected = true;
-            joinGuildAudioGroup();
-        });
+        // Connection state handler — unified via DashboardHub.onStateChange
+        DashboardHub.onStateChange(({ state, previousState }) => {
+            console.log('[VoiceChannelPanel] SignalR state change:', previousState, '->', state);
+            isHubConnected = (state === 'connected');
+            updateConnectionStatus(state);
 
-        DashboardHub.on('reconnected', function() {
-            console.log('[VoiceChannelPanel] SignalR reconnected event received');
-            isHubConnected = true;
-            joinGuildAudioGroup();
-        });
-
-        DashboardHub.on('disconnected', function() {
-            console.log('[VoiceChannelPanel] SignalR disconnected event received');
-            isHubConnected = false;
+            if (state === 'connected') {
+                joinGuildAudioGroup();
+            }
         });
 
         // Audio event handlers
@@ -154,13 +147,15 @@ const VoiceChannelPanel = (function() {
 
         console.log('[VoiceChannelPanel] Audio event handlers registered');
 
-        // If already connected, join the guild audio group
-        if (DashboardHub.isConnected()) {
+        // Sync with the current connection state
+        var currentState = DashboardHub.getConnectionState();
+        isHubConnected = (currentState === 'connected');
+        updateConnectionStatus(currentState);
+        if (isHubConnected) {
             console.log('[VoiceChannelPanel] DashboardHub already connected, joining audio group');
-            isHubConnected = true;
             joinGuildAudioGroup();
         } else {
-            console.log('[VoiceChannelPanel] DashboardHub not yet connected, waiting for connected event');
+            console.log('[VoiceChannelPanel] DashboardHub not yet connected (state:', currentState + '), waiting for state change');
         }
     }
 
@@ -221,7 +216,7 @@ const VoiceChannelPanel = (function() {
                 const error = await response.json();
                 console.error('[VoiceChannelPanel] API error:', error);
                 clearConnectingState();
-                updateConnectionStatus(false);
+                updateConnectionStatus('disconnected');
                 showToast(error.message || 'Failed to join channel', 'error');
                 channelSelector.value = connectedChannelId || '';
             } else {
@@ -233,7 +228,7 @@ const VoiceChannelPanel = (function() {
         } catch (error) {
             console.error('[VoiceChannelPanel] Error joining channel:', error);
             clearConnectingState();
-            updateConnectionStatus(false);
+            updateConnectionStatus('disconnected');
             showToast('Failed to join channel', 'error');
             channelSelector.value = connectedChannelId || '';
         }
@@ -334,7 +329,7 @@ const VoiceChannelPanel = (function() {
         connectedChannelId = data.channelId;
 
         // Update connection status
-        updateConnectionStatus(true, data.channelName, data.memberCount);
+        updateConnectionStatus('connected', data.channelName, data.memberCount);
 
         // Update channel selector
         if (channelSelector) {
@@ -363,7 +358,7 @@ const VoiceChannelPanel = (function() {
         connectedChannelId = null;
 
         // Update connection status
-        updateConnectionStatus(false);
+        updateConnectionStatus('disconnected');
 
         // Reset channel selector
         if (channelSelector) {
@@ -437,29 +432,43 @@ const VoiceChannelPanel = (function() {
 
     /**
      * Updates the connection status display.
-     * @param {boolean} connected - Whether connected.
-     * @param {string} channelName - Connected channel name.
-     * @param {number} memberCount - Member count in channel.
+     * @param {string} state - Connection state: 'connected', 'connecting', 'reconnecting', or 'disconnected'.
+     * @param {string} [channelName] - Connected channel name.
+     * @param {number} [memberCount] - Member count in channel.
      */
-    function updateConnectionStatus(connected, channelName, memberCount) {
+    function updateConnectionStatus(state, channelName, memberCount) {
+        var dotClass, badgeClass, statusLabel;
+
+        if (state === 'connected') {
+            dotClass = 'w-1.5 h-1.5 rounded-full bg-success';
+            badgeClass = 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-success/20 text-success';
+            statusLabel = 'Connected';
+        } else if (state === 'reconnecting' || state === 'connecting') {
+            dotClass = 'w-1.5 h-1.5 rounded-full bg-warning animate-pulse';
+            badgeClass = 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-warning/20 text-warning';
+            statusLabel = state === 'reconnecting' ? 'Reconnecting...' : 'Connecting...';
+        } else {
+            dotClass = 'w-1.5 h-1.5 rounded-full bg-text-tertiary';
+            badgeClass = 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-tertiary text-text-tertiary';
+            statusLabel = 'Disconnected';
+        }
+
         if (connectionStatusDot) {
-            connectionStatusDot.className = connected
-                ? 'w-1.5 h-1.5 rounded-full bg-success'
-                : 'w-1.5 h-1.5 rounded-full bg-text-tertiary';
+            connectionStatusDot.className = dotClass;
         }
 
         if (connectionStatusText) {
-            connectionStatusText.textContent = connected ? 'Connected' : 'Disconnected';
+            connectionStatusText.textContent = statusLabel;
         }
 
         if (connectionStatusBadge) {
-            connectionStatusBadge.className = connected
-                ? 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-success/20 text-success'
-                : 'inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full bg-bg-tertiary text-text-tertiary';
+            connectionStatusBadge.className = badgeClass;
         }
 
+        var isConnectedState = (state === 'connected');
+
         if (connectedChannelInfo) {
-            if (connected && channelName) {
+            if (isConnectedState && channelName) {
                 connectedChannelInfo.classList.remove('hidden');
                 if (connectedChannelName) {
                     connectedChannelName.textContent = channelName;
@@ -467,15 +476,15 @@ const VoiceChannelPanel = (function() {
                 if (channelMemberCount && memberCount !== undefined) {
                     channelMemberCount.textContent = memberCount;
                 }
-            } else {
+            } else if (!isConnectedState) {
                 connectedChannelInfo.classList.add('hidden');
             }
         }
 
         // Update panel data attribute
         if (panelElement) {
-            panelElement.dataset.connected = connected.toString();
-            panelElement.dataset.channelId = connected ? connectedChannelId : '';
+            panelElement.dataset.connected = isConnectedState.toString();
+            panelElement.dataset.channelId = isConnectedState ? connectedChannelId : '';
         }
     }
 
@@ -670,7 +679,7 @@ const VoiceChannelPanel = (function() {
             if (isConnecting) {
                 console.warn('[VoiceChannelPanel] Connection timed out after 10s');
                 clearConnectingState();
-                updateConnectionStatus(false);
+                updateConnectionStatus('disconnected');
                 showToast('Connection timed out. Please try again.', 'error');
                 if (channelSelector) {
                     channelSelector.value = connectedChannelId || '';
@@ -726,14 +735,13 @@ const VoiceChannelPanel = (function() {
     }
 
     /**
-     * Shows a toast notification.
+     * Shows a toast notification (delegates to shared ToastManager).
      * @param {string} message - Toast message.
      * @param {string} type - Toast type (success, error, info, warning).
      */
     function showToast(message, type) {
-        // Use global Toast if available
-        if (typeof Toast !== 'undefined' && Toast.show) {
-            Toast.show(message, type);
+        if (typeof ToastManager !== 'undefined') {
+            ToastManager.show(type, message);
         } else {
             console.log(`[VoiceChannelPanel] Toast (${type}):`, message);
         }

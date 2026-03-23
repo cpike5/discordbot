@@ -462,10 +462,191 @@
         }
     }
 
+    // --- Character counter setup ---
+    function initCharacterCounter() {
+        const textarea = document.getElementById('messageInput');
+        const counter = document.getElementById('charCounter');
+
+        if (textarea && counter) {
+            textarea.addEventListener('input', function() {
+                const count = this.value.length;
+                const max = this.maxLength;
+                counter.textContent = `${count}/${max}`;
+
+                if (count >= max) {
+                    counter.classList.add('error');
+                    counter.classList.remove('warning');
+                } else if (count >= max * 0.8) {
+                    counter.classList.add('warning');
+                    counter.classList.remove('error');
+                } else {
+                    counter.classList.remove('warning', 'error');
+                }
+            });
+        }
+    }
+
+    // --- Slider value display ---
+    function updateSliderValue(type) {
+        const slider = document.getElementById(`${type}Slider`);
+        const value = parseFloat(slider.value);
+        const display = document.getElementById(`${type}Value`);
+
+        if (type === 'volume') {
+            display.textContent = `${Math.round(value * 100)}%`;
+        } else {
+            display.textContent = `${value.toFixed(1)}x`;
+        }
+    }
+
+    // --- Delete modal handling ---
+    function showDeleteModal(messageId, messageText) {
+        document.getElementById('delete-message-id').value = messageId;
+        document.getElementById('delete-modal').classList.remove('hidden');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function hideDeleteModal() {
+        document.getElementById('delete-modal').classList.add('hidden');
+        document.body.style.overflow = '';
+    }
+
+    // --- Mode switching handler ---
+    function handleModeChange(mode) {
+        console.log('[TTS] Mode changed to:', mode);
+
+        const presetBar = document.getElementById('presetBarContainer');
+        const styleSelector = document.getElementById('styleSelectorContainer');
+        const emphasisToolbar = document.getElementById('emphasisToolbarContainer');
+        const ssmlPreview = document.getElementById('ssmlPreviewContainer');
+
+        if (mode === 'simple') {
+            presetBar?.classList.add('hidden');
+            styleSelector?.classList.add('hidden');
+            emphasisToolbar?.classList.add('hidden');
+            ssmlPreview?.classList.add('hidden');
+        } else if (mode === 'standard') {
+            presetBar?.classList.remove('hidden');
+            styleSelector?.classList.remove('hidden');
+            emphasisToolbar?.classList.add('hidden');
+            ssmlPreview?.classList.add('hidden');
+        } else if (mode === 'pro') {
+            presetBar?.classList.remove('hidden');
+            styleSelector?.classList.remove('hidden');
+            emphasisToolbar?.classList.remove('hidden');
+            ssmlPreview?.classList.remove('hidden');
+        }
+    }
+
+    // --- Preset application handler ---
+    function handlePresetApply(presetData) {
+        console.log('[TTS] Applying preset:', presetData);
+
+        const voiceSelect = document.getElementById('voiceSelect');
+        if (voiceSelect && presetData.voice) {
+            voiceSelect.value = presetData.voice;
+        }
+
+        const styleSelect = document.getElementById('styleSelector-select');
+        if (styleSelect) {
+            styleSelect.value = presetData.style || '';
+            styleSelector_onStyleChange('styleSelector');
+        }
+
+        document.getElementById('hiddenStyle').value = presetData.style || '';
+
+        const speedSlider = document.getElementById('speedSlider');
+        if (speedSlider && presetData.speed) {
+            speedSlider.value = presetData.speed;
+            updateSliderValue('speed');
+        }
+
+        const pitchSlider = document.getElementById('pitchSlider');
+        if (pitchSlider && presetData.pitch) {
+            pitchSlider.value = presetData.pitch;
+            updateSliderValue('pitch');
+        }
+
+        if (window.showToast) {
+            showToast(`Applied "${presetData.name}" preset`, 'success');
+        }
+    }
+
+    // --- Style change handler ---
+    function handleStyleChange(style) {
+        console.log('[TTS] Style changed to:', style);
+        document.getElementById('hiddenStyle').value = style || '';
+    }
+
+    // --- Intensity change handler ---
+    function handleIntensityChange(intensity) {
+        console.log('[TTS] Intensity changed to:', intensity);
+        document.getElementById('hiddenStyleIntensity').value = intensity;
+    }
+
+    // --- Format change handler (Pro mode) ---
+    function handleFormatChange(formattedText) {
+        console.log('[TTS] Format changed:', formattedText);
+    }
+
+    // --- SSML copy handler (Pro mode) ---
+    function handleSsmlCopy() {
+        console.log('[TTS] SSML copied to clipboard');
+        if (window.showToast) {
+            showToast('SSML copied to clipboard', 'success');
+        }
+    }
+
+    // --- Initialization ---
+    function initializePage() {
+        initCharacterCounter();
+
+        // Escape key to close modal
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                hideDeleteModal();
+            }
+        });
+
+        // Initialize SignalR connection for real-time updates
+        (async function initializeRealtime() {
+            try {
+                await DashboardHub.connect();
+                console.log('[TTS] SignalR connected');
+            } catch (error) {
+                console.error('[TTS] Failed to connect SignalR:', error);
+            }
+        })();
+
+        // Initialize mode on page load
+        requestAnimationFrame(() => {
+            const savedMode = localStorage.getItem('tts_mode_preference') || 'standard';
+            handleModeChange(savedMode);
+        });
+    }
+
+    // Run initialization when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initializePage);
+    } else {
+        initializePage();
+    }
+
     // Expose public API
     window.ttsPage = {
         sendMessage,
         updateSettings,
         deleteMessage
     };
+
+    // Expose functions called from HTML attributes and component callbacks
+    window.updateSliderValue = updateSliderValue;
+    window.showDeleteModal = showDeleteModal;
+    window.hideDeleteModal = hideDeleteModal;
+    window.handleModeChange = handleModeChange;
+    window.handlePresetApply = handlePresetApply;
+    window.handleStyleChange = handleStyleChange;
+    window.handleIntensityChange = handleIntensityChange;
+    window.handleFormatChange = handleFormatChange;
+    window.handleSsmlCopy = handleSsmlCopy;
 })();

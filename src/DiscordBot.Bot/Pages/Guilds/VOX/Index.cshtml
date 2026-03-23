@@ -5,6 +5,13 @@
 @{
     ViewData["Title"] = $"VOX - {Model.GuildName}";
     Layout = "_GuildLayout";
+
+    var groupDescriptions = new Dictionary<VoxClipGroup, string>
+    {
+        { VoxClipGroup.Vox, "Standard VOX clips (scientist voice)" },
+        { VoxClipGroup.Fvox, "Female VOX clips (female scientist voice)" },
+        { VoxClipGroup.Hgrunt, "Human Grunt clips (military voice)" }
+    };
 }
 
 <!-- Audio Tabs Navigation -->
@@ -175,6 +182,7 @@
                     <div>
                         <p class="text-text-secondary text-sm mb-1">@groupName</p>
                         <p class="text-3xl font-bold text-text-primary">@count</p>
+                        <p class="text-xs text-text-tertiary mt-1">@groupDescriptions[group]</p>
                     </div>
                     <div class="w-10 h-10 @bgClass rounded-lg flex items-center justify-center @textClass">
                         <svg class="w-6 h-6" fill="currentColor" viewBox="0 0 24 24">
@@ -201,6 +209,7 @@
                     var groupName = group.ToString().ToUpperInvariant();
                     var isActive = Model.GroupFilter.Equals(group.ToString(), StringComparison.OrdinalIgnoreCase);
                     <a href="?guildId=@Model.GuildId&groupFilter=@group&searchQuery=@Model.SearchQuery&pageNumber=1"
+                       title="@groupDescriptions[group]"
                        class="px-4 py-2 rounded-full text-sm font-medium transition-colors @(isActive ? "bg-accent-blue text-white" : "bg-bg-tertiary text-text-secondary hover:bg-bg-hover")">
                         @groupName
                     </a>
@@ -266,7 +275,8 @@
 
                             <tr class="hover:bg-bg-hover transition-colors">
                                 <td class="px-6 py-4">
-                                    <span class="text-sm font-medium text-text-primary">@clip.Name</span>
+                                    <span class="text-sm font-medium text-text-primary"
+                                          title="@clip.Group.ToString().ToUpperInvariant(): @groupDescriptions[clip.Group]&#10;Duration: @clip.DurationSeconds.ToString("F2")s&#10;Size: @FormatFileSize(clip.FileSizeBytes)">@clip.Name</span>
                                 </td>
                                 <td class="px-6 py-4">
                                     <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @groupBadgeColor">
