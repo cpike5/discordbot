@@ -91,206 +91,218 @@ public class UserPurgeService : IUserPurgeService
 
             activity?.SetTag("purge.user_found", true);
 
-            // Begin transaction
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
-
-            try
+            // Use execution strategy to support retrying strategies (e.g. NpgsqlRetryingExecutionStrategy)
+            var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
+            var (deletedCounts, correlationId, errorResult) = await executionStrategy.ExecuteAsync(async ct =>
             {
-                var deletedCounts = new Dictionary<string, int>();
-                var correlationId = Guid.NewGuid().ToString();
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
 
-                // 1. MessageLogs (AuthorId = discordUserId)
-                var messageLogs = await _dbContext.MessageLogs
-                    .Where(m => m.AuthorId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["MessageLogs"] = messageLogs;
-
-                // 2. CommandLogs (UserId = discordUserId)
-                var commandLogs = await _dbContext.CommandLogs
-                    .Where(c => c.UserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["CommandLogs"] = commandLogs;
-
-                // 3. RatVotes (VoterUserId = discordUserId)
-                var ratVotes = await _dbContext.RatVotes
-                    .Where(v => v.VoterUserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["RatVotes"] = ratVotes;
-
-                // 4. RatRecords - ANONYMIZE instead of delete (set UserId to 0)
-                var ratRecords = await _dbContext.RatRecords
-                    .Where(r => r.UserId == discordUserId)
-                    .ExecuteUpdateAsync(
-                        setters => setters.SetProperty(r => r.UserId, (ulong)0),
-                        cancellationToken);
-                deletedCounts["RatRecords_Anonymized"] = ratRecords;
-
-                // 5. RatWatches - ANONYMIZE instead of delete (set AccusedUserId and InitiatorUserId to 0)
-                var ratWatchesAccused = await _dbContext.RatWatches
-                    .Where(w => w.AccusedUserId == discordUserId)
-                    .ExecuteUpdateAsync(
-                        setters => setters.SetProperty(w => w.AccusedUserId, (ulong)0),
-                        cancellationToken);
-
-                var ratWatchesInitiator = await _dbContext.RatWatches
-                    .Where(w => w.InitiatorUserId == discordUserId)
-                    .ExecuteUpdateAsync(
-                        setters => setters.SetProperty(w => w.InitiatorUserId, (ulong)0),
-                        cancellationToken);
-                deletedCounts["RatWatches_Anonymized"] = ratWatchesAccused + ratWatchesInitiator;
-
-                // 6. Reminders (UserId = discordUserId)
-                var reminders = await _dbContext.Reminders
-                    .Where(r => r.UserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["Reminders"] = reminders;
-
-                // 7. ModNotes (AuthorUserId = discordUserId)
-                var modNotes = await _dbContext.ModNotes
-                    .Where(n => n.AuthorUserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["ModNotes"] = modNotes;
-
-                // 8. UserModTags (UserId = discordUserId)
-                var userModTags = await _dbContext.UserModTags
-                    .Where(t => t.UserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["UserModTags"] = userModTags;
-
-                // 9. Watchlists (UserId = discordUserId)
-                var watchlists = await _dbContext.Watchlists
-                    .Where(w => w.UserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["Watchlists"] = watchlists;
-
-                // 10. SoundPlayLogs (UserId = discordUserId)
-                var soundPlayLogs = await _dbContext.SoundPlayLogs
-                    .Where(s => s.UserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["SoundPlayLogs"] = soundPlayLogs;
-
-                // 11. TtsMessages (UserId = discordUserId)
-                var ttsMessages = await _dbContext.TtsMessages
-                    .Where(t => t.UserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["TtsMessages"] = ttsMessages;
-
-                // 12. GuildMembers (UserId = discordUserId)
-                var guildMembers = await _dbContext.GuildMembers
-                    .Where(g => g.UserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["GuildMembers"] = guildMembers;
-
-                // 13. UserConsents (DiscordUserId = discordUserId)
-                var userConsents = await _dbContext.UserConsents
-                    .Where(c => c.DiscordUserId == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["UserConsents"] = userConsents;
-
-                // 14. Users (the User entity itself)
-                var users = await _dbContext.Users
-                    .Where(u => u.Id == discordUserId)
-                    .ExecuteDeleteAsync(cancellationToken);
-                deletedCounts["Users"] = users;
-
-                // 15. ApplicationUser (if linked via DiscordUserId)
-                var applicationUser = await _userManager.Users
-                    .FirstOrDefaultAsync(u => u.DiscordUserId == discordUserId, cancellationToken);
-
-                if (applicationUser != null)
-                {
-                    // Delete associated records first
-                    var userGuildAccess = await _dbContext.UserGuildAccess
-                        .Where(uga => uga.ApplicationUserId == applicationUser.Id)
-                        .ExecuteDeleteAsync(cancellationToken);
-                    deletedCounts["UserGuildAccess"] = userGuildAccess;
-
-                    var userDiscordGuilds = await _dbContext.UserDiscordGuilds
-                        .Where(udg => udg.ApplicationUserId == applicationUser.Id)
-                        .ExecuteDeleteAsync(cancellationToken);
-                    deletedCounts["UserDiscordGuilds"] = userDiscordGuilds;
-
-                    var discordOAuthTokens = await _dbContext.DiscordOAuthTokens
-                        .Where(t => t.ApplicationUserId == applicationUser.Id)
-                        .ExecuteDeleteAsync(cancellationToken);
-                    deletedCounts["DiscordOAuthTokens"] = discordOAuthTokens;
-
-                    // Delete the ApplicationUser via UserManager (handles roles, claims, etc.)
-                    var result = await _userManager.DeleteAsync(applicationUser);
-                    if (result.Succeeded)
-                    {
-                        deletedCounts["ApplicationUser"] = 1;
-                    }
-                    else
-                    {
-                        _logger.LogError(
-                            "Failed to delete ApplicationUser for Discord user {DiscordUserId}: {Errors}",
-                            discordUserId, string.Join(", ", result.Errors.Select(e => e.Description)));
-                    }
-                }
-
-                // Commit transaction
-                await transaction.CommitAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "Successfully purged data for Discord user {DiscordUserId}. Deleted counts: {DeletedCounts}",
-                    discordUserId, System.Text.Json.JsonSerializer.Serialize(deletedCounts));
-
-                // Invalidate all cached data for the user
-                InvalidateUserCaches(discordUserId);
-
-                // Create audit log entry (anonymized - no PII)
                 try
                 {
-                    var initiatorIdForAudit = initiator switch
-                    {
-                        PurgeInitiator.User => "[PURGED]",
-                        PurgeInitiator.Admin => initiatorId ?? "Unknown",
-                        PurgeInitiator.System => "System",
-                        _ => "Unknown"
-                    };
+                    var counts = new Dictionary<string, int>();
+                    var corrId = Guid.NewGuid().ToString();
 
-                    _auditLogService.CreateBuilder()
-                        .ForCategory(AuditLogCategory.User)
-                        .WithAction(AuditLogAction.UserDataPurged)
-                        .ByUser(initiatorIdForAudit)
-                        .OnTarget("User", "[PURGED]") // Don't store the Discord user ID
-                        .WithDetails(new
+                    // 1. MessageLogs (AuthorId = discordUserId)
+                    var messageLogs = await _dbContext.MessageLogs
+                        .Where(m => m.AuthorId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["MessageLogs"] = messageLogs;
+
+                    // 2. CommandLogs (UserId = discordUserId)
+                    var commandLogs = await _dbContext.CommandLogs
+                        .Where(c => c.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["CommandLogs"] = commandLogs;
+
+                    // 3. RatVotes (VoterUserId = discordUserId)
+                    var ratVotes = await _dbContext.RatVotes
+                        .Where(v => v.VoterUserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["RatVotes"] = ratVotes;
+
+                    // 4. RatRecords - ANONYMIZE instead of delete (set UserId to 0)
+                    var ratRecords = await _dbContext.RatRecords
+                        .Where(r => r.UserId == discordUserId)
+                        .ExecuteUpdateAsync(
+                            setters => setters.SetProperty(r => r.UserId, (ulong)0),
+                            ct);
+                    counts["RatRecords_Anonymized"] = ratRecords;
+
+                    // 5. RatWatches - ANONYMIZE instead of delete (set AccusedUserId and InitiatorUserId to 0)
+                    var ratWatchesAccused = await _dbContext.RatWatches
+                        .Where(w => w.AccusedUserId == discordUserId)
+                        .ExecuteUpdateAsync(
+                            setters => setters.SetProperty(w => w.AccusedUserId, (ulong)0),
+                            ct);
+
+                    var ratWatchesInitiator = await _dbContext.RatWatches
+                        .Where(w => w.InitiatorUserId == discordUserId)
+                        .ExecuteUpdateAsync(
+                            setters => setters.SetProperty(w => w.InitiatorUserId, (ulong)0),
+                            ct);
+                    counts["RatWatches_Anonymized"] = ratWatchesAccused + ratWatchesInitiator;
+
+                    // 6. Reminders (UserId = discordUserId)
+                    var reminders = await _dbContext.Reminders
+                        .Where(r => r.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["Reminders"] = reminders;
+
+                    // 7. ModNotes (AuthorUserId = discordUserId)
+                    var modNotes = await _dbContext.ModNotes
+                        .Where(n => n.AuthorUserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["ModNotes"] = modNotes;
+
+                    // 8. UserModTags (UserId = discordUserId)
+                    var userModTags = await _dbContext.UserModTags
+                        .Where(t => t.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["UserModTags"] = userModTags;
+
+                    // 9. Watchlists (UserId = discordUserId)
+                    var watchlists = await _dbContext.Watchlists
+                        .Where(w => w.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["Watchlists"] = watchlists;
+
+                    // 10. SoundPlayLogs (UserId = discordUserId)
+                    var soundPlayLogs = await _dbContext.SoundPlayLogs
+                        .Where(s => s.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["SoundPlayLogs"] = soundPlayLogs;
+
+                    // 11. TtsMessages (UserId = discordUserId)
+                    var ttsMessages = await _dbContext.TtsMessages
+                        .Where(t => t.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["TtsMessages"] = ttsMessages;
+
+                    // 12. GuildMembers (UserId = discordUserId)
+                    var guildMembers = await _dbContext.GuildMembers
+                        .Where(g => g.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["GuildMembers"] = guildMembers;
+
+                    // 13. UserConsents (DiscordUserId = discordUserId)
+                    var userConsents = await _dbContext.UserConsents
+                        .Where(c => c.DiscordUserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["UserConsents"] = userConsents;
+
+                    // 14. Users (the User entity itself)
+                    var users = await _dbContext.Users
+                        .Where(u => u.Id == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["Users"] = users;
+
+                    // 15. ApplicationUser (if linked via DiscordUserId)
+                    var applicationUser = await _userManager.Users
+                        .FirstOrDefaultAsync(u => u.DiscordUserId == discordUserId, ct);
+
+                    if (applicationUser != null)
+                    {
+                        // Delete associated records first
+                        var userGuildAccess = await _dbContext.UserGuildAccess
+                            .Where(uga => uga.ApplicationUserId == applicationUser.Id)
+                            .ExecuteDeleteAsync(ct);
+                        counts["UserGuildAccess"] = userGuildAccess;
+
+                        var userDiscordGuilds = await _dbContext.UserDiscordGuilds
+                            .Where(udg => udg.ApplicationUserId == applicationUser.Id)
+                            .ExecuteDeleteAsync(ct);
+                        counts["UserDiscordGuilds"] = userDiscordGuilds;
+
+                        var discordOAuthTokens = await _dbContext.DiscordOAuthTokens
+                            .Where(t => t.ApplicationUserId == applicationUser.Id)
+                            .ExecuteDeleteAsync(ct);
+                        counts["DiscordOAuthTokens"] = discordOAuthTokens;
+
+                        // Delete the ApplicationUser via UserManager (handles roles, claims, etc.)
+                        var result = await _userManager.DeleteAsync(applicationUser);
+                        if (result.Succeeded)
                         {
-                            initiator = initiator.ToString(),
-                            deletedCounts,
-                            timestamp = DateTime.UtcNow
-                        })
-                        .WithCorrelationId(correlationId)
-                        .Enqueue();
+                            counts["ApplicationUser"] = 1;
+                        }
+                        else
+                        {
+                            _logger.LogError(
+                                "Failed to delete ApplicationUser for Discord user {DiscordUserId}: {Errors}",
+                                discordUserId, string.Join(", ", result.Errors.Select(e => e.Description)));
+                        }
+                    }
+
+                    // Commit transaction
+                    await transaction.CommitAsync(ct);
+
+                    return (counts, corrId, (UserPurgeResultDto?)null);
                 }
                 catch (Exception ex)
                 {
+                    await transaction.RollbackAsync(ct);
+
                     _logger.LogError(ex,
-                        "Failed to create audit log entry for user data purge (Discord user already purged)");
+                        "Transaction failed while purging data for Discord user {DiscordUserId}",
+                        discordUserId);
+
+                    activity?.SetTag("purge.success", false);
+                    BotActivitySource.RecordException(activity, ex);
+
+                    return (new Dictionary<string, int>(), string.Empty,
+                        (UserPurgeResultDto?)UserPurgeResultDto.Failed(
+                            UserPurgeResultDto.TransactionFailed,
+                            "Failed to purge user data: " + ex.Message));
                 }
+            }, cancellationToken);
 
-                activity?.SetTag("purge.success", true);
-                activity?.SetTag("purge.total_deleted", deletedCounts.Values.Sum());
-                BotActivitySource.SetSuccess(activity);
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
 
-                return UserPurgeResultDto.Succeeded(deletedCounts, correlationId);
+            _logger.LogInformation(
+                "Successfully purged data for Discord user {DiscordUserId}. Deleted counts: {DeletedCounts}",
+                discordUserId, System.Text.Json.JsonSerializer.Serialize(deletedCounts));
+
+            // Invalidate all cached data for the user
+            InvalidateUserCaches(discordUserId);
+
+            // Create audit log entry (anonymized - no PII)
+            try
+            {
+                var initiatorIdForAudit = initiator switch
+                {
+                    PurgeInitiator.User => "[PURGED]",
+                    PurgeInitiator.Admin => initiatorId ?? "Unknown",
+                    PurgeInitiator.System => "System",
+                    _ => "Unknown"
+                };
+
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.User)
+                    .WithAction(AuditLogAction.UserDataPurged)
+                    .ByUser(initiatorIdForAudit)
+                    .OnTarget("User", "[PURGED]") // Don't store the Discord user ID
+                    .WithDetails(new
+                    {
+                        initiator = initiator.ToString(),
+                        deletedCounts,
+                        timestamp = DateTime.UtcNow
+                    })
+                    .WithCorrelationId(correlationId)
+                    .Enqueue();
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync(cancellationToken);
-
                 _logger.LogError(ex,
-                    "Transaction failed while purging data for Discord user {DiscordUserId}",
-                    discordUserId);
-
-                activity?.SetTag("purge.success", false);
-                BotActivitySource.RecordException(activity, ex);
-
-                return UserPurgeResultDto.Failed(
-                    UserPurgeResultDto.TransactionFailed,
-                    "Failed to purge user data: " + ex.Message);
+                    "Failed to create audit log entry for user data purge (Discord user already purged)");
             }
+
+            activity?.SetTag("purge.success", true);
+            activity?.SetTag("purge.total_deleted", deletedCounts.Values.Sum());
+            BotActivitySource.SetSuccess(activity);
+
+            return UserPurgeResultDto.Succeeded(deletedCounts, correlationId);
         }
         catch (Exception ex)
         {
