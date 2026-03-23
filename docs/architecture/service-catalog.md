@@ -342,6 +342,7 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `RatWatchToolProvider` | Bot/Services/LLM | RatWatch-specific tool provider for assistant |
 | `RatWatchTools` | Infrastructure/Services/LLM | Tool implementations for RatWatch queries |
 | `UserGuildInfoToolProvider` | Bot/Services/LLM | Tool provider exposing get_user_profile, get_guild_info, and get_user_roles tools; resolves data from Discord client and database |
+| `ClaudeCodeToolProvider` | Infrastructure/Services/LLM/Providers | DM tool provider for Mogwai — spawns the `claude` CLI as a subprocess, tracks per-user session IDs in memory, enforces concurrency guard; registers `run_claude_code` and `get_claude_code_status` tools |
 
 ---
 

@@ -1,7 +1,8 @@
 # DM Chat Assistant Requirements
 
-> **Status:** Draft
+> **Status:** Implemented (MVP + Claude Code extension)
 > **Created:** 2026-02-03
+> **Updated:** 2026-03-23
 > **Target Version:** v0.20.0
 
 ## Executive Summary
@@ -99,17 +100,17 @@ Maintain a sliding-window conversation history per user, stored in the database.
 | Feature | Description | Priority |
 |---------|-------------|----------|
 | Non-owner access | Restricted prompts for non-owner users | Medium |
-| MCP/Claude Code tooling | Dev tooling integration via MCP | High |
+| ~~MCP/Claude Code tooling~~ | **Implemented as Mogwai** — see [mogwai.md](../articles/mogwai.md) | Done |
 | Rate limiting | Per-user rate limits for non-owners | Low |
 | Per-user prompts | Customizable prompts per user | Low |
 
 ---
 
-## Out of Scope
+## Out of Scope (MVP)
 
 - **Rate limiting** — Deferred until non-owner access is implemented
 - **Production-to-dev communication** — Separate tooling phase
-- **Tool use** — Start with pure conversation, add tools later
+- **Tool use** — Deferred from MVP; implemented as part of Mogwai (see [mogwai.md](../articles/mogwai.md))
 
 ---
 
@@ -119,12 +120,13 @@ Maintain a sliding-window conversation history per user, stored in the database.
 
 | Component | Approach |
 |-----------|----------|
-| Service | New `IDmAssistantService` (separate from guild assistant) |
-| Handler | DM message handler in bot event handlers |
-| LLM | Reuse existing `ILlmClient` / `AnthropicLlmClient` |
-| Prompts | New prompt file(s) in `docs/agents/` |
-| Config | New `DmAssistant` section in appsettings |
-| Storage | New entities for DM interaction logs/metrics |
+| Service | `IDmAssistantService` / `DmAssistantService` (separate from guild assistant) |
+| Handler | `DmAssistantMessageHandler` — responds to Discord DM events; handles response chunking (split ≤2000-char chunks or `.md` file attachment for long responses) |
+| LLM | Reuses existing `ILlmClient` / `AnthropicLlmClient` |
+| Tool integration | `ClaudeCodeToolProvider` implements `IDmToolProvider`; registered as scoped DI — no changes to `AgentRunner` or `ToolRegistry` |
+| Prompts | `docs/agents/dm-owner-agent.md` — includes guidance on when to use Claude Code vs answer directly |
+| Config | `DmAssistant` section (base DM assistant) + `Mogwai` section (Claude Code extension) in appsettings |
+| Storage | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` entities; Claude Code session IDs are in-memory only (no DB entities) |
 
 ### Service Interface
 
@@ -260,3 +262,4 @@ Daily aggregated metrics, similar structure to `AssistantUsageMetrics` but for D
 |------|---------|---------|
 | 2026-02-03 | 0.1 | Initial draft from requirements gathering |
 | 2026-03-05 | 0.2 | Added conversation history (sliding window) to MVP scope |
+| 2026-03-23 | 0.3 | Updated status to Implemented; reflected Mogwai Claude Code extension (ClaudeCodeToolProvider, response chunking, MogwaiOptions); marked MCP/Claude Code future feature as Done |

@@ -54,6 +54,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 ### Bot Features
 - **Rat Watch** - Accountability system for tracking commitments with community voting and leaderboards ([docs](docs/articles/rat-watch.md))
 - **AI Assistant** - Claude-powered conversational assistant with tool usage, conversation history, and cost tracking ([docs](docs/articles/ai-assistant.md))
+- **Mogwai** - Claude Code CLI integration for coding tasks via DM — delegates to Claude Code running in Docker for file editing, debugging, and project analysis. Owner-only, runs as a separate bot instance ([docs](docs/articles/mogwai.md))
 - **Auto-Moderation** - Configurable content filtering with spam detection, flagged event management, and automated actions
 - **Scheduled Messages** - Automated announcements with flexible scheduling (one-time, recurring, cron expressions) ([docs](docs/articles/scheduled-messages.md))
 - **Welcome System** - Configurable welcome messages and automatic role assignment for new members ([docs](docs/articles/welcome-system.md))
@@ -208,6 +209,14 @@ docker compose up -d
 ```
 
 The admin UI will be available at `http://localhost:5000`. Optional profiles add PostgreSQL (`--profile postgres`) and Seq log viewer (`--profile seq`).
+
+**Mogwai (Claude Code bot):** Uses a separate compose file and a larger Docker image (~1.5–2 GB):
+
+```bash
+cp .env.mogwai.example .env.mogwai
+# Edit .env.mogwai — set Discord__Token (separate bot token), Anthropic__ApiKey, ANTHROPIC_API_KEY
+docker compose -f docker-compose.mogwai.yml up -d
+```
 
 See [Docker Deployment Guide](docs/articles/docker-deployment.md) for the full reference including database options, volume mounts, audio support, updating, and troubleshooting.
 
@@ -553,6 +562,21 @@ dotnet user-secrets set "Anthropic:DefaultModel" "claude-sonnet-4-20250514"  # O
 - Requires user consent: `/consent grant type:assistant`
 - See [ai-assistant.md](docs/articles/ai-assistant.md)
 
+#### Mogwai (Claude Code CLI via DM)
+```env
+# In .env.mogwai (Docker only — never use with the main bot)
+Discord__Token=your-mogwai-bot-token
+Anthropic__ApiKey=your-anthropic-api-key
+ANTHROPIC_API_KEY=your-anthropic-api-key
+```
+
+**Configuration:** `appsettings.json` → `Mogwai` section (set via Docker environment overrides)
+- `Mogwai__Enabled=true` — master toggle (disabled by default)
+- `Mogwai__WorkingDirectory=/workspace` — project directory inside container
+- `Mogwai__SkipPermissions=true` — enables `--dangerously-skip-permissions` (safe inside Docker)
+- `DmAssistant__Model=claude-haiku-4-5-20251001` — Haiku for fast/cheap triage
+- See [mogwai.md](docs/articles/mogwai.md)
+
 #### Text-to-Speech (Azure Cognitive Services)
 ```bash
 dotnet user-secrets set "AzureSpeech:SubscriptionKey" "your-azure-speech-key"
@@ -819,6 +843,7 @@ This project is for educational and development purposes.
 - [Interactive Components](docs/articles/interactive-components.md) - Button/component patterns
 
 ### Features
+- [Mogwai](docs/articles/mogwai.md) - Claude Code CLI integration for owner DM coding tasks
 - [Rat Watch](docs/articles/rat-watch.md) - Accountability system with voting and leaderboards
 - [Reminder System](docs/articles/reminder-system.md) - Personal reminders with natural language time parsing
 - [Utility Commands](docs/articles/utility-commands.md) - User/server/role information commands

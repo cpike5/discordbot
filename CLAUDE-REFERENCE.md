@@ -30,6 +30,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (passwords, lockout, cookies, default admin) |
 | `LogSanitizationOptions` | `LogSanitization` | Log sanitization patterns and sensitive key redaction |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup policies |
+| `MogwaiOptions` | `Mogwai` | Claude Code CLI integration for coding tasks via owner DM (disabled by default; used only by the Mogwai Docker instance) |
 | `ModerationOptions` | `Moderation` | Moderation system settings (temp bans, purge limits, case history) |
 | `NotificationOptions` | `Notification` | Admin notification event filters and deduplication |
 | `NotificationRetentionOptions` | `NotificationRetention` | Notification cleanup by status (dismissed, read, unread retention) |
@@ -260,6 +261,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [login-page-design-spec.md](docs/articles/login-page-design-spec.md) | Login page design |
 | [loki-production-setup.md](docs/articles/loki-production-setup.md) | Loki production setup |
 | [member-directory.md](docs/articles/member-directory.md) | Member Directory feature |
+| [mogwai.md](docs/articles/mogwai.md) | Mogwai — Claude Code CLI integration via DM (owner-only) |
 | [message-logging.md](docs/articles/message-logging.md) | Message logging system |
 | [metrics.md](docs/articles/metrics.md) | OpenTelemetry metrics collection |
 | [nav-tabs-component.md](docs/articles/nav-tabs-component.md) | Navigation Tabs component guide |
