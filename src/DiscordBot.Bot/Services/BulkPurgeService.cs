@@ -121,7 +121,7 @@ public class BulkPurgeService : IBulkPurgeService
             var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
             var correlationId = Guid.NewGuid().ToString();
 
-            var (deletedCount, errorResult) = await executionStrategy.ExecuteAsync(async ct =>
+            var deletedCount = await executionStrategy.ExecuteAsync(async ct =>
             {
                 await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
 
@@ -138,32 +138,14 @@ public class BulkPurgeService : IBulkPurgeService
 
                     await transaction.CommitAsync(ct);
 
-                    return (deleted, (BulkPurgeResultDto?)null);
+                    return deleted;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     await transaction.RollbackAsync(ct);
-
-                    _logger.LogError(ex,
-                        "Transaction failed while bulk purging {EntityType}",
-                        criteria.EntityType);
-
-                    // Broadcast failure
-                    await BroadcastProgressAsync(criteria.EntityType, 0, totalCount, true, $"Purge failed: {ex.Message}");
-
-                    activity?.SetTag("purge.success", false);
-                    BotActivitySource.RecordException(activity, ex);
-
-                    return (0, (BulkPurgeResultDto?)BulkPurgeResultDto.Failed(
-                        BulkPurgeResultDto.TransactionFailed,
-                        $"Failed to purge: {ex.Message}"));
+                    throw; // Let execution strategy evaluate for retry
                 }
             }, cancellationToken);
-
-            if (errorResult != null)
-            {
-                return errorResult;
-            }
 
             _logger.LogInformation(
                 "Successfully purged {DeletedCount} {EntityType} records",
@@ -206,14 +188,18 @@ public class BulkPurgeService : IBulkPurgeService
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Unexpected error while bulk purging {EntityType}",
+                "Failed while bulk purging {EntityType}",
                 criteria.EntityType);
 
+            // Broadcast failure
+            await BroadcastProgressAsync(criteria.EntityType, 0, totalCount, true, $"Purge failed: {ex.Message}");
+
+            activity?.SetTag("purge.success", false);
             BotActivitySource.RecordException(activity, ex);
 
             return BulkPurgeResultDto.Failed(
-                BulkPurgeResultDto.DatabaseError,
-                "An unexpected error occurred while purging data.");
+                BulkPurgeResultDto.TransactionFailed,
+                $"Failed to purge: {ex.Message}");
         }
     }
 
