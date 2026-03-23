@@ -2493,6 +2493,47 @@ else
                 }
             }, 3000);
         }
+
+        // ========================================
+        // Keyboard Shortcuts
+        // ========================================
+        (function () {
+            if (typeof KeyboardShortcuts === 'undefined') return;
+
+            // 1-9: Quick-play first 9 favorites
+            for (var n = 1; n <= 9; n++) {
+                (function (index) {
+                    KeyboardShortcuts.register(String(index), 'Play favorite #' + index, function () {
+                        var favCards = [];
+                        var allCards = document.querySelectorAll('#soundGrid .sound-card');
+                        allCards.forEach(function (card) {
+                            var favBtn = card.querySelector('.favorite-btn');
+                            if (favBtn && favBtn.classList.contains('active')) {
+                                favCards.push(card);
+                            }
+                        });
+                        if (favCards.length >= index) {
+                            var card = favCards[index - 1];
+                            var soundId = card.dataset.soundId;
+                            var soundName = card.dataset.soundName;
+                            if (soundId && typeof playSound === 'function') {
+                                playSound(soundId, soundName);
+                            }
+                        }
+                    }, { category: 'Soundboard' });
+                })(n);
+            }
+
+            // /: Focus search input
+            KeyboardShortcuts.register('/', 'Focus search input', function () {
+                var input = document.getElementById('searchInput');
+                if (input) {
+                    input.focus();
+                }
+            }, { category: 'Soundboard' });
+
+            KeyboardShortcuts.init();
+        })();
     </script>
 }
 }

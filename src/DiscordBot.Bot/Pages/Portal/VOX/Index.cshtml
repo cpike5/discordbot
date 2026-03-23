@@ -2269,6 +2269,30 @@
             }
         }
     </script>
+    <script>
+        // ========================================
+        // Keyboard Shortcuts (VOX)
+        // ========================================
+        (function () {
+            if (typeof KeyboardShortcuts === 'undefined') return;
+
+            // Ctrl+Enter: Play VOX message
+            KeyboardShortcuts.register('Enter', 'Play VOX message', function () {
+                if (typeof voxEls !== 'undefined' && voxEls.playBtn && !voxEls.playBtn.disabled) {
+                    voxEls.playBtn.click();
+                }
+            }, { ctrlKey: true, category: 'VOX' });
+
+            // /: Focus message input
+            KeyboardShortcuts.register('/', 'Focus message input', function () {
+                if (typeof voxEls !== 'undefined' && voxEls.messageInput) {
+                    voxEls.messageInput.focus();
+                }
+            }, { category: 'VOX' });
+
+            KeyboardShortcuts.init();
+        })();
+    </script>
 }
 
 @if (!Model.IsAuthenticated)

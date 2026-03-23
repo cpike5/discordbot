@@ -892,5 +892,31 @@ else
     </script>
     <script src="~/js/ssml-markers.js" asp-append-version="true"></script>
     <script src="~/js/portal-tts.js" asp-append-version="true"></script>
+    <script>
+        // ========================================
+        // Keyboard Shortcuts (TTS)
+        // ========================================
+        (function () {
+            if (typeof KeyboardShortcuts === 'undefined') return;
+
+            // Ctrl+Enter: Send TTS message
+            KeyboardShortcuts.register('Enter', 'Send TTS message', function () {
+                var sendBtn = document.getElementById('sendBtn');
+                if (sendBtn && !sendBtn.disabled) {
+                    sendBtn.click();
+                }
+            }, { ctrlKey: true, category: 'Text-to-Speech' });
+
+            // /: Focus message input
+            KeyboardShortcuts.register('/', 'Focus message input', function () {
+                var input = document.getElementById('ttsMessage');
+                if (input) {
+                    input.focus();
+                }
+            }, { category: 'Text-to-Speech' });
+
+            KeyboardShortcuts.init();
+        })();
+    </script>
 }
 }
