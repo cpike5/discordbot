@@ -117,79 +117,91 @@ public class BulkPurgeService : IBulkPurgeService
             // Broadcast initial progress
             await BroadcastProgressAsync(criteria.EntityType, 0, totalCount, false, "Starting purge...");
 
-            // Begin transaction
-            await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
+            // Use execution strategy to support retrying strategies (e.g. NpgsqlRetryingExecutionStrategy)
+            var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
             var correlationId = Guid.NewGuid().ToString();
 
-            try
+            var (deletedCount, errorResult) = await executionStrategy.ExecuteAsync(async ct =>
             {
-                var deletedCount = criteria.EntityType switch
-                {
-                    BulkPurgeEntityType.Messages => await DeleteMessagesAsync(criteria, totalCount, cancellationToken),
-                    BulkPurgeEntityType.AuditLogs => await DeleteAuditLogsAsync(criteria, totalCount, cancellationToken),
-                    BulkPurgeEntityType.CommandLogs => await DeleteCommandLogsAsync(criteria, totalCount, cancellationToken),
-                    BulkPurgeEntityType.ModerationCases => await DeleteModerationCasesAsync(criteria, totalCount, cancellationToken),
-                    _ => throw new ArgumentOutOfRangeException(nameof(criteria.EntityType))
-                };
+                await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
 
-                await transaction.CommitAsync(cancellationToken);
-
-                _logger.LogInformation(
-                    "Successfully purged {DeletedCount} {EntityType} records",
-                    deletedCount, criteria.EntityType);
-
-                // Broadcast completion
-                await BroadcastProgressAsync(criteria.EntityType, deletedCount, totalCount, true, "Purge complete.");
-
-                // Create audit log entry
                 try
                 {
-                    _auditLogService.CreateBuilder()
-                        .ForCategory(AuditLogCategory.System)
-                        .WithAction(AuditLogAction.BulkDataPurged)
-                        .ByUser(adminUserId)
-                        .OnTarget(criteria.EntityType.ToString(), $"{deletedCount} records")
-                        .InGuild(criteria.GuildId ?? 0)
-                        .WithDetails(new
-                        {
-                            entityType = criteria.EntityType.ToString(),
-                            dateRange = criteria.GetDateRangeDescription(),
-                            guildId = criteria.GuildId,
-                            deletedCount,
-                            timestamp = DateTime.UtcNow
-                        })
-                        .WithCorrelationId(correlationId)
-                        .Enqueue();
+                    var deleted = criteria.EntityType switch
+                    {
+                        BulkPurgeEntityType.Messages => await DeleteMessagesAsync(criteria, totalCount, ct),
+                        BulkPurgeEntityType.AuditLogs => await DeleteAuditLogsAsync(criteria, totalCount, ct),
+                        BulkPurgeEntityType.CommandLogs => await DeleteCommandLogsAsync(criteria, totalCount, ct),
+                        BulkPurgeEntityType.ModerationCases => await DeleteModerationCasesAsync(criteria, totalCount, ct),
+                        _ => throw new ArgumentOutOfRangeException(nameof(criteria.EntityType))
+                    };
+
+                    await transaction.CommitAsync(ct);
+
+                    return (deleted, (BulkPurgeResultDto?)null);
                 }
                 catch (Exception ex)
                 {
-                    _logger.LogError(ex, "Failed to create audit log entry for bulk purge");
+                    await transaction.RollbackAsync(ct);
+
+                    _logger.LogError(ex,
+                        "Transaction failed while bulk purging {EntityType}",
+                        criteria.EntityType);
+
+                    // Broadcast failure
+                    await BroadcastProgressAsync(criteria.EntityType, 0, totalCount, true, $"Purge failed: {ex.Message}");
+
+                    activity?.SetTag("purge.success", false);
+                    BotActivitySource.RecordException(activity, ex);
+
+                    return (0, (BulkPurgeResultDto?)BulkPurgeResultDto.Failed(
+                        BulkPurgeResultDto.TransactionFailed,
+                        $"Failed to purge: {ex.Message}"));
                 }
+            }, cancellationToken);
 
-                activity?.SetTag("purge.success", true);
-                activity?.SetTag("purge.deleted_count", deletedCount);
-                BotActivitySource.SetSuccess(activity);
+            if (errorResult != null)
+            {
+                return errorResult;
+            }
 
-                return BulkPurgeResultDto.Succeeded(criteria.EntityType, deletedCount, correlationId);
+            _logger.LogInformation(
+                "Successfully purged {DeletedCount} {EntityType} records",
+                deletedCount, criteria.EntityType);
+
+            // Broadcast completion
+            await BroadcastProgressAsync(criteria.EntityType, deletedCount, totalCount, true, "Purge complete.");
+
+            // Create audit log entry
+            try
+            {
+                _auditLogService.CreateBuilder()
+                    .ForCategory(AuditLogCategory.System)
+                    .WithAction(AuditLogAction.BulkDataPurged)
+                    .ByUser(adminUserId)
+                    .OnTarget(criteria.EntityType.ToString(), $"{deletedCount} records")
+                    .InGuild(criteria.GuildId ?? 0)
+                    .WithDetails(new
+                    {
+                        entityType = criteria.EntityType.ToString(),
+                        dateRange = criteria.GetDateRangeDescription(),
+                        guildId = criteria.GuildId,
+                        deletedCount,
+                        timestamp = DateTime.UtcNow
+                    })
+                    .WithCorrelationId(correlationId)
+                    .Enqueue();
             }
             catch (Exception ex)
             {
-                await transaction.RollbackAsync(cancellationToken);
-
-                _logger.LogError(ex,
-                    "Transaction failed while bulk purging {EntityType}",
-                    criteria.EntityType);
-
-                // Broadcast failure
-                await BroadcastProgressAsync(criteria.EntityType, 0, totalCount, true, $"Purge failed: {ex.Message}");
-
-                activity?.SetTag("purge.success", false);
-                BotActivitySource.RecordException(activity, ex);
-
-                return BulkPurgeResultDto.Failed(
-                    BulkPurgeResultDto.TransactionFailed,
-                    $"Failed to purge: {ex.Message}");
+                _logger.LogError(ex, "Failed to create audit log entry for bulk purge");
             }
+
+            activity?.SetTag("purge.success", true);
+            activity?.SetTag("purge.deleted_count", deletedCount);
+            BotActivitySource.SetSuccess(activity);
+
+            return BulkPurgeResultDto.Succeeded(criteria.EntityType, deletedCount, correlationId);
         }
         catch (Exception ex)
         {
