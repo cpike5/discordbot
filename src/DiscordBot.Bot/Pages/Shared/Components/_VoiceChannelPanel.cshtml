@@ -82,9 +82,13 @@
             height: 0.875rem;
         }
 
-        /* Only hide Queue in compact mode; Now Playing controlled by ShowNowPlaying */
+        /* Compact queue styling (smaller font, less padding) */
         #voice-channel-panel.voice-panel-compact .voice-queue-section {
-            display: none;
+            padding: 0.5rem 0.75rem;
+        }
+
+        #voice-channel-panel.voice-panel-compact .voice-queue-section .space-y-2 > li {
+            padding: 0.25rem 0.375rem;
         }
 
         #voice-channel-panel.voice-panel-compact h4 {
