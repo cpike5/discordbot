@@ -143,9 +143,21 @@ public record TabItemViewModel
     public TabBadgeVariant BadgeVariant { get; init; } = TabBadgeVariant.Default;
 
     /// <summary>
+    /// Optional subtitle displayed below the tab label for additional context.
+    /// Useful for describing features (e.g., "Play uploaded sounds" for Soundboard).
+    /// Hidden on mobile viewports to prevent layout breakage.
+    /// </summary>
+    public string? Subtitle { get; init; }
+
+    /// <summary>
     /// When true, this tab is disabled and cannot be selected.
     /// </summary>
     public bool Disabled { get; init; }
+
+    /// <summary>
+    /// Helper to check if this tab has a subtitle.
+    /// </summary>
+    public bool HasSubtitle => !string.IsNullOrEmpty(Subtitle);
 
     /// <summary>
     /// Helper to check if this tab has an icon.

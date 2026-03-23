@@ -138,6 +138,11 @@
             <span>@tab.Label</span>
         }
 
+        if (tab.HasSubtitle)
+        {
+            <span class="tab-subtitle">@tab.Subtitle</span>
+        }
+
         if (tab.HasBadge)
         {
             <span class="@GetBadgeClass(tab.BadgeVariant)">@tab.BadgeCount</span>
