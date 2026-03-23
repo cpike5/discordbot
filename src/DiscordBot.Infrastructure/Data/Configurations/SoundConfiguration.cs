@@ -61,5 +61,11 @@ public class SoundConfiguration : IEntityTypeConfiguration<Sound>
             .WithMany()
             .HasForeignKey(s => s.GuildId)
             .OnDelete(DeleteBehavior.Cascade);
+
+        // Relationship with SoundCategory (nullable FK, SetNull on delete)
+        builder.HasOne(s => s.Category)
+            .WithMany(c => c.Sounds)
+            .HasForeignKey(s => s.CategoryId)
+            .OnDelete(DeleteBehavior.SetNull);
     }
 }
