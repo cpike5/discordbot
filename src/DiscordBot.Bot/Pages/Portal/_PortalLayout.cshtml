@@ -25,6 +25,8 @@
 </head>
 <body class="portal-page bg-bg-primary text-text-primary font-sans antialiased">
     @RenderBody()
+    <!-- Unified User Preferences (localStorage + server sync) -->
+    <script src="~/js/user-preferences.js" asp-append-version="true"></script>
     <!-- Shared Toast Notification Manager -->
     <script src="~/js/toast.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)

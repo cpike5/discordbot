@@ -1069,14 +1069,23 @@ else
         window.guildId = '@Model.GuildId';
         window.currentUserId = '@Model.CurrentUserId';
 
+        // Initialize unified preferences with background server sync
+        if (window.UserPreferences) {
+            window.UserPreferences.init(window.guildId);
+        }
+
         // State
         let favorites = [];
         let currentlyPlaying = null;
         let searchDebounceTimer = null;
         let signalRConnected = false;
-        let isFullscreen = localStorage.getItem('soundboard_fullscreen_' + window.guildId) === 'true';
+        let isFullscreen = (window.UserPreferences
+            ? window.UserPreferences.get('soundboard_fullscreen')
+            : localStorage.getItem('soundboard_fullscreen_' + window.guildId)) === 'true';
         let fullscreenAutoHideTimer = null;
-        let currentSort = localStorage.getItem('portal:soundboard:sort:' + window.guildId) || 'name-asc';
+        let currentSort = (window.UserPreferences
+            ? window.UserPreferences.get('soundboard_sort')
+            : localStorage.getItem('portal:soundboard:sort:' + window.guildId)) || 'name-asc';
 
 
         // ========================================
@@ -1422,7 +1431,11 @@ else
             // Sort dropdown
             document.getElementById('sortSelect').addEventListener('change', function() {
                 currentSort = this.value;
-                localStorage.setItem('portal:soundboard:sort:' + window.guildId, currentSort);
+                if (window.UserPreferences) {
+                    window.UserPreferences.set('soundboard_sort', currentSort);
+                } else {
+                    localStorage.setItem('portal:soundboard:sort:' + window.guildId, currentSort);
+                }
                 sortSoundGrid();
             });
 
@@ -2146,7 +2159,11 @@ else
         function enterFullscreen() {
             isFullscreen = true;
             document.body.classList.add('portal-fullscreen');
-            localStorage.setItem('soundboard_fullscreen_' + window.guildId, 'true');
+            if (window.UserPreferences) {
+                window.UserPreferences.set('soundboard_fullscreen', 'true');
+            } else {
+                localStorage.setItem('soundboard_fullscreen_' + window.guildId, 'true');
+            }
 
             // Update toggle button label
             const toggle = document.getElementById('fullscreenToggle');
@@ -2171,7 +2188,11 @@ else
         function exitFullscreen() {
             isFullscreen = false;
             document.body.classList.remove('portal-fullscreen');
-            localStorage.setItem('soundboard_fullscreen_' + window.guildId, 'false');
+            if (window.UserPreferences) {
+                window.UserPreferences.set('soundboard_fullscreen', 'false');
+            } else {
+                localStorage.setItem('soundboard_fullscreen_' + window.guildId, 'false');
+            }
 
             // Update toggle button label
             const toggle = document.getElementById('fullscreenToggle');

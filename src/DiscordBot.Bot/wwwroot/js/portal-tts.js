@@ -63,6 +63,11 @@
             return;
         }
 
+        // Initialize unified preferences with background server sync
+        if (window.UserPreferences) {
+            window.UserPreferences.init(guildId);
+        }
+
         isInitializing = true;
         setupEventHandlers();
         loadSavedVoice();
@@ -144,7 +149,9 @@
     // ========================================
     function loadSavedVoice() {
         try {
-            const savedVoice = localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
+            var savedVoice = window.UserPreferences
+                ? window.UserPreferences.get(CONFIG.STORAGE_KEY_VOICE)
+                : localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
             if (savedVoice && window.voiceSelector_setValue) {
                 window.voiceSelector_setValue('portalVoiceSelector', savedVoice, true);
             }
@@ -156,7 +163,11 @@
     function saveSelectedVoice(voice) {
         try {
             if (voice) {
-                localStorage.setItem(CONFIG.STORAGE_KEY_VOICE, voice);
+                if (window.UserPreferences) {
+                    window.UserPreferences.set(CONFIG.STORAGE_KEY_VOICE, voice);
+                } else {
+                    localStorage.setItem(CONFIG.STORAGE_KEY_VOICE, voice);
+                }
             }
         } catch (error) {
             // Failed to save voice
@@ -168,7 +179,9 @@
     // ========================================
     function loadSavedMode() {
         try {
-            const savedMode = localStorage.getItem('tts_mode_preference');
+            var savedMode = window.UserPreferences
+                ? window.UserPreferences.get('tts_mode_preference')
+                : localStorage.getItem('tts_mode_preference');
             if (savedMode && ['simple', 'standard', 'pro'].includes(savedMode)) {
                 currentMode = savedMode;
             }
@@ -687,7 +700,13 @@
         }
 
         // Save mode change immediately
-        try { localStorage.setItem('tts_mode_preference', mode); } catch(e) {}
+        try {
+            if (window.UserPreferences) {
+                window.UserPreferences.set('tts_mode_preference', mode);
+            } else {
+                localStorage.setItem('tts_mode_preference', mode);
+            }
+        } catch(e) {}
         saveDraft();
     };
 
