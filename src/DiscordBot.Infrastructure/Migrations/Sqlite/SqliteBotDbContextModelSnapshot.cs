@@ -2065,6 +2065,9 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<int?>("CategoryId")
+                        .HasColumnType("INTEGER");
+
                     b.Property<double>("DurationSeconds")
                         .HasColumnType("REAL");
 
@@ -2097,12 +2100,48 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CategoryId");
+
                     b.HasIndex("GuildId");
 
                     b.HasIndex("GuildId", "Name")
                         .IsUnique();
 
                     b.ToTable("Sounds", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.SoundCategory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SortOrder")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId")
+                        .HasDatabaseName("IX_SoundCategories_GuildId");
+
+                    b.HasIndex("GuildId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_SoundCategories_GuildId_Name");
+
+                    b.ToTable("SoundCategories", (string)null);
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.SoundPlayLog", b =>
@@ -2226,6 +2265,61 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasDatabaseName("IX_TtsMessages_GuildId_UserId_CreatedAt");
 
                     b.ToTable("TtsMessages", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.TtsMessageHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsFavorite")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Pitch")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("PlayedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal>("Speed")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Style")
+                        .HasMaxLength(50)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("VoiceName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId");
+
+                    b.HasIndex("UserId", "GuildId", "IsFavorite")
+                        .HasDatabaseName("IX_TtsMessageHistory_UserId_GuildId_IsFavorite");
+
+                    b.HasIndex("UserId", "GuildId", "PlayedAt")
+                        .HasDatabaseName("IX_TtsMessageHistory_UserId_GuildId_PlayedAt");
+
+                    b.ToTable("TtsMessageHistory", (string)null);
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.User", b =>
@@ -3340,6 +3434,24 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
 
             modelBuilder.Entity("DiscordBot.Core.Entities.Sound", b =>
                 {
+                    b.HasOne("DiscordBot.Core.Entities.SoundCategory", "Category")
+                        .WithMany("Sounds")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Category");
+
+                    b.Navigation("Guild");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.SoundCategory", b =>
+                {
                     b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
                         .WithMany()
                         .HasForeignKey("GuildId")
@@ -3361,6 +3473,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.TtsMessage", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.TtsMessageHistory", b =>
                 {
                     b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
                         .WithMany()
@@ -3594,6 +3717,11 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("Record");
 
                     b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.SoundCategory", b =>
+                {
+                    b.Navigation("Sounds");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.Theme", b =>

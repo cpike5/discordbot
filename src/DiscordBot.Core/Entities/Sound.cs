@@ -52,6 +52,16 @@ public class Sound
     public int PlayCount { get; set; }
 
     /// <summary>
+    /// Optional category this sound belongs to. Null means uncategorized.
+    /// </summary>
+    public int? CategoryId { get; set; }
+
+    /// <summary>
+    /// Navigation property for the category this sound belongs to.
+    /// </summary>
+    public SoundCategory? Category { get; set; }
+
+    /// <summary>
     /// Navigation property for the guild this sound belongs to.
     /// </summary>
     public Guild? Guild { get; set; }

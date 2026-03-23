@@ -84,6 +84,7 @@ public class BulkPurgeService : IBulkPurgeService
             "bulkpurge",
             "execute_purge");
 
+        var totalCount = 0;
         try
         {
             activity?.SetTag("purge.entity_type", criteria.EntityType.ToString());
@@ -95,7 +96,7 @@ public class BulkPurgeService : IBulkPurgeService
                 criteria.EntityType, criteria.GetDateRangeDescription(), criteria.GuildId, adminUserId);
 
             // Get count first for progress tracking
-            var totalCount = criteria.EntityType switch
+            totalCount = criteria.EntityType switch
             {
                 BulkPurgeEntityType.Messages => await CountMessagesAsync(criteria, cancellationToken),
                 BulkPurgeEntityType.AuditLogs => await CountAuditLogsAsync(criteria, cancellationToken),

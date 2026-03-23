@@ -247,6 +247,15 @@
     border-radius: 0.25rem 0.25rem 0 0;
 }
 
+/* Portal tab subtitles */
+.tab-panel-portal .tab-subtitle {
+    display: block;
+    font-size: 0.65rem;
+    color: var(--color-text-tertiary);
+    font-weight: 400;
+    margin-top: 0.125rem;
+}
+
 /* Scroll indicators for portal variant */
 .tab-panel-portal::before {
     bottom: 2px;
@@ -274,6 +283,13 @@
 /* Long/short label switching for responsive design */
 .tab-panel-tab .tab-label-short {
     display: none;
+}
+
+/* Hide tab subtitles on mobile to prevent layout breakage */
+@media (max-width: 767px) {
+    .tab-panel-portal .tab-subtitle {
+        display: none;
+    }
 }
 
 /* Mobile: Maintain 44px touch targets while optimizing space */
