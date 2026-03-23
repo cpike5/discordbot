@@ -25,7 +25,11 @@
         voiceCapabilities: (voiceName) => `/api/portal/tts/voices/${voiceName}/capabilities`,
         validateSsml: () => `/api/portal/tts/validate-ssml`,
         buildSsml: () => `/api/portal/tts/build-ssml`,
-        customPresets: (guildId) => `/api/portal/tts/${guildId}/presets/custom`
+        customPresets: (guildId) => `/api/portal/tts/${guildId}/presets/custom`,
+        history: (guildId) => `/api/portal/tts/${guildId}/history`,
+        historyReplay: (guildId, id) => `/api/portal/tts/${guildId}/history/${id}/replay`,
+        historyFavorite: (guildId, id) => `/api/portal/tts/${guildId}/history/${id}/favorite`,
+        historyDelete: (guildId, id) => `/api/portal/tts/${guildId}/history/${id}`
     };
 
     // ========================================
@@ -46,6 +50,10 @@
     let ssmlDebounceTimer = null;
     let draftDebounceTimer = null;
     let isInitializing = false;
+
+    // History state
+    let historyEntries = [];
+    let historyPanelOpen = false;
 
     // ========================================
     // Initialization
@@ -71,6 +79,8 @@
         isInitializing = false;
         observeConnectionState();
         loadCustomPresets();
+        setupHistoryPanel();
+        fetchHistory();
     }
 
     // ========================================
@@ -482,6 +492,9 @@
 
             showToast('success', 'Message sent successfully');
             clearDraft();
+
+            // Save to history (non-blocking)
+            saveToHistory(body);
         } catch (error) {
             // Send error occurred
             showToast('error', error.message);
@@ -774,6 +787,383 @@
     window.portalHandlePauseInsert = function(duration) {
         if (currentMode === 'pro') buildSsmlFromCurrentState();
     };
+
+    // ========================================
+    // TTS Message History
+    // ========================================
+
+    /**
+     * Set up the history panel toggle button.
+     */
+    function setupHistoryPanel() {
+        const toggleBtn = document.getElementById('ttsHistoryToggle');
+        if (toggleBtn) {
+            toggleBtn.addEventListener('click', toggleHistoryPanel);
+        }
+    }
+
+    /**
+     * Toggle the history panel open/closed.
+     */
+    function toggleHistoryPanel() {
+        const toggleBtn = document.getElementById('ttsHistoryToggle');
+        const panel = document.getElementById('ttsHistoryPanel');
+        if (!toggleBtn || !panel) return;
+
+        historyPanelOpen = !historyPanelOpen;
+
+        if (historyPanelOpen) {
+            panel.classList.add('expanded');
+            toggleBtn.classList.add('expanded');
+            toggleBtn.setAttribute('aria-expanded', 'true');
+        } else {
+            panel.classList.remove('expanded');
+            toggleBtn.classList.remove('expanded');
+            toggleBtn.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    /**
+     * Fetch history entries from the API and render them.
+     */
+    async function fetchHistory() {
+        try {
+            const response = await fetch(API.history(guildId));
+            if (!response.ok) return;
+
+            historyEntries = await response.json();
+            renderHistory();
+        } catch (error) {
+            // Non-critical: history load failure should not block TTS usage
+        }
+    }
+
+    /**
+     * Save a sent message to history via the API.
+     */
+    async function saveToHistory(body) {
+        try {
+            const response = await fetch(API.history(guildId), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    message: body.message,
+                    voiceName: body.voice,
+                    style: body.style || null,
+                    speed: body.speed,
+                    pitch: body.pitch
+                })
+            });
+
+            if (!response.ok) return;
+
+            const entry = await response.json();
+            // Prepend to list and re-render
+            historyEntries.unshift(entry);
+            // Keep max 20 entries client-side
+            if (historyEntries.length > 20) {
+                historyEntries = historyEntries.slice(0, 20);
+            }
+            renderHistory();
+        } catch (error) {
+            // Non-critical: history save failure should not block TTS usage
+        }
+    }
+
+    /**
+     * Render the history entries list.
+     */
+    function renderHistory() {
+        const listEl = document.getElementById('ttsHistoryList');
+        const emptyEl = document.getElementById('ttsHistoryEmpty');
+        const countEl = document.getElementById('ttsHistoryCount');
+        if (!listEl) return;
+
+        // Update count
+        if (countEl) {
+            countEl.textContent = historyEntries.length > 0 ? historyEntries.length + ' messages' : '';
+        }
+
+        // Show/hide empty state
+        if (historyEntries.length === 0) {
+            if (emptyEl) emptyEl.style.display = '';
+            // Remove all entries but keep empty state
+            const entries = listEl.querySelectorAll('.tts-history-entry');
+            entries.forEach(e => e.remove());
+            return;
+        }
+
+        if (emptyEl) emptyEl.style.display = 'none';
+
+        // Build HTML for entries
+        listEl.innerHTML = historyEntries.map(entry => renderHistoryEntry(entry)).join('');
+
+        // Attach event listeners
+        listEl.querySelectorAll('[data-action]').forEach(btn => {
+            btn.addEventListener('click', handleHistoryAction);
+        });
+    }
+
+    /**
+     * Render a single history entry as HTML.
+     */
+    function renderHistoryEntry(entry) {
+        const truncatedMessage = entry.message.length > 120
+            ? entry.message.substring(0, 120) + '...'
+            : entry.message;
+
+        const voiceShort = formatVoiceName(entry.voiceName);
+        const timeAgo = formatTimeAgo(entry.playedAt);
+
+        // Build settings summary
+        const settingParts = [];
+        if (entry.style) settingParts.push(entry.style);
+        const speed = parseFloat(entry.speed);
+        const pitch = parseFloat(entry.pitch);
+        if (speed !== 1.0) settingParts.push(speed.toFixed(1) + 'x speed');
+        if (pitch !== 1.0) settingParts.push(pitch.toFixed(1) + 'x pitch');
+        const settingsStr = settingParts.length > 0 ? settingParts.join(' / ') : '';
+
+        return `
+            <div class="tts-history-entry${entry.isFavorite ? ' favorite' : ''}" data-entry-id="${entry.id}">
+                <div class="tts-history-message">${escapeHtml(truncatedMessage)}</div>
+                <div class="tts-history-meta">
+                    <span class="tts-history-voice">${escapeHtml(voiceShort)}</span>
+                    ${settingsStr ? `<span class="tts-history-settings">${escapeHtml(settingsStr)}</span>` : ''}
+                    <span class="tts-history-time">${escapeHtml(timeAgo)}</span>
+                </div>
+                <div class="tts-history-actions">
+                    <button class="tts-history-btn replay-btn" data-action="replay" data-id="${entry.id}" title="Replay with original settings">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        <span>Replay</span>
+                    </button>
+                    <button class="tts-history-btn edit-btn" data-action="edit" data-id="${entry.id}" title="Load into form">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                        <span>Edit</span>
+                    </button>
+                    <button class="tts-history-btn fav-btn${entry.isFavorite ? ' active' : ''}" data-action="favorite" data-id="${entry.id}" title="${entry.isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+                        <svg fill="${entry.isFavorite ? 'currentColor' : 'none'}" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" /></svg>
+                    </button>
+                    <button class="tts-history-btn delete-btn" data-action="delete" data-id="${entry.id}" title="Delete">
+                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                </div>
+            </div>`;
+    }
+
+    /**
+     * Handle clicks on history action buttons (replay, edit, favorite, delete).
+     */
+    async function handleHistoryAction(e) {
+        const btn = e.currentTarget;
+        const action = btn.dataset.action;
+        const id = parseInt(btn.dataset.id, 10);
+        if (!action || isNaN(id)) return;
+
+        switch (action) {
+            case 'replay':
+                await replayHistoryEntry(id, btn);
+                break;
+            case 'edit':
+                editHistoryEntry(id);
+                break;
+            case 'favorite':
+                await toggleHistoryFavorite(id, btn);
+                break;
+            case 'delete':
+                await deleteHistoryEntry(id);
+                break;
+        }
+    }
+
+    /**
+     * Replay a history entry via the API.
+     */
+    async function replayHistoryEntry(id, btn) {
+        if (!checkIsConnected()) {
+            showToast('warning', 'Please join a voice channel first!');
+            highlightChannelSelector();
+            return;
+        }
+
+        const originalHtml = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = `<svg class="inline-block animate-spin" fill="none" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
+
+        try {
+            const response = await fetch(API.historyReplay(guildId, id), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (response.status === 429) {
+                const data = await response.json().catch(() => ({}));
+                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
+                return;
+            }
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'Failed to replay message');
+            }
+
+            showToast('success', 'Message replayed');
+        } catch (error) {
+            showToast('error', error.message);
+        } finally {
+            btn.innerHTML = originalHtml;
+            btn.disabled = false;
+        }
+    }
+
+    /**
+     * Load a history entry's settings back into the TTS form.
+     */
+    function editHistoryEntry(id) {
+        const entry = historyEntries.find(e => e.id === id);
+        if (!entry) return;
+
+        // Load message text
+        const messageInput = document.getElementById('ttsMessage');
+        if (messageInput) {
+            messageInput.value = entry.message;
+            updateCharacterCount();
+        }
+
+        // Load voice
+        if (entry.voiceName && window.voiceSelector_setValue) {
+            window.voiceSelector_setValue('portalVoiceSelector', entry.voiceName, true);
+        }
+
+        // Load speed
+        const speedSlider = document.getElementById('speedSlider');
+        const speedValueEl = document.getElementById('speedValue');
+        if (speedSlider) {
+            const speed = parseFloat(entry.speed) || CONFIG.SPEED_DEFAULT;
+            speedSlider.value = speed;
+            if (speedValueEl) speedValueEl.textContent = speed.toFixed(1) + 'x';
+        }
+
+        // Load pitch
+        const pitchSlider = document.getElementById('pitchSlider');
+        const pitchValueEl = document.getElementById('pitchValue');
+        if (pitchSlider) {
+            const pitch = parseFloat(entry.pitch) || CONFIG.PITCH_DEFAULT;
+            pitchSlider.value = pitch;
+            if (pitchValueEl) pitchValueEl.textContent = pitch.toFixed(1) + 'x';
+        }
+
+        // Load style
+        if (entry.style) {
+            currentStyle = entry.style;
+            const styleSelect = document.getElementById('portalStyleSelector-select');
+            if (styleSelect) {
+                styleSelect.value = entry.style;
+                if (window.styleSelector_onStyleChange) {
+                    window.styleSelector_onStyleChange('portalStyleSelector');
+                }
+            }
+        }
+
+        // Scroll to form
+        const formWrapper = document.querySelector('.tts-form-wrapper');
+        if (formWrapper) {
+            formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        showToast('success', 'Message loaded into form');
+    }
+
+    /**
+     * Toggle favorite status of a history entry.
+     */
+    async function toggleHistoryFavorite(id, btn) {
+        try {
+            const response = await fetch(API.historyFavorite(guildId, id), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' }
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to update favorite');
+            }
+
+            const data = await response.json();
+
+            // Update local state
+            const entry = historyEntries.find(e => e.id === id);
+            if (entry) {
+                entry.isFavorite = data.isFavorite;
+            }
+
+            renderHistory();
+        } catch (error) {
+            showToast('error', error.message);
+        }
+    }
+
+    /**
+     * Delete a history entry.
+     */
+    async function deleteHistoryEntry(id) {
+        try {
+            const response = await fetch(API.historyDelete(guildId, id), {
+                method: 'DELETE'
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to delete entry');
+            }
+
+            // Remove from local state
+            historyEntries = historyEntries.filter(e => e.id !== id);
+            renderHistory();
+            showToast('success', 'History entry deleted');
+        } catch (error) {
+            showToast('error', error.message);
+        }
+    }
+
+    /**
+     * Format a voice name for display (extract short name from full Azure voice name).
+     * e.g., "en-US-AriaNeural" -> "Aria"
+     */
+    function formatVoiceName(voiceName) {
+        if (!voiceName) return 'Unknown';
+        // Try to extract the name part: "en-US-AriaNeural" -> "Aria"
+        const match = voiceName.match(/^[a-z]{2}-[A-Z]{2}-([A-Za-z]+?)(?:Neural|Multilingual)?$/);
+        if (match) return match[1];
+        return voiceName;
+    }
+
+    /**
+     * Format a UTC timestamp as a relative time string.
+     */
+    function formatTimeAgo(dateStr) {
+        if (!dateStr) return '';
+        const date = new Date(dateStr);
+        const now = new Date();
+        const diffMs = now - date;
+        const diffSec = Math.floor(diffMs / 1000);
+        const diffMin = Math.floor(diffSec / 60);
+        const diffHr = Math.floor(diffMin / 60);
+        const diffDay = Math.floor(diffHr / 24);
+
+        if (diffSec < 60) return 'just now';
+        if (diffMin < 60) return diffMin + 'm ago';
+        if (diffHr < 24) return diffHr + 'h ago';
+        if (diffDay < 7) return diffDay + 'd ago';
+        return date.toLocaleDateString();
+    }
+
+    /**
+     * Escape HTML special characters to prevent XSS.
+     */
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
 
     // ========================================
     // Initialize when DOM is ready

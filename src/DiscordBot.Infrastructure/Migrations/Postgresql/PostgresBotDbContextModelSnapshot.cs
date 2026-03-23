@@ -2267,6 +2267,61 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.ToTable("TtsMessages", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.TtsMessageHistory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("bigint");
+
+                    b.Property<bool>("IsFavorite")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Message")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal>("Pitch")
+                        .HasColumnType("numeric");
+
+                    b.Property<DateTime>("PlayedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<decimal>("Speed")
+                        .HasColumnType("numeric");
+
+                    b.Property<string>("Style")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("VoiceName")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId");
+
+                    b.HasIndex("UserId", "GuildId", "IsFavorite")
+                        .HasDatabaseName("IX_TtsMessageHistory_UserId_GuildId_IsFavorite");
+
+                    b.HasIndex("UserId", "GuildId", "PlayedAt")
+                        .HasDatabaseName("IX_TtsMessageHistory_UserId_GuildId_PlayedAt");
+
+                    b.ToTable("TtsMessageHistory", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.User", b =>
                 {
                     b.Property<long>("Id")
@@ -3414,6 +3469,17 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.TtsMessage", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.TtsMessageHistory", b =>
                 {
                     b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
                         .WithMany()
