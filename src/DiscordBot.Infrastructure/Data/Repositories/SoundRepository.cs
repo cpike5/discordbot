@@ -31,6 +31,7 @@ public class SoundRepository : Repository<Sound>, ISoundRepository
             .AsNoTracking()
             .Where(s => s.GuildId == guildId)
             .Include(s => s.Guild)
+            .Include(s => s.Category)
             .ToListAsync(cancellationToken);
 
         _logger.LogDebug("Found {Count} sounds for guild {GuildId}", sounds.Count, guildId);
@@ -48,6 +49,7 @@ public class SoundRepository : Repository<Sound>, ISoundRepository
             .AsNoTracking()
             .Where(s => s.Id == id && s.GuildId == guildId)
             .Include(s => s.Guild)
+            .Include(s => s.Category)
             .FirstOrDefaultAsync(cancellationToken);
 
         _logger.LogDebug("Sound {SoundId} found for guild {GuildId}: {Found}", id, guildId, sound != null);

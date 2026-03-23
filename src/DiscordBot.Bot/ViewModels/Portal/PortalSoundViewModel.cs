@@ -36,4 +36,14 @@ public record PortalSoundViewModel
     /// Gets the timestamp when the sound was uploaded (UTC).
     /// </summary>
     public DateTime? UploadedAt { get; init; }
+
+    /// <summary>
+    /// Gets the category ID for this sound, if assigned.
+    /// </summary>
+    public int? CategoryId { get; init; }
+
+    /// <summary>
+    /// Gets the category name for this sound, if assigned.
+    /// </summary>
+    public string? CategoryName { get; init; }
 }
