@@ -225,6 +225,53 @@
             <!-- Voice Channel Control Panel -->
             <partial name="Shared/Components/_VoiceChannelPanel" model="Model.VoiceChannelPanel" />
 
+            <!-- Manage Categories Section -->
+            <div id="categoryManagerPanel" class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <button type="button" id="categoryToggleBtn"
+                        class="w-full px-6 py-4 flex items-center justify-between text-left hover:bg-bg-hover transition-colors">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-5 h-5 text-accent-orange" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                        </svg>
+                        <h3 class="text-sm font-semibold text-text-primary">Manage Categories</h3>
+                        <span id="categoryCountBadge" class="hidden inline-flex items-center justify-center px-2 py-0.5 text-xs font-semibold text-accent-blue bg-accent-blue/20 rounded-full"></span>
+                    </div>
+                    <svg id="categoryChevron" class="w-4 h-4 text-text-secondary transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="categoryContent" class="hidden border-t border-border-primary">
+                    <div class="p-4 space-y-3">
+                        <!-- Create Category -->
+                        <div class="flex gap-2">
+                            <input type="text" id="newCategoryInput"
+                                   placeholder="New category name" maxlength="50"
+                                   class="flex-1 bg-bg-tertiary border border-border-primary rounded-lg px-3 py-2 text-sm text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-accent-orange focus:ring-1 focus:ring-accent-orange" />
+                            <button type="button" id="addCategoryBtn"
+                                    class="px-3 py-2 bg-accent-orange text-white text-sm font-medium rounded-lg hover:bg-accent-orange-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add
+                            </button>
+                        </div>
+
+                        <!-- Category List -->
+                        <div id="categoryList" class="space-y-1"></div>
+
+                        <!-- Empty State -->
+                        <div id="categoryEmptyState" class="hidden text-center py-3">
+                            <p class="text-xs text-text-secondary">No categories yet. Create one to organize sounds.</p>
+                        </div>
+
+                        <!-- Loading State -->
+                        <div id="categoryLoadingState" class="text-center py-3">
+                            <p class="text-xs text-text-secondary">Loading categories...</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Upload Sounds Section -->
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
                 <h3 class="text-sm font-semibold text-text-primary mb-1">Upload Sounds</h3>
@@ -409,6 +456,258 @@
     <script>
         // Guild ID for API calls (as string to preserve precision)
         window.guildId = '@Model.ViewModel.GuildId';
+
+        // ========================================
+        // Category Management (vanilla JS)
+        // ========================================
+        let adminCategories = [];
+        let editingCategoryId = null;
+
+        // Toggle panel
+        document.addEventListener('DOMContentLoaded', function() {
+            const toggleBtn = document.getElementById('categoryToggleBtn');
+            const content = document.getElementById('categoryContent');
+            const chevron = document.getElementById('categoryChevron');
+
+            if (toggleBtn) {
+                toggleBtn.addEventListener('click', function() {
+                    const isHidden = content.classList.toggle('hidden');
+                    chevron.style.transform = isHidden ? '' : 'rotate(180deg)';
+                });
+            }
+
+            // Add category button
+            const addBtn = document.getElementById('addCategoryBtn');
+            const nameInput = document.getElementById('newCategoryInput');
+            if (addBtn) addBtn.addEventListener('click', createAdminCategory);
+            if (nameInput) nameInput.addEventListener('keydown', function(e) {
+                if (e.key === 'Enter') createAdminCategory();
+            });
+
+            // Load categories on page load
+            loadAdminCategories();
+        });
+
+        async function loadAdminCategories() {
+            try {
+                const response = await fetch(`/api/portal/soundboard/${window.guildId}/categories`);
+                if (response.ok) {
+                    const data = await response.json();
+                    adminCategories = data.categories || [];
+                }
+            } catch (error) {
+                console.error('Failed to load categories:', error);
+            }
+
+            document.getElementById('categoryLoadingState').classList.add('hidden');
+            renderAdminCategoryList();
+            populateCategoryDropdowns(adminCategories);
+        }
+
+        function renderAdminCategoryList() {
+            const list = document.getElementById('categoryList');
+            const emptyState = document.getElementById('categoryEmptyState');
+            const badge = document.getElementById('categoryCountBadge');
+
+            list.innerHTML = '';
+
+            if (adminCategories.length === 0) {
+                emptyState.classList.remove('hidden');
+                badge.classList.add('hidden');
+                return;
+            }
+
+            emptyState.classList.add('hidden');
+            badge.classList.remove('hidden');
+            badge.textContent = adminCategories.length;
+
+            adminCategories.forEach(cat => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center gap-2 group px-2 py-1.5 rounded-lg hover:bg-bg-hover transition-colors';
+                row.id = `cat-row-${cat.id}`;
+
+                if (editingCategoryId === cat.id) {
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2 flex-1">
+                            <input type="text" id="cat-edit-input-${cat.id}" value="${cat.name}" maxlength="50"
+                                   onkeydown="if(event.key==='Enter')saveAdminCategoryEdit(${cat.id});if(event.key==='Escape')cancelAdminCategoryEdit();"
+                                   class="flex-1 bg-bg-tertiary border border-accent-orange rounded px-2 py-1 text-sm text-text-primary focus:outline-none" />
+                            <button type="button" onclick="saveAdminCategoryEdit(${cat.id})" class="text-success hover:text-green-400 transition-colors" title="Save">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            </button>
+                            <button type="button" onclick="cancelAdminCategoryEdit()" class="text-text-secondary hover:text-text-primary transition-colors" title="Cancel">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                            </button>
+                        </div>`;
+                    // Focus the input after render
+                    setTimeout(() => {
+                        const inp = document.getElementById(`cat-edit-input-${cat.id}`);
+                        if (inp) { inp.focus(); inp.select(); }
+                    }, 0);
+                } else {
+                    row.innerHTML = `
+                        <div class="flex items-center gap-2 flex-1">
+                            <svg class="w-3.5 h-3.5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
+                            <span class="text-sm text-text-primary flex-1">${cat.name}</span>
+                            <button type="button" onclick="startAdminCategoryEdit(${cat.id}, '${cat.name.replace(/'/g, "\\'")}')" title="Edit"
+                                    class="opacity-0 group-hover:opacity-100 text-text-secondary hover:text-accent-blue transition-all">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                            </button>
+                            <button type="button" onclick="deleteAdminCategory(${cat.id}, '${cat.name.replace(/'/g, "\\'")}')" title="Delete"
+                                    class="opacity-0 group-hover:opacity-100 text-text-secondary hover:text-error transition-all">
+                                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                        </div>`;
+                }
+
+                list.appendChild(row);
+            });
+        }
+
+        async function createAdminCategory() {
+            const input = document.getElementById('newCategoryInput');
+            const name = input.value.trim();
+            if (!name) return;
+
+            try {
+                const response = await fetch(`/api/portal/soundboard/${window.guildId}/categories`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (response.ok || response.status === 201) {
+                    const cat = await response.json();
+                    adminCategories.push(cat);
+                    input.value = '';
+                    renderAdminCategoryList();
+                    populateCategoryDropdowns(adminCategories);
+                } else {
+                    const err = await response.json().catch(() => ({}));
+                    alert(err.detail || err.message || 'Failed to create category');
+                }
+            } catch (error) {
+                alert('Failed to create category. Please try again.');
+            }
+        }
+
+        function startAdminCategoryEdit(id, name) {
+            editingCategoryId = id;
+            renderAdminCategoryList();
+        }
+
+        function cancelAdminCategoryEdit() {
+            editingCategoryId = null;
+            renderAdminCategoryList();
+        }
+
+        async function saveAdminCategoryEdit(id) {
+            const input = document.getElementById(`cat-edit-input-${id}`);
+            const name = input ? input.value.trim() : '';
+            if (!name) return;
+
+            try {
+                const response = await fetch(`/api/portal/soundboard/${window.guildId}/categories/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name })
+                });
+
+                if (response.ok) {
+                    const updated = await response.json();
+                    const idx = adminCategories.findIndex(c => c.id === id);
+                    if (idx !== -1) adminCategories[idx] = updated;
+                    editingCategoryId = null;
+                    renderAdminCategoryList();
+                    populateCategoryDropdowns(adminCategories);
+                } else {
+                    const err = await response.json().catch(() => ({}));
+                    alert(err.detail || err.message || 'Failed to update category');
+                }
+            } catch (error) {
+                alert('Failed to update category. Please try again.');
+            }
+        }
+
+        async function deleteAdminCategory(id, name) {
+            if (!confirm(`Delete category "${name}"? Sounds in this category will become uncategorized.`)) return;
+
+            try {
+                const response = await fetch(`/api/portal/soundboard/${window.guildId}/categories/${id}`, {
+                    method: 'DELETE'
+                });
+
+                if (response.ok) {
+                    adminCategories = adminCategories.filter(c => c.id !== id);
+                    // Reset dropdowns that had this category selected
+                    document.querySelectorAll('.category-assign-select').forEach(sel => {
+                        if (sel.value === String(id)) {
+                            sel.value = '';
+                            sel.setAttribute('data-current-category', '');
+                        }
+                    });
+                    renderAdminCategoryList();
+                    populateCategoryDropdowns(adminCategories);
+                } else {
+                    const err = await response.json().catch(() => ({}));
+                    alert(err.detail || err.message || 'Failed to delete category');
+                }
+            } catch (error) {
+                alert('Failed to delete category. Please try again.');
+            }
+        }
+
+        // Populate category dropdowns in the sounds table
+        function populateCategoryDropdowns(categories) {
+            document.querySelectorAll('.category-assign-select').forEach(sel => {
+                const currentCat = sel.getAttribute('data-current-category');
+                const currentVal = sel.value || currentCat;
+
+                // Remove all options except "None"
+                while (sel.options.length > 1) {
+                    sel.remove(1);
+                }
+
+                // Add category options
+                categories.forEach(cat => {
+                    const opt = document.createElement('option');
+                    opt.value = String(cat.id);
+                    opt.textContent = cat.name;
+                    sel.appendChild(opt);
+                });
+
+                // Restore selection
+                if (currentVal) {
+                    sel.value = currentVal;
+                }
+            });
+        }
+
+        // Assign a sound to a category
+        async function assignCategory(selectEl, soundId) {
+            const categoryId = selectEl.value ? parseInt(selectEl.value, 10) : null;
+
+            try {
+                const response = await fetch(`/api/portal/soundboard/${window.guildId}/sounds/${soundId}/category`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ categoryId })
+                });
+
+                if (!response.ok) {
+                    const err = await response.json().catch(() => ({}));
+                    alert(err.detail || err.message || 'Failed to assign category');
+                    // Revert the select
+                    selectEl.value = selectEl.getAttribute('data-current-category') || '';
+                } else {
+                    // Update the data attribute to reflect new state
+                    selectEl.setAttribute('data-current-category', selectEl.value);
+                }
+            } catch (error) {
+                alert('Failed to assign category. Please try again.');
+                selectEl.value = selectEl.getAttribute('data-current-category') || '';
+            }
+        }
 
         // Audio playback handling
         const audioPlayer = new Audio();
