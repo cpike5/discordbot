@@ -48,6 +48,16 @@ public record SoundViewModel
     public int PlayCount { get; init; }
 
     /// <summary>
+    /// Gets the category ID for this sound, if assigned.
+    /// </summary>
+    public int? CategoryId { get; init; }
+
+    /// <summary>
+    /// Gets the category name for this sound, if assigned.
+    /// </summary>
+    public string? CategoryName { get; init; }
+
+    /// <summary>
     /// Gets the timestamp when this sound was uploaded (UTC).
     /// </summary>
     public DateTime UploadedAt { get; init; }
@@ -72,6 +82,8 @@ public record SoundViewModel
             DurationSeconds = sound.DurationSeconds,
             DurationFormatted = FormatDuration(sound.DurationSeconds),
             PlayCount = sound.PlayCount,
+            CategoryId = sound.CategoryId,
+            CategoryName = sound.Category?.Name,
             UploadedAt = sound.UploadedAt
         };
     }

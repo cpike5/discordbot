@@ -224,7 +224,9 @@ public class IndexModel : GuildPageModelBase
                     FileName = s.FileName,
                     DurationSeconds = s.DurationSeconds,
                     FileSizeBytes = s.FileSizeBytes,
-                    PlayCount = s.PlayCount
+                    PlayCount = s.PlayCount,
+                    CategoryId = s.CategoryId,
+                    CategoryName = s.Category?.Name
                 }).ToList(),
                 CurrentSort = Sort
             };

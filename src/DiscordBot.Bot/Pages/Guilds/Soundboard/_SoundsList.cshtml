@@ -12,6 +12,7 @@
                     <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 80px;">Duration</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 100px;">Size</th>
                     <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 80px;">Plays</th>
+                    <th class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 140px;">Category</th>
                     <th class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider" style="width: 100px;">Actions</th>
                 </tr>
             </thead>
@@ -59,6 +60,15 @@
                                 </svg>
                                 @sound.PlayCount
                             </div>
+                        </td>
+                        <td class="px-4 py-3">
+                            <select class="category-assign-select bg-bg-tertiary border border-border-primary rounded text-xs text-text-primary py-1 px-2 focus:outline-none focus:border-accent-orange cursor-pointer"
+                                    data-sound-id="@sound.Id"
+                                    data-current-category="@(sound.CategoryId?.ToString() ?? "")"
+                                    onchange="assignCategory(this, '@sound.Id')">
+                                <option value="">None</option>
+                                @* Categories populated by JavaScript *@
+                            </select>
                         </td>
                         <td class="px-4 py-3">
                             <div class="flex items-center justify-end gap-1 row-actions">
