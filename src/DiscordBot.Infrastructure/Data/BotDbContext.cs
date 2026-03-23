@@ -56,6 +56,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<PerformanceIncident> PerformanceIncidents => Set<PerformanceIncident>();
     public DbSet<MetricSnapshot> MetricSnapshots => Set<MetricSnapshot>();
     public DbSet<Sound> Sounds => Set<Sound>();
+    public DbSet<SoundCategory> SoundCategories => Set<SoundCategory>();
     public DbSet<SoundPlayLog> SoundPlayLogs => Set<SoundPlayLog>();
     public DbSet<GuildAudioSettings> GuildAudioSettings => Set<GuildAudioSettings>();
     public DbSet<CommandRoleRestriction> CommandRoleRestrictions => Set<CommandRoleRestriction>();
@@ -75,6 +76,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<DmAssistantUsageMetrics> DmAssistantUsageMetrics => Set<DmAssistantUsageMetrics>();
     public DbSet<DmAssistantNote> DmAssistantNotes => Set<DmAssistantNote>();
     public DbSet<VoxMessageHistory> VoxMessageHistory => Set<VoxMessageHistory>();
+    public DbSet<TtsMessageHistory> TtsMessageHistory => Set<TtsMessageHistory>();
     public DbSet<UserTtsPreset> UserTtsPresets => Set<UserTtsPreset>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)

@@ -107,6 +107,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IPerformanceAlertRepository, PerformanceAlertRepository>();
         services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
         services.AddScoped<ISoundRepository, SoundRepository>();
+        services.AddScoped<ISoundCategoryRepository, SoundCategoryRepository>();
         services.AddScoped<ISoundPlayLogRepository, SoundPlayLogRepository>();
         services.AddScoped<IGuildAudioSettingsRepository, GuildAudioSettingsRepository>();
         services.AddScoped<IUserSoundFavoriteRepository, UserSoundFavoriteRepository>();
@@ -118,6 +119,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IConnectionEventRepository, ConnectionEventRepository>();
         services.AddScoped<INotificationRepository, NotificationRepository>();
         services.AddScoped<IVoxMessageHistoryRepository, VoxMessageHistoryRepository>();
+        services.AddScoped<ITtsMessageHistoryRepository, TtsMessageHistoryRepository>();
         services.AddScoped<IUserTtsPresetRepository, UserTtsPresetRepository>();
 
         // Register services

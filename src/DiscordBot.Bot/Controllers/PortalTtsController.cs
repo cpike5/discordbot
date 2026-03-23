@@ -42,6 +42,7 @@ public class PortalTtsController : ControllerBase
     private readonly ISsmlValidator _ssmlValidator;
     private readonly ISsmlBuilder _ssmlBuilder;
     private readonly IUserTtsPresetRepository _userTtsPresetRepository;
+    private readonly ITtsMessageHistoryRepository _ttsMessageHistoryRepository;
     private readonly ILogger<PortalTtsController> _logger;
 
     // Track current TTS message being played per guild
@@ -71,6 +72,8 @@ public class PortalTtsController : ControllerBase
     /// <param name="stylePresetProvider">The style preset provider.</param>
     /// <param name="ssmlValidator">The SSML validator.</param>
     /// <param name="ssmlBuilder">The SSML builder.</param>
+    /// <param name="userTtsPresetRepository">The user TTS preset repository.</param>
+    /// <param name="ttsMessageHistoryRepository">The TTS message history repository.</param>
     /// <param name="logger">The logger.</param>
     public PortalTtsController(
         ITtsService ttsService,
@@ -87,6 +90,7 @@ public class PortalTtsController : ControllerBase
         ISsmlValidator ssmlValidator,
         ISsmlBuilder ssmlBuilder,
         IUserTtsPresetRepository userTtsPresetRepository,
+        ITtsMessageHistoryRepository ttsMessageHistoryRepository,
         ILogger<PortalTtsController> logger)
     {
         _ttsService = ttsService;
@@ -103,6 +107,7 @@ public class PortalTtsController : ControllerBase
         _ssmlValidator = ssmlValidator;
         _ssmlBuilder = ssmlBuilder;
         _userTtsPresetRepository = userTtsPresetRepository;
+        _ttsMessageHistoryRepository = ttsMessageHistoryRepository;
         _logger = logger;
     }
 
@@ -1541,6 +1546,282 @@ public class PortalTtsController : ControllerBase
         pcmData.CopyTo(wav);
         wav.Position = 0;
         return wav;
+    }
+
+    /// <summary>
+    /// Gets recent TTS message history for the current user.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="limit">Maximum number of entries to return (default 20).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>List of recent history entries.</returns>
+    [HttpGet("history")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetHistory(ulong guildId, [FromQuery] int limit = 20, CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entries = await _ttsMessageHistoryRepository.GetRecentAsync(userId, guildId, Math.Clamp(limit, 1, 50), cancellationToken);
+
+        return Ok(entries.Select(e => new
+        {
+            id = e.Id,
+            message = e.Message,
+            voiceName = e.VoiceName,
+            style = e.Style,
+            speed = e.Speed,
+            pitch = e.Pitch,
+            isFavorite = e.IsFavorite,
+            playedAt = e.PlayedAt
+        }));
+    }
+
+    /// <summary>
+    /// Saves a new TTS message history entry.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="request">The history entry to save.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The created history entry.</returns>
+    [HttpPost("history")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SaveHistory(
+        ulong guildId,
+        [FromBody] SaveTtsHistoryRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        if (string.IsNullOrWhiteSpace(request.Message))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Message cannot be empty",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "empty_message"
+            });
+        }
+
+        if (string.IsNullOrWhiteSpace(request.VoiceName))
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Voice name is required",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "missing_voice"
+            });
+        }
+
+        var entry = new TtsMessageHistory
+        {
+            GuildId = guildId,
+            UserId = userId,
+            Message = request.Message,
+            VoiceName = request.VoiceName,
+            Style = request.Style,
+            Speed = (decimal)request.Speed,
+            Pitch = (decimal)request.Pitch,
+            IsFavorite = false,
+            PlayedAt = DateTime.UtcNow
+        };
+
+        await _ttsMessageHistoryRepository.AddAsync(entry, cancellationToken);
+
+        _logger.LogInformation("Saved TTS history entry {Id} for user {UserId} in guild {GuildId}",
+            entry.Id, userId, guildId);
+
+        return Ok(new
+        {
+            id = entry.Id,
+            message = entry.Message,
+            voiceName = entry.VoiceName,
+            style = entry.Style,
+            speed = entry.Speed,
+            pitch = entry.Pitch,
+            isFavorite = entry.IsFavorite,
+            playedAt = entry.PlayedAt
+        });
+    }
+
+    /// <summary>
+    /// Replays a TTS message from history with its original settings.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="id">The history entry ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Playback result.</returns>
+    [HttpPost("history/{id}/replay")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ReplayHistory(
+        ulong guildId,
+        int id,
+        CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entry = await _ttsMessageHistoryRepository.GetByIdAsync(id, cancellationToken);
+        if (entry == null)
+        {
+            return NotFound(new ApiErrorDto
+            {
+                Message = "History entry not found",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "entry_not_found"
+            });
+        }
+
+        // Verify ownership
+        if (entry.UserId != userId || entry.GuildId != guildId)
+        {
+            return Forbid();
+        }
+
+        // Replay by calling SendTts with the original settings
+        var request = new SendTtsRequest
+        {
+            Message = entry.Message,
+            Voice = entry.VoiceName,
+            Style = entry.Style,
+            Speed = (double)entry.Speed,
+            Pitch = (double)entry.Pitch
+        };
+
+        return await SendTts(guildId, request, cancellationToken);
+    }
+
+    /// <summary>
+    /// Toggles the favorite status of a TTS history entry.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="id">The history entry ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Updated favorite status.</returns>
+    [HttpPut("history/{id}/favorite")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> ToggleTtsHistoryFavorite(ulong guildId, int id, CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entry = await _ttsMessageHistoryRepository.GetByIdAsync(id, cancellationToken);
+        if (entry == null)
+        {
+            return NotFound(new ApiErrorDto
+            {
+                Message = "History entry not found",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "entry_not_found"
+            });
+        }
+
+        // Verify ownership
+        if (entry.UserId != userId || entry.GuildId != guildId)
+        {
+            return Forbid();
+        }
+
+        var newFavoriteStatus = !entry.IsFavorite;
+        await _ttsMessageHistoryRepository.SetFavoriteAsync(id, newFavoriteStatus, cancellationToken);
+
+        return Ok(new { id, isFavorite = newFavoriteStatus });
+    }
+
+    /// <summary>
+    /// Deletes a TTS history entry.
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="id">The history entry ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>Success status.</returns>
+    [HttpDelete("history/{id}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    public async Task<IActionResult> DeleteTtsHistoryEntry(ulong guildId, int id, CancellationToken cancellationToken = default)
+    {
+        var userId = User.GetDiscordUserId();
+        if (userId == 0)
+        {
+            return Unauthorized();
+        }
+
+        var entry = await _ttsMessageHistoryRepository.GetByIdAsync(id, cancellationToken);
+        if (entry == null)
+        {
+            return NotFound(new ApiErrorDto
+            {
+                Message = "History entry not found",
+                StatusCode = StatusCodes.Status404NotFound,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "entry_not_found"
+            });
+        }
+
+        // Verify ownership
+        if (entry.UserId != userId || entry.GuildId != guildId)
+        {
+            return Forbid();
+        }
+
+        await _ttsMessageHistoryRepository.DeleteAsync(entry, cancellationToken);
+
+        return Ok(new { success = true });
+    }
+
+    /// <summary>
+    /// Request model for saving a TTS history entry.
+    /// </summary>
+    public class SaveTtsHistoryRequest
+    {
+        /// <summary>
+        /// Gets or sets the TTS message text.
+        /// </summary>
+        public string Message { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the voice name used.
+        /// </summary>
+        public string VoiceName { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Gets or sets the optional voice style.
+        /// </summary>
+        public string? Style { get; set; }
+
+        /// <summary>
+        /// Gets or sets the speech speed multiplier.
+        /// </summary>
+        public double Speed { get; set; } = 1.0;
+
+        /// <summary>
+        /// Gets or sets the pitch adjustment.
+        /// </summary>
+        public double Pitch { get; set; } = 1.0;
     }
 
     /// <summary>
