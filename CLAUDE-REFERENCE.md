@@ -2,7 +2,7 @@
 
 Auto-generated lookup tables for Discord bot management system. Regenerate with `/update-instructions tables`.
 
-**Last updated:** 2026-02-19
+**Last updated:** 2026-03-22
 
 ## Configuration Options
 

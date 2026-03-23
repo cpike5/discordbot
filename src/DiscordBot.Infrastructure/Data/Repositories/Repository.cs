@@ -413,6 +413,203 @@ public class Repository<T> : IRepository<T> where T : class
     }
 
     /// <summary>
+    /// Retrieves an entity by its primary key with eager-loaded navigation properties.
+    /// Replaces repetitive GetByIdAsync overrides that only differ in their Include calls.
+    /// </summary>
+    /// <typeparam name="TKey">The type of the primary key.</typeparam>
+    /// <param name="id">The primary key value.</param>
+    /// <param name="includeBuilder">A function that applies Include/ThenInclude calls to the query.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The entity with includes applied, or null if not found.</returns>
+    protected async Task<T?> GetByIdWithIncludesAsync<TKey>(
+        TKey id,
+        Func<IQueryable<T>, IQueryable<T>> includeBuilder,
+        CancellationToken ct = default)
+    {
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "GetByIdWithIncludesAsync",
+            entityType: _entityTypeName,
+            dbOperation: "SELECT",
+            entityId: id?.ToString());
+
+        var stopwatch = Stopwatch.StartNew();
+        Logger.LogDebug("Repository<{EntityType}>.GetByIdWithIncludesAsync starting. Id={Id}", _entityTypeName, id);
+
+        try
+        {
+            var query = includeBuilder(DbSet.AsNoTracking());
+            // Build a predicate that matches the primary key using EF Core's FindAsync-style lookup
+            var entityType = Context.Model.FindEntityType(typeof(T));
+            var primaryKey = entityType?.FindPrimaryKey();
+            if (primaryKey == null || primaryKey.Properties.Count != 1)
+            {
+                Logger.LogWarning(
+                    "Repository<{EntityType}>.GetByIdWithIncludesAsync: Cannot determine single primary key",
+                    _entityTypeName);
+                return null;
+            }
+
+            var keyProperty = primaryKey.Properties[0];
+            var parameter = Expression.Parameter(typeof(T), "e");
+            var keyAccess = Expression.Property(parameter, keyProperty.PropertyInfo!);
+            var keyValue = Expression.Constant(id, typeof(TKey));
+            var equals = Expression.Equal(keyAccess, keyValue);
+            var predicate = Expression.Lambda<Func<T, bool>>(equals, parameter);
+
+            var result = await query.FirstOrDefaultAsync(predicate, ct);
+            stopwatch.Stop();
+
+            Logger.LogDebug(
+                "Repository<{EntityType}>.GetByIdWithIncludesAsync completed in {ElapsedMs}ms. Found={Found}",
+                _entityTypeName, stopwatch.ElapsedMilliseconds, result != null);
+
+            if (stopwatch.ElapsedMilliseconds > SlowOperationThresholdMs)
+            {
+                Logger.LogWarning(
+                    "Repository<{EntityType}>.GetByIdWithIncludesAsync slow operation. ElapsedMs={ElapsedMs}, Threshold={ThresholdMs}ms, Id={Id}",
+                    _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, id);
+            }
+
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+            return result;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+            Logger.LogError(ex,
+                "Repository<{EntityType}>.GetByIdWithIncludesAsync failed. Id={Id}, ElapsedMs={ElapsedMs}, Error={Error}",
+                _entityTypeName, id, stopwatch.ElapsedMilliseconds, ex.Message);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Executes a paginated query, returning the items for the requested page and the total count.
+    /// The caller is responsible for applying filters, includes, and ordering to the query before calling this method.
+    /// </summary>
+    /// <param name="query">A pre-built query with filters and ordering already applied.</param>
+    /// <param name="page">The 1-based page number.</param>
+    /// <param name="pageSize">The number of items per page.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A tuple containing the page of items and the total count across all pages.</returns>
+    protected async Task<(IReadOnlyList<T> Items, int TotalCount)> GetPagedAsync(
+        IQueryable<T> query,
+        int page,
+        int pageSize,
+        CancellationToken ct = default)
+    {
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "GetPagedAsync",
+            entityType: _entityTypeName,
+            dbOperation: "SELECT");
+
+        var stopwatch = Stopwatch.StartNew();
+        Logger.LogDebug(
+            "Repository<{EntityType}>.GetPagedAsync starting. Page={Page}, PageSize={PageSize}",
+            _entityTypeName, page, pageSize);
+
+        try
+        {
+            var totalCount = await query.CountAsync(ct);
+
+            var skip = (page - 1) * pageSize;
+            var items = await query
+                .Skip(skip)
+                .Take(pageSize)
+                .ToListAsync(ct);
+
+            stopwatch.Stop();
+
+            Logger.LogDebug(
+                "Repository<{EntityType}>.GetPagedAsync completed in {ElapsedMs}ms. ItemCount={ItemCount}, TotalCount={TotalCount}",
+                _entityTypeName, stopwatch.ElapsedMilliseconds, items.Count, totalCount);
+
+            if (stopwatch.ElapsedMilliseconds > SlowOperationThresholdMs)
+            {
+                Logger.LogWarning(
+                    "Repository<{EntityType}>.GetPagedAsync slow operation. ElapsedMs={ElapsedMs}, Threshold={ThresholdMs}ms, Page={Page}, TotalCount={TotalCount}",
+                    _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs, page, totalCount);
+            }
+
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+            return (items, totalCount);
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+            Logger.LogError(ex,
+                "Repository<{EntityType}>.GetPagedAsync failed. Page={Page}, PageSize={PageSize}, ElapsedMs={ElapsedMs}, Error={Error}",
+                _entityTypeName, page, pageSize, stopwatch.ElapsedMilliseconds, ex.Message);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Returns an existing entity matching the predicate, or creates and persists a new one using the factory.
+    /// </summary>
+    /// <param name="predicate">The condition to find an existing entity.</param>
+    /// <param name="factory">A factory function that creates a new entity when none is found.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>The existing or newly created entity.</returns>
+    protected async Task<T> GetOrCreateAsync(
+        Expression<Func<T, bool>> predicate,
+        Func<T> factory,
+        CancellationToken ct = default)
+    {
+        using var activity = InfrastructureActivitySource.StartRepositoryActivity(
+            operationName: "GetOrCreateAsync",
+            entityType: _entityTypeName,
+            dbOperation: "UPSERT");
+
+        var stopwatch = Stopwatch.StartNew();
+        Logger.LogDebug("Repository<{EntityType}>.GetOrCreateAsync starting", _entityTypeName);
+
+        try
+        {
+            var existing = await DbSet.FirstOrDefaultAsync(predicate, ct);
+            if (existing != null)
+            {
+                stopwatch.Stop();
+                Logger.LogDebug(
+                    "Repository<{EntityType}>.GetOrCreateAsync found existing entity in {ElapsedMs}ms",
+                    _entityTypeName, stopwatch.ElapsedMilliseconds);
+                InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+                return existing;
+            }
+
+            var newEntity = factory();
+            await DbSet.AddAsync(newEntity, ct);
+            await Context.SaveChangesAsync(ct);
+            stopwatch.Stop();
+
+            Logger.LogInformation(
+                "Repository<{EntityType}>.GetOrCreateAsync created new entity in {ElapsedMs}ms",
+                _entityTypeName, stopwatch.ElapsedMilliseconds);
+
+            if (stopwatch.ElapsedMilliseconds > SlowOperationThresholdMs)
+            {
+                Logger.LogWarning(
+                    "Repository<{EntityType}>.GetOrCreateAsync slow operation. ElapsedMs={ElapsedMs}, Threshold={ThresholdMs}ms",
+                    _entityTypeName, stopwatch.ElapsedMilliseconds, SlowOperationThresholdMs);
+            }
+
+            InfrastructureActivitySource.CompleteActivity(activity, stopwatch.ElapsedMilliseconds);
+            return newEntity;
+        }
+        catch (Exception ex)
+        {
+            stopwatch.Stop();
+            InfrastructureActivitySource.RecordException(activity, ex, stopwatch.ElapsedMilliseconds);
+            Logger.LogError(ex,
+                "Repository<{EntityType}>.GetOrCreateAsync failed. ElapsedMs={ElapsedMs}, Error={Error}",
+                _entityTypeName, stopwatch.ElapsedMilliseconds, ex.Message);
+            throw;
+        }
+    }
+
+    /// <summary>
     /// Attempts to extract the entity ID using reflection.
     /// Looks for common ID property names (Id, {EntityType}Id).
     /// Returns "Unknown" if no ID property is found.

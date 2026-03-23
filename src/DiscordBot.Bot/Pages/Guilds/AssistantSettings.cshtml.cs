@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Configuration;
@@ -21,7 +20,7 @@ public class AssistantSettingsModel : PageModel
 {
     private readonly IAssistantGuildSettingsService _settingsService;
     private readonly IGuildService _guildService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IDiscordChannelResolver _channelResolver;
     private readonly IOptions<AssistantOptions> _assistantOptions;
     private readonly ISettingsService _globalSettingsService;
     private readonly ILogger<AssistantSettingsModel> _logger;
@@ -29,14 +28,14 @@ public class AssistantSettingsModel : PageModel
     public AssistantSettingsModel(
         IAssistantGuildSettingsService settingsService,
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IDiscordChannelResolver channelResolver,
         IOptions<AssistantOptions> assistantOptions,
         ISettingsService globalSettingsService,
         ILogger<AssistantSettingsModel> logger)
     {
         _settingsService = settingsService;
         _guildService = guildService;
-        _discordClient = discordClient;
+        _channelResolver = channelResolver;
         _assistantOptions = assistantOptions;
         _globalSettingsService = globalSettingsService;
         _logger = logger;
@@ -251,34 +250,21 @@ public class AssistantSettingsModel : PageModel
     }
 
     /// <summary>
-    /// Gets text channels from the Discord guild.
+    /// Gets text channels from the Discord guild using the channel resolver.
     /// </summary>
     private List<ChannelSelectItem> GetTextChannels(ulong guildId, List<ulong> selectedChannelIds)
     {
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            _logger.LogWarning("Could not fetch Discord guild {GuildId} from client", guildId);
-            return new List<ChannelSelectItem>();
-        }
-
-        var channels = new List<ChannelSelectItem>();
-
-        // Add text channels
-        foreach (var channel in guild.TextChannels.Where(c => c != null))
-        {
-            var type = channel is SocketNewsChannel ? "Announcement" : "Text";
-            channels.Add(new ChannelSelectItem
+        return _channelResolver.GetTextChannels(guildId)
+            .Where(c => c.Type == Core.Enums.ChannelDisplayType.Text || c.Type == Core.Enums.ChannelDisplayType.Announcement)
+            .Select(c => new ChannelSelectItem
             {
-                Id = channel.Id,
-                Name = channel.Name,
-                Position = channel.Position,
-                Type = type,
-                IsSelected = selectedChannelIds.Contains(channel.Id)
-            });
-        }
-
-        return channels.OrderBy(c => c.Position).ToList();
+                Id = c.Id,
+                Name = c.Name,
+                Position = c.Position,
+                Type = c.Type == Core.Enums.ChannelDisplayType.Announcement ? "Announcement" : "Text",
+                IsSelected = selectedChannelIds.Contains(c.Id)
+            })
+            .ToList();
     }
 
     /// <summary>

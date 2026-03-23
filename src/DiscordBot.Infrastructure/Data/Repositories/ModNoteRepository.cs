@@ -27,21 +27,16 @@ public class ModNoteRepository : Repository<ModNote>, IModNoteRepository
     /// </remarks>
     public override async Task<ModNote?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving mod note by ID: {Id}", id);
-
         if (id is not Guid guidId)
         {
             _logger.LogWarning("Invalid ID type for ModNote: {IdType}", id?.GetType().Name ?? "null");
             return null;
         }
 
-        var result = await DbSet
-            .AsNoTracking()
-            .Include(n => n.Guild)
-            .FirstOrDefaultAsync(n => n.Id == guidId, cancellationToken);
-
-        _logger.LogDebug("Mod note {Id} found: {Found}", id, result != null);
-        return result;
+        return await GetByIdWithIncludesAsync(
+            guidId,
+            q => q.Include(n => n.Guild),
+            cancellationToken);
     }
 
     public async Task<IEnumerable<ModNote>> GetByUserAsync(

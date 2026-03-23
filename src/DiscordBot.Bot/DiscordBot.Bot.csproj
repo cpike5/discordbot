@@ -14,7 +14,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="Anthropic.SDK" Version="5.8.0" />
     <PackageReference Include="AspNet.Security.OAuth.Discord" Version="8.0.0" />
     <PackageReference Include="Cronos" Version="0.11.1" />
     <!-- Forked Discord.Net 3.19.0-fork: includes DAVE multi-party voice fix (upstream PR #3244).

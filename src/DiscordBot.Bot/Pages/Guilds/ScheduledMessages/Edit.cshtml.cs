@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -22,18 +21,18 @@ public class EditModel : PageModel
 {
     private readonly IScheduledMessageService _scheduledMessageService;
     private readonly IGuildService _guildService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IDiscordChannelResolver _channelResolver;
     private readonly ILogger<EditModel> _logger;
 
     public EditModel(
         IScheduledMessageService scheduledMessageService,
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IDiscordChannelResolver channelResolver,
         ILogger<EditModel> logger)
     {
         _scheduledMessageService = scheduledMessageService;
         _guildService = guildService;
-        _discordClient = discordClient;
+        _channelResolver = channelResolver;
         _logger = logger;
     }
 
@@ -193,7 +192,8 @@ public class EditModel : PageModel
         }
 
         // Get available text channels from Discord
-        AvailableChannels = GetTextChannels(guildId);
+        AvailableChannels = _channelResolver.GetTextChannels(guildId)
+            .Select(ChannelSelectItem.FromChannelInfo).ToList();
 
         _logger.LogDebug("Found {ChannelCount} text-capable channels for guild {GuildId}",
             AvailableChannels.Count, guildId);
@@ -441,73 +441,6 @@ public class EditModel : PageModel
     }
 
     /// <summary>
-    /// Gets the list of text-capable channels for a guild from Discord.
-    /// Includes text channels, voice channels (with text chat), announcement channels, and stage channels.
-    /// </summary>
-    /// <param name="guildId">The guild's Discord snowflake ID.</param>
-    /// <returns>A list of channel select items sorted by position.</returns>
-    private List<ChannelSelectItem> GetTextChannels(ulong guildId)
-    {
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            _logger.LogWarning("Could not fetch Discord guild {GuildId} from client", guildId);
-            return new List<ChannelSelectItem>();
-        }
-
-        var channels = new List<ChannelSelectItem>();
-
-        // Add text channels (regular and announcement/news)
-        foreach (var channel in guild.TextChannels.Where(c => c != null))
-        {
-            // Check if it's an announcement/news channel by checking the concrete type
-            var displayType = channel is SocketNewsChannel
-                ? ChannelDisplayType.Announcement
-                : ChannelDisplayType.Text;
-
-            channels.Add(new ChannelSelectItem
-            {
-                Id = channel.Id,
-                Name = channel.Name,
-                Position = channel.Position,
-                Type = displayType
-            });
-        }
-
-        // Add voice channels (they have text chat capability now)
-        foreach (var channel in guild.VoiceChannels.Where(c => c != null))
-        {
-            channels.Add(new ChannelSelectItem
-            {
-                Id = channel.Id,
-                Name = channel.Name,
-                Position = channel.Position,
-                Type = ChannelDisplayType.Voice
-            });
-        }
-
-        // Add stage channels (they also have text chat)
-        foreach (var channel in guild.StageChannels.Where(c => c != null))
-        {
-            channels.Add(new ChannelSelectItem
-            {
-                Id = channel.Id,
-                Name = channel.Name,
-                Position = channel.Position,
-                Type = ChannelDisplayType.Stage
-            });
-        }
-
-        // Sort by position
-        var sortedChannels = channels.OrderBy(c => c.Position).ToList();
-
-        _logger.LogDebug("Retrieved {ChannelCount} text-capable channels for guild {GuildId}",
-            sortedChannels.Count, guildId);
-
-        return sortedChannels;
-    }
-
-    /// <summary>
     /// Loads the view model for redisplay after validation error.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
@@ -525,7 +458,8 @@ public class EditModel : PageModel
             UpdatedAt = message.UpdatedAt;
             LastExecutedAt = message.LastExecutedAt;
 
-            AvailableChannels = GetTextChannels(guildId);
+            AvailableChannels = _channelResolver.GetTextChannels(guildId)
+            .Select(ChannelSelectItem.FromChannelInfo).ToList();
 
             ViewModel = new ScheduledMessageFormViewModel
             {

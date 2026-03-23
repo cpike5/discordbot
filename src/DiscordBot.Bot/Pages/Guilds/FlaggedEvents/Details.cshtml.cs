@@ -4,7 +4,6 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.FlaggedEvents;
 
@@ -14,7 +13,7 @@ namespace DiscordBot.Bot.Pages.Guilds.FlaggedEvents;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class DetailsModel : PageModel
+public class DetailsModel : GuildPageModelBase
 {
     private readonly IFlaggedEventService _flaggedEventService;
     private readonly IGuildService _guildService;
@@ -41,21 +40,6 @@ public class DetailsModel : PageModel
     public string GuildName { get; set; } = string.Empty;
 
     /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
-
-    /// <summary>
     /// The flagged event details.
     /// </summary>
     public FlaggedEventDto Event { get; set; } = null!;
@@ -64,18 +48,6 @@ public class DetailsModel : PageModel
     /// User's other flagged events for history.
     /// </summary>
     public IEnumerable<FlaggedEventDto> UserHistory { get; set; } = Array.Empty<FlaggedEventDto>();
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
-    /// Error message from TempData.
-    /// </summary>
-    [TempData]
-    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Handles GET requests to display the flagged event details.
@@ -138,21 +110,10 @@ public class DetailsModel : PageModel
             }
         };
 
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "Flagged Event Details",
-            PageDescription = $"Event details for {guild.Name}"
-        };
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+            "Flagged Event Details", $"Event details for {guild.Name}");
 
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "moderation",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
+        Navigation = BuildNavigation(guild.Id, "moderation");
 
         return Page();
     }

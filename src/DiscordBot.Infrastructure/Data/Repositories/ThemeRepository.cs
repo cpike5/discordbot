@@ -1,47 +1,46 @@
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Infrastructure.Data.Repositories;
 
 /// <summary>
 /// Repository implementation for managing theme persistence.
 /// </summary>
-public class ThemeRepository : IThemeRepository
+public class ThemeRepository : Repository<Theme>, IThemeRepository
 {
-    private readonly BotDbContext _context;
-
-    public ThemeRepository(BotDbContext context)
+    public ThemeRepository(BotDbContext context, ILogger<Repository<Theme>> logger)
+        : base(context, logger)
     {
-        _context = context;
     }
 
     public async Task<Theme?> GetByKeyAsync(string themeKey, CancellationToken cancellationToken = default)
     {
-        return await _context.Themes
+        return await DbSet
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.ThemeKey == themeKey, cancellationToken);
     }
 
     public async Task<Theme?> GetByIdAsync(int id, CancellationToken cancellationToken = default)
     {
-        return await _context.Themes
+        return await DbSet
             .AsNoTracking()
             .FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
     }
 
     public async Task<IReadOnlyList<Theme>> GetAllActiveAsync(CancellationToken cancellationToken = default)
     {
-        return await _context.Themes
+        return await DbSet
             .AsNoTracking()
             .Where(t => t.IsActive)
             .OrderBy(t => t.DisplayName)
             .ToListAsync(cancellationToken);
     }
 
-    public async Task UpdateAsync(Theme theme, CancellationToken cancellationToken = default)
+    public override async Task UpdateAsync(Theme theme, CancellationToken cancellationToken = default)
     {
-        var existing = await _context.Themes
+        var existing = await DbSet
             .FirstOrDefaultAsync(t => t.Id == theme.Id, cancellationToken);
 
         if (existing != null)
@@ -52,7 +51,7 @@ public class ThemeRepository : IThemeRepository
             existing.ColorDefinition = theme.ColorDefinition;
             existing.IsActive = theme.IsActive;
 
-            await _context.SaveChangesAsync(cancellationToken);
+            await Context.SaveChangesAsync(cancellationToken);
         }
     }
 }

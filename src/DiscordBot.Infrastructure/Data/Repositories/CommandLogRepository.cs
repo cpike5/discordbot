@@ -33,12 +33,10 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
             return null;
         }
 
-        _logger.LogDebug("Retrieving command log with ID {Id} including User and Guild", id);
-
-        return await DbSet
-            .Include(l => l.User)
-            .Include(l => l.Guild)
-            .FirstOrDefaultAsync(l => l.Id == guidId, cancellationToken);
+        return await GetByIdWithIncludesAsync(
+            guidId,
+            q => q.Include(l => l.User).Include(l => l.Guild),
+            cancellationToken);
     }
 
     public async Task<IReadOnlyList<CommandLog>> GetByGuildAsync(
@@ -353,15 +351,9 @@ public class CommandLogRepository : Repository<CommandLog>, ICommandLogRepositor
             query = query.Where(l => l.Success == successOnly.Value);
         }
 
-        // Get total count for pagination
-        var totalCount = await query.CountAsync(cancellationToken);
-
         // Apply ordering and pagination
-        var items = await query
-            .OrderByDescending(l => l.ExecutedAt)
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderByDescending(l => l.ExecutedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug("Retrieved {Count} of {TotalCount} filtered command logs", items.Count, totalCount);
 

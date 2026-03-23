@@ -24,6 +24,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
     private readonly Mock<ICommandLogRepository> _mockCommandLogRepository;
     private readonly Mock<IGuildRepository> _mockGuildRepository;
     private readonly Mock<IOptions<BackgroundServicesOptions>> _mockBgOptions;
+    private readonly Mock<IApiRequestTracker> _mockApiRequestTracker;
     private readonly Mock<ILogger<BusinessMetricsUpdateService>> _mockLogger;
     private readonly BusinessMetrics _businessMetrics;
     private readonly SloMetrics _sloMetrics;
@@ -37,6 +38,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
         _mockCommandLogRepository = new Mock<ICommandLogRepository>();
         _mockGuildRepository = new Mock<IGuildRepository>();
         _mockBgOptions = new Mock<IOptions<BackgroundServicesOptions>>();
+        _mockApiRequestTracker = new Mock<IApiRequestTracker>();
         _mockLogger = new Mock<ILogger<BusinessMetricsUpdateService>>();
 
         // Setup service scope factory
@@ -65,6 +67,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
             _businessMetrics,
             _sloMetrics,
             _mockBgOptions.Object,
+            _mockApiRequestTracker.Object,
             _mockLogger.Object);
     }
 
@@ -78,6 +81,7 @@ public class BusinessMetricsUpdateServiceTests : IDisposable
             _businessMetrics,
             _sloMetrics,
             _mockBgOptions.Object,
+            _mockApiRequestTracker.Object,
             _mockLogger.Object);
 
         // Assert

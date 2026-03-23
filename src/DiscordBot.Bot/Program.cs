@@ -2,7 +2,6 @@ using DiscordBot.Bot.Commands;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
-using DiscordBot.Core.Configuration;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -131,24 +130,6 @@ try
     });
 
     // ==========================================
-    // Configuration Options
-    // ==========================================
-
-    // Register shared configuration options (not owned by specific features)
-    builder.Services.Configure<ApplicationOptions>(
-        builder.Configuration.GetSection(ApplicationOptions.SectionName));
-    builder.Services.Configure<CachingOptions>(
-        builder.Configuration.GetSection(CachingOptions.SectionName));
-    builder.Services.Configure<GuildMembershipCacheOptions>(
-        builder.Configuration.GetSection(GuildMembershipCacheOptions.SectionName));
-    builder.Services.Configure<BackgroundServicesOptions>(
-        builder.Configuration.GetSection(BackgroundServicesOptions.SectionName));
-    builder.Services.Configure<ObservabilityOptions>(
-        builder.Configuration.GetSection(ObservabilityOptions.SectionName));
-    builder.Services.Configure<VerificationOptions>(
-        builder.Configuration.GetSection(VerificationOptions.SectionName));
-
-    // ==========================================
     // Identity & Authorization
     // ==========================================
 
@@ -160,14 +141,14 @@ try
     // ==========================================
 
     // Add core application services (BotService, GuildService, etc.)
-    builder.Services.AddApplicationServices();
+    builder.Services.AddApplicationServices(builder.Configuration);
 
     // ==========================================
     // Feature Services
     // ==========================================
 
     // Verification
-    builder.Services.AddVerification();
+    builder.Services.AddVerification(builder.Configuration);
 
     // Logging services
     builder.Services.AddMessageLogging(builder.Configuration);

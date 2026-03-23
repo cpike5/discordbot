@@ -4,7 +4,6 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using System.Security.Claims;
 
 namespace DiscordBot.Bot.Pages.Admin.Notifications;
@@ -13,7 +12,7 @@ namespace DiscordBot.Bot.Pages.Admin.Notifications;
 /// Page model for displaying notification history with filtering, pagination, and bulk actions.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
-public class IndexModel : PageModel
+public class IndexModel : PaginatedPageModel
 {
     private readonly INotificationService _notificationService;
     private readonly IGuildService _guildService;
@@ -27,6 +26,8 @@ public class IndexModel : PageModel
         _notificationService = notificationService;
         _guildService = guildService;
         _logger = logger;
+
+        PageSize = 25;
     }
 
     /// <summary>
@@ -70,18 +71,6 @@ public class IndexModel : PageModel
     /// </summary>
     [BindProperty(SupportsGet = true)]
     public ulong? GuildId { get; set; }
-
-    /// <summary>
-    /// Current page number (1-based).
-    /// </summary>
-    [BindProperty(SupportsGet = true, Name = "pageNumber")]
-    public int CurrentPage { get; set; } = 1;
-
-    /// <summary>
-    /// Number of items per page.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = 25;
 
     /// <summary>
     /// The view model containing notification list data.

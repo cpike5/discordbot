@@ -29,21 +29,16 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
     /// </remarks>
     public override async Task<RatWatch?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving Rat Watch by ID: {Id}", id);
-
         if (id is not Guid guidId)
         {
             _logger.LogWarning("Invalid ID type for RatWatch: {IdType}", id?.GetType().Name ?? "null");
             return null;
         }
 
-        var result = await DbSet
-            .AsNoTracking()
-            .Include(r => r.Guild)
-            .FirstOrDefaultAsync(r => r.Id == guidId, cancellationToken);
-
-        _logger.LogDebug("Rat Watch {Id} found: {Found}", id, result != null);
-        return result;
+        return await GetByIdWithIncludesAsync(
+            guidId,
+            q => q.Include(r => r.Guild),
+            cancellationToken);
     }
 
     public async Task<IEnumerable<RatWatch>> GetPendingWatchesAsync(DateTime beforeTime, CancellationToken cancellationToken = default)
@@ -105,16 +100,10 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
         var query = DbSet
             .AsNoTracking()
             .Include(r => r.Guild)
-            .Where(r => r.GuildId == guildId);
+            .Where(r => r.GuildId == guildId)
+            .OrderByDescending(r => r.CreatedAt);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(r => r.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var (items, totalCount) = await GetPagedAsync(query, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} Rat Watches for guild {GuildId} out of {TotalCount} total",

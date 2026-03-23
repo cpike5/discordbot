@@ -1,5 +1,6 @@
 using Discord;
 using Discord.Interactions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.Interfaces;
 
@@ -53,28 +54,14 @@ public class ModNoteModule : InteractionModuleBase<SocketInteractionContext>
             // Validate note length
             if (string.IsNullOrWhiteSpace(note))
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Invalid Note")
-                    .WithDescription("Note content cannot be empty.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Note", "Note content cannot be empty."), ephemeral: true);
                 _logger.LogDebug("Note creation failed: empty content");
                 return;
             }
 
             if (note.Length > 2000)
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Note Too Long")
-                    .WithDescription("Note content must be 2000 characters or less.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Note Too Long", "Note content must be 2000 characters or less."), ephemeral: true);
                 _logger.LogDebug("Note creation failed: content too long ({Length} chars)", note.Length);
                 return;
             }
@@ -113,14 +100,7 @@ public class ModNoteModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to add mod note for user {TargetId}", user.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to add note: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to add note: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -188,14 +168,7 @@ public class ModNoteModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to list mod notes for user {TargetId}", user.Id);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to retrieve notes: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to retrieve notes: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -219,14 +192,7 @@ public class ModNoteModule : InteractionModuleBase<SocketInteractionContext>
             // Parse GUID from noteId
             if (!Guid.TryParse(noteId, out var parsedNoteId))
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Invalid Note ID")
-                    .WithDescription("The note ID must be a valid GUID. Use `/modnote list` to see note IDs.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Note ID", "The note ID must be a valid GUID. Use `/modnote list` to see note IDs."), ephemeral: true);
                 _logger.LogDebug("Note removal failed: invalid GUID format {NoteId}", noteId);
                 return;
             }
@@ -236,14 +202,7 @@ public class ModNoteModule : InteractionModuleBase<SocketInteractionContext>
 
             if (!deleted)
             {
-                var notFoundEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Note Not Found")
-                    .WithDescription("No note with that ID was found.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: notFoundEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Note Not Found", "No note with that ID was found."), ephemeral: true);
                 _logger.LogDebug("Note removal failed: note {NoteId} not found", parsedNoteId);
                 return;
             }
@@ -253,15 +212,7 @@ public class ModNoteModule : InteractionModuleBase<SocketInteractionContext>
                 parsedNoteId,
                 Context.User.Id);
 
-            // Send confirmation
-            var embed = new EmbedBuilder()
-                .WithTitle("✅ Note Deleted")
-                .WithDescription($"Successfully deleted note `{parsedNoteId}`")
-                .WithColor(Color.Green)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: embed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Success("Note Deleted", $"Successfully deleted note `{parsedNoteId}`"), ephemeral: true);
 
             _logger.LogDebug("Mod note remove command response sent successfully");
         }
@@ -269,14 +220,7 @@ public class ModNoteModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to delete mod note {NoteId}", noteId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to delete note: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to delete note: {ex.Message}"), ephemeral: true);
         }
     }
 }

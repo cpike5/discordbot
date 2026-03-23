@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -20,18 +19,18 @@ public class WelcomeModel : PageModel
 {
     private readonly IWelcomeService _welcomeService;
     private readonly IGuildService _guildService;
-    private readonly DiscordSocketClient _discordClient;
+    private readonly IDiscordChannelResolver _channelResolver;
     private readonly ILogger<WelcomeModel> _logger;
 
     public WelcomeModel(
         IWelcomeService welcomeService,
         IGuildService guildService,
-        DiscordSocketClient discordClient,
+        IDiscordChannelResolver channelResolver,
         ILogger<WelcomeModel> logger)
     {
         _welcomeService = welcomeService;
         _guildService = guildService;
-        _discordClient = discordClient;
+        _channelResolver = channelResolver;
         _logger = logger;
     }
 
@@ -118,7 +117,8 @@ public class WelcomeModel : PageModel
         var welcomeConfig = await _welcomeService.GetConfigurationAsync(guildId, cancellationToken);
 
         // Get available text channels from Discord
-        AvailableChannels = GetTextChannels(guildId);
+        AvailableChannels = _channelResolver.GetTextChannels(guildId)
+            .Select(ChannelSelectItem.FromChannelInfo).ToList();
 
         // If no configuration exists, create default values
         if (welcomeConfig == null)
@@ -247,72 +247,6 @@ public class WelcomeModel : PageModel
     }
 
     /// <summary>
-    /// Gets the list of text-capable channels for a guild from Discord.
-    /// Includes text channels, voice channels (with text chat), and announcement channels.
-    /// </summary>
-    /// <param name="guildId">The guild's Discord snowflake ID.</param>
-    /// <returns>A list of channel select items sorted by position.</returns>
-    private List<ChannelSelectItem> GetTextChannels(ulong guildId)
-    {
-        var guild = _discordClient.GetGuild(guildId);
-        if (guild == null)
-        {
-            _logger.LogWarning("Could not fetch Discord guild {GuildId} from client", guildId);
-            return new List<ChannelSelectItem>();
-        }
-
-        var channels = new List<ChannelSelectItem>();
-
-        // Add text channels (regular and announcement/news)
-        foreach (var channel in guild.TextChannels.Where(c => c != null))
-        {
-            // Check if it's an announcement/news channel by checking the concrete type
-            var displayType = channel is SocketNewsChannel
-                ? ChannelDisplayType.Announcement
-                : ChannelDisplayType.Text;
-
-            channels.Add(new ChannelSelectItem
-            {
-                Id = channel.Id,
-                Name = channel.Name,
-                Position = channel.Position,
-                Type = displayType
-            });
-        }
-
-        // Add voice channels (they have text chat capability now)
-        foreach (var channel in guild.VoiceChannels.Where(c => c != null))
-        {
-            channels.Add(new ChannelSelectItem
-            {
-                Id = channel.Id,
-                Name = channel.Name,
-                Position = channel.Position,
-                Type = ChannelDisplayType.Voice
-            });
-        }
-
-        // Add stage channels (they also have text chat)
-        foreach (var channel in guild.StageChannels.Where(c => c != null))
-        {
-            channels.Add(new ChannelSelectItem
-            {
-                Id = channel.Id,
-                Name = channel.Name,
-                Position = channel.Position,
-                Type = ChannelDisplayType.Stage
-            });
-        }
-
-        // Sort by position
-        var sortedChannels = channels.OrderBy(c => c.Position).ToList();
-
-        _logger.LogDebug("Retrieved {ChannelCount} text-capable channels for guild {GuildId}", sortedChannels.Count, guildId);
-
-        return sortedChannels;
-    }
-
-    /// <summary>
     /// Loads the view model for redisplay after validation error.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
@@ -322,7 +256,8 @@ public class WelcomeModel : PageModel
         var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild != null)
         {
-            AvailableChannels = GetTextChannels(guildId);
+            AvailableChannels = _channelResolver.GetTextChannels(guildId)
+            .Select(ChannelSelectItem.FromChannelInfo).ToList();
 
             // Get current configuration or use defaults
             var welcomeConfig = await _welcomeService.GetConfigurationAsync(guildId, cancellationToken);

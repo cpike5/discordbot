@@ -5,7 +5,6 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Admin.MessageLogs;
 
@@ -13,7 +12,7 @@ namespace DiscordBot.Bot.Pages.Admin.MessageLogs;
 /// Page model for listing and searching message logs.
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
-public class IndexModel : PageModel
+public class IndexModel : PaginatedPageModel
 {
     private readonly IMessageLogService _messageLogService;
     private readonly IGuildService _guildService;
@@ -33,6 +32,8 @@ public class IndexModel : PageModel
         _messageLogRepository = messageLogRepository;
         _discordClient = discordClient;
         _logger = logger;
+
+        PageSize = 25;
     }
 
     [BindProperty(SupportsGet = true)]
@@ -55,12 +56,6 @@ public class IndexModel : PageModel
 
     [BindProperty(SupportsGet = true)]
     public string? SearchTerm { get; set; }
-
-    [BindProperty(SupportsGet = true, Name = "pageNumber")]
-    public int CurrentPage { get; set; } = 1;
-
-    [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = 25;
 
     /// <summary>
     /// Display name for the selected author (populated from message logs).

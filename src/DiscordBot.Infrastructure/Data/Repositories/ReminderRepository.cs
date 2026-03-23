@@ -29,21 +29,16 @@ public class ReminderRepository : Repository<Reminder>, IReminderRepository
     /// </remarks>
     public override async Task<Reminder?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving reminder by ID: {Id}", id);
-
         if (id is not Guid guidId)
         {
             _logger.LogWarning("Invalid ID type for Reminder: {IdType}", id?.GetType().Name ?? "null");
             return null;
         }
 
-        var result = await DbSet
-            .AsNoTracking()
-            .Include(r => r.Guild)
-            .FirstOrDefaultAsync(r => r.Id == guidId, cancellationToken);
-
-        _logger.LogDebug("Reminder {Id} found: {Found}", id, result != null);
-        return result;
+        return await GetByIdWithIncludesAsync(
+            guidId,
+            q => q.Include(r => r.Guild),
+            cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -85,14 +80,8 @@ public class ReminderRepository : Repository<Reminder>, IReminderRepository
             query = query.Where(r => r.Status == ReminderStatus.Pending);
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderBy(r => r.TriggerAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderBy(r => r.TriggerAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} reminders for user {UserId} out of {TotalCount} total",
@@ -136,14 +125,8 @@ public class ReminderRepository : Repository<Reminder>, IReminderRepository
             query = query.Where(r => r.Status == status.Value);
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(r => r.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderByDescending(r => r.CreatedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} reminders for guild {GuildId} out of {TotalCount} total",

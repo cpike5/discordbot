@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Audio;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
@@ -48,6 +49,8 @@ public static class VoiceServiceExtensions
 
         // Core audio services (singleton for connection management)
         services.AddSingleton<IAudioService, AudioService>();
+        services.AddSingleton<IFfmpegTranscoder, FfmpegTranscoder>();
+        services.AddSingleton<IAudioStreamer, AudioStreamer>();
         services.AddSingleton<IPlaybackService, PlaybackService>();
 
         // Background service for auto-leave

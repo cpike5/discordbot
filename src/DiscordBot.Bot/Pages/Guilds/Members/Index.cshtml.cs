@@ -6,7 +6,6 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.Members;
 
@@ -15,7 +14,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Members;
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : PaginatedGuildPageModel
 {
     private readonly IGuildMemberService _memberService;
     private readonly IGuildService _guildService;
@@ -32,6 +31,11 @@ public class IndexModel : PageModel
         _guildService = guildService;
         _discordClient = discordClient;
         _logger = logger;
+
+        // Override base class defaults for member directory
+        SortBy = "JoinedAt";
+        SortDescending = true;
+        PageSize = 25;
     }
 
     /// <summary>
@@ -71,30 +75,6 @@ public class IndexModel : PageModel
     public string? ActivityFilter { get; set; }
 
     /// <summary>
-    /// Field to sort by (JoinedAt, Username, LastActiveAt).
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public string SortBy { get; set; } = "JoinedAt";
-
-    /// <summary>
-    /// Sort in descending order if true.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public bool SortDescending { get; set; } = true;
-
-    /// <summary>
-    /// Current page number (1-based).
-    /// </summary>
-    [BindProperty(SupportsGet = true, Name = "pageNumber")]
-    public int CurrentPage { get; set; } = 1;
-
-    /// <summary>
-    /// Number of items per page.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public int PageSize { get; set; } = 25;
-
-    /// <summary>
     /// The view model containing member list data.
     /// </summary>
     public MemberDirectoryViewModel ViewModel { get; set; } = new();
@@ -103,21 +83,6 @@ public class IndexModel : PageModel
     /// The guild information.
     /// </summary>
     public GuildDto? Guild { get; set; }
-
-    /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// Available roles for the filter dropdown.

@@ -7,7 +7,6 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 
 namespace DiscordBot.Bot.Pages.Guilds.Soundboard;
 
@@ -17,7 +16,7 @@ namespace DiscordBot.Bot.Pages.Guilds.Soundboard;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : GuildPageModelBase
 {
     private readonly ISoundService _soundService;
     private readonly ISoundFileService _soundFileService;
@@ -60,36 +59,9 @@ public class IndexModel : PageModel
     public SoundboardIndexViewModel ViewModel { get; set; } = new();
 
     /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
-
-    /// <summary>
     /// View model for the voice channel control panel.
     /// </summary>
     public VoiceChannelPanelViewModel VoiceChannelPanel { get; set; } = null!;
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
-    /// Error message from TempData.
-    /// </summary>
-    [TempData]
-    public string? ErrorMessage { get; set; }
 
     /// <summary>
     /// Current sort order for the sounds list.
@@ -177,43 +149,23 @@ public class IndexModel : PageModel
             VoiceChannelPanel = BuildVoiceChannelPanelViewModel(guildId);
 
             // Populate guild layout ViewModels
-            Breadcrumb = new GuildBreadcrumbViewModel
+            Breadcrumb = BuildPageBreadcrumb(guild.Id, guild.Name, "Audio");
+
+            Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl,
+                "Audio", $"Manage audio settings and soundboard for {guild.Name}");
+            Header.Actions = IsMemberPortalEnabled ? new List<HeaderAction>
             {
-                Items = new List<BreadcrumbItem>
+                new()
                 {
-                    new() { Label = "Home", Url = "/" },
-                    new() { Label = "Servers", Url = "/Guilds" },
-                    new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
-                    new() { Label = "Audio", IsCurrent = true }
+                    Label = "Open Member Portal",
+                    Url = $"/Portal/Soundboard/{guildId}",
+                    Icon = "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
+                    Style = HeaderActionStyle.Secondary,
+                    OpenInNewTab = true
                 }
-            };
+            } : null;
 
-            Header = new GuildHeaderViewModel
-            {
-                GuildId = guild.Id,
-                GuildName = guild.Name,
-                GuildIconUrl = guild.IconUrl,
-                PageTitle = "Audio",
-                PageDescription = $"Manage audio settings and soundboard for {guild.Name}",
-                Actions = IsMemberPortalEnabled ? new List<HeaderAction>
-                {
-                    new()
-                    {
-                        Label = "Open Member Portal",
-                        Url = $"/Portal/Soundboard/{guildId}",
-                        Icon = "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14",
-                        Style = HeaderActionStyle.Secondary,
-                        OpenInNewTab = true
-                    }
-                } : null
-            };
-
-            Navigation = new GuildNavBarViewModel
-            {
-                GuildId = guild.Id,
-                ActiveTab = "audio",
-                Tabs = GuildNavigationConfig.GetTabs().ToList()
-            };
+            Navigation = BuildNavigation(guild.Id, "audio");
 
             return Page();
         }

@@ -7,7 +7,6 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
@@ -20,7 +19,7 @@ namespace DiscordBot.Bot.Pages.Guilds;
 /// </summary>
 [Authorize(Policy = "RequireModerator")]
 [Authorize(Policy = "GuildAccess")]
-public class DetailsModel : PageModel
+public class DetailsModel : GuildPageModelBase
 {
     private readonly IGuildService _guildService;
     private readonly ICommandLogService _commandLogService;
@@ -77,21 +76,6 @@ public class DetailsModel : PageModel
     public GuildDetailViewModel ViewModel { get; set; } = new();
 
     /// <summary>
-    /// Guild layout breadcrumb ViewModel.
-    /// </summary>
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout header ViewModel.
-    /// </summary>
-    public GuildHeaderViewModel Header { get; set; } = new();
-
-    /// <summary>
-    /// Guild layout navigation ViewModel.
-    /// </summary>
-    public GuildNavBarViewModel Navigation { get; set; } = new();
-
-    /// <summary>
     /// Gets whether welcome messages are enabled for this guild.
     /// </summary>
     public bool WelcomeEnabled { get; set; }
@@ -100,12 +84,6 @@ public class DetailsModel : PageModel
     /// Gets the welcome channel name if configured.
     /// </summary>
     public string? WelcomeChannelName { get; set; }
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
 
     /// <summary>
     /// Gets the total count of scheduled messages for this guild.
@@ -388,55 +366,35 @@ public class DetailsModel : PageModel
         }
 
         // Populate guild layout ViewModels
-        Breadcrumb = new GuildBreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, IsCurrent = true }
-            }
-        };
+        Breadcrumb = BuildBasicBreadcrumb(guild.Id, guild.Name);
 
-        Header = new GuildHeaderViewModel
+        Header = BuildHeader(guild.Id, guild.Name, guild.IconUrl, guild.Name, $"ID: {guild.Id}");
+        Header.StatusBadge = new BadgeViewModel
         {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = guild.Name,
-            PageDescription = $"ID: {guild.Id}",
-            StatusBadge = new BadgeViewModel
+            Text = guild.IsActive ? "Active" : "Inactive",
+            Variant = guild.IsActive ? BadgeVariant.Success : BadgeVariant.Error,
+            Style = BadgeStyle.Subtle,
+            IconLeft = "M10 18a8 8 0 100-16 8 8 0 000 16z"
+        };
+        Header.Actions = ViewModel.CanEdit ? new List<HeaderAction>
+        {
+            new()
             {
-                Text = guild.IsActive ? "Active" : "Inactive",
-                Variant = guild.IsActive ? BadgeVariant.Success : BadgeVariant.Error,
-                Style = BadgeStyle.Subtle,
-                IconLeft = "M10 18a8 8 0 100-16 8 8 0 000 16z"
+                Label = "Sync",
+                Url = "#",
+                Icon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+                Style = HeaderActionStyle.Secondary
             },
-            Actions = ViewModel.CanEdit ? new List<HeaderAction>
+            new()
             {
-                new()
-                {
-                    Label = "Sync",
-                    Url = "#",
-                    Icon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
-                    Style = HeaderActionStyle.Secondary
-                },
-                new()
-                {
-                    Label = "Edit Settings",
-                    Url = $"/Guilds/Edit?id={guild.Id}",
-                    Icon = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
-                    Style = HeaderActionStyle.Primary
-                }
-            } : null
-        };
+                Label = "Edit Settings",
+                Url = $"/Guilds/Edit?id={guild.Id}",
+                Icon = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
+                Style = HeaderActionStyle.Primary
+            }
+        } : null;
 
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "overview",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
+        Navigation = BuildNavigation(guild.Id, "overview");
 
         return Page();
     }

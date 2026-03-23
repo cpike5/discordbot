@@ -8,13 +8,20 @@ Quick reference guide for common patterns and conventions used throughout the Di
 2. [Configuration](#configuration)
 3. [Discord Commands](#discord-commands)
 4. [Razor Pages](#razor-pages)
-5. [Data Access](#data-access)
-6. [Authorization](#authorization)
-7. [Audit Logging](#audit-logging)
-8. [Error Handling](#error-handling)
-9. [MonitoredBackgroundService](#monitoredbackgroundservice)
-10. [IMemoryReportable](#imemoryreportable)
-11. [Per-Guild Locking](#per-guild-locking)
+5. [Guild Page Model Base](#guild-page-model-base)
+6. [API Controller Base](#api-controller-base)
+7. [Search Provider Pattern](#search-provider-pattern)
+8. [Helper Extraction Pattern](#helper-extraction-pattern)
+9. [Background Task Runner](#background-task-runner)
+10. [Service Activity Helper](#service-activity-helper)
+11. [Discord Resolver Services](#discord-resolver-services)
+12. [Data Access](#data-access)
+13. [Authorization](#authorization)
+14. [Audit Logging](#audit-logging)
+15. [Error Handling](#error-handling)
+16. [MonitoredBackgroundService](#monitoredbackgroundservice)
+17. [IMemoryReportable](#imemoryreportable)
+18. [Per-Guild Locking](#per-guild-locking)
 
 ---
 
@@ -350,7 +357,7 @@ public class VoxModule : InteractionModuleBase<SocketInteractionContext>
 
 ## Razor Pages
 
-Organize page models with consistent structure.
+Organize page models with consistent structure. **Guild pages should use `GuildPageModelBase` instead of raw `PageModel` to provide standardized guild context setup.**
 
 ### Page Model Pattern
 
@@ -363,35 +370,22 @@ namespace DiscordBot.Bot.Pages.[Feature];
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class IndexModel : PageModel
+public class IndexModel : GuildPageModelBase
 {
     private readonly I[Feature]Service _service;
-    private readonly IGuildService _guildService;
     private readonly IOptions<[Feature]Options> _options;
-    private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
         I[Feature]Service service,
         IGuildService guildService,
+        IDiscordChannelResolver channelResolver,
         IOptions<[Feature]Options> options,
         ILogger<IndexModel> logger)
+        : base(guildService, channelResolver, logger)
     {
         _service = service;
-        _guildService = guildService;
         _options = options.Value;
-        _logger = logger;
     }
-
-    /// <summary>
-    /// Guild ID from the route.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public ulong GuildId { get; set; }
-
-    /// <summary>
-    /// Guild name for display.
-    /// </summary>
-    public string GuildName { get; set; } = string.Empty;
 
     /// <summary>
     /// Data to display on the page.
@@ -409,22 +403,14 @@ public class IndexModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnGetAsync(long guildId, CancellationToken cancellationToken = default)
     {
-        GuildId = (ulong)guildId;
+        if (!await PopulateGuildLayout(guildId))
+            return NotFound();
+
         _logger.LogInformation("User accessing feature for guild {GuildId}", GuildId);
 
         try
         {
-            // Fetch guild and data
-            var guild = await _guildService.GetGuildByIdAsync(GuildId, cancellationToken);
-            if (guild == null)
-            {
-                _logger.LogWarning("Guild {GuildId} not found", GuildId);
-                return NotFound();
-            }
-
-            GuildName = guild.Name;
             Items = await _service.GetItemsAsync(GuildId, cancellationToken);
-
             return Page();
         }
         catch (Exception ex)
@@ -517,6 +503,419 @@ var items = allItems
     .Take(PageSize)
     .ToList();
 ```
+
+---
+
+## Guild Page Model Base
+
+Guild pages inherit from `GuildPageModelBase` which provides standardized guild context setup via `PopulateGuildLayout()`. This base class handles guild validation, channel resolution, and consistent error handling across all guild-scoped pages.
+
+### Basic Pattern
+
+```csharp
+[Authorize(Policy = "RequireAdmin")]
+[Authorize(Policy = "GuildAccess")]
+public class IndexModel : GuildPageModelBase
+{
+    private readonly IGuildService _guildService;
+    private readonly IDiscordChannelResolver _channelResolver;
+    private readonly ILogger<IndexModel> _logger;
+
+    public IndexModel(
+        IGuildService guildService,
+        IDiscordChannelResolver channelResolver,
+        ILogger<IndexModel> logger)
+        : base(guildService, channelResolver, logger) { }
+
+    public async Task<IActionResult> OnGetAsync(long guildId)
+    {
+        if (!await PopulateGuildLayout(guildId))
+            return NotFound();
+
+        // page-specific logic here
+        return Page();
+    }
+}
+```
+
+### Paginated Guild Pages
+
+For guild pages with pagination, use `PaginatedGuildPageModel` which extends `GuildPageModelBase` with automatic page/pageSize binding:
+
+```csharp
+public class IndexModel : PaginatedGuildPageModel
+{
+    private readonly IMyService _service;
+
+    [BindProperty(SupportsGet = true)]
+    public int PageNumber { get; set; } = 1;
+
+    public List<Item> Items { get; set; } = new();
+    public int TotalPages { get; set; }
+
+    public IndexModel(
+        IGuildService guildService,
+        IDiscordChannelResolver channelResolver,
+        IMyService service,
+        ILogger<IndexModel> logger)
+        : base(guildService, channelResolver, logger)
+    {
+        _service = service;
+    }
+
+    public async Task<IActionResult> OnGetAsync(long guildId)
+    {
+        if (!await PopulateGuildLayout(guildId))
+            return NotFound();
+
+        const int pageSize = 50;
+        var (items, total) = await _service.GetPagedAsync(GuildId, PageNumber, pageSize);
+        Items = items;
+        TotalPages = (int)Math.Ceiling(total / (double)pageSize);
+
+        return Page();
+    }
+}
+```
+
+### Inherited Members
+
+| Member | Type | Description |
+|--------|------|-------------|
+| `GuildId` | `ulong` | Guild ID (set by `PopulateGuildLayout`) |
+| `GuildName` | `string` | Guild name from Discord (set by `PopulateGuildLayout`) |
+| `PopulateGuildLayout()` | `async Task<bool>` | Loads guild data; returns false if guild not found |
+
+### Usage Count
+
+24 guild pages use this pattern throughout the admin dashboard.
+
+---
+
+## API Controller Base
+
+API controllers inherit from `ApiControllerBase` for consistent error response handling, status codes, and pagination response formatting.
+
+### Pattern
+
+```csharp
+[ApiController]
+[Route("api/[controller]")]
+public class CommandLogsController : ApiControllerBase
+{
+    private readonly ICommandLogRepository _commandLogRepository;
+    private readonly ILogger<CommandLogsController> _logger;
+
+    public CommandLogsController(
+        ICommandLogRepository commandLogRepository,
+        ILogger<CommandLogsController> logger)
+    {
+        _commandLogRepository = commandLogRepository;
+        _logger = logger;
+    }
+
+    [HttpGet]
+    public async Task<IActionResult> GetAsync(int page = 1, int pageSize = 50)
+    {
+        try
+        {
+            var (logs, total) = await _commandLogRepository.GetPaginatedAsync(page, pageSize);
+            return OkPaginated(logs, page, pageSize, total);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to fetch command logs");
+            return ServerError("Failed to fetch command logs");
+        }
+    }
+
+    [HttpGet("{id}")]
+    public async Task<IActionResult> GetByIdAsync(int id)
+    {
+        var log = await _commandLogRepository.GetByIdAsync(id);
+        if (log == null)
+            return NotFoundError("Command log not found");
+
+        return Ok(log);
+    }
+}
+```
+
+### Inherited Helper Methods
+
+| Method | Returns | Purpose |
+|--------|---------|---------|
+| `NotFoundError(string message)` | `NotFoundObjectResult` | Returns 404 with error payload |
+| `BadRequestError(string message)` | `BadRequestObjectResult` | Returns 400 with error payload |
+| `ServerError(string message)` | `ObjectResult` | Returns 500 with error payload |
+| `OkPaginated(items, page, pageSize, total)` | `OkObjectResult` | Returns 200 with pagination metadata |
+
+### Usage Count
+
+5 controllers use this pattern.
+
+---
+
+## Search Provider Pattern
+
+Search functionality is decomposed into focused `ISearchProvider` implementations, each handling a specific domain. `SearchService` orchestrates all providers and aggregates results.
+
+### Provider Interface
+
+```csharp
+public interface ISearchProvider
+{
+    /// <summary>
+    /// Unique category name for this provider (e.g., "Audit Logs", "Commands").
+    /// </summary>
+    string Category { get; }
+
+    /// <summary>
+    /// Searches for items matching the query within this provider's domain.
+    /// </summary>
+    Task<IReadOnlyList<SearchResult>> SearchAsync(string query, SearchContext context);
+}
+```
+
+### Search Result
+
+```csharp
+public class SearchResult
+{
+    public string Category { get; set; } = string.Empty;
+    public string Title { get; set; } = string.Empty;
+    public string? Description { get; set; }
+    public string Url { get; set; } = string.Empty;
+    public float Score { get; set; }  // Relevance score (0-1)
+    public DateTime? Timestamp { get; set; }
+}
+```
+
+### Provider Registration
+
+All providers are registered in DI and injected into `SearchService` as `IEnumerable<ISearchProvider>`:
+
+```csharp
+services.AddScoped<ISearchProvider, AuditLogSearchProvider>();
+services.AddScoped<ISearchProvider, CommandLogSearchProvider>();
+services.AddScoped<ISearchProvider, CommandSearchProvider>();
+services.AddScoped<ISearchProvider, GuildSearchProvider>();
+services.AddScoped<ISearchProvider, MessageLogSearchProvider>();
+services.AddScoped<ISearchProvider, PageSearchProvider>();
+services.AddScoped<ISearchProvider, ReminderSearchProvider>();
+services.AddScoped<ISearchProvider, ScheduledMessageSearchProvider>();
+services.AddScoped<ISearchProvider, UserSearchProvider>();
+```
+
+### Built-in Providers
+
+Nine providers are included:
+
+| Provider | Category | Searches |
+|----------|----------|----------|
+| `AuditLogSearchProvider` | Audit Logs | Audit log entries by actor, target, action |
+| `CommandLogSearchProvider` | Command Logs | Command execution history |
+| `CommandSearchProvider` | Commands | Registered slash commands |
+| `GuildSearchProvider` | Guilds | Guild names and settings |
+| `MessageLogSearchProvider` | Message Logs | Logged messages by content |
+| `PageSearchProvider` | Pages | Admin dashboard pages |
+| `ReminderSearchProvider` | Reminders | Reminders by title and content |
+| `ScheduledMessageSearchProvider` | Scheduled Messages | Scheduled messages by content |
+| `UserSearchProvider` | Users | Users by name, username, or ID |
+
+---
+
+## Helper Extraction Pattern
+
+Reusable logic extracted from command modules and services into static or injectable helpers. This reduces duplication and improves testability.
+
+### Overview
+
+| Helper | Purpose | Injected as | Used By |
+|--------|---------|-------------|---------|
+| `EmbedHelper` | Standardized embed factory (Error, Success, Info, Confirmation, EmptyState) | `IEmbedHelper` | 12 command modules |
+| `PaginationHelper` | Page calculation and navigation button generation | `IPaginationHelper` | Command modules with lists |
+| `VoiceChannelHelper` | Voice channel validation and state checks | `IVoiceChannelHelper` | Voice command modules |
+| `SearchDisplayHelper` | Search result formatting and truncation | `ISearchDisplayHelper` | SearchService |
+| `SearchScoringHelper` | Search result relevance scoring and ranking | `ISearchScoringHelper` | Search providers |
+
+### Example: EmbedHelper
+
+```csharp
+public interface IEmbedHelper
+{
+    EmbedBuilder CreateErrorEmbed(string message);
+    EmbedBuilder CreateSuccessEmbed(string message);
+    EmbedBuilder CreateInfoEmbed(string title, string description);
+    EmbedBuilder CreateConfirmationEmbed(string message);
+    EmbedBuilder CreateEmptyStateEmbed(string message);
+}
+
+// Usage in command module
+var embed = _embedHelper.CreateSuccessEmbed("Operation completed!");
+await RespondAsync(embed: embed.Build(), ephemeral: true);
+```
+
+---
+
+## Background Task Runner
+
+Fire-and-forget tasks use `IBackgroundTaskRunner` instead of raw `Task.Run()` or `_ = MethodAsync()` expressions. This provides centralized logging, error handling, and proper cancellation token support.
+
+### Pattern
+
+```csharp
+public class MyService
+{
+    private readonly IBackgroundTaskRunner _backgroundTaskRunner;
+
+    public MyService(IBackgroundTaskRunner backgroundTaskRunner)
+    {
+        _backgroundTaskRunner = backgroundTaskRunner;
+    }
+
+    public async Task ProcessAsync(long guildId)
+    {
+        // Do synchronous work immediately
+        var result = await SomeLongRunningWorkAsync(guildId);
+
+        // Queue followup work without blocking
+        _backgroundTaskRunner.Enqueue(
+            async ct => await _notifier.NotifyAsync(guildId, ct),
+            "notify-guild-update");
+    }
+}
+```
+
+### Interface
+
+```csharp
+public interface IBackgroundTaskRunner
+{
+    /// <summary>
+    /// Enqueues a task to run in the background with proper logging and error handling.
+    /// </summary>
+    /// <param name="task">The async task to execute</param>
+    /// <param name="taskName">Human-readable name for logging</param>
+    void Enqueue(Func<CancellationToken, Task> task, string taskName);
+}
+```
+
+### Benefits
+
+- Centralizes error handling for background work
+- Logs task start/completion/failure with correlation IDs
+- Supports graceful shutdown via `CancellationToken`
+- Prevents silent failures from dangling tasks
+
+### Usage Count
+
+13 call sites migrated from raw `Task.Run` and `_ = MethodAsync()` patterns.
+
+---
+
+## Service Activity Helper
+
+Standardized tracing boilerplate via `ServiceActivityHelper` reduces ~757 lines of manual `Activity` creation, tagging, and exception recording across services.
+
+### Pattern
+
+```csharp
+using var activity = ServiceActivityHelper.StartActivity("MyService.DoSomethingAsync");
+
+try
+{
+    // Service logic
+    var result = await DoWorkAsync();
+
+    ServiceActivityHelper.SetSuccess(activity);
+    return result;
+}
+catch (Exception ex)
+{
+    ServiceActivityHelper.RecordException(activity, ex);
+    throw;
+}
+```
+
+### Methods
+
+| Method | Purpose |
+|--------|---------|
+| `StartActivity(operationName)` | Creates and starts an `Activity` with standard tags |
+| `SetSuccess(activity)` | Sets `activity.StatusDescription = "Success"` |
+| `RecordException(activity, exception)` | Records exception details to activity tags |
+| `SetTag(activity, key, value)` | Safely sets a tag with type conversion |
+
+### Benefits
+
+- Consistent naming convention for tracing
+- Automatic exception recording
+- Reduced boilerplate across 10+ services
+
+---
+
+## Discord Resolver Services
+
+Two specialized services provide channel and user resolution with caching, used throughout pages and services for Discord metadata lookups.
+
+### IDiscordChannelResolver
+
+Resolves channel names, types, and existence from the Discord client with in-memory caching:
+
+```csharp
+public interface IDiscordChannelResolver
+{
+    /// <summary>
+    /// Gets the name of a channel by ID, or null if not found.
+    /// Results are cached.
+    /// </summary>
+    Task<string?> GetChannelNameAsync(ulong channelId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Gets the channel type (Text, Voice, etc.) by ID.
+    /// </summary>
+    Task<ChannelType?> GetChannelTypeAsync(ulong channelId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Checks if a channel exists.
+    /// </summary>
+    Task<bool> ChannelExistsAsync(ulong channelId, CancellationToken cancellationToken = default);
+}
+```
+
+### IDiscordUserResolver
+
+Resolves Discord user information with `IMemoryCache` for faster repeated lookups:
+
+```csharp
+public interface IDiscordUserResolver
+{
+    /// <summary>
+    /// Gets user information (username, discriminator, avatar URL) by Discord ID.
+    /// Results are cached for 1 hour.
+    /// </summary>
+    Task<DiscordUserInfo?> GetUserAsync(ulong userId, CancellationToken cancellationToken = default);
+}
+
+public class DiscordUserInfo
+{
+    public ulong UserId { get; set; }
+    public string Username { get; set; } = string.Empty;
+    public string Discriminator { get; set; } = string.Empty;
+    public string? AvatarUrl { get; set; }
+}
+```
+
+### Usage
+
+**IDiscordChannelResolver:**
+- 8 guild pages (for displaying channel names in dropdowns/tables)
+- 3 services (ModerationService, WarningService, WatchlistService)
+
+**IDiscordUserResolver:**
+- ModerationService (for ban/kick reason logging)
+- WatchlistService (for user watch history)
 
 ---
 

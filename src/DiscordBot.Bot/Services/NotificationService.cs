@@ -1,4 +1,4 @@
-using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Notifications;
 using DiscordBot.Core.Authorization;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -6,7 +6,6 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
@@ -15,26 +14,28 @@ namespace DiscordBot.Bot.Services;
 /// <summary>
 /// Service implementation for managing user notifications.
 /// Handles creation, retrieval, and lifecycle management of notifications.
+/// Broadcasting is delegated to <see cref="INotificationBroadcaster"/>
+/// and mapping to <see cref="NotificationMapper"/>.
 /// </summary>
 public class NotificationService : INotificationService
 {
     private readonly INotificationRepository _repository;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly BotDbContext _dbContext;
-    private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly INotificationBroadcaster _broadcaster;
     private readonly ILogger<NotificationService> _logger;
 
     public NotificationService(
         INotificationRepository repository,
         UserManager<ApplicationUser> userManager,
         BotDbContext dbContext,
-        IHubContext<DashboardHub> hubContext,
+        INotificationBroadcaster broadcaster,
         ILogger<NotificationService> logger)
     {
         _repository = repository;
         _userManager = userManager;
         _dbContext = dbContext;
-        _hubContext = hubContext;
+        _broadcaster = broadcaster;
         _logger = logger;
     }
 
@@ -77,8 +78,7 @@ public class NotificationService : INotificationService
             "Created notification {NotificationId} for user {UserId}: {Title}",
             notification.Id, userId, title);
 
-        // Broadcast notification to the user via SignalR
-        await BroadcastNotificationToUserAsync(userId, notification, cancellationToken);
+        await _broadcaster.BroadcastNotificationAsync(userId, notification, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -148,10 +148,10 @@ public class NotificationService : INotificationService
             "Created {Count} notifications for admins: {Title}",
             notifications.Count, title);
 
-        // Broadcast notifications to each admin user via SignalR (sequentially — DbContext is not thread-safe)
+        // Broadcast notifications to each admin user (sequentially -- DbContext is not thread-safe)
         foreach (var n in notifications)
         {
-            await BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken);
+            await _broadcaster.BroadcastNotificationAsync(n.UserId, n, cancellationToken);
         }
 
         return true;
@@ -223,10 +223,10 @@ public class NotificationService : INotificationService
             "Created {Count} notifications for guild {GuildId} admins: {Title}",
             notifications.Count, guildId, title);
 
-        // Broadcast notifications to each guild admin user via SignalR (sequentially — DbContext is not thread-safe)
+        // Broadcast notifications to each guild admin user (sequentially -- DbContext is not thread-safe)
         foreach (var n in notifications)
         {
-            await BroadcastNotificationToUserAsync(n.UserId, n, cancellationToken);
+            await _broadcaster.BroadcastNotificationAsync(n.UserId, n, cancellationToken);
         }
 
         return true;
@@ -243,7 +243,7 @@ public class NotificationService : INotificationService
         var notifications = await _repository.GetUserNotificationsAsync(
             userId, limit, includeRead: true, cancellationToken);
 
-        return notifications.Select(MapToDto);
+        return notifications.Select(NotificationMapper.ToDto);
     }
 
     /// <inheritdoc/>
@@ -266,7 +266,6 @@ public class NotificationService : INotificationService
             "Marking notification {NotificationId} as read for user {UserId}",
             notificationId, userId);
 
-        // Validate ownership
         var notification = await _repository.GetByIdAsync(notificationId, cancellationToken);
         if (notification == null)
         {
@@ -284,8 +283,7 @@ public class NotificationService : INotificationService
 
         await _repository.MarkAsReadAsync(notificationId, cancellationToken);
 
-        // Broadcast the individual read event and updated count to the user
-        await BroadcastNotificationMarkedReadAsync(userId, notificationId, cancellationToken);
+        await _broadcaster.BroadcastNotificationMarkedReadAsync(userId, notificationId, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -297,8 +295,7 @@ public class NotificationService : INotificationService
 
         await _repository.MarkAllAsReadAsync(userId, cancellationToken);
 
-        // Broadcast updated count and all-read event to the user
-        await BroadcastAllNotificationsReadAsync(userId, cancellationToken);
+        await _broadcaster.BroadcastAllReadAsync(userId, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -311,7 +308,6 @@ public class NotificationService : INotificationService
             "Dismissing notification {NotificationId} for user {UserId}",
             notificationId, userId);
 
-        // Validate ownership
         var notification = await _repository.GetByIdAsync(notificationId, cancellationToken);
         if (notification == null)
         {
@@ -329,218 +325,7 @@ public class NotificationService : INotificationService
 
         await _repository.DismissAsync(notificationId, cancellationToken);
 
-        // Broadcast updated count to the user
-        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
-    }
-
-    /// <summary>
-    /// Maps a UserNotification entity to a UserNotificationDto.
-    /// </summary>
-    private static UserNotificationDto MapToDto(UserNotification notification)
-    {
-        return new UserNotificationDto
-        {
-            Id = notification.Id,
-            Type = notification.Type,
-            TypeDisplay = GetTypeDisplayName(notification.Type),
-            Severity = notification.Severity,
-            Title = notification.Title,
-            Message = notification.Message,
-            LinkUrl = notification.LinkUrl,
-            GuildId = notification.GuildId,
-            GuildName = notification.Guild?.Name,
-            IsRead = notification.IsRead,
-            CreatedAt = notification.CreatedAt,
-            ReadAt = notification.ReadAt,
-            RelatedEntityType = notification.RelatedEntityType,
-            RelatedEntityId = notification.RelatedEntityId,
-            TimeAgo = GetTimeAgo(notification.CreatedAt)
-        };
-    }
-
-    /// <summary>
-    /// Gets the display name for a notification type.
-    /// </summary>
-    private static string GetTypeDisplayName(NotificationType type)
-    {
-        return type switch
-        {
-            NotificationType.PerformanceAlert => "Performance Alert",
-            NotificationType.BotStatus => "Bot Status",
-            NotificationType.GuildEvent => "Guild Event",
-            NotificationType.CommandError => "Command Error",
-            _ => type.ToString()
-        };
-    }
-
-    /// <summary>
-    /// Gets a human-readable relative time string.
-    /// </summary>
-    private static string GetTimeAgo(DateTime createdAt)
-    {
-        var diff = DateTime.UtcNow - createdAt;
-
-        if (diff.TotalMinutes < 1)
-            return "just now";
-        if (diff.TotalMinutes < 60)
-            return $"{(int)diff.TotalMinutes} minute{((int)diff.TotalMinutes == 1 ? "" : "s")} ago";
-        if (diff.TotalHours < 24)
-            return $"{(int)diff.TotalHours} hour{((int)diff.TotalHours == 1 ? "" : "s")} ago";
-        if (diff.TotalDays < 7)
-            return $"{(int)diff.TotalDays} day{((int)diff.TotalDays == 1 ? "" : "s")} ago";
-        if (diff.TotalDays < 30)
-            return $"{(int)(diff.TotalDays / 7)} week{((int)(diff.TotalDays / 7) == 1 ? "" : "s")} ago";
-
-        return createdAt.ToString("MMM d, yyyy");
-    }
-
-    /// <summary>
-    /// Broadcasts a notification and updated count to a specific user via SignalR.
-    /// </summary>
-    /// <param name="userId">The user ID to broadcast to.</param>
-    /// <param name="notification">The notification entity to broadcast.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task BroadcastNotificationToUserAsync(
-        string userId,
-        UserNotification notification,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            // Map the entity to DTO for transmission
-            var notificationDto = MapToDto(notification);
-
-            // Get updated summary for the user
-            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
-
-            // Broadcast both the new notification and the updated count
-            await _hubContext.Clients
-                .User(userId)
-                .SendAsync(DashboardHub.OnNotificationReceived, notificationDto, cancellationToken);
-
-            await _hubContext.Clients
-                .User(userId)
-                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
-
-            _logger.LogDebug(
-                "Broadcast notification {NotificationId} to user {UserId}",
-                notification.Id,
-                userId);
-        }
-        catch (Exception ex)
-        {
-            // Log but don't fail the notification creation if broadcast fails
-            _logger.LogWarning(
-                ex,
-                "Failed to broadcast notification {NotificationId} to user {UserId}",
-                notification.Id,
-                userId);
-        }
-    }
-
-    /// <summary>
-    /// Broadcasts the notification-marked-read event and updated count to a specific user via SignalR.
-    /// </summary>
-    /// <param name="userId">The user ID to broadcast to.</param>
-    /// <param name="notificationId">The notification ID that was marked as read.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task BroadcastNotificationMarkedReadAsync(
-        string userId,
-        Guid notificationId,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
-
-            // Broadcast the individual notification marked as read
-            await _hubContext.Clients
-                .User(userId)
-                .SendAsync(DashboardHub.OnNotificationMarkedRead, new { notificationId }, cancellationToken);
-
-            // Also broadcast updated count
-            await _hubContext.Clients
-                .User(userId)
-                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
-
-            _logger.LogDebug(
-                "Broadcast notification {NotificationId} marked as read to user {UserId}",
-                notificationId,
-                userId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to broadcast notification marked as read to user {UserId}",
-                userId);
-        }
-    }
-
-    /// <summary>
-    /// Broadcasts an updated notification count to a specific user via SignalR.
-    /// Used when a notification is dismissed.
-    /// </summary>
-    /// <param name="userId">The user ID to broadcast to.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task BroadcastNotificationCountChangedAsync(
-        string userId,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
-
-            await _hubContext.Clients
-                .User(userId)
-                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
-
-            _logger.LogDebug(
-                "Broadcast notification count change to user {UserId}: TotalUnread={TotalUnread}",
-                userId,
-                summary.TotalUnread);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to broadcast notification count change to user {UserId}",
-                userId);
-        }
-    }
-
-    /// <summary>
-    /// Broadcasts the all-notifications-read event and updated count to a specific user via SignalR.
-    /// </summary>
-    /// <param name="userId">The user ID to broadcast to.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    private async Task BroadcastAllNotificationsReadAsync(
-        string userId,
-        CancellationToken cancellationToken)
-    {
-        try
-        {
-            var summary = await _repository.GetUserNotificationSummaryAsync(userId, cancellationToken);
-
-            await _hubContext.Clients
-                .User(userId)
-                .SendAsync(DashboardHub.OnAllNotificationsRead, cancellationToken);
-
-            await _hubContext.Clients
-                .User(userId)
-                .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
-
-            _logger.LogDebug(
-                "Broadcast all notifications read to user {UserId}",
-                userId);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(
-                ex,
-                "Failed to broadcast all notifications read to user {UserId}",
-                userId);
-        }
+        await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -556,7 +341,7 @@ public class NotificationService : INotificationService
 
         return new PaginatedResponseDto<UserNotificationDto>
         {
-            Items = items.Select(MapToDto).ToList(),
+            Items = items.Select(NotificationMapper.ToDto).ToList(),
             Page = query.Page,
             PageSize = query.PageSize,
             TotalCount = totalCount
@@ -574,7 +359,6 @@ public class NotificationService : INotificationService
 
         if (idList.Count == 0) return;
 
-        // Validate ownership of all notifications via repository
         var ownedIds = await _repository.GetOwnedNotificationIdsAsync(userId, idList, cancellationToken);
 
         if (ownedIds.Count != idList.Count)
@@ -587,7 +371,7 @@ public class NotificationService : INotificationService
         if (ownedIds.Count > 0)
         {
             await _repository.MarkMultipleAsReadAsync(ownedIds, cancellationToken);
-            await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+            await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
         }
     }
 
@@ -615,7 +399,7 @@ public class NotificationService : INotificationService
         }
 
         await _repository.MarkAsUnreadAsync(notificationId, cancellationToken);
-        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
         return true;
     }
 
@@ -643,7 +427,7 @@ public class NotificationService : INotificationService
         }
 
         await _repository.DeleteAsync(notificationId, cancellationToken);
-        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
         return true;
     }
 
@@ -658,7 +442,6 @@ public class NotificationService : INotificationService
 
         if (idList.Count == 0) return 0;
 
-        // Validate ownership via repository
         var ownedIds = await _repository.GetOwnedNotificationIdsAsync(userId, idList, cancellationToken);
 
         if (ownedIds.Count == 0) return 0;
@@ -671,7 +454,7 @@ public class NotificationService : INotificationService
         }
 
         var deleted = await _repository.DeleteMultipleAsync(ownedIds, cancellationToken);
-        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
         return deleted;
     }
 
@@ -682,7 +465,7 @@ public class NotificationService : INotificationService
     {
         _logger.LogDebug("Deleting all notifications for user {UserId}", userId);
         var deleted = await _repository.DeleteAllByUserAsync(userId, cancellationToken);
-        await BroadcastNotificationCountChangedAsync(userId, cancellationToken);
+        await _broadcaster.BroadcastCountChangedAsync(userId, cancellationToken);
         return deleted;
     }
 }

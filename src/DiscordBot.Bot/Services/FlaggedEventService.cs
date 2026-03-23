@@ -14,15 +14,18 @@ public class FlaggedEventService : IFlaggedEventService
 {
     private readonly IFlaggedEventRepository _eventRepository;
     private readonly DiscordSocketClient _client;
+    private readonly IDiscordChannelResolver _channelResolver;
     private readonly ILogger<FlaggedEventService> _logger;
 
     public FlaggedEventService(
         IFlaggedEventRepository eventRepository,
         DiscordSocketClient client,
+        IDiscordChannelResolver channelResolver,
         ILogger<FlaggedEventService> logger)
     {
         _eventRepository = eventRepository;
         _client = client;
+        _channelResolver = channelResolver;
         _logger = logger;
     }
 
@@ -275,23 +278,7 @@ public class FlaggedEventService : IFlaggedEventService
     /// </summary>
     private string GetChannelName(ulong guildId, ulong channelId)
     {
-        try
-        {
-            var guild = _client.GetGuild(guildId);
-            if (guild == null)
-            {
-                _logger.LogWarning("Guild {GuildId} not found when resolving channel {ChannelId}", guildId, channelId);
-                return $"Unknown#{channelId}";
-            }
-
-            var channel = guild.GetChannel(channelId);
-            return channel?.Name ?? $"Unknown#{channelId}";
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to resolve channel name for channel {ChannelId} in guild {GuildId}",
-                channelId, guildId);
-            return $"Unknown#{channelId}";
-        }
+        var name = _channelResolver.ResolveChannelName(guildId, channelId);
+        return name == "Unknown Channel" ? $"Unknown#{channelId}" : name;
     }
 }

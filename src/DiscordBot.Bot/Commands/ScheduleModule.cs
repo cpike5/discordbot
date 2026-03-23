@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Components;
 using DiscordBot.Bot.Models;
 using DiscordBot.Bot.Preconditions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -157,14 +158,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         {
             if (string.IsNullOrWhiteSpace(cron))
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Error")
-                    .WithDescription("Cron expression is required when using Custom frequency.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                    await RespondAsync(embed: EmbedHelper.Error("Error", "Cron expression is required when using Custom frequency."), ephemeral: true);
                 _logger.LogWarning("Schedule create failed: cron expression required for Custom frequency");
                 return;
             }
@@ -172,14 +166,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
             var (isValid, errorMessage) = await _scheduledMessageService.ValidateCronExpressionAsync(cron);
             if (!isValid)
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Invalid Cron Expression")
-                    .WithDescription($"The cron expression is invalid: {errorMessage}")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Invalid Cron Expression", $"The cron expression is invalid: {errorMessage}"), ephemeral: true);
                 _logger.LogWarning("Schedule create failed: invalid cron expression - {ErrorMessage}", errorMessage);
                 return;
             }
@@ -189,14 +176,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         var nextExecution = await _scheduledMessageService.CalculateNextExecutionAsync(frequency, cron);
         if (!nextExecution.HasValue)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("Failed to calculate next execution time.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "Failed to calculate next execution time."), ephemeral: true);
             _logger.LogError("Schedule create failed: could not calculate next execution time for frequency {Frequency}", frequency);
             return;
         }
@@ -248,14 +228,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to create scheduled message: {Title}", title);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to create scheduled message: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to create scheduled message: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -275,14 +248,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
 
         if (!Guid.TryParse(id, out var messageId))
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("Invalid message ID format.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "Invalid message ID format."), ephemeral: true);
             _logger.LogWarning("Schedule delete failed: invalid GUID format - {Id}", id);
             return;
         }
@@ -290,14 +256,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         var message = await _scheduledMessageService.GetByIdAsync(messageId);
         if (message == null)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("Scheduled message not found.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "Scheduled message not found."), ephemeral: true);
             _logger.LogWarning("Schedule delete failed: message not found - {MessageId}", messageId);
             return;
         }
@@ -305,14 +264,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         // Verify the message belongs to this guild
         if (message.GuildId != Context.Guild.Id)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("This scheduled message does not belong to this guild.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this guild."), ephemeral: true);
             _logger.LogWarning(
                 "Schedule delete failed: message {MessageId} belongs to guild {MessageGuildId}, not {CurrentGuildId}",
                 messageId,
@@ -370,14 +322,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
 
         if (!Guid.TryParse(id, out var messageId))
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("Invalid message ID format.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "Invalid message ID format."), ephemeral: true);
             _logger.LogWarning("Schedule toggle failed: invalid GUID format - {Id}", id);
             return;
         }
@@ -385,14 +330,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         var message = await _scheduledMessageService.GetByIdAsync(messageId);
         if (message == null)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("Scheduled message not found.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "Scheduled message not found."), ephemeral: true);
             _logger.LogWarning("Schedule toggle failed: message not found - {MessageId}", messageId);
             return;
         }
@@ -400,14 +338,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         // Verify the message belongs to this guild
         if (message.GuildId != Context.Guild.Id)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("This scheduled message does not belong to this guild.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this guild."), ephemeral: true);
             _logger.LogWarning(
                 "Schedule toggle failed: message {MessageId} belongs to guild {MessageGuildId}, not {CurrentGuildId}",
                 messageId,
@@ -427,14 +358,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
             var updated = await _scheduledMessageService.UpdateAsync(messageId, updateDto);
             if (updated == null)
             {
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Error")
-                    .WithDescription("Failed to update scheduled message.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Error", "Failed to update scheduled message."), ephemeral: true);
                 _logger.LogError("Schedule toggle failed: update returned null for message {MessageId}", messageId);
                 return;
             }
@@ -466,14 +390,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         {
             _logger.LogError(ex, "Failed to toggle scheduled message {MessageId}", messageId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"Failed to toggle scheduled message: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to toggle scheduled message: {ex.Message}"), ephemeral: true);
         }
     }
 
@@ -493,14 +410,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
 
         if (!Guid.TryParse(id, out var messageId))
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("Invalid message ID format.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "Invalid message ID format."), ephemeral: true);
             _logger.LogWarning("Schedule run failed: invalid GUID format - {Id}", id);
             return;
         }
@@ -508,14 +418,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         var message = await _scheduledMessageService.GetByIdAsync(messageId);
         if (message == null)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("Scheduled message not found.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "Scheduled message not found."), ephemeral: true);
             _logger.LogWarning("Schedule run failed: message not found - {MessageId}", messageId);
             return;
         }
@@ -523,14 +426,7 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
         // Verify the message belongs to this guild
         if (message.GuildId != Context.Guild.Id)
         {
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription("This scheduled message does not belong to this guild.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "This scheduled message does not belong to this guild."), ephemeral: true);
             _logger.LogWarning(
                 "Schedule run failed: message {MessageId} belongs to guild {MessageGuildId}, not {CurrentGuildId}",
                 messageId,
@@ -568,28 +464,14 @@ public class ScheduleModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogError("Failed to execute scheduled message {MessageId}", messageId);
 
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("❌ Execution Failed")
-                    .WithDescription("Failed to execute the scheduled message. The message may not be found or the channel may be inaccessible.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Execution Failed", "Failed to execute the scheduled message. The message may not be found or the channel may be inaccessible."), ephemeral: true);
             }
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Exception occurred while executing scheduled message {MessageId}", messageId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("❌ Error")
-                .WithDescription($"An error occurred while executing the scheduled message: {ex.Message}")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", $"An error occurred while executing the scheduled message: {ex.Message}"), ephemeral: true);
         }
     }
 }

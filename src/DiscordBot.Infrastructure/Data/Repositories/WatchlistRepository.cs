@@ -27,21 +27,16 @@ public class WatchlistRepository : Repository<Watchlist>, IWatchlistRepository
     /// </remarks>
     public override async Task<Watchlist?> GetByIdAsync(object id, CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Retrieving watchlist entry by ID: {Id}", id);
-
         if (id is not Guid guidId)
         {
             _logger.LogWarning("Invalid ID type for Watchlist: {IdType}", id?.GetType().Name ?? "null");
             return null;
         }
 
-        var result = await DbSet
-            .AsNoTracking()
-            .Include(w => w.Guild)
-            .FirstOrDefaultAsync(w => w.Id == guidId, cancellationToken);
-
-        _logger.LogDebug("Watchlist entry {Id} found: {Found}", id, result != null);
-        return result;
+        return await GetByIdWithIncludesAsync(
+            guidId,
+            q => q.Include(w => w.Guild),
+            cancellationToken);
     }
 
     public async Task<(IEnumerable<Watchlist> Items, int TotalCount)> GetByGuildAsync(
@@ -57,16 +52,10 @@ public class WatchlistRepository : Repository<Watchlist>, IWatchlistRepository
         var query = DbSet
             .AsNoTracking()
             .Include(w => w.Guild)
-            .Where(w => w.GuildId == guildId);
+            .Where(w => w.GuildId == guildId)
+            .OrderByDescending(w => w.AddedAt);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(w => w.AddedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var (items, totalCount) = await GetPagedAsync(query, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} watchlist entries for guild {GuildId} out of {TotalCount} total",

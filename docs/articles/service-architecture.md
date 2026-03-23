@@ -1,11 +1,11 @@
 # Service Architecture
 
-**Version:** 1.0
-**Last Updated:** 2026-01-25
+**Version:** 1.1
+**Last Updated:** 2026-03-22
 
 ## Overview
 
-The system uses interface-based dependency injection following the Dependency Inversion Principle. All services implement interfaces defined in the Core layer, organized across 18 extension method files in the Bot layer. This document catalogs all 104+ service interfaces by domain.
+The system uses interface-based dependency injection following the Dependency Inversion Principle. All services implement interfaces defined in the Core layer, organized across 21 extension method files in the Bot layer. This document catalogs all 110+ service interfaces by domain.
 
 **Architecture:** Three-layer clean architecture with interfaces in Core, implementations in Infrastructure/Bot, and DI registration in Bot extensions.
 
@@ -238,7 +238,7 @@ Services for managing guild members, memberships, user-guild relationships, and 
 
 ## Authentication & Security
 
-Services for Discord OAuth token management, user info retrieval, and verification.
+Services for Discord OAuth token management, user info retrieval, verification, and Discord integration caching.
 
 **Cross-Reference:** See [identity-configuration.md](identity-configuration.md) for OAuth setup and troubleshooting.
 
@@ -248,6 +248,8 @@ Services for Discord OAuth token management, user info retrieval, and verificati
 |-----------|-------------|----------------|----------|-----------|
 | `IDiscordTokenService` | OAuth token management | `DiscordTokenService` | Scoped | DiscordServiceExtensions |
 | `IDiscordUserInfoService` | Discord user info retrieval | `DiscordUserInfoService` | Scoped | DiscordServiceExtensions |
+| `IDiscordChannelResolver` | Channel name/type resolution with caching | `DiscordChannelResolver` | Scoped | DiscordServiceExtensions |
+| `IDiscordUserResolver` | Discord user info with memory cache | `DiscordUserResolver` | Singleton | DiscordServiceExtensions |
 | `IVerificationService` | Email/phone verification | `VerificationService` | Scoped | VerificationServiceExtensions |
 
 ---
@@ -322,7 +324,7 @@ Services for managing reminders, scheduled messages, and welcome messages.
 
 ## Audio & Voice Services
 
-Services for audio playback, soundboard, TTS, and audio settings management.
+Services for audio playback, soundboard, TTS, audio settings management, and audio streaming.
 
 **Cross-Reference:** See [audio-dependencies.md](audio-dependencies.md) for FFmpeg and codec dependencies.
 
@@ -333,10 +335,12 @@ Services for audio playback, soundboard, TTS, and audio settings management.
 | `ISoundService` | Soundboard management | `SoundService` | Scoped | VoiceServiceExtensions |
 | `ISoundFileService` | Sound file I/O operations | `SoundFileService` | Scoped | VoiceServiceExtensions |
 | `ISoundCacheService` | Sound caching | `SoundCacheService` | Singleton | VoiceServiceExtensions |
-| `ITtsService` | Text-to-speech synthesis | `AzureTtsService` | Scoped | VoiceServiceExtensions |
+| `ITtsService` | Text-to-speech synthesis | `AzureTtsService` | Singleton | VoiceServiceExtensions |
 | `ITtsHistoryService` | TTS history management | `TtsHistoryService` | Scoped | VoiceServiceExtensions |
 | `ITtsSettingsService` | TTS settings management | `TtsSettingsService` | Scoped | VoiceServiceExtensions |
 | `IGuildAudioSettingsService` | Per-guild audio config | `GuildAudioSettingsService` | Scoped | VoiceServiceExtensions |
+| `IAudioStreamer` | PCM audio streaming to Discord | `AudioStreamer` | Singleton | VoiceServiceExtensions |
+| `IFfmpegTranscoder` | FFmpeg audio transcoding | `FfmpegTranscoder` | Singleton | VoiceServiceExtensions |
 
 **Additional Services (Non-Interface):**
 - `AudioService` (Singleton) - Core audio engine
@@ -369,6 +373,8 @@ Services for performance alerting, connection state, health monitoring, and metr
 | Interface | Description | Implementation | Lifetime | Extension |
 |-----------|-------------|----------------|----------|-----------|
 | `IPerformanceAlertService` | Performance alerting | `PerformanceAlertService` | Scoped | PerformanceMetricsServiceExtensions |
+| `IMetricValueCollector` | Metric value collection for alerts | `MetricValueCollector` | Singleton | PerformanceMetricsServiceExtensions |
+| `IAlertIncidentManager` | Alert incident lifecycle management | `AlertIncidentManager` | Singleton | PerformanceMetricsServiceExtensions |
 | `IConnectionStateService` | Connection state tracking | `ConnectionStateService` | Singleton | PerformanceMetricsServiceExtensions |
 | `IBackgroundServiceHealth` | Single service health | (interface) | N/A | N/A |
 | `IBackgroundServiceHealthRegistry` | Health registry | `BackgroundServiceHealthRegistry` | Singleton | PerformanceMetricsServiceExtensions |
@@ -402,6 +408,7 @@ Services for real-time notifications via SignalR, dashboard updates, and subscri
 | `IDashboardNotifier` | Dashboard SignalR notifications | `DashboardNotifier` | Singleton | SignalRServiceExtensions |
 | `IDashboardUpdateService` | Dashboard update aggregation | `DashboardUpdateService` | Singleton | SignalRServiceExtensions |
 | `IAudioNotifier` | Audio state notifications | `AudioNotifier` | Singleton | VoiceServiceExtensions |
+| `INotificationBroadcaster` | SignalR notification broadcasting | `NotificationBroadcaster` | Scoped | NotificationServiceExtensions |
 | `IPerformanceNotifier` | Performance notifications | `PerformanceNotifier` | Singleton | PerformanceMetricsServiceExtensions |
 | `IPerformanceSubscriptionTracker` | WebSocket subscription tracking | `PerformanceSubscriptionTracker` | Singleton | PerformanceMetricsServiceExtensions |
 
@@ -426,15 +433,17 @@ app.MapHub<DashboardHub>("/hubs/dashboard");
 
 ## Utility Services
 
-Miscellaneous services for search, page metadata, interaction state, and command module configuration.
+Miscellaneous services for search, page metadata, interaction state, background tasks, and command module configuration.
 
 ### Service Table
 
 | Interface | Description | Implementation | Lifetime | Extension |
 |-----------|-------------|----------------|----------|-----------|
-| `ISearchService` | Search functionality | `SearchService` | Scoped | ApplicationServiceExtensions |
-| `IPageMetadataService` | Page metadata | `PageMetadataService` | Scoped | ApplicationServiceExtensions |
-| `IInteractionStateService` | Discord interaction state | `InteractionStateService` | Scoped | DiscordServiceExtensions |
+| `ISearchService` | Search orchestrator (delegates to ISearchProvider implementations) | `SearchService` | Scoped | ApplicationServiceExtensions |
+| `ISearchProvider` | Search provider abstraction (9 implementations) | Various | Scoped | ApplicationServiceExtensions |
+| `IBackgroundTaskRunner` | Safe fire-and-forget task execution | `BackgroundTaskRunner` | Singleton | ApplicationServiceExtensions |
+| `IPageMetadataService` | Page metadata | `PageMetadataService` | Singleton | ApplicationServiceExtensions |
+| `IInteractionStateService` | Discord interaction state | `InteractionStateService` | Singleton | DiscordServiceExtensions |
 | `IDiscordMessage` | Message abstraction | `DiscordMessageAdapter` | Scoped | DiscordServiceExtensions |
 | `ICommandModuleConfigurationService` | Command module enable/disable | `CommandModuleConfigurationService` | Singleton | ServiceCollectionExtensions |
 
@@ -494,6 +503,14 @@ These services must be singleton for correct operation:
 | `ICommandPerformanceAggregator` | Command performance across requests |
 | `IPerformanceSubscriptionTracker` | WebSocket subscription tracking |
 | `IDashboardUpdateService` | Aggregates dashboard updates |
+| `IBackgroundTaskRunner` | Fire-and-forget task execution |
+| `IDiscordUserResolver` | Discord user info caching |
+| `IAudioStreamer` | PCM audio streaming |
+| `IFfmpegTranscoder` | FFmpeg audio transcoding |
+| `IMetricValueCollector` | Metric value collection |
+| `IAlertIncidentManager` | Alert incident management |
+| `ITtsService` | Text-to-speech service |
+| `IPageMetadataService` | Page metadata caching |
 
 ### Scoped Services
 
@@ -521,7 +538,7 @@ Is the service stateless and cheap to create?
 
 ## DI Extension Architecture
 
-Services are organized into 18 feature-based extension method files in `src/DiscordBot.Bot/Extensions/`.
+Services are organized into 21 feature-based extension method files in `src/DiscordBot.Bot/Extensions/`.
 
 ### Extension Files and Responsibilities
 
@@ -544,6 +561,8 @@ Services are organized into 18 feature-based extension method files in `src/Disc
 | `WebServiceExtensions.cs` | Web infrastructure | Controllers, Razor Pages, HTTP client, memory cache |
 | `SignalRServiceExtensions.cs` | Real-time updates | SignalR, dashboard notifier, dashboard update service |
 | `SwaggerServiceExtensions.cs` | API documentation | Swagger/OpenAPI configuration |
+| `DmAssistantServiceExtensions.cs` | DM-based AI assistant | Discord Direct Message assistant integration |
+| `HealthCheckExtensions.cs` | Health monitoring | Application health check endpoints |
 | `OpenTelemetryExtensions.cs` | Observability | Distributed tracing and telemetry |
 | `ElasticApmExtensions.cs` | Elastic APM | Distributed tracing via Elastic APM |
 
@@ -718,6 +737,6 @@ public interface IDashboardNotifier
 
 ---
 
-*Document Version: 1.0*
-*Last Updated: 2026-01-25*
+*Document Version: 1.1*
+*Last Updated: 2026-03-22*
 *Author: Claude Documentation*

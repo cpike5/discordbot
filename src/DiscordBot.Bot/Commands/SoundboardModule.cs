@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Autocomplete;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Preconditions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Constants;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -97,24 +98,15 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
             }
 
             // Get user's voice channel
-            var guildUser = Context.User as SocketGuildUser;
-            var voiceChannel = guildUser?.VoiceChannel;
-
-            if (voiceChannel == null)
+            var (isInVoice, voiceChannel, voiceErrorEmbed) = VoiceChannelHelper.ValidateUserInVoiceChannel(Context);
+            if (!isInVoice)
             {
                 _logger.LogDebug(
                     "User {UserId} not in voice channel for play command in guild {GuildId}",
                     userId,
                     guildId);
 
-                var noVoiceEmbed = new EmbedBuilder()
-                    .WithTitle("Not in Voice Channel")
-                    .WithDescription("You need to be in a voice channel to use this command.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: noVoiceEmbed, ephemeral: true);
+                await RespondAsync(embed: voiceErrorEmbed, ephemeral: true);
                 return;
             }
 
@@ -138,14 +130,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
             {
                 _logger.LogError("Failed to play sound '{SoundName}': {ErrorMessage}", soundName, result.ErrorMessage);
 
-                var errorEmbed = new EmbedBuilder()
-                    .WithTitle("Playback Failed")
-                    .WithDescription(result.ErrorMessage ?? "An unknown error occurred.")
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await RespondAsync(embed: errorEmbed, ephemeral: true);
+                await RespondAsync(embed: EmbedHelper.Error("Playback Failed", result.ErrorMessage ?? "An unknown error occurred."), ephemeral: true);
                 return;
             }
 
@@ -173,14 +158,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 }
                 else
                 {
-                    var queuedEmbed = new EmbedBuilder()
-                        .WithTitle("Sound Queued")
-                        .WithDescription($"Queued: **{sound.Name}**{filterText} (position: {result.QueuePosition})")
-                        .WithColor(Color.Blue)
-                        .WithCurrentTimestamp()
-                        .Build();
-
-                    await RespondAsync(embed: queuedEmbed, ephemeral: true);
+                            await RespondAsync(embed: EmbedHelper.EmptyState("Sound Queued", $"Queued: **{sound.Name}**{filterText} (position: {result.QueuePosition})"), ephemeral: true);
                 }
             }
             else
@@ -200,14 +178,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 }
                 else
                 {
-                    var playingEmbed = new EmbedBuilder()
-                        .WithTitle("Now Playing")
-                        .WithDescription($"Now playing: **{sound.Name}**{filterText}")
-                        .WithColor(Color.Green)
-                        .WithCurrentTimestamp()
-                        .Build();
-
-                    await RespondAsync(embed: playingEmbed, ephemeral: true);
+                    await RespondAsync(embed: EmbedHelper.Success("Now Playing", $"Now playing: **{sound.Name}**{filterText}"), ephemeral: true);
                 }
             }
         }
@@ -218,14 +189,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 soundName,
                 guildId);
 
-            var fileErrorEmbed = new EmbedBuilder()
-                .WithTitle("File Not Found")
-                .WithDescription("Sound file not found. It may have been deleted.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: fileErrorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("File Not Found", "Sound file not found. It may have been deleted."), ephemeral: true);
         }
         catch (UnauthorizedAccessException)
         {
@@ -233,14 +197,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 "Bot lacks permissions to join voice channel in guild {GuildId}",
                 guildId);
 
-            var permissionEmbed = new EmbedBuilder()
-                .WithTitle("Permission Denied")
-                .WithDescription("I don't have permission to join that voice channel.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: permissionEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Permission Denied", "I don't have permission to join that voice channel."), ephemeral: true);
         }
         catch (Exception ex)
         {
@@ -250,14 +207,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 soundName,
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Playback Error")
-                .WithDescription("An error occurred while trying to play the sound. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Playback Error", "An error occurred while trying to play the sound. Please try again later."), ephemeral: true);
         }
     }
 
@@ -342,14 +292,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 "Failed to retrieve sounds for guild {GuildId}",
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Error")
-                .WithDescription("An error occurred while retrieving the sounds list. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "An error occurred while retrieving the sounds list. Please try again later."), ephemeral: true);
         }
     }
 
@@ -378,14 +321,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 guildId,
                 Context.User.Id);
 
-            var successEmbed = new EmbedBuilder()
-                .WithTitle("Playback Stopped")
-                .WithDescription("Playback stopped and queue cleared.")
-                .WithColor(Color.Green)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: successEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Success("Playback Stopped", "Playback stopped and queue cleared."), ephemeral: true);
 
             _logger.LogDebug("Stop command completed successfully for guild {GuildId}", guildId);
         }
@@ -396,14 +332,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 "Failed to stop playback for guild {GuildId}",
                 guildId);
 
-            var errorEmbed = new EmbedBuilder()
-                .WithTitle("Error")
-                .WithDescription("An error occurred while stopping playback. Please try again later.")
-                .WithColor(Color.Red)
-                .WithCurrentTimestamp()
-                .Build();
-
-            await RespondAsync(embed: errorEmbed, ephemeral: true);
+            await RespondAsync(embed: EmbedHelper.Error("Error", "An error occurred while stopping playback. Please try again later."), ephemeral: true);
         }
     }
 
