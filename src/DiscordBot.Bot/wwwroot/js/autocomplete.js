@@ -87,6 +87,12 @@ const AutocompleteManager = (function() {
         }
 
         init() {
+            // Debounced visibility toggle to prevent flickering on rapid focus/blur cycles
+            this.debouncedSetVisibility = debounce((shouldOpen) => {
+                if (shouldOpen) this._doOpen();
+                else this._doClose();
+            }, 100);
+
             // Set ARIA attributes
             this.input.setAttribute('role', 'combobox');
             this.input.setAttribute('aria-autocomplete', 'list');
@@ -174,19 +180,15 @@ const AutocompleteManager = (function() {
                 }
             });
 
-            // Close on blur (with delay for click handling)
+            // Close on blur — debounced close() prevents flickering on rapid focus/blur
             this.input.addEventListener('blur', (e) => {
-                setTimeout(() => {
-                    if (!this.dropdown.contains(document.activeElement)) {
-                        this.close();
-                    }
-                }, 150);
+                this.close();
             });
 
-            // Close on escape anywhere
+            // Close on escape anywhere — bypass debounce for instant responsiveness
             document.addEventListener('keydown', (e) => {
                 if (e.key === 'Escape' && this.isOpen) {
-                    this.close();
+                    this._doClose();
                     this.input.focus();
                 }
             });
@@ -225,7 +227,7 @@ const AutocompleteManager = (function() {
                     break;
                 case 'Escape':
                     e.preventDefault();
-                    this.close();
+                    this._doClose();
                     break;
                 case 'Tab':
                     this.close();
@@ -409,6 +411,14 @@ const AutocompleteManager = (function() {
         }
 
         open() {
+            this.debouncedSetVisibility(true);
+        }
+
+        close() {
+            this.debouncedSetVisibility(false);
+        }
+
+        _doOpen() {
             if (this.isOpen) return;
 
             this.isOpen = true;
@@ -418,7 +428,7 @@ const AutocompleteManager = (function() {
             activeInstance = this;
         }
 
-        close() {
+        _doClose() {
             if (!this.isOpen) return;
 
             this.isOpen = false;

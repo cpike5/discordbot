@@ -25,6 +25,8 @@
 </head>
 <body class="portal-page bg-bg-primary text-text-primary font-sans antialiased">
     @RenderBody()
+    <!-- Shared Toast Notification Manager -->
+    <script src="~/js/toast.js" asp-append-version="true"></script>
     @await RenderSectionAsync("Scripts", required: false)
 </body>
 </html>

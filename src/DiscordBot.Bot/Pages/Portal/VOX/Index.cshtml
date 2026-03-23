@@ -1893,8 +1893,8 @@
                 await loadVoxHistory();
             } catch (error) {
                 console.error('Failed to toggle favorite:', error);
-                if (typeof showToast === 'function') {
-                    showToast('Failed to update favorite', 'error');
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('error', 'Failed to update favorite');
                 }
             }
         }
@@ -1914,8 +1914,8 @@
                 await loadVoxHistory();
             } catch (error) {
                 console.error('Failed to delete history entry:', error);
-                if (typeof showToast === 'function') {
-                    showToast('Failed to delete entry', 'error');
+                if (typeof ToastManager !== 'undefined') {
+                    ToastManager.show('error', 'Failed to delete entry');
                 }
             }
         }

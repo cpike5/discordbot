@@ -14,6 +14,26 @@ const DashboardHub = (function() {
     // Event handlers storage
     const eventHandlers = {};
 
+    // Connection state management
+    let connectionState = 'disconnected';
+    let stateChangeCallbacks = [];
+
+    /**
+     * Updates the connection state and notifies all state change subscribers.
+     * @param {string} newState - The new connection state ('disconnected', 'connecting', 'connected', 'reconnecting').
+     */
+    function setConnectionState(newState) {
+        const previousState = connectionState;
+        connectionState = newState;
+        stateChangeCallbacks.forEach(callback => {
+            try {
+                callback({ state: newState, previousState });
+            } catch (error) {
+                console.error('[DashboardHub] Error in state change callback:', error);
+            }
+        });
+    }
+
     /**
      * Initializes the SignalR connection to the dashboard hub.
      * @returns {Promise<boolean>} True if connection successful, false otherwise.
@@ -43,6 +63,7 @@ const DashboardHub = (function() {
             connection.onreconnecting((error) => {
                 console.warn('[DashboardHub] Connection lost, attempting to reconnect...', error);
                 isConnected = false;
+                setConnectionState('reconnecting');
                 triggerEvent('reconnecting', { error });
             });
 
@@ -50,18 +71,22 @@ const DashboardHub = (function() {
                 console.log('[DashboardHub] Reconnected with ID:', connectionId);
                 isConnected = true;
                 reconnectAttempts = 0;
+                setConnectionState('connected');
                 triggerEvent('reconnected', { connectionId });
             });
 
             connection.onclose((error) => {
                 console.warn('[DashboardHub] Connection closed', error);
                 isConnected = false;
+                setConnectionState('disconnected');
                 triggerEvent('disconnected', { error });
             });
 
             // Start the connection
+            setConnectionState('connecting');
             await connection.start();
             isConnected = true;
+            setConnectionState('connected');
             reconnectAttempts = 0;
 
             // Register all pre-stored event handlers with the new connection
@@ -78,6 +103,7 @@ const DashboardHub = (function() {
         } catch (error) {
             console.error('[DashboardHub] Failed to connect:', error);
             isConnected = false;
+            setConnectionState('disconnected');
             triggerEvent('connectionFailed', { error });
             return false;
         }
@@ -473,7 +499,10 @@ const DashboardHub = (function() {
         on,
         off,
         isConnected: getIsConnected,
-        connectionId: getConnectionId
+        connectionId: getConnectionId,
+        getConnectionState: () => connectionState,
+        onStateChange: (callback) => { stateChangeCallbacks.push(callback); },
+        offStateChange: (callback) => { stateChangeCallbacks = stateChangeCallbacks.filter(cb => cb !== callback); }
     };
 })();
 

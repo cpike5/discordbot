@@ -1056,8 +1056,6 @@ else
     <input type="file" id="fileInput" accept="audio/mp3,audio/wav,audio/ogg,.mp3,.wav,.ogg" class="hidden">
 } @* End of IsAuthenticated else block *@
 
-<!-- Toast Container -->
-<div id="portalToastContainer" class="portal-toast-container"></div>
 
 @section Scripts {
     <!-- SignalR for real-time updates -->
@@ -1080,77 +1078,11 @@ else
         let fullscreenAutoHideTimer = null;
         let currentSort = localStorage.getItem('portal:soundboard:sort:' + window.guildId) || 'name-asc';
 
-        // ========================================
-        // Toast Notification System
-        // ========================================
-        const PortalToast = {
-            container: null,
-            icons: {
-                success: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-                error: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>',
-                warning: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>',
-                info: '<svg class="portal-toast-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>'
-            },
-
-            init() {
-                this.container = document.getElementById('portalToastContainer');
-            },
-
-            show(type, message, duration) {
-                // Default durations by type: success=3s, info/warning=5s, error=no auto-dismiss
-                if (duration === undefined) {
-                    duration = type === 'error' ? 0 : type === 'success' ? 3000 : 5000;
-                }
-                if (!this.container) this.init();
-
-                const toast = document.createElement('div');
-                toast.className = `portal-toast ${type}`;
-                toast.innerHTML = `
-                    ${this.icons[type]}
-                    <span class="portal-toast-message">${this.escapeHtml(message)}</span>
-                    <button class="portal-toast-close" aria-label="Dismiss">
-                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" style="width: 16px; height: 16px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    </button>
-                `;
-
-                // Close button handler
-                toast.querySelector('.portal-toast-close').addEventListener('click', () => this.dismiss(toast));
-
-                this.container.appendChild(toast);
-
-                // Auto dismiss
-                if (duration > 0) {
-                    setTimeout(() => this.dismiss(toast), duration);
-                }
-
-                return toast;
-            },
-
-            dismiss(toast) {
-                if (!toast || !toast.parentNode) return;
-                toast.classList.add('dismissing');
-                setTimeout(() => toast.remove(), 200);
-            },
-
-            success(message, duration) { return this.show('success', message, duration); },
-            error(message, duration) { return this.show('error', message, duration); },
-            warning(message, duration) { return this.show('warning', message, duration); },
-            info(message, duration) { return this.show('info', message, duration); },
-
-            escapeHtml(text) {
-                const div = document.createElement('div');
-                div.textContent = text;
-                return div.innerHTML;
-            }
-        };
 
         // ========================================
         // Initialization
         // ========================================
         document.addEventListener('DOMContentLoaded', async function() {
-            PortalToast.init();
             // Apply saved sort preference to dropdown
             const sortSelect = document.getElementById('sortSelect');
             sortSelect.value = currentSort;
@@ -1319,7 +1251,7 @@ else
             });
 
             // Show a toast notification
-            PortalToast.info(`New sound "${data.name}" was added`);
+            ToastManager.show('info',`New sound "${data.name}" was added`);
         }
 
         // Handle sound deleted event from SignalR (admin deleted a sound)
@@ -1360,7 +1292,7 @@ else
                     }
 
                     // Show toast notification
-                    PortalToast.warning(`Sound "${soundName}" was deleted`);
+                    ToastManager.show('warning',`Sound "${soundName}" was deleted`);
                 }, 300);
             }
         }
@@ -1653,7 +1585,7 @@ else
                         svg.setAttribute('fill', 'currentColor');
                     }
                     sortSoundGrid();
-                    PortalToast.error('Failed to update favorite. Please try again.');
+                    ToastManager.show('error','Failed to update favorite. Please try again.');
                 });
         }
 
@@ -1691,7 +1623,7 @@ else
 
             previewAudio.play().catch(err => {
                 if (btn) btn.classList.remove('previewing');
-                PortalToast.error('Failed to preview sound');
+                ToastManager.show('error','Failed to preview sound');
             });
         }
 
@@ -1746,10 +1678,10 @@ else
                     }, 300);
                 }
 
-                PortalToast.success(`Sound "${soundName}" deleted`);
+                ToastManager.show('success',`Sound "${soundName}" deleted`);
             })
             .catch(error => {
-                PortalToast.error(error.message || 'Failed to delete sound. Please try again.');
+                ToastManager.show('error',error.message || 'Failed to delete sound. Please try again.');
             });
         }
 
@@ -1762,7 +1694,7 @@ else
             const isConnected = voicePanel && voicePanel.dataset.connected === 'true';
 
             if (!isConnected) {
-                PortalToast.warning('Please join a voice channel first!');
+                ToastManager.show('warning','Please join a voice channel first!');
                 return;
             }
 
@@ -1777,7 +1709,7 @@ else
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     if (errorData.errorCode === 'not_connected') {
-                        PortalToast.warning('Please join a voice channel first!');
+                        ToastManager.show('warning','Please join a voice channel first!');
                         return Promise.reject('not_connected');
                     }
                     throw new Error(errorData.message || 'Failed to play sound');
@@ -1800,7 +1732,7 @@ else
             })
             .catch(error => {
                 if (error === 'not_connected') return;
-                PortalToast.error(error.message || 'Failed to play sound. Please try again.');
+                ToastManager.show('error',error.message || 'Failed to play sound. Please try again.');
             });
         }
 
