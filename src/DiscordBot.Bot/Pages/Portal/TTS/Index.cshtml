@@ -391,6 +391,20 @@
             padding: 1rem;
         }
     }
+
+    /* Emphasis toolbar: ensure container doesn't clip on mobile */
+    @@media (max-width: 767px) {
+        #portalEmphasisToolbarContainer {
+            position: relative;
+            z-index: 50;
+        }
+
+        /* Ensure textarea is readable on small screens */
+        .form-textarea {
+            font-size: max(0.875rem, 16px); /* Prevents iOS zoom on focus */
+            min-height: 120px;
+        }
+    }
 </style>
 
 @if (!Model.IsAuthenticated)

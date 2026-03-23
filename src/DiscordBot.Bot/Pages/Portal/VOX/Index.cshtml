@@ -767,6 +767,11 @@
             .vox-clip-grid {
                 grid-template-columns: repeat(auto-fill, minmax(95px, 1fr));
             }
+
+            .vox-panel {
+                max-height: none;
+                overflow: visible;
+            }
         }
 
         @@media (max-width: 768px) {
@@ -786,6 +791,42 @@
             .vox-section-header {
                 padding: 0.375rem 0.5rem;
                 font-size: 0.8rem;
+            }
+
+            /* Touch targets for VOX interactive elements */
+            .vox-play-btn {
+                min-height: 44px;
+            }
+
+            .vox-clip-tile {
+                min-height: 44px;
+                padding: 0.75rem;
+            }
+
+            .vox-message-input {
+                min-height: 44px;
+                font-size: max(0.9rem, 16px); /* Prevents iOS zoom on focus */
+            }
+
+            .vox-clip-search {
+                min-height: 44px;
+                font-size: max(0.875rem, 16px);
+            }
+
+            .vox-word-gap-preset {
+                min-height: 36px;
+                min-width: 36px;
+                padding: 0.375rem 0.75rem;
+            }
+
+            .vox-word-gap-slider::-webkit-slider-thumb {
+                width: 24px;
+                height: 24px;
+            }
+
+            .vox-word-gap-slider::-moz-range-thumb {
+                width: 24px;
+                height: 24px;
             }
         }
 

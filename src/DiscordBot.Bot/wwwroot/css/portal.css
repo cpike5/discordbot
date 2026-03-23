@@ -619,6 +619,79 @@ html.portal-page body {
 }
 
 /* -----------------------------------------------
+   Mobile UX: Touch Targets & General Polish
+   ----------------------------------------------- */
+
+/* Touch device: increase interactive element sizes */
+@media (hover: none) and (pointer: coarse) {
+    /* Ensure all buttons/interactive elements have 44px min touch targets */
+    .sidebar button,
+    .sidebar select {
+        min-height: 44px;
+    }
+}
+
+/* Small screen touch targets and text overflow */
+@media (max-width: 767px) {
+    /* Ensure body text is readable (min 14px) */
+    .sidebar,
+    .main-container {
+        font-size: max(0.875rem, 14px);
+    }
+
+    /* Prevent text overflow on small screens */
+    .sidebar-title,
+    .sidebar-panel,
+    .portal-content {
+        overflow-wrap: break-word;
+        word-break: break-word;
+    }
+
+    /* Touch targets for common interactive elements */
+    .sidebar button,
+    .sidebar select,
+    .sidebar input[type="text"],
+    .sidebar input[type="file"],
+    .sidebar .btn,
+    .sidebar .btn-join,
+    .sidebar .btn-leave {
+        min-height: 44px;
+    }
+
+    /* Ensure header text doesn't overflow */
+    .header-text h1 {
+        font-size: 1rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        max-width: 200px;
+    }
+
+    /* Reduce main container padding for more content space */
+    .main-container {
+        padding: 0.75rem;
+    }
+
+    .portal-content {
+        gap: 0.75rem;
+    }
+
+    /* Sidebar takes less vertical space on mobile */
+    .sidebar {
+        padding: 0.75rem;
+    }
+}
+
+/* Tablet: sidebar adjustments */
+@media (max-width: 1023px) {
+    /* Sidebar becomes top section, limit its height impact */
+    .sidebar {
+        max-height: none;
+        overflow: visible;
+    }
+}
+
+/* -----------------------------------------------
    Full-Screen Mode
    ----------------------------------------------- */
 

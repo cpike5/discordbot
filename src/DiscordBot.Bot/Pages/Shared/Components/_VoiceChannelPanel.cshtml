@@ -109,6 +109,31 @@
      data-connected="@Model.IsConnected.ToString().ToLower()"
      data-channel-id="@Model.ConnectedChannelId">
 
+    <!-- Mobile Collapsible Toggle (visible < 1024px) -->
+    <button type="button"
+            id="voice-panel-mobile-toggle"
+            class="voice-panel-mobile-toggle"
+            onclick="toggleVoicePanel()"
+            aria-expanded="false"
+            aria-controls="voice-panel-collapsible-body">
+        <div class="voice-panel-mobile-toggle-left">
+            <svg class="voice-panel-mobile-toggle-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+            </svg>
+            <span class="voice-panel-mobile-toggle-label">Voice Channel</span>
+            <span id="voice-panel-mobile-status"
+                  class="voice-panel-mobile-status @(Model.IsConnected ? "connected" : "disconnected")">
+                @statusText
+            </span>
+        </div>
+        <svg class="voice-panel-mobile-chevron" id="voicePanelChevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+        </svg>
+    </button>
+
+    <!-- Collapsible body (collapsed on mobile by default) -->
+    <div id="voice-panel-collapsible-body" class="voice-panel-collapsible-body">
+
     <!-- Voice Channel Status Section -->
     <div class="px-4 py-3 border-b border-border-primary">
         <div class="flex items-center justify-between mb-2">
@@ -255,7 +280,137 @@
             }
         </ul>
     </div>
+
+    </div> <!-- End voice-panel-collapsible-body -->
 </div>
+
+<style>
+    /* ==========================================
+       MOBILE COLLAPSIBLE VOICE PANEL
+       ========================================== */
+
+    /* Mobile toggle button - hidden on desktop */
+    .voice-panel-mobile-toggle {
+        display: none;
+        width: 100%;
+        min-height: 44px;
+        padding: 0.75rem 1rem;
+        background: var(--color-bg-tertiary);
+        border: none;
+        border-bottom: 1px solid var(--color-border-primary);
+        cursor: pointer;
+        align-items: center;
+        justify-content: space-between;
+        transition: background 0.15s ease;
+    }
+
+    .voice-panel-mobile-toggle:hover {
+        background: var(--color-bg-hover);
+    }
+
+    .voice-panel-mobile-toggle-left {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .voice-panel-mobile-toggle-icon {
+        width: 1rem;
+        height: 1rem;
+        color: var(--color-text-secondary);
+        flex-shrink: 0;
+    }
+
+    .voice-panel-mobile-toggle-label {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--color-text-primary);
+    }
+
+    .voice-panel-mobile-status {
+        font-size: 0.7rem;
+        font-weight: 500;
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+    }
+
+    .voice-panel-mobile-status.connected {
+        background-color: rgba(87, 171, 90, 0.15);
+        color: var(--color-success);
+    }
+
+    .voice-panel-mobile-status.disconnected {
+        background-color: rgba(239, 68, 68, 0.1);
+        color: var(--color-error);
+    }
+
+    .voice-panel-mobile-chevron {
+        width: 1.25rem;
+        height: 1.25rem;
+        color: var(--color-text-secondary);
+        transition: transform 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .voice-panel-mobile-chevron.expanded {
+        transform: rotate(180deg);
+    }
+
+    /* On mobile/tablet: show toggle, collapse body by default */
+    @@media (max-width: 1023px) {
+        .voice-panel-mobile-toggle {
+            display: flex;
+        }
+
+        .voice-panel-collapsible-body {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out;
+        }
+
+        .voice-panel-collapsible-body.expanded {
+            max-height: 1000px;
+        }
+
+        /* Sticky positioning for the voice panel on mobile */
+        #voice-channel-panel {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+    }
+
+    /* On desktop: hide toggle, always show body */
+    @@media (min-width: 1024px) {
+        .voice-panel-mobile-toggle {
+            display: none !important;
+        }
+
+        .voice-panel-collapsible-body {
+            max-height: none !important;
+            overflow: visible !important;
+        }
+    }
+</style>
+
+<script>
+    function toggleVoicePanel() {
+        var body = document.getElementById('voice-panel-collapsible-body');
+        var chevron = document.getElementById('voicePanelChevron');
+        var toggle = document.getElementById('voice-panel-mobile-toggle');
+        var isExpanded = body.classList.contains('expanded');
+
+        if (isExpanded) {
+            body.classList.remove('expanded');
+            chevron.classList.remove('expanded');
+            toggle.setAttribute('aria-expanded', 'false');
+        } else {
+            body.classList.add('expanded');
+            chevron.classList.add('expanded');
+            toggle.setAttribute('aria-expanded', 'true');
+        }
+    }
+</script>
 
 @functions {
     private static string FormatDuration(double seconds)
