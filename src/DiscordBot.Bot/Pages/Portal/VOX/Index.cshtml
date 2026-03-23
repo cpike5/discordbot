@@ -789,12 +789,120 @@
             }
         }
 
+        /* ==========================================
+           MOBILE CLIP BROWSER
+           ========================================== */
+
+        .vox-mobile-browser {
+            display: none; /* Hidden on desktop */
+        }
+
+        @@media (max-width: 767px) {
+            .vox-mobile-browser {
+                display: flex;
+                flex-direction: column;
+                gap: 0.5rem;
+                margin-bottom: 0.75rem;
+            }
+
+            .vox-mobile-search-input {
+                width: 100%;
+                min-height: 44px;
+                padding: 0.5rem 0.75rem;
+                background-color: var(--color-bg-primary);
+                border: 1px solid var(--color-border-primary);
+                border-radius: 0.375rem;
+                color: var(--color-text-primary);
+                font-size: 1rem;
+                font-family: var(--font-sans);
+                transition: var(--transition-fast);
+            }
+
+            .vox-mobile-search-input:focus {
+                outline: none;
+                border-color: var(--color-accent-orange);
+                box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.15);
+            }
+
+            .vox-mobile-search-input::placeholder {
+                color: var(--color-text-tertiary);
+            }
+
+            .vox-mobile-letter-strip {
+                display: flex;
+                overflow-x: auto;
+                gap: 0.25rem;
+                padding: 0.25rem 0;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none; /* Hide scrollbar Firefox */
+            }
+
+            .vox-mobile-letter-strip::-webkit-scrollbar {
+                display: none; /* Hide scrollbar Webkit */
+            }
+
+            .vox-mobile-letter-btn {
+                min-width: 36px;
+                min-height: 36px;
+                flex-shrink: 0;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 0.8rem;
+                font-weight: 600;
+                color: var(--color-text-secondary);
+                background-color: var(--color-bg-secondary);
+                border: 1px solid var(--color-border-primary);
+                border-radius: 0.375rem;
+                cursor: pointer;
+                transition: all 0.1s ease-out;
+                padding: 0;
+                /* Ensure 44px touch target even with 36px visible size */
+                position: relative;
+            }
+
+            .vox-mobile-letter-btn::after {
+                content: '';
+                position: absolute;
+                top: -4px;
+                left: -4px;
+                right: -4px;
+                bottom: -4px;
+            }
+
+            .vox-mobile-letter-btn:hover:not(:disabled),
+            .vox-mobile-letter-btn:active:not(:disabled) {
+                color: var(--color-text-primary);
+                background-color: var(--color-bg-hover);
+                border-color: var(--color-accent-orange);
+            }
+
+            .vox-mobile-letter-btn.active {
+                color: white;
+                background-color: var(--color-accent-orange);
+                border-color: var(--color-accent-orange);
+                font-weight: 700;
+            }
+
+            .vox-mobile-letter-btn:disabled {
+                color: var(--color-text-tertiary);
+                opacity: 0.4;
+                cursor: default;
+            }
+
+            /* Hide the desktop clip search on mobile (mobile browser has its own) */
+            .vox-clip-search-group {
+                display: none;
+            }
+        }
+
         @@media (prefers-reduced-motion: reduce) {
             .vox-clip-tile,
             .vox-token,
             .vox-autocomplete-item,
             .vox-play-btn,
             .vox-az-letter,
+            .vox-mobile-letter-btn,
             .vox-section-header,
             .vox-word-gap-preset {
                 transition: none;
@@ -1046,7 +1154,10 @@
             clipGrid: null,
             // A-Z navigation elements
             azRail: null,
-            scrollLetter: null
+            scrollLetter: null,
+            // Mobile clip browser elements
+            mobileSearch: null,
+            mobileLetterStrip: null
         };
 
         // Debounce utility
@@ -1158,6 +1269,9 @@
             // A-Z navigation elements
             voxEls.azRail = document.getElementById(`${prefix}-az-rail`);
             voxEls.scrollLetter = document.getElementById(`${prefix}-scroll-letter`);
+            // Mobile clip browser elements
+            voxEls.mobileSearch = document.getElementById(`${prefix}-mobile-search`);
+            voxEls.mobileLetterStrip = document.getElementById(`${prefix}-mobile-letter-strip`);
 
             // Attach event listeners
             if (voxEls.messageInput) {
@@ -1179,6 +1293,17 @@
                 voxEls.clipSearch.addEventListener('input', debounce(filterClipGrid, 150));
             }
 
+            // Mobile search syncs with desktop search and triggers same filtering
+            if (voxEls.mobileSearch) {
+                voxEls.mobileSearch.addEventListener('input', debounce(() => {
+                    // Sync mobile search value to desktop search input
+                    if (voxEls.clipSearch) {
+                        voxEls.clipSearch.value = voxEls.mobileSearch.value;
+                    }
+                    filterClipGrid();
+                }, 150));
+            }
+
             if (voxEls.clipGrid) {
                 voxEls.clipGrid.addEventListener('click', handleClipTileClick);
                 voxEls.clipGrid.addEventListener('keydown', handleGridKeyDown);
@@ -1186,6 +1311,9 @@
 
             // Initialize A-Z rail
             initializeAZRail();
+
+            // Initialize mobile letter strip
+            initializeMobileLetterStrip();
 
             // Reset navigation state on tab switch
             voxState.activeLetter = null;
@@ -1478,7 +1606,10 @@
             if (!voxEls.clipGrid) return;
 
             const clips = voxState.clipCache[voxState.activeGroup] || [];
-            const searchTerm = voxEls.clipSearch ? voxEls.clipSearch.value.toLowerCase() : '';
+            // Use desktop search value, or mobile search if desktop is empty/hidden
+            const desktopSearch = voxEls.clipSearch ? voxEls.clipSearch.value : '';
+            const mobileSearch = voxEls.mobileSearch ? voxEls.mobileSearch.value : '';
+            const searchTerm = (desktopSearch || mobileSearch).toLowerCase();
 
             // Filter with prefix matches first, then substring matches
             const prefixMatches = clips.filter(c => c.name.startsWith(searchTerm));
@@ -1634,6 +1765,9 @@
                 btn.disabled = !isAvailable;
                 btn.classList.toggle('active', letter === voxState.activeLetter && isAvailable);
             });
+
+            // Also update mobile letter strip
+            updateMobileLetterStrip(availableLetters);
         }
 
         function scrollToSection(letter) {
@@ -1669,6 +1803,70 @@
                     const isActive = btn.dataset.letter === letter && !btn.disabled;
                     btn.classList.toggle('active', isActive);
                 });
+            }
+
+            // Sync mobile letter strip
+            syncMobileActiveLetter(letter);
+        }
+
+        // ==========================================
+        // MOBILE LETTER STRIP FUNCTIONS
+        // ==========================================
+
+        function initializeMobileLetterStrip() {
+            if (!voxEls.mobileLetterStrip) return;
+
+            // Generate 26 letter buttons (matching desktop A-Z rail)
+            const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+            voxEls.mobileLetterStrip.innerHTML = letters.map(letter => `
+                <button class="vox-mobile-letter-btn"
+                        data-letter="${letter}"
+                        disabled
+                        role="tab"
+                        aria-selected="false"
+                        aria-label="Jump to ${letter}">
+                    ${letter}
+                </button>
+            `).join('');
+
+            // Event delegation for letter taps
+            voxEls.mobileLetterStrip.addEventListener('click', (e) => {
+                const btn = e.target.closest('.vox-mobile-letter-btn');
+                if (!btn || btn.disabled) return;
+
+                const letter = btn.dataset.letter;
+                scrollToSection(letter);
+            });
+        }
+
+        function updateMobileLetterStrip(availableLetters) {
+            if (!voxEls.mobileLetterStrip) return;
+
+            const buttons = voxEls.mobileLetterStrip.querySelectorAll('.vox-mobile-letter-btn');
+            buttons.forEach(btn => {
+                const letter = btn.dataset.letter;
+                const isAvailable = availableLetters.has(letter);
+                btn.disabled = !isAvailable;
+                const isActive = letter === voxState.activeLetter && isAvailable;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+        }
+
+        function syncMobileActiveLetter(letter) {
+            if (!voxEls.mobileLetterStrip) return;
+
+            const buttons = voxEls.mobileLetterStrip.querySelectorAll('.vox-mobile-letter-btn');
+            buttons.forEach(btn => {
+                const isActive = btn.dataset.letter === letter && !btn.disabled;
+                btn.classList.toggle('active', isActive);
+                btn.setAttribute('aria-selected', isActive ? 'true' : 'false');
+            });
+
+            // Scroll the active letter button into view within the strip
+            const activeBtn = voxEls.mobileLetterStrip.querySelector('.vox-mobile-letter-btn.active');
+            if (activeBtn) {
+                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
             }
         }
 
@@ -2207,6 +2405,23 @@ else
                             <div class="vox-history-list" id="@(prefix)-recent-list" hidden>
                                 <div class="vox-history-empty">No recent messages</div>
                             </div>
+                        </div>
+                    </div>
+
+                    <!-- Mobile Clip Browser (visible < 768px, hidden on desktop) -->
+                    <div class="vox-mobile-browser" id="@(prefix)-mobile-browser">
+                        <div class="vox-mobile-search">
+                            <input type="text"
+                                   id="@(prefix)-mobile-search"
+                                   class="vox-mobile-search-input"
+                                   placeholder="Search clips..."
+                                   aria-label="Search @groupName clips" />
+                        </div>
+                        <div class="vox-mobile-letter-strip"
+                             id="@(prefix)-mobile-letter-strip"
+                             role="tablist"
+                             aria-label="Browse clips by letter">
+                            <!-- A-Z letters populated by JavaScript -->
                         </div>
                     </div>
 
