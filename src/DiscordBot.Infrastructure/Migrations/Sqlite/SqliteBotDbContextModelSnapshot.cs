@@ -363,6 +363,45 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.ToTable("AssistantUsageMetrics", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.AudioPlaybackLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ChannelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ContentName")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("FeatureType")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("PlayedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId", "PlayedAt")
+                        .IsDescending(false, true)
+                        .HasDatabaseName("IX_AudioPlaybackLogs_GuildId_PlayedAt");
+
+                    b.HasIndex("GuildId", "UserId", "PlayedAt")
+                        .IsDescending(false, false, true)
+                        .HasDatabaseName("IX_AudioPlaybackLogs_GuildId_UserId_PlayedAt");
+
+                    b.ToTable("AudioPlaybackLogs", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.AuditLog", b =>
                 {
                     b.Property<long>("Id")
@@ -3008,6 +3047,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.AssistantUsageMetrics", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.AudioPlaybackLog", b =>
                 {
                     b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
                         .WithMany()

@@ -74,6 +74,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IThemeService, ThemeService>();
         services.AddScoped<ITtsPlaybackService, TtsPlaybackService>();
         services.AddScoped<ISoundboardOrchestrationService, SoundboardOrchestrationService>();
+        services.AddScoped<IAudioModerationLogService, AudioModerationLogService>();
 
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();

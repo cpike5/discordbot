@@ -42,6 +42,7 @@ public class PortalTtsController : ControllerBase
     private readonly ISsmlValidator _ssmlValidator;
     private readonly ISsmlBuilder _ssmlBuilder;
     private readonly IUserTtsPresetRepository _userTtsPresetRepository;
+    private readonly IAudioModerationLogService _audioModerationLogService;
     private readonly ILogger<PortalTtsController> _logger;
 
     // Track current TTS message being played per guild
@@ -87,6 +88,7 @@ public class PortalTtsController : ControllerBase
         ISsmlValidator ssmlValidator,
         ISsmlBuilder ssmlBuilder,
         IUserTtsPresetRepository userTtsPresetRepository,
+        IAudioModerationLogService audioModerationLogService,
         ILogger<PortalTtsController> logger)
     {
         _ttsService = ttsService;
@@ -103,6 +105,7 @@ public class PortalTtsController : ControllerBase
         _ssmlValidator = ssmlValidator;
         _ssmlBuilder = ssmlBuilder;
         _userTtsPresetRepository = userTtsPresetRepository;
+        _audioModerationLogService = audioModerationLogService;
         _logger = logger;
     }
 
@@ -391,6 +394,10 @@ public class PortalTtsController : ControllerBase
         }
 
         _logger.LogInformation("Successfully sent TTS message for guild {GuildId}", guildId);
+
+        // Log to audio moderation log (fire-and-forget)
+        _audioModerationLogService.LogPlayback(guildId, userId, AudioFeatureType.Tts, request.Message, channelId: null);
+
         return Ok(new { Message = "TTS message sent successfully", DurationSeconds = playbackResult.DurationSeconds });
     }
 
