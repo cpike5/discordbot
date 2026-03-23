@@ -93,14 +93,14 @@ public class UserPurgeService : IUserPurgeService
 
             // Use execution strategy to support retrying strategies (e.g. NpgsqlRetryingExecutionStrategy)
             var executionStrategy = _dbContext.Database.CreateExecutionStrategy();
-            var (deletedCounts, correlationId, errorResult) = await executionStrategy.ExecuteAsync(async ct =>
+            var correlationId = Guid.NewGuid().ToString();
+            var deletedCounts = await executionStrategy.ExecuteAsync(async ct =>
             {
                 await using var transaction = await _dbContext.Database.BeginTransactionAsync(ct);
 
                 try
                 {
                     var counts = new Dictionary<string, int>();
-                    var corrId = Guid.NewGuid().ToString();
 
                     // 1. MessageLogs (AuthorId = discordUserId)
                     var messageLogs = await _dbContext.MessageLogs
@@ -235,30 +235,14 @@ public class UserPurgeService : IUserPurgeService
                     // Commit transaction
                     await transaction.CommitAsync(ct);
 
-                    return (counts, corrId, (UserPurgeResultDto?)null);
+                    return counts;
                 }
-                catch (Exception ex)
+                catch (Exception)
                 {
                     await transaction.RollbackAsync(ct);
-
-                    _logger.LogError(ex,
-                        "Transaction failed while purging data for Discord user {DiscordUserId}",
-                        discordUserId);
-
-                    activity?.SetTag("purge.success", false);
-                    BotActivitySource.RecordException(activity, ex);
-
-                    return (new Dictionary<string, int>(), string.Empty,
-                        (UserPurgeResultDto?)UserPurgeResultDto.Failed(
-                            UserPurgeResultDto.TransactionFailed,
-                            "Failed to purge user data: " + ex.Message));
+                    throw; // Let execution strategy evaluate for retry
                 }
             }, cancellationToken);
-
-            if (errorResult != null)
-            {
-                return errorResult;
-            }
 
             _logger.LogInformation(
                 "Successfully purged data for Discord user {DiscordUserId}. Deleted counts: {DeletedCounts}",
@@ -307,14 +291,15 @@ public class UserPurgeService : IUserPurgeService
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Unexpected error while purging data for Discord user {DiscordUserId}",
+                "Failed to purge data for Discord user {DiscordUserId}",
                 discordUserId);
 
+            activity?.SetTag("purge.success", false);
             BotActivitySource.RecordException(activity, ex);
 
             return UserPurgeResultDto.Failed(
-                UserPurgeResultDto.DatabaseError,
-                "An unexpected error occurred while purging user data");
+                UserPurgeResultDto.TransactionFailed,
+                "Failed to purge user data: " + ex.Message);
         }
     }
 
