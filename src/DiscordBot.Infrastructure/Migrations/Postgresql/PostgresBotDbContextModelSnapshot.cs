@@ -2758,6 +2758,44 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.ToTable("UserNotifications", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.UserPreference", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId");
+
+                    b.HasIndex("UserId", "GuildId", "Key")
+                        .IsUnique()
+                        .HasDatabaseName("IX_UserPreferences_UserId_GuildId_Key");
+
+                    b.ToTable("UserPreferences", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.UserSoundFavorite", b =>
                 {
                     b.Property<int>("Id")
@@ -3689,6 +3727,17 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                     b.Navigation("Guild");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.UserPreference", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.UserSoundFavorite", b =>
