@@ -22,6 +22,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
     private readonly ISettingsService _settingsService;
     private readonly IAudioNotifier _audioNotifier;
     private readonly DiscordSocketClient _discordClient;
+    private readonly IAudioModerationLogService _audioModerationLogService;
     private readonly ILogger<SoundboardOrchestrationService> _logger;
 
     /// <summary>
@@ -45,6 +46,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         ISettingsService settingsService,
         IAudioNotifier audioNotifier,
         DiscordSocketClient discordClient,
+        IAudioModerationLogService audioModerationLogService,
         ILogger<SoundboardOrchestrationService> logger)
     {
         _soundService = soundService;
@@ -55,6 +57,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         _settingsService = settingsService;
         _audioNotifier = audioNotifier;
         _discordClient = discordClient;
+        _audioModerationLogService = audioModerationLogService;
         _logger = logger;
     }
 
@@ -341,6 +344,9 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
 
             // Log play event
             await _soundService.LogPlayAsync(sound.Id, guildId, userId, cancellationToken);
+
+            // Log to audio moderation log (fire-and-forget)
+            _audioModerationLogService.LogPlayback(guildId, userId, AudioFeatureType.Soundboard, sound.Name, channelId: null);
 
             BotActivitySource.SetSuccess(activity);
 

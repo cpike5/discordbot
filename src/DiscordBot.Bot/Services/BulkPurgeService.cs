@@ -193,7 +193,7 @@ public class BulkPurgeService : IBulkPurgeService
                 criteria.EntityType);
 
             // Broadcast failure
-            await BroadcastProgressAsync(criteria.EntityType, 0, totalCount, true, $"Purge failed: {ex.Message}");
+            await BroadcastProgressAsync(criteria.EntityType, 0, 0, true, $"Purge failed: {ex.Message}");
 
             activity?.SetTag("purge.success", false);
             BotActivitySource.RecordException(activity, ex);

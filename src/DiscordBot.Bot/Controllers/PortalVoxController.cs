@@ -30,6 +30,7 @@ public class PortalVoxController : ControllerBase
     private readonly ISettingsService _settingsService;
     private readonly DiscordSocketClient _discordClient;
     private readonly IVoxMessageHistoryRepository _historyRepository;
+    private readonly IAudioModerationLogService _audioModerationLogService;
     private readonly ILogger<PortalVoxController> _logger;
 
     private const int MaxMessageLength = 500;
@@ -58,6 +59,7 @@ public class PortalVoxController : ControllerBase
         ISettingsService settingsService,
         DiscordSocketClient discordClient,
         IVoxMessageHistoryRepository historyRepository,
+        IAudioModerationLogService audioModerationLogService,
         ILogger<PortalVoxController> logger)
     {
         _voxService = voxService;
@@ -68,6 +70,7 @@ public class PortalVoxController : ControllerBase
         _settingsService = settingsService;
         _discordClient = discordClient;
         _historyRepository = historyRepository;
+        _audioModerationLogService = audioModerationLogService;
         _logger = logger;
     }
 
@@ -436,6 +439,15 @@ public class PortalVoxController : ControllerBase
         {
             // Non-critical: don't fail the play response if history save fails
             _logger.LogWarning(ex, "Failed to save VOX history for guild {GuildId}", guildId);
+        }
+
+        // Log to audio moderation log (fire-and-forget)
+        {
+            var modLogUserId = User.GetDiscordUserId();
+            if (modLogUserId != 0)
+            {
+                _audioModerationLogService.LogPlayback(guildId, modLogUserId, AudioFeatureType.Vox, request.Message!, channelId: null);
+            }
         }
 
         // Return response matching the spec format
