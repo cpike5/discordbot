@@ -1,9 +1,9 @@
 name: Docker Publish
 
 on:
-  push:
-    tags:
-      - 'v*'
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
   workflow_dispatch:
 
 env:
@@ -14,6 +14,7 @@ jobs:
   docker-build-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
     permissions:
       contents: read
       packages: write
@@ -50,7 +51,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: .
-        push: ${{ github.event_name == 'push' }}
+        push: ${{ github.event_name == 'workflow_run' }}
         tags: ${{ steps.meta.outputs.tags }}
         labels: ${{ steps.meta.outputs.labels }}
         cache-from: type=gha
@@ -58,7 +59,7 @@ jobs:
         platforms: linux/amd64
 
     - name: Verify pushed image
-      if: github.event_name == 'push'
+      if: github.event_name == 'workflow_run'
       run: |
         echo "### Docker Image Published :whale:" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY

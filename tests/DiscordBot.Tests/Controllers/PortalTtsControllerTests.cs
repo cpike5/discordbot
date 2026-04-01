@@ -38,6 +38,7 @@ public class PortalTtsControllerTests
     private readonly Mock<ISsmlBuilder> _mockSsmlBuilder;
     private readonly Mock<IUserTtsPresetRepository> _mockUserTtsPresetRepository;
     private readonly Mock<ITtsMessageHistoryRepository> _mockTtsMessageHistoryRepository;
+    private readonly Mock<IAudioModerationLogService> _mockAudioModerationLogService;
     private readonly Mock<ILogger<PortalTtsController>> _mockLogger;
     private readonly PortalTtsController _controller;
 
@@ -57,6 +58,7 @@ public class PortalTtsControllerTests
         _mockSsmlBuilder = new Mock<ISsmlBuilder>();
         _mockUserTtsPresetRepository = new Mock<IUserTtsPresetRepository>();
         _mockTtsMessageHistoryRepository = new Mock<ITtsMessageHistoryRepository>();
+        _mockAudioModerationLogService = new Mock<IAudioModerationLogService>();
         _mockLogger = new Mock<ILogger<PortalTtsController>>();
 
         // Setup bot-level audio enabled by default
@@ -85,6 +87,7 @@ public class PortalTtsControllerTests
             _mockSsmlBuilder.Object,
             _mockUserTtsPresetRepository.Object,
             _mockTtsMessageHistoryRepository.Object,
+            _mockAudioModerationLogService.Object,
             _mockLogger.Object);
 
         // Setup HttpContext and User claims
