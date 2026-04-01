@@ -931,6 +931,103 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.ToTable("DmConversationMessages", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.FeatureRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ConsolidatedSummary")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DocBranchName")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DocGenError")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DocPath")
+                        .HasMaxLength(500)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("GatheredRequirements")
+                        .HasMaxLength(4000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ReviewNotes")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ReviewedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReviewedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("SubmittedByUserId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId", "Status", "CreatedAt")
+                        .HasDatabaseName("IX_FeatureRequests_GuildId_Status_CreatedAt");
+
+                    b.ToTable("FeatureRequests", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.FeatureRequestRejection", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RejectionReason")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId", "UserId", "CreatedAt")
+                        .HasDatabaseName("IX_FeatureRequestRejections_GuildId_UserId_CreatedAt");
+
+                    b.ToTable("FeatureRequestRejections", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.FlaggedEvent", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3291,6 +3388,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .IsRequired();
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.FeatureRequest", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.FlaggedEvent", b =>

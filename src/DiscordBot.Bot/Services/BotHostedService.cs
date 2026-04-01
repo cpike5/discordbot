@@ -2,6 +2,7 @@ using System.Text.Json;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
+using DiscordBot.Bot.Services.FeatureRequests;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
@@ -28,6 +29,7 @@ public class BotHostedService : IHostedService
     private readonly VoiceStateHandler _voiceStateHandler;
     private readonly AutoModerationHandler _autoModerationHandler;
     private readonly AssistantMessageHandler _assistantMessageHandler;
+    private readonly FeatureRequestDmHandler _featureRequestDmHandler;
     private readonly DmAssistantMessageHandler _dmAssistantMessageHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
@@ -60,6 +62,7 @@ public class BotHostedService : IHostedService
         VoiceStateHandler voiceStateHandler,
         AutoModerationHandler autoModerationHandler,
         AssistantMessageHandler assistantMessageHandler,
+        FeatureRequestDmHandler featureRequestDmHandler,
         DmAssistantMessageHandler dmAssistantMessageHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
@@ -89,6 +92,7 @@ public class BotHostedService : IHostedService
         _voiceStateHandler = voiceStateHandler;
         _autoModerationHandler = autoModerationHandler;
         _assistantMessageHandler = assistantMessageHandler;
+        _featureRequestDmHandler = featureRequestDmHandler;
         _dmAssistantMessageHandler = dmAssistantMessageHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
@@ -150,6 +154,9 @@ public class BotHostedService : IHostedService
 
             // Wire AI assistant handler for bot mentions
             _client.MessageReceived += _assistantMessageHandler.HandleMessageReceivedAsync;
+
+            // Wire feature request DM handler BEFORE DM assistant so active sessions are intercepted first
+            _client.MessageReceived += _featureRequestDmHandler.HandleMessageReceivedAsync;
 
             // Wire DM assistant handler for DM messages
             _client.MessageReceived += _dmAssistantMessageHandler.HandleMessageReceivedAsync;
@@ -256,6 +263,7 @@ public class BotHostedService : IHostedService
             _client.MessageReceived -= _autoModerationHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _autoModerationHandler.HandleUserJoinedAsync;
             _client.MessageReceived -= _assistantMessageHandler.HandleMessageReceivedAsync;
+            _client.MessageReceived -= _featureRequestDmHandler.HandleMessageReceivedAsync;
             _client.MessageReceived -= _dmAssistantMessageHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
             _client.UserJoined -= _memberEventHandler.HandleUserJoinedAsync;

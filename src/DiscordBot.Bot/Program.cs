@@ -177,6 +177,9 @@ try
     // Moderation services (includes detection services and handlers)
     builder.Services.AddModerationServices(builder.Configuration);
 
+    // Feature Requests (submission, doc generation queue, and repository)
+    builder.Services.AddFeatureRequests(builder.Configuration);
+
     // Performance Metrics services (latency, connection state, API tracking, database metrics)
     builder.Services.AddPerformanceMetrics(builder.Configuration);
 

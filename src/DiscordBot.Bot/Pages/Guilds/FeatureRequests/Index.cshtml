@@ -1,0 +1,213 @@
+@page "{guildId:long}"
+@model DiscordBot.Bot.Pages.Guilds.FeatureRequests.IndexModel
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = $"Feature Requests - {Model.GuildName}";
+    Layout = "_GuildLayout";
+}
+
+<!-- Success Message -->
+@if (!string.IsNullOrEmpty(Model.SuccessMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Success,
+            Message = Model.SuccessMessage,
+            IsDismissible = true
+        }" />
+    </div>
+}
+
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+            Variant = AlertVariant.Error,
+            Message = Model.ErrorMessage,
+            IsDismissible = true
+        }" />
+    </div>
+}
+
+<!-- Filter Bar -->
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+    <form method="get" id="filterForm">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <!-- Status Filter -->
+            <div>
+                <label for="statusFilter" class="block text-sm font-medium text-text-secondary mb-1">Status</label>
+                <select id="statusFilter" name="StatusFilter" asp-for="StatusFilter" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue">
+                    <option value="">All Statuses</option>
+                    <option value="@((int)FeatureRequestStatus.Submitted)">Submitted</option>
+                    <option value="@((int)FeatureRequestStatus.GeneratingDocs)">Generating Docs</option>
+                    <option value="@((int)FeatureRequestStatus.DocsGenerated)">Docs Generated</option>
+                    <option value="@((int)FeatureRequestStatus.DocGenFailed)">Doc Gen Failed</option>
+                    <option value="@((int)FeatureRequestStatus.Approved)">Approved</option>
+                    <option value="@((int)FeatureRequestStatus.Rejected)">Rejected</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="flex items-center justify-end gap-3 mt-4">
+            <a href="@Url.Page("/Guilds/FeatureRequests/Index", new { guildId = Model.GuildId })" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+                Clear Filters
+            </a>
+            <button type="submit" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
+                Apply Filters
+            </button>
+        </div>
+    </form>
+</div>
+
+@if (!Model.Items.Any())
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+        <svg class="mx-auto h-12 w-12 text-text-secondary mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        </svg>
+        <h3 class="text-sm font-medium text-text-primary mb-1">No feature requests found</h3>
+        <p class="text-sm text-text-tertiary">@(Model.StatusFilter.HasValue ? "Try adjusting your filters." : "No feature requests have been submitted yet.")</p>
+    </div>
+}
+else
+{
+    <!-- Desktop Table -->
+    <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+        <table class="min-w-full divide-y divide-border-primary">
+            <thead class="bg-bg-tertiary">
+                <tr>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Ref</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Submitter</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Description</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                    <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Date</th>
+                    <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-border-primary">
+                @foreach (var item in Model.Items)
+                {
+                    var shortId = item.Id.ToString("N")[..8].ToUpperInvariant();
+                    var truncatedDesc = item.Description.Length > 80 ? item.Description[..80] + "..." : item.Description;
+                    <tr class="hover:bg-bg-hover transition-colors">
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-xs font-mono text-text-secondary">#@shortId</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm text-text-secondary">@item.SubmittedByUserId</span>
+                        </td>
+                        <td class="px-4 py-4">
+                            <span class="text-sm text-text-primary">@truncatedDesc</span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            @{
+                                var (badgeColor, badgeLabel) = item.Status switch
+                                {
+                                    FeatureRequestStatus.Submitted => ("bg-accent-blue/10 text-accent-blue", "Submitted"),
+                                    FeatureRequestStatus.GeneratingDocs => ("bg-yellow-500/10 text-yellow-500", "Generating Docs"),
+                                    FeatureRequestStatus.DocsGenerated => ("bg-green-500/10 text-green-500", "Docs Generated"),
+                                    FeatureRequestStatus.DocGenFailed => ("bg-red-500/10 text-red-500", "Doc Gen Failed"),
+                                    FeatureRequestStatus.Approved => ("bg-green-600/10 text-green-600", "Approved"),
+                                    FeatureRequestStatus.Rejected => ("bg-text-tertiary/10 text-text-tertiary", "Rejected"),
+                                    _ => ("bg-text-tertiary/10 text-text-tertiary", item.Status.ToString())
+                                };
+                            }
+                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @badgeColor">
+                                @badgeLabel
+                            </span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap">
+                            <span class="text-sm text-text-secondary"><span data-utc="@item.CreatedAt.ToString("o")" data-format="date"></span></span>
+                        </td>
+                        <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                            <a asp-page="/Guilds/FeatureRequests/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@item.Id" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                <svg class="w-5 h-5 inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                </svg>
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Mobile Cards -->
+    <div class="md:hidden space-y-4 mb-6">
+        @foreach (var item in Model.Items)
+        {
+            var shortId = item.Id.ToString("N")[..8].ToUpperInvariant();
+            var truncatedDesc = item.Description.Length > 80 ? item.Description[..80] + "..." : item.Description;
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <span class="text-xs font-mono text-text-secondary">#@shortId</span>
+                    @{
+                        var (badgeColor, badgeLabel) = item.Status switch
+                        {
+                            FeatureRequestStatus.Submitted => ("bg-accent-blue/10 text-accent-blue", "Submitted"),
+                            FeatureRequestStatus.GeneratingDocs => ("bg-yellow-500/10 text-yellow-500", "Generating Docs"),
+                            FeatureRequestStatus.DocsGenerated => ("bg-green-500/10 text-green-500", "Docs Generated"),
+                            FeatureRequestStatus.DocGenFailed => ("bg-red-500/10 text-red-500", "Doc Gen Failed"),
+                            FeatureRequestStatus.Approved => ("bg-green-600/10 text-green-600", "Approved"),
+                            FeatureRequestStatus.Rejected => ("bg-text-tertiary/10 text-text-tertiary", "Rejected"),
+                            _ => ("bg-text-tertiary/10 text-text-tertiary", item.Status.ToString())
+                        };
+                    }
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @badgeColor">
+                        @badgeLabel
+                    </span>
+                </div>
+                <p class="text-sm text-text-primary mb-2">@truncatedDesc</p>
+                <div class="flex items-center justify-between text-xs text-text-tertiary mt-3 pt-3 border-t border-border-primary">
+                    <span>User: @item.SubmittedByUserId</span>
+                    <span data-utc="@item.CreatedAt.ToString("o")" data-format="date"></span>
+                </div>
+                <div class="mt-3">
+                    <a asp-page="/Guilds/FeatureRequests/Details" asp-route-guildId="@Model.GuildId" asp-route-id="@item.Id" class="w-full px-3 py-1.5 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors text-center block">
+                        View Details
+                    </a>
+                </div>
+            </div>
+        }
+    </div>
+
+    <!-- Pagination -->
+    @if (Model.TotalPages > 1)
+    {
+        <div class="flex items-center justify-between">
+            <div class="text-sm text-text-secondary">
+                Showing <span class="font-medium">@((Model.Page - 1) * Model.PageSize + 1)</span> to <span class="font-medium">@Math.Min(Model.Page * Model.PageSize, Model.Total)</span> of <span class="font-medium">@Model.Total</span> requests
+            </div>
+            <div class="flex items-center gap-2">
+                @if (Model.Page > 1)
+                {
+                    <a asp-page="/Guilds/FeatureRequests/Index"
+                       asp-route-guildId="@Model.GuildId"
+                       asp-route-page="@(Model.Page - 1)"
+                       asp-route-StatusFilter="@Model.StatusFilter"
+                       class="px-3 py-2 border border-border-primary rounded-md text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors">
+                        Previous
+                    </a>
+                }
+
+                <span class="px-3 py-2 text-sm text-text-secondary">
+                    Page @Model.Page of @Model.TotalPages
+                </span>
+
+                @if (Model.Page < Model.TotalPages)
+                {
+                    <a asp-page="/Guilds/FeatureRequests/Index"
+                       asp-route-guildId="@Model.GuildId"
+                       asp-route-page="@(Model.Page + 1)"
+                       asp-route-StatusFilter="@Model.StatusFilter"
+                       class="px-3 py-2 border border-border-primary rounded-md text-sm font-medium text-text-primary hover:bg-bg-hover transition-colors">
+                        Next
+                    </a>
+                }
+            </div>
+        </div>
+    }
+}
