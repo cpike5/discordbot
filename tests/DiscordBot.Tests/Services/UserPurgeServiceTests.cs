@@ -223,6 +223,7 @@ public class UserPurgeServiceTests : IDisposable
         {
             var messageLog = new MessageLog
             {
+                DiscordMessageId = (ulong)(100000000 + i),
                 AuthorId = discordUserId,
                 GuildId = guildId,
                 ChannelId = 222222222UL,
@@ -370,6 +371,7 @@ public class UserPurgeServiceTests : IDisposable
         // Add message logs for both users
         _context.MessageLogs.Add(new MessageLog
         {
+            DiscordMessageId = 200000001UL,
             AuthorId = targetUserId,
             GuildId = guildId,
             ChannelId = 222222222UL,
@@ -380,6 +382,7 @@ public class UserPurgeServiceTests : IDisposable
 
         _context.MessageLogs.Add(new MessageLog
         {
+            DiscordMessageId = 200000002UL,
             AuthorId = otherUserId,
             GuildId = guildId,
             ChannelId = 222222222UL,
