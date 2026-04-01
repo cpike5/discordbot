@@ -212,6 +212,9 @@ public class UserPurgeServiceTests : IDisposable
         var discordUserId = 123456789UL;
         var guildId = 111111111UL;
 
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
+
         var user = new User { Id = discordUserId };
         _context.Users.Add(user);
 
@@ -220,6 +223,7 @@ public class UserPurgeServiceTests : IDisposable
         {
             var messageLog = new MessageLog
             {
+                DiscordMessageId = (ulong)(100000000 + i),
                 AuthorId = discordUserId,
                 GuildId = guildId,
                 ChannelId = 222222222UL,
@@ -247,6 +251,9 @@ public class UserPurgeServiceTests : IDisposable
         // Arrange
         var discordUserId = 234567890UL;
         var guildId = 111111111UL;
+
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
 
         var user = new User { Id = discordUserId };
         _context.Users.Add(user);
@@ -281,6 +288,9 @@ public class UserPurgeServiceTests : IDisposable
         // Arrange
         var discordUserId = 345678901UL;
         var guildId = 111111111UL;
+
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
 
         var user = new User { Id = discordUserId };
         _context.Users.Add(user);
@@ -350,6 +360,9 @@ public class UserPurgeServiceTests : IDisposable
         var otherUserId = 987654321UL;
         var guildId = 111111111UL;
 
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
+
         var targetUser = new User { Id = targetUserId };
         var otherUser = new User { Id = otherUserId };
         _context.Users.Add(targetUser);
@@ -358,6 +371,7 @@ public class UserPurgeServiceTests : IDisposable
         // Add message logs for both users
         _context.MessageLogs.Add(new MessageLog
         {
+            DiscordMessageId = 200000001UL,
             AuthorId = targetUserId,
             GuildId = guildId,
             ChannelId = 222222222UL,
@@ -368,6 +382,7 @@ public class UserPurgeServiceTests : IDisposable
 
         _context.MessageLogs.Add(new MessageLog
         {
+            DiscordMessageId = 200000002UL,
             AuthorId = otherUserId,
             GuildId = guildId,
             ChannelId = 222222222UL,

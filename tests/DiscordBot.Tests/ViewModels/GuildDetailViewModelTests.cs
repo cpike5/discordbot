@@ -39,7 +39,7 @@ public class GuildDetailViewModelTests
         result.JoinedAt.Should().Be(joinedDate, "JoinedAt should be mapped correctly");
         result.Prefix.Should().Be("!", "Prefix should be mapped correctly");
         result.Settings.Should().NotBeNull();
-        result.CanEdit.Should().BeTrue("CanEdit defaults to true");
+        result.CanEdit.Should().BeFalse("CanEdit defaults to false from FromDto; it is set by the PageModel based on actual guild permissions");
     }
 
     [Fact]

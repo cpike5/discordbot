@@ -18,6 +18,7 @@ public class RequireAudioEnabledAttributeTests
     private readonly Mock<ICommandInfo> _mockCommandInfo;
     private readonly Mock<IServiceProvider> _mockServiceProvider;
     private readonly Mock<IGuildAudioSettingsService> _mockAudioSettingsService;
+    private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly RequireAudioEnabledAttribute _attribute;
 
     public RequireAudioEnabledAttributeTests()
@@ -26,12 +27,21 @@ public class RequireAudioEnabledAttributeTests
         _mockCommandInfo = new Mock<ICommandInfo>();
         _mockServiceProvider = new Mock<IServiceProvider>();
         _mockAudioSettingsService = new Mock<IGuildAudioSettingsService>();
+        _mockSettingsService = new Mock<ISettingsService>();
         _attribute = new RequireAudioEnabledAttribute();
 
         // Setup default service provider behavior
         _mockServiceProvider
             .Setup(sp => sp.GetService(typeof(IGuildAudioSettingsService)))
             .Returns(_mockAudioSettingsService.Object);
+
+        // ISettingsService is resolved before IGuildAudioSettingsService; default to audio globally enabled
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>("Features:AudioEnabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
+        _mockServiceProvider
+            .Setup(sp => sp.GetService(typeof(ISettingsService)))
+            .Returns(_mockSettingsService.Object);
     }
 
     [Fact]

@@ -74,12 +74,13 @@
   </Target>
 
   <!-- Tailwind CSS Build Integration -->
-  <Target Name="NpmInstall" BeforeTargets="BeforeBuild" Condition="!Exists('node_modules')">
+  <!-- Set SkipTailwind=true or CI=true to bypass in environments without Node.js -->
+  <Target Name="NpmInstall" BeforeTargets="BeforeBuild" Condition="'$(SkipTailwind)' != 'true' And '$(CI)' != 'true' And !Exists('node_modules')">
     <Message Text="Running npm install..." Importance="high" />
     <Exec Command="npm install" WorkingDirectory="$(ProjectDir)" />
   </Target>
 
-  <Target Name="BuildTailwindCSS" BeforeTargets="BeforeBuild" DependsOnTargets="NpmInstall">
+  <Target Name="BuildTailwindCSS" BeforeTargets="BeforeBuild" DependsOnTargets="NpmInstall" Condition="'$(SkipTailwind)' != 'true' And '$(CI)' != 'true'">
     <Message Text="Building Tailwind CSS..." Importance="high" />
     <Exec Command="npm run build:css" WorkingDirectory="$(ProjectDir)" />
   </Target>

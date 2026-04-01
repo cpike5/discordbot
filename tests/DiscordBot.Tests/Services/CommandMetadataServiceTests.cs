@@ -201,8 +201,8 @@ public class CommandMetadataServiceTests : IAsyncLifetime
         typeParam.Type.Should().Be("ConsentType"); // Enum name
         typeParam.Choices.Should().NotBeNull();
         typeParam.Choices.Should().Contain("MessageLogging");
-        // ConsentType currently only has one value
-        typeParam.Choices.Should().HaveCount(1);
+        typeParam.Choices.Should().Contain("AssistantUsage");
+        typeParam.Choices.Should().HaveCount(2);
     }
 
     [Fact]

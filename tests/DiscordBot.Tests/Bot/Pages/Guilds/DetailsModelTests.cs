@@ -68,6 +68,36 @@ public class DetailsModelTests
         // Setup default Reminder repository behavior
         _mockReminderRepository.Setup(r => r.GetGuildStatsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync((0, 0, 0, 0));
+        _mockReminderRepository.Setup(r => r.GetUpcomingAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Enumerable.Empty<UpcomingReminderDto>());
+
+        // Setup default GuildMemberService behavior
+        _mockGuildMemberService.Setup(s => s.GetMemberCountAsync(It.IsAny<ulong>(), It.IsAny<GuildMemberQueryDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _mockGuildMemberService.Setup(s => s.GetMembersAsync(It.IsAny<ulong>(), It.IsAny<GuildMemberQueryDto>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new PaginatedResponseDto<GuildMemberDto> { Items = new List<GuildMemberDto>(), Page = 1, PageSize = 5, TotalCount = 0 });
+
+        // Setup default GuildAudioSettingsService behavior
+        _mockGuildAudioSettingsService.Setup(s => s.GetSettingsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((GuildAudioSettings?)null);
+
+        // Setup default SoundRepository behavior
+        _mockSoundRepository.Setup(s => s.GetSoundCountAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(0);
+        _mockSoundRepository.Setup(s => s.GetTopSoundsByPlayCountAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<(string Name, int PlayCount)>());
+
+        // Setup default TtsMessageRepository behavior
+        _mockTtsMessageRepository.Setup(s => s.GetMostUsedVoiceAsync(It.IsAny<ulong>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string?)null);
+
+        // Setup default AssistantGuildSettingsService behavior
+        _mockAssistantGuildSettingsService.Setup(s => s.GetOrCreateSettingsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AssistantGuildSettings());
+
+        // Setup default WelcomeService behavior
+        _mockWelcomeService.Setup(s => s.GetConfigurationAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((WelcomeConfigurationDto?)null);
 
         var assistantOptions = Options.Create(new AssistantOptions());
 

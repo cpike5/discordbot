@@ -24,6 +24,7 @@ public class MetricsCollectionServiceTests
     private readonly Mock<IDatabaseMetricsCollector> _mockDatabaseMetricsCollector;
     private readonly Mock<IInstrumentedCache> _mockInstrumentedCache;
     private readonly Mock<IBackgroundServiceHealthRegistry> _mockHealthRegistry;
+    private readonly Mock<ICpuHistoryService> _mockCpuHistoryService;
     private readonly Mock<ILogger<MetricsCollectionService>> _mockLogger;
     private readonly Mock<IOptions<HistoricalMetricsOptions>> _mockOptions;
 
@@ -38,6 +39,7 @@ public class MetricsCollectionServiceTests
         _mockDatabaseMetricsCollector = new Mock<IDatabaseMetricsCollector>();
         _mockInstrumentedCache = new Mock<IInstrumentedCache>();
         _mockHealthRegistry = new Mock<IBackgroundServiceHealthRegistry>();
+        _mockCpuHistoryService = new Mock<ICpuHistoryService>();
         _mockLogger = new Mock<ILogger<MetricsCollectionService>>();
         _mockOptions = new Mock<IOptions<HistoricalMetricsOptions>>();
 
@@ -47,6 +49,7 @@ public class MetricsCollectionServiceTests
         services.AddSingleton(_mockDatabaseMetricsCollector.Object);
         services.AddSingleton(_mockInstrumentedCache.Object);
         services.AddSingleton(_mockHealthRegistry.Object);
+        services.AddSingleton(_mockCpuHistoryService.Object);
         _serviceProvider = services.BuildServiceProvider();
 
         // Setup default options with tiny delays

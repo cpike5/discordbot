@@ -37,6 +37,7 @@ public class PortalTtsControllerTests
     private readonly Mock<ISsmlValidator> _mockSsmlValidator;
     private readonly Mock<ISsmlBuilder> _mockSsmlBuilder;
     private readonly Mock<IUserTtsPresetRepository> _mockUserTtsPresetRepository;
+    private readonly Mock<ITtsMessageHistoryRepository> _mockTtsMessageHistoryRepository;
     private readonly Mock<ILogger<PortalTtsController>> _mockLogger;
     private readonly PortalTtsController _controller;
 
@@ -55,6 +56,7 @@ public class PortalTtsControllerTests
         _mockSsmlValidator = new Mock<ISsmlValidator>();
         _mockSsmlBuilder = new Mock<ISsmlBuilder>();
         _mockUserTtsPresetRepository = new Mock<IUserTtsPresetRepository>();
+        _mockTtsMessageHistoryRepository = new Mock<ITtsMessageHistoryRepository>();
         _mockLogger = new Mock<ILogger<PortalTtsController>>();
 
         // Setup bot-level audio enabled by default
@@ -82,6 +84,7 @@ public class PortalTtsControllerTests
             _mockSsmlValidator.Object,
             _mockSsmlBuilder.Object,
             _mockUserTtsPresetRepository.Object,
+            _mockTtsMessageHistoryRepository.Object,
             _mockLogger.Object);
 
         // Setup HttpContext and User claims
@@ -197,7 +200,11 @@ public class PortalTtsControllerTests
         _mockTtsService
             .Setup(s => s.SynthesizeSpeechAsync(request.Message, It.IsAny<TtsOptions>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MemoryStream(new byte[192000]));
-        _mockAudioService.Setup(s => s.GetOrCreatePcmStream(guildId)).Returns((AudioOutStream?)null); // PCM stream not available
+
+        // Playback service reports failure — simulates the case where the PCM stream is unavailable
+        _mockTtsPlaybackService
+            .Setup(s => s.PlayAsync(guildId, It.IsAny<ulong>(), It.IsAny<string>(), request.Message, request.Voice, It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DiscordBot.Core.DTOs.Tts.TtsPlaybackResult { Success = false, ErrorMessage = "Failed to get audio stream" });
 
         // Act
         var result = await _controller.SendTts(guildId, request, CancellationToken.None);
@@ -209,7 +216,8 @@ public class PortalTtsControllerTests
         var badRequestResult = result as BadRequestObjectResult;
         var error = badRequestResult!.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Failed to get audio stream");
+        error!.Message.Should().Be("Failed to play TTS");
+        error.Detail.Should().Be("Failed to get audio stream");
     }
 
     [Fact]
