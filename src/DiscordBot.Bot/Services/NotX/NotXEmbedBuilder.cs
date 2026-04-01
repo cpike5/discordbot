@@ -105,7 +105,8 @@ public static class NotXEmbedBuilder
 
     private static string BuildDescription(FxTweetResult tweet, IReadOnlyList<FxTweetVideo> videos)
     {
-        var text = tweet.Text ?? string.Empty;
+        // Escape Discord markdown link syntax to prevent unwanted link rendering
+        var text = tweet.Text?.Replace("[", "\\[").Replace("]", "\\]") ?? string.Empty;
 
         // Append video link when there are no photos but there is a video
         var photos = tweet.Media?.Photos ?? new List<FxTweetPhoto>();

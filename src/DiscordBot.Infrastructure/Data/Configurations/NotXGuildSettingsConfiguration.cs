@@ -52,8 +52,8 @@ public class NotXGuildSettingsConfiguration : IEntityTypeConfiguration<NotXGuild
 
         // Relationship with Guild — one-to-one, cascade delete
         builder.HasOne(s => s.Guild)
-            .WithOne()
-            .HasForeignKey<NotXGuildSettings>(s => s.GuildId)
+            .WithMany()
+            .HasForeignKey(s => s.GuildId)
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

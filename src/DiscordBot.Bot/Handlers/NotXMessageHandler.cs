@@ -53,6 +53,9 @@ public class NotXMessageHandler
             if (urlMatches.Count == 0)
                 return;
 
+            // Cap to prevent excessive API calls from a single message
+            var matchesToProcess = urlMatches.Count > 4 ? urlMatches.Take(4).ToList() : urlMatches;
+
             var guildId = guildChannel.Guild.Id;
             var channelId = userMessage.Channel.Id;
             var messageId = userMessage.Id;
@@ -65,7 +68,7 @@ public class NotXMessageHandler
             var notXService = scope.ServiceProvider.GetRequiredService<INotXService>();
 
             // Process sequentially to avoid Discord rate-limit pressure
-            foreach (var match in urlMatches)
+            foreach (var match in matchesToProcess)
             {
                 await notXService.ProcessTweetAsync(
                     guildId,
