@@ -78,6 +78,8 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<VoxMessageHistory> VoxMessageHistory => Set<VoxMessageHistory>();
     public DbSet<TtsMessageHistory> TtsMessageHistory => Set<TtsMessageHistory>();
     public DbSet<UserTtsPreset> UserTtsPresets => Set<UserTtsPreset>();
+    public DbSet<FeatureRequest> FeatureRequests => Set<FeatureRequest>();
+    public DbSet<FeatureRequestRejection> FeatureRequestRejections => Set<FeatureRequestRejection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
