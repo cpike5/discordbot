@@ -123,12 +123,13 @@ public class FeatureRequestConversationService
             return;
         }
 
-        // Validate the answer (10–1000 chars for conversation answers)
-        var result = _validationService.Validate(text, 10, 1000);
+        // Validate the answer — use the configured min length for consistency, cap answers at 1000 chars
+        var answerMinLength = _options.MinDescriptionLength;
+        var result = _validationService.Validate(text, answerMinLength, 1000);
         if (!result.IsValid)
         {
             await message.Channel.SendMessageAsync(
-                $"Please provide a valid response (10–1000 characters). Reason: {result.RejectionReason}");
+                $"Please provide a valid response ({answerMinLength}–1000 characters). Reason: {result.RejectionReason}");
             return;
         }
 

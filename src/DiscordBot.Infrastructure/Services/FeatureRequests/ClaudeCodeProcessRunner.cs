@@ -32,12 +32,15 @@ public class ClaudeCodeProcessRunner : IClaudeCodeProcessRunner
         var psi = new ProcessStartInfo
         {
             FileName = _binaryPath,
-            Arguments = $"--print \"{promptPath}\"",
             WorkingDirectory = workingDirectory,
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false
         };
+        // Use ArgumentList (not Arguments string) so paths are passed as discrete tokens,
+        // preventing any argument-splitting or injection via special characters in the path.
+        psi.ArgumentList.Add("--print");
+        psi.ArgumentList.Add(promptPath);
 
         using var process = Process.Start(psi)
             ?? throw new InvalidOperationException($"Failed to start claude process at '{_binaryPath}'");

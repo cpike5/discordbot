@@ -44,7 +44,12 @@ public class InputValidationService : IInputValidationService
             text = text[..maxLength];
 
         if (_injectionFilter.IsInjection(text, out var pattern))
-            return ValidationResult.Failure($"PromptInjection:{pattern}");
+        {
+            // Store only the pattern key (not the matched attacker-controlled value)
+            // to avoid leaking injection payloads into rejection records.
+            var patternKey = pattern == "base64-encoded-payload" ? pattern : "keyword-match";
+            return ValidationResult.Failure($"PromptInjection:{patternKey}");
+        }
 
         return ValidationResult.Success(text);
     }
