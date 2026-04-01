@@ -147,9 +147,11 @@ var process = new ProcessStartInfo
 ```
 
 The prompt instructs Claude Code to:
-1. Create `docs/feature-proposals/<kebab-feature-name>/` directory
-2. Generate `BRD.md`, `PRD.md`, `UserStories.md`, `Architecture.md`
-3. Commit the files to the feature branch with a descriptive message
+1. Create a new git branch named `feature-proposal/{featureSlug}` from the default branch
+2. Create `docs/feature-proposals/<kebab-feature-name>/` directory on that branch
+3. Generate `BRD.md`, `PRD.md`, `UserStories.md`, `Architecture.md`
+4. Commit the files to the feature branch with a descriptive message
+5. Push the branch (the branch is never merged automatically)
 
 The feature name slug is derived from the submission title using a slug generator (`FeatureNameSlugifier`), with collision detection against existing directories.
 
@@ -258,7 +260,7 @@ New page group under `Pages/Guilds/FeatureRequests/`:
 ### 7.3 Details Page Features
 
 - Full submission text and gathered requirements
-- Link to `DocPath` in the repository (GitHub link if configured)
+- Link to `DocBranchName` branch in the repository (GitHub compare/PR link if configured) and `DocPath`
 - Status badge with last updated time
 - **Approve** / **Reject** action buttons (POST handlers)
   - No user notification triggered (silent, v1)
@@ -287,7 +289,7 @@ New page group under `Pages/Guilds/FeatureRequests/`:
 
 | # | Question | Owner |
 |---|---|---|
-| OQ-01 | Should doc gen write directly to `main`/`master` or a feature branch per request? A feature branch is safer and reviewable. | Developer |
+| ~~OQ-01~~ | ~~Should doc gen write directly to `main`/`master` or a feature branch per request?~~ **Decided: feature branch per request** (`feature-proposal/{slug}`). Never auto-merged. | Closed |
 | OQ-02 | Where does the `claude` CLI binary live in the deployment environment? Needs to be on `PATH` or configurable. | Developer/DevOps |
 | OQ-03 | Should the guild admin be able to enable/disable the `/feature-request` command per-guild via command module configuration? | Product |
 | OQ-04 | What happens if the same user submits a very similar request twice? Deduplication or just allow? | Product |
