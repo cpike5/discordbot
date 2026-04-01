@@ -33,15 +33,26 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Resolve release tag
+      id: release_tag
+      run: |
+        # workflow_run carries the triggering tag in head_branch; fall back to github.ref for direct triggers
+        TAG="${{ github.event.workflow_run.head_branch }}"
+        if [[ -z "$TAG" || "$TAG" != v* ]]; then
+          TAG="${GITHUB_REF#refs/tags/}"
+        fi
+        echo "tag=$TAG" >> $GITHUB_OUTPUT
+        echo "Resolved tag: $TAG"
+
     - name: Extract metadata (tags, labels)
       id: meta
       uses: docker/metadata-action@v5
       with:
         images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         tags: |
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=raw,value=latest,enable=${{ !contains(github.ref, '-') }}
+          type=semver,pattern={{version}},value=${{ steps.release_tag.outputs.tag }}
+          type=semver,pattern={{major}}.{{minor}},value=${{ steps.release_tag.outputs.tag }}
+          type=raw,value=latest,enable=${{ !contains(steps.release_tag.outputs.tag, '-') }}
         labels: |
           org.opencontainers.image.title=Discord Bot Management System
           org.opencontainers.image.description=Discord bot with admin UI, audio features, and management tools
