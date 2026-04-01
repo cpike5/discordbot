@@ -80,6 +80,8 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<UserTtsPreset> UserTtsPresets => Set<UserTtsPreset>();
     public DbSet<AudioPlaybackLog> AudioPlaybackLogs => Set<AudioPlaybackLog>();
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
+    public DbSet<FeatureRequest> FeatureRequests => Set<FeatureRequest>();
+    public DbSet<FeatureRequestRejection> FeatureRequestRejections => Set<FeatureRequestRejection>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

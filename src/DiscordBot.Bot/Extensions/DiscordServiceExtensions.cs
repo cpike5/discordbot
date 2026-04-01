@@ -94,6 +94,9 @@ public static class DiscordServiceExtensions
         // Register DmAssistantMessageHandler for DM-based AI assistant
         services.AddSingleton<DmAssistantMessageHandler>();
 
+        // Register FeatureRequestDmHandler — must be subscribed before DmAssistantMessageHandler
+        services.AddSingleton<FeatureRequestDmHandler>();
+
         // Register Discord channel resolver as scoped
         services.AddScoped<IDiscordChannelResolver, DiscordChannelResolver>();
 
