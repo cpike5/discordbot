@@ -145,8 +145,11 @@ Responsibilities:
 8. Bot DM: "Here's your request summary — [confirm] [cancel]" → User confirms
 9. FeatureRequestService.SubmitAsync() → DB: Status=Submitted
 10. Background queue: FeatureRequestDocGenService dequeued
-11. ClaudeCodeProcessRunner → claude CLI → creates docs/feature-proposals/poll-command/
-12. DB: Status=DocsGenerated, DocPath set
+11. ClaudeCodeProcessRunner → claude CLI:
+    a. Creates branch feature-proposal/poll-command from main
+    b. Creates docs/feature-proposals/poll-command/ on that branch
+    c. Commits and pushes branch (never merged automatically)
+12. DB: Status=DocsGenerated, DocPath + DocBranchName set
 13. User DM: "Your request #abc123 has been submitted!"
 ```
 
@@ -253,7 +256,8 @@ The `<user_request>` block is populated only with sanitized, validated, length-c
       "Enabled": true,
       "ClaudeCodeBinaryPath": "claude",
       "TimeoutMinutes": 5,
-      "TargetBranchPrefix": "feature-proposal/",
+      "BranchPrefix": "feature-proposal/",
+      "BaseBranch": "main",
       "DocsBasePath": "docs/feature-proposals/"
     },
     "InjectionPatterns": [
