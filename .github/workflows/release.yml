@@ -90,18 +90,20 @@ jobs:
         cd ../..
 
     - name: Generate checksums
+      id: checksums
       run: |
         sha256sum discordbot-${{ steps.extract_version.outputs.version }}.zip > checksums.txt
         cat checksums.txt
+        echo "content<<EOF" >> $GITHUB_OUTPUT
+        cat checksums.txt >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
 
     - name: Create GitHub Release
       id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.extract_version.outputs.tag }}
-        release_name: Release ${{ steps.extract_version.outputs.tag }}
+        name: Release ${{ steps.extract_version.outputs.tag }}
         body: |
           ## Discord Bot Release ${{ steps.extract_version.outputs.version }}
 
@@ -125,30 +127,14 @@ jobs:
 
           **Checksums**
           ```
-          $(cat checksums.txt)
+          ${{ steps.checksums.outputs.content }}
           ```
         draft: false
         prerelease: ${{ contains(steps.extract_version.outputs.version, '-') }}
-
-    - name: Upload release archive
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./discordbot-${{ steps.extract_version.outputs.version }}.zip
-        asset_name: discordbot-${{ steps.extract_version.outputs.version }}.zip
-        asset_content_type: application/zip
-
-    - name: Upload checksums
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./checksums.txt
-        asset_name: checksums.txt
-        asset_content_type: text/plain
+        files: |
+          discordbot-${{ steps.extract_version.outputs.version }}.zip
+          checksums.txt
+        token: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Upload build artifacts
       uses: actions/upload-artifact@v4
@@ -165,7 +151,7 @@ jobs:
         echo "**Version:** ${{ steps.extract_version.outputs.version }}" >> $GITHUB_STEP_SUMMARY
         echo "**Tag:** ${{ steps.extract_version.outputs.tag }}" >> $GITHUB_STEP_SUMMARY
         echo "**Commit:** ${{ steps.git_info.outputs.commit_sha }}" >> $GITHUB_STEP_SUMMARY
-        echo "**Release URL:** ${{ steps.create_release.outputs.html_url }}" >> $GITHUB_STEP_SUMMARY
+        echo "**Release URL:** ${{ steps.create_release.outputs.url }}" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "**Artifacts:**" >> $GITHUB_STEP_SUMMARY
         echo "- discordbot-${{ steps.extract_version.outputs.version }}.zip" >> $GITHUB_STEP_SUMMARY
