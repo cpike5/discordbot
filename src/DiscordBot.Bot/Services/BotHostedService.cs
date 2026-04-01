@@ -29,6 +29,7 @@ public class BotHostedService : IHostedService
     private readonly AutoModerationHandler _autoModerationHandler;
     private readonly AssistantMessageHandler _assistantMessageHandler;
     private readonly DmAssistantMessageHandler _dmAssistantMessageHandler;
+    private readonly NotXMessageHandler _notXMessageHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IAuditLogQueue _auditLogQueue;
@@ -61,6 +62,7 @@ public class BotHostedService : IHostedService
         AutoModerationHandler autoModerationHandler,
         AssistantMessageHandler assistantMessageHandler,
         DmAssistantMessageHandler dmAssistantMessageHandler,
+        NotXMessageHandler notXMessageHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
@@ -90,6 +92,7 @@ public class BotHostedService : IHostedService
         _autoModerationHandler = autoModerationHandler;
         _assistantMessageHandler = assistantMessageHandler;
         _dmAssistantMessageHandler = dmAssistantMessageHandler;
+        _notXMessageHandler = notXMessageHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
@@ -153,6 +156,9 @@ public class BotHostedService : IHostedService
 
             // Wire DM assistant handler for DM messages
             _client.MessageReceived += _dmAssistantMessageHandler.HandleMessageReceivedAsync;
+
+            // Wire not-X handler for X/Twitter link previews
+            _client.MessageReceived += _notXMessageHandler.HandleMessageReceivedAsync;
 
             // Wire welcome handler for new member joins
             _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
