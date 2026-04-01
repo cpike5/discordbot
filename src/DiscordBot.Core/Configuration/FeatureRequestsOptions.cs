@@ -42,9 +42,16 @@ public class FeatureRequestsOptions
     public int ConversationTimeoutMinutes { get; set; } = 30;
 
     /// <summary>
-    /// Doc generation sub-process configuration.
+    /// Model to use for the AI-powered requirements gathering conversation.
+    /// Default: claude-sonnet-4-20250514
     /// </summary>
-    public DocGenOptions DocGen { get; set; } = new();
+    public string RequirementsGatheringModel { get; set; } = "claude-sonnet-4-20250514";
+
+    /// <summary>
+    /// Maximum number of conversation turns (user messages) before forcing the session to end.
+    /// Default: 10
+    /// </summary>
+    public int MaxConversationTurns { get; set; } = 10;
 
     /// <summary>
     /// Regex patterns used to detect prompt-injection attempts in user input.
@@ -60,47 +67,4 @@ public class FeatureRequestsOptions
         "</s>",
         "[/INST]"
     ];
-
-    /// <summary>
-    /// Nested configuration for the automated documentation generation subprocess.
-    /// </summary>
-    public class DocGenOptions
-    {
-        /// <summary>
-        /// Whether the doc generation background worker is enabled.
-        /// When false, requests are accepted but no documentation is auto-generated.
-        /// Default: true
-        /// </summary>
-        public bool Enabled { get; set; } = true;
-
-        /// <summary>
-        /// Path or executable name of the Claude CLI binary.
-        /// Defaults to "claude" (expected to be on PATH).
-        /// </summary>
-        public string ClaudeCodeBinaryPath { get; set; } = "claude";
-
-        /// <summary>
-        /// Maximum minutes to wait for the claude subprocess to complete.
-        /// Default: 5
-        /// </summary>
-        public int TimeoutMinutes { get; set; } = 5;
-
-        /// <summary>
-        /// Git branch that feature-proposal branches are created from.
-        /// Default: "main"
-        /// </summary>
-        public string BaseBranch { get; set; } = "main";
-
-        /// <summary>
-        /// Prefix applied to generated branch names.
-        /// Default: "feature-proposal/"
-        /// </summary>
-        public string BranchPrefix { get; set; } = "feature-proposal/";
-
-        /// <summary>
-        /// Repository-relative path where generated documentation directories are created.
-        /// Default: "docs/feature-proposals/"
-        /// </summary>
-        public string DocsBasePath { get; set; } = "docs/feature-proposals/";
-    }
 }

@@ -15,11 +15,8 @@ namespace DiscordBot.Bot.Extensions;
 public static class FeatureRequestServiceExtensions
 {
     /// <summary>
-    /// Adds feature request services including repository, service, queue, and configuration.
+    /// Adds feature request services including repository, service, tool provider, and configuration.
     /// </summary>
-    /// <param name="services">The service collection to add services to.</param>
-    /// <param name="configuration">The application configuration.</param>
-    /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddFeatureRequests(
         this IServiceCollection services,
         IConfiguration configuration)
@@ -34,14 +31,8 @@ public static class FeatureRequestServiceExtensions
         // Service (scoped — depends on scoped repository)
         services.AddScoped<IFeatureRequestService, FeatureRequestService>();
 
-        // Singleton queue — shared across all requests and background workers
-        services.AddSingleton<IFeatureRequestDocGenQueue, FeatureRequestDocGenQueue>();
-
-        // Singleton process runner — stateless, safe to share
-        services.AddSingleton<IClaudeCodeProcessRunner, ClaudeCodeProcessRunner>();
-
-        // Singleton slugifier — stateless utility
-        services.AddSingleton<FeatureNameSlugifier>();
+        // Tool provider for AI-powered requirements gathering (scoped — depends on scoped service)
+        services.AddScoped<FeatureRequestToolProvider>();
 
         // Validation services — both are singleton-safe (stateless, depend only on singletons)
         services.AddSingleton<PromptInjectionFilter>();
@@ -49,9 +40,6 @@ public static class FeatureRequestServiceExtensions
 
         // Singleton conversation service (holds session dictionary)
         services.AddSingleton<FeatureRequestConversationService>();
-
-        // Background doc generation hosted service
-        services.AddHostedService<FeatureRequestDocGenService>();
 
         return services;
     }

@@ -2,7 +2,6 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.FeatureRequests;
-using DiscordBot.Infrastructure.Services.FeatureRequests;
 using Microsoft.Extensions.Logging;
 
 namespace DiscordBot.Infrastructure.Services;
@@ -13,16 +12,13 @@ namespace DiscordBot.Infrastructure.Services;
 public class FeatureRequestService : IFeatureRequestService
 {
     private readonly IFeatureRequestRepository _repo;
-    private readonly IFeatureRequestDocGenQueue _queue;
     private readonly ILogger<FeatureRequestService> _logger;
 
     public FeatureRequestService(
         IFeatureRequestRepository repo,
-        IFeatureRequestDocGenQueue queue,
         ILogger<FeatureRequestService> logger)
     {
         _repo = repo;
-        _queue = queue;
         _logger = logger;
     }
 
@@ -50,10 +46,8 @@ public class FeatureRequestService : IFeatureRequestService
 
         await _repo.AddAsync(entity);
 
-        _queue.Enqueue(entity.Id);
-
         _logger.LogInformation(
-            "Feature request {FeatureRequestId} submitted by user {UserId} in guild {GuildId}. Enqueued for doc generation.",
+            "Feature request {FeatureRequestId} submitted by user {UserId} in guild {GuildId}.",
             entity.Id, submission.SubmittedByUserId, submission.GuildId);
 
         return entity;

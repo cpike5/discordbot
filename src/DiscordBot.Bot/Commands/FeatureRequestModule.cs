@@ -4,7 +4,6 @@ using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
-using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.FeatureRequests;
 using Microsoft.Extensions.Options;
@@ -81,7 +80,6 @@ public class FeatureRequestModule : InteractionModuleBase<SocketInteractionConte
         // Store validated description in state; embed correlationId in button custom IDs
         var state = new FeatureRequestConversationState
         {
-            Stage = ConversationStage.AwaitingProblem,
             GuildId = Context.Guild.Id,
             InitialDescription = result.SanitizedText
         };
