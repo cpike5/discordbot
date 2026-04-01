@@ -100,11 +100,12 @@ public class PerformanceMetricsBroadcastServiceTests
         // Arrange
         var options = new PerformanceBroadcastOptions { Enabled = false };
         var service = CreateService(options);
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        using var cts = new CancellationTokenSource();
 
-        // Act
+        // Act - start and stop immediately; disabled service returns without touching SignalR
         await service.StartAsync(cts.Token);
-        await Task.Delay(500, cts.Token).ContinueWith(_ => { }); // Give time to not broadcast
+        cts.Cancel();
+        await service.StopAsync(CancellationToken.None);
 
         // Assert - No SignalR calls should be made
         _mockHubContext.Verify(
@@ -120,20 +121,15 @@ public class PerformanceMetricsBroadcastServiceTests
         _mockSubscriptionTracker.Setup(x => x.PerformanceGroupClientCount).Returns(0);
         _mockSubscriptionTracker.Setup(x => x.SystemHealthGroupClientCount).Returns(0);
 
-        var service = CreateService();
-        using var cts = new CancellationTokenSource();
-
-        // Setup hub context mock
         var mockClients = new Mock<IHubClients>();
         var mockClientProxy = new Mock<IClientProxy>();
         mockClients.Setup(x => x.Group(It.IsAny<string>())).Returns(mockClientProxy.Object);
         _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
 
-        // Act
-        await service.StartAsync(cts.Token);
-        await Task.Delay(1500); // Wait for at least one tick
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
+        var service = CreateService();
+
+        // Act - call the broadcast method directly; no timer needed
+        await service.BroadcastHealthMetricsAsync(CancellationToken.None);
 
         // Assert - Should not broadcast when no subscribers
         mockClientProxy.Verify(
@@ -158,13 +154,9 @@ public class PerformanceMetricsBroadcastServiceTests
         _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
 
         var service = CreateService();
-        using var cts = new CancellationTokenSource();
 
-        // Act
-        await service.StartAsync(cts.Token);
-        await Task.Delay(1500); // Wait for at least one tick
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
+        // Act - call the broadcast method directly; no timer needed
+        await service.BroadcastHealthMetricsAsync(CancellationToken.None);
 
         // Assert
         mockClientProxy.Verify(
@@ -172,7 +164,7 @@ public class PerformanceMetricsBroadcastServiceTests
                 "HealthMetricsUpdate",
                 It.IsAny<object[]>(),
                 It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce,
+            Times.Once,
             "Should broadcast health metrics when subscribers exist");
     }
 
@@ -189,13 +181,9 @@ public class PerformanceMetricsBroadcastServiceTests
         _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
 
         var service = CreateService();
-        using var cts = new CancellationTokenSource();
 
-        // Act
-        await service.StartAsync(cts.Token);
-        await Task.Delay(1500); // Wait for at least one tick
-        cts.Cancel();
-        await service.StopAsync(CancellationToken.None);
+        // Act - call the broadcast method directly; no timer needed
+        await service.BroadcastSystemMetricsAsync(CancellationToken.None);
 
         // Assert
         mockClientProxy.Verify(
@@ -203,7 +191,7 @@ public class PerformanceMetricsBroadcastServiceTests
                 "SystemMetricsUpdate",
                 It.IsAny<object[]>(),
                 It.IsAny<CancellationToken>()),
-            Times.AtLeastOnce,
+            Times.Once,
             "Should broadcast system metrics when subscribers exist");
     }
 

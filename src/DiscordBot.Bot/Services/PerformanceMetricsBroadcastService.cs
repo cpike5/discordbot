@@ -231,7 +231,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         }
     }
 
-    private async Task BroadcastHealthMetricsAsync(CancellationToken stoppingToken)
+    internal async Task BroadcastHealthMetricsAsync(CancellationToken stoppingToken)
     {
         // Skip if no clients are subscribed
         if (_subscriptionTracker.PerformanceGroupClientCount == 0)
@@ -267,7 +267,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         }
     }
 
-    private async Task BroadcastCommandPerformanceAsync(CancellationToken stoppingToken)
+    internal async Task BroadcastCommandPerformanceAsync(CancellationToken stoppingToken)
     {
         // Skip if no clients are subscribed
         if (_subscriptionTracker.PerformanceGroupClientCount == 0)
@@ -303,7 +303,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         }
     }
 
-    private async Task BroadcastSystemMetricsAsync(CancellationToken stoppingToken)
+    internal async Task BroadcastSystemMetricsAsync(CancellationToken stoppingToken)
     {
         // Skip if no clients are subscribed
         if (_subscriptionTracker.SystemHealthGroupClientCount == 0)
