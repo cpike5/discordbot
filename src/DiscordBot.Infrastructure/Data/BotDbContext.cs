@@ -82,6 +82,7 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<UserPreference> UserPreferences => Set<UserPreference>();
     public DbSet<FeatureRequest> FeatureRequests => Set<FeatureRequest>();
     public DbSet<FeatureRequestRejection> FeatureRequestRejections => Set<FeatureRequestRejection>();
+    public DbSet<NotXGuildSettings> NotXGuildSettings => Set<NotXGuildSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
