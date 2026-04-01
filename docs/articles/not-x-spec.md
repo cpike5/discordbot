@@ -1,6 +1,6 @@
 # not-X Feature Specification
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** 2026-04-01
 **Status:** Proposal
 **Target Framework:** .NET 8, Discord.Net
@@ -16,10 +16,11 @@
 5. [External API: fxtwitter](#external-api-fxtwitter)
 6. [Handler & Service Design](#handler--service-design)
 7. [Slash Commands](#slash-commands)
-8. [Configuration](#configuration)
-9. [Dependency Injection](#dependency-injection)
-10. [Observability](#observability)
-11. [Open Questions](#open-questions)
+8. [Message Context Menu Command](#message-context-menu-command)
+9. [Configuration](#configuration)
+10. [Dependency Injection](#dependency-injection)
+11. [Observability](#observability)
+12. [Open Questions](#open-questions)
 
 ---
 
@@ -361,6 +362,86 @@ Sensitive only:  ✅ Yes (only posts when tweet is flagged)
 Output channel:  #nsfw-previews
 Monitored:       All channels
 ```
+
+---
+
+## Message Context Menu Command
+
+Right-clicking any message in Discord and choosing **Apps → Fetch Tweet** manually triggers the same scraping pipeline as the automatic handler. This covers cases where:
+
+- The bot was offline when the message was posted.
+- The message was sent before the feature was enabled in the guild.
+- The automatic handler skipped the tweet because `SensitiveOnly` was on and the tweet wasn't flagged, but a user still wants the preview.
+- The link resolved through a `t.co` short URL that the regex didn't detect.
+
+### Discord.Net implementation
+
+```csharp
+// NotXCommandModule.cs  (added alongside the existing /notx slash group)
+
+[MessageCommand("Fetch Tweet")]
+public async Task FetchTweetContextMenuAsync(IMessage message)
+{
+    await DeferAsync(ephemeral: true);
+
+    // Extract tweet URLs from the target message
+    var urls = TweetUrlExtractor.Extract(message.Content);
+
+    if (urls.Count == 0)
+    {
+        await FollowupAsync(
+            embed: EmbedHelper.Warning("No Tweet Found", "That message doesn't appear to contain an X/Twitter link."),
+            ephemeral: true);
+        return;
+    }
+
+    // Load guild settings — feature does not need to be enabled for manual trigger.
+    // This lets moderators/admins use the command even when auto-posting is off.
+    var guildId = Context.Guild.Id;
+    var channelId = Context.Channel.Id;
+
+    var results = new List<string>();
+
+    foreach (var url in urls)
+    {
+        var posted = await _notXService.ProcessTweetAsync(
+            guildId,
+            channelId,
+            sourceMessageId: message.Id,
+            tweetUrl: url,
+            ignoreSettingsGate: true);   // bypass IsEnabled / SensitiveOnly for manual calls
+
+        results.Add(posted ? $"✅ Posted preview for <{url}>" : $"⚠️ Could not fetch <{url}>");
+    }
+
+    await FollowupAsync(
+        embed: EmbedHelper.Info("Fetch Tweet", string.Join("\n", results)),
+        ephemeral: true);
+}
+```
+
+Key points:
+
+- Response is **always ephemeral** — the invoking user sees the result; the channel only sees the embed that `NotXService` posts.
+- `ignoreSettingsGate: true` bypasses `IsEnabled` and `SensitiveOnly` checks so the command is useful even when auto-posting is disabled or the tweet isn't marked sensitive. Guild settings for output channel routing are still respected.
+- No permission requirement is imposed beyond the default (any guild member can use it). Admins can restrict context menu commands via Discord's built-in Integration permissions if desired.
+- If a message contains multiple tweet URLs all are fetched in sequence; each result is reported individually.
+- The `TweetUrlExtractor` helper (a static regex wrapper) is shared between `NotXMessageHandler` and this command to avoid duplicating the URL pattern.
+
+### `ProcessTweetAsync` signature update
+
+The existing `NotXService.ProcessTweetAsync` gains one parameter:
+
+```csharp
+Task<bool> ProcessTweetAsync(
+    ulong guildId,
+    ulong channelId,
+    ulong sourceMessageId,
+    string tweetUrl,
+    bool ignoreSettingsGate = false);  // new, defaults to false for auto path
+```
+
+Returns `true` if an embed was successfully posted, `false` otherwise (fetch failure, already posted, etc.).
 
 ---
 
