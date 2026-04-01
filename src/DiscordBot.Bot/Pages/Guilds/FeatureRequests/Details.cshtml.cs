@@ -86,6 +86,10 @@ public class DetailsModel : GuildPageModelBase
     {
         _logger.LogInformation("Admin approving feature request {RequestId} in guild {GuildId}", id, guildId);
 
+        var item = await _service.GetByIdAsync(id);
+        if (item == null || item.GuildId != guildId)
+            return NotFound();
+
         var reviewerId = GetCurrentDiscordUserId();
         await _service.UpdateStatusAsync(id, FeatureRequestStatus.Approved, reviewerId, ReviewNotes);
 
@@ -96,6 +100,10 @@ public class DetailsModel : GuildPageModelBase
     public async Task<IActionResult> OnPostRejectAsync(ulong guildId, Guid id)
     {
         _logger.LogInformation("Admin rejecting feature request {RequestId} in guild {GuildId}", id, guildId);
+
+        var item = await _service.GetByIdAsync(id);
+        if (item == null || item.GuildId != guildId)
+            return NotFound();
 
         var reviewerId = GetCurrentDiscordUserId();
         await _service.UpdateStatusAsync(id, FeatureRequestStatus.Rejected, reviewerId, ReviewNotes);

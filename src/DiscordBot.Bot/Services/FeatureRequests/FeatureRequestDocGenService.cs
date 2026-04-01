@@ -81,41 +81,51 @@ public class FeatureRequestDocGenService : MonitoredBackgroundService
 
             var promptContent = BuildPrompt(request, slug, branchName);
             var promptPath = Path.GetTempFileName();
-            await File.WriteAllTextAsync(promptPath, promptContent, stoppingToken);
-
-            using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
-            cts.CancelAfter(TimeSpan.FromMinutes(_options.DocGen.TimeoutMinutes));
-
             try
             {
-                var result = await runner.RunAsync(promptPath, repoRoot, cts.Token);
-                File.Delete(promptPath);
+                await File.WriteAllTextAsync(promptPath, promptContent, stoppingToken);
 
-                if (result.ExitCode == 0)
+                using var cts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                cts.CancelAfter(TimeSpan.FromMinutes(_options.DocGen.TimeoutMinutes));
+
+                try
                 {
-                    var docPath = Path.Combine(_options.DocGen.DocsBasePath, slug) + "/";
-                    await service.SetDocGenResultAsync(requestId, docPath, branchName, null);
-                    _logger.LogInformation(
-                        "Doc gen succeeded for {RequestId}, branch {Branch}", requestId, branchName);
-                    ClearError();
+                    var result = await runner.RunAsync(promptPath, repoRoot, cts.Token);
+
+                    if (result.ExitCode == 0)
+                    {
+                        var docPath = Path.Combine(_options.DocGen.DocsBasePath, slug) + "/";
+                        await service.SetDocGenResultAsync(requestId, docPath, branchName, null);
+                        _logger.LogInformation(
+                            "Doc gen succeeded for {RequestId}, branch {Branch}", requestId, branchName);
+                        ClearError();
+                    }
+                    else
+                    {
+                        // Log the full error server-side; store only a truncated summary
+                        // to avoid exposing file paths or API internals in the admin UI.
+                        _logger.LogError(
+                            "Doc gen failed for {RequestId} (exit {ExitCode}): {Error}",
+                            requestId, result.ExitCode, result.Error);
+                        var truncatedError = result.Error.Length > 500
+                            ? result.Error[..500] + "… (truncated; see server logs)"
+                            : result.Error;
+                        await service.SetDocGenResultAsync(requestId, null, null, truncatedError);
+                        RecordError($"ExitCode={result.ExitCode}");
+                    }
                 }
-                else
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
                 {
-                    await service.SetDocGenResultAsync(requestId, null, null, result.Error);
-                    _logger.LogError(
-                        "Doc gen failed for {RequestId}: {Error}", requestId, result.Error);
-                    RecordError($"ExitCode={result.ExitCode}");
+                    // Timeout (not application shutdown)
+                    await service.SetDocGenResultAsync(requestId, null, null, "Doc generation timed out");
+                    _logger.LogWarning("Doc gen timed out for {RequestId}", requestId);
+                    RecordError("Timeout");
                 }
             }
-            catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+            finally
             {
-                // Timeout (not application shutdown)
                 if (File.Exists(promptPath))
                     File.Delete(promptPath);
-
-                await service.SetDocGenResultAsync(requestId, null, null, "Doc generation timed out");
-                _logger.LogWarning("Doc gen timed out for {RequestId}", requestId);
-                RecordError("Timeout");
             }
         }
         catch (Exception ex)
@@ -167,14 +177,14 @@ public class FeatureRequestDocGenService : MonitoredBackgroundService
             </user_request>
 
             <task>
-            1. Create branch {branchName} from {_options.DocGen.BaseBranch}
-            2. Create directory {_options.DocGen.DocsBasePath}{slug}/
+            1. Create branch {EscapeXml(branchName)} from {EscapeXml(_options.DocGen.BaseBranch)}
+            2. Create directory {EscapeXml(_options.DocGen.DocsBasePath)}{EscapeXml(slug)}/
             3. Generate these files in that directory:
                - BRD.md (Business Requirements Document)
                - PRD.md (Product Requirements Document)
                - UserStories.md (User Stories with acceptance criteria)
                - Architecture.md (High-Level Architecture Proposal)
-            4. Commit with message: "docs: add feature proposal for {slug}"
+            4. Commit with message: "docs: add feature proposal for {EscapeXml(slug)}"
             5. Push the branch
 
             Do not auto-merge the branch. Do not touch any source code files.
@@ -188,11 +198,20 @@ public class FeatureRequestDocGenService : MonitoredBackgroundService
             .Replace(">", "&gt;")
             .Replace("\"", "&quot;");
 
-    private static string FindRepoRoot(string startPath)
+    private string FindRepoRoot(string startPath)
     {
         var dir = new DirectoryInfo(startPath);
         while (dir != null && !Directory.Exists(Path.Combine(dir.FullName, ".git")))
             dir = dir.Parent;
-        return dir?.FullName ?? startPath;
+
+        if (dir == null)
+        {
+            _logger.LogWarning(
+                "Could not find .git directory above {StartPath}; using it as repo root. " +
+                "Doc gen may fail if the working directory is incorrect.", startPath);
+            return startPath;
+        }
+
+        return dir.FullName;
     }
 }
