@@ -46,6 +46,7 @@ public class PortalTtsIntegrationTests : IDisposable
     private readonly Mock<ISsmlValidator> _mockSsmlValidator;
     private readonly Mock<ISsmlBuilder> _mockSsmlBuilder;
     private readonly Mock<IUserTtsPresetRepository> _mockUserTtsPresetRepository;
+    private readonly Mock<ITtsMessageHistoryRepository> _mockTtsMessageHistoryRepository;
     private readonly Mock<ILogger<PortalTtsController>> _mockLogger;
     private readonly AzureSpeechOptions _azureSpeechOptions;
 
@@ -68,6 +69,7 @@ public class PortalTtsIntegrationTests : IDisposable
         _mockSsmlValidator = new Mock<ISsmlValidator>();
         _mockSsmlBuilder = new Mock<ISsmlBuilder>();
         _mockUserTtsPresetRepository = new Mock<IUserTtsPresetRepository>();
+        _mockTtsMessageHistoryRepository = new Mock<ITtsMessageHistoryRepository>();
         _mockLogger = new Mock<ILogger<PortalTtsController>>();
 
         // Setup bot-level audio enabled by default
@@ -98,6 +100,7 @@ public class PortalTtsIntegrationTests : IDisposable
             _mockSsmlValidator.Object,
             _mockSsmlBuilder.Object,
             _mockUserTtsPresetRepository.Object,
+            _mockTtsMessageHistoryRepository.Object,
             _mockLogger.Object);
 
         // Setup HttpContext with Discord claims (simulating OAuth authentication)
