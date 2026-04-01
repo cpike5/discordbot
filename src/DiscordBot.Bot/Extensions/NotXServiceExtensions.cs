@@ -37,9 +37,6 @@ public static class NotXServiceExtensions
                 .ParseAdd(configuration.GetValue("NotX:UserAgent", "discordbot/1.0"));
         });
 
-        // Repository (scoped — wraps EF DbContext)
-        services.AddScoped<INotXGuildSettingsRepository, NotXGuildSettingsRepository>();
-
         // Scoped services
         services.AddScoped<IFxTwitterClient, FxTwitterClient>();
         services.AddScoped<INotXService, NotXService>();

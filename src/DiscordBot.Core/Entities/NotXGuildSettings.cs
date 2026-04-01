@@ -55,7 +55,7 @@ public class NotXGuildSettings
     /// <summary>
     /// Navigation property for the guild these settings belong to.
     /// </summary>
-    public virtual Guild? Guild { get; set; }
+    public Guild? Guild { get; set; }
 
     /// <summary>
     /// Gets the list of monitored channel IDs from the JSON backing field.
@@ -63,10 +63,17 @@ public class NotXGuildSettings
     /// </summary>
     public List<ulong> GetMonitoredChannelIds()
     {
-        if (string.IsNullOrEmpty(MonitoredChannelIdsJson))
-            return new List<ulong>();
+        try
+        {
+            if (string.IsNullOrEmpty(MonitoredChannelIdsJson))
+                return new List<ulong>();
 
-        return JsonSerializer.Deserialize<List<ulong>>(MonitoredChannelIdsJson) ?? new List<ulong>();
+            return JsonSerializer.Deserialize<List<ulong>>(MonitoredChannelIdsJson) ?? new List<ulong>();
+        }
+        catch
+        {
+            return new List<ulong>();
+        }
     }
 
     /// <summary>

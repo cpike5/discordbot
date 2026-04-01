@@ -64,7 +64,7 @@ public class NotXContextMenuModule : InteractionModuleBase<SocketInteractionCont
 
         var guildId = Context.Guild.Id;
         var channelId = Context.Channel.Id;
-        var anySucceeded = false;
+        var successCount = 0;
         var results = new List<string>(matches.Count);
 
         foreach (var match in matches)
@@ -84,7 +84,7 @@ public class NotXContextMenuModule : InteractionModuleBase<SocketInteractionCont
 
             if (posted)
             {
-                anySucceeded = true;
+                successCount++;
                 results.Add($"✅ Posted preview for <{match.FullUrl}>");
             }
             else
@@ -94,12 +94,13 @@ public class NotXContextMenuModule : InteractionModuleBase<SocketInteractionCont
         }
 
         var resultText = string.Join("\n", results);
+        var anySucceeded = successCount > 0;
 
         if (anySucceeded)
         {
             _logger.LogInformation(
                 "Fetch Tweet: successfully posted {Count} of {Total} tweet previews for message {MessageId} in guild {GuildId}",
-                results.Count(r => r.StartsWith("✅")),
+                successCount,
                 matches.Count,
                 message.Id,
                 guildId);

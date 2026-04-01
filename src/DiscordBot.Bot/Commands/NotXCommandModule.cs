@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using DiscordBot.Bot.Helpers;
+using DiscordBot.Bot.Preconditions;
 using DiscordBot.Core.Interfaces;
 
 namespace DiscordBot.Bot.Commands;
@@ -11,6 +12,8 @@ namespace DiscordBot.Bot.Commands;
 /// </summary>
 [Group("notx", "Configure not-X tweet previews")]
 [RequireUserPermission(GuildPermission.ManageGuild)]
+[RequireGuildActive]
+[RateLimit(5, 60)]
 public class NotXCommandModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly INotXService _notXService;

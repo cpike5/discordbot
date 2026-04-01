@@ -271,6 +271,7 @@ public class BotHostedService : IHostedService
             _client.MessageReceived -= _assistantMessageHandler.HandleMessageReceivedAsync;
             _client.MessageReceived -= _featureRequestDmHandler.HandleMessageReceivedAsync;
             _client.MessageReceived -= _dmAssistantMessageHandler.HandleMessageReceivedAsync;
+            _client.MessageReceived -= _notXMessageHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
             _client.UserJoined -= _memberEventHandler.HandleUserJoinedAsync;
             _client.UserLeft -= _memberEventHandler.HandleUserLeftAsync;

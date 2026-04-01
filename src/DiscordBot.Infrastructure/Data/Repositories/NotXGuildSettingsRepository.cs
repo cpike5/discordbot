@@ -21,24 +21,28 @@ public class NotXGuildSettingsRepository : Repository<NotXGuildSettings>, INotXG
         _logger = logger;
     }
 
-    public async Task<NotXGuildSettings?> GetByGuildIdAsync(ulong guildId)
+    public async Task<NotXGuildSettings?> GetByGuildIdAsync(
+        ulong guildId,
+        CancellationToken ct = default)
     {
         _logger.LogDebug("Retrieving not-X settings for guild {GuildId}", guildId);
 
         var settings = await DbSet
             .AsNoTracking()
-            .FirstOrDefaultAsync(s => s.GuildId == guildId);
+            .FirstOrDefaultAsync(s => s.GuildId == guildId, ct);
 
         _logger.LogDebug("Settings found for guild {GuildId}: {Found}", guildId, settings != null);
         return settings;
     }
 
-    public async Task<NotXGuildSettings> GetOrCreateAsync(ulong guildId)
+    public async Task<NotXGuildSettings> GetOrCreateAsync(
+        ulong guildId,
+        CancellationToken ct = default)
     {
         _logger.LogDebug("Getting or creating not-X settings for guild {GuildId}", guildId);
 
         var settings = await DbSet
-            .FirstOrDefaultAsync(s => s.GuildId == guildId);
+            .FirstOrDefaultAsync(s => s.GuildId == guildId, ct);
 
         if (settings != null)
         {
@@ -58,8 +62,8 @@ public class NotXGuildSettingsRepository : Repository<NotXGuildSettings>, INotXG
             UpdatedAt = now
         };
 
-        await DbSet.AddAsync(settings);
-        await Context.SaveChangesAsync();
+        await DbSet.AddAsync(settings, ct);
+        await Context.SaveChangesAsync(ct);
 
         _logger.LogInformation("Created default not-X settings for guild {GuildId}", guildId);
 
