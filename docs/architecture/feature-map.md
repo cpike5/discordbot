@@ -12,7 +12,7 @@ This document maps all major features to their supporting components: Discord co
 2. [Moderation Features](#moderation-features) - Warnings, bans, notes, watchlist
 3. [Community Features](#community-features) - Reminders, Rat Watch, Scheduled Messages
 4. [Administrative Features](#administrative-features) - Guild management, settings, monitoring, verification
-5. [System Features](#system-features) - Authentication, logging, notifications, activity tracking
+5. [System Features](#system-features) - Authentication, logging, notifications, activity tracking, DM assistant
 
 ---
 
@@ -478,6 +478,40 @@ Structured logging with Serilog and optional Seq/Elasticsearch aggregation.
 | **Tracing** | Jaeger/OpenTelemetry (optional) |
 | **Key Services** | `ILogger<T>` dependency injection throughout |
 | **Key Features** | Structured logging, correlation IDs, performance profiling, log aggregation |
+
+---
+
+### DM Assistant & Mogwai
+
+Owner-only DM assistant with multi-turn conversation history and optional Claude Code CLI delegation (Mogwai).
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Entry Point** | `DmAssistantMessageHandler` — handles incoming DM messages, routes to `IDmAssistantService` |
+| **Services** | `IDmAssistantService`, `IAgentRunner`, `ILlmClient` (AnthropicLlmClient), `IToolRegistry` |
+| **Tool Providers** | `ClaudeCodeToolProvider` (Mogwai only — `IDmToolProvider`) |
+| **Database Entities** | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` |
+| **Configuration** | `DmAssistantOptions` (`DmAssistant` section), `MogwaiOptions` (`Mogwai` section) |
+| **Docker** | `Dockerfile.mogwai`, `docker-compose.mogwai.yml`, `.env.mogwai` |
+| **Agent Prompt** | `docs/agents/dm-owner-agent.md` |
+| **Key Features** | Owner-only access (Discord API check), sliding-window conversation history, response chunking (split / `.md` attachment), Claude Code subprocess spawning, per-user session continuity, concurrency guard |
+| **Access Control** | Owner identified via `GetApplicationInfoAsync()`. Non-owners receive placeholder response. |
+| **Mogwai toggle** | `Mogwai__Enabled=false` by default — zero impact on all other bot instances when unset |
+
+**Architecture Flow (Mogwai path)**:
+```
+Owner DMs Mogwai bot →
+  DmAssistantMessageHandler →
+  DmAssistantService (history load + LLM call) →
+  AgentRunner (agentic loop) →
+  Haiku decides: answer directly OR call run_claude_code tool →
+  ClaudeCodeToolProvider.ExecuteAsync() →
+  claude CLI subprocess (--output-format json) →
+  JSON response parsed, session ID stored →
+  Response chunked and sent via DmAssistantMessageHandler
+```
+
+**Preconditions**: Owner check via Discord API. `DmAssistant__Enabled=true` and `Mogwai__Enabled=true` required in configuration.
 
 ---
 

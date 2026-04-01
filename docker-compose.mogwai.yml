@@ -1,0 +1,31 @@
+# Mogwai Bot Instance — Docker Compose
+#
+# Standalone compose file for the Mogwai bot (Claude Code integration).
+#
+# Usage:
+#   1. Copy .env.mogwai.example to .env.mogwai and fill in secrets
+#   2. Run: docker compose -f docker-compose.mogwai.yml up -d
+
+services:
+  mogwai:
+    build:
+      context: .
+      dockerfile: Dockerfile.mogwai
+    container_name: mogwai
+    env_file: .env.mogwai
+    environment:
+      Mogwai__Enabled: "true"
+      Mogwai__WorkingDirectory: /workspace
+      Mogwai__SkipPermissions: "true"
+      DmAssistant__Enabled: "true"
+      DmAssistant__Model: "claude-haiku-4-5-20251001"
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+    volumes:
+      - mogwai-data:/app/data
+      - ./:/workspace:rw
+    ports:
+      - "7310:5000"
+    restart: unless-stopped
+
+volumes:
+  mogwai-data:

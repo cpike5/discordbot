@@ -114,6 +114,53 @@ Seq UI is available at `http://localhost:5341`.
 docker compose --profile postgres --profile seq up -d
 ```
 
+### Mogwai — Claude Code Bot
+
+Mogwai uses a **separate compose file** (`docker-compose.mogwai.yml`) and a separate Dockerfile (`Dockerfile.mogwai`) because it includes Node.js, Claude Code CLI, and Playwright/Chromium — adding ~1.5–2 GB to the image size. The main bot image stays lean.
+
+```bash
+# Build and start Mogwai
+docker compose -f docker-compose.mogwai.yml build
+docker compose -f docker-compose.mogwai.yml up -d
+```
+
+**Required `.env.mogwai` variables:**
+
+| Variable | Description |
+|----------|-------------|
+| `Discord__Token` | A **separate** Discord bot token for Mogwai (must not share with the main bot) |
+| `Anthropic__ApiKey` | Anthropic API key for the .NET DM assistant (Haiku model) |
+| `ANTHROPIC_API_KEY` | Same key, exposed to the `claude` CLI process inside the container |
+
+Both `Anthropic__ApiKey` and `ANTHROPIC_API_KEY` are required. The .NET runtime reads the double-underscore form; the `claude` binary reads the conventional environment variable name.
+
+**Volume mounts:**
+
+| Volume | Container Path | Purpose |
+|--------|---------------|---------|
+| `mogwai-data` | `/app/data` | SQLite database and conversation history |
+| `./` (host repo root) | `/workspace` | Project directory exposed to Claude Code (read-write) |
+
+The `/workspace` mount gives Claude Code access to your project files. Restrict to `:ro` if you want read-only access.
+
+**Key environment overrides set in the compose file:**
+
+```yaml
+environment:
+  Mogwai__Enabled: "true"
+  Mogwai__WorkingDirectory: /workspace
+  Mogwai__SkipPermissions: "true"
+  DmAssistant__Enabled: "true"
+  DmAssistant__Model: "claude-haiku-4-5-20251001"
+  ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+```
+
+`Mogwai__Enabled` defaults to `false` in `appsettings.json`. The compose file overrides it to `true`, which means running the image without the compose file (or without the environment variable) starts a normal bot instance with no Claude Code tools registered.
+
+See [Mogwai feature guide](mogwai.md) for full configuration details.
+
+---
+
 ## Configuration Reference
 
 Configure the bot by editing `.env`. See `.env.example` for all available settings.
@@ -344,6 +391,35 @@ The container runs as non-root user `appuser`. Ensure mounted directories are re
 # Fix sounds directory permissions
 chmod -R o+r ./sounds/
 ```
+
+### Mogwai container won't start
+
+**Image build fails (Playwright/Chromium):**
+
+`npx playwright install --with-deps chromium` requires internet access at build time. Ensure the build host can reach `registry.npmjs.org` and Playwright's CDN:
+
+```bash
+docker compose -f docker-compose.mogwai.yml build --no-cache
+```
+
+**`claude: command not found` at runtime:**
+
+The npm global install failed silently. Rebuild the image and check npm output:
+
+```bash
+docker compose -f docker-compose.mogwai.yml build --no-cache 2>&1 | grep -i npm
+docker compose -f docker-compose.mogwai.yml exec mogwai claude --version
+```
+
+**DM assistant not responding after start:**
+
+1. Confirm `Discord__Token` in `.env.mogwai` is a different token from the main bot. Two processes sharing a token will fight for the connection.
+2. Confirm `DmAssistant__Enabled=true` is in the compose environment section.
+3. Check logs: `docker compose -f docker-compose.mogwai.yml logs mogwai`
+
+**`ANTHROPIC_API_KEY` errors from the `claude` CLI:**
+
+Both `Anthropic__ApiKey` (for .NET) and `ANTHROPIC_API_KEY` (for the `claude` process) must be set in `.env.mogwai`. If only one is set, one of the two will fail.
 
 ### Container health check failing
 
