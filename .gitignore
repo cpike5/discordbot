@@ -446,4 +446,4 @@ sounds
 cache
 
 # Claude Code temp files
-tmpclaude-*-cwd
+tmpclaude-*-cwd.claude/worktrees/

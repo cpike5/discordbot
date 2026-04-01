@@ -121,6 +121,8 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IVoxMessageHistoryRepository, VoxMessageHistoryRepository>();
         services.AddScoped<ITtsMessageHistoryRepository, TtsMessageHistoryRepository>();
         services.AddScoped<IUserTtsPresetRepository, UserTtsPresetRepository>();
+        services.AddScoped<IAudioPlaybackLogRepository, AudioPlaybackLogRepository>();
+        services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests
