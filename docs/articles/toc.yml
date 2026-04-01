@@ -1,76 +1,182 @@
 - name: Overview
   href: index.md
-- name: Getting Started
-  items:
-    - name: Requirements
-      href: requirements.md
-- name: Reference
-  items:
-    - name: Architecture History
-      href: architecture-history.md
 - name: Architecture
   items:
-    - name: Database Schema
-      href: database-schema.md
     - name: Service Architecture
-      href: service-architecture.md
+      href: architecture/service-architecture.md
+    - name: Database Schema
+      href: architecture/database-schema.md
     - name: Background Services
-      href: background-services.md
+      href: architecture/background-services.md
     - name: Repository Pattern
-      href: repository-pattern.md
+      href: architecture/repository-pattern.md
+    - name: Architecture History
+      href: architecture/architecture-history.md
+- name: Authentication & Authorization
+  items:
+    - name: Identity Configuration
+      href: auth/identity-configuration.md
+    - name: Authorization Policies
+      href: auth/authorization-policies.md
+    - name: Permissions
+      href: auth/permissions.md
+    - name: Consent & Privacy
+      href: auth/consent-privacy.md
+- name: Commands
+  items:
+    - name: Admin Commands
+      href: commands/admin-commands.md
+    - name: Utility Commands
+      href: commands/utility-commands.md
+    - name: Interactive Components
+      href: commands/interactive-components.md
+    - name: Commands Page
+      href: commands/commands-page.md
+    - name: Commands Page Design
+      href: commands/commands-page-design.md
+    - name: Unified Command Pages
+      href: commands/unified-command-pages.md
+    - name: Command Configuration
+      href: commands/command-configuration.md
+- name: UI & Design
+  items:
     - name: Design System
-      href: design-system.md
+      href: ui/design-system.md
     - name: Component API
-      href: component-api.md
+      href: ui/component-api.md
+    - name: Razor Components
+      href: ui/razor-components.md
+    - name: Form Implementation Standards
+      href: ui/form-implementation-standards.md
+    - name: Autocomplete Component
+      href: ui/autocomplete-component.md
+    - name: Navigation Tabs
+      href: ui/nav-tabs-component.md
+    - name: Navigation Tabs Design Spec
+      href: ui/nav-tabs-design-spec.md
+    - name: Navigation Tabs Spec
+      href: ui/nav-tabs-spec.md
+    - name: Navigation Tabs Migration
+      href: ui/nav-tabs-migration.md
+    - name: Login Page Design
+      href: ui/login-page-design-spec.md
+    - name: Guild Layout Spec
+      href: ui/guild-layout-spec.md
+    - name: Settings Page
+      href: ui/settings-page.md
+    - name: Theme Creation Guide
+      href: ui/theme-creation-guide.md
+- name: Observability
+  items:
+    - name: Metrics
+      href: observability/metrics.md
+    - name: Distributed Tracing
+      href: observability/tracing.md
+    - name: Log Aggregation
+      href: observability/log-aggregation.md
+    - name: Alerting System
+      href: observability/alerting-system.md
+    - name: Elastic Stack Setup
+      href: observability/elastic-stack-setup.md
+    - name: Elastic APM
+      href: observability/elastic-apm.md
+    - name: Kibana Dashboards
+      href: observability/kibana-dashboards.md
+    - name: Grafana Dashboards
+      href: observability/grafana-dashboards-specification.md
+    - name: Jaeger & Loki Setup
+      href: observability/jaeger-loki-setup.md
+    - name: Loki Production Setup
+      href: observability/loki-production-setup.md
+    - name: Bot Performance Dashboard
+      href: observability/bot-performance-dashboard.md
+- name: Audio & Voice
+  items:
+    - name: Audio Dependencies
+      href: audio/audio-dependencies.md
+    - name: Soundboard
+      href: audio/soundboard.md
+    - name: TTS Support
+      href: audio/tts-support.md
+    - name: SSML Support
+      href: audio/ssml-support.md
+    - name: Voice Favorites
+      href: audio/voice-favorites-spec.md
+    - name: Voice Capability System
+      href: audio/voice-capability-system.md
+    - name: Voice Selector
+      href: audio/voice-selector-spec.md
+    - name: VOX System
+      href: audio/vox-system-spec.md
+    - name: VOX UI
+      href: audio/vox-ui-spec.md
+    - name: VOX Telemetry
+      href: audio/vox-telemetry-spec.md
     - name: Unified Now Playing
-      href: unified-now-playing.md
-- name: API & Integration
+      href: audio/unified-now-playing.md
+    - name: DAVE Encryption
+      href: audio/dave-implementation.md
+- name: Features
+  items:
+    - name: User Management
+      href: features/user-management.md
+    - name: Member Directory
+      href: features/member-directory.md
+    - name: Welcome System
+      href: features/welcome-system.md
+    - name: Reminder System
+      href: features/reminder-system.md
+    - name: Rat Watch
+      href: features/rat-watch.md
+    - name: Message Logging
+      href: features/message-logging.md
+    - name: Scheduled Messages
+      href: features/scheduled-messages.md
+    - name: Audit Log System
+      href: features/audit-log-system.md
+    - name: Notification System
+      href: features/notification-system.md
+    - name: AI Assistant
+      href: features/ai-assistant.md
+    - name: AI Assistant Feature Updates
+      href: features/assistant-feature-updates.md
+    - name: Search
+      href: features/search.md
+    - name: SignalR Real-Time
+      href: features/signalr-realtime.md
+    - name: Mogwai
+      href: features/mogwai.md
+- name: Deployment
+  items:
+    - name: Discord Bot Setup
+      href: deployment/discord-bot-setup.md
+    - name: Configuration Guide
+      href: deployment/configuration-guide.md
+    - name: Environment Configuration
+      href: deployment/environment-configuration.md
+    - name: Linux Deployment
+      href: deployment/linux-deployment.md
+    - name: Docker Deployment
+      href: deployment/docker-deployment.md
+    - name: Bot Verification
+      href: deployment/bot-verification.md
+    - name: SQLite to PostgreSQL Migration
+      href: deployment/sqlite-to-docker-postgres-migration.md
+- name: Development
+  items:
+    - name: Requirements
+      href: development/requirements.md
+    - name: Testing Guide
+      href: development/testing-guide.md
+    - name: Troubleshooting Guide
+      href: development/troubleshooting-guide.md
+    - name: Versioning Strategy
+      href: development/versioning-strategy.md
+    - name: Issue Tracking Process
+      href: development/issue-tracking-process.md
+    - name: Timezone Handling
+      href: development/timezone-handling.md
+- name: API Reference
   items:
     - name: REST API Endpoints
       href: api-endpoints.md
-    - name: Interactive Components
-      href: interactive-components.md
-    - name: SignalR Real-Time Dashboard
-      href: signalr-realtime.md
-    - name: Search System
-      href: search.md
-    - name: Notification System
-      href: notification-system.md
-- name: Security & Authentication
-  items:
-    - name: Identity Configuration
-      href: identity-configuration.md
-    - name: Authorization Policies
-      href: authorization-policies.md
-    - name: User Management Guide
-      href: user-management.md
-- name: Bot Features
-  items:
-    - name: Admin Commands
-      href: admin-commands.md
-    - name: Utility Commands
-      href: utility-commands.md
-    - name: Reminder System
-      href: reminder-system.md
-    - name: Permissions
-      href: permissions.md
-    - name: AI Assistant
-      href: ai-assistant.md
-    - name: TTS Support
-      href: tts-support.md
-    - name: SSML Support
-      href: ssml-support.md
-- name: Operations
-  items:
-    - name: Metrics
-      href: metrics.md
-    - name: Distributed Tracing
-      href: tracing.md
-    - name: Log Aggregation
-      href: log-aggregation.md
-    - name: Elastic Stack Setup
-      href: elastic-stack-setup.md
-    - name: Kibana Dashboards
-      href: kibana-dashboards.md
-    - name: Elastic APM
-      href: elastic-apm.md

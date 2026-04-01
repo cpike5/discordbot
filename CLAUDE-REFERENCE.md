@@ -224,81 +224,85 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 
 | Doc | Purpose |
 |-----|---------|
-| [admin-commands.md](docs/articles/admin-commands.md) | Admin command documentation |
-| [ai-assistant.md](docs/articles/ai-assistant.md) | Claude-powered conversational assistant |
-| [alerting-system.md](docs/articles/alerting-system.md) | Performance alerting and incident management |
+| [admin-commands.md](docs/articles/commands/admin-commands.md) | Admin command documentation |
+| [ai-assistant.md](docs/articles/features/ai-assistant.md) | Claude-powered conversational assistant |
+| [alerting-system.md](docs/articles/observability/alerting-system.md) | Performance alerting and incident management |
 | [api-endpoints.md](docs/articles/api-endpoints.md) | REST API documentation |
-| [architecture-history.md](docs/articles/architecture-history.md) | Architecture evolution (archived) |
-| [assistant-feature-updates.md](docs/articles/assistant-feature-updates.md) | Updating AI assistant knowledge for new features |
-| [audit-log-system.md](docs/articles/audit-log-system.md) | Audit logging with fluent builder API |
-| [audio-dependencies.md](docs/articles/audio-dependencies.md) | FFmpeg, libsodium, libopus setup |
-| [authorization-policies.md](docs/articles/authorization-policies.md) | Role hierarchy, guild access policies |
-| [autocomplete-component.md](docs/articles/autocomplete-component.md) | Autocomplete UI component |
-| [background-services.md](docs/articles/background-services.md) | Background hosted services, retention, aggregation |
-| [bot-performance-dashboard.md](docs/articles/bot-performance-dashboard.md) | Performance monitoring dashboard |
-| [bot-verification.md](docs/articles/bot-verification.md) | Bot verification as OAuth alternative |
-| [command-configuration.md](docs/articles/command-configuration.md) | Command module enable/disable |
-| [commands-page-design.md](docs/articles/commands-page-design.md) | Commands page design spec |
-| [commands-page.md](docs/articles/commands-page.md) | Commands page feature |
-| [component-api.md](docs/articles/component-api.md) | Razor UI component library reference |
-| [consent-privacy.md](docs/articles/consent-privacy.md) | GDPR-compliant consent and privacy management |
-| [database-schema.md](docs/articles/database-schema.md) | Entity relationships and schema |
-| [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, theming |
-| [discord-bot-setup.md](docs/articles/discord-bot-setup.md) | Discord Developer Portal setup |
-| [elastic-apm.md](docs/articles/elastic-apm.md) | Elastic APM distributed tracing |
-| [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md) | Local Elastic Stack setup |
-| [environment-configuration.md](docs/articles/environment-configuration.md) | Environment configuration |
-| [form-implementation-standards.md](docs/articles/form-implementation-standards.md) | Razor Pages form patterns |
-| [grafana-dashboards-specification.md](docs/articles/grafana-dashboards-specification.md) | Grafana dashboards spec |
-| [guild-layout-spec.md](docs/articles/guild-layout-spec.md) | Guild layout specification |
-| [identity-configuration.md](docs/articles/identity-configuration.md) | Authentication setup |
-| [interactive-components.md](docs/articles/interactive-components.md) | Discord button/component patterns |
-| [issue-tracking-process.md](docs/articles/issue-tracking-process.md) | GitHub issue workflow |
-| [jaeger-loki-setup.md](docs/articles/jaeger-loki-setup.md) | Jaeger and Loki setup |
-| [kibana-dashboards.md](docs/articles/kibana-dashboards.md) | Kibana dashboards and alerting |
-| [linux-deployment.md](docs/articles/linux-deployment.md) | Linux deployment guide |
-| [log-aggregation.md](docs/articles/log-aggregation.md) | Elasticsearch and Seq logging |
-| [login-page-design-spec.md](docs/articles/login-page-design-spec.md) | Login page design |
-| [loki-production-setup.md](docs/articles/loki-production-setup.md) | Loki production setup |
-| [member-directory.md](docs/articles/member-directory.md) | Member Directory feature |
-| [mogwai.md](docs/articles/mogwai.md) | Mogwai — Claude Code CLI integration via DM (owner-only) |
-| [message-logging.md](docs/articles/message-logging.md) | Message logging system |
-| [metrics.md](docs/articles/metrics.md) | OpenTelemetry metrics collection |
-| [nav-tabs-component.md](docs/articles/nav-tabs-component.md) | Navigation Tabs component guide |
-| [nav-tabs-design-spec.md](docs/articles/nav-tabs-design-spec.md) | Navigation Tabs design specification |
-| [nav-tabs-migration.md](docs/articles/nav-tabs-migration.md) | Navigation Tabs migration guide |
-| [nav-tabs-spec.md](docs/articles/nav-tabs-spec.md) | Navigation component unification spec |
-| [notification-system.md](docs/articles/notification-system.md) | Real-time notifications with SignalR |
-| [permissions.md](docs/articles/permissions.md) | Precondition attribute system |
-| [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
-| [razor-components.md](docs/articles/razor-components.md) | Razor component library |
-| [reminder-system.md](docs/articles/reminder-system.md) | Personal reminders with natural language parsing |
-| [repository-pattern.md](docs/articles/repository-pattern.md) | Repository pattern implementation |
-| [requirements.md](docs/articles/requirements.md) | Project requirements |
-| [scheduled-messages.md](docs/articles/scheduled-messages.md) | Scheduled/recurring messages |
-| [search.md](docs/articles/search.md) | Global search across portal data |
-| [service-architecture.md](docs/articles/service-architecture.md) | Service interfaces, DI registration, lifetimes |
-| [settings-page.md](docs/articles/settings-page.md) | Settings page and real-time updates |
-| [signalr-realtime.md](docs/articles/signalr-realtime.md) | SignalR real-time updates |
-| [soundboard.md](docs/articles/soundboard.md) | Soundboard feature |
-| [ssml-support.md](docs/articles/ssml-support.md) | SSML markup support for TTS |
-| [testing-guide.md](docs/articles/testing-guide.md) | Testing patterns and fixtures |
-| [timezone-handling.md](docs/articles/timezone-handling.md) | Timezone handling |
-| [tracing.md](docs/articles/tracing.md) | Distributed tracing with OpenTelemetry |
-| [troubleshooting-guide.md](docs/articles/troubleshooting-guide.md) | Common issues and solutions |
-| [tts-support.md](docs/articles/tts-support.md) | Text-to-Speech with Azure Cognitive Services |
-| [unified-command-pages.md](docs/articles/unified-command-pages.md) | Unified command pages architecture |
-| [unified-now-playing.md](docs/articles/unified-now-playing.md) | Unified Now Playing component (SignalR, SSR) |
-| [user-management.md](docs/articles/user-management.md) | User management system |
-| [utility-commands.md](docs/articles/utility-commands.md) | Utility commands (/userinfo, /serverinfo, /roleinfo) |
-| [versioning-strategy.md](docs/articles/versioning-strategy.md) | SemVer versioning and release process |
-| [voice-capability-system.md](docs/articles/voice-capability-system.md) | Voice capability-aware UI system |
-| [voice-favorites-spec.md](docs/articles/voice-favorites-spec.md) | Voice favorites specification |
-| [voice-selector-spec.md](docs/articles/voice-selector-spec.md) | Voice selector component (Language → Voice dropdown) |
-| [vox-system-spec.md](docs/articles/vox-system-spec.md) | VOX/FVOX/HGRUNT clip library architecture |
-| [vox-telemetry-spec.md](docs/articles/vox-telemetry-spec.md) | VOX system telemetry specification |
-| [vox-ui-spec.md](docs/articles/vox-ui-spec.md) | VOX Portal UI/UX specification |
-| [welcome-system.md](docs/articles/welcome-system.md) | Welcome message configuration |
+| [architecture-history.md](docs/articles/architecture/architecture-history.md) | Architecture evolution (archived) |
+| [assistant-feature-updates.md](docs/articles/features/assistant-feature-updates.md) | Updating AI assistant knowledge for new features |
+| [audit-log-system.md](docs/articles/features/audit-log-system.md) | Audit logging with fluent builder API |
+| [audio-dependencies.md](docs/articles/audio/audio-dependencies.md) | FFmpeg, libsodium, libopus setup |
+| [authorization-policies.md](docs/articles/auth/authorization-policies.md) | Role hierarchy, guild access policies |
+| [autocomplete-component.md](docs/articles/ui/autocomplete-component.md) | Autocomplete UI component |
+| [background-services.md](docs/articles/architecture/background-services.md) | Background hosted services, retention, aggregation |
+| [bot-performance-dashboard.md](docs/articles/observability/bot-performance-dashboard.md) | Performance monitoring dashboard |
+| [bot-verification.md](docs/articles/deployment/bot-verification.md) | Bot verification as OAuth alternative |
+| [command-configuration.md](docs/articles/commands/command-configuration.md) | Command module enable/disable |
+| [commands-page-design.md](docs/articles/commands/commands-page-design.md) | Commands page design spec |
+| [commands-page.md](docs/articles/commands/commands-page.md) | Commands page feature |
+| [component-api.md](docs/articles/ui/component-api.md) | Razor UI component library reference |
+| [consent-privacy.md](docs/articles/auth/consent-privacy.md) | GDPR-compliant consent and privacy management |
+| [database-schema.md](docs/articles/architecture/database-schema.md) | Entity relationships and schema |
+| [design-system.md](docs/articles/ui/design-system.md) | UI tokens, color palette, theming |
+| [discord-bot-setup.md](docs/articles/deployment/discord-bot-setup.md) | Discord Developer Portal setup |
+| [elastic-apm.md](docs/articles/observability/elastic-apm.md) | Elastic APM distributed tracing |
+| [elastic-stack-setup.md](docs/articles/observability/elastic-stack-setup.md) | Local Elastic Stack setup |
+| [environment-configuration.md](docs/articles/deployment/environment-configuration.md) | Environment configuration |
+| [form-implementation-standards.md](docs/articles/ui/form-implementation-standards.md) | Razor Pages form patterns |
+| [grafana-dashboards-specification.md](docs/articles/observability/grafana-dashboards-specification.md) | Grafana dashboards spec |
+| [guild-layout-spec.md](docs/articles/ui/guild-layout-spec.md) | Guild layout specification |
+| [identity-configuration.md](docs/articles/auth/identity-configuration.md) | Authentication setup |
+| [interactive-components.md](docs/articles/commands/interactive-components.md) | Discord button/component patterns |
+| [issue-tracking-process.md](docs/articles/development/issue-tracking-process.md) | GitHub issue workflow |
+| [jaeger-loki-setup.md](docs/articles/observability/jaeger-loki-setup.md) | Jaeger and Loki setup |
+| [kibana-dashboards.md](docs/articles/observability/kibana-dashboards.md) | Kibana dashboards and alerting |
+| [linux-deployment.md](docs/articles/deployment/linux-deployment.md) | Linux deployment guide |
+| [log-aggregation.md](docs/articles/observability/log-aggregation.md) | Elasticsearch and Seq logging |
+| [login-page-design-spec.md](docs/articles/ui/login-page-design-spec.md) | Login page design |
+| [loki-production-setup.md](docs/articles/observability/loki-production-setup.md) | Loki production setup |
+| [member-directory.md](docs/articles/features/member-directory.md) | Member Directory feature |
+| [mogwai.md](docs/articles/features/mogwai.md) | Mogwai — Claude Code CLI integration via DM (owner-only) |
+| [message-logging.md](docs/articles/features/message-logging.md) | Message logging system |
+| [metrics.md](docs/articles/observability/metrics.md) | OpenTelemetry metrics collection |
+| [nav-tabs-component.md](docs/articles/ui/nav-tabs-component.md) | Navigation Tabs component guide |
+| [nav-tabs-design-spec.md](docs/articles/ui/nav-tabs-design-spec.md) | Navigation Tabs design specification |
+| [nav-tabs-migration.md](docs/articles/ui/nav-tabs-migration.md) | Navigation Tabs migration guide |
+| [nav-tabs-spec.md](docs/articles/ui/nav-tabs-spec.md) | Navigation component unification spec |
+| [notification-system.md](docs/articles/features/notification-system.md) | Real-time notifications with SignalR |
+| [permissions.md](docs/articles/auth/permissions.md) | Precondition attribute system |
+| [rat-watch.md](docs/articles/features/rat-watch.md) | Rat Watch accountability feature |
+| [razor-components.md](docs/articles/ui/razor-components.md) | Razor component library |
+| [reminder-system.md](docs/articles/features/reminder-system.md) | Personal reminders with natural language parsing |
+| [repository-pattern.md](docs/articles/architecture/repository-pattern.md) | Repository pattern implementation |
+| [requirements.md](docs/articles/development/requirements.md) | Project requirements |
+| [scheduled-messages.md](docs/articles/features/scheduled-messages.md) | Scheduled/recurring messages |
+| [search.md](docs/articles/features/search.md) | Global search across portal data |
+| [service-architecture.md](docs/articles/architecture/service-architecture.md) | Service interfaces, DI registration, lifetimes |
+| [settings-page.md](docs/articles/ui/settings-page.md) | Settings page and real-time updates |
+| [signalr-realtime.md](docs/articles/features/signalr-realtime.md) | SignalR real-time updates |
+| [soundboard.md](docs/articles/audio/soundboard.md) | Soundboard feature |
+| [ssml-support.md](docs/articles/audio/ssml-support.md) | SSML markup support for TTS |
+| [testing-guide.md](docs/articles/development/testing-guide.md) | Testing patterns and fixtures |
+| [timezone-handling.md](docs/articles/development/timezone-handling.md) | Timezone handling |
+| [tracing.md](docs/articles/observability/tracing.md) | Distributed tracing with OpenTelemetry |
+| [troubleshooting-guide.md](docs/articles/development/troubleshooting-guide.md) | Common issues and solutions |
+| [tts-support.md](docs/articles/audio/tts-support.md) | Text-to-Speech with Azure Cognitive Services |
+| [unified-command-pages.md](docs/articles/commands/unified-command-pages.md) | Unified command pages architecture |
+| [unified-now-playing.md](docs/articles/audio/unified-now-playing.md) | Unified Now Playing component (SignalR, SSR) |
+| [user-management.md](docs/articles/features/user-management.md) | User management system |
+| [utility-commands.md](docs/articles/commands/utility-commands.md) | Utility commands (/userinfo, /serverinfo, /roleinfo) |
+| [versioning-strategy.md](docs/articles/development/versioning-strategy.md) | SemVer versioning and release process |
+| [voice-capability-system.md](docs/articles/audio/voice-capability-system.md) | Voice capability-aware UI system |
+| [voice-favorites-spec.md](docs/articles/audio/voice-favorites-spec.md) | Voice favorites specification |
+| [voice-selector-spec.md](docs/articles/audio/voice-selector-spec.md) | Voice selector component (Language → Voice dropdown) |
+| [vox-system-spec.md](docs/articles/audio/vox-system-spec.md) | VOX/FVOX/HGRUNT clip library architecture |
+| [vox-telemetry-spec.md](docs/articles/audio/vox-telemetry-spec.md) | VOX system telemetry specification |
+| [vox-ui-spec.md](docs/articles/audio/vox-ui-spec.md) | VOX Portal UI/UX specification |
+| [welcome-system.md](docs/articles/features/welcome-system.md) | Welcome message configuration |
+| [sqlite-to-docker-postgres-migration.md](docs/articles/deployment/sqlite-to-docker-postgres-migration.md) | SQLite to Docker PostgreSQL migration guide |
+| [configuration-guide.md](docs/articles/deployment/configuration-guide.md) | Application configuration guide |
+| [docker-deployment.md](docs/articles/deployment/docker-deployment.md) | Docker deployment guide |
+| [dave-implementation.md](docs/articles/audio/dave-implementation.md) | DAVE end-to-end encryption implementation |
 
 ### Architecture
 
