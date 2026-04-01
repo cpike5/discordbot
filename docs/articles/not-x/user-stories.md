@@ -23,7 +23,7 @@
 | Persona | Description |
 |---------|-------------|
 | **Alex** | Regular guild member; shares X links frequently in conversation. Not technical. |
-| **Jordan** | Guild member who does not have an X/Twitter account. Relies entirely on in-Discord context. |
+| **Brent** | Guild member who does not have an X/Twitter account. Relies entirely on in-Discord context. |
 | **Sam** | Guild admin; manages the bot and configures features. Comfortable with slash commands. |
 | **Riley** | Moderator; reviews content shared in the guild. Uses right-click tools regularly. |
 | **Bot Operator** | Deployer and maintainer of the bot; monitors logs and error rates. |
@@ -76,7 +76,7 @@
 
 ### US-004 — Multi-image tweet
 
-**As Jordan**, I want to see all images from a multi-photo tweet,
+**As Brent**, I want to see all images from a multi-photo tweet,
 **so that** I get the full context without needing to visit X.
 
 **Acceptance Criteria:**
@@ -90,7 +90,7 @@
 
 ### US-005 — Video tweet handling
 
-**As Jordan**, I want at least a thumbnail when a tweet contains a video,
+**As Brent**, I want at least a thumbnail when a tweet contains a video,
 **so that** I know what the tweet is about even if I cannot watch the video in-app.
 
 **Acceptance Criteria:**
@@ -120,22 +120,22 @@
 
 ### US-007 — Right-click fetch for missed tweets
 
-**As Jordan**, I want to manually request a tweet preview for a link that was posted before the bot was enabled,
+**As Brent**, I want to manually request a tweet preview for a link that was posted before the bot was enabled,
 **so that** I can get context for older messages without navigating to X.
 
 **Acceptance Criteria:**
 
-- [ ] Jordan can right-click any message → Apps → "Fetch Tweet".
+- [ ] Brent can right-click any message → Apps → "Fetch Tweet".
 - [ ] If the message contains a tweet URL, an embed is posted in the same channel within ~10 seconds.
-- [ ] Jordan receives an ephemeral confirmation message telling them which URLs were processed and whether the preview was posted.
+- [ ] Brent receives an ephemeral confirmation message telling them which URLs were processed and whether the preview was posted.
 - [ ] The `IsEnabled` and `SensitiveOnly` guild settings do not block the manual trigger.
-- [ ] If the message contains no tweet URLs, Jordan receives an ephemeral "No Tweet Found" message.
+- [ ] If the message contains no tweet URLs, Brent receives an ephemeral "No Tweet Found" message.
 
 ---
 
 ### US-008 — Right-click fetch for multiple URLs
 
-**As Jordan**, I want all tweet links in a right-clicked message to be fetched,
+**As Brent**, I want all tweet links in a right-clicked message to be fetched,
 **so that** I don't have to trigger the command multiple times for a message with several links.
 
 **Acceptance Criteria:**
@@ -147,12 +147,12 @@
 
 ### US-009 — Right-click produces no public noise on failure
 
-**As a guild member watching the channel**, I want the channel to stay clean if Jordan's right-click fetch fails,
+**As a guild member watching the channel**, I want the channel to stay clean if Brent's right-click fetch fails,
 **so that** failed fetch attempts do not pollute the conversation.
 
 **Acceptance Criteria:**
 
-- [ ] If fxtwitter returns an error for a manual trigger, only Jordan sees the failure (ephemeral message).
+- [ ] If fxtwitter returns an error for a manual trigger, only Brent sees the failure (ephemeral message).
 - [ ] No message is posted to the channel.
 - [ ] The channel only receives output when there is actual content to display.
 
