@@ -3,7 +3,6 @@ using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
-using DiscordBot.Infrastructure.Services.FeatureRequests;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -18,18 +17,15 @@ namespace DiscordBot.Bot.Pages.Guilds.FeatureRequests;
 public class DetailsModel : GuildPageModelBase
 {
     private readonly IFeatureRequestService _service;
-    private readonly IFeatureRequestDocGenQueue _docGenQueue;
     private readonly IGuildService _guildService;
     private readonly ILogger<DetailsModel> _logger;
 
     public DetailsModel(
         IFeatureRequestService service,
-        IFeatureRequestDocGenQueue docGenQueue,
         IGuildService guildService,
         ILogger<DetailsModel> logger)
     {
         _service = service;
-        _docGenQueue = docGenQueue;
         _guildService = guildService;
         _logger = logger;
     }
@@ -110,27 +106,6 @@ public class DetailsModel : GuildPageModelBase
 
         TempData["SuccessMessage"] = "Feature request rejected.";
         return RedirectToPage(new { guildId });
-    }
-
-    public async Task<IActionResult> OnPostRetryDocGenAsync(ulong guildId, Guid id)
-    {
-        _logger.LogInformation("Admin retrying doc gen for feature request {RequestId} in guild {GuildId}", id, guildId);
-
-        var item = await _service.GetByIdAsync(id);
-        if (item == null || item.GuildId != guildId)
-            return NotFound();
-
-        if (item.Status != FeatureRequestStatus.DocGenFailed)
-        {
-            TempData["ErrorMessage"] = "Doc gen retry is only available for requests with a failed doc gen status.";
-            return RedirectToPage("Details", new { id, guildId });
-        }
-
-        await _service.UpdateStatusAsync(id, FeatureRequestStatus.Submitted, null, null);
-        _docGenQueue.Enqueue(id);
-
-        TempData["SuccessMessage"] = "Doc generation re-queued.";
-        return RedirectToPage("Details", new { id, guildId });
     }
 
     /// <summary>

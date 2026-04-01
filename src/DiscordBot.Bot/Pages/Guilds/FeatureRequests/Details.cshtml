@@ -232,14 +232,7 @@ else
                 }
                 else if (Model.Item.Status == FeatureRequestStatus.DocGenFailed)
                 {
-                    <!-- Retry Doc Gen -->
-                    <form method="post" asp-page-handler="RetryDocGen" asp-route-guildId="@Model.GuildId" asp-route-id="@Model.Item.Id" class="mb-4">
-                        <button type="submit" class="w-full px-4 py-2 bg-accent-blue text-white font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
-                            Retry Doc Generation
-                        </button>
-                    </form>
-
-                    <!-- Approve / Reject still available after DocGenFailed -->
+                    <!-- Approve / Reject available after DocGenFailed -->
                     <div class="mb-4">
                         <label for="reviewNotesFailed" class="block text-sm font-medium text-text-secondary mb-1">Review Notes (optional)</label>
                         <textarea id="reviewNotesFailed" rows="3" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Add notes for the record..."></textarea>
