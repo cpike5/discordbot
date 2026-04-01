@@ -171,6 +171,9 @@ try
     // DM Assistant (owner DM-based AI assistant)
     builder.Services.AddDmAssistant(builder.Configuration);
 
+    // not-X (X/Twitter link preview)
+    builder.Services.AddNotX(builder.Configuration);
+
     // Analytics and metrics
     builder.Services.AddAnalytics(builder.Configuration);
 
