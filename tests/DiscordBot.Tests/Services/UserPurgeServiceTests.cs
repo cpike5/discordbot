@@ -212,6 +212,9 @@ public class UserPurgeServiceTests : IDisposable
         var discordUserId = 123456789UL;
         var guildId = 111111111UL;
 
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
+
         var user = new User { Id = discordUserId };
         _context.Users.Add(user);
 
@@ -248,6 +251,9 @@ public class UserPurgeServiceTests : IDisposable
         var discordUserId = 234567890UL;
         var guildId = 111111111UL;
 
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
+
         var user = new User { Id = discordUserId };
         _context.Users.Add(user);
 
@@ -281,6 +287,9 @@ public class UserPurgeServiceTests : IDisposable
         // Arrange
         var discordUserId = 345678901UL;
         var guildId = 111111111UL;
+
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
 
         var user = new User { Id = discordUserId };
         _context.Users.Add(user);
@@ -349,6 +358,9 @@ public class UserPurgeServiceTests : IDisposable
         var targetUserId = 567890123UL;
         var otherUserId = 987654321UL;
         var guildId = 111111111UL;
+
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
 
         var targetUser = new User { Id = targetUserId };
         var otherUser = new User { Id = otherUserId };

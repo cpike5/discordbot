@@ -200,7 +200,11 @@ public class PortalTtsControllerTests
         _mockTtsService
             .Setup(s => s.SynthesizeSpeechAsync(request.Message, It.IsAny<TtsOptions>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new MemoryStream(new byte[192000]));
-        _mockAudioService.Setup(s => s.GetOrCreatePcmStream(guildId)).Returns((AudioOutStream?)null); // PCM stream not available
+
+        // Playback service reports failure — simulates the case where the PCM stream is unavailable
+        _mockTtsPlaybackService
+            .Setup(s => s.PlayAsync(guildId, It.IsAny<ulong>(), It.IsAny<string>(), request.Message, request.Voice, It.IsAny<Stream>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DiscordBot.Core.DTOs.Tts.TtsPlaybackResult { Success = false, ErrorMessage = "Failed to get audio stream" });
 
         // Act
         var result = await _controller.SendTts(guildId, request, CancellationToken.None);
@@ -212,7 +216,8 @@ public class PortalTtsControllerTests
         var badRequestResult = result as BadRequestObjectResult;
         var error = badRequestResult!.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Failed to get audio stream");
+        error!.Message.Should().Be("Failed to play TTS");
+        error.Detail.Should().Be("Failed to get audio stream");
     }
 
     [Fact]
