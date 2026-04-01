@@ -1819,6 +1819,43 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.ToTable("ModerationCases", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.NotXGuildSettings", b =>
+                {
+                    b.Property<long>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("HideSensitiveLabel")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("MonitoredChannelIdsJson")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("OutputChannelId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("SensitiveOnly")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("GuildId");
+
+                    b.ToTable("NotXGuildSettings", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.PerformanceAlertConfig", b =>
                 {
                     b.Property<int>("Id")
@@ -3561,6 +3598,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("Guild");
 
                     b.Navigation("RelatedFlaggedEvent");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.NotXGuildSettings", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
+                        .WithOne()
+                        .HasForeignKey("DiscordBot.Core.Entities.NotXGuildSettings", "GuildId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Guild");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.RatRecord", b =>
