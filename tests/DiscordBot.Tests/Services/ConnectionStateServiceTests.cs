@@ -177,39 +177,35 @@ public class ConnectionStateServiceTests
     [Fact]
     public void GetConnectionEvents_ReturnsEventsWithinTimeRange()
     {
-        // Arrange
-        _service.RecordConnected();
-        Thread.Sleep(50);
-        _service.RecordDisconnected(exception: null);
-        Thread.Sleep(50);
-        _service.RecordConnected();
-        Thread.Sleep(100);
+        // Arrange - seed the mock repository directly; RecordConnected uses fire-and-forget
+        // persistence so querying immediately after would be a race condition
+        var now = DateTime.UtcNow;
+        _storedEvents.Add(new ConnectionEvent { Id = 1, EventType = "Connected",    Timestamp = now.AddSeconds(-10) });
+        _storedEvents.Add(new ConnectionEvent { Id = 2, EventType = "Disconnected", Timestamp = now.AddSeconds(-5)  });
+        _storedEvents.Add(new ConnectionEvent { Id = 3, EventType = "Connected",    Timestamp = now.AddSeconds(-1)  });
 
         // Act
         var events = _service.GetConnectionEvents(days: 7);
 
         // Assert
         events.Should().HaveCount(3, "three events were recorded");
-        events[0].EventType.Should().Be("Connected", "first event should be connected");
+        events[0].EventType.Should().Be("Connected",    "first event should be connected");
         events[1].EventType.Should().Be("Disconnected", "second event should be disconnected");
-        events[2].EventType.Should().Be("Connected", "third event should be connected");
+        events[2].EventType.Should().Be("Connected",    "third event should be connected");
         events.Should().BeInAscendingOrder(e => e.Timestamp, "events should be in chronological order");
     }
 
     [Fact]
     public void GetConnectionStats_CalculatesReconnectionCountCorrectly()
     {
-        // Arrange - Simulate multiple connect/disconnect cycles
-        _service.RecordConnected(); // Initial connection
-        Thread.Sleep(50);
-        _service.RecordDisconnected(exception: null);
-        Thread.Sleep(50);
-        _service.RecordConnected(); // Reconnection 1
-        Thread.Sleep(50);
-        _service.RecordDisconnected(exception: null);
-        Thread.Sleep(50);
-        _service.RecordConnected(); // Reconnection 2
-        Thread.Sleep(100);
+        // Arrange - seed the mock repository directly; RecordConnected uses fire-and-forget
+        // persistence so querying immediately after would be a race condition
+        var now = DateTime.UtcNow;
+        _storedEvents.Add(new ConnectionEvent { Id = 1, EventType = "Connected",    Timestamp = now.AddSeconds(-40) });
+        _storedEvents.Add(new ConnectionEvent { Id = 2, EventType = "Disconnected", Timestamp = now.AddSeconds(-30) });
+        _storedEvents.Add(new ConnectionEvent { Id = 3, EventType = "Connected",    Timestamp = now.AddSeconds(-20) });
+        _storedEvents.Add(new ConnectionEvent { Id = 4, EventType = "Disconnected", Timestamp = now.AddSeconds(-10) });
+        _storedEvents.Add(new ConnectionEvent { Id = 5, EventType = "Connected",    Timestamp = now.AddSeconds(-1)  });
 
         // Act
         var stats = _service.GetConnectionStats(days: 7);
