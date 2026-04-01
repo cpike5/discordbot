@@ -123,6 +123,7 @@ public static class ServiceCollectionExtensions
         services.AddScoped<IUserTtsPresetRepository, UserTtsPresetRepository>();
         services.AddScoped<IAudioPlaybackLogRepository, AudioPlaybackLogRepository>();
         services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
+        services.AddScoped<INotXGuildSettingsRepository, NotXGuildSettingsRepository>();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests

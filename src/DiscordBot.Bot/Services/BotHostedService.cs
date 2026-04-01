@@ -31,6 +31,7 @@ public class BotHostedService : IHostedService
     private readonly AssistantMessageHandler _assistantMessageHandler;
     private readonly FeatureRequestDmHandler _featureRequestDmHandler;
     private readonly DmAssistantMessageHandler _dmAssistantMessageHandler;
+    private readonly NotXMessageHandler _notXMessageHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly IAuditLogQueue _auditLogQueue;
@@ -64,6 +65,7 @@ public class BotHostedService : IHostedService
         AssistantMessageHandler assistantMessageHandler,
         FeatureRequestDmHandler featureRequestDmHandler,
         DmAssistantMessageHandler dmAssistantMessageHandler,
+        NotXMessageHandler notXMessageHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
         IAuditLogQueue auditLogQueue,
@@ -94,6 +96,7 @@ public class BotHostedService : IHostedService
         _assistantMessageHandler = assistantMessageHandler;
         _featureRequestDmHandler = featureRequestDmHandler;
         _dmAssistantMessageHandler = dmAssistantMessageHandler;
+        _notXMessageHandler = notXMessageHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
         _auditLogQueue = auditLogQueue;
@@ -160,6 +163,9 @@ public class BotHostedService : IHostedService
 
             // Wire DM assistant handler for DM messages
             _client.MessageReceived += _dmAssistantMessageHandler.HandleMessageReceivedAsync;
+
+            // Wire not-X handler for X/Twitter link previews
+            _client.MessageReceived += _notXMessageHandler.HandleMessageReceivedAsync;
 
             // Wire welcome handler for new member joins
             _client.UserJoined += _welcomeHandler.HandleUserJoinedAsync;
@@ -265,6 +271,7 @@ public class BotHostedService : IHostedService
             _client.MessageReceived -= _assistantMessageHandler.HandleMessageReceivedAsync;
             _client.MessageReceived -= _featureRequestDmHandler.HandleMessageReceivedAsync;
             _client.MessageReceived -= _dmAssistantMessageHandler.HandleMessageReceivedAsync;
+            _client.MessageReceived -= _notXMessageHandler.HandleMessageReceivedAsync;
             _client.UserJoined -= _welcomeHandler.HandleUserJoinedAsync;
             _client.UserJoined -= _memberEventHandler.HandleUserJoinedAsync;
             _client.UserLeft -= _memberEventHandler.HandleUserLeftAsync;
