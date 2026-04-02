@@ -8,9 +8,9 @@ This document maps all major features to their supporting components: Discord co
 
 ## Table of Contents
 
-1. [Audio Features](#audio-features) - Soundboard, VOX, TTS
+1. [Audio Features](#audio-features) - Soundboard, VOX, TTS, Audio Moderation Log, User Preferences
 2. [Moderation Features](#moderation-features) - Warnings, bans, notes, watchlist
-3. [Community Features](#community-features) - Reminders, Rat Watch, Scheduled Messages
+3. [Community Features](#community-features) - Reminders, Rat Watch, Scheduled Messages, Not-X, Feature Requests
 4. [Administrative Features](#administrative-features) - Guild management, settings, monitoring, verification
 5. [System Features](#system-features) - Authentication, logging, notifications, activity tracking, DM assistant
 
@@ -27,7 +27,7 @@ The soundboard system allows guild members to play pre-uploaded audio files in v
 | **Discord Commands** | `/play`, `/sounds`, `/stop` (SoundboardModule) |
 | **Services** | `IAudioService`, `IPlaybackService`, `ISoundService`, `ISoundboardOrchestrationService`, `IGuildAudioSettingsService`, `IAudioNotifier` |
 | **UI Pages** | Portal: Soundboard player page; Admin: Sounds management (`SoundsController`) |
-| **Database Entities** | `Sound`, `SoundPlayLog`, `GuildAudioSettings` |
+| **Database Entities** | `Sound`, `SoundPlayLog`, `GuildAudioSettings`, `AudioPlaybackLog` |
 | **Storage** | Audio files on disk (configurable path) |
 | **Key Features** | Queue management, audio filtering (distortion, echo, pitch shift), silent playback mode, auto-leave voice channels |
 | **Rate Limiting** | 5 commands per 10 seconds |
@@ -90,6 +90,43 @@ Converts text messages to speech using Azure Cognitive Services and plays them i
 | **Rate Limiting** | 5 commands per 10 seconds |
 
 **Preconditions**: `[RequireGuildActive]`, `[RequireTtsEnabled]`, `[RequireVoiceChannel]`
+
+---
+
+### Audio Moderation Log
+
+Unified playback log tracking all audio feature usage (soundboard, TTS, VOX) for moderation and auditing. Admin UI page with filtering by user, feature type, and date range.
+
+| Aspect | Components |
+|--------|------------|
+| **Services** | `IAudioModerationLogService`, `IAudioPlaybackLogRepository` |
+| **UI Pages** | Admin: Audio moderation log (`/guilds/{guildId}/audio-moderation-log`) |
+| **Database Entities** | `AudioPlaybackLog` |
+| **Enums** | `AudioFeatureType` (Soundboard, Tts, Vox) |
+| **Key Features** | Fire-and-forget logging via `IBackgroundTaskRunner`, content name truncation (200 chars), per-guild/per-user filtering |
+
+**Architecture Flow**:
+```
+Audio command (Soundboard/TTS/VOX) →
+  Orchestration service calls IAudioModerationLogService.LogPlayback() →
+  BackgroundTaskRunner (fire-and-forget) →
+  IAudioPlaybackLogRepository.AddAsync() →
+  Admin UI queries AudioPlaybackLog table
+```
+
+---
+
+### User Preferences
+
+Per-user, per-guild preference storage with REST API and client-side localStorage cache. Supports arbitrary key-value preferences (e.g., selected TTS voice, playback mode).
+
+| Aspect | Components |
+|--------|------------|
+| **Controllers** | `UserPreferencesController` (`api/portal/preferences/{guildId}`) |
+| **Client JS** | `user-preferences.js` |
+| **Database Entities** | `UserPreference` |
+| **Key Features** | GET/PUT/DELETE per key, localStorage sync, 100-char key limit, 2000-char value limit, guild-scoped |
+| **Authorization** | `PortalGuildMember` policy |
 
 ---
 
@@ -265,6 +302,68 @@ Admin-configurable recurring messages sent to specified channels. Supports cron 
 **Supported Frequencies**: Daily, Weekly, Monthly, Custom (cron expression)
 
 **Preconditions**: `[RequireAdmin]`, `[RequireGuildActive]`
+
+---
+
+### Not-X (Twitter/X Link Previews)
+
+Automatic or manual preview embeds for X/Twitter links, using the fxtwitter API to fetch tweet data. Supports sensitive-only filtering, channel routing, and per-guild configuration.
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Commands** | `/notx enable`, `/notx disable`, `/notx status`, `/notx sensitive-only`, `/notx output set`, `/notx output clear`, `/notx monitor add`, `/notx monitor remove`, `/notx monitor clear` (NotXCommandModule); `Fetch Tweet` context menu (NotXContextMenuModule) |
+| **Handlers** | `NotXMessageHandler` (auto-detects tweet URLs in messages) |
+| **Services** | `INotXService`, `FxTwitterClient`, `NotXEmbedBuilder`, `TweetUrlExtractor` |
+| **Database Entities** | `NotXGuildSettings` |
+| **Configuration** | `NotXOptions` (`NotX` section) |
+| **External Services** | fxtwitter API (tweet metadata and media) |
+| **Key Features** | Auto-detect tweet URLs, sensitive-only mode, output channel routing, monitored channel filtering, context menu manual fetch, guild-level kill-switch |
+| **Rate Limiting** | 5 commands per 60 seconds |
+
+**Architecture Flow**:
+```
+Tweet URL posted (or context menu) →
+  NotXMessageHandler / NotXContextMenuModule →
+  TweetUrlExtractor (parse URL) →
+  NotXService (settings gate check) →
+  FxTwitterClient (fetch tweet data) →
+  NotXEmbedBuilder (build Discord embed) →
+  Post embed to output channel
+```
+
+**Preconditions**: `[RequireGuildActive]`, `[RequireUserPermission(ManageGuild)]` (config commands)
+
+---
+
+### Feature Requests
+
+AI-powered feature request submission with optional multi-step DM conversation for requirements gathering. Includes prompt injection detection and configurable conversation flow.
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Commands** | `/feature-request` (FeatureRequestModule, FeatureRequestComponentModule) |
+| **Handlers** | `FeatureRequestDmHandler` (multi-step DM conversation) |
+| **Services** | `IFeatureRequestService`, `FeatureRequestConversationService`, `InputValidationService`, `PromptInjectionFilter`, `FeatureRequestToolProvider` |
+| **Database Entities** | `FeatureRequest`, `FeatureRequestRejection` |
+| **Configuration** | `FeatureRequestsOptions` (`FeatureRequests` section) |
+| **Key Features** | Direct submit for detailed requests (100+ chars), multi-step DM conversation for brief requests, AI requirements gathering, prompt injection filtering, configurable conversation timeout and turn limits, doc generation integration |
+| **Rate Limiting** | 3 per hour |
+
+**Architecture Flow**:
+```
+User invokes /feature-request →
+  FeatureRequestModule (validate input) →
+  Short description? → Button: "Refine in DM" or "Submit as-is"
+    → DM path: FeatureRequestDmHandler →
+      FeatureRequestConversationService (AI conversation) →
+      PromptInjectionFilter (safety check) →
+      Consolidated summary generated
+    → Direct path: Submit immediately
+  → FeatureRequestService.SubmitAsync() →
+  FeatureRequest entity persisted
+```
+
+**Preconditions**: `[RequireGuildActive]`
 
 ---
 
@@ -535,7 +634,7 @@ Application settings management with environment-based configuration.
 |--------|------------|
 | **Configuration** | `appsettings.json`, `appsettings.{Environment}.json`, User Secrets |
 | **Options Pattern** | `IOptions<T>` dependency injection |
-| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings` |
+| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `MogwaiOptions`, `DmAssistantOptions` |
 | **Key Features** | Environment-specific settings, feature flags, service configuration |
 
 ---
@@ -556,9 +655,9 @@ Application settings management with environment-based configuration.
 │ • Soundboard    │  │ • Actions        │  │ • Reminders           │
 │ • VOX/FVOX      │  │ • Notes          │  │ • Rat Watch           │
 │ • TTS           │  │ • Tags           │  │ • Scheduled Messages  │
-└─────────────────┘  │ • Watchlist      │  └───────────────────────┘
-                     │ • History        │
-                     │ • Investigation  │
+│ • Moderation Log│  │ • Watchlist      │  │ • Not-X               │
+│ • User Prefs    │  │ • History        │  │ • Feature Requests    │
+└─────────────────┘  │ • Investigation  │  └───────────────────────┘
                      │ • Logging        │
                      └──────────────────┘
 

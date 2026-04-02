@@ -1,5 +1,7 @@
 # Mogwai: Claude Code CLI Integration via DM Assistant
 
+> **Note:** This is the original design spec. For the user-facing feature guide, see [docs/articles/mogwai.md](../articles/mogwai.md).
+
 ## Overview
 
 Mogwai is a third Discord bot instance running in Docker on a local PC that invokes Claude Code CLI through Discord DMs. It provides an OpenClaw/Claude Code Channels-like experience integrated into the existing bot infrastructure.

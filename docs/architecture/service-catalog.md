@@ -2,8 +2,8 @@
 
 Quick reference catalog of all services in the Discord bot system. Organized by domain area for easy discovery and understanding of service relationships.
 
-**Last Updated**: March 2026
-**Codebase Version**: v1.1.0
+**Last Updated**: April 2026
+**Codebase Version**: v1.5.1-dev
 
 ---
 
@@ -13,6 +13,9 @@ Quick reference catalog of all services in the Discord bot system. Organized by 
 - [Soundboard & Audio Playback](#soundboard--audio-playback)
 - [VOX System](#vox-system)
 - [Text-to-Speech Services](#text-to-speech-services)
+- [Audio Moderation & User Preferences](#audio-moderation--user-preferences)
+- [Not-X (Tweet Previews)](#not-x-tweet-previews)
+- [Feature Requests](#feature-requests)
 - [Discord Integration Services](#discord-integration-services)
 - [User & Guild Management](#user--guild-management)
 - [Moderation & Enforcement](#moderation--enforcement)
@@ -97,6 +100,53 @@ Services for Azure Cognitive Services TTS and SSML generation.
 | `StylePresetProvider` | Bot/Services | Singleton implementation with 12 built-in presets across 4 categories; supports lookup by ID or category |
 | `ISsmlBuilder` | Core Interfaces | SSML markup generation for advanced TTS features |
 | `ISsmlValidator` | Core Interfaces | SSML markup validation |
+
+---
+
+## Audio Moderation & User Preferences
+
+Services for cross-feature audio playback logging and per-user preference storage.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `IAudioModerationLogService` | Core Interfaces | Fire-and-forget audio playback event logging |
+| `AudioModerationLogService` | Bot/Services | Logs playback events via `IBackgroundTaskRunner`; truncates content names to 200 chars |
+| `IAudioPlaybackLogRepository` | Core Interfaces | Data access for `AudioPlaybackLog` entities |
+| `AudioPlaybackLogRepository` | Infrastructure/Data/Repositories | EF Core repository for audio playback log persistence |
+| `UserPreferencesController` | Bot/Controllers | REST API (`api/portal/preferences/{guildId}`) for per-user, per-guild preference CRUD |
+
+---
+
+## Not-X (Tweet Previews)
+
+Services for automatic and manual X/Twitter link preview embeds via the fxtwitter API.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `INotXService` | Core Interfaces | Orchestrates tweet processing: settings gate, fetch, embed, post |
+| `NotXService` | Bot/Services/NotX | Implements tweet processing pipeline with guild settings checks |
+| `IFxTwitterClient` | Core Interfaces | HTTP client contract for fxtwitter API calls |
+| `FxTwitterClient` | Bot/Services/NotX | Fetches tweet metadata and media from fxtwitter API with configurable timeout and response size limits |
+| `NotXEmbedBuilder` | Bot/Services/NotX | Static helper building Discord embeds from tweet data |
+| `TweetUrlExtractor` | Bot/Services/NotX | Static helper parsing X/Twitter URLs from message content |
+| `NotXMessageHandler` | Bot/Handlers | Auto-detects tweet URLs in incoming messages and routes to `INotXService` |
+
+---
+
+## Feature Requests
+
+Services for AI-powered feature request submission with multi-step DM conversation and safety filtering.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `IFeatureRequestService` | Core Interfaces | Feature request CRUD, status updates, doc-gen result tracking |
+| `FeatureRequestService` | Infrastructure/Services | EF Core implementation of feature request persistence |
+| `FeatureRequestConversationService` | Bot/Services/FeatureRequests | Multi-turn DM conversation orchestrator for AI requirements gathering |
+| `IInputValidationService` | Core Interfaces | Input validation contract for feature request text |
+| `InputValidationService` | Bot/Services/FeatureRequests | Validates description length and content constraints |
+| `PromptInjectionFilter` | Bot/Services/FeatureRequests | Regex-based prompt injection detection using configurable patterns from `FeatureRequestsOptions` |
+| `FeatureRequestToolProvider` | Infrastructure/Services/LLM/Providers | `IToolProvider` implementation exposing feature-request tools to the AI agent |
+| `FeatureRequestDmHandler` | Bot/Handlers | Handles DM messages during active feature request conversations |
 
 ---
 
