@@ -95,6 +95,45 @@ public class AudioService : IAudioService
             // Connect to voice channel
             var audioClient = await voiceChannel.ConnectAsync();
 
+            // Wait for UDP voice connection to be fully established before returning.
+            // ConnectAsync() returns once the gateway handshake completes, but audio data
+            // written before the UDP connection is ready gets buffered and plays delayed.
+            if (audioClient.ConnectionState != Discord.ConnectionState.Connected)
+            {
+                var udpReady = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+
+                Task OnConnected()
+                {
+                    udpReady.TrySetResult(true);
+                    return Task.CompletedTask;
+                }
+
+                audioClient.Connected += OnConnected;
+                try
+                {
+                    // Re-check after subscribing to avoid a race where Connected fired between
+                    // the ConnectionState check above and attaching the event handler.
+                    if (audioClient.ConnectionState == Discord.ConnectionState.Connected)
+                    {
+                        udpReady.TrySetResult(true);
+                    }
+
+                    using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+                    timeoutCts.CancelAfter(TimeSpan.FromSeconds(5));
+
+                    await udpReady.Task.WaitAsync(timeoutCts.Token);
+                    _logger.LogDebug("UDP voice connection ready for guild {GuildId}", guildId);
+                }
+                catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+                {
+                    _logger.LogWarning("Timed out waiting for UDP voice connection in guild {GuildId}; proceeding anyway", guildId);
+                }
+                finally
+                {
+                    audioClient.Connected -= OnConnected;
+                }
+            }
+
             // Store connection info
             var now = DateTime.UtcNow;
             var connectionInfo = new VoiceConnectionInfo(audioClient, voiceChannelId, now, now);
