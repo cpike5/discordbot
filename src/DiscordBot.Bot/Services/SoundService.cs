@@ -75,6 +75,39 @@ public class SoundService : ISoundService
     }
 
     /// <inheritdoc/>
+    public async Task<(IReadOnlyList<Sound> Sounds, int TotalCount)> GetByGuildPagedAsync(
+        ulong guildId,
+        int page,
+        int pageSize,
+        string? search = null,
+        string? sortBy = null,
+        int? categoryId = null,
+        CancellationToken ct = default)
+    {
+        return await ServiceActivityHelper.ExecuteAsync<(IReadOnlyList<Sound>, int)>(
+            "sound", "get_by_guild_paged",
+            async activity =>
+            {
+                var skip = (page - 1) * pageSize;
+
+                _logger.LogDebug(
+                    "Getting paged sounds for guild {GuildId}: page={Page}, pageSize={PageSize}, search={Search}, sort={Sort}",
+                    guildId, page, pageSize, search, sortBy);
+
+                var (sounds, totalCount) = await _soundRepository.GetByGuildIdPagedAsync(
+                    guildId, skip, pageSize, search, sortBy, categoryId, ct);
+
+                _logger.LogInformation(
+                    "Retrieved {Count} of {Total} sounds (page {Page}) for guild {GuildId}",
+                    sounds.Count, totalCount, page, guildId);
+
+                BotActivitySource.SetRecordsReturned(activity, sounds.Count);
+                return (sounds, totalCount);
+            },
+            guildId: guildId);
+    }
+
+    /// <inheritdoc/>
     public async Task<Sound?> GetByNameAsync(string name, ulong guildId, CancellationToken ct = default)
     {
         return await ServiceActivityHelper.ExecuteAsync<Sound?>(

@@ -1170,10 +1170,10 @@ else
 
                 <!-- Sound Grid (rendered progressively by portal-soundboard.js) -->
                 <div id="soundGrid" class="sound-grid">
-                    @if (Model.Sounds.Count > 0)
+                    @if (Model.CurrentSoundCount > 0)
                     {
-                        @* Skeleton placeholders shown during initial JS load *@
-                        @for (var i = 0; i < Math.Min(Model.Sounds.Count, 8); i++)
+                        @* Skeleton placeholders shown while JS loads first page from API *@
+                        @for (var i = 0; i < Math.Min(Model.CurrentSoundCount, 8); i++)
                         {
                             <div class="sound-card-skeleton">
                                 <div class="skeleton-circle"></div>
@@ -1185,7 +1185,7 @@ else
                 </div>
 
                 <!-- Empty State -->
-                <div id="emptyState" class="empty-state @(Model.Sounds.Count == 0 ? "" : "hidden")">
+                <div id="emptyState" class="empty-state @(Model.CurrentSoundCount == 0 ? "" : "hidden")">
                     <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
@@ -1230,18 +1230,6 @@ else
          data-current-sound-count="@Model.CurrentSoundCount"
          data-max-duration-seconds="@Model.MaxDurationSeconds"
          style="display:none;"></div>
-
-    <!-- Sound data for progressive rendering -->
-    <script id="soundboard-data" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Sounds.Select(s => new {
-        id = s.Id.ToString(),
-        name = s.Name,
-        playCount = s.PlayCount,
-        durationSeconds = s.DurationSeconds,
-        uploadedById = s.UploadedById ?? "",
-        uploadedAt = s.UploadedAt?.ToString("o") ?? "",
-        categoryId = s.CategoryId?.ToString() ?? "",
-        categoryName = s.CategoryName ?? ""
-    })))</script>
 
     <script>
         // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)

@@ -26,6 +26,26 @@ public interface ISoundService
     Task<IReadOnlyList<Sound>> GetAllByGuildAsync(ulong guildId, CancellationToken ct = default);
 
     /// <summary>
+    /// Gets a page of sounds for a guild with optional search, sort, and category filter.
+    /// </summary>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="page">1-based page number.</param>
+    /// <param name="pageSize">Number of sounds per page.</param>
+    /// <param name="search">Optional case-insensitive name filter.</param>
+    /// <param name="sortBy">Sort key: "name-asc" (default), "name-desc", "newest", "oldest", "most-played".</param>
+    /// <param name="categoryId">Optional category filter. 0 = uncategorized only.</param>
+    /// <param name="ct">Cancellation token.</param>
+    /// <returns>A page of sounds and total matching count.</returns>
+    Task<(IReadOnlyList<Sound> Sounds, int TotalCount)> GetByGuildPagedAsync(
+        ulong guildId,
+        int page,
+        int pageSize,
+        string? search = null,
+        string? sortBy = null,
+        int? categoryId = null,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Gets a sound by its name within a guild.
     /// Name lookup is case-insensitive.
     /// </summary>

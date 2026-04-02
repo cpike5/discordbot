@@ -20,7 +20,14 @@
         play: (guildId, soundId) => `/api/portal/soundboard/${guildId}/play/${soundId}`,
         delete: (guildId, soundId) => `/api/portal/soundboard/${guildId}/sounds/${soundId}`,
         upload: (guildId) => `/api/portal/soundboard/${guildId}/sounds`,
-        audio: (guildId, soundId) => `/api/portal/soundboard/${guildId}/sounds/${soundId}/audio`
+        audio: (guildId, soundId) => `/api/portal/soundboard/${guildId}/sounds/${soundId}/audio`,
+        sounds: (guildId, page, pageSize, search, sort, categoryId) => {
+            let url = `/api/portal/soundboard/${guildId}/sounds?page=${page}&pageSize=${pageSize}`;
+            if (sort) url += `&sort=${encodeURIComponent(sort)}`;
+            if (search) url += `&search=${encodeURIComponent(search)}`;
+            if (categoryId !== undefined && categoryId !== null && categoryId !== '') url += `&categoryId=${categoryId}`;
+            return url;
+        }
     };
 
     // ========================================
@@ -44,6 +51,12 @@
     let currentSoundCount = 0;
     let maxDurationSeconds = 0;
     const recentlyAddedSoundIds = new Set();
+
+    // Pagination state
+    let totalSoundCount = 0;           // Total count from last API response
+    let currentPage = 0;               // Last fully-fetched page number
+    let isLoadingPage = false;         // Guard against concurrent page fetches
+    let hasMorePages = false;          // Whether more pages are available from API
 
     // VirtualSoundGrid instance
     let virtualGrid = null;
@@ -76,8 +89,14 @@
         _setupObserver() {
             this.observer = new IntersectionObserver((entries) => {
                 for (const entry of entries) {
-                    if (entry.isIntersecting && this.renderedCount < this.filteredSounds.length) {
-                        this.loadMore();
+                    if (entry.isIntersecting) {
+                        if (this.renderedCount < this.filteredSounds.length) {
+                            // More to render from already-fetched sounds
+                            this.loadMore();
+                        } else if (hasMorePages && !isLoadingPage) {
+                            // Fetch next page from API
+                            loadNextSoundsPage();
+                        }
                     }
                 }
             }, {
@@ -89,11 +108,18 @@
         }
 
         /**
-         * Set the full sound array (from page data or API).
+         * Set or append the sound array.
          * @param {Array} sounds - Array of sound objects
+         * @param {boolean} append - If true, append to existing; if false, replace and clear DOM
          */
-        setSounds(sounds) {
-            this.allSounds = sounds.slice();
+        setSounds(sounds, append = false) {
+            if (append) {
+                this.allSounds = this.allSounds.concat(sounds);
+            } else {
+                this.allSounds = sounds.slice();
+                this.renderedCount = 0;
+                this.container.innerHTML = '';
+            }
             this.filteredSounds = this.allSounds.slice();
         }
 
@@ -443,31 +469,18 @@
             sortSelect.value = currentSort;
         }
 
-        // Parse initial sounds data from the page
-        const soundsDataEl = document.getElementById('soundboard-data');
-        let initialSounds = [];
-        if (soundsDataEl) {
-            try {
-                initialSounds = JSON.parse(soundsDataEl.textContent);
-            } catch (e) {
-                // Failed to parse initial sounds
-            }
-        }
-
-        // Initialize virtual grid
+        // Initialize virtual grid (will be populated via API)
         const gridContainer = document.getElementById('soundGrid');
         if (gridContainer) {
             virtualGrid = new VirtualSoundGrid(gridContainer, {
                 batchSize: CONFIG.BATCH_SIZE
             });
-            virtualGrid.setSounds(initialSounds);
         }
 
-        // Load favorites first, then render (favorites affect sort order)
+        // Load favorites, then fetch first page from API
         loadFavorites().then(() => {
-            if (virtualGrid) {
-                virtualGrid.sort(currentSort);
-            }
+            return loadSoundsPage(1, true);
+        }).then(() => {
             setupEventHandlers();
             initializeFullscreen();
             initSignalR();
@@ -487,6 +500,61 @@
         } catch (error) {
             console.warn('Failed to load favorites from server:', error);
         }
+    }
+
+    // ========================================
+    // API-Driven Sound Pagination
+    // ========================================
+
+    /**
+     * Fetch a page of sounds from the API and update the virtual grid.
+     * @param {number} page - 1-based page number
+     * @param {boolean} reset - If true, replace existing sounds (new search/sort); if false, append
+     */
+    async function loadSoundsPage(page, reset = false) {
+        if (isLoadingPage) return;
+        isLoadingPage = true;
+
+        try {
+            const searchTerm = document.getElementById('searchInput')?.value || '';
+            const url = API.sounds(guildId, page, CONFIG.BATCH_SIZE, searchTerm || null, currentSort, null);
+            const response = await fetch(url);
+            if (!response.ok) return;
+
+            const data = await response.json();
+            totalSoundCount = data.totalCount;
+            hasMorePages = data.hasMore;
+            currentPage = data.page;
+
+            if (virtualGrid) {
+                virtualGrid.setSounds(data.sounds, !reset);
+                if (reset) {
+                    virtualGrid.sort(currentSort);
+                } else {
+                    virtualGrid.loadMore();
+                }
+                applyFavoriteState();
+                applyPlayingState();
+            }
+        } catch (error) {
+            // Silently fail — grid stays empty or shows partial results
+        } finally {
+            isLoadingPage = false;
+            // Retry if the sentinel is still in view (catches drops from fast scrolling)
+            if (hasMorePages && virtualGrid) {
+                const rect = virtualGrid.sentinel.getBoundingClientRect();
+                if (rect.top <= window.innerHeight + 200) {
+                    loadNextSoundsPage();
+                }
+            }
+        }
+    }
+
+    /**
+     * Fetch the next page (called by VirtualSoundGrid when user scrolls to bottom with more pages).
+     */
+    function loadNextSoundsPage() {
+        loadSoundsPage(currentPage + 1, false);
     }
 
     function applyFavoriteState() {
@@ -775,9 +843,12 @@
             sortSelect.addEventListener('change', function() {
                 currentSort = this.value;
                 localStorage.setItem('portal:soundboard:sort:' + guildId, currentSort);
-                if (virtualGrid) {
-                    virtualGrid.sort(currentSort);
-                }
+                // Reset pagination and fetch from API with new sort order
+                currentPage = 0;
+                loadSoundsPage(1, true).then(() => {
+                    applyFavoriteState();
+                    applyPlayingState();
+                });
             });
         }
 
@@ -863,12 +934,12 @@
     // Search Functionality
     // ========================================
     function filterSounds() {
-        const searchTerm = document.getElementById('searchInput')?.value || '';
-        if (virtualGrid) {
-            virtualGrid.filter(searchTerm);
+        // Reset pagination and fetch from API with current search term
+        currentPage = 0;
+        loadSoundsPage(1, true).then(() => {
             applyFavoriteState();
             applyPlayingState();
-        }
+        });
     }
 
     // ========================================

@@ -38,6 +38,62 @@ public class SoundRepository : Repository<Sound>, ISoundRepository
         return sounds;
     }
 
+    public async Task<(IReadOnlyList<Sound> Sounds, int TotalCount)> GetByGuildIdPagedAsync(
+        ulong guildId,
+        int skip,
+        int take,
+        string? search = null,
+        string? sortBy = null,
+        int? categoryId = null,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Retrieving page of sounds for guild {GuildId}: skip={Skip}, take={Take}, search={Search}, sort={Sort}, categoryId={CategoryId}",
+            guildId, skip, take, search, sortBy, categoryId);
+
+        IQueryable<Sound> query = DbSet
+            .AsNoTracking()
+            .Where(s => s.GuildId == guildId)
+            .Include(s => s.Category)
+            .AsQueryable();
+
+        // Apply category filter
+        if (categoryId.HasValue)
+        {
+            query = categoryId.Value == 0
+                ? query.Where(s => s.CategoryId == null)
+                : query.Where(s => s.CategoryId == categoryId.Value);
+        }
+
+        // Apply search filter
+        if (!string.IsNullOrWhiteSpace(search))
+        {
+            var searchLower = search.ToLower();
+            query = query.Where(s => s.Name.ToLower().Contains(searchLower));
+        }
+
+        // Get total count before pagination
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        // Apply sort
+        query = (sortBy ?? "name-asc") switch
+        {
+            "name-desc" => query.OrderByDescending(s => s.Name),
+            "newest" => query.OrderByDescending(s => s.UploadedAt).ThenBy(s => s.Name),
+            "oldest" => query.OrderBy(s => s.UploadedAt).ThenBy(s => s.Name),
+            "most-played" => query.OrderByDescending(s => s.PlayCount).ThenBy(s => s.Name),
+            _ => query.OrderBy(s => s.Name)
+        };
+
+        var sounds = await query
+            .Skip(skip)
+            .Take(take)
+            .ToListAsync(cancellationToken);
+
+        _logger.LogDebug("Found {Count} of {TotalCount} sounds for guild {GuildId}", sounds.Count, totalCount, guildId);
+        return (sounds, totalCount);
+    }
+
     public async Task<Sound?> GetByIdAndGuildAsync(
         Guid id,
         ulong guildId,

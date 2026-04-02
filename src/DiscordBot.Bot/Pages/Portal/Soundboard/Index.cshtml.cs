@@ -139,24 +139,9 @@ public class IndexModel : PortalPageModelBase
             var userIdClaim = User.FindFirst("discord:user_id")?.Value;
             CurrentUserId = userIdClaim;
 
-            // User is authorized - load full soundboard
-            var sounds = await _soundService.GetAllByGuildAsync(guildId, cancellationToken);
-
-            // Get audio settings for limits
+            // Load settings and sound count — sounds themselves are loaded client-side via API pagination
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
-
-            // Map sounds to portal view models
-            var soundViewModels = sounds
-                .Select(s => new PortalSoundViewModel
-                {
-                    Id = s.Id,
-                    Name = s.Name,
-                    PlayCount = s.PlayCount,
-                    DurationSeconds = s.DurationSeconds,
-                    UploadedById = s.UploadedById?.ToString(),
-                    UploadedAt = s.UploadedAt
-                })
-                .ToList();
+            var soundCount = await _soundService.GetSoundCountAsync(guildId, cancellationToken);
 
             // Build voice channel panel data
             var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
@@ -198,15 +183,13 @@ public class IndexModel : PortalPageModelBase
             };
 
             // Set remaining view properties
-            Sounds = soundViewModels;
             MaxSounds = settings.MaxSoundsPerGuild;
-            CurrentSoundCount = sounds.Count;
+            CurrentSoundCount = soundCount;
             SupportedFormats = "MP3, WAV, OGG";
             MaxFileSizeMB = (int)(settings.MaxFileSizeBytes / (1024.0 * 1024.0));
             MaxDurationSeconds = settings.MaxDurationSeconds;
 
-            _logger.LogDebug("Loaded {Count} sounds for guild {GuildId} in portal view",
-                sounds.Count, guildId);
+            _logger.LogDebug("Loading soundboard portal for guild {GuildId} ({Count} sounds total)", guildId, soundCount);
 
             return Page();
         }

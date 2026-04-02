@@ -77,20 +77,32 @@ public class PortalSoundboardController : ControllerBase
     }
 
     /// <summary>
-    /// Gets all sounds for the specified guild with play counts.
-    /// Sounds are returned in alphabetical order by name.
-    /// Optionally filters by category ID. Use categoryId=0 for uncategorized sounds.
+    /// Gets a page of sounds for the specified guild.
+    /// Supports search, sort, and category filtering.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID.</param>
-    /// <param name="categoryId">Optional category ID to filter by. Use 0 for uncategorized sounds only.</param>
+    /// <param name="page">1-based page number (default 1).</param>
+    /// <param name="pageSize">Sounds per page (default 40, max 100).</param>
+    /// <param name="search">Optional search term (case-insensitive name match).</param>
+    /// <param name="sort">Sort order: name-asc (default), name-desc, newest, oldest, most-played.</param>
+    /// <param name="categoryId">Optional category filter. Use 0 for uncategorized sounds only.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>List of sounds with play counts.</returns>
+    /// <returns>Paginated list of sounds with metadata.</returns>
     [HttpGet("sounds")]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetSounds(ulong guildId, [FromQuery] int? categoryId, CancellationToken cancellationToken)
+    public async Task<IActionResult> GetSounds(
+        ulong guildId,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 40,
+        [FromQuery] string? search = null,
+        [FromQuery] string? sort = null,
+        [FromQuery] int? categoryId = null,
+        CancellationToken cancellationToken = default)
     {
-        _logger.LogInformation("Get sounds request for guild {GuildId}, categoryId={CategoryId}", guildId, categoryId);
+        _logger.LogInformation(
+            "Get sounds request for guild {GuildId}, page={Page}, pageSize={PageSize}, search={Search}, sort={Sort}, categoryId={CategoryId}",
+            guildId, page, pageSize, search, sort, categoryId);
 
         // Check if audio is globally enabled at the bot level
         if (!await IsAudioGloballyEnabledAsync())
@@ -121,28 +133,16 @@ public class PortalSoundboardController : ControllerBase
             });
         }
 
-        var sounds = await _soundService.GetAllByGuildAsync(guildId, cancellationToken);
+        // Clamp pageSize to valid range
+        pageSize = Math.Clamp(pageSize, 1, 100);
+        page = Math.Max(1, page);
 
-        // Apply category filter if specified
-        IEnumerable<Sound> filteredSounds = sounds;
-        if (categoryId.HasValue)
-        {
-            if (categoryId.Value == 0)
-            {
-                // Filter to uncategorized sounds only
-                filteredSounds = sounds.Where(s => s.CategoryId == null);
-            }
-            else
-            {
-                filteredSounds = sounds.Where(s => s.CategoryId == categoryId.Value);
-            }
-        }
-
-        var soundList = filteredSounds.ToList();
+        var (sounds, totalCount) = await _soundService.GetByGuildPagedAsync(
+            guildId, page, pageSize, search, sort, categoryId, cancellationToken);
 
         var response = new
         {
-            sounds = soundList.Select(s => new
+            sounds = sounds.Select(s => new
             {
                 id = s.Id.ToString(),
                 name = s.Name,
@@ -153,10 +153,15 @@ public class PortalSoundboardController : ControllerBase
                 categoryId = s.CategoryId,
                 categoryName = s.Category?.Name
             }).ToList(),
-            totalCount = soundList.Count
+            totalCount,
+            page,
+            pageSize,
+            hasMore = (page * pageSize) < totalCount
         };
 
-        _logger.LogInformation("Returning {Count} sounds for guild {GuildId}", soundList.Count, guildId);
+        _logger.LogInformation(
+            "Returning {Count} of {Total} sounds (page {Page}) for guild {GuildId}",
+            sounds.Count, totalCount, page, guildId);
         return Ok(response);
     }
 
