@@ -2,7 +2,7 @@
 
 **Version:** 1.1
 **Date:** 2026-04-01
-**Status:** Proposal
+**Status:** Implemented
 **Target Framework:** .NET 8, Discord.Net
 
 ---
@@ -466,7 +466,7 @@ Corresponding options class: `NotXOptions`.
 ## Dependency Injection
 
 ```csharp
-// NotXExtensions.cs
+// NotXServiceExtensions.cs
 public static IServiceCollection AddNotX(
     this IServiceCollection services,
     IConfiguration configuration)
@@ -479,11 +479,10 @@ public static IServiceCollection AddNotX(
         client.BaseAddress = new Uri("https://api.fxtwitter.com/");
         client.Timeout = TimeSpan.FromSeconds(5);
         client.DefaultRequestHeaders.UserAgent
-            .ParseAdd("discordbot/1.0");
+            .ParseAdd("DiscordBot/1.0 (+not-x)");
     });
 
     services.AddScoped<INotXGuildSettingsRepository, NotXGuildSettingsRepository>();
-    services.AddScoped<INotXGuildSettingsService, NotXGuildSettingsService>();
     services.AddScoped<IFxTwitterClient, FxTwitterClient>();
     services.AddScoped<INotXService, NotXService>();
 

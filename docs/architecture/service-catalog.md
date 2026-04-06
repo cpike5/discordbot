@@ -145,7 +145,7 @@ Services for AI-powered feature request submission with multi-step DM conversati
 | `IInputValidationService` | Core Interfaces | Input validation contract for feature request text |
 | `InputValidationService` | Bot/Services/FeatureRequests | Validates description length and content constraints |
 | `PromptInjectionFilter` | Bot/Services/FeatureRequests | Regex-based prompt injection detection using configurable patterns from `FeatureRequestsOptions` |
-| `FeatureRequestToolProvider` | Infrastructure/Services/LLM/Providers | `IToolProvider` implementation exposing feature-request tools to the AI agent |
+| `FeatureRequestToolProvider` | Infrastructure/Services/FeatureRequests | `IDmToolProvider` implementation exposing feature-request tools to the AI agent |
 | `FeatureRequestDmHandler` | Bot/Handlers | Handles DM messages during active feature request conversations |
 
 ---
