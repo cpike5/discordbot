@@ -221,6 +221,8 @@ All settings under `FeatureRequests:` in `appsettings.json` / environment variab
 | `DocGen:BaseBranch` | string | `main` | Branch to create feature branches from |
 | `DocGen:BranchPrefix` | string | `feature-proposal/` | Prefix for generated branches |
 | `DocGen:DocsBasePath` | string | `docs/feature-proposals/` | Repo-relative path for generated docs |
+| `RequirementsGatheringModel` | string | `claude-sonnet-4-20250514` | AI model used for the DM requirements gathering conversation |
+| `MaxConversationTurns` | int | `10` | Maximum user messages before the DM conversation is auto-concluded |
 | `InjectionPatterns` | string[] | (see below) | Phrases triggering injection filter |
 
 Default `InjectionPatterns`:

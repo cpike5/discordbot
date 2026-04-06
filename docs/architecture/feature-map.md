@@ -311,7 +311,7 @@ Automatic or manual preview embeds for X/Twitter links, using the fxtwitter API 
 
 | Aspect | Components |
 |--------|------------|
-| **Discord Commands** | `/notx enable`, `/notx disable`, `/notx status`, `/notx sensitive-only`, `/notx output set`, `/notx output clear`, `/notx monitor add`, `/notx monitor remove`, `/notx monitor clear` (NotXCommandModule); `Fetch Tweet` context menu (NotXContextMenuModule) |
+| **Discord Commands** | `/notx enable`, `/notx disable`, `/notx status`, `/notx sensitive-only`, `/notx channel set`, `/notx channel clear`, `/notx monitor add`, `/notx monitor remove`, `/notx monitor clear` (NotXCommandModule); `Fetch Tweet` context menu (NotXContextMenuModule) |
 | **Handlers** | `NotXMessageHandler` (auto-detects tweet URLs in messages) |
 | **Services** | `INotXService`, `FxTwitterClient`, `NotXEmbedBuilder`, `TweetUrlExtractor` |
 | **Database Entities** | `NotXGuildSettings` |

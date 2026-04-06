@@ -206,7 +206,7 @@ Named client:   "FxTwitter"
 Base address:   https://api.fxtwitter.com/
 Timeout:        5 seconds (configurable via NotXOptions)
 Max response:   256 KB (enforced before deserialization)
-User-Agent:     discordbot/1.0
+User-Agent:     DiscordBot/1.0 (+not-x)
 ```
 
 ---
@@ -395,7 +395,7 @@ The bot never posts an error message to any guild channel. All errors are intern
 |-----|------|---------|-------------|
 | `RequestTimeoutSeconds` | `int` | `5` | HTTP timeout for fxtwitter API calls |
 | `MaxResponseBytes` | `int` | `262144` | Maximum response body size (bytes) before rejection |
-| `UserAgent` | `string` | `discordbot/1.0` | User-Agent header sent to fxtwitter |
+| `UserAgent` | `string` | `DiscordBot/1.0 (+not-x)` | User-Agent header sent to fxtwitter |
 
 Options class: `NotXOptions` (bound from `IOptions<NotXOptions>`).
 
