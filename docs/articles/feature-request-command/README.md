@@ -33,12 +33,12 @@ Documentation for the `/feature-request` Discord slash command — a feature tha
 
 | Document | Status |
 |---|---|
-| BRD | Draft |
-| PRD | Draft |
-| User Stories | Draft |
-| Architecture | Draft |
-| Reference | Draft |
-| Implementation | Not started |
+| BRD | Complete |
+| PRD | Complete |
+| User Stories | Complete |
+| Architecture | Complete |
+| Reference | Complete |
+| Implementation | Complete |
 
 ---
 

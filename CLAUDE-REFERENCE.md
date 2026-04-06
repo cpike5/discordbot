@@ -2,7 +2,7 @@
 
 Auto-generated lookup tables for Discord bot management system. Regenerate with `/update-instructions tables`.
 
-**Last updated:** 2026-03-22
+**Last updated:** 2026-04-06
 
 ## Configuration Options
 
@@ -23,6 +23,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | `BotConfiguration` | `Discord` | Discord bot settings (token, test guild, rate limits, owner IDs) |
 | `CachingOptions` | `Caching` | In-memory cache durations for guild, user, and search data |
 | `DatabaseSettings` | `Database` | Query performance logging (slow query threshold, parameter logging) |
+| `DmAssistantOptions` | `DmAssistant` | DM-based AI assistant (owner-only): model, conversation history, cost tracking, code execution |
 | *(string key)* | `Database:Provider` | Database provider selection: `Sqlite`, `PostgreSql`, or omit for auto-detection from connection string |
 | `DiscordOAuthOptions` | `Discord:OAuth` | OAuth client credentials (use user secrets) |
 | `GuildMembershipCacheOptions` | `GuildMembershipCache` | Guild membership database cache duration |
@@ -30,8 +31,10 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | `IdentityConfigOptions` | `Identity` | ASP.NET Identity settings (passwords, lockout, cookies, default admin) |
 | `LogSanitizationOptions` | `LogSanitization` | Log sanitization patterns and sensitive key redaction |
 | `MessageLogRetentionOptions` | `MessageLogRetention` | Message log cleanup policies |
+| `FeatureRequestsOptions` | `FeatureRequests` | Feature request command settings (description limits, conversation timeout, AI model, doc gen, injection patterns) |
 | `MogwaiOptions` | `Mogwai` | Claude Code CLI integration for coding tasks via owner DM (disabled by default; used only by the Mogwai Docker instance) |
 | `ModerationOptions` | `Moderation` | Moderation system settings (temp bans, purge limits, case history) |
+| `NotXOptions` | `NotX` | X/Twitter link preview settings (HTTP timeout, max response size, user agent) |
 | `NotificationOptions` | `Notification` | Admin notification event filters and deduplication |
 | `NotificationRetentionOptions` | `NotificationRetention` | Notification cleanup by status (dismissed, read, unread retention) |
 | `ObservabilityOptions` | `Observability` | External observability tool URLs (Kibana, Seq) |
@@ -86,6 +89,9 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | Moderation Settings | `/Guilds/{guildId:long}/ModerationSettings` | Guild auto-moderation config |
 | Flagged Events | `/Guilds/{guildId:long}/FlaggedEvents` | Auto-moderation flagged events |
 | Flagged Event Details | `/Guilds/{guildId:long}/FlaggedEvents/{id:guid}` | Single flagged event |
+| Feature Requests | `/Guilds/{guildId:long}/FeatureRequests` | Guild feature request submissions |
+| Feature Request Details | `/Guilds/{guildId:long}/FeatureRequests/{id:guid}` | Single feature request with admin actions |
+| Audio Moderation Log | `/Guilds/{guildId:long}/AudioModerationLog` | Audio playback event log (soundboard, TTS, VOX) |
 | Soundboard | `/Guilds/Soundboard/{guildId:long}` | Guild soundboard management |
 | Rat Watch | `/Guilds/RatWatch/{guildId:long}` | Rat Watch management |
 | Rat Watch Analytics | `/Guilds/RatWatch/Analytics/{guildId:long}` | Rat Watch analytics and metrics |
@@ -169,6 +175,15 @@ REST API for Portal functionality. All endpoints require `[Authorize(Policy = "P
 | `/api/portal/tts/voices/{voiceName}/capabilities` | GET | Get voice capabilities |
 | `/api/portal/tts/presets` | GET | Get SSML style presets |
 
+### User Preferences (`UserPreferencesController.cs`)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/portal/preferences/{guildId}` | GET | Get all preferences for current user in guild |
+| `/api/portal/preferences/{guildId}/{key}` | GET | Get single preference by key |
+| `/api/portal/preferences/{guildId}/{key}` | PUT | Set preference value |
+| `/api/portal/preferences/{guildId}/{key}` | DELETE | Delete preference |
+
 ## Discord Command Modules
 
 Using Discord.NET 3.19.0-beta.1 - slash commands only, registered via `InteractionHandler`.
@@ -196,8 +211,11 @@ Using Discord.NET 3.19.0-beta.1 - slash commands only, registered via `Interacti
 | `ModTagModule` | `/modtag add/remove/list/create/delete` |
 | `WatchlistModule` | `/watchlist add/remove/list` |
 | `InvestigateModule` | `/investigate` |
+| `NotXCommandModule` | `/notx enable`, `/notx disable`, `/notx status`, `/notx sensitive-only`, `/notx channel set`, `/notx channel clear`, `/notx monitor add`, `/notx monitor remove`, `/notx monitor clear` |
+| `NotXContextMenuModule` | `Fetch Tweet` (message context menu) |
+| `FeatureRequestModule` | `/feature-request` |
 
-**Component-only modules** (handle button/select interactions, no slash commands): `AdminComponentModule`, `RatWatchComponentModule`, `ScheduleComponentModule`, `ModerationHistoryComponentModule`, `FlaggedEventComponentModule`
+**Component-only modules** (handle button/select interactions, no slash commands): `AdminComponentModule`, `RatWatchComponentModule`, `ScheduleComponentModule`, `ModerationHistoryComponentModule`, `FlaggedEventComponentModule`, `FeatureRequestComponentModule`
 
 ### Interactive Components Pattern
 
@@ -237,6 +255,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [background-services.md](docs/articles/background-services.md) | Background hosted services, retention, aggregation |
 | [bot-performance-dashboard.md](docs/articles/bot-performance-dashboard.md) | Performance monitoring dashboard |
 | [bot-verification.md](docs/articles/bot-verification.md) | Bot verification as OAuth alternative |
+| [configuration-guide.md](docs/articles/configuration-guide.md) | Application configuration reference |
 | [command-configuration.md](docs/articles/command-configuration.md) | Command module enable/disable |
 | [commands-page-design.md](docs/articles/commands-page-design.md) | Commands page design spec |
 | [commands-page.md](docs/articles/commands-page.md) | Commands page feature |
@@ -244,6 +263,7 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [consent-privacy.md](docs/articles/consent-privacy.md) | GDPR-compliant consent and privacy management |
 | [database-schema.md](docs/articles/database-schema.md) | Entity relationships and schema |
 | [design-system.md](docs/articles/design-system.md) | UI tokens, color palette, theming |
+| [docker-deployment.md](docs/articles/docker-deployment.md) | Docker deployment guide (includes Mogwai container) |
 | [discord-bot-setup.md](docs/articles/discord-bot-setup.md) | Discord Developer Portal setup |
 | [elastic-apm.md](docs/articles/elastic-apm.md) | Elastic APM distributed tracing |
 | [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md) | Local Elastic Stack setup |
@@ -268,6 +288,8 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [nav-tabs-design-spec.md](docs/articles/nav-tabs-design-spec.md) | Navigation Tabs design specification |
 | [nav-tabs-migration.md](docs/articles/nav-tabs-migration.md) | Navigation Tabs migration guide |
 | [nav-tabs-spec.md](docs/articles/nav-tabs-spec.md) | Navigation component unification spec |
+| [not-x/](docs/articles/not-x/) | Not-X feature: X/Twitter link preview embeds (spec, BRD, PRD, user stories, test constraints, feature reference) |
+| [feature-request-command/](docs/articles/feature-request-command/) | Feature request command: AI-powered submission with DM conversation and doc gen (BRD, PRD, user stories, architecture, reference) |
 | [notification-system.md](docs/articles/notification-system.md) | Real-time notifications with SignalR |
 | [permissions.md](docs/articles/permissions.md) | Precondition attribute system |
 | [rat-watch.md](docs/articles/rat-watch.md) | Rat Watch accountability feature |
@@ -354,6 +376,9 @@ Build and serve locally: `.\build-docs.ps1 -Serve` (http://localhost:8080)
 | [docs/index.md](docs/index.md) | Documentation index/welcome page |
 | [docs/agents/assistant-agent.md](docs/agents/assistant-agent.md) | AI assistant agent prompt |
 | [docs/agents/assistant-agent-evil.md](docs/agents/assistant-agent-evil.md) | Evil AI assistant agent (easter egg) |
+| [docs/agents/dm-owner-agent.md](docs/agents/dm-owner-agent.md) | DM assistant owner agent prompt |
+| [docs/TEST_COVERAGE_GAPS.md](docs/TEST_COVERAGE_GAPS.md) | Test coverage gap analysis and recommended minimum cases |
+| [docs/articles/user-profile-extraction/](docs/articles/user-profile-extraction/) | User profile extraction proposal (BRD, PRD, user stories, reference) |
 | [docs/changelogs/CHANGELOG-v0.5.0.md](docs/changelogs/CHANGELOG-v0.5.0.md) | v0.5.0 changelog |
 | [docs/changelogs/CHANGELOG-v0.5.1.md](docs/changelogs/CHANGELOG-v0.5.1.md) | v0.5.1 changelog |
 | [docs/lessons-learned/](docs/lessons-learned/) | 8 post-implementation lessons learned docs |
