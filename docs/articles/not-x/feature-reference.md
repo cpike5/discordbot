@@ -46,13 +46,14 @@ src/DiscordBot.Bot/
 │   └── NotXMessageHandler.cs         MessageReceived event hook
 ├── Services/
 │   └── NotXService.cs                orchestration; implements INotXService
-└── Extensions/
-    └── NotXExtensions.cs             AddNotX() DI registration
-
-src/DiscordBot.Infrastructure/
-├── Services/
-│   └── Http/
-│       └── FxTwitterClient.cs        HTTP client; implements IFxTwitterClient
+├── Extensions/
+│   └── NotXServiceExtensions.cs      AddNotX() DI registration
+└── Services/
+    └── NotX/
+        ├── FxTwitterClient.cs        HTTP client; implements IFxTwitterClient
+        ├── NotXEmbedBuilder.cs       Builds Discord embeds from tweet data
+        ├── NotXService.cs            Orchestration; implements INotXService
+        └── TweetUrlExtractor.cs      Static; shared by handler and command module
 ├── Data/
 │   ├── Repositories/
 │   │   └── NotXGuildSettingsRepository.cs
@@ -70,12 +71,7 @@ src/DiscordBot.Core/
     └── FxTweetResult.cs              (record types: FxTweetResult, FxTweetAuthor, FxTweetMedia, etc.)
 ```
 
-Internal helper (not an interface-backed service):
-
-```
-src/DiscordBot.Bot/Utilities/
-└── TweetUrlExtractor.cs              static; shared by handler and command module
-```
+**Note:** `TweetUrlExtractor` is a static helper (not interface-backed) located alongside the other Not-X services in `Bot/Services/NotX/`.
 
 ---
 

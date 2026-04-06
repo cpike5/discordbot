@@ -303,7 +303,7 @@ The `<user_request>` block is populated only with sanitized, validated, length-c
 
 | Risk | Likelihood | Impact | Mitigation |
 |---|---|---|---|
-| `claude` CLI not available on server | Medium | Doc gen broken | Configurable binary path; graceful `DocGenFailed` status; admin retry |
+| `claude` CLI not available on host | Medium | Doc gen broken | Configurable binary path; graceful `DocGenFailed` status; admin retry |
 | Prompt injection bypasses filter | Low | Malicious repo changes | Restricted subprocess permissions; XML data delimiters; `--print` mode only creates files in docs/ |
 | DM conversation abandoned at scale | Medium | Stale state memory | `InteractionStateCleanupService` (already exists) handles TTL expiry |
 | Slug collision for similar requests | Low | Doc gen error | Collision detection with numeric suffix (`poll-command-2`) |
