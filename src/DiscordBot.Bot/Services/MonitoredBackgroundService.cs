@@ -35,11 +35,16 @@ public abstract class MonitoredBackgroundService : BackgroundService, IBackgroun
     /// </summary>
     protected abstract Task ExecuteMonitoredAsync(CancellationToken stoppingToken);
 
-    protected sealed override async Task ExecuteAsync(CancellationToken stoppingToken)
+    protected sealed override Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        // Yield immediately to prevent blocking startup
-        await Task.Yield();
+        // Run on the thread pool to prevent blocking startup.
+        // Task.Yield() is avoided because it posts to the caller's TaskScheduler,
+        // which may not be the thread pool (e.g., xUnit's MaxConcurrencyTaskScheduler).
+        return Task.Run(() => ExecuteOnThreadPoolAsync(stoppingToken), stoppingToken);
+    }
 
+    private async Task ExecuteOnThreadPoolAsync(CancellationToken stoppingToken)
+    {
         // Lazy resolve to avoid circular DI
         _healthRegistry = _serviceProvider.GetService<IBackgroundServiceHealthRegistry>();
         _healthRegistry?.Register(ServiceName, this);
