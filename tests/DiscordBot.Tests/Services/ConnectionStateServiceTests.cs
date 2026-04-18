@@ -117,18 +117,39 @@ public class ConnectionStateServiceTests
     [Fact]
     public void RecordDisconnected_StoresExceptionMessage()
     {
-        // Arrange
+        // Arrange - use a signal so we don't rely on Thread.Sleep for the fire-and-forget task
+        var disconnectPersisted = new ManualResetEventSlim(false);
+        _repositoryMock.Setup(r => r.AddEventAsync(
+                "Disconnected",
+                It.IsAny<DateTime>(),
+                It.IsAny<string?>(),
+                It.IsAny<string?>(),
+                It.IsAny<CancellationToken>()))
+            .ReturnsAsync((string eventType, DateTime timestamp, string? reason, string? details, CancellationToken _) =>
+            {
+                var evt = new ConnectionEvent
+                {
+                    Id = _storedEvents.Count + 1,
+                    EventType = eventType,
+                    Timestamp = timestamp,
+                    Reason = reason,
+                    Details = details
+                };
+                _storedEvents.Add(evt);
+                disconnectPersisted.Set();
+                return evt;
+            });
+
         _service.RecordConnected();
-        Thread.Sleep(50);
         var exception = new InvalidOperationException("Connection lost");
 
         // Act
         _service.RecordDisconnected(exception);
-        Thread.Sleep(100);
+        disconnectPersisted.Wait(TimeSpan.FromSeconds(5))
+            .Should().BeTrue("disconnect event should be persisted within timeout");
 
         // Assert
-        var events = _service.GetConnectionEvents(days: 7);
-        var disconnectEvent = events.LastOrDefault(e => e.EventType == "Disconnected");
+        var disconnectEvent = _storedEvents.LastOrDefault(e => e.EventType == "Disconnected");
 
         disconnectEvent.Should().NotBeNull("disconnect event should be recorded");
         disconnectEvent!.Reason.Should().Be("Connection lost", "exception message should be stored");
