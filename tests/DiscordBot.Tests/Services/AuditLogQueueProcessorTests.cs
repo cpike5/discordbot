@@ -303,6 +303,7 @@ public class AuditLogQueueProcessorTests
         var dtos = Enumerable.Range(0, 15).Select(_ => CreateTestDto()).ToList();
         var dequeueIndex = 0;
         List<AuditLog>? capturedBatch = null;
+        var batchWritten = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _queueMock.Setup(x => x.DequeueAsync(It.IsAny<CancellationToken>()))
             .ReturnsAsync(() =>
@@ -313,7 +314,11 @@ public class AuditLogQueueProcessorTests
             });
 
         _repositoryMock.Setup(x => x.BulkInsertAsync(It.IsAny<IEnumerable<AuditLog>>(), It.IsAny<CancellationToken>()))
-            .Callback<IEnumerable<AuditLog>, CancellationToken>((batch, token) => capturedBatch = batch.ToList())
+            .Callback<IEnumerable<AuditLog>, CancellationToken>((batch, token) =>
+            {
+                capturedBatch = batch.ToList();
+                batchWritten.TrySetResult(true);
+            })
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
@@ -325,11 +330,11 @@ public class AuditLogQueueProcessorTests
         using var cts = new CancellationTokenSource();
 
         // Act
-        var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(200); // Give it time to process first batch
+        await service.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(batchWritten.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        completed.Should().Be(batchWritten.Task, "batch should be written within timeout");
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
-        await executeTask;
 
         // Assert
         capturedBatch.Should().NotBeNull();
@@ -342,6 +347,7 @@ public class AuditLogQueueProcessorTests
         // Arrange
         var dtos = Enumerable.Range(0, 10).Select(_ => CreateTestDto()).ToList();
         var dequeueIndex = 0;
+        var batchWritten = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _queueMock.Setup(x => x.DequeueAsync(It.IsAny<CancellationToken>()))
             .Returns<CancellationToken>(async token =>
@@ -355,6 +361,7 @@ public class AuditLogQueueProcessorTests
             });
 
         _repositoryMock.Setup(x => x.BulkInsertAsync(It.IsAny<IEnumerable<AuditLog>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => batchWritten.TrySetResult(true))
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
@@ -366,11 +373,11 @@ public class AuditLogQueueProcessorTests
         using var cts = new CancellationTokenSource();
 
         // Act
-        var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(500); // 10 items will fill batch immediately
+        await service.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(batchWritten.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        completed.Should().Be(batchWritten.Task, "batch should be written within timeout");
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
-        await executeTask;
 
         // Assert
         _repositoryMock.Verify(
@@ -706,6 +713,7 @@ public class AuditLogQueueProcessorTests
         // Arrange
         var dtos = Enumerable.Range(0, 5).Select(_ => CreateTestDto()).ToList();
         var dequeueIndex = 0;
+        var batchWritten = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _queueMock.Setup(x => x.DequeueAsync(It.IsAny<CancellationToken>()))
             .Returns<CancellationToken>(async token =>
@@ -720,6 +728,7 @@ public class AuditLogQueueProcessorTests
             });
 
         _repositoryMock.Setup(x => x.BulkInsertAsync(It.IsAny<IEnumerable<AuditLog>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => batchWritten.TrySetResult(true))
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
@@ -731,11 +740,11 @@ public class AuditLogQueueProcessorTests
         using var cts = new CancellationTokenSource();
 
         // Act
-        var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(1500); // Wait for batch timeout and processing
+        await service.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(batchWritten.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        completed.Should().Be(batchWritten.Task, "batch should be written within timeout");
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
-        await executeTask;
 
         // Assert
         _repositoryMock.Verify(
@@ -752,6 +761,7 @@ public class AuditLogQueueProcessorTests
         // Arrange
         var dtos = Enumerable.Range(0, 10).Select(_ => CreateTestDto()).ToList();
         var dequeueIndex = 0;
+        var batchWritten = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         // Provide 10 items to fill the batch immediately (batch size is 10)
         _queueMock.Setup(x => x.DequeueAsync(It.IsAny<CancellationToken>()))
@@ -767,6 +777,7 @@ public class AuditLogQueueProcessorTests
             });
 
         _repositoryMock.Setup(x => x.BulkInsertAsync(It.IsAny<IEnumerable<AuditLog>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => batchWritten.TrySetResult(true))
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
@@ -778,11 +789,11 @@ public class AuditLogQueueProcessorTests
         using var cts = new CancellationTokenSource();
 
         // Act
-        var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(500); // Full batch (10 items) should process immediately
+        await service.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(batchWritten.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        completed.Should().Be(batchWritten.Task, "batch should be written within timeout");
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
-        await executeTask;
 
         // Assert
         _loggerMock.Verify(
@@ -907,6 +918,7 @@ public class AuditLogQueueProcessorTests
         // Arrange
         var dtos = Enumerable.Range(0, 3).Select(_ => CreateTestDto()).ToList();
         var dequeueIndex = 0;
+        var batchWritten = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
 
         _queueMock.Setup(x => x.DequeueAsync(It.IsAny<CancellationToken>()))
             .Returns<CancellationToken>(async token =>
@@ -921,6 +933,7 @@ public class AuditLogQueueProcessorTests
             });
 
         _repositoryMock.Setup(x => x.BulkInsertAsync(It.IsAny<IEnumerable<AuditLog>>(), It.IsAny<CancellationToken>()))
+            .Callback(() => batchWritten.TrySetResult(true))
             .Returns(Task.CompletedTask);
 
         var service = new AuditLogQueueProcessor(
@@ -932,11 +945,11 @@ public class AuditLogQueueProcessorTests
         using var cts = new CancellationTokenSource();
 
         // Act
-        var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(1500); // Wait for batch timeout and processing
+        await service.StartAsync(cts.Token);
+        var completed = await Task.WhenAny(batchWritten.Task, Task.Delay(TimeSpan.FromSeconds(10)));
+        completed.Should().Be(batchWritten.Task, "batch should be written within timeout");
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
-        await executeTask;
 
         // Assert
         _loggerMock.Verify(
