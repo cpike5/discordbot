@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Text.Json;
 using DiscordBot.Bot.Health;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -70,9 +71,14 @@ public static class HealthCheckExtensions
             };
         }
 
+        var version = Assembly.GetEntryAssembly()?.GetCustomAttribute<AssemblyInformationalVersionAttribute>()
+            ?.InformationalVersion ?? "unknown";
+
         var response = new
         {
             status = report.Status.ToString(),
+            timestamp = DateTime.UtcNow.ToString("o"),
+            version,
             totalDuration = report.TotalDuration.TotalMilliseconds,
             checks
         };
