@@ -1577,7 +1577,7 @@ IHostedService
 
 `ExecuteAsync` is sealed. The base class:
 
-1. Yields immediately on startup to avoid blocking `IHostedService.StartAsync`.
+1. Dispatches work to the thread pool via `Task.Run()` to avoid blocking `IHostedService.StartAsync`.
 2. Lazily resolves `IBackgroundServiceHealthRegistry` and calls `Register(ServiceName, this)`.
 3. Sets Status to `"Running"` and calls `ExecuteMonitoredAsync(stoppingToken)`.
 4. On `OperationCanceledException`: logs graceful stop (normal shutdown path).

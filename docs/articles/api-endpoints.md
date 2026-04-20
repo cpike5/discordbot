@@ -18,7 +18,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/health` | GET | Health check with database connectivity |
+| `/health` | GET | Health check with database connectivity |
 | `/metrics` | GET | OpenTelemetry metrics (Prometheus format) |
 | `/api/metrics/health` | GET | Overall bot health status |
 | `/api/metrics/health/latency` | GET | Latency history with statistics |
@@ -122,7 +122,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 ## Health Endpoints
 
-### GET /api/health
+### GET /health
 
 Returns the health status of the application including database connectivity.
 
@@ -131,10 +131,20 @@ Returns the health status of the application including database connectivity.
 ```json
 {
   "status": "Healthy",
-  "timestamp": "2024-12-08T15:30:00Z",
-  "version": "1.0.0.0",
+  "timestamp": "2024-12-08T15:30:00.0000000Z",
+  "version": "1.0.0+abc1234",
+  "totalDuration": 42.5,
   "checks": {
-    "Database": "Healthy"
+    "database": {
+      "status": "Healthy",
+      "description": "",
+      "duration": 12.3
+    },
+    "discord": {
+      "status": "Healthy",
+      "description": "",
+      "duration": 30.1
+    }
   }
 }
 ```
@@ -143,14 +153,24 @@ Returns the health status of the application including database connectivity.
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `status` | string | Overall status: "Healthy" or "Degraded" |
-| `timestamp` | datetime | UTC timestamp of health check |
-| `version` | string | Application version |
-| `checks` | object | Individual health check results |
+| `status` | string | Overall status: `Healthy`, `Degraded`, or `Unhealthy` |
+| `timestamp` | string | ISO 8601 UTC timestamp of the health check (`DateTime.UtcNow`) |
+| `version` | string | Informational version from the entry assembly (falls back to `"unknown"`) |
+| `totalDuration` | number | Total time to execute all checks, in milliseconds |
+| `checks` | object | Map of check name to check result object (see below) |
+
+**Per-Check Object Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `status` | string | Check status: `Healthy`, `Degraded`, or `Unhealthy` |
+| `description` | string | Optional description (empty string if not set) |
+| `duration` | number | Time to execute this check, in milliseconds |
 
 **Status Values:**
-- `Healthy`: All checks passed
-- `Degraded`: One or more checks failed (still operational)
+- `Healthy`: All checks passed (HTTP 200)
+- `Degraded`: One or more checks degraded but still operational (HTTP 200)
+- `Unhealthy`: One or more checks failed (HTTP 503)
 
 ---
 
@@ -6239,10 +6259,21 @@ Task<bool> CanManageUserAsync(
 
 ```csharp
 {
-  "status": string,           // "Healthy" or "Degraded"
-  "timestamp": DateTime,      // UTC timestamp
-  "version": string,          // Application version
-  "checks": Dictionary<string, string>  // Check name -> status
+  "status": string,           // "Healthy", "Degraded", or "Unhealthy"
+  "timestamp": string,        // ISO 8601 UTC timestamp
+  "version": string,          // Assembly informational version (or "unknown")
+  "totalDuration": double,    // Total check duration in milliseconds
+  "checks": Dictionary<string, HealthCheckEntry>  // Check name -> result
+}
+```
+
+**HealthCheckEntry:**
+
+```csharp
+{
+  "status": string,           // "Healthy", "Degraded", or "Unhealthy"
+  "description": string,      // Description (empty string if not set)
+  "duration": double          // Check duration in milliseconds
 }
 ```
 
