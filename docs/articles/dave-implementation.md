@@ -1,12 +1,12 @@
 # DAVE (Discord Audio Video Encryption) Implementation
 
-This document describes the DAVE end-to-end encryption implementation used by this bot's forked Discord.Net library, including the MLS protocol flow, audio pipeline integration, native library bindings, and known issues.
+This document describes the DAVE end-to-end encryption implementation used by this bot's Discord.Net library, including the MLS protocol flow, audio pipeline integration, native library bindings, and known issues.
 
 ## Overview
 
 DAVE is Discord's end-to-end encryption (E2EE) protocol for voice channels, based on the Messaging Layer Security (MLS) standard (RFC 9420). Discord enforced DAVE for all non-stage voice channels on March 2, 2026. Without DAVE support, a bot can neither send nor receive audio in any voice channel.
 
-This bot uses a forked build of Discord.Net rather than the official NuGet packages because the official 3.19.0 release contains a bug where multi-party voice channels fail silently. The fix is described in the "Fork Details" section below.
+This bot uses the official Discord.Net 3.20.1 NuGet packages. Earlier the bot relied on a local forked build (`3.19.0-fork`) because the official 3.19.0 release contained a bug where multi-party voice channels failed silently. That fix (upstream PR #3244) shipped in the 3.20.0 release, so the fork has been retired. See the "Fork History" section below for the details.
 
 The DAVE implementation has two distinct layers:
 
@@ -330,9 +330,11 @@ UDP packet
 
 **Per-user decryptors:** Each remote user has their own `DaveDecryptor` instance stored in `_decryptors`. The decryptor is created via `GetOrCreateDecryptor` and is passed directly to the `DaveDecryptStream` constructor. The decryptor's ratchet is updated whenever `PrepareTransition` is called on it.
 
-## Fork Details
+## Fork History
 
-### Why the Fork Exists
+> **Status: retired.** The bot now uses the official Discord.Net **3.20.1** packages from nuget.org. The local fork described in this section was removed once the upstream fix shipped in 3.20.0. This history is retained for context and in case a similar fork is ever needed again.
+
+### Why the Fork Existed
 
 The official Discord.Net 3.19.0 release contains a bug that causes audio to fail silently in multi-party voice channels (channels with more than one other user). The symptoms are:
 
@@ -343,67 +345,25 @@ The official Discord.Net 3.19.0 release contains a bug that causes audio to fail
 
 The root cause is in the original `PrepareProtocolTransitionAsync` implementation: for non-init transitions, the encryptor's ratchet was never updated. Additionally, the original `ExecuteProtocolTransitionAsync` was effectively a no-op for active DAVE protocol versions — it only handled the disabled-protocol case.
 
-The fix (upstream PR #3244, committed to the dev branch) corrects the transition handling so that:
+The fix (upstream PR #3244, merged to the dev branch on 2026-03-04 and released in 3.20.0) corrects the transition handling so that:
 
 - The encryptor ratchet is updated on init transitions.
-- Decryptors are updated with fresh ratchets during prepare.
-- `RebuildInputStreamsForDaveAsync` is called after the init transition to add the decrypt layer to streams that were created before DAVE was ready.
+- Decryptors are updated with fresh ratchets during prepare (`GetOrCreateDecryptor`).
+- A fresh key package is sent during the prepare-epoch phase so the encryptor is not left without a ratchet.
 
-### What the Fork Changes vs. Upstream 3.19.0
+### How the Fork Was Retired
 
-The fork is built from the upstream dev branch at a commit that includes the PR #3244 fix. Key changes relative to the 3.19.0 release tag:
+PR #3244 shipped in the official **3.20.0** release (2026-06-06); the bot was moved to **3.20.1** (2026-06-07, latest stable). The migration:
 
-1. `DaveSessionManager.PrepareProtocolTransitionAsync` — on init transition: updates `Encryptor.Ratchet` from the session, calls `RebuildInputStreamsForDaveAsync`.
-2. `AudioClient.RebuildInputStreamsForDaveAsync` — new method that destroys and recreates all input streams to include the `DaveDecryptStream` layer.
-3. `DaveDecryptor.PrepareTransition` — new method that combines passthrough-mode update and ratchet assignment.
+1. Bumped the five `Discord.Net.*` `PackageReference` versions in `DiscordBot.Bot.csproj` from `3.19.0-fork` to `3.20.1`. (`DiscordBot.Infrastructure.csproj` has no Discord.Net reference.) The `Discord.Net.Dave` package is pulled in transitively by `Discord.Net.WebSocket`, so it no longer needs to be packed locally.
+2. Deleted `nuget.config` (its only custom source was the local feed; nuget.org is the default).
+3. Deleted the `local-packages/*.nupkg` files.
+4. Removed the `COPY nuget.config ./` and `COPY local-packages/ local-packages/` lines from `Dockerfile` and `Dockerfile.mogwai`.
+5. Ran `dotnet restore` + `dotnet build` to confirm the official packages resolve and the bot compiles.
 
-The fork is versioned `3.19.0-fork` to distinguish it from the official `3.19.0` package.
+The `scripts/rebuild-discord-net.sh` helper is retained should a future fork ever be required.
 
-### How to Rebuild
-
-The fork source is expected at `../Discord.Net` relative to the bot repository root. Use the rebuild script:
-
-```bash
-./scripts/rebuild-discord-net.sh
-```
-
-This packs all required projects (`Discord.Net.Core`, `Discord.Net.Rest`, `Discord.Net.WebSocket`, `Discord.Net.Commands`, `Discord.Net.Interactions`, `Discord.Net.Dave`) with version suffix `fork` and places the `.nupkg` files into `local-packages/`. After rebuilding, clear the NuGet cache and restore:
-
-```bash
-dotnet nuget locals all --clear
-dotnet restore src/DiscordBot.Bot/DiscordBot.Bot.csproj
-```
-
-To use a custom version suffix (e.g., for testing a different patch):
-
-```bash
-./scripts/rebuild-discord-net.sh my-patch
-# produces version 3.19.0-my-patch
-```
-
-### How to Revert to Upstream
-
-When a new stable Discord.Net release ships with the multi-party DAVE fix:
-
-1. Update the `PackageReference` versions in `DiscordBot.Bot.csproj` and `DiscordBot.Infrastructure.csproj` to the new version.
-2. Remove or comment out the `local-packages` source from `nuget.config`.
-3. Delete the `local-packages/*.nupkg` files (or leave them; they will be ignored once the feed is removed).
-4. Run `dotnet restore`.
-5. Remove `COPY local-packages/ local-packages/` from the Dockerfile build stage.
-6. Update this document to reflect the upstream version in use.
-
-### NuGet Local Feed
-
-`nuget.config` configures a local feed pointing to the `local-packages/` directory:
-
-```xml
-<packageSources>
-  <add key="local-packages" value="./local-packages" />
-  <add key="nuget.org" value="https://api.nuget.org/v3/index.json" protocolVersion="3" />
-</packageSources>
-```
-
-The local feed takes priority over nuget.org. If a package version exists in both, the local version wins.
+> **Note:** 3.20.x deprecates `SocketRole.Color` — it now always returns `Colors.PrimaryColor`. Call sites that read role colors compile with a `CS0618` warning and will no longer reflect a role's actual color.
 
 ### Native libdave Library Requirements
 
@@ -496,7 +456,7 @@ The following bugs exist in the current fork implementation. They are documented
 
 1. The MLS init transition has not completed yet (encryptor starts in passthrough mode, so this should not occur if passthrough is working correctly).
 2. The bot connected to an empty voice channel. When no other users are present, no MLS group forms and no ratchet is derived. The encryptor remains in passthrough mode (`IsInPassthroughMode = true`), but if passthrough mode was accidentally disabled, encryption will fail.
-3. The multi-party DAVE bug from the upstream 3.19.0 release. If you are seeing this error on a fork build, verify that the fork was built correctly from the dev branch.
+3. The multi-party DAVE bug from the upstream 3.19.0 release. This was fixed in 3.20.0 (PR #3244); if you see this error, verify the bot is on Discord.Net 3.20.0 or later and not pinned back to 3.19.0.
 
 **Elasticsearch/KQL query:**
 
