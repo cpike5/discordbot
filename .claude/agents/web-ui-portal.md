@@ -38,15 +38,26 @@ host Razor Page; the island inherits them. **Do not** convert whole pages or add
   `SaveButton` (3-state Idle→Saving→Saved), `TabDefinition`.
 - **Interop** (`Blazor/Interop/`): `ToastInterop`/`ThemeInterop` bridge the existing
   `toast.js`/`theme.js` via the window shim `wwwroot/js/blazor-interop.js` (must load **after**
-  toast.js/theme.js — put the two island scripts in the host page's `@section Scripts`).
-- **Islands** (`Blazor/Pages/`): `ModerationSettingsIsland` (Slice 1, hosts the
-  `/Guilds/{id}/ModerationSettings` body), `FoundationProbe` (Phase 0 PoC on `/Components`).
+  toast.js/theme.js).
+- **Event bus** (`Blazor/Services/`): `IDashboardEventBus` (singleton, Slice 2) is in-process
+  pub/sub for real-time islands. Existing notifiers **dual-publish** to it after their SignalR
+  broadcast (`NotificationBroadcaster` → notification events; `DashboardUpdateService` →
+  `BotStatusChanged`) — additive, JS path untouched. Islands subscribe in
+  `OnAfterRenderAsync(firstRender)`, marshal with `InvokeAsync(StateHasChanged)`, unsubscribe in
+  `Dispose`; notification events carry `userId` so each circuit filters to its own user.
+- **Islands** (`Blazor/Pages/`): `ModerationSettingsIsland` (Slice 1, `/Guilds/{id}/ModerationSettings`
+  body), `NotificationBellIsland` (Slice 2, global navbar bell — replaces `notification-bell.js`),
+  `BotStatusCardIsland` (Slice 2, dashboard banner — replaces `bot-status-refresh.js` 30s polling),
+  `FoundationProbe` (Phase 0 PoC on `/Components`).
+- **Blazor bootstrap is global** (Slice 2): the bell lives in `_Navbar`, so `_Layout` starts the
+  circuit for every layout page (`blazor.server.js` autostart=false + `blazor-interop.js`, after
+  toast/theme). Host pages no longer add their own `blazor.server.js`.
 - **Patterns:** pass snowflake IDs as **strings** (`param-GuildId="@Model.GuildId.ToString()"`);
   data access = `IServiceScopeFactory.CreateScope()` per op resolving the existing services
-  (no circuit-scoped `DbContext`); on **nested-route** hosts start the circuit with
-  `autostart="false"` + `Blazor.start({ configureSignalR: b => b.withUrl('/_blazor') })` so the
-  negotiate URL doesn't resolve relative to the page path. Parity-gate page conversions behind
-  a `?legacy=true` query until the island matches, then remove the legacy branch.
+  (no circuit-scoped `DbContext`); the circuit starts with an explicit absolute `/_blazor` hub URL
+  (nested routes would otherwise resolve negotiate relative to the page path); auth/userId inside
+  an island via injected `AuthenticationStateProvider` (NameIdentifier claim). Parity-gate page
+  conversions behind a `?legacy=true` query until the island matches, then remove the legacy branch.
 
 ### Layouts
 - `_Layout.cshtml` — Main application layout

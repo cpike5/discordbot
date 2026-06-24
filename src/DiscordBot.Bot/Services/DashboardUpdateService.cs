@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -12,6 +13,7 @@ namespace DiscordBot.Bot.Services;
 public class DashboardUpdateService : IDashboardUpdateService
 {
     private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<DashboardUpdateService> _logger;
 
     // SignalR event names - keep consistent with client-side handlers
@@ -24,12 +26,15 @@ public class DashboardUpdateService : IDashboardUpdateService
     /// Initializes a new instance of the <see cref="DashboardUpdateService"/> class.
     /// </summary>
     /// <param name="hubContext">The SignalR hub context for DashboardHub.</param>
+    /// <param name="eventBus">The in-process event bus for Blazor islands.</param>
     /// <param name="logger">The logger instance.</param>
     public DashboardUpdateService(
         IHubContext<DashboardHub> hubContext,
+        IDashboardEventBus eventBus,
         ILogger<DashboardUpdateService> logger)
     {
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -47,6 +52,10 @@ public class DashboardUpdateService : IDashboardUpdateService
                 BotStatusUpdatedEvent,
                 status,
                 cancellationToken);
+
+            // Dual-publish to in-process islands (Slice 2). The BotStatusCard island
+            // subscribes here instead of polling /api/bot/status every 30s.
+            _eventBus.PublishBotStatusChanged(status);
         }
         catch (Exception ex)
         {

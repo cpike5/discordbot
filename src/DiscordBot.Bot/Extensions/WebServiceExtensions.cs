@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Blazor.Interop;
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Handlers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -41,6 +42,13 @@ public static class WebServiceExtensions
         // reuse the portal's notification and theme systems.
         services.AddScoped<ToastInterop>();
         services.AddScoped<ThemeInterop>();
+
+        // In-process event bus (Slice 2): real-time islands (NotificationBell,
+        // BotStatusCard) subscribe to this instead of a second hub connection; the
+        // existing notifier services dual-publish to it. Singleton so it can be
+        // injected by the scoped NotificationBroadcaster and the singleton
+        // DashboardUpdateService alike.
+        services.AddSingleton<IDashboardEventBus, DashboardEventBus>();
 
         return services;
     }

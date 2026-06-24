@@ -21,15 +21,25 @@ Nothing is half-finished. Phase 0 is a complete, self-contained increment. The
 **FoundationProbe** island on `/Components` proves circuit + interop + component
 parity end-to-end.
 
-> **Slice 1 status: DONE.** `Bot/Blazor/Pages/ModerationSettingsIsland.razor` now owns the
+> **Slice 1 status: DONE.** `Bot/Blazor/Pages/ModerationSettingsIsland.razor` owns the
 > `/Guilds/{id}/ModerationSettings` interactive body, replacing
-> `wwwroot/js/moderation-settings.js`. It added the reusable kit pieces `TabbedFormShell`,
-> `ConfirmModal`, `SaveButton` (+ `TabDefinition`) under `Blazor/Shared/`, and a
-> `setUnsavedGuard` helper in `blazor-interop.js`. The legacy JS UI stays reachable at
-> `?legacy=true` (parity gate). Nested-route circuit start uses
-> `Blazor.start({ configureSignalR: b => b.withUrl('/_blazor') })` instead of a global
-> `<base href>` (which would break the layout's `#main-content` skip link). **Your job is
-> now Slice 2** (NotificationBell + BotStatusCard — see §5 / plan §5.1).
+> `wwwroot/js/moderation-settings.js`. It added `TabbedFormShell`, `ConfirmModal`,
+> `SaveButton` (+ `TabDefinition`) under `Blazor/Shared/`, and a `setUnsavedGuard` helper in
+> `blazor-interop.js`. The legacy JS UI stays reachable at `?legacy=true` (parity gate).
+
+> **Slice 2 status: DONE.** Added the in-process event bus
+> `Bot/Blazor/Services/IDashboardEventBus.cs` (+ impl, singleton); `NotificationBroadcaster`
+> and `DashboardUpdateService` now **dual-publish** to it alongside their existing SignalR
+> broadcasts (additive — JS path untouched). `Bot/Blazor/Pages/NotificationBellIsland.razor`
+> replaces `notification-bell.js` (badge/dropdown/mark-read/dismiss/mark-all, real-time via
+> the bus filtered to the current user) and `Bot/Blazor/Pages/BotStatusCardIsland.razor`
+> replaces `bot-status-refresh.js` (30s polling → push). Because the bell lives in the global
+> navbar, the **Blazor bootstrap was centralized in `_Layout`** (autostart=false + explicit
+> `/_blazor` hub URL, after toast.js/theme.js per gotcha §6.1) — so every layout page starts
+> one circuit and the per-page `blazor.server.js` blocks were removed from `Components.cshtml`
+> and `ModerationSettings/Index.cshtml`. `notification-bell.js`/`bot-status-refresh.js` are no
+> longer referenced (files kept for easy revert). **Your job is now Slice 3** (Admin Settings —
+> reuses TabbedFormShell/ConfirmModal/BotStatus; see plan §5.2 Tier 1 #2, §7).
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.

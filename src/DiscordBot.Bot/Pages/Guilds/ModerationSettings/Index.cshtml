@@ -451,22 +451,6 @@ else
         </script>
         <script src="~/js/moderation-settings.js" asp-append-version="true"></script>
     }
-    else
-    {
-        <!-- Blazor interop shim (loads after toast.js/theme.js, which the layout renders first) -->
-        <script src="~/js/blazor-interop.js" asp-append-version="true"></script>
-        <!-- Blazor Server circuit (only loaded on pages that host an island). This island
-             lives on a nested route, so start the circuit manually and point SignalR at the
-             absolute hub path — otherwise the negotiate URL resolves relative to the page
-             path and 404s (gotcha §6.5). This avoids a global <base href> and its side
-             effects (e.g. breaking the layout's #main-content skip link). -->
-        <script src="~/_framework/blazor.server.js" autostart="false"></script>
-        <script>
-            Blazor.start({
-                configureSignalR: function (builder) {
-                    builder.withUrl('@Url.Content("~/_blazor")');
-                }
-            });
-        </script>
-    }
+    @* The Blazor circuit + interop shim are now bootstrapped globally in _Layout (Slice 2),
+       so the island branch needs no per-page script. *@
 }

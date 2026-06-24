@@ -1,0 +1,487 @@
+@namespace DiscordBot.Bot.Blazor.Pages
+@using System.Security.Claims
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.AspNetCore.Components.Authorization
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IDashboardEventBus EventBus
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Nav
+@implements IDisposable
+
+@*
+    Slice 2 island: the global notification bell (lives in _Navbar, on every admin page).
+    Replaces wwwroot/js/notification-bell.js — badge, dropdown, mark-read / dismiss /
+    mark-all, and real-time updates. Real-time arrives via the in-process
+    IDashboardEventBus (NotificationBroadcaster dual-publishes), filtered to the current
+    user, instead of a second SignalR connection (plan §3.2). Data access creates a DI
+    scope per operation resolving the existing INotificationService (gotcha §6.4).
+*@
+
+<div class="relative">
+    <button id="notificationBellButton"
+            type="button"
+            @onclick="ToggleAsync"
+            class="relative p-2 rounded-lg text-text-secondary hover:text-text-primary hover:bg-bg-hover transition-colors"
+            aria-label="Notifications"
+            aria-expanded="@(_isOpen ? "true" : "false")"
+            aria-haspopup="menu"
+            aria-controls="notificationDropdown">
+        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+        </svg>
+        <span class="@BadgeClass" aria-label="@BadgeAriaLabel">@BadgeText</span>
+    </button>
+
+    @if (_isOpen)
+    {
+        <!-- Transparent click-catcher; the dropdown (z-index 350) sits above it so only outside clicks close. -->
+        <div class="fixed inset-0" style="z-index: 340;" @onclick="CloseAsync"></div>
+    }
+
+    <!-- Notification Dropdown -->
+    <div id="notificationDropdown" class="notification-dropdown@(_isOpen ? " active" : "")" role="menu" aria-label="Notifications menu">
+        <div class="notification-dropdown-header">
+            <h3 class="text-sm font-semibold text-text-primary">Notifications</h3>
+            <button type="button" @onclick="MarkAllAsReadAsync" class="notification-mark-all-read" aria-label="Mark all as read">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Mark all read</span>
+            </button>
+        </div>
+
+        <div id="notificationList" class="notification-list" role="list">
+            @if (_isLoading)
+            {
+                <div class="notification-empty">
+                    <p class="notification-empty-message">Loading…</p>
+                </div>
+            }
+            else if (_notifications.Count == 0)
+            {
+                <div class="notification-empty">
+                    <svg class="w-12 h-12 text-text-tertiary opacity-50" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                    <p class="notification-empty-title">No notifications</p>
+                    <p class="notification-empty-message">You're all caught up!</p>
+                </div>
+            }
+            else
+            {
+                @foreach (var n in _notifications)
+                {
+                    <div class="notification-item" role="listitem" data-read="@(n.IsRead ? "true" : "false")" tabindex="0"
+                         @key="n.Id" @onclick="() => HandleItemClickAsync(n)">
+                        <div class="notification-icon @IconClass(n)">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                @IconSvg(n.Type)
+                            </svg>
+                        </div>
+                        <div class="notification-content">
+                            <p class="notification-title">@n.Title</p>
+                            <p class="notification-message">@n.Message</p>
+                            <div class="notification-meta">
+                                <span class="notification-timestamp" title="@n.CreatedAt">@n.TimeAgo</span>
+                                <span class="notification-type-badge">@n.TypeDisplay</span>
+                            </div>
+                        </div>
+                        <div class="notification-actions">
+                            @if (!n.IsRead)
+                            {
+                                <button type="button" class="notification-action-btn" aria-label="Mark as read" title="Mark as read"
+                                        @onclick="() => MarkAsReadAsync(n.Id)" @onclick:stopPropagation="true">
+                                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                    </svg>
+                                </button>
+                            }
+                            <button type="button" class="notification-action-btn" aria-label="Dismiss notification" title="Dismiss"
+                                    @onclick="() => DismissAsync(n.Id)" @onclick:stopPropagation="true">
+                                <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    private string? _userId;
+    private int _unreadCount;
+    private List<UserNotificationDto> _notifications = new();
+    private bool _isOpen;
+    private bool _isLoading;
+    private bool _hasLoaded;
+    private bool _pulse;
+    private bool _subscribed;
+    private bool _disposed;
+
+    private const int MaxItems = 15;
+
+    private string BadgeText => _unreadCount > 99 ? "99+" : _unreadCount.ToString();
+
+    private string BadgeAriaLabel => $"{_unreadCount} unread notification{(_unreadCount != 1 ? "s" : string.Empty)}";
+
+    private string BadgeClass
+    {
+        get
+        {
+            var cls = "notification-badge";
+            if (_unreadCount == 0)
+            {
+                cls += " hidden";
+            }
+
+            if (_pulse)
+            {
+                cls += " pulse-once";
+            }
+
+            return cls;
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (string.IsNullOrEmpty(_userId))
+        {
+            return;
+        }
+
+        // Load the badge count eagerly (matches the legacy fetchInitialSummary); the
+        // notification list itself is loaded lazily on first open.
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            var summary = await service.GetSummaryAsync(_userId);
+            _unreadCount = summary.TotalUnread;
+        }
+        catch
+        {
+            // Badge simply stays at 0 if the summary can't be loaded; non-fatal.
+        }
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Subscribe only once, in the interactive circuit (never during prerender,
+        // which has no live circuit and would leak a subscription).
+        if (firstRender && !_subscribed && !string.IsNullOrEmpty(_userId))
+        {
+            EventBus.NotificationReceived += OnNotificationReceived;
+            EventBus.NotificationCountChanged += OnNotificationCountChanged;
+            EventBus.NotificationMarkedRead += OnNotificationMarkedRead;
+            EventBus.AllNotificationsRead += OnAllNotificationsRead;
+            _subscribed = true;
+        }
+    }
+
+    // ── Dropdown open/close ──────────────────────────────────────────────────
+
+    private Task ToggleAsync() => _isOpen ? CloseAsync() : OpenAsync();
+
+    private async Task OpenAsync()
+    {
+        if (_isOpen)
+        {
+            return;
+        }
+
+        _isOpen = true;
+        if (!_hasLoaded)
+        {
+            await LoadNotificationsAsync();
+        }
+    }
+
+    private Task CloseAsync()
+    {
+        _isOpen = false;
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadNotificationsAsync()
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            return;
+        }
+
+        _isLoading = true;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            _notifications = (await service.GetUserNotificationsAsync(_userId, MaxItems)).ToList();
+            _hasLoaded = true;
+        }
+        catch
+        {
+            _notifications = new();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
+    }
+
+    // ── User actions (optimistic, reconciled by the authoritative bus events) ─
+
+    private async Task MarkAsReadAsync(Guid id)
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            return;
+        }
+
+        var snapshot = _notifications.ToList();
+        var previousCount = _unreadCount;
+
+        var index = _notifications.FindIndex(n => n.Id == id);
+        if (index >= 0 && !_notifications[index].IsRead)
+        {
+            _notifications[index] = _notifications[index] with { IsRead = true };
+            _unreadCount = Math.Max(0, _unreadCount - 1);
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            await service.MarkAsReadAsync(_userId, id);
+        }
+        catch
+        {
+            _notifications = snapshot;
+            _unreadCount = previousCount;
+        }
+    }
+
+    private async Task MarkAllAsReadAsync()
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            return;
+        }
+
+        var snapshot = _notifications.ToList();
+        var previousCount = _unreadCount;
+
+        _notifications = _notifications.Select(n => n.IsRead ? n : n with { IsRead = true }).ToList();
+        _unreadCount = 0;
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            await service.MarkAllAsReadAsync(_userId);
+        }
+        catch
+        {
+            _notifications = snapshot;
+            _unreadCount = previousCount;
+        }
+    }
+
+    private async Task DismissAsync(Guid id)
+    {
+        if (string.IsNullOrEmpty(_userId))
+        {
+            return;
+        }
+
+        var snapshot = _notifications.ToList();
+        var previousCount = _unreadCount;
+
+        var item = _notifications.FirstOrDefault(n => n.Id == id);
+        if (item is not null)
+        {
+            _notifications.RemoveAll(n => n.Id == id);
+            if (!item.IsRead)
+            {
+                _unreadCount = Math.Max(0, _unreadCount - 1);
+            }
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<INotificationService>();
+            await service.DismissAsync(_userId, id);
+        }
+        catch
+        {
+            _notifications = snapshot;
+            _unreadCount = previousCount;
+        }
+    }
+
+    private async Task HandleItemClickAsync(UserNotificationDto n)
+    {
+        if (!n.IsRead)
+        {
+            await MarkAsReadAsync(n.Id);
+        }
+
+        if (!string.IsNullOrEmpty(n.LinkUrl) && n.LinkUrl != "#")
+        {
+            await CloseAsync();
+            Nav.NavigateTo(n.LinkUrl);
+        }
+    }
+
+    // ── Real-time event-bus handlers (filtered to this user) ──────────────────
+
+    private void OnNotificationReceived(string userId, UserNotificationDto notification)
+    {
+        if (userId != _userId)
+        {
+            return;
+        }
+
+        _ = InvokeSafe(async () =>
+        {
+            _notifications.Insert(0, notification);
+            if (_notifications.Count > MaxItems)
+            {
+                _notifications.RemoveAt(_notifications.Count - 1);
+            }
+
+            // Brief badge pulse to draw the eye, mirroring the legacy pulseBadge().
+            _pulse = true;
+            StateHasChanged();
+            await Task.Delay(600);
+            _pulse = false;
+        });
+    }
+
+    private void OnNotificationCountChanged(string userId, NotificationSummaryDto summary)
+    {
+        if (userId != _userId)
+        {
+            return;
+        }
+
+        _ = InvokeSafe(() =>
+        {
+            _unreadCount = summary.TotalUnread;
+            return Task.CompletedTask;
+        });
+    }
+
+    private void OnNotificationMarkedRead(string userId, Guid notificationId)
+    {
+        if (userId != _userId)
+        {
+            return;
+        }
+
+        _ = InvokeSafe(() =>
+        {
+            var index = _notifications.FindIndex(n => n.Id == notificationId);
+            if (index >= 0 && !_notifications[index].IsRead)
+            {
+                _notifications[index] = _notifications[index] with { IsRead = true };
+            }
+
+            return Task.CompletedTask;
+        });
+    }
+
+    private void OnAllNotificationsRead(string userId)
+    {
+        if (userId != _userId)
+        {
+            return;
+        }
+
+        _ = InvokeSafe(() =>
+        {
+            _notifications = _notifications.Select(n => n.IsRead ? n : n with { IsRead = true }).ToList();
+            return Task.CompletedTask;
+        });
+    }
+
+    /// <summary>
+    /// Marshals a state mutation onto the renderer's dispatcher and re-renders,
+    /// swallowing the disposed-circuit race that can occur between unsubscribe and dispose.
+    /// </summary>
+    private async Task InvokeSafe(Func<Task> mutate)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        try
+        {
+            await InvokeAsync(async () =>
+            {
+                await mutate();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // Circuit was torn down mid-update; safe to ignore.
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_subscribed)
+        {
+            EventBus.NotificationReceived -= OnNotificationReceived;
+            EventBus.NotificationCountChanged -= OnNotificationCountChanged;
+            EventBus.NotificationMarkedRead -= OnNotificationMarkedRead;
+            EventBus.AllNotificationsRead -= OnAllNotificationsRead;
+            _subscribed = false;
+        }
+    }
+
+    // ── Icon mapping (ported from notification-bell.js) ───────────────────────
+
+    private static string IconClass(UserNotificationDto n)
+    {
+        // PerformanceAlert uses severity-based colouring; everything else maps by type.
+        if (n.Type == NotificationType.PerformanceAlert && n.Severity is { } severity)
+        {
+            return severity switch
+            {
+                AlertSeverity.Info => "notification-icon-info",
+                AlertSeverity.Warning => "notification-icon-warning",
+                AlertSeverity.Critical => "notification-icon-critical",
+                _ => "notification-icon-warning"
+            };
+        }
+
+        return n.Type switch
+        {
+            NotificationType.PerformanceAlert => "notification-icon-critical",
+            NotificationType.BotStatus => "notification-icon-success",
+            NotificationType.GuildEvent => "notification-icon-guild",
+            NotificationType.CommandError => "notification-icon-command",
+            _ => "notification-icon-info"
+        };
+    }
+
+    private static MarkupString IconSvg(NotificationType type) => (MarkupString)(type switch
+    {
+        NotificationType.BotStatus => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z\" />",
+        NotificationType.GuildEvent => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z\" />",
+        NotificationType.CommandError => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4\" />",
+        _ => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z\" />"
+    });
+}

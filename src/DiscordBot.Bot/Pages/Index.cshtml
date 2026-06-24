@@ -13,9 +13,11 @@
     </div>
 </div>
 
-<!-- Bot Status Banner -->
+<!-- Bot Status Banner (Blazor island — replaces bot-status-refresh.js polling; Slice 2) -->
 <div class="mb-8">
-    <partial name="Shared/Components/_BotStatusBanner" model="Model.BotStatusBanner" />
+    <component type="typeof(DiscordBot.Bot.Blazor.Pages.BotStatusCardIsland)"
+               render-mode="ServerPrerendered"
+               param-Initial="Model.BotStatusBanner" />
 </div>
 
 <!-- Hero Metrics Grid (4 columns) -->
