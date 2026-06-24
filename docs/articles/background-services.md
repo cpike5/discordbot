@@ -509,23 +509,27 @@ Services for collecting system metrics, tracking alerts, and broadcasting perfor
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | 60 seconds |
-| **Metrics Collected** | CPU, memory, DB time, API latency |
+| **Type** | Monitored Background Service |
+| **Interval** | `SampleIntervalSeconds` (default: 60) |
+| **Metrics Collected** | System health metrics persisted to the database |
 
-**Configuration:**
+**Configuration:** Section `HistoricalMetrics`, bound to `HistoricalMetricsOptions`.
 ```json
 {
-  "PerformanceMetrics": {
-    "CollectionIntervalSeconds": 60,
-    "EnableDetailedMetrics": true
+  "HistoricalMetrics": {
+    "SampleIntervalSeconds": 60,
+    "RetentionDays": 30,
+    "Enabled": true,
+    "CleanupIntervalHours": 6,
+    "InitialDelaySeconds": 10,
+    "ErrorRetryDelaySeconds": 30
   }
 }
 ```
 
 ### MetricsUpdateService
 
-**Purpose:** Pushes collected metrics to the dashboard via SignalR.
+**Purpose:** Periodically refreshes observable gauge metrics (e.g. active guild count, estimated unique users).
 
 **Extension:** `PerformanceMetricsServiceExtensions.cs`
 
@@ -533,15 +537,14 @@ Services for collecting system metrics, tracking alerts, and broadcasting perfor
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | 5 seconds |
-| **Target** | Dashboard subscribers |
+| **Type** | Monitored Background Service |
+| **Interval** | `MetricsUpdateIntervalSeconds` (default: 30) |
 
-**Configuration:**
+**Configuration:** Section `BackgroundServices`, bound to `BackgroundServicesOptions`.
 ```json
 {
-  "PerformanceMetrics": {
-    "UpdateIntervalSeconds": 5
+  "BackgroundServices": {
+    "MetricsUpdateIntervalSeconds": 30
   }
 }
 ```
@@ -556,15 +559,16 @@ Services for collecting system metrics, tracking alerts, and broadcasting perfor
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: 5 minutes) |
-| **Metrics** | Commands, guilds, users, activity rates |
+| **Type** | Monitored Background Service |
+| **Interval** | `BusinessMetricsUpdateIntervalMinutes` (default: 5) |
+| **Metrics** | Business and SLO metrics |
 
-**Configuration:**
+**Configuration:** Section `BackgroundServices`, bound to `BackgroundServicesOptions`.
 ```json
 {
-  "PerformanceMetrics": {
-    "BusinessMetricsIntervalSeconds": 300
+  "BackgroundServices": {
+    "BusinessMetricsUpdateIntervalMinutes": 5,
+    "BusinessMetricsInitialDelaySeconds": 30
   }
 }
 ```
@@ -579,16 +583,18 @@ Services for collecting system metrics, tracking alerts, and broadcasting perfor
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | 5 seconds |
+| **Type** | Monitored Background Service |
+| **Interval** | Per-stream timers (health/command/system) |
 | **Hub** | DashboardHub |
 
-**Configuration:**
+**Configuration:** Section `PerformanceBroadcast`, bound to `PerformanceBroadcastOptions`.
 ```json
 {
   "PerformanceBroadcast": {
-    "Enabled": true,
-    "IntervalSeconds": 5
+    "HealthMetricsIntervalSeconds": 5,
+    "CommandMetricsIntervalSeconds": 30,
+    "SystemMetricsIntervalSeconds": 10,
+    "Enabled": true
   }
 }
 ```
@@ -603,12 +609,12 @@ Summary of all data retention services and their cleanup schedules.
 
 | Service | Target Data | Default Retention | Interval | Configuration Section |
 |---------|-------------|-------------------|----------|----------------------|
-| `MessageLogCleanupService` | Message logs | 30 days | 60 minutes | `MessageLogRetention` |
-| `AuditLogRetentionService` | Audit logs | 90 days | 1440 minutes (daily) | `AuditLogRetention` |
-| `NotificationRetentionService` | User notifications | 30 days (dismissed) | 1440 minutes | `NotificationRetention` |
-| `SoundPlayLogRetentionService` | Sound play logs | 30 days | 1440 minutes | `SoundPlayLogRetention` |
-| `AnalyticsRetentionService` | Analytics snapshots | Varies by granularity | 1440 minutes | `AnalyticsRetention` |
-| `VerificationCleanupService` | Verification codes | 24 hours | 60 minutes | `Verification` |
+| `MessageLogCleanupService` | Message logs | 90 days | 24 hours | `MessageLogRetention` |
+| `AuditLogRetentionService` | Audit logs | 90 days | 24 hours | `AuditLogRetention` |
+| `NotificationRetentionService` | User notifications | 7 days (dismissed) | 24 hours | `NotificationRetention` |
+| `SoundPlayLogRetentionService` | Sound play logs | 90 days | 24 hours | `SoundPlayLogRetention` |
+| `AnalyticsRetentionService` | Analytics snapshots | 14 days hourly / 365 days daily | 24 hours | `AnalyticsRetention` |
+| `VerificationCleanupService` | Verification codes | Code-expiry based | 5 minutes | `BackgroundServices` |
 
 ### NotificationRetentionService
 
@@ -620,17 +626,19 @@ Summary of all data retention services and their cleanup schedules.
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: daily) |
+| **Type** | Monitored Background Service |
+| **Interval** | `CleanupIntervalHours` (default: 24) |
 
-**Configuration:**
+**Configuration:** Section `NotificationRetention`, bound to `NotificationRetentionOptions`.
 ```json
 {
   "NotificationRetention": {
-    "DismissedRetentionDays": 30,
-    "ReadRetentionDays": 90,
-    "UnreadRetentionDays": 365,
-    "CleanupIntervalMinutes": 1440
+    "DismissedRetentionDays": 7,
+    "ReadRetentionDays": 30,
+    "UnreadRetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
+    "Enabled": true
   }
 }
 ```
