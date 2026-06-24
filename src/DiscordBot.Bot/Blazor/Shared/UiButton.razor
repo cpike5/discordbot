@@ -1,0 +1,111 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_Button.cshtml.
+    Same Tailwind classes / variants so it is visually identical to the partial,
+    but with a server-side @onclick EventCallback instead of a JS handler string.
+*@
+
+<button type="@Type"
+        class="@CssClass"
+        disabled="@(Disabled || Loading)"
+        aria-busy="@(Loading ? "true" : null)"
+        aria-label="@EffectiveAriaLabel"
+        @onclick="HandleClickAsync"
+        @attributes="SplatAttributes">
+    @if (Loading)
+    {
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span class="sr-only">Loading</span>
+    }
+    else if (!string.IsNullOrEmpty(IconLeft))
+    {
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="@IconLeft" />
+        </svg>
+    }
+
+    @if (!IconOnly)
+    {
+        <span>@(Loading && !string.IsNullOrEmpty(LoadingText) ? LoadingText : Text)</span>
+    }
+
+    @ChildContent
+</button>
+
+@code {
+    [Parameter] public string Text { get; set; } = string.Empty;
+    [Parameter] public ButtonVariant Variant { get; set; } = ButtonVariant.Primary;
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Medium;
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string? IconLeft { get; set; }
+    [Parameter] public bool Disabled { get; set; }
+    [Parameter] public bool Loading { get; set; }
+    [Parameter] public string? LoadingText { get; set; }
+    [Parameter] public bool IconOnly { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public EventCallback OnClick { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Any extra HTML attributes (including <c>class</c>) are merged onto the button.</summary>
+    [Parameter(CaptureUnmatchedValues = true)]
+    public IReadOnlyDictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? EffectiveAriaLabel => AriaLabel ?? (IconOnly ? Text : null);
+
+    private string? ExtraClass =>
+        AdditionalAttributes is not null && AdditionalAttributes.TryGetValue("class", out var c)
+            ? c?.ToString()
+            : null;
+
+    // Splat everything except class (class is folded into CssClass to avoid a duplicate attribute).
+    private IReadOnlyDictionary<string, object>? SplatAttributes =>
+        AdditionalAttributes is null
+            ? null
+            : AdditionalAttributes.Where(a => a.Key != "class").ToDictionary(a => a.Key, a => a.Value);
+
+    private string CssClass
+    {
+        get
+        {
+            var sizeClasses = Size switch
+            {
+                ButtonSize.Small => "px-3 py-1.5 text-xs",
+                ButtonSize.Large => "px-6 py-3 text-base",
+                _ => "px-5 py-2.5 text-sm"
+            };
+
+            var variantClasses = Variant switch
+            {
+                ButtonVariant.Secondary => "text-text-primary bg-transparent border border-border-primary hover:bg-bg-hover",
+                ButtonVariant.Accent => "text-white bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active",
+                ButtonVariant.Danger => "text-white bg-error hover:bg-error/80",
+                ButtonVariant.Ghost => "text-text-secondary hover:text-text-primary hover:bg-bg-hover",
+                _ => "text-white bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active"
+            };
+
+            var baseClasses = IconOnly
+                ? "p-2.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors"
+                : $"inline-flex items-center justify-center gap-2 {sizeClasses} font-semibold {variantClasses} rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-blue disabled:opacity-50 disabled:cursor-not-allowed";
+
+            return string.IsNullOrEmpty(ExtraClass) ? baseClasses : $"{baseClasses} {ExtraClass}";
+        }
+    }
+
+    private async Task HandleClickAsync()
+    {
+        if (Disabled || Loading)
+        {
+            return;
+        }
+
+        if (OnClick.HasDelegate)
+        {
+            await OnClick.InvokeAsync();
+        }
+    }
+}

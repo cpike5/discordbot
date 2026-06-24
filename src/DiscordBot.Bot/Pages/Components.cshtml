@@ -12,6 +12,10 @@
 @section Scripts {
     <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
+    <!-- Blazor interop shim (must load after toast.js/theme.js, which the layout renders first) -->
+    <script src="~/js/blazor-interop.js" asp-append-version="true"></script>
+    <!-- Blazor Server circuit (only loaded on pages that host an island) -->
+    <script src="~/_framework/blazor.server.js"></script>
 }
 
 <div class="space-y-8">
@@ -20,6 +24,17 @@
         <h1 class="text-3xl font-bold text-text-primary mb-2">Component Showcase</h1>
         <p class="text-text-secondary">Visual reference for all UI components with their various states and variants.</p>
     </div>
+
+    <!-- 0. BLAZOR FOUNDATION PROBE (Phase 0 proof-of-concept island) -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Blazor Foundation (Interactive Server island)</h3>
+            <p class="text-sm text-text-secondary mt-1">Proof-of-concept for the islands-first modernization. Remove once trusted.</p>
+        </div>
+        <div class="p-6">
+            <component type="typeof(DiscordBot.Bot.Blazor.Pages.FoundationProbe)" render-mode="ServerPrerendered" />
+        </div>
+    </section>
 
     <!-- 1. BUTTONS -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
