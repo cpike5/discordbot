@@ -90,14 +90,68 @@ Service fully operational
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Periodic (5 minutes) |
-| **Batch Size** | 1000 states per cleanup |
+| **Type** | Monitored Background Service |
+| **Interval** | `BackgroundServices:InteractionStateCleanupIntervalMinutes` (default: 1) |
 
 **Responsibilities:**
 - Monitor interaction state TTL
 - Remove states older than threshold
 - Log cleanup statistics
+
+### MemberSyncService
+
+**Purpose:** Synchronizes Discord guild members into the local database (initial full sync plus periodic reconciliation).
+
+**Extension:** `DiscordServiceExtensions.cs`
+
+**Lifetime:** Hosted Service
+
+| Property | Value |
+|----------|-------|
+| **Type** | Monitored Background Service |
+| **Initial Delay** | `MemberSyncInitialDelayMinutes` (default: 2) |
+| **Reconciliation Interval** | `MemberSyncReconciliationIntervalHours` (default: 24) |
+| **Enabled** | `MemberSyncEnabled` (default: true) |
+
+**Configuration:** Section `BackgroundServices`, bound to `BackgroundServicesOptions`.
+```json
+{
+  "BackgroundServices": {
+    "MemberSyncEnabled": true,
+    "MemberSyncInitialDelayMinutes": 2,
+    "MemberSyncReconciliationIntervalHours": 24,
+    "MemberSyncBatchSize": 500,
+    "MemberSyncApiDelayMs": 1100,
+    "MemberSyncMaxRetries": 3
+  }
+}
+```
+
+### DiscordTokenRefreshService
+
+**Purpose:** Proactively refreshes portal users' Discord OAuth tokens before they expire.
+
+**Extension:** `IdentityServiceExtensions.cs`
+
+**Lifetime:** Hosted Service
+
+| Property | Value |
+|----------|-------|
+| **Type** | Monitored Background Service |
+| **Interval** | `TokenRefreshIntervalMinutes` (default: 30) |
+| **Expiry Threshold** | `TokenExpirationThresholdHours` (default: 1) |
+
+**Configuration:** Section `BackgroundServices`, bound to `BackgroundServicesOptions`.
+```json
+{
+  "BackgroundServices": {
+    "TokenRefreshIntervalMinutes": 30,
+    "TokenExpirationThresholdHours": 1,
+    "TokenRefreshDelaySeconds": 1,
+    "TokenRefreshInitialDelayMinutes": 1
+  }
+}
+```
 
 ---
 
@@ -338,16 +392,17 @@ Services for audio cache maintenance, sound file cleanup, and voice channel mana
 | Property | Value |
 |----------|-------|
 | **Type** | Background Service |
-| **Interval** | Configurable (default: 15 minutes) |
+| **Interval** | `CleanupIntervalMinutes` (default: 60) |
 | **Dependency** | `ISoundCacheService` |
 
-**Configuration:**
+**Configuration:** Section `AudioCache`, bound to `AudioCacheOptions`.
 ```json
 {
   "AudioCache": {
-    "MaxCacheSizeMb": 500,
-    "CacheExpirationMinutes": 60,
-    "CleanupIntervalMinutes": 15
+    "CachePath": "./cache/audio",
+    "MaxCacheSizeBytes": 524288000,
+    "MaxCacheDurationSeconds": 60,
+    "CleanupIntervalMinutes": 60
   }
 }
 ```
@@ -376,6 +431,21 @@ Services for audio cache maintenance, sound file cleanup, and voice channel mana
 }
 ```
 
+### VoxClipLibraryInitializer
+
+**Purpose:** Loads and indexes the VOX (Half-Life announcer) clip library after application startup without blocking the startup path.
+
+**Extension:** `VoiceServiceExtensions.cs`
+
+**Lifetime:** Hosted Service
+
+| Property | Value |
+|----------|-------|
+| **Type** | Background Service (runs once at startup) |
+| **Interval** | One-shot initialization |
+
+This service does not poll; it performs a single initialization pass and then completes.
+
 ---
 
 ## Analytics & Aggregation
@@ -392,8 +462,8 @@ Services for aggregating user activity, channel activity, and guild metrics into
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: hourly) |
+| **Type** | Monitored Background Service |
+| **Interval** | `BackgroundServices:HourlyAggregationIntervalMinutes` (default: 60) |
 | **Granularity** | Hourly, daily, weekly, monthly |
 
 **Snapshot Lifecycle:**
@@ -421,8 +491,8 @@ Old snapshots deleted per retention policy
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: hourly) |
+| **Type** | Monitored Background Service |
+| **Interval** | `BackgroundServices:HourlyAggregationIntervalMinutes` (default: 60) |
 | **Granularity** | Hourly, daily, weekly, monthly |
 
 ### GuildMetricsAggregationService
@@ -435,8 +505,8 @@ Old snapshots deleted per retention policy
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: daily) |
+| **Type** | Monitored Background Service |
+| **Interval** | `BackgroundServices:DailyAggregationIntervalMinutes` (default: 1440) |
 | **Scope** | Per-guild aggregation |
 
 ### AnalyticsRetentionService
@@ -449,18 +519,18 @@ Old snapshots deleted per retention policy
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: daily) |
+| **Type** | Monitored Background Service |
+| **Interval** | `CleanupIntervalHours` (default: 24) |
 
-**Configuration:**
+**Configuration:** Section `AnalyticsRetention`, bound to `AnalyticsRetentionOptions`.
 ```json
 {
   "AnalyticsRetention": {
-    "HourlyRetentionDays": 7,
-    "DailyRetentionDays": 30,
-    "WeeklyRetentionDays": 90,
-    "MonthlyRetentionDays": 365,
-    "AggregationIntervalMinutes": 60
+    "HourlyRetentionDays": 14,
+    "DailyRetentionDays": 365,
+    "Enabled": true,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24
   }
 }
 ```
@@ -599,6 +669,66 @@ Services for collecting system metrics, tracking alerts, and broadcasting perfor
 }
 ```
 
+### CpuSamplingService
+
+**Purpose:** Samples process CPU usage at a fixed interval (via processor-time deltas) and records it to the metrics history.
+
+**Extension:** `PerformanceMetricsServiceExtensions.cs`
+
+**Lifetime:** Hosted Service
+
+| Property | Value |
+|----------|-------|
+| **Type** | Monitored Background Service |
+| **Interval** | `CpuSampleIntervalSeconds` (default: 5) |
+
+**Configuration:** Section `PerformanceMetrics`, bound to `PerformanceMetricsOptions`.
+```json
+{
+  "PerformanceMetrics": {
+    "CpuSampleIntervalSeconds": 5,
+    "CpuRetentionHours": 24
+  }
+}
+```
+
+### CommandPerformanceAggregator
+
+**Purpose:** Periodically aggregates command performance metrics from the command log and caches the results for dashboard queries.
+
+**Extension:** `PerformanceMetricsServiceExtensions.cs`
+
+**Lifetime:** Hosted Service
+
+| Property | Value |
+|----------|-------|
+| **Type** | Monitored Background Service |
+| **Cache TTL** | `CommandAggregationCacheTtlMinutes` (default: 5) |
+
+**Configuration:** Section `PerformanceMetrics`, bound to `PerformanceMetricsOptions`.
+```json
+{
+  "PerformanceMetrics": {
+    "CommandAggregationCacheTtlMinutes": 5
+  }
+}
+```
+
+### ElasticApmFilterRegistrationService
+
+**Purpose:** Registers the priority-based transaction sampling filter with the Elastic APM agent after startup.
+
+**Extension:** `ElasticApmExtensions.cs`
+
+**Lifetime:** Hosted Service
+
+| Property | Value |
+|----------|-------|
+| **Type** | Background Service (runs once at startup) |
+| **Interval** | One-shot registration |
+
+This service performs a single registration pass once the APM agent is available; it does not poll. Sampling rates are configured via the `Sampling` section (`SamplingOptions`).
+
 ---
 
 ## Retention & Cleanup
@@ -653,16 +783,15 @@ Summary of all data retention services and their cleanup schedules.
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: hourly) |
-| **Code TTL** | 24 hours |
+| **Type** | Monitored Background Service |
+| **Interval** | `VerificationCleanupIntervalMinutes` (default: 5) |
+| **Code TTL** | Determined by each verification code's expiry timestamp |
 
-**Configuration:**
+**Configuration:** Section `BackgroundServices`, bound to `BackgroundServicesOptions`.
 ```json
 {
-  "Verification": {
-    "CodeExpirationMinutes": 1440,
-    "CleanupIntervalMinutes": 60
+  "BackgroundServices": {
+    "VerificationCleanupIntervalMinutes": 5
   }
 }
 ```
@@ -773,27 +902,33 @@ if (!health.IsHealthy)
 | Service | Config Section | Key Settings | Extension |
 |---------|----------------|--------------|-----------|
 | `BotHostedService` | `Discord` | `Token`, `TestGuildId`, `ClientId` | DiscordServiceExtensions |
-| `InteractionStateCleanupService` | Built-in | (hardcoded 5 min) | DiscordServiceExtensions |
-| `MessageLogCleanupService` | `MessageLogRetention` | `RetentionDays`, `CleanupIntervalMinutes` | LoggingServiceExtensions |
+| `InteractionStateCleanupService` | `BackgroundServices` | `InteractionStateCleanupIntervalMinutes` | DiscordServiceExtensions |
+| `MemberSyncService` | `BackgroundServices` | `MemberSyncEnabled`, `MemberSyncReconciliationIntervalHours` | DiscordServiceExtensions |
+| `DiscordTokenRefreshService` | `BackgroundServices` | `TokenRefreshIntervalMinutes`, `TokenExpirationThresholdHours` | IdentityServiceExtensions |
+| `MessageLogCleanupService` | `MessageLogRetention` | `RetentionDays`, `CleanupIntervalHours`, `CleanupBatchSize` | LoggingServiceExtensions |
 | `AuditLogQueueProcessor` | Built-in | (async queue) | LoggingServiceExtensions |
-| `AuditLogRetentionService` | `AuditLogRetention` | `RetentionDays`, `CleanupIntervalMinutes` | LoggingServiceExtensions |
-| `NotificationRetentionService` | `NotificationRetention` | `*RetentionDays`, `CleanupIntervalMinutes` | NotificationServiceExtensions |
-| `ReminderExecutionService` | `Reminders` | `ExecutionIntervalSeconds` | ScheduledServicesExtensions |
-| `ScheduledMessageExecutionService` | `ScheduledMessages` | `ExecutionIntervalSeconds` | ScheduledServicesExtensions |
-| `RatWatchExecutionService` | `RatWatch` | `ExecutionIntervalSeconds`, `VotingPeriodMinutes` | RatWatchServiceExtensions |
-| `SoundPlayLogRetentionService` | `SoundPlayLogRetention` | `RetentionDays`, `CleanupIntervalMinutes` | VoiceServiceExtensions |
-| `AudioCacheCleanupService` | `AudioCache` | `CacheExpirationMinutes`, `CleanupIntervalMinutes` | VoiceServiceExtensions |
-| `VoiceAutoLeaveService` | `VoiceChannel` | `AutoLeaveDelaySeconds`, `CheckIntervalSeconds` | VoiceServiceExtensions |
-| `MemberActivityAggregationService` | `AnalyticsRetention` | `AggregationIntervalMinutes` | AnalyticsServiceExtensions |
-| `ChannelActivityAggregationService` | `AnalyticsRetention` | `AggregationIntervalMinutes` | AnalyticsServiceExtensions |
-| `GuildMetricsAggregationService` | `AnalyticsRetention` | `AggregationIntervalMinutes` | AnalyticsServiceExtensions |
-| `AnalyticsRetentionService` | `AnalyticsRetention` | `*RetentionDays`, `AggregationIntervalMinutes` | AnalyticsServiceExtensions |
-| `AlertMonitoringService` | `PerformanceAlerts` | `CheckIntervalSeconds`, `AlertCooldownMinutes` | PerformanceMetricsServiceExtensions |
-| `MetricsCollectionService` | `PerformanceMetrics` | `CollectionIntervalSeconds` | PerformanceMetricsServiceExtensions |
-| `MetricsUpdateService` | `PerformanceMetrics` | `UpdateIntervalSeconds` | PerformanceMetricsServiceExtensions |
-| `BusinessMetricsUpdateService` | `PerformanceMetrics` | `BusinessMetricsIntervalSeconds` | PerformanceMetricsServiceExtensions |
-| `PerformanceMetricsBroadcastService` | `PerformanceBroadcast` | `IntervalSeconds`, `Enabled` | PerformanceMetricsServiceExtensions |
-| `VerificationCleanupService` | `Verification` | `CodeExpirationMinutes`, `CleanupIntervalMinutes` | VerificationServiceExtensions |
+| `AuditLogRetentionService` | `AuditLogRetention` | `RetentionDays`, `CleanupIntervalHours`, `CleanupBatchSize` | LoggingServiceExtensions |
+| `NotificationRetentionService` | `NotificationRetention` | `*RetentionDays`, `CleanupIntervalHours` | NotificationServiceExtensions |
+| `ReminderExecutionService` | `Reminder` | `CheckIntervalSeconds`, `MaxConcurrentDeliveries` | ScheduledServicesExtensions |
+| `ScheduledMessageExecutionService` | `ScheduledMessages` | `CheckIntervalSeconds`, `MaxConcurrentExecutions` | ScheduledServicesExtensions |
+| `RatWatchExecutionService` | `RatWatch` | `CheckIntervalSeconds`, `DefaultVotingDurationMinutes` | RatWatchServiceExtensions |
+| `SoundPlayLogRetentionService` | `SoundPlayLogRetention` | `RetentionDays`, `CleanupIntervalHours`, `CleanupBatchSize` | VoiceServiceExtensions |
+| `AudioCacheCleanupService` | `AudioCache` | `MaxCacheDurationSeconds`, `CleanupIntervalMinutes` | VoiceServiceExtensions |
+| `VoiceAutoLeaveService` | `VoiceChannel` | `AutoLeaveTimeoutSeconds`, `CheckIntervalSeconds` | VoiceServiceExtensions |
+| `VoxClipLibraryInitializer` | (one-shot) | n/a | VoiceServiceExtensions |
+| `MemberActivityAggregationService` | `BackgroundServices` | `HourlyAggregationIntervalMinutes` | AnalyticsServiceExtensions |
+| `ChannelActivityAggregationService` | `BackgroundServices` | `HourlyAggregationIntervalMinutes` | AnalyticsServiceExtensions |
+| `GuildMetricsAggregationService` | `BackgroundServices` | `DailyAggregationIntervalMinutes` | AnalyticsServiceExtensions |
+| `AnalyticsRetentionService` | `AnalyticsRetention` | `HourlyRetentionDays`, `DailyRetentionDays`, `CleanupIntervalHours` | AnalyticsServiceExtensions |
+| `AlertMonitoringService` | `PerformanceAlerts` | `CheckIntervalSeconds`, `ConsecutiveBreachesRequired` | PerformanceMetricsServiceExtensions |
+| `MetricsCollectionService` | `HistoricalMetrics` | `SampleIntervalSeconds`, `RetentionDays`, `CleanupIntervalHours` | PerformanceMetricsServiceExtensions |
+| `MetricsUpdateService` | `BackgroundServices` | `MetricsUpdateIntervalSeconds` | PerformanceMetricsServiceExtensions |
+| `BusinessMetricsUpdateService` | `BackgroundServices` | `BusinessMetricsUpdateIntervalMinutes` | PerformanceMetricsServiceExtensions |
+| `PerformanceMetricsBroadcastService` | `PerformanceBroadcast` | `HealthMetricsIntervalSeconds`, `Enabled` | PerformanceMetricsServiceExtensions |
+| `CpuSamplingService` | `PerformanceMetrics` | `CpuSampleIntervalSeconds` | PerformanceMetricsServiceExtensions |
+| `CommandPerformanceAggregator` | `PerformanceMetrics` | `CommandAggregationCacheTtlMinutes` | PerformanceMetricsServiceExtensions |
+| `ElasticApmFilterRegistrationService` | `Sampling` | (one-shot registration) | ElasticApmExtensions |
+| `VerificationCleanupService` | `BackgroundServices` | `VerificationCleanupIntervalMinutes` | VerificationServiceExtensions |
 
 ### Complete Configuration Example
 
@@ -804,71 +939,98 @@ if (!health.IsHealthy)
     "TestGuildId": 123456789,
     "ClientId": "YOUR_CLIENT_ID"
   },
+  "BackgroundServices": {
+    "TokenRefreshIntervalMinutes": 30,
+    "TokenExpirationThresholdHours": 1,
+    "VerificationCleanupIntervalMinutes": 5,
+    "InteractionStateCleanupIntervalMinutes": 1,
+    "MetricsUpdateIntervalSeconds": 30,
+    "BusinessMetricsUpdateIntervalMinutes": 5,
+    "MemberSyncEnabled": true,
+    "MemberSyncReconciliationIntervalHours": 24,
+    "HourlyAggregationIntervalMinutes": 60,
+    "DailyAggregationIntervalMinutes": 1440
+  },
   "MessageLogRetention": {
-    "RetentionDays": 30,
-    "CleanupIntervalMinutes": 60,
-    "BatchSize": 1000,
+    "RetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
     "Enabled": true
   },
   "AuditLogRetention": {
     "RetentionDays": 90,
-    "CleanupIntervalMinutes": 1440,
-    "BatchSize": 1000,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
     "Enabled": true
   },
   "NotificationRetention": {
-    "DismissedRetentionDays": 30,
-    "ReadRetentionDays": 90,
-    "UnreadRetentionDays": 365,
-    "CleanupIntervalMinutes": 1440
+    "DismissedRetentionDays": 7,
+    "ReadRetentionDays": 30,
+    "UnreadRetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
+    "Enabled": true
+  },
+  "SoundPlayLogRetention": {
+    "RetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
+    "Enabled": true
   },
   "AudioCache": {
-    "MaxCacheSizeMb": 500,
-    "CacheExpirationMinutes": 60,
-    "CleanupIntervalMinutes": 15
+    "CachePath": "./cache/audio",
+    "MaxCacheSizeBytes": 524288000,
+    "MaxCacheDurationSeconds": 60,
+    "CleanupIntervalMinutes": 60
   },
   "VoiceChannel": {
-    "AutoLeaveEnabled": true,
-    "AutoLeaveDelaySeconds": 300,
-    "CheckIntervalSeconds": 60
+    "AutoLeaveTimeoutSeconds": 300,
+    "CheckIntervalSeconds": 30
   },
   "AnalyticsRetention": {
-    "HourlyRetentionDays": 7,
-    "DailyRetentionDays": 30,
-    "WeeklyRetentionDays": 90,
-    "MonthlyRetentionDays": 365,
-    "AggregationIntervalMinutes": 60
+    "HourlyRetentionDays": 14,
+    "DailyRetentionDays": 365,
+    "Enabled": true,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24
   },
   "PerformanceAlerts": {
-    "Enabled": true,
     "CheckIntervalSeconds": 30,
-    "AlertCooldownMinutes": 5
+    "ConsecutiveBreachesRequired": 2,
+    "ConsecutiveNormalRequired": 3,
+    "IncidentRetentionDays": 90
+  },
+  "HistoricalMetrics": {
+    "SampleIntervalSeconds": 60,
+    "RetentionDays": 30,
+    "Enabled": true,
+    "CleanupIntervalHours": 6
   },
   "PerformanceMetrics": {
-    "CollectionIntervalSeconds": 60,
-    "UpdateIntervalSeconds": 5,
-    "BusinessMetricsIntervalSeconds": 300,
-    "EnableDetailedMetrics": true
+    "CpuSampleIntervalSeconds": 5,
+    "CpuRetentionHours": 24,
+    "CommandAggregationCacheTtlMinutes": 5
   },
   "PerformanceBroadcast": {
-    "Enabled": true,
-    "IntervalSeconds": 5
+    "HealthMetricsIntervalSeconds": 5,
+    "CommandMetricsIntervalSeconds": 30,
+    "SystemMetricsIntervalSeconds": 10,
+    "Enabled": true
   },
-  "Reminders": {
-    "ExecutionIntervalSeconds": 30,
-    "MaxRemindersPerBatch": 100
+  "Reminder": {
+    "CheckIntervalSeconds": 30,
+    "MaxConcurrentDeliveries": 5,
+    "MaxDeliveryAttempts": 3
   },
   "ScheduledMessages": {
-    "ExecutionIntervalSeconds": 60,
-    "MaxMessagesPerBatch": 50
+    "CheckIntervalSeconds": 60,
+    "MaxConcurrentExecutions": 5,
+    "ExecutionTimeoutSeconds": 30
   },
   "RatWatch": {
-    "ExecutionIntervalSeconds": 300,
-    "VotingPeriodMinutes": 60
-  },
-  "Verification": {
-    "CodeExpirationMinutes": 1440,
-    "CleanupIntervalMinutes": 60
+    "CheckIntervalSeconds": 30,
+    "DefaultVotingDurationMinutes": 5,
+    "DefaultMaxAdvanceHours": 24
   }
 }
 ```
@@ -883,11 +1045,11 @@ if (!health.IsHealthy)
 |-------|-------|----------|
 | Service not starting | Configuration missing | Verify config section exists in appsettings.json |
 | Service stops unexpectedly | Unhandled exception | Check logs for exception details, add try-catch |
-| High memory usage | Large batch sizes | Reduce `BatchSize` in retention config |
-| Slow retention cleanup | Large datasets + small batch | Increase `BatchSize` (test first) |
+| High memory usage | Large batch sizes | Reduce `CleanupBatchSize` in retention config |
+| Slow retention cleanup | Large datasets + small batch | Increase `CleanupBatchSize` (test first) |
 | Alerts not firing | Service unhealthy | Check `IBackgroundServiceHealthRegistry` on dashboard |
-| Reminders not delivered | Execution interval too long | Reduce `ExecutionIntervalSeconds` |
-| Scheduled messages missed | Interval too long | Reduce `ExecutionIntervalSeconds` |
+| Reminders not delivered | Check interval too long | Reduce `Reminder:CheckIntervalSeconds` |
+| Scheduled messages missed | Check interval too long | Reduce `ScheduledMessages:CheckIntervalSeconds` |
 | Analytics not aggregating | Service not running | Check health dashboard, verify configuration |
 
 ### Checking Service Health
@@ -935,14 +1097,14 @@ public class DiagnosticsController : ControllerBase
 
 **Error:** Service never executes
 ```
-→ Check: Is CleanupIntervalMinutes set to 0?
-→ Fix: Set to reasonable value (e.g., 60)
+→ Check: Is CleanupIntervalHours (or the relevant interval key) set to 0?
+→ Fix: Set to a reasonable value (e.g., 24)
 ```
 
 **Error:** Rapid service failures
 ```
-→ Check: Is BatchSize too large?
-→ Fix: Reduce BatchSize and spread load
+→ Check: Is CleanupBatchSize too large?
+→ Fix: Reduce CleanupBatchSize and spread load
 ```
 
 **Error:** High CPU usage
@@ -964,7 +1126,7 @@ public class DiagnosticsController : ControllerBase
 ### Service Implementation
 
 **DO:**
-- Use `BackgroundService` base class
+- Use the `MonitoredBackgroundService` base class (wires up health-registry reporting automatically)
 - Implement proper exception handling
 - Report health status
 - Use cancellation tokens
