@@ -10,7 +10,17 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 **API Version:** 1.0
 
-**Authentication:** None (MVP - authentication to be added in future releases)
+**Authentication:** Required. Nearly every controller enforces an `[Authorize(Policy = …)]` requirement. Authentication uses the application's cookie-based session (Discord OAuth login). The policies used across the API are:
+
+| Policy | Minimum Access |
+|--------|----------------|
+| `RequireViewer` | SuperAdmin, Admin, Moderator, or Viewer role |
+| `RequireModerator` | SuperAdmin, Admin, or Moderator role |
+| `RequireAdmin` | SuperAdmin or Admin role |
+| `RequireSuperAdmin` | SuperAdmin role only |
+| `PortalGuildMember` | Authenticated portal user who is a member of the target guild |
+
+The authorization policy that applies to each endpoint is noted in its section below. A small number of endpoints are intentionally anonymous (for example `GET /health` and `GET /metrics`); these are called out explicitly. See [Authorization Policies](authorization-policies.md) for the full role hierarchy.
 
 ---
 
@@ -18,8 +28,8 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/health` | GET | Health check with database connectivity |
-| `/metrics` | GET | OpenTelemetry metrics (Prometheus format) |
+| `/health` | GET | Health check with database connectivity (anonymous) |
+| `/metrics` | GET | OpenTelemetry metrics (Prometheus format, anonymous) |
 | `/api/metrics/health` | GET | Overall bot health status |
 | `/api/metrics/health/latency` | GET | Latency history with statistics |
 | `/api/metrics/health/cpu` | GET | CPU usage history with statistics |
@@ -30,6 +40,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/metrics/commands/errors` | GET | Command error breakdown |
 | `/api/metrics/api/usage` | GET | Discord API request statistics |
 | `/api/metrics/api/rate-limits` | GET | Rate limit hit events |
+| `/api/metrics/api/latency` | GET | Discord API latency history |
 | `/api/metrics/system/database` | GET | Database query metrics |
 | `/api/metrics/system/services` | GET | Background service health status |
 | `/api/metrics/system/cache` | GET | Cache hit/miss statistics |
@@ -48,6 +59,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/alerts/stats` | GET | Alert frequency statistics |
 | `/api/bot/status` | GET | Bot status (uptime, latency, guilds) |
 | `/api/bot/guilds` | GET | Connected guilds from Discord |
+| `/api/bot/dashboard-stats` | GET | Aggregated dashboard statistics |
 | `/api/bot/restart` | POST | Restart bot (not supported) |
 | `/api/bot/shutdown` | POST | Graceful shutdown |
 | `/api/guilds` | GET | All guilds (DB + Discord merged) |
@@ -70,8 +82,13 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/commands/list` | GET | Get command list tab (HTML partial) |
 | `/api/commands/logs` | GET | Get execution logs tab with filters (HTML partial) |
 | `/api/commands/analytics` | GET | Get analytics tab with charts (HTML partial) |
+| `/api/commands/log-details/{id}` | GET | Get command log details (HTML partial) |
 | `/api/commandlogs` | GET | Query command logs (filtered, paginated) |
 | `/api/commandlogs/stats` | GET | Command usage statistics |
+| `/api/commandlogs/analytics` | GET | Command analytics summary |
+| `/api/commandlogs/analytics/usage-over-time` | GET | Command usage time series |
+| `/api/commandlogs/analytics/success-rate` | GET | Command success-rate analytics |
+| `/api/commandlogs/analytics/performance` | GET | Command performance analytics |
 | `/api/auditlogs` | GET | Query audit logs (filtered, paginated) |
 | `/api/auditlogs/{id}` | GET | Get specific audit log by ID |
 | `/api/auditlogs/stats` | GET | Audit log statistics |

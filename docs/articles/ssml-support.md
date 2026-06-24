@@ -125,6 +125,8 @@ Azure Neural voices support a variety of speaking styles. Not all voices support
 
 ### Style Compatibility Matrix
 
+The capability registry (`VoiceCapabilityProvider`) ships 34 voices across many locales. The matrix below shows the four most-used `en-US` voices; the full per-voice style list for any voice is available via the [Get Voice Capabilities](#get-voice-capabilities) endpoint.
+
 | Style | Jenny | Aria | Guy | Davis | Description |
 |-------|-------|------|-----|-------|-------------|
 | cheerful | Yes | Yes | Yes | Yes | Happy, upbeat tone |
@@ -141,14 +143,19 @@ Azure Neural voices support a variety of speaking styles. Not all voices support
 | chat | Yes | Yes | No | Yes | Casual conversation |
 | assistant | Yes | No | No | No | AI assistant tone |
 | customerservice | Yes | Yes | No | No | Helpful support |
-| empathetic | Yes | Yes | No | No | Understanding, caring |
+| empathetic | No | Yes | No | No | Understanding, caring |
+
+**Notes:**
+
+- Aria does not support the plain `newscast` style; it instead supports `newscast-casual`, `newscast-formal`, and `narration-professional` (not shown in the matrix above).
+- `empathetic` is supported by Aria but not Jenny.
 
 **Voice Details:**
 
-- **en-US-JennyNeural** - Most compatible voice (15 styles), friendly natural tone, good for general use
-- **en-US-AriaNeural** - Expressive, conversational tone, supports most styles
-- **en-US-GuyNeural** - Clear, professional male voice, wide style support
-- **en-US-DavisNeural** - Warm, authoritative male voice, 11 styles including chat
+- **en-US-JennyNeural** - Most compatible `en-US` voice (14 styles), friendly natural tone, good for general use
+- **en-US-AriaNeural** - Expressive, conversational tone (16 styles), the widest `en-US` style support, including the casual/formal newscast and professional narration styles
+- **en-US-GuyNeural** - Clear, professional male voice (11 styles), `SupportsEmphasis = true`
+- **en-US-DavisNeural** - Warm, authoritative male voice (11 styles, including chat), `SupportsEmphasis = true`
 
 ### Style Intensity
 
@@ -304,12 +311,12 @@ The `preset` parameter provides autocomplete showing featured presets grouped by
 
 ### Portal API Endpoints
 
-All endpoints require authentication. Guild-specific endpoints require `ModeratorAccess` policy.
+All endpoints require authentication. Guild-specific endpoints require the `PortalGuildMember` policy.
 
 #### Get Voice Capabilities
 
 ```
-GET /api/portal-tts/voices/{voiceName}/capabilities
+GET /api/portal/tts/voices/{voiceName}/capabilities
 ```
 
 Retrieve the list of supported styles and roles for a specific voice.
@@ -328,21 +335,20 @@ Retrieve the list of supported styles and roles for a specific voice.
   "locale": "en-US",
   "gender": "Female",
   "supportedStyles": [
+    "angry",
+    "assistant",
+    "chat",
     "cheerful",
+    "customerservice",
     "excited",
     "friendly",
-    "sad",
-    "angry",
     "hopeful",
-    "whispering",
+    "newscast",
+    "sad",
     "shouting",
     "terrified",
     "unfriendly",
-    "newscast",
-    "chat",
-    "assistant",
-    "customerservice",
-    "empathetic"
+    "whispering"
   ]
 }
 ```
@@ -350,7 +356,7 @@ Retrieve the list of supported styles and roles for a specific voice.
 #### Get Presets
 
 ```
-GET /api/portal-tts/presets
+GET /api/portal/tts/presets
 ```
 
 Retrieve all available style presets.
@@ -361,7 +367,7 @@ Retrieve all available style presets.
 {
   "presets": [
     {
-      "id": "cheerful-jenny",
+      "id": "jenny-cheerful",
       "displayName": "Cheerful Jenny",
       "voiceName": "en-US-JennyNeural",
       "style": "cheerful",
@@ -370,13 +376,13 @@ Retrieve all available style presets.
       "description": "Upbeat and enthusiastic female voice"
     },
     {
-      "id": "newscast-guy",
-      "displayName": "Newscast Guy",
+      "id": "guy-newscast",
+      "displayName": "Guy Newscast",
       "voiceName": "en-US-GuyNeural",
       "style": "newscast",
       "styleDegree": 1.0,
       "category": "Professional",
-      "description": "Professional news broadcaster (male)"
+      "description": "Professional male news broadcaster"
     }
   ]
 }
@@ -385,7 +391,7 @@ Retrieve all available style presets.
 #### Validate SSML
 
 ```
-POST /api/portal-tts/validate-ssml
+POST /api/portal/tts/validate-ssml
 Content-Type: application/json
 ```
 
@@ -432,7 +438,7 @@ Validate SSML without synthesizing to audio. Useful for checking syntax before s
 #### Build SSML
 
 ```
-POST /api/portal-tts/build-ssml
+POST /api/portal/tts/build-ssml
 Content-Type: application/json
 ```
 
@@ -609,7 +615,7 @@ Synthesize SSML to audio and play in the guild's voice channel.
 
 **Solutions:**
 
-1. Check available voices by calling GET `/api/portal-tts/voices` API endpoint
+1. Check the voice picker in the TTS portal, which is populated from the curated voice list
 2. Verify your Azure Speech service region includes the voice you want
 3. Confirm Azure Speech is configured in the bot
 4. Contact your server administrator if voices seem to be missing

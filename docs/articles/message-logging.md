@@ -700,7 +700,7 @@ private static MessageLogDto MapToDto(MessageLog entity)
         AuthorId = entity.AuthorId,
         AuthorUsername = entity.User?.Username,
         ChannelId = entity.ChannelId,
-        ChannelName = null, // Not stored in database
+        ChannelName = entity.ChannelName, // Stored on the MessageLogs table
         GuildId = entity.GuildId,
         GuildName = entity.Guild?.Name,
         Source = entity.Source,
@@ -780,7 +780,7 @@ Represents message log data for API responses and UI views.
 | `AuthorId` | `ulong` | Discord user ID of author |
 | `AuthorUsername` | `string?` | Display username (nullable, loaded from navigation property) |
 | `ChannelId` | `ulong` | Discord channel ID |
-| `ChannelName` | `string?` | Channel name (nullable, not stored in database) |
+| `ChannelName` | `string?` | Channel name (nullable; persisted on the `MessageLogs` table, null for DMs and pre-existing records) |
 | `GuildId` | `ulong?` | Discord guild ID (null for DMs) |
 | `GuildName` | `string?` | Guild name (nullable, loaded from navigation property) |
 | `Source` | `MessageSource` | DirectMessage (1) or ServerChannel (2) |

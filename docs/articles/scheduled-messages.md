@@ -87,7 +87,7 @@ Creates a new scheduled message with specified frequency and content.
 /schedule-create title:"Event Reminder" channel:#announcements message:"Weekly event starts in 1 hour!" frequency:Weekly
 
 # Custom schedule (every Monday and Friday at 9 AM)
-/schedule-create title:"Workweek Reminder" channel:#general message:"Good morning!" frequency:Custom cron:"0 9 * * 1,5"
+/schedule-create title:"Workweek Reminder" channel:#general message:"Good morning!" frequency:Custom cron:"0 0 9 * * 1,5"
 ```
 
 **Response:**
@@ -230,17 +230,18 @@ The `ScheduleFrequency` enum defines how often a scheduled message is sent. All 
 #### Custom (Cron)
 - **Use Case**: Complex schedules, specific day/time combinations
 - **Library**: Uses [Cronos](https://github.com/HangfireIO/Cronos) for cron parsing and calculation
-- **Format**: Standard cron expression (minute, hour, day-of-month, month, day-of-week)
+- **Format**: **6-field, seconds-first** cron expression: `second minute hour day-of-month month day-of-week`. The parser is configured with `CronFormat.IncludeSeconds`, so the leading seconds field is **required** — standard 5-field expressions are rejected with `CronFormatException`.
 - **Validation**: Cron expression validated before message creation/update
-- **Examples**:
-  - `0 9 * * 1-5` - Every weekday at 9:00 AM
-  - `0 12 1 * *` - First day of every month at noon
-  - `30 14 * * 0` - Every Sunday at 2:30 PM
-  - `0 */3 * * *` - Every 3 hours
+- **Examples** (note the leading seconds field):
+  - `0 0 9 * * 1-5` - Every weekday at 9:00:00 AM
+  - `0 0 12 1 * *` - First day of every month at noon
+  - `0 30 14 * * 0` - Every Sunday at 2:30 PM
+  - `0 0 */3 * * *` - Every 3 hours (on the hour)
 
 **Cron Expression Resources:**
-- [Crontab.guru](https://crontab.guru/) - Cron expression validator and examples
-- [Cronos Documentation](https://github.com/HangfireIO/Cronos) - Library documentation
+- [Cronos Documentation](https://github.com/HangfireIO/Cronos) - Library documentation, including its 6-field (seconds-enabled) format
+
+> **Note:** Online tools such as crontab.guru assume the standard 5-field cron format and do **not** account for the leading seconds field this parser requires. Prepend a seconds field (commonly `0`) when adapting any 5-field expression.
 
 ---
 
@@ -316,7 +317,7 @@ The scheduled messages feature provides three Razor Pages for web-based manageme
 |--------|-------------|
 | **Title** | Message title with status icon (✅/❌) |
 | **Channel** | Target Discord channel name (e.g., "#general") |
-| **Frequency** | Schedule frequency (e.g., "Daily", "Custom (0 9 * * 1,5)") |
+| **Frequency** | Schedule frequency (e.g., "Daily", "Custom (0 0 9 * * 1,5)") |
 | **Next Execution** | Local timestamp of next scheduled execution |
 | **Status** | Enabled/Disabled badge |
 | **Actions** | Edit, Toggle, Delete buttons |
@@ -851,26 +852,25 @@ Validates a cron expression for correctness using Cronos library.
 
 ## API Endpoints
 
-Currently, there are no dedicated REST API endpoints for scheduled messages. All operations are performed via:
+Scheduled messages are exposed through a REST controller in addition to the Discord slash commands and Admin UI Razor Pages.
 
-- **Discord Slash Commands**: For in-Discord management
-- **Admin UI Razor Pages**: For web-based management
+**Controller:** `DiscordBot.Bot.Controllers.ScheduledMessagesController`
+**Route Prefix:** `/api/guilds/{guildId}/scheduled-messages`
+**Authorization:** `RequireAdmin` policy (applied at the controller level)
 
-**Future Enhancement (Tracked in Epic #303):**
+| Method | Route | Description |
+|--------|-------|-------------|
+| `GET` | `/api/guilds/{guildId}/scheduled-messages` | List scheduled messages for the guild (paginated; `page` default 1, `pageSize` default 20, max 100). Returns `PaginatedResponseDto<ScheduledMessageDto>`. |
+| `GET` | `/api/guilds/{guildId}/scheduled-messages/{id}` | Get a single scheduled message by ID (404 if it does not exist or belongs to another guild). |
+| `POST` | `/api/guilds/{guildId}/scheduled-messages` | Create a scheduled message from a `ScheduledMessageCreateDto` body. Returns `201 Created`. The route `guildId` overrides the body's `GuildId`. |
+| `PUT` | `/api/guilds/{guildId}/scheduled-messages/{id}` | Update an existing scheduled message from a `ScheduledMessageUpdateDto` body (partial update). |
+| `DELETE` | `/api/guilds/{guildId}/scheduled-messages/{id}` | Delete a scheduled message. Returns `204 No Content`. |
+| `POST` | `/api/guilds/{guildId}/scheduled-messages/{id}/execute` | Execute a scheduled message immediately, regardless of its scheduled time. |
+| `POST` | `/api/guilds/{guildId}/scheduled-messages/validate-cron` | Validate a cron expression. Body: `{ "cronExpression": "0 0 9 * * 1-5" }` (6-field, seconds-first). Returns validity and error detail. |
 
-Potential future API endpoints:
+All endpoints verify that the targeted message belongs to the `{guildId}` in the route. Cron validation uses the same 6-field, seconds-first format described under [Custom (Cron)](#custom-cron).
 
-```
-GET    /api/guilds/{guildId}/scheduledmessages       # List scheduled messages
-POST   /api/guilds/{guildId}/scheduledmessages       # Create scheduled message
-GET    /api/scheduledmessages/{id}                   # Get single message
-PUT    /api/scheduledmessages/{id}                   # Update message
-DELETE /api/scheduledmessages/{id}                   # Delete message
-POST   /api/scheduledmessages/{id}/execute           # Execute immediately
-POST   /api/scheduledmessages/{id}/toggle            # Enable/disable
-```
-
-See [api-endpoints.md](api-endpoints.md) for current REST API documentation.
+See [api-endpoints.md](api-endpoints.md) for the full REST API documentation.
 
 ---
 
@@ -1014,7 +1014,7 @@ See [api-endpoints.md](api-endpoints.md) for current REST API documentation.
 
 1. **Use a near-future cron** for immediate testing:
    - Example: Current time is 14:45 UTC
-   - Cron: `50 14 * * *` (executes at 14:50 UTC, 5 minutes from now)
+   - Cron: `0 50 14 * * *` (executes at 14:50:00 UTC, 5 minutes from now)
 
 2. **Verify calculation** in Admin UI:
    - Create message with custom cron
@@ -1107,14 +1107,14 @@ Successfully executed scheduled message {MessageId}: {Title}
 
 **Check:**
 1. Frequency set to Custom
-2. Cron expression valid: Test at [crontab.guru](https://crontab.guru/)
+2. Cron expression uses the **6-field, seconds-first** format (e.g. `0 0 9 * * 1-5`); a 5-field expression is rejected as invalid
 3. UTC time zone: Cron evaluated against UTC, not local time
 4. Next execution calculated: Check `NextExecutionAt` after creation
 
 **Example Debugging:**
 ```
-# Create message with verbose logging
-/schedule-create ... frequency:Custom cron:"0 9 * * 1-5"
+# Create message with verbose logging (6-field, seconds-first)
+/schedule-create ... frequency:Custom cron:"0 0 9 * * 1-5"
 
 # Check logs
 Calculated next execution for Custom: 2024-01-15 09:00:00Z
@@ -1213,10 +1213,9 @@ console.log(document.querySelector('[name="Input.UserTimezone"]').value);  // Sh
 4. **Execution History**: View past executions with timestamps and status
 5. **Retry Logic**: Automatic retry on transient failures
 6. **Distributed Lock**: Prevent duplicate execution in multi-instance deployments
-7. **REST API Endpoints**: Programmatic access for external integrations
-8. **Webhook Support**: Execute webhooks instead of bot messages
-9. **Rich Embeds**: Visual scheduling with Discord embed builder
-10. **Execution Notifications**: Alert admins on execution failures
+7. **Webhook Support**: Execute webhooks instead of bot messages
+8. **Rich Embeds**: Visual scheduling with Discord embed builder
+9. **Execution Notifications**: Alert admins on execution failures
 
 ### Enhancement Tracking
 

@@ -64,7 +64,7 @@ Reminder ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
 ```
 
 **Response Fields:**
-- **Trigger Time** - Parsed timestamp in user's timezone with relative time
+- **Trigger Time** - Parsed timestamp (parsed in UTC) with relative time
 - **Message** - Echo of the reminder message
 - **Reminder ID** - Unique identifier for cancellation
 
@@ -192,7 +192,7 @@ Message: Meeting with team
 
 ## Time Format Reference
 
-The reminder system supports multiple natural language time formats for user convenience. Times are parsed relative to the guild's configured timezone (defaults to UTC if not set).
+The reminder system supports multiple natural language time formats for user convenience. Times are parsed in **UTC** — the `/remind set` command passes `"UTC"` to the time parser, so absolute times (e.g. `3pm`, `Dec 31 noon`) are interpreted as UTC, not the user's or guild's local time.
 
 ### Supported Formats
 
@@ -205,10 +205,12 @@ The reminder system supports multiple natural language time formats for user con
 | **Combined Duration** | `1h30m`, `2d 4h`, `1w 2d 3h 30m` | Combined time units |
 | **12-Hour Time** | `10pm`, `3:30am`, `12:00pm` | Today or tomorrow at specific time |
 | **24-Hour Time** | `22:00`, `14:30`, `9:00` | Today or tomorrow at specific time |
+| **Time-of-Day Keywords** | `noon`, `midnight`, `morning`, `afternoon`, `evening`, `night` | Fixed time today (or tomorrow if passed): noon=12:00, midnight=00:00 next day, morning=09:00, afternoon=15:00, evening=18:00, night=21:00 |
+| **Today** | `today`, `today 3pm`, `today 14:30` | Today at specific time (no time = end of day, 23:59) |
 | **Tomorrow** | `tomorrow`, `tomorrow 3pm`, `tomorrow 14:30` | Next day at specific time |
-| **Day of Week** | `monday`, `friday 9am`, `next thursday 10:30am` | Next occurrence of weekday |
-| **Date** | `Dec 31`, `Jan 1 9am`, `March 15 22:00` | Specific date at specific time |
-| **Full Date/Time** | `2024-12-31 10:00`, `12/31/2024 3:00 PM` | ISO 8601 or common date formats |
+| **Day of Week** | `monday`, `mon`, `friday 9am`, `next thursday 10:30am` | Next occurrence of weekday (full or abbreviated name) |
+| **Date** | `Dec 31`, `Jan 1 9am`, `March 15 22:00` | Specific date (alphabetic month) at specific time |
+| **Full Date/Time** | `2024-12-31 10:00`, `12/31/2024 3:00 PM` | ISO 8601 or `MM/DD/YYYY` (year and time required) |
 
 ### Format Details
 
@@ -234,7 +236,7 @@ Relative times are calculated from the current UTC time.
 
 #### Absolute Time (12-Hour)
 
-Times specified in 12-hour format are interpreted in the guild's timezone. If the time has already passed today, it is scheduled for tomorrow.
+Times specified in 12-hour format are interpreted in UTC. If the time has already passed today (in UTC), it is scheduled for tomorrow.
 
 **Examples:**
 - `10pm` → 10:00 PM today (or tomorrow if past)
@@ -251,7 +253,7 @@ Times specified in 12-hour format are interpreted in the guild's timezone. If th
 
 #### Absolute Time (24-Hour)
 
-Times specified in 24-hour format are interpreted in the guild's timezone. If the time has already passed today, it is scheduled for tomorrow.
+Times specified in 24-hour format are interpreted in UTC. If the time has already passed today (in UTC), it is scheduled for tomorrow.
 
 **Examples:**
 - `22:00` → 10:00 PM today (or tomorrow if past)
@@ -265,6 +267,23 @@ Times specified in 24-hour format are interpreted in the guild's timezone. If th
 - Minutes must be 0-59
 - Minutes must be zero-padded (e.g., `09:00`, not `9:0`)
 
+#### Time-of-Day Keywords
+
+Single-word keywords map to a fixed time of day (interpreted in UTC). If the resulting time has already passed today, it is scheduled for the next day.
+
+| Keyword | Time |
+|---------|------|
+| `noon` | 12:00 |
+| `midnight` | 00:00 the next day |
+| `morning` | 09:00 |
+| `afternoon` | 15:00 |
+| `evening` | 18:00 |
+| `night` | 21:00 |
+
+**Rules:**
+- The keyword must be the entire input (e.g., `noon`, not `noon-ish`)
+- May also appear as the time portion of a date (e.g., the example `Dec 31 noon` below)
+
 #### Named Day
 
 Day names combined with times schedule the reminder for the next occurrence of that day.
@@ -276,13 +295,16 @@ Day names combined with times schedule the reminder for the next occurrence of t
 - `next thursday 10:30am` → 10:30 AM next Thursday (prefix "next" is optional)
 
 **Supported Day Names:**
+- `today` - Today (time required, or defaults to end of day 23:59); the time must still be in the future
 - `tomorrow` - Next day
 - `monday`, `tuesday`, `wednesday`, `thursday`, `friday`, `saturday`, `sunday` - Next occurrence of weekday
+- Abbreviations are also accepted: `mon`, `tue`/`tues`, `wed`, `thu`/`thur`/`thurs`, `fri`, `sat`, `sun`
 
 **Rules:**
-- Day name must come first
+- Day name (or `today`/`tomorrow`) must come first
 - Time portion follows same rules as absolute time formats
 - If today is the named day and time has passed, schedules for next week
+- The optional `next` prefix (e.g. `next friday`) always schedules at least one full week ahead
 
 #### Date with Time
 
@@ -292,16 +314,15 @@ Month and day combined with time for specific calendar dates.
 - `Dec 31 noon` → December 31 at 12:00 PM
 - `Jan 1 9am` → January 1 at 9:00 AM
 - `March 15 22:00` → March 15 at 10:00 PM
-- `12/31 3pm` → December 31 at 3:00 PM (numeric month)
 
 **Supported Month Names:**
 - Full: `January`, `February`, `March`, `April`, `May`, `June`, `July`, `August`, `September`, `October`, `November`, `December`
-- Abbreviated: `Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, `Dec`
+- Abbreviated: `Jan`, `Feb`, `Mar`, `Apr`, `May`, `Jun`, `Jul`, `Aug`, `Sep`, `Oct`, `Nov`, `Dec` (and `Sept`)
 
 **Rules:**
-- Month name (or number) comes first
+- An **alphabetic month name** (full or abbreviated) comes first — numeric months are **not** accepted in this format. For example `12/31 3pm` does **not** parse as a date-with-time; a numeric month requires the full `MM/DD/YYYY HH:MM` form described under [Full Date/Time](#full-datetime) (year and time required).
 - Day must be 1-31 (validated against month)
-- Time follows same rules as absolute time formats
+- Time follows same rules as absolute time formats; if no time is given the date defaults to 00:00
 - Year is inferred (current year, or next year if date has passed)
 
 #### Full Date/Time
@@ -310,16 +331,15 @@ Full date and time specifications using ISO 8601 or common formats.
 
 **Examples:**
 - `2024-12-31 10:00` → December 31, 2024 at 10:00 AM
-- `12/31/2024 10:00 AM` → December 31, 2024 at 10:00 AM
-- `31/12/2024 22:00` → December 31, 2024 at 10:00 PM
+- `2025-01-01T14:30` → January 1, 2025 at 2:30 PM (ISO 8601 with `T` separator)
+- `12/31/2024 10:00 AM` → December 31, 2024 at 10:00 AM (`MM/DD/YYYY`, optional AM/PM)
 
 **Rules:**
-- Uses .NET's `DateTime.TryParse()` for flexible parsing
-- Interpreted in guild's timezone
-- Supports various date formats based on server culture
-- Year is required
-
-**Warning:** Ambiguous formats (e.g., `01/02/2024`) may parse differently based on server culture settings. Prefer explicit formats like ISO 8601.
+- Parsed with **hand-rolled regular expressions** (not `DateTime.TryParse`), so behavior is **culture-independent** — it does not vary by server locale.
+- Three forms are supported: `YYYY-MM-DDTHH:MM[:SS]`, `YYYY-MM-DD HH:MM[:SS]`, and `MM/DD/YYYY HH:MM[:SS] [am|pm]`. The slash form is always **month/day/year** (US ordering); a `DD/MM/YYYY` form is **not** recognized.
+- Both a year and a time are **required** in this format.
+- Interpreted in UTC.
+- The year must be within the current year through 10 years in the future.
 
 ---
 
@@ -398,7 +418,7 @@ Failed reminders are NOT re-sent to the guild channel. Users will not receive no
 
 Guild administrators can view and manage reminders for their guild via the admin web UI.
 
-**Page Location:** `/Guilds/{guildId:long}/Reminders`
+**Page Location:** `/Guilds/Reminders/{guildId}`
 
 **Features:**
 - **View all guild reminders** - Paginated list of all reminders created in the guild
@@ -436,7 +456,6 @@ The reminder system is configured via `appsettings.json` under the `Reminder` se
   "Reminder": {
     "CheckIntervalSeconds": 30,
     "MaxConcurrentDeliveries": 5,
-    "ExecutionTimeoutSeconds": 30,
     "MaxDeliveryAttempts": 3,
     "RetryDelayMinutes": 5,
     "MaxRemindersPerUser": 25,
@@ -452,7 +471,6 @@ The reminder system is configured via `appsettings.json` under the `Reminder` se
 |---------|------|---------|-------------|
 | `CheckIntervalSeconds` | int | 30 | Interval (in seconds) between reminder checks. Background service polls for due reminders at this frequency. |
 | `MaxConcurrentDeliveries` | int | 5 | Maximum number of reminders to deliver concurrently. Prevents resource exhaustion when many reminders are due simultaneously. |
-| `ExecutionTimeoutSeconds` | int | 30 | Timeout (in seconds) for individual reminder delivery. If delivery takes longer, it will be cancelled. |
 | `MaxDeliveryAttempts` | int | 3 | Maximum number of delivery attempts before marking as failed. Used when user has DMs disabled or transient failures occur. |
 | `RetryDelayMinutes` | int | 5 | Delay (in minutes) between retry attempts. Currently not used - retries happen on next poll interval. |
 | `MaxRemindersPerUser` | int | 25 | Maximum number of pending reminders a user can have. Prevents abuse and resource exhaustion. |

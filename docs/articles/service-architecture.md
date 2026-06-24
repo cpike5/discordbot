@@ -96,27 +96,31 @@ Services for message logging, audit trails, and the fluent builder pattern for a
 ### IAuditLogBuilder Fluent Pattern
 
 ```csharp
-// Typical usage flow
-await _auditLog.Action(AuditLogAction.UserBanned)
+// Typical usage flow — obtain a builder from IAuditLogService.CreateBuilder()
+await _auditLogService.CreateBuilder()
+    .ForCategory(AuditLogCategory.Security)
+    .WithAction(AuditLogAction.UserBanned)
     .InGuild(guildId)
     .ByUser(moderatorId)
-    .OnTarget(userId, "User")
-    .WithChange("Reason", null, reason)
-    .WithMetadata("Duration", "7 days")
+    .OnTarget("User", userId)
+    .WithDetails(new { reason, duration = "7 days" })
     .WithCorrelationId(correlationId)
-    .SaveAsync();
+    .LogAsync();
 ```
 
 **Key Methods:**
-- `.Action(AuditLogAction)` - Set the action type
-- `.InGuild(ulong)` - Set target guild
-- `.ByUser(ulong)` - Set acting user (moderator)
-- `.BySystem()` - Mark as system action
-- `.OnTarget(string, string)` - Set target (id and type)
-- `.WithChange(string, string?, string?)` - Add field change
-- `.WithMetadata(string, object)` - Add custom metadata
-- `.WithCorrelationId(string)` - Add correlation ID
-- `.SaveAsync()` - Persist to database
+- `.ForCategory(AuditLogCategory)` - Set the category
+- `.WithAction(AuditLogAction)` - Set the action type
+- `.ByUser(string)` - Set acting user (Identity user ID)
+- `.BySystem()` - Mark as a system action
+- `.ByBot()` - Mark as a Discord bot action
+- `.OnTarget(string targetType, string targetId)` - Set the target entity (type then id)
+- `.InGuild(ulong)` - Set the associated guild
+- `.WithDetails(object)` / `.WithDetails(Dictionary<string, object?>)` - Add contextual details (serialized to JSON)
+- `.FromIpAddress(string)` - Set the originating IP address
+- `.WithCorrelationId(string)` - Add a correlation ID
+- `.LogAsync(CancellationToken = default)` - Persist and await confirmation
+- `.Enqueue()` - Fire-and-forget background processing
 
 ---
 

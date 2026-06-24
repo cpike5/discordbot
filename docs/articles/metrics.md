@@ -177,14 +177,14 @@ delta(discordbot_guilds_active[1d])
 
 **Type:** ObservableGauge
 **Unit:** `{users}`
-**Description:** Estimated unique users across all guilds (sum of guild member counts)
+**Description:** Estimated unique users in the last 24 hours
 
 **Labels:** None
 
 **Update Frequency:** Every 30 seconds (via `MetricsUpdateService`)
 
 **Notes:**
-- This is an estimate based on guild member counts
+- This is an estimate
 - May include duplicate users across guilds
 - For accurate unique user count, implement a separate tracking mechanism
 
@@ -509,7 +509,7 @@ sum(increase(discordbot_business_guild_leave[1d])) > sum(increase(discordbot_bus
 #### discordbot.business.feature.usage
 
 **Type:** Counter
-**Unit:** `{usages}`
+**Unit:** `{events}`
 **Description:** Feature usage tracking for adoption analysis
 
 **Labels:**
@@ -636,6 +636,137 @@ delta(discordbot_slo_uptime_percentage_30d[1w])
 ```
 
 **Usage:** Track long-term reliability, report to stakeholders.
+
+---
+
+### VOX Metrics (Half-Life Concatenated Audio)
+
+**Meter Name:** `DiscordBot.Vox`
+
+VOX metrics track the VOX system (Half-Life concatenated audio clip playback): command execution, clip usage, word matching, performance, and errors. Defined in `VoxMetrics.cs`. Every instrument carries a `group` tag identifying the clip group (`vox`, `fvox`, `hgrunt`).
+
+#### discordbot.vox.commands.total
+
+**Type:** Counter
+**Unit:** `{commands}`
+**Description:** Total number of VOX commands executed
+
+**Labels:**
+- `group` - Clip group: "vox", "fvox", or "hgrunt"
+- `source` - Command source (e.g., "slash_command", "portal")
+- `status` - Execution status: "success" or "failure"
+
+---
+
+#### discordbot.vox.clips.played
+
+**Type:** Counter
+**Unit:** `{clips}`
+**Description:** Total number of individual clips played
+
+**Labels:**
+- `group` - Clip group
+
+---
+
+#### discordbot.vox.words.matched
+
+**Type:** Counter
+**Unit:** `{words}`
+**Description:** Total number of words that matched clips
+
+**Labels:**
+- `group` - Clip group
+
+---
+
+#### discordbot.vox.words.skipped
+
+**Type:** Counter
+**Unit:** `{words}`
+**Description:** Total number of words without matching clips
+
+**Labels:**
+- `group` - Clip group
+
+---
+
+#### discordbot.vox.errors
+
+**Type:** Counter
+**Unit:** `{errors}`
+**Description:** Total number of VOX errors by type
+
+**Labels:**
+- `group` - Clip group
+- `error_type` - Error type (e.g., "NoClipsMatched", "ConcatenationFailed")
+
+---
+
+#### discordbot.vox.command.duration
+
+**Type:** Histogram
+**Unit:** `ms` (milliseconds)
+**Description:** Total command execution duration
+
+**Labels:**
+- `group` - Clip group
+- `source` - Command source
+- `status` - Execution status: "success" or "failure"
+
+**Histogram Buckets:** `10, 25, 50, 100, 250, 500, 1000, 2000, 5000` (milliseconds)
+
+---
+
+#### discordbot.vox.concatenation.duration
+
+**Type:** Histogram
+**Unit:** `ms` (milliseconds)
+**Description:** FFmpeg concatenation processing time
+
+**Labels:**
+- `group` - Clip group
+
+**Histogram Buckets:** `5, 10, 25, 50, 100, 250, 500, 1000, 2000` (milliseconds)
+
+---
+
+#### discordbot.vox.message.words
+
+**Type:** Histogram
+**Unit:** `{words}`
+**Description:** Number of words per message
+
+**Labels:**
+- `group` - Clip group
+
+**Histogram Buckets:** `1, 2, 5, 10, 15, 20, 25, 30, 40, 50`
+
+---
+
+#### discordbot.vox.match.percentage
+
+**Type:** Histogram
+**Unit:** `%`
+**Description:** Percentage of words matched
+
+**Labels:**
+- `group` - Clip group
+
+**Histogram Buckets:** `0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100`
+
+---
+
+#### discordbot.vox.audio.bytes
+
+**Type:** Histogram
+**Unit:** `By` (bytes)
+**Description:** Output PCM audio size in bytes
+
+**Labels:**
+- `group` - Clip group
+
+**Histogram Buckets:** `1024, 10240, 102400, 512000, 1048576, 5242880, 10485760, 52428800`
 
 ---
 
@@ -913,13 +1044,7 @@ OpenTelemetry configuration is defined in `appsettings.json`:
 ```json
 {
   "OpenTelemetry": {
-    "ServiceName": "discordbot",
-    "ServiceVersion": "0.1.0",
-    "Metrics": {
-      "Enabled": true,
-      "IncludeRuntimeMetrics": true,
-      "IncludeHttpMetrics": true
-    }
+    "ServiceName": "discordbot"
   }
 }
 ```
@@ -929,10 +1054,8 @@ OpenTelemetry configuration is defined in `appsettings.json`:
 | Setting | Type | Default | Description |
 |---------|------|---------|-------------|
 | `ServiceName` | string | "discordbot" | Service identifier in metrics |
-| `ServiceVersion` | string | Assembly version | Service version tag |
-| `Metrics.Enabled` | bool | true | Enable/disable metrics collection |
-| `Metrics.IncludeRuntimeMetrics` | bool | true | Include .NET runtime metrics |
-| `Metrics.IncludeHttpMetrics` | bool | true | Include HTTP client/server metrics |
+
+The metrics pipeline reads only `OpenTelemetry:ServiceName`. ASP.NET Core, HTTP client, and runtime instrumentation are always registered; the service version is derived from the assembly version.
 
 ### Environment-Specific Configuration
 
@@ -951,8 +1074,7 @@ For different environments, use `appsettings.{Environment}.json`:
 ```json
 {
   "OpenTelemetry": {
-    "ServiceName": "discordbot-prod",
-    "ServiceVersion": "1.0.0"
+    "ServiceName": "discordbot-prod"
   }
 }
 ```
@@ -1177,17 +1299,6 @@ Boundaries = [1, 5, 10, 25, 50, 100, 250, 500, 1000, 2500]
    // BotMetrics and ApiMetrics must be registered
    builder.Services.AddSingleton<BotMetrics>();
    builder.Services.AddSingleton<ApiMetrics>();
-   ```
-
-4. **Check configuration:**
-   ```json
-   {
-     "OpenTelemetry": {
-       "Metrics": {
-         "Enabled": true
-       }
-     }
-   }
    ```
 
 ### High Cardinality Warnings

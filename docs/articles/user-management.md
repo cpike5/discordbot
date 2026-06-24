@@ -185,7 +185,7 @@ Create new user accounts with initial configuration.
 ### Password Requirements
 
 ASP.NET Identity password complexity rules:
-- Minimum 6 characters (configurable in `Program.cs`)
+- Minimum 8 characters (configurable in `Program.cs`)
 - At least one uppercase letter
 - At least one lowercase letter
 - At least one digit

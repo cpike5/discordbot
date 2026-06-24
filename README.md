@@ -1,9 +1,9 @@
 # Discord Bot Management System
 
-[![Version](https://img.shields.io/badge/version-v1.0.0-blue)](https://github.com/cpike5/discordbot/releases)
+[![Version](https://img.shields.io/badge/version-1.5.1--dev-blue)](https://github.com/cpike5/discordbot/releases)
 [![CI](https://github.com/cpike5/discordbot/actions/workflows/ci.yml/badge.svg)](https://github.com/cpike5/discordbot/actions/workflows/ci.yml)
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
-[![Discord.NET](https://img.shields.io/badge/Discord.NET-3.19.0--beta-5865F2)](https://github.com/discord-net/Discord.Net)
+[![Discord.NET](https://img.shields.io/badge/Discord.NET-3.19.0--fork-5865F2)](https://github.com/discord-net/Discord.Net)
 
 A Discord bot built with .NET 8 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
 
@@ -259,15 +259,19 @@ See [utility-commands.md](docs/articles/utility-commands.md) for details.
 **Actions:**
 - `/warn <user> [reason]` - Issue a formal warning
 - `/kick <user> [reason]` - Kick a user from the server (requires Kick Members permission)
-- `/ban <user> [reason]` - Ban a user from the server (requires Ban Members permission)
-- `/mute <user> <duration> [reason]` - Temporarily mute a user
-- `/purge <count>` - Delete multiple messages from channel
+- `/ban <user> [duration] [reason] [delete_messages]` - Ban a user from the server, optionally as a temporary ban with a duration (e.g. "7d") and message-deletion days 0-7 (requires Ban Members permission)
+- `/unban <user_id> [reason]` - Unban a user from the server (requires Ban Members permission)
+- `/mute <user> <duration> [reason]` - Timeout a user (requires Moderate Members permission)
+- `/purge <count> [user]` - Delete multiple messages from channel, optionally filtered to a single user
 
 **History & Management:**
-- `/mod-history <user>` - View a user's moderation history
-- `/mod-stats [user]` - View moderation statistics for guild or specific moderator
-- `/mod-notes add/list/delete` - Manage moderator notes on users
-- `/mod-tag add/remove/list` - Manage user tags for tracking
+- `/modlog <user>` - View a user's moderation history
+- `/case <case_id>` - View details of a specific case
+- `/reason <case_id> <reason>` - Update the reason for a case
+- `/modexport <user>` - Export a user's moderation history to a file
+- `/modstats [moderator] [timeframe]` - View moderation statistics for the guild or a specific moderator (timeframe: 24h/7d/30d/all, default 30d)
+- `/modnote add/list/remove` - Manage moderator notes on users
+- `/modtag create/delete/add/remove/list` - Manage server tags and apply them to users for tracking
 - `/watchlist add/remove/list` - Manage user watchlist for enhanced monitoring
 - `/investigate <user>` - Comprehensive user investigation report
 
@@ -328,6 +332,7 @@ See [soundboard.md](docs/articles/soundboard.md). Requires FFmpeg, libsodium, an
 
 **Text-to-Speech:**
 - `/tts <message> [voice]` - Speak message in voice channel using Azure TTS
+- `/tts-styled <message> <preset>` - Speak message using a style preset (autocomplete available)
 
 See [tts-support.md](docs/articles/tts-support.md). Requires Azure Speech subscription.
 
@@ -346,14 +351,33 @@ See [vox-system-spec.md](docs/articles/vox-system-spec.md). Uses static clip lib
 - `/welcome disable` - Disable welcome messages
 - `/welcome channel <channel>` - Set welcome message channel
 - `/welcome message <message>` - Set custom welcome message text
-- `/welcome test [user]` - Test welcome message delivery
+- `/welcome test` - Send a test welcome message (always previews using the invoking user)
 
 See [welcome-system.md](docs/articles/welcome-system.md).
+
+### 🐦 X/Twitter Previews (not-X)
+**Prerequisites:** Manage Server permission
+
+Posts rich previews for X/Twitter links shared in the server.
+
+- `/notx enable` - Enable not-X tweet previews for this guild
+- `/notx disable` - Disable not-X tweet previews for this guild
+- `/notx status` - Show current not-X settings for this guild
+- `/notx sensitive-only <enabled>` - Toggle whether to only post previews for sensitive tweets
+- `/notx channel set <channel>` - Route tweet previews to a specific channel
+- `/notx channel clear` - Reset previews to post in the originating channel
+- `/notx monitor add <channel>` - Add a channel to the monitored channels list
+- `/notx monitor remove <channel>` - Remove a channel from the monitored channels list
+- `/notx monitor clear` - Monitor all channels (clears the monitored channels list)
+- **Fetch Tweet** (Context Menu) - Right-click a message containing an X/Twitter link to fetch a preview
+
+### 💡 Feedback
+- `/feature-request <description>` - Submit a feature request or idea for the bot
 
 ### 🔐 Consent & Privacy
 
 - `/consent grant/revoke/status` - Manage data collection consent preferences
-- `/privacy preview-delete/delete-data` - View privacy information and request data deletion
+- `/privacy preview-delete/export-data/delete-data` - Preview deletable data, export all your data as a downloadable file, or request data deletion
 
 Users control consent for: message logging, assistant interactions, and analytics. See [consent-privacy.md](docs/articles/consent-privacy.md).
 
@@ -583,13 +607,13 @@ dotnet user-secrets set "AzureSpeech:SubscriptionKey" "your-azure-speech-key"
 dotnet user-secrets set "AzureSpeech:Region" "eastus"  # Optional, defaults to eastus
 ```
 
-**Configuration:** `appsettings.json` → `AzureSpeech` section (lines 125-132)
+**Configuration:** `appsettings.json` → `AzureSpeech` section
 - Default voice, speed, pitch, volume settings
 - Max text length: 500 characters
 - See [tts-support.md](docs/articles/tts-support.md)
 
 #### Audio Features (Soundboard)
-**Configuration:** `appsettings.json` → `Soundboard` section (lines 193-202)
+**Configuration:** `appsettings.json` → `Soundboard` section
 - FFmpeg path (auto-detected if in PATH)
 - Max duration, file size, sounds per guild
 - Supported formats: mp3, wav, ogg
@@ -609,13 +633,13 @@ dotnet user-secrets set "ElasticApm:SecretToken" "your-apm-secret-token"
 ```
 
 **Configuration:**
-- `appsettings.json` → `ElasticApm` section (lines 5-18)
-- `appsettings.json` → `Observability` section (lines 25-28) for Kibana/Seq URLs
+- `appsettings.json` → `ElasticApm` section
+- `appsettings.json` → `Observability` section for Kibana/Seq URLs
 - See [elastic-stack-setup.md](docs/articles/elastic-stack-setup.md)
 - See [log-aggregation.md](docs/articles/log-aggregation.md)
 
 **OpenTelemetry**
-- `appsettings.json` → `OpenTelemetry` section (lines 98-117)
+- `appsettings.json` → `OpenTelemetry` section
 - Priority-based sampling with configurable rates
 - Prometheus metrics export support
 
@@ -636,13 +660,13 @@ See [CLAUDE.md](CLAUDE.md) for the complete configuration options reference tabl
 
 ### Core Packages
 
-- **Discord.Net** (3.19.0-beta.1): Discord API client and gateway
+- **Discord.Net** (forked split packages `Discord.Net.Core`, `Discord.Net.Rest`, `Discord.Net.WebSocket`, `Discord.Net.Commands`, `Discord.Net.Interactions` at 3.19.0-fork): Discord API client and gateway
 - **AspNet.Security.OAuth.Discord** (8.0.0): Discord OAuth authentication
 - **Microsoft.AspNetCore.Identity.EntityFrameworkCore** (8.0.0): ASP.NET Core Identity
 - **Serilog.AspNetCore** (8.0.0): Structured logging framework
 - **Elastic.Serilog.Sinks** (8.11.0): Elasticsearch log sink for Serilog
 - **Elastic.Apm.NetCoreAll** (1.29.0): Elastic APM distributed tracing
-- **Anthropic.SDK** (5.8.0): Claude API client for AI assistant
+- **Anthropic** (12.2.0): Claude API client for AI assistant
 - **Microsoft.CognitiveServices.Speech** (1.41.0): Azure Text-to-Speech
 - **OpenTelemetry** (1.14.0): Metrics and tracing instrumentation
 - **Cronos** (0.11.1): Cron expression parsing for scheduled messages
@@ -650,7 +674,7 @@ See [CLAUDE.md](CLAUDE.md) for the complete configuration options reference tabl
 
 ### Audio Libraries
 - **libsodium** (1.0.20.1): Voice encryption
-- **OpusDotNet** (1.3.1): Voice codec
+- **OpusDotNet.opus.win-x64** (1.3.1): Voice codec (Windows-native Opus binaries)
 - **FFmpeg** (external): Audio processing (must be installed separately)
 
 ### Development

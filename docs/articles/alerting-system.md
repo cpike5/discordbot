@@ -90,8 +90,8 @@ public class PerformanceAlertConfig
     public string MetricName { get; set; }           // "gateway_latency"
     public string DisplayName { get; set; }          // "Gateway Latency"
     public string? Description { get; set; }         // User-friendly description
-    public double? WarningThreshold { get; set; }    // 500.0
-    public double? CriticalThreshold { get; set; }   // 1000.0
+    public double? WarningThreshold { get; set; }    // 100.0
+    public double? CriticalThreshold { get; set; }   // 200.0
     public string ThresholdUnit { get; set; }        // "ms"
     public bool IsEnabled { get; set; }              // true/false
     public DateTime CreatedAt { get; set; }
@@ -267,14 +267,14 @@ The `AlertMonitoringService` monitors 8 performance metrics across different sub
 
 | Metric Name | Display Name | Unit | Source Service | Critical Value |
 |------------|--------------|------|-----------------|-----------------|
-| `gateway_latency` | Gateway Latency | ms | `ILatencyHistoryService` | > 1000ms |
-| `command_p95_latency` | Command P95 Latency | ms | `ICommandPerformanceAggregator` | > 1500ms |
+| `gateway_latency` | Gateway Latency | ms | `ILatencyHistoryService` | > 200ms |
+| `command_p95_latency` | Command P95 Latency | ms | `ICommandPerformanceAggregator` | > 500ms |
 | `error_rate` | Error Rate | % | `ICommandPerformanceAggregator` | > 5% |
-| `memory_usage` | Memory Usage | MB | `Process.GetCurrentProcess()` | > 512MB |
-| `api_rate_limit_usage` | API Rate Limit Usage | count | `IApiRequestTracker` | > 3600 |
+| `memory_usage` | Memory Usage | MB | `Process.GetCurrentProcess()` | > 480MB |
+| `api_rate_limit_usage` | API Rate Limit | % | `IApiRequestTracker` | > 95% |
 | `database_query_time` | Database Query Time | ms | `IDatabaseMetricsCollector` | > 100ms |
-| `bot_disconnected` | Bot Connection Status | 1.0/0.0 | `IConnectionStateService` | 1.0 (disconnected) |
-| `service_failure` | Service Health | 1.0/0.0 | `IBackgroundServiceHealthRegistry` | 1.0 (failing) |
+| `bot_disconnected` | Bot Disconnected | event | `IConnectionStateService` | 1.0 (disconnected) |
+| `service_failure` | Service Failure | event | `IBackgroundServiceHealthRegistry` | 1.0 (failing) |
 
 ### Metric Description Examples
 
@@ -286,7 +286,7 @@ The `AlertMonitoringService` monitors 8 performance metrics across different sub
 
 **memory_usage**: Current process memory in megabytes. High memory usage can cause performance degradation and crashes.
 
-**api_rate_limit_usage**: Count of API requests against Discord rate limits. Tracks API quota consumption for the rate limit window.
+**api_rate_limit_usage**: Percentage of Discord API rate limit capacity consumed. Tracks how close the bot is to exhausting its API quota for the rate limit window.
 
 **database_query_time**: Average or P95 database query execution time in milliseconds. Identifies slow queries impacting performance.
 
@@ -475,8 +475,7 @@ connection.on("OnActiveAlertCountChanged", (count) => {
 ```csharp
 // In AlertMonitoringService.MonitorMetricsAsync()
 if (incident.Severity >= AlertSeverity.Warning) {
-    var deduplicationWindow = TimeSpan.FromMinutes(
-        _options.Value.DuplicateSuppressionMinutes ?? 5);
+    var deduplicationWindow = TimeSpan.FromMinutes(5);
 
     // Fire-and-forget - don't block alert creation if notification fails
     _ = Task.Run(async () => {
@@ -1125,14 +1124,14 @@ Alert configurations come pre-seeded during database initialization:
 
 | Metric | Warning | Critical | Unit | Rationale |
 |--------|---------|----------|------|-----------|
-| gateway_latency | 500 | 1000 | ms | Discord gateway > 500ms indicates network/infrastructure issues |
-| command_p95_latency | 1000 | 1500 | ms | User-facing latency >1s hurts user experience |
-| error_rate | 3 | 5 | % | 3-5% error rate indicates code/infrastructure problems |
-| memory_usage | 400 | 512 | MB | High memory can trigger OOM or performance degradation |
-| api_rate_limit_usage | 3000 | 3600 | count | 3000+ out of 3600 requests means near rate limit |
+| gateway_latency | 100 | 200 | ms | Elevated Discord gateway heartbeat latency indicates network/infrastructure issues |
+| command_p95_latency | 300 | 500 | ms | User-facing latency hurts user experience |
+| error_rate | 1 | 5 | % | Rising error rate indicates code/infrastructure problems |
+| memory_usage | 400 | 480 | MB | High memory can trigger OOM or performance degradation |
+| api_rate_limit_usage | 85 | 95 | % | 85%+ of rate limit capacity means near rate limit |
 | database_query_time | 50 | 100 | ms | Slow DB queries block other operations |
-| bot_disconnected | 1.0 | 1.0 | (binary) | Any disconnection is Critical |
-| service_failure | 1.0 | 1.0 | (binary) | Any service failure is Critical |
+| bot_disconnected | (none) | 1.0 | event | Any disconnection is Critical (no warning threshold) |
+| service_failure | (none) | 1.0 | event | Any service failure is Critical (no warning threshold) |
 
 ### Adjusting Thresholds at Runtime
 

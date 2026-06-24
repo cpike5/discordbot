@@ -137,13 +137,12 @@ Following OpenTelemetry semantic conventions, span names use static patterns wit
 
 | Scenario | Status | Description |
 |----------|--------|-------------|
-| Command succeeds | `Ok` | Normal completion |
-| Command fails (user error) | `Ok` | User-facing errors are not infrastructure failures |
-| Command fails (exception) | `Error` | System/infrastructure failures |
+| Command succeeds | `Ok` | Normal completion (`SetSuccess`) |
+| Command fails (exception) | `Error` | Any exception sets `Error` status via `BotActivitySource.RecordException` |
 | Database operation succeeds | `Ok` | Normal completion |
 | Database operation fails | `Error` | Includes exception details via `activity.AddException()` |
 
-**Guideline:** Use `Error` status for infrastructure/system failures, not business logic errors.
+**Note:** `RecordException` always sets `ActivityStatusCode.Error` and records the exception — there is no user-error vs. system-error discrimination. Any caught exception marks the span as `Error`.
 
 ---
 

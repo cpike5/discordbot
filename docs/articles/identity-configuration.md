@@ -190,9 +190,11 @@ public class EditGuildModel : PageModel
 
 #### In Razor Page Markup
 
-The application provides two custom tag helpers for conditional rendering:
+The application provides custom tag helpers for conditional rendering. Both
+expose a `policy` and/or `roles` attribute — there is no negation or `if-role`
+attribute helper.
 
-**`<authorize>` Tag Helper** - For policy-based authorization:
+**`<authorize>` / `<authorize-view>` Tag Helper** - For policy-based or role-based authorization:
 
 ```cshtml
 @* Show element only to SuperAdmins *@
@@ -205,25 +207,31 @@ The application provides two custom tag helpers for conditional rendering:
     <button type="submit">Save Changes</button>
 </authorize>
 
-@* Show element only to non-authenticated users *@
-<authorize negate="true">
-    <a href="/Account/Login">Sign In</a>
-</authorize>
+@* Show element to SuperAdmins or Admins by role (any match) *@
+<authorize-view roles="SuperAdmin,Admin">
+    <p>This content is only visible to admins.</p>
+</authorize-view>
 ```
 
-**`if-role` Attribute Tag Helper** - For role-based visibility on any HTML element:
+`<authorize>` and `<authorize-view>` are the same tag helper. When neither
+`policy` nor `roles` is supplied, the content renders for any authenticated user;
+unauthenticated users always have the content suppressed.
+
+**`<require-role>` Tag Helper** - For role-based visibility (any matching role grants access):
 
 ```cshtml
 @* Element visible only to SuperAdmin and Admin roles *@
-<div if-role="SuperAdmin,Admin">
+<require-role roles="SuperAdmin,Admin">
     <p>This content is only visible to admins.</p>
-</div>
+</require-role>
 
 @* Navigation link visible to moderators and above *@
-<a href="/Servers" if-role="SuperAdmin,Admin,Moderator">Servers</a>
+<require-role roles="SuperAdmin,Admin,Moderator">
+    <a href="/Servers">Servers</a>
+</require-role>
 ```
 
-**Tag Helper Location:** `src/DiscordBot.Bot/TagHelpers/`
+**Tag Helper Location:** `src/DiscordBot.Bot/TagHelpers/AuthorizeTagHelper.cs`
 
 #### In Controllers (API)
 
@@ -251,7 +259,7 @@ Password policies are enforced through ASP.NET Identity configuration.
 | Require Lowercase | Yes | Must contain at least one lowercase letter (a-z) |
 | Require Uppercase | Yes | Must contain at least one uppercase letter (A-Z) |
 | Require Non-Alphanumeric | Yes | Must contain at least one special character (!@#$%^&*) |
-| Required Unique Characters | 4 | At least 4 distinct characters |
+| Required Unique Characters | 1 | At least 1 distinct character |
 
 ### Configuration
 
@@ -265,7 +273,7 @@ builder.Services.Configure<IdentityOptions>(options =>
     options.Password.RequireUppercase = true;
     options.Password.RequireNonAlphanumeric = true;
     options.Password.RequiredLength = 8;
-    options.Password.RequiredUniqueChars = 4;
+    options.Password.RequiredUniqueChars = 1;
 
     // User settings
     options.User.RequireUniqueEmail = true;
@@ -287,7 +295,6 @@ builder.Services.Configure<IdentityOptions>(options =>
 | `Password` | No digit, no special character |
 | `Password1` | No special character |
 | `Pass1!` | Too short (less than 8 characters) |
-| `AAAAA1!a` | Less than 4 unique characters |
 
 ---
 
@@ -345,24 +352,30 @@ Authentication cookies are configured with security best practices.
 | Setting | Value | Description |
 |---------|-------|-------------|
 | HttpOnly | `true` | Cookie not accessible via JavaScript (XSS protection) |
-| Secure Policy | `Always` | Cookie only sent over HTTPS |
-| SameSite Mode | `Strict` | Cookie not sent on cross-site requests (CSRF protection) |
-| Expiration | 24 hours | Base cookie lifetime |
-| Sliding Expiration | `true` | Cookie renewed on activity |
+| Secure Policy | `SameAsRequest` | Cookie marked Secure only when the request itself is HTTPS |
+| SameSite Mode | `Lax` | Allows the cookie on the top-level Discord OAuth redirect back to the app |
+| Expiration | `CookieExpireDays` (default 7 days) | Base cookie lifetime |
+| Sliding Expiration | `true` | Cookie renewed on activity (configurable via `CookieSlidingExpiration`) |
+
+> **Note:** `SameSiteMode.Lax` is deliberate. The Discord OAuth callback is a
+> top-level navigation back to the application, and a stricter `Strict` policy
+> would drop the authentication cookie on that redirect.
 
 ### Configuration
 
+These values are bound from the `Identity` configuration section (`IdentityConfigOptions`) and applied in `IdentityServiceExtensions.AddIdentityServices`:
+
 ```csharp
-builder.Services.ConfigureApplicationCookie(options =>
+services.ConfigureApplicationCookie(options =>
 {
     options.Cookie.HttpOnly = true;
-    options.Cookie.SecurePolicy = CookieSecurePolicy.Always;
-    options.Cookie.SameSite = SameSiteMode.Strict;
-    options.ExpireTimeSpan = TimeSpan.FromHours(24);
-    options.SlidingExpiration = true;
-    options.LoginPath = "/Account/Login";
-    options.LogoutPath = "/Account/Logout";
-    options.AccessDeniedPath = "/Account/AccessDenied";
+    options.Cookie.SecurePolicy = CookieSecurePolicy.SameAsRequest;
+    options.Cookie.SameSite = SameSiteMode.Lax;
+    options.ExpireTimeSpan = TimeSpan.FromDays(identityConfig.CookieExpireDays); // default 7
+    options.SlidingExpiration = identityConfig.CookieSlidingExpiration; // default true
+    options.LoginPath = identityConfig.LoginPath;
+    options.LogoutPath = identityConfig.LogoutPath;
+    options.AccessDeniedPath = identityConfig.AccessDeniedPath;
 });
 ```
 
@@ -371,8 +384,8 @@ builder.Services.ConfigureApplicationCookie(options =>
 #### Standard Session (No "Remember Me")
 
 - User logs in without "Remember Me" checked
-- Session cookie expires after 24 hours of inactivity
-- Cookie is renewed (sliding) on each request within 24-hour window
+- Session cookie expires after the configured lifetime of inactivity (default 7 days)
+- Cookie is renewed (sliding) on each request within that window
 - User remains logged in as long as they're active
 
 #### Persistent Session ("Remember Me" Checked)
@@ -437,10 +450,15 @@ builder.Services.AddAuthentication()
         options.ClientId = builder.Configuration["Discord:OAuth:ClientId"];
         options.ClientSecret = builder.Configuration["Discord:OAuth:ClientSecret"];
         options.Scope.Add("identify");
+        options.Scope.Add("email");
         options.Scope.Add("guilds");
         options.SaveTokens = true;
     });
 ```
+
+> **Note:** The requested scopes are hardcoded in
+> `IdentityServiceExtensions.AddDiscordOAuth`. The `DiscordOAuthOptions.Scopes`
+> property is not read when configuring the Discord authentication handler.
 
 ### OAuth Error Handling
 
@@ -496,8 +514,8 @@ The application requests the following OAuth scopes:
 | Scope | Purpose | Required |
 |-------|---------|----------|
 | `identify` | Get Discord user ID, username, avatar | Yes |
+| `email` | Get the user's Discord email address | Yes |
 | `guilds` | List guilds user is member of | Yes |
-| `guilds.members.read` | Get user's role in specific guild | Optional (future) |
 
 ### OAuth Flow Diagram
 

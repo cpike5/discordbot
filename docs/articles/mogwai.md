@@ -71,7 +71,7 @@ The `Dockerfile.mogwai` installs all CLI dependencies. You do not need to instal
 | `ClaudeCliPath` | string | `"claude"` | Path to the `claude` binary. Use the default when the binary is on `PATH` (as it will be inside the container). |
 | `WorkingDirectory` | string | `"."` | Working directory passed to Claude Code. In Docker, set to `/workspace` to give access to the mounted project. |
 | `AllowedTools` | string | `"Bash,Read,Glob,Grep,Write,Edit"` | Comma-separated tool whitelist passed as `--allowedTools` to the CLI. |
-| `MaxBudgetUsd` | decimal | `5.00` | Per-invocation spend cap passed as `--max-budget-usd`. |
+| `MaxBudgetUsd` | decimal | `5.00` | Per-invocation spend cap (USD) held in configuration. |
 | `MaxTurns` | int | `10` | Maximum agentic turns per invocation passed as `--max-turns`. |
 | `TimeoutSeconds` | int | `300` | Wall-clock timeout before the process is killed (5 minutes). |
 | `MaxOutputLength` | int | `50000` | Output characters beyond this limit are truncated before returning to Haiku. |
@@ -111,21 +111,29 @@ No parameters. Returns the current session state, last known cost, and whether a
 
 ### Process Spawning
 
-`ClaudeCodeToolProvider` builds and executes:
+`ClaudeCodeToolProvider` spawns the `claude` binary, passing the prompt via **stdin** (`--print` reads the prompt from standard input). The arguments are built as:
 
 ```
-claude -p "{prompt}" \
+claude --print \
   --output-format json \
+  --verbose \
   --allowedTools "Bash,Read,Glob,Grep,Write,Edit" \
-  --max-budget-usd 5.00 \
   --max-turns 10 \
-  --bare \
-  [--resume {sessionId}] \
+  [--bare] \
+  [--dangerously-skip-permissions] \
   [--append-system-prompt "..."] \
-  [--dangerously-skip-permissions]
+  [--resume {sessionId}]
 ```
 
-The process output is JSON: `{ result, session_id, duration_ms, total_cost_usd, is_error }`.
+The prompt itself is not passed as a command-line argument — it is written to the process's standard input stream after launch.
+
+- `--verbose` is always passed.
+- `--bare` is passed when `UseBareMode` is `true` (default).
+- `--dangerously-skip-permissions` is passed when `SkipPermissions` is `true`.
+- `--append-system-prompt` is passed only when `AppendSystemPrompt` is set.
+- `--resume {sessionId}` is passed only when continuing an existing session.
+
+The process output is JSON: `{ result, session_id, duration_ms, total_cost_usd, is_error }`. The `total_cost_usd` field from the CLI output is recorded for the session's last-known cost.
 
 ### Session Tracking
 

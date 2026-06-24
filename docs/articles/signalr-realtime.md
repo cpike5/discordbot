@@ -169,30 +169,64 @@ DashboardHub.on('BotStatusUpdated', (status) => {
 
 ---
 
-### GuildUpdated
+### GuildActivity
 
-Sent to clients subscribed to a specific guild's group when that guild's data changes.
+Broadcast when an activity event occurs in a guild (member joined/left, message sent, Rat Watch events, etc.). Sent both to all connected clients and to the guild-specific `guild-{guildId}` group, via `DashboardUpdateService.BroadcastGuildActivityAsync`.
 
-**Event Data:** Varies based on update type (typically includes `guildId` and updated properties)
+**Event Data:** `GuildActivityUpdateDto`
 
 **JavaScript Example:**
 
 ```javascript
-// Register handler for guild-specific updates
-DashboardHub.on('GuildUpdated', (guildData) => {
-    console.log('Guild update received:', guildData);
-    refreshGuildCard(guildData.guildId, guildData);
-    showToast(`Guild ${guildData.name} updated`);
+// Register handler for guild activity updates
+DashboardHub.on('GuildActivity', (activity) => {
+    console.log('Guild activity received:', activity);
+    addToActivityFeed({
+        guildId: activity.guildId,
+        guildName: activity.guildName,
+        eventType: activity.eventType,
+        username: activity.username,
+        timestamp: activity.timestamp
+    });
 });
 ```
 
-**Triggering Conditions (Future Implementation):**
-- Guild settings changed via admin UI
-- Guild member count changes
-- Guild configuration updated
-- Welcome message settings modified
+**Data Properties:**
+- `guildId` (ulong): Guild where the activity occurred
+- `guildName` (string): Name of the guild
+- `eventType` (string): Type of event (e.g. `MemberJoined`, `MemberLeft`, `MessageSent`, `RatWatchCreated`, `RatWatchVotingStarted`)
+- `timestamp` (DateTime): When the event occurred (UTC)
+- `username` (string?): Username associated with the event (optional)
+- `details` (string?): Additional event details (optional)
 
-**Broadcast Scope:** Only clients in the `guild-{guildId}` group
+**Broadcast Scope:** All authenticated dashboard clients, plus clients in the `guild-{guildId}` group
+
+---
+
+### StatsUpdated
+
+Broadcast to all connected clients with aggregated dashboard statistics, via `DashboardUpdateService.BroadcastStatsUpdateAsync`.
+
+**Event Data:** `DashboardStatsDto`
+
+**JavaScript Example:**
+
+```javascript
+// Register handler for dashboard stats updates
+DashboardHub.on('StatsUpdated', (stats) => {
+    console.log('Stats updated:', stats);
+    updateStatsWidgets(stats);
+});
+```
+
+**Data Properties:**
+- `commandsToday` (int): Total commands executed today
+- `totalMembers` (int): Total members across all guilds
+- `activeUsersLastHour` (int): Active users in the last hour
+- `messagesToday` (int): Messages processed today
+- `timestamp` (DateTime): When these stats were captured (UTC)
+
+**Broadcast Scope:** All authenticated dashboard clients
 
 ---
 
@@ -247,7 +281,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
         // Register event handlers
         DashboardHub.on('BotStatusUpdated', handleBotStatusUpdate);
-        DashboardHub.on('GuildUpdated', handleGuildUpdate);
+        DashboardHub.on('GuildActivity', handleGuildActivity);
 
         // Get initial status
         const status = await DashboardHub.getCurrentStatus();
@@ -317,7 +351,7 @@ async function loadGuildDetails(guildId) {
     await DashboardHub.joinGuildGroup(guildId);
 
     // Register guild-specific event handler
-    DashboardHub.on('GuildUpdated', handleGuildUpdate);
+    DashboardHub.on('GuildActivity', handleGuildActivity);
 
     // Load initial data
     const guildData = await fetchGuildData(guildId);
@@ -330,7 +364,7 @@ async function unloadGuildDetails(guildId) {
     await DashboardHub.leaveGuildGroup(guildId);
 
     // Optionally remove handler if not needed on other pages
-    DashboardHub.off('GuildUpdated', handleGuildUpdate);
+    DashboardHub.off('GuildActivity', handleGuildActivity);
 }
 ```
 
@@ -391,18 +425,20 @@ await _notifier.BroadcastBotStatusAsync(status);
 ### Sending Guild-Specific Updates
 
 ```csharp
-// Send update only to clients subscribed to this guild
+// Send a custom event only to clients subscribed to this guild
 await _notifier.SendGuildUpdateAsync(
     guildId: 123456789012345678,
-    eventName: "GuildUpdated",
+    eventName: "GuildActivity",
     data: new
     {
         GuildId = 123456789012345678,
-        Name = "Updated Guild Name",
-        MemberCount = 150,
-        UpdatedAt = DateTime.UtcNow
+        GuildName = "My Guild",
+        EventType = "MemberJoined",
+        Timestamp = DateTime.UtcNow
     });
 ```
+
+Guild activity is normally broadcast through `IDashboardUpdateService.BroadcastGuildActivityAsync`, which raises the `GuildActivity` event to both all clients and the `guild-{guildId}` group.
 
 ### Broadcasting Custom Events
 
@@ -594,7 +630,7 @@ app.MapHub<DashboardHub>("/hubs/dashboard");
 
 **Symptoms:**
 - Connected to hub but not receiving guild-specific events
-- `GuildUpdated` events not firing for a specific guild
+- `GuildActivity` events not firing for a specific guild
 
 **Solutions:**
 1. Verify you joined the guild group: `await DashboardHub.joinGuildGroup(guildId)`
@@ -1709,6 +1745,216 @@ public class PlaybackService : IPlaybackService
    }
    requestAnimationFrame(updateProgressUI);
    ```
+
+---
+
+## Notifications Real-Time Updates
+
+The dashboard supports real-time user notifications over the same hub. Notification events are delivered per-user (scoped to `Clients.User(userId)` by `NotificationBroadcaster`), so each authenticated user only receives their own notifications. No group join is required.
+
+### Notification Hub Methods
+
+#### GetNotificationSummary()
+
+Returns a summary of the current user's notifications (counts by read state).
+
+**Parameters:** None
+
+**Returns:** `NotificationSummaryDto`
+
+**JavaScript Example:**
+
+```javascript
+const summary = await DashboardHub.invoke('GetNotificationSummary');
+updateNotificationBadge(summary.totalUnread);
+```
+
+---
+
+#### GetNotifications(limit = 15)
+
+Returns the current user's most recent notifications.
+
+**Parameters:**
+- `limit` (int, optional): Maximum notifications to return (default: 15, max: 100)
+
+**Returns:** `IEnumerable<UserNotificationDto>`
+
+**JavaScript Example:**
+
+```javascript
+const notifications = await DashboardHub.invoke('GetNotifications', 25);
+renderNotificationList(notifications);
+```
+
+---
+
+#### MarkNotificationRead(notificationId)
+
+Marks a single notification as read for the current user.
+
+**Parameters:**
+- `notificationId` (Guid): The notification ID to mark as read
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+await DashboardHub.invoke('MarkNotificationRead', notificationId);
+```
+
+---
+
+#### MarkAllNotificationsRead()
+
+Marks all of the current user's notifications as read.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+await DashboardHub.invoke('MarkAllNotificationsRead');
+```
+
+---
+
+#### DismissNotification(notificationId)
+
+Dismisses (deletes) a single notification for the current user.
+
+**Parameters:**
+- `notificationId` (Guid): The notification ID to dismiss
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+await DashboardHub.invoke('DismissNotification', notificationId);
+```
+
+---
+
+### Notification Server-to-Client Events
+
+These events are pushed to the affected user only (`Clients.User(userId)`).
+
+#### OnNotificationReceived
+
+Sent when a new notification is created for the user.
+
+**Event Data:** `UserNotificationDto`
+
+```javascript
+DashboardHub.on('OnNotificationReceived', (notification) => {
+    prependNotification(notification);
+    showToast(notification.title);
+});
+```
+
+---
+
+#### OnNotificationCountChanged
+
+Sent whenever the user's notification counts change (new notification, marked read, deleted, etc.).
+
+**Event Data:** `NotificationSummaryDto`
+
+```javascript
+DashboardHub.on('OnNotificationCountChanged', (summary) => {
+    updateNotificationBadge(summary.totalUnread);
+});
+```
+
+---
+
+#### OnNotificationMarkedRead
+
+Sent when a specific notification is marked read.
+
+**Event Data:** Object with `notificationId`
+
+```javascript
+DashboardHub.on('OnNotificationMarkedRead', (data) => {
+    markNotificationReadInUi(data.notificationId);
+});
+```
+
+---
+
+#### OnAllNotificationsRead
+
+Sent when all of the user's notifications are marked read.
+
+**Event Data:** None
+
+```javascript
+DashboardHub.on('OnAllNotificationsRead', () => {
+    markAllNotificationsReadInUi();
+});
+```
+
+---
+
+## Bulk Purge Real-Time Updates
+
+The bulk purge feature broadcasts progress to clients subscribed to the `bulk-purge` group. The group name is defined as a constant in `DashboardHub`:
+- `DashboardHub.BulkPurgeGroupName` = `"bulk-purge"`
+
+### Bulk Purge Hub Methods
+
+#### JoinBulkPurgeGroup()
+
+Subscribes the client to receive bulk purge progress events.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+await DashboardHub.invoke('JoinBulkPurgeGroup');
+```
+
+---
+
+#### LeaveBulkPurgeGroup()
+
+Unsubscribes the client from bulk purge progress events.
+
+**Parameters:** None
+
+**Returns:** Task (no value)
+
+**JavaScript Example:**
+
+```javascript
+await DashboardHub.invoke('LeaveBulkPurgeGroup');
+```
+
+---
+
+### Bulk Purge Server-to-Client Events
+
+#### BulkPurgeProgress
+
+Broadcast to the `bulk-purge` group during a bulk purge operation, via `BulkPurgeService`.
+
+**Event Data:** `BulkPurgeProgressDto`
+
+```javascript
+DashboardHub.on('BulkPurgeProgress', (progress) => {
+    updatePurgeProgressBar(progress.processedCount, progress.totalCount);
+    if (progress.isComplete) {
+        showPurgeComplete();
+    }
+});
+```
 
 ---
 

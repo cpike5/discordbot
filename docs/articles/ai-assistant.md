@@ -25,14 +25,14 @@ The assistant is **disabled by default** and requires explicit enablement per gu
 
 ## Prerequisites
 
-The AI Assistant requires configuration of the Claude API key:
+The AI Assistant requires configuration of the Anthropic API key:
 
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Claude:ApiKey" "sk-ant-your-api-key-here"
+dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-your-api-key-here"
 ```
 
-See [Identity Configuration](identity-configuration.md) section "Claude API Configuration" for detailed setup instructions.
+The key is read from the `Anthropic:ApiKey` configuration value. If it is not configured, the LLM-dependent assistant services are not registered (the bot still runs, but the assistant cannot answer questions).
 
 ---
 
@@ -220,15 +220,17 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `Model` | `"claude-3-5-sonnet-20241022"` | Claude model to use (Sonnet recommended for balance) |
+| `Model` | `"claude-sonnet-4-20250514"` | Claude model to use (Sonnet recommended for balance) |
 | `ApiTimeoutMs` | `30000` | API call timeout in milliseconds |
 | `MaxTokens` | `512` | Maximum tokens in Claude response (~375 words) |
 | `Temperature` | `0.7` | Response creativity (0.0=deterministic, 1.0=random) |
 
 **Available models:**
-- `claude-3-5-sonnet-20241022` - **Recommended** - Best balance of speed, quality, and cost
-- `claude-3-opus-20240229` - Highest quality but slower and more expensive
-- `claude-3-haiku-20240307` - Fastest and cheapest but lower quality
+- `claude-sonnet-4-20250514` - **Recommended** - Best balance of speed, quality, and cost
+- `claude-opus-4-20250514` - Highest quality but slower and more expensive
+- `claude-haiku-4-20250514` - Fastest and cheapest but lower quality
+
+The `Anthropic` section has its own `DefaultModel` (also `claude-sonnet-4-20250514`), which the LLM client falls back to when `Assistant:Model` is unset.
 
 #### Tool Configuration
 
@@ -292,6 +294,51 @@ At 100 questions/day:
 | `ReadmePath` | `"README.md"` | Path to README for command lists |
 | `BaseUrl` | `null` (uses Application.BaseUrl) | Base URL for link generation in responses |
 
+### Anthropic Section (Client Settings)
+
+The `Anthropic` section configures the underlying Claude API client and is separate from the `Assistant` section. The API key lives here.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ApiKey` | `null` | Anthropic API key. Configure via User Secrets, never in `appsettings.json`. When unset, LLM-dependent services are not registered. |
+| `DefaultModel` | `"claude-sonnet-4-20250514"` | Default model used by the client when `Assistant:Model` is unset. Available: `claude-opus-4-20250514`, `claude-sonnet-4-20250514`, `claude-haiku-4-20250514`. |
+| `MaxRetries` | `3` | Maximum retry attempts for transient failures (exponential backoff). |
+| `TimeoutSeconds` | `300` | Request timeout in seconds. |
+| `RetryBaseDelayMs` | `1000` | Base delay (ms) for exponential backoff. |
+| `EnablePromptCachingByDefault` | `true` | Enable automatic prompt caching by default (individual requests may override). |
+
+### DmAssistant Section (DM Assistant)
+
+The DM assistant is a separate, owner-only direct-message assistant with its own model and conversation settings, bound from the `DmAssistant` section. It is independent of the guild `Assistant` section.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `Enabled` | `false` | Master toggle for the DM assistant. |
+| `OwnerSystemPromptPath` | `"docs/agents/dm-owner-agent.md"` | Path to the owner system prompt. |
+| `PlaceholderMessage` | `"DM assistant support is coming soon! Stay tuned."` | Message shown to non-owner users. |
+| `MaxConversationMessages` | `20` | Sliding-window size of retained conversation messages per user. |
+| `Model` | `"claude-sonnet-4-20250514"` | Claude model for the DM assistant. |
+| `MaxTokens` | `4096` | Max response tokens (higher than the guild assistant's 512). |
+| `Temperature` | `0.7` | Response creativity. |
+| `MaxResponseLength` | `50000` | Max response characters; the handler chunks or uploads long responses. |
+| `TruncationSuffix` | `"\n\n... *(response truncated)*"` | Suffix on truncated responses. |
+| `ErrorMessage` | `"Oops, I'm having trouble thinking right now. Please try again in a moment."` | Friendly error message. |
+| `EnableCostTracking` | `true` | Track token usage for cost monitoring. |
+| `CostPerMillionInputTokens` | `3.00` | Cost per million input tokens. |
+| `CostPerMillionOutputTokens` | `15.00` | Cost per million output tokens. |
+| `CostPerMillionCachedTokens` | `0.30` | Cost per million cached input tokens. |
+| `CostPerMillionCacheWriteTokens` | `3.75` | Cost per million cache write tokens. |
+| `LogInteractions` | `true` | Log interactions for audit/debugging. |
+| `InteractionLogRetentionDays` | `90` | Days to retain interaction logs. |
+| `EnableCodeExecution` | `false` | Enable the Python `execute_python` tool. |
+| `CodeExecutionTimeoutSeconds` | `30` | Timeout for code execution. |
+| `CodeExecutionMaxOutputLength` | `8000` | Max output characters from code execution. |
+| `PythonPath` | `"python3"` | Path to the Python interpreter. |
+| `ShowTypingIndicator` | `true` | Show typing indicator while responding. |
+| `EnablePromptCaching` | `true` | Use prompt caching for the system prompt. |
+
+The Claude Code CLI integration used by the DM assistant is configured separately via the `Mogwai` section — see [Mogwai](mogwai.md).
+
 ### Example appsettings.json
 
 ```json
@@ -305,7 +352,7 @@ At 100 questions/day:
     "MaxQuestionLength": 500,
     "MaxResponseLength": 1800,
     "TruncationSuffix": "\n\n... *(response truncated)*",
-    "Model": "claude-3-5-sonnet-20241022",
+    "Model": "claude-sonnet-4-20250514",
     "ApiTimeoutMs": 30000,
     "MaxTokens": 512,
     "Temperature": 0.7,
@@ -344,11 +391,11 @@ At 100 questions/day:
 
 ### User Secrets Configuration
 
-Claude API key must be configured via User Secrets (never commit to version control):
+The Anthropic API key must be configured via User Secrets (never commit to version control):
 
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Claude:ApiKey" "sk-ant-your-api-key-here"
+dotnet user-secrets set "Anthropic:ApiKey" "sk-ant-your-api-key-here"
 ```
 
 To obtain an API key:
@@ -374,31 +421,60 @@ The assistant uses a provider-agnostic LLM abstraction layer that supports multi
 - `IPromptTemplate` - Loads and renders prompt templates with variable substitution
 
 **Current Provider:**
-- `AnthropicLlmClient` - Claude API integration with Anthropic.SDK
+- `AnthropicLlmClient` - Claude API integration using the `Anthropic` SDK package
 
-**Future Providers:**
-- OpenAI (GPT-4 compatible interface)
-- Local models via Ollama
-- Other providers following `ILlmClient` interface
+**Two-track provider model:**
+
+The system distinguishes two interfaces:
+- `IToolProvider` - tools available to the **guild** assistant (mention-based, in-channel).
+- `IDmToolProvider` - tools available to the **DM** assistant (owner-only direct-message assistant; see [Mogwai](mogwai.md) for the Claude Code track).
 
 ### Tool System
 
-**Tool Providers:**
-- `DocumentationToolProvider` - Access to feature docs, command info, and guild context
+#### Guild Assistant Tool Providers (`IToolProvider`)
+
+These providers are registered in `AddAssistant` and discovered automatically by the `ToolRegistry`:
+
+- `DocumentationToolProvider` - Access to feature docs and command info
   - `get_feature_documentation` - Fetch markdown docs for a feature
   - `search_commands` - Search available commands by keyword
   - `get_command_details` - Get detailed info about a specific command
   - `list_features` - List all available bot features
 
 - `UserGuildInfoToolProvider` - User and guild information
-  - `get_user_profile` - User info (username, avatar, roles)
+  - `get_user_profile` - User info (username, avatar, optionally roles)
   - `get_guild_info` - Guild info (name, member count, icon)
-  - `get_user_roles` - List user's roles in guild
+  - `get_user_roles` - List user's roles in the current guild
+
+- `RatWatchToolProvider` - Rat Watch accountability data
+  - `get_rat_watch_leaderboard` - Guild leaderboard
+  - `get_rat_watch_user_stats` - Per-user statistics
+  - `get_rat_watch_summary` - Guild-wide summary
+
+#### DM Assistant Tool Providers (`IDmToolProvider`)
+
+Registered in `AddDmAssistant` for the owner-only DM assistant:
+
+- `MemoryToolProvider` - `save_note`, `search_notes`, `get_note`, `list_notes`, `delete_note`
+- `ConversationToolProvider` - `clear_conversation`, `summarize_conversation`
+- `BotManagementToolProvider` - `list_guilds`, `set_active_guild`, `get_bot_health`, `search_audit_logs`
+- `DmModerationToolProvider` - `get_moderation_cases`, `get_user_mod_history`
+- `DmAnalyticsToolProvider` - `get_server_activity_summary`, `get_command_analytics`
+- `DmDocumentationToolProvider` - documentation lookup for the DM assistant
+- `WebFetchToolProvider` - `fetch_url`
+- `CodeExecutionToolProvider` - `execute_python`
+- `ClaudeCodeToolProvider` - `run_claude_code`, `get_claude_code_status` (Mogwai / Claude Code CLI)
+
+The DM assistant is configured via the separate `DmAssistant` section (see below), and the Claude Code track via the `Mogwai` section.
+
+#### Feature Request Tool Provider
+
+`FeatureRequestToolProvider` powers the `/feature-request` conversational flow (`FeatureRequestConversationService`) rather than the general assistant tool registry.
 
 **Tool Registry:**
-- Centralized management of all providers
-- Enable/disable providers at runtime
-- Routes tool calls to appropriate provider
+- Centralized management of registered providers
+- Enable/disable providers (and per-guild tool enable/disable)
+- Routes tool calls to the appropriate provider
 
 ### Agentic Loop
 
@@ -693,7 +769,8 @@ See **[Adding Features to Assistant Knowledge](assistant-feature-updates.md)** f
 
 ## References
 
-- **Configuration Guide:** See [Claude API Configuration](identity-configuration.md) in Identity Configuration
+- **DM Assistant / Claude Code:** [Mogwai](mogwai.md)
+- **Tool Catalog:** [Assistant Tool Catalog](../specs/assistant-tool-catalog.md)
 - **Privacy Policies:** [Consent and Privacy](consent-privacy.md)
 - **Feature Specs:** [Assistant Requirements](../requirements/assistant-requirements.md)
 - **Implementation Plan:** [Assistant Implementation Plan](../requirements/assistant-implementation-plan.md)

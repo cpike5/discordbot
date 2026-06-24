@@ -31,14 +31,14 @@ The system indexes and searches the following content categories:
 | Category | Searchable Fields | Result Details | Access |
 |----------|------------------|----------------|--------|
 | **Guilds** | Guild name, guild ID | Name, member count, icon | All authenticated users |
+| **Command Logs** | Command name, parameters, result | Command, user, duration, status | All users |
 | **Users** | Username, display name, user ID | Username, avatar, roles | Admins only |
 | **Commands** | Command name, description, module | Name, module, description | All users |
-| **Command Logs** | Command name, parameters, result | Command, user, duration, status | All users |
 | **Audit Logs** | Action, actor name, target, changes | Action type, actor, timestamp | Admins only |
 | **Message Logs** | Message content, author, channel | Content snippet, author, timestamp | Admins only |
 | **Pages** | Page title, description | Page title, URL, description | Based on page auth |
-| **Reminders** | Reminder message | Message, user, scheduled time | Own reminders + admins |
-| **Scheduled Messages** | Message content | Content snippet, channel, schedule | Per-guild admins |
+| **Reminders** | Reminder message | Message, user, scheduled time | Admins only |
+| **Scheduled Messages** | Message content | Content snippet, channel, schedule | Admins only |
 
 ---
 
@@ -71,32 +71,87 @@ public interface ISearchService
 }
 ```
 
-**Implementation:** `SearchService` in `src/DiscordBot.Bot/Services/SearchService.cs` (919 lines)
+**Implementation:** `SearchService` in `src/DiscordBot.Bot/Services/SearchService.cs` (~206 lines)
+
+### Provider Architecture
+
+`SearchService` is a thin orchestrator. It does not contain any per-category search logic itself. Instead it depends on `IEnumerable<ISearchProvider>` and delegates each category to a dedicated provider. Its responsibilities are:
+
+- **Input validation** - Rejects empty or short (< 2 character) search terms.
+- **Result caching** - Caches `UnifiedSearchResultDto` in `IMemoryCache`, keyed by user, term, max-results, and category filter, for `CachingOptions.SearchResultsCacheDurationSeconds`.
+- **Authorization gating** - Evaluates the `RequireAdmin` policy once and skips any provider whose `RequiresAdmin` is `true` for non-admin users.
+- **Provider selection** - Runs all providers, or just the one matching `CategoryFilter` when set.
+- **Sequential execution** - Providers run one at a time (the underlying `DbContext` is not thread-safe), with per-provider error isolation (a failing provider yields an empty category result rather than failing the whole search).
+- **Result assembly** - Maps each provider's `SearchCategoryResult` onto the corresponding property of `UnifiedSearchResultDto`.
+
+Each provider implements the `ISearchProvider` interface:
+
+```csharp
+public interface ISearchProvider
+{
+    SearchCategory Category { get; }
+    bool RequiresAdmin { get; }
+
+    Task<SearchCategoryResult> SearchAsync(
+        string searchTerm,
+        int maxResults,
+        ClaimsPrincipal user,
+        CancellationToken cancellationToken = default);
+}
+```
+
+**Interface Location:** `src/DiscordBot.Core/Interfaces/ISearchProvider.cs`
+
+There are nine providers, all under `src/DiscordBot.Bot/Services/Search/`:
+
+| Provider | Category | RequiresAdmin |
+|----------|----------|---------------|
+| `GuildsSearchProvider` | `Guilds` | No |
+| `CommandLogsSearchProvider` | `CommandLogs` | No |
+| `UsersSearchProvider` | `Users` | Yes |
+| `CommandsSearchProvider` | `Commands` | No |
+| `AuditLogsSearchProvider` | `AuditLogs` | Yes |
+| `MessageLogsSearchProvider` | `MessageLogs` | Yes |
+| `PagesSearchProvider` | `Pages` | No |
+| `RemindersSearchProvider` | `Reminders` | Yes |
+| `ScheduledMessagesSearchProvider` | `ScheduledMessages` | Yes |
 
 ### Service Registration
 
-The service is registered in `Program.cs` as a scoped service:
+The orchestrator and every provider are registered as scoped services in `ApplicationServiceExtensions.cs`:
 
 ```csharp
-builder.Services.AddScoped<ISearchService, SearchService>();
+services.AddScoped<ISearchService, SearchService>();
+
+services.AddScoped<ISearchProvider, GuildsSearchProvider>();
+services.AddScoped<ISearchProvider, CommandLogsSearchProvider>();
+services.AddScoped<ISearchProvider, UsersSearchProvider>();
+services.AddScoped<ISearchProvider, CommandsSearchProvider>();
+services.AddScoped<ISearchProvider, AuditLogsSearchProvider>();
+services.AddScoped<ISearchProvider, MessageLogsSearchProvider>();
+services.AddScoped<ISearchProvider, PagesSearchProvider>();
+services.AddScoped<ISearchProvider, RemindersSearchProvider>();
+services.AddScoped<ISearchProvider, ScheduledMessagesSearchProvider>();
 ```
+
+Adding a new searchable category is a matter of implementing `ISearchProvider` and registering it — no changes to `SearchService` are required.
 
 ### Search Categories
 
-All searchable categories are defined in the `SearchCategory` enum:
+All searchable categories are defined in the `SearchCategory` enum. The declaration order determines each member's underlying integer value:
 
 ```csharp
 public enum SearchCategory
 {
-    Guilds,              // Discord servers
-    Users,               // User accounts
-    Commands,            // Registered slash commands
-    CommandLogs,         // Command execution history
-    AuditLogs,           // System audit trail
-    MessageLogs,         // Discord message history
-    Pages,               // Admin UI pages
-    Reminders,           // User reminders
-    ScheduledMessages    // Scheduled channel messages
+    Guilds,              // 0 - Discord servers
+    CommandLogs,         // 1 - Command execution history
+    Users,               // 2 - User accounts
+    Commands,            // 3 - Registered slash commands
+    AuditLogs,           // 4 - System audit trail
+    MessageLogs,         // 5 - Discord message history
+    Pages,               // 6 - Admin UI pages
+    Reminders,           // 7 - User reminders
+    ScheduledMessages    // 8 - Scheduled channel messages
 }
 ```
 
@@ -188,9 +243,9 @@ public class UnifiedSearchResultDto
     /// Results for each category (Guilds, Users, Commands, etc.).
     /// </summary>
     public SearchCategoryResult Guilds { get; set; }
+    public SearchCategoryResult CommandLogs { get; set; }
     public SearchCategoryResult Users { get; set; }
     public SearchCategoryResult Commands { get; set; }
-    public SearchCategoryResult CommandLogs { get; set; }
     public SearchCategoryResult AuditLogs { get; set; }
     public SearchCategoryResult MessageLogs { get; set; }
     public SearchCategoryResult Pages { get; set; }
@@ -791,8 +846,11 @@ If you can't see certain results:
 
 ## References
 
-- **Service Implementation:** `SearchService.cs` (919 lines)
+- **Orchestrator Implementation:** `src/DiscordBot.Bot/Services/SearchService.cs` (~206 lines)
 - **Service Interface:** `ISearchService.cs`
+- **Provider Interface:** `src/DiscordBot.Core/Interfaces/ISearchProvider.cs`
+- **Provider Implementations:** `src/DiscordBot.Bot/Services/Search/` (9 `ISearchProvider` implementations)
+- **Service Registration:** `src/DiscordBot.Bot/Extensions/ApplicationServiceExtensions.cs`
 - **Search Page:** `/Search.cshtml` and `Search.cshtml.cs`
 - **DTOs:** `SearchDtos.cs` and `SearchCategory.cs` enum
 - **Tag Helper:** `src/DiscordBot.Bot/TagHelpers/HighlightTagHelper.cs`
