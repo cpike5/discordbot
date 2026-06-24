@@ -497,7 +497,7 @@ public void RecordError(string group, string errorType)
 
 **Tags**:
 - `group` - `"vox"`, `"fvox"`, or `"hgrunt"`
-- `source` - `"slash_command"` or `"portal"`
+- `source` - `"slash_command"` or `"portal"` (in practice only `"slash_command"` is emitted — see the not-implemented note under `discordbot.vox.commands.total`)
 - `status` - `"success"` or `"failure"`
 
 **Implementation**:
@@ -830,6 +830,7 @@ message:"VOX_COMMAND_FAILED" AND labels.ErrorType:"NoClipsMatched"
 message:"VOX_COMMAND_COMPLETED" AND labels.DurationMs:>2000
 
 # VOX portal vs slash command usage
+# NOTE: Not implemented — no log currently sets Source="Portal", so this query returns nothing today.
 message:"VOX_COMMAND_STARTED" AND labels.Source:"Portal"
 ```
 
@@ -879,6 +880,8 @@ The following visualizations could be added for deeper VOX analytics:
 ```
 
 #### Portal vs Slash Command Usage
+
+> Not implemented — `Source` is never set to `"Portal"` by the current code, so this split is always entirely `slash_command`.
 
 ```
 @message: "VOX_COMMAND_STARTED" | stats count() by Source

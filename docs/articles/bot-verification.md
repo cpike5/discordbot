@@ -326,20 +326,21 @@ upper-cased), so casing and separators do not matter.
 
 #### Code Not Displaying
 
-**Symptoms:** You clicked "Link via Discord Bot" but no code appears.
+**Symptoms:** You ran `/verify-account` but the bot did not reply with a code.
+
+**Note:** The code is displayed by the bot **in Discord** (as an ephemeral
+message), not on the web page. The web profile page only contains the form where
+you enter the code.
 
 **Possible Causes:**
-1. Dialog/modal failed to display
-2. Browser popup blocked
-3. JavaScript error
+1. You did not start a verification on the profile page first ("No pending verification found")
+2. You hit the rate limit (3 codes/hour)
+3. The bot is offline or the command failed
 
 **Solutions:**
-1. **Check Popups:** Verify popups are not blocked for this domain
-   - Browser address bar may show a popup blocker notification
-   - Whitelist the domain to allow popups
-2. **Try Again:** Refresh the page and retry
-3. **Use Different Browser:** Try a different browser to rule out browser-specific issues
-4. **Check Console:** Open browser developer tools (F12) and check for JavaScript errors
+1. **Start Verification First:** Ensure you initiated a verification on your profile page, then run `/verify-account`
+2. **Check the Ephemeral Reply:** Discord ephemeral messages are only visible to you and may be dismissed; re-run the command if you closed it before copying the code
+3. **Check Rate Limit:** If rate limited, wait for the rolling hour window to reset
 
 ---
 
@@ -399,8 +400,8 @@ upper-cased), so casing and separators do not matter.
    - Find "Linked Discord Account" section
    - Click "Unlink Discord"
    - Confirm the action
-2. Generate a new verification code with your new Discord account
-3. Run `/verify-account` in Discord with the new account
+2. Start a new verification on your profile page
+3. Run `/verify-account` in Discord with the new account, then enter the code on your profile page
 
 **To Link an Additional Discord Account (Not Supported):**
 - The system supports only one Discord account per user account
@@ -415,198 +416,173 @@ upper-cased), so casing and separators do not matter.
 ### Code Generation and Storage
 
 **Code Characteristics:**
-- Length: 6 characters
-- Character Set: `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`
+- Length: `Verification:CodeLength` characters (default 6)
+- Character Set: `Verification:CodeCharset`
+  (default `ABCDEFGHJKLMNPQRSTUVWXYZ23456789`)
   - Excludes: 0 (zero), 1 (one), I, O, L (confusing characters)
-- Generation: Cryptographically random
-- Storage: Hashed in database (plaintext never stored)
+- Generation: Cryptographically random (`RandomNumberGenerator`), with each byte
+  reduced modulo the charset length
+- Storage: The code is stored as-is in the `Code` column of the
+  `VerificationCode` row. It is not hashed; validation compares the entered code
+  to the stored value directly (after normalizing dashes/spaces and upper-casing).
 
-**Code Table Schema:**
+**Entity:** `VerificationCode`
+(`src/DiscordBot.Core/Entities/VerificationCode.cs`)
 
 ```csharp
-public class DiscordAccountVerification
+public class VerificationCode
 {
     public Guid Id { get; set; }
-    public string UserId { get; set; }                  // User requesting verification
-    public ulong DiscordUserId { get; set; }            // Discord ID verifying against
-    public string CodeHash { get; set; }                // Hashed verification code
-    public DateTime GeneratedAt { get; set; }           // Creation timestamp
-    public DateTime ExpiresAt { get; set; }             // 15 minutes from generated
-    public bool IsUsed { get; set; }                    // Single-use flag
-    public DateTime? VerifiedAt { get; set; }           // When code was verified
+    public string ApplicationUserId { get; set; }        // FK to ApplicationUser (web account)
+    public ApplicationUser ApplicationUser { get; set; }
+    public string Code { get; set; }                     // The 6-char code (stored as-is)
+    public ulong? DiscordUserId { get; set; }            // Set when /verify-account is run
+    public VerificationStatus Status { get; set; }       // Pending, Completed, Expired, Cancelled
+    public DateTime CreatedAt { get; set; }
+    public DateTime ExpiresAt { get; set; }              // CreatedAt + CodeExpiryMinutes
+    public DateTime? CompletedAt { get; set; }
+    public string? IpAddress { get; set; }               // IP that initiated the verification
+}
+
+public enum VerificationStatus
+{
+    Pending = 0,
+    Completed = 1,
+    Expired = 2,
+    Cancelled = 3
 }
 ```
 
 ### Code Lifecycle
 
-1. **Generation (Step 1 in user flow):**
-   - Code generated as 6 random characters
-   - Hashed using PBKDF2 (same as passwords)
-   - Stored with `GeneratedAt` = now
-   - `ExpiresAt` = now + 15 minutes
-   - `IsUsed` = false
+1. **Initiation (profile page → `InitiateVerificationAsync`):**
+   - A `VerificationCode` row is created with `Status = Pending`, an empty `Code`
+     (the code is filled in later, when the Discord command runs), `CreatedAt = now`,
+     and `ExpiresAt = now + CodeExpiryMinutes`.
+   - Any existing pending verifications for the user are first cancelled.
 
-2. **Validation (Step 3 in user flow):**
-   - User submits code via `/verify-account` command
-   - System searches for matching code hash
-   - Checks: not expired, not used, Discord user ID matches
-   - If valid, sets `IsUsed` = true and `VerifiedAt` = now
+2. **Code generation (Discord → `GenerateCodeForDiscordUserAsync`):**
+   - Triggered by `/verify-account` (no parameters).
+   - Rejected if the Discord user is already linked, or if the user is rate limited.
+   - Finds the oldest unclaimed, non-expired pending verification
+     (`DiscordUserId == null`), assigns the running user's `DiscordUserId`,
+     generates the code, and refreshes `ExpiresAt`.
+   - The code is returned in the bot's ephemeral reply.
 
-3. **Cleanup (Background Task):**
-   - Runs every 5 minutes
-   - Deletes verification records older than 15 minutes
-   - Prevents database bloat from expired codes
+3. **Validation (profile page → `ValidateCodeAsync`):**
+   - The user enters the code on the profile page.
+   - The code is normalized (dashes/spaces stripped, upper-cased) and matched
+     against `VerificationCode.Code` for the current user.
+   - Checks: not already completed, not expired, and `DiscordUserId` is set.
+   - On success, the user's `ApplicationUser.DiscordUserId` is set, and the
+     verification's `Status` becomes `Completed` with `CompletedAt = now`.
+
+4. **Cleanup (background service → `CleanupExpiredCodesAsync`):**
+   - Marks pending codes whose `ExpiresAt` has passed as `Expired`.
+   - Deletes non-pending codes older than `Verification:OldCodeCleanupHours`
+     (default 24 hours).
 
 ### Rate Limiting Implementation
 
-**Rate Limit Data:**
+There is **no** rate-limit table. Rate limiting is enforced in two places, both
+keyed to the Discord user:
 
-```csharp
-public class DiscordVerificationRateLimit
-{
-    public Guid Id { get; set; }
-    public ulong DiscordUserId { get; set; }           // Discord user being rate limited
-    public int CodeGenerationCount { get; set; }       // Number of codes generated this hour
-    public DateTime ResetTime { get; set; }            // When count resets
-}
-```
-
-**Rate Limit Logic:**
-
-```
-1. User requests code generation
-2. Look up rate limit record for Discord user ID
-3. If reset time has passed:
-   - Reset count to 0
-   - Update reset time to +1 hour from now
-4. If count >= 3:
-   - Return rate limit error
-   - Exit without generating code
-5. If count < 3:
-   - Increment count
-   - Generate and store code
-   - Save updated rate limit
-```
-
-**Rate Limit Reset:**
-- Rolls based on individual user's generation timestamps
-- Example: If user generated codes at 9:00, 9:15, 9:30, they can generate again at 10:00, 10:15, 10:30
+1. **Command precondition:** `[RateLimit(3, 3600, RateLimitTarget.User)]` on
+   `/verify-account` — at most 3 invocations per 3600 seconds per user.
+2. **Service check:** `VerificationService.IsRateLimitedAsync` counts
+   `VerificationCode` rows for the Discord user with `CreatedAt` within the last
+   hour and compares against `Verification:MaxCodesPerHour` (default 3).
 
 ### Bot Command Handler
 
-**Command Path:** `Commands/VerifyAccountModule.cs`
+**Command Path:** `src/DiscordBot.Bot/Commands/VerifyAccountModule.cs`
 
 **Command Definition:**
 
 ```csharp
-[SlashCommand("verify-account", "Link your Discord account to your user account")]
-public async Task VerifyAccountAsync(
-    [Summary(name: "code", description: "Your 6-character verification code")]
-    string code)
+[SlashCommand("verify-account", "Generate a verification code to link your Discord account to the admin panel")]
+[RateLimit(3, 3600, Core.Enums.RateLimitTarget.User)] // 3 per hour
+public async Task VerifyAccountAsync()
 {
-    // Command implementation handles:
-    // 1. Code format validation
-    // 2. Code existence and validity check
-    // 3. Code expiry check
-    // 4. Code single-use verification
-    // 5. Discord user ID matching
-    // 6. Account linking in database
-    // 7. Ephemeral response to user
+    // 1. Calls IVerificationService.GenerateCodeForDiscordUserAsync(Context.User.Id)
+    // 2. On failure, replies with an ephemeral error embed
+    // 3. On success, replies with an ephemeral embed containing the code,
+    //    its relative expiry, and instructions to enter it on the profile page
 }
 ```
 
 **Response Behavior:**
-- All responses are ephemeral (InteractionResponseType.DeferredChannelMessageWithSource + ephemeral)
-- Only the command executor sees the response
-- Response disappears after a short time
-- No message history in channel
-
-### State Management
-
-**Storage Service:** `IInteractionStateService`
-
-**State Key Pattern:**
-```
-discord-verification:{discordUserId}:{correlationId}
-```
-
-**State Contents:**
-```json
-{
-  "code": "ABC2DE",
-  "userId": "user-guid",
-  "generatedAt": "2024-12-09T15:30:00Z",
-  "expiresAt": "2024-12-09T15:45:00Z"
-}
-```
-
-**State Expiry:** 15 minutes (matches code expiry)
+- The command takes **no parameters** — it only generates a code
+- All responses are ephemeral (only the command executor sees them)
+- The code is shown in the embed's "Your Code" field
 
 ### Security Considerations
 
 **Code Security:**
-- Never transmitted in plain text
-- Hashed with PBKDF2 before storage
-- Matched using constant-time comparison (prevents timing attacks)
+- Codes are generated with a cryptographic RNG
+- Codes are short-lived (15 minutes by default) and single-use (once a
+  verification reaches `Completed` it cannot be reused)
+- Codes are shown only in an ephemeral Discord message
+- Codes are stored as plaintext in the `Code` column and matched by equality
 
 **Rate Limiting Security:**
-- Per Discord user (prevents cross-account attacks)
-- Hourly rolling window
-- 3 codes/hour is reasonable limit
+- Per Discord user (command precondition + per-hour count)
+- Rolling one-hour window
+- 3 codes/hour by default (`Verification:MaxCodesPerHour`)
 
-**Session Security:**
-- Ephemeral Discord messages hide codes from others
-- Code must be matched to correct Discord user ID
-- Each user account can have only one Discord account
-
-**Database Security:**
-- Foreign key constraints prevent orphaned verifications
-- Cascade delete when user is deleted
-- Audit logging of verification events
+**Linking Constraints:**
+- A Discord account can only be linked to one web account
+- A web account can only have one Discord account linked
 
 ### Configuration
 
-**Default Configuration (in `appsettings.json`):**
+Verification options bind from the top-level `Verification` section
+(`VerificationOptions`, `SectionName = "Verification"`):
 
 ```json
 {
-  "Discord": {
-    "AccountVerification": {
-      "CodeExpiryMinutes": 15,
-      "CodeLength": 6,
-      "RateLimitCodesPerHour": 3,
-      "BackgroundCleanupIntervalMinutes": 5
-    }
+  "Verification": {
+    "CodeCharset": "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+    "CodeLength": 6,
+    "CodeExpiryMinutes": 15,
+    "MaxCodesPerHour": 3,
+    "OldCodeCleanupHours": 24
   }
 }
 ```
 
+| Key | Default | Description |
+|-----|---------|-------------|
+| `CodeCharset` | `ABCDEFGHJKLMNPQRSTUVWXYZ23456789` | Characters used to build codes |
+| `CodeLength` | `6` | Number of characters in a code |
+| `CodeExpiryMinutes` | `15` | How long a code remains valid |
+| `MaxCodesPerHour` | `3` | Per-Discord-user generation limit (rolling hour) |
+| `OldCodeCleanupHours` | `24` | Age threshold for deleting non-pending codes |
+
+The cleanup service's run interval is separate, controlled by
+`BackgroundServices:VerificationCleanupIntervalMinutes` (default 5).
+
 **Environment Override Example:**
 
 ```bash
-# Rate limit to 5 codes per hour
-Discord__AccountVerification__RateLimitCodesPerHour=5
+# Increase the per-hour generation limit to 5
+Verification__MaxCodesPerHour=5
 
 # Increase code expiry to 30 minutes
-Discord__AccountVerification__CodeExpiryMinutes=30
+Verification__CodeExpiryMinutes=30
 ```
 
 ### Background Services
 
-**Expired Code Cleanup Task:**
+**Expired Code Cleanup:**
 
-- Runs every 5 minutes (configurable)
-- Deletes all verification records where `ExpiresAt < DateTime.UtcNow`
-- Logs count of deleted records
-- Runs at application startup and then on interval
-- Service: `DiscordVerificationCleanupService`
-
-**Logging:**
-
-```
-[INF] Discord verification cleanup: Deleted 5 expired verification codes
-[INF] Next cleanup scheduled in 5 minutes
-```
+- Service: `VerificationCleanupService`
+  (`src/DiscordBot.Bot/Services/VerificationCleanupService.cs`)
+- Runs on a `PeriodicTimer`; interval is
+  `BackgroundServices:VerificationCleanupIntervalMinutes` (default 5 minutes)
+- Each cycle calls `IVerificationService.CleanupExpiredCodesAsync`, which marks
+  expired pending codes as `Expired` and deletes non-pending codes older than
+  `Verification:OldCodeCleanupHours` (default 24 hours)
 
 ---
 
@@ -617,7 +593,5 @@ Discord__AccountVerification__CodeExpiryMinutes=30
 - [Interactive Components](interactive-components.md) - Discord component patterns
 
 ---
-
-**Last Updated:** December 9, 2024
 
 **Feature Version:** 1.0 (Issue #118)

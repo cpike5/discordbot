@@ -117,18 +117,18 @@ Services for managing message logs, audit logs, and log retention.
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: hourly) |
-| **Default Retention** | 30 days |
-| **Batch Size** | Configurable |
+| **Type** | Monitored Background Service |
+| **Interval** | `CleanupIntervalHours` (default: 24) |
+| **Default Retention** | 90 days |
+| **Batch Size** | `CleanupBatchSize` (default: 1000) |
 
-**Configuration:**
+**Configuration:** Section `MessageLogRetention`, bound to `MessageLogRetentionOptions`.
 ```json
 {
   "MessageLogRetention": {
-    "RetentionDays": 30,
-    "CleanupIntervalMinutes": 60,
-    "BatchSize": 1000,
+    "RetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
     "Enabled": true
   }
 }
@@ -151,13 +151,15 @@ Services for managing message logs, audit logs, and log retention.
 
 **Pattern:**
 ```csharp
-// Main thread enqueues
-await _auditLog.Action(AuditLogAction.UserBanned)
+// Main thread enqueues (fire-and-forget)
+_auditLogService.CreateBuilder()
+    .ForCategory(AuditLogCategory.Security)
+    .WithAction(AuditLogAction.UserBanned)
     .InGuild(guildId)
     .ByUser(moderatorId)
-    .SaveAsync();  // Enqueued, returns immediately
+    .Enqueue();  // Returns immediately
 
-// Background service dequeues and persists
+// Background service dequeues and persists in batches
 // Protects against DB bottlenecks
 ```
 
@@ -171,18 +173,18 @@ await _auditLog.Action(AuditLogAction.UserBanned)
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: daily) |
+| **Type** | Monitored Background Service |
+| **Interval** | `CleanupIntervalHours` (default: 24) |
 | **Default Retention** | 90 days |
-| **Batch Size** | Configurable |
+| **Batch Size** | `CleanupBatchSize` (default: 1000) |
 
-**Configuration:**
+**Configuration:** Section `AuditLogRetention`, bound to `AuditLogRetentionOptions`.
 ```json
 {
   "AuditLogRetention": {
     "RetentionDays": 90,
-    "CleanupIntervalMinutes": 1440,
-    "BatchSize": 1000,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
     "Enabled": true
   }
 }
@@ -204,14 +206,14 @@ Services for executing reminders, scheduled messages, and RatWatch voting period
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Every 30 seconds |
-| **Batch Size** | Up to 100 reminders per check |
+| **Type** | Monitored Background Service |
+| **Interval** | `CheckIntervalSeconds` (default: 30) |
+| **Concurrency** | `MaxConcurrentDeliveries` (default: 5) |
 | **Dependencies** | `IReminderRepository`, Discord client |
 
 **Execution Flow:**
 ```csharp
-// Runs every 30 seconds
+// Runs every CheckIntervalSeconds
 var dueReminders = await _reminderRepository
     .FindAsync(r => r.DueAt <= DateTime.UtcNow && !r.Delivered);
 
@@ -222,13 +224,17 @@ foreach (var reminder in dueReminders)
 }
 ```
 
-**Configuration:**
+**Configuration:** Section `Reminder`, bound to `ReminderOptions`.
 ```json
 {
-  "Reminders": {
-    "ExecutionIntervalSeconds": 30,
-    "MaxRemindersPerBatch": 100,
-    "DmNotificationEnabled": true
+  "Reminder": {
+    "CheckIntervalSeconds": 30,
+    "MaxConcurrentDeliveries": 5,
+    "MaxDeliveryAttempts": 3,
+    "RetryDelayMinutes": 5,
+    "MaxRemindersPerUser": 25,
+    "MaxAdvanceDays": 365,
+    "MinAdvanceMinutes": 1
   }
 }
 ```
@@ -243,18 +249,18 @@ foreach (var reminder in dueReminders)
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Every 60 seconds |
-| **Batch Size** | Up to 50 messages per check |
+| **Type** | Monitored Background Service |
+| **Interval** | `CheckIntervalSeconds` (default: 60) |
+| **Concurrency** | `MaxConcurrentExecutions` (default: 5) |
 | **Dependencies** | `IScheduledMessageService`, Discord client |
 
-**Configuration:**
+**Configuration:** Section `ScheduledMessages`, bound to `ScheduledMessagesOptions`.
 ```json
 {
   "ScheduledMessages": {
-    "ExecutionIntervalSeconds": 60,
-    "MaxMessagesPerBatch": 50,
-    "TimezoneAware": true
+    "CheckIntervalSeconds": 60,
+    "MaxConcurrentExecutions": 5,
+    "ExecutionTimeoutSeconds": 30
   }
 }
 ```
@@ -269,17 +275,19 @@ foreach (var reminder in dueReminders)
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: 5 minutes) |
+| **Type** | Monitored Background Service |
+| **Interval** | `CheckIntervalSeconds` (default: 30) |
 | **Dependencies** | `IRatWatchService`, Discord client |
 
-**Configuration:**
+**Configuration:** Section `RatWatch`, bound to `RatWatchOptions`.
 ```json
 {
   "RatWatch": {
-    "ExecutionIntervalSeconds": 300,
-    "VotingPeriodMinutes": 60,
-    "MinimumVotesRequired": 5
+    "CheckIntervalSeconds": 30,
+    "MaxConcurrentExecutions": 5,
+    "ExecutionTimeoutSeconds": 30,
+    "DefaultVotingDurationMinutes": 5,
+    "DefaultMaxAdvanceHours": 24
   }
 }
 ```
@@ -302,18 +310,18 @@ Services for audio cache maintenance, sound file cleanup, and voice channel mana
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: daily) |
-| **Default Retention** | 30 days |
-| **Batch Size** | 1000 logs |
+| **Type** | Monitored Background Service |
+| **Interval** | `CleanupIntervalHours` (default: 24) |
+| **Default Retention** | 90 days |
+| **Batch Size** | `CleanupBatchSize` (default: 1000) |
 
-**Configuration:**
+**Configuration:** Section `SoundPlayLogRetention`, bound to `SoundPlayLogRetentionOptions`.
 ```json
 {
   "SoundPlayLogRetention": {
-    "RetentionDays": 30,
-    "CleanupIntervalMinutes": 1440,
-    "BatchSize": 1000,
+    "RetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
     "Enabled": true
   }
 }
@@ -354,17 +362,16 @@ Services for audio cache maintenance, sound file cleanup, and voice channel mana
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: every 60 seconds) |
-| **Inactivity Timeout** | Configurable (default: 5 minutes) |
+| **Type** | Monitored Background Service |
+| **Interval** | `CheckIntervalSeconds` (default: 30) |
+| **Inactivity Timeout** | `AutoLeaveTimeoutSeconds` (default: 300) |
 
-**Configuration:**
+**Configuration:** Section `VoiceChannel`, bound to `VoiceChannelOptions`.
 ```json
 {
   "VoiceChannel": {
-    "AutoLeaveEnabled": true,
-    "AutoLeaveDelaySeconds": 300,
-    "CheckIntervalSeconds": 60
+    "AutoLeaveTimeoutSeconds": 300,
+    "CheckIntervalSeconds": 30
   }
 }
 ```
@@ -476,17 +483,18 @@ Services for collecting system metrics, tracking alerts, and broadcasting perfor
 
 | Property | Value |
 |----------|-------|
-| **Type** | Background Service |
-| **Interval** | Configurable (default: 30 seconds) |
-| **Cooldown** | Prevents alert spam (default: 5 minutes) |
+| **Type** | Background Service (implements `IBackgroundServiceHealth`) |
+| **Interval** | `CheckIntervalSeconds` (default: 30) |
+| **Breach Hysteresis** | `ConsecutiveBreachesRequired` / `ConsecutiveNormalRequired` |
 
-**Configuration:**
+**Configuration:** Section `PerformanceAlerts`, bound to `PerformanceAlertOptions`.
 ```json
 {
   "PerformanceAlerts": {
-    "Enabled": true,
     "CheckIntervalSeconds": 30,
-    "AlertCooldownMinutes": 5
+    "ConsecutiveBreachesRequired": 2,
+    "ConsecutiveNormalRequired": 3,
+    "IncidentRetentionDays": 90
   }
 }
 ```
