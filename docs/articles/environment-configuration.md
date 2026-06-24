@@ -651,136 +651,220 @@ Controls the Rat Watch accountability feature's background processing.
 
 ## Additional Configuration Sections
 
+> Property names and defaults below match the options classes exactly. Only a representative subset of properties is shown for the larger classes — see the source class for the full set.
+
 ### Audio Configuration
 
-#### AudioCacheOptions
+#### AudioCacheOptions — section `AudioCache`
 
-Controls audio file caching for improved playback performance.
+Caches FFmpeg-processed PCM audio to reduce playback latency.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `MaxCacheSizeMb` | int | 500 | Maximum total cache size in MB |
-| `CacheExpirationMinutes` | int | 60 | Minutes before unused cache entries expire |
-| `CleanupIntervalMinutes` | int | 15 | Interval between cache cleanup operations |
+| `Enabled` | bool | true | Enable audio caching |
+| `CachePath` | string | "./cache/audio" | Base path for cached audio files |
+| `MaxCacheSizeBytes` | long | 524288000 | Max total cache size in bytes (500 MB) |
+| `MaxEntries` | int | 1000 | Max number of cached entries |
+| `EntryTtlHours` | int | 168 | TTL for cache entries (7 days) |
+| `MaxCacheDurationSeconds` | int | 60 | Max sound duration eligible for caching |
+| `CleanupIntervalMinutes` | int | 60 | Interval between cache cleanup runs |
 
 ```json
 {
   "AudioCache": {
-    "MaxCacheSizeMb": 500,
-    "CacheExpirationMinutes": 60,
-    "CleanupIntervalMinutes": 15
+    "Enabled": true,
+    "CachePath": "./cache/audio",
+    "MaxCacheSizeBytes": 524288000,
+    "MaxEntries": 1000,
+    "EntryTtlHours": 168,
+    "MaxCacheDurationSeconds": 60,
+    "CleanupIntervalMinutes": 60
   }
 }
 ```
 
-#### SoundboardOptions
+#### SoundboardOptions — section `Soundboard`
 
-Controls the soundboard feature limits and behavior.
+Controls soundboard limits and FFmpeg integration.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `MaxFileSizeMb` | int | 10 | Maximum upload file size in MB |
-| `AllowedExtensions` | string[] | [".mp3", ".wav", ".ogg"] | Allowed audio file extensions |
-| `MaxSoundsPerGuild` | int | 100 | Maximum sounds per guild |
-| `StoragePath` | string | "sounds" | Directory for sound file storage |
+| `BasePath` | string | "./sounds" | Base path for sound file storage (per-guild subfolders) |
+| `FfmpegPath` | string? | null | Path to FFmpeg executable (null = use system PATH) |
+| `FfprobePath` | string? | null | Path to FFprobe executable (null = use system PATH) |
+| `DefaultMaxDurationSeconds` | int | 30 | Default max sound duration |
+| `DefaultMaxFileSizeBytes` | long | 10485760 | Default max file size (10 MB) |
+| `DefaultMaxSoundsPerGuild` | int | 100 | Default max sounds per guild |
+| `DefaultMaxStorageBytes` | long | 524288000 | Default total storage per guild (500 MB) |
+| `DefaultAutoLeaveTimeoutMinutes` | int | 0 | Auto-leave timeout (0 = stay indefinitely) |
+| `SupportedFormats` | string[] | ["mp3", "wav", "ogg"] | Supported audio file formats |
 
 ```json
 {
   "Soundboard": {
-    "MaxFileSizeMb": 10,
-    "AllowedExtensions": [".mp3", ".wav", ".ogg"],
-    "MaxSoundsPerGuild": 100,
-    "StoragePath": "sounds"
+    "BasePath": "./sounds",
+    "FfmpegPath": null,
+    "FfprobePath": null,
+    "DefaultMaxDurationSeconds": 30,
+    "DefaultMaxFileSizeBytes": 10485760,
+    "DefaultMaxSoundsPerGuild": 100,
+    "DefaultMaxStorageBytes": 524288000,
+    "DefaultAutoLeaveTimeoutMinutes": 0,
+    "SupportedFormats": ["mp3", "wav", "ogg"]
   }
 }
 ```
 
-#### VoiceChannelOptions
+#### VoxOptions — section `Vox`
 
-Controls voice channel behavior and queue management.
+Controls the VOX clip library (Half-Life-style announcements).
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `AutoDisconnectSeconds` | int | 300 | Auto-disconnect after idle time (0 = disabled) |
-| `MaxQueueSize` | int | 50 | Maximum playback queue size |
-| `DefaultVolume` | double | 0.5 | Default playback volume (0-1 range) |
+| `BasePath` | string | "./sounds" | Base path for VOX audio files |
+| `DefaultWordGapMs` | int | 50 | Default gap between words in milliseconds |
+| `MaxMessageWords` | int | 50 | Max words allowed in a VOX message |
+| `MaxMessageLength` | int | 500 | Max character length of a VOX message |
+
+```json
+{
+  "Vox": {
+    "BasePath": "./sounds",
+    "DefaultWordGapMs": 50,
+    "MaxMessageWords": 50,
+    "MaxMessageLength": 500
+  }
+}
+```
+
+#### VoiceChannelOptions — section `VoiceChannel`
+
+Controls automatic voice-channel disconnection.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `AutoLeaveTimeoutSeconds` | int | 300 | Auto-leave timeout when the bot is alone (0 = stay indefinitely) |
+| `CheckIntervalSeconds` | int | 30 | Interval between auto-leave condition checks |
 
 ```json
 {
   "VoiceChannel": {
-    "AutoDisconnectSeconds": 300,
-    "MaxQueueSize": 50,
-    "DefaultVolume": 0.5
+    "AutoLeaveTimeoutSeconds": 300,
+    "CheckIntervalSeconds": 30
   }
 }
 ```
 
-#### AzureSpeechOptions
+#### AzureSpeechOptions — section `AzureSpeech`
 
-Configures Azure Speech Services for text-to-speech functionality.
+Configures Azure Cognitive Services Speech for text-to-speech.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `SubscriptionKey` | string | - | Azure subscription key (SECRET) |
+| `SubscriptionKey` | string? | null | Azure subscription key (SECRET; via user secrets) |
 | `Region` | string | "eastus" | Azure region |
 | `DefaultVoice` | string | "en-US-JennyNeural" | Default TTS voice name |
+| `MaxTextLength` | int | 500 | Max text length for synthesis |
+| `DefaultSpeed` | double | 1.0 | Default speech rate multiplier (0.5–2.0) |
+| `DefaultPitch` | double | 1.0 | Default pitch adjustment (0.5–1.5) |
+| `DefaultVolume` | double | 0.8 | Default volume level (0.0–1.0) |
 
 ```json
 {
   "AzureSpeech": {
-    "SubscriptionKey": "(user-secrets)",
+    "SubscriptionKey": null,
     "Region": "eastus",
-    "DefaultVoice": "en-US-JennyNeural"
+    "DefaultVoice": "en-US-JennyNeural",
+    "MaxTextLength": 500,
+    "DefaultSpeed": 1.0,
+    "DefaultPitch": 1.0,
+    "DefaultVolume": 0.8
   }
 }
 ```
 
 **Note:** Store `SubscriptionKey` in User Secrets or environment variables.
 
+#### AzureSpeechSsmlOptions — section `AzureSpeech:Ssml`
+
+Controls SSML validation and style-preset behavior for TTS.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `EnableValidation` | bool | true | Validate SSML before sending to Azure |
+| `StrictMode` | bool | false | Reject invalid SSML (false = fall back to plain text) |
+| `MaxComplexityScore` | int | 50 | Max allowed SSML complexity score |
+| `MaxDocumentLength` | int | 5000 | Max SSML document length in characters |
+| `EnableSanitization` | bool | true | Attempt automatic sanitization of invalid SSML |
+| `EnableStylePresets` | bool | true | Enable the style-presets feature |
+| `CacheVoiceCapabilities` | bool | true | Cache voice-capability metadata |
+| `CacheDurationMinutes` | int | 1440 | Voice-capability cache duration (24 hours) |
+
+```json
+{
+  "AzureSpeech": {
+    "Ssml": {
+      "EnableValidation": true,
+      "StrictMode": false,
+      "MaxComplexityScore": 50,
+      "MaxDocumentLength": 5000,
+      "EnableSanitization": true,
+      "EnableStylePresets": true,
+      "CacheVoiceCapabilities": true,
+      "CacheDurationMinutes": 1440
+    }
+  }
+}
+```
+
 ---
 
 ### Moderation Configuration
 
-#### ModerationOptions
+#### ModerationOptions — section `Moderation`
 
 Core moderation system settings.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `DefaultMuteDurationMinutes` | int | 60 | Default mute duration |
-| `MaxWarnBeforeBan` | int | 3 | Warnings before automatic ban |
-| `LogRetentionDays` | int | 90 | Days to retain moderation logs |
+| `DefaultTempBanDurationDays` | int | 7 | Default duration for temporary bans |
+| `MaxPurgeMessages` | int | 100 | Max messages purged in a single operation |
+| `CaseHistoryPageSize` | int | 10 | Moderation cases per page in case history |
+| `LogActionsToAudit` | bool | true | Log moderation actions to the audit log system |
 
 ```json
 {
   "Moderation": {
-    "DefaultMuteDurationMinutes": 60,
-    "MaxWarnBeforeBan": 3,
-    "LogRetentionDays": 90
+    "DefaultTempBanDurationDays": 7,
+    "MaxPurgeMessages": 100,
+    "CaseHistoryPageSize": 10,
+    "LogActionsToAudit": true
   }
 }
 ```
 
-#### AutoModerationOptions
+#### AutoModerationOptions — section `AutoModeration`
 
 Automatic moderation settings for spam and raid detection.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `Enabled` | bool | true | Enable auto-moderation |
-| `SpamThreshold` | int | 5 | Messages before spam detection |
-| `SpamIntervalSeconds` | int | 10 | Time window for spam detection |
-| `RaidJoinThreshold` | int | 10 | Joins before raid detection |
-| `RaidJoinIntervalSeconds` | int | 30 | Time window for raid detection |
+| `DetectionCacheExpiryMinutes` | int | 5 | Minutes before cached detection results expire |
+| `MaxCachedGuilds` | int | 1000 | Max guilds to cache auto-mod configs for |
+| `FlaggedEventRetentionDays` | int | 90 | Days to retain flagged event records |
+| `EnableDebugLogging` | bool | false | Enable debug logging for detection |
+| `MaxMessagesPerUser` | int | 200 | Max messages tracked per user for spam detection |
+| `MaxJoinsPerGuild` | int | 500 | Max joins tracked per guild for raid detection |
 
 ```json
 {
   "AutoModeration": {
-    "Enabled": true,
-    "SpamThreshold": 5,
-    "SpamIntervalSeconds": 10,
-    "RaidJoinThreshold": 10,
-    "RaidJoinIntervalSeconds": 30
+    "DetectionCacheExpiryMinutes": 5,
+    "MaxCachedGuilds": 1000,
+    "FlaggedEventRetentionDays": 90,
+    "EnableDebugLogging": false,
+    "MaxMessagesPerUser": 200,
+    "MaxJoinsPerGuild": 500
   }
 }
 ```
@@ -789,76 +873,96 @@ Automatic moderation settings for spam and raid detection.
 
 ### Analytics & Retention Configuration
 
-#### AnalyticsRetentionOptions
+#### AnalyticsRetentionOptions — section `AnalyticsRetention`
 
 Controls retention periods for aggregated analytics snapshots.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `HourlySnapshotDays` | int | 7 | Retention for hourly snapshots |
-| `DailySnapshotDays` | int | 90 | Retention for daily snapshots |
-| `WeeklySnapshotDays` | int | 365 | Retention for weekly snapshots |
+| `HourlyRetentionDays` | int | 14 | Retention for hourly snapshots |
+| `DailyRetentionDays` | int | 365 | Retention for daily snapshots |
+| `Enabled` | bool | true | Enable analytics aggregation |
+| `CleanupBatchSize` | int | 1000 | Max records per cleanup operation |
+| `CleanupIntervalHours` | int | 24 | Hours between cleanup operations |
 
 ```json
 {
   "AnalyticsRetention": {
-    "HourlySnapshotDays": 7,
-    "DailySnapshotDays": 90,
-    "WeeklySnapshotDays": 365
+    "HourlyRetentionDays": 14,
+    "DailyRetentionDays": 365,
+    "Enabled": true,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24
   }
 }
 ```
 
-#### SoundPlayLogRetentionOptions
+#### SoundPlayLogRetentionOptions — section `SoundPlayLogRetention`
 
 Controls sound playback history retention.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `RetentionDays` | int | 90 | Days to retain sound play logs |
+| `Enabled` | bool | true | Enable cleanup |
+| `CleanupBatchSize` | int | 1000 | Max records per cleanup operation |
 | `CleanupIntervalHours` | int | 24 | Hours between cleanup operations |
 
 ```json
 {
   "SoundPlayLogRetention": {
     "RetentionDays": 90,
+    "Enabled": true,
+    "CleanupBatchSize": 1000,
     "CleanupIntervalHours": 24
   }
 }
 ```
 
-#### UserActivityEventRetentionOptions
+#### UserActivityEventRetentionOptions — section `UserActivityEventRetention`
 
 Controls user activity event log retention.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
 | `RetentionDays` | int | 90 | Days to retain activity events |
+| `CleanupBatchSize` | int | 1000 | Max events per cleanup operation |
 | `CleanupIntervalHours` | int | 24 | Hours between cleanup operations |
+| `Enabled` | bool | true | Enable cleanup |
 
 ```json
 {
   "UserActivityEventRetention": {
     "RetentionDays": 90,
-    "CleanupIntervalHours": 24
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
+    "Enabled": true
   }
 }
 ```
 
-#### NotificationRetentionOptions
+#### NotificationRetentionOptions — section `NotificationRetention`
 
-Controls user notification retention.
+Controls user notification retention by state.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `RetentionDays` | int | 30 | Days to retain notifications |
-| `CleanupIntervalHours` | int | 6 | Hours between cleanup operations |
+| `DismissedRetentionDays` | int | 7 | Days to retain dismissed notifications |
+| `ReadRetentionDays` | int | 30 | Days to retain read notifications |
+| `UnreadRetentionDays` | int | 90 | Days to retain unread notifications (0 = never delete) |
+| `CleanupBatchSize` | int | 1000 | Max records per cleanup operation |
+| `CleanupIntervalHours` | int | 24 | Hours between cleanup operations |
+| `Enabled` | bool | true | Enable cleanup |
 
 ```json
 {
   "NotificationRetention": {
-    "RetentionDays": 30,
-    "CleanupIntervalHours": 6
+    "DismissedRetentionDays": 7,
+    "ReadRetentionDays": 30,
+    "UnreadRetentionDays": 90,
+    "CleanupBatchSize": 1000,
+    "CleanupIntervalHours": 24,
+    "Enabled": true
   }
 }
 ```
@@ -867,100 +971,134 @@ Controls user notification retention.
 
 ### Performance Monitoring Configuration
 
-#### PerformanceMetricsOptions
+#### PerformanceMetricsOptions — section `PerformanceMetrics`
 
 Controls performance metrics collection.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `CollectionIntervalSeconds` | int | 60 | Metrics collection interval |
-| `HistoryRetentionMinutes` | int | 1440 | Metrics history retention (1440 = 24h) |
+| `LatencySampleIntervalSeconds` | int | 30 | Interval between latency samples |
+| `LatencyRetentionHours` | int | 24 | Latency history retention |
+| `ConnectionEventRetentionDays` | int | 7 | Connection event history retention |
+| `ApiRequestTrackingEnabled` | bool | true | Enable Discord API request tracking |
+| `SlowQueryThresholdMs` | int | 100 | Threshold defining a slow database query |
+| `SlowQueryMaxStored` | int | 100 | Max slow queries kept in memory |
+| `CacheStatisticsEnabled` | bool | true | Enable cache statistics tracking |
+| `CommandAggregationCacheTtlMinutes` | int | 5 | TTL for cached command aggregations |
+| `MaxApiCategories` | int | 100 | Max API categories to track |
+| `CpuSampleIntervalSeconds` | int | 5 | Interval between CPU samples |
+| `CpuRetentionHours` | int | 24 | CPU history retention |
 
 ```json
 {
   "PerformanceMetrics": {
-    "CollectionIntervalSeconds": 60,
-    "HistoryRetentionMinutes": 1440
+    "LatencySampleIntervalSeconds": 30,
+    "LatencyRetentionHours": 24,
+    "ConnectionEventRetentionDays": 7,
+    "ApiRequestTrackingEnabled": true,
+    "SlowQueryThresholdMs": 100,
+    "SlowQueryMaxStored": 100,
+    "CacheStatisticsEnabled": true,
+    "CommandAggregationCacheTtlMinutes": 5,
+    "MaxApiCategories": 100,
+    "CpuSampleIntervalSeconds": 5,
+    "CpuRetentionHours": 24
   }
 }
 ```
 
-#### PerformanceAlertOptions
+#### PerformanceAlertOptions — section `PerformanceAlerts`
 
-Thresholds for performance alerting.
+Controls alert evaluation behavior and incident retention. Alert thresholds themselves are seeded per-metric in the database (not in this options class); see [Alerting System](alerting-system.md).
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `LatencyWarningMs` | int | 200 | Latency warning threshold (ms) |
-| `LatencyCriticalMs` | int | 500 | Latency critical threshold (ms) |
-| `CpuWarningPercent` | int | 80 | CPU usage warning threshold (%) |
-| `CpuCriticalPercent` | int | 95 | CPU usage critical threshold (%) |
-| `MemoryWarningPercent` | int | 80 | Memory usage warning threshold (%) |
-| `MemoryCriticalPercent` | int | 95 | Memory usage critical threshold (%) |
+| `CheckIntervalSeconds` | int | 30 | Interval between metric checks |
+| `ConsecutiveBreachesRequired` | int | 2 | Consecutive breaches before raising an alert |
+| `ConsecutiveNormalRequired` | int | 3 | Consecutive normal readings before auto-resolving |
+| `IncidentRetentionDays` | int | 90 | Days to retain resolved incidents |
 
 ```json
 {
   "PerformanceAlerts": {
-    "LatencyWarningMs": 200,
-    "LatencyCriticalMs": 500,
-    "CpuWarningPercent": 80,
-    "CpuCriticalPercent": 95,
-    "MemoryWarningPercent": 80,
-    "MemoryCriticalPercent": 95
+    "CheckIntervalSeconds": 30,
+    "ConsecutiveBreachesRequired": 2,
+    "ConsecutiveNormalRequired": 3,
+    "IncidentRetentionDays": 90
   }
 }
 ```
 
-#### PerformanceBroadcastOptions
+#### PerformanceBroadcastOptions — section `PerformanceBroadcast`
 
-Controls dashboard performance metrics broadcasting.
+Controls SignalR broadcast intervals for dashboard metrics.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `IntervalSeconds` | int | 5 | Broadcast interval |
-| `Enabled` | bool | true | Enable broadcasting |
+| `HealthMetricsIntervalSeconds` | int | 5 | Interval for health metrics (latency, memory, CPU) |
+| `CommandMetricsIntervalSeconds` | int | 30 | Interval for command performance metrics |
+| `SystemMetricsIntervalSeconds` | int | 10 | Interval for system health metrics |
+| `Enabled` | bool | true | Enable performance broadcasting |
 
 ```json
 {
   "PerformanceBroadcast": {
-    "IntervalSeconds": 5,
+    "HealthMetricsIntervalSeconds": 5,
+    "CommandMetricsIntervalSeconds": 30,
+    "SystemMetricsIntervalSeconds": 10,
     "Enabled": true
   }
 }
 ```
 
-#### HistoricalMetricsOptions
+#### HistoricalMetricsOptions — section `HistoricalMetrics`
 
-Controls historical metrics aggregation.
+Controls historical metrics sampling and retention.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `AggregationIntervalMinutes` | int | 5 | Aggregation interval |
-| `RetentionDays` | int | 30 | Historical data retention |
+| `SampleIntervalSeconds` | int | 60 | Interval between metric samples |
+| `RetentionDays` | int | 30 | Days to retain historical snapshots |
+| `Enabled` | bool | true | Enable historical metrics collection |
+| `CleanupIntervalHours` | int | 6 | Hours between cleanup runs |
+| `InitialDelaySeconds` | double | 10 | Initial delay before starting collection |
+| `ErrorRetryDelaySeconds` | double | 30 | Delay before retrying after an error |
 
 ```json
 {
   "HistoricalMetrics": {
-    "AggregationIntervalMinutes": 5,
-    "RetentionDays": 30
+    "SampleIntervalSeconds": 60,
+    "RetentionDays": 30,
+    "Enabled": true,
+    "CleanupIntervalHours": 6
   }
 }
 ```
 
-#### SamplingOptions
+#### SamplingOptions — section `OpenTelemetry:Tracing:Sampling`
 
-Controls telemetry and metrics sampling rates.
+Controls OpenTelemetry distributed-tracing sampling. **Note:** despite the class's `SectionName = "Sampling"`, it is bound under `OpenTelemetry:Tracing:Sampling` in `OpenTelemetryExtensions`.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `CommandSampleRate` | double | 1.0 | Command sampling rate (0-1) |
-| `MetricsSampleRate` | double | 1.0 | Metrics sampling rate (0-1) |
+| `DefaultRate` | double | 0.1 | Sampling rate for normal operations (0.0–1.0) |
+| `ErrorRate` | double | 1.0 | Sampling rate for error operations |
+| `SlowThresholdMs` | int | 5000 | Threshold (ms) defining a slow operation |
+| `HighPriorityRate` | double | 0.5 | Sampling rate for high-priority operations |
+| `LowPriorityRate` | double | 0.01 | Sampling rate for low-priority operations |
 
 ```json
 {
-  "Sampling": {
-    "CommandSampleRate": 1.0,
-    "MetricsSampleRate": 1.0
+  "OpenTelemetry": {
+    "Tracing": {
+      "Sampling": {
+        "DefaultRate": 0.1,
+        "ErrorRate": 1.0,
+        "SlowThresholdMs": 5000,
+        "HighPriorityRate": 0.5,
+        "LowPriorityRate": 0.01
+      }
+    }
   }
 }
 ```
@@ -969,40 +1107,46 @@ Controls telemetry and metrics sampling rates.
 
 ### Caching Configuration
 
-#### CachingOptions
+#### CachingOptions — section `Caching`
 
-General memory cache settings.
+In-memory cache durations across the application.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `DefaultExpirationMinutes` | int | 5 | Default cache entry expiration |
-| `SlidingExpiration` | bool | true | Use sliding expiration |
-| `MaxCacheSize` | int | 1000 | Maximum cache entries |
+| `GuildMembershipDurationMinutes` | int | 5 | Guild membership cache duration |
+| `DiscordUserInfoDurationMinutes` | int | 15 | Discord user info cache duration |
+| `InteractionStateExpiryMinutes` | int | 15 | Interaction state expiry |
+| `ConsentCacheDurationMinutes` | int | 5 | User consent cache duration |
+| `DashboardStatsCacheDurationSeconds` | int | 5 | Dashboard statistics cache duration |
+| `GuildMemberListDurationMinutes` | int | 5 | Guild member list cache duration |
+| `GuildMemberDetailDurationMinutes` | int | 1 | Single member detail cache duration |
+| `SearchResultsCacheDurationSeconds` | int | 30 | Search results cache duration |
+| `CommandMetadataCacheDurationMinutes` | int | 60 | Command metadata cache duration |
+| `PageMetadataCacheDurationMinutes` | int | 60 | Page metadata cache duration |
 
 ```json
 {
   "Caching": {
-    "DefaultExpirationMinutes": 5,
-    "SlidingExpiration": true,
-    "MaxCacheSize": 1000
+    "GuildMembershipDurationMinutes": 5,
+    "DiscordUserInfoDurationMinutes": 15,
+    "InteractionStateExpiryMinutes": 15,
+    "ConsentCacheDurationMinutes": 5
   }
 }
 ```
 
-#### GuildMembershipCacheOptions
+#### GuildMembershipCacheOptions — section `GuildMembershipCache`
 
-Guild membership cache settings.
+Controls caching of stored guild membership data (separate from in-memory API caching above).
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ExpirationMinutes` | int | 30 | Cache entry expiration |
-| `RefreshThresholdMinutes` | int | 5 | Refresh threshold before expiration |
+| `StoredGuildMembershipDurationMinutes` | int | 30 | Cache duration for stored guild membership (authorization) |
 
 ```json
 {
   "GuildMembershipCache": {
-    "ExpirationMinutes": 30,
-    "RefreshThresholdMinutes": 5
+    "StoredGuildMembershipDurationMinutes": 30
   }
 }
 ```
@@ -1011,46 +1155,165 @@ Guild membership cache settings.
 
 ### AI Assistant Configuration
 
-#### AnthropicOptions
+#### AnthropicOptions — section `Anthropic`
 
-Anthropic/Claude API configuration.
+Anthropic/Claude API client configuration.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ApiKey` | string | - | Anthropic API key (SECRET) |
-| `Model` | string | "claude-3-sonnet-20240229" | Model identifier |
-| `MaxTokens` | int | 4096 | Maximum response tokens |
+| `ApiKey` | string? | null | Anthropic API key (SECRET; via user secrets) |
+| `DefaultModel` | string | "claude-sonnet-4-20250514" | Default Claude model |
+| `MaxRetries` | int | 3 | Max retry attempts for transient failures |
+| `TimeoutSeconds` | int | 300 | Request timeout in seconds |
+| `RetryBaseDelayMs` | int | 1000 | Base delay (ms) for exponential backoff |
+| `EnablePromptCachingByDefault` | bool | true | Enable automatic prompt caching by default |
 
 ```json
 {
   "Anthropic": {
-    "ApiKey": "(user-secrets)",
-    "Model": "claude-3-sonnet-20240229",
-    "MaxTokens": 4096
+    "ApiKey": null,
+    "DefaultModel": "claude-sonnet-4-20250514",
+    "MaxRetries": 3,
+    "TimeoutSeconds": 300,
+    "RetryBaseDelayMs": 1000,
+    "EnablePromptCachingByDefault": true
   }
 }
 ```
 
 **Note:** Store `ApiKey` in User Secrets or environment variables.
 
-#### AssistantOptions
+#### AssistantOptions — section `Assistant`
 
-AI Assistant feature configuration.
+Guild AI-assistant feature configuration (representative subset; see the class for the full set including cost-tracking, prompt-caching, and tool settings).
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `Enabled` | bool | true | Enable AI assistant |
-| `DefaultSystemPrompt` | string | "You are a helpful Discord bot assistant." | Default system prompt |
-| `MaxContextMessages` | int | 10 | Context window size |
-| `RateLimitPerMinute` | int | 5 | Rate limit per user per minute |
+| `GloballyEnabled` | bool | false | Enable the assistant feature globally |
+| `EnabledByDefaultForNewGuilds` | bool | false | Enable for new guilds by default |
+| `DefaultRateLimit` | int | 5 | Default questions per rate-limit window |
+| `RateLimitWindowMinutes` | int | 5 | Rate-limit window in minutes |
+| `RateLimitBypassRole` | string? | "Admin" | Minimum role that bypasses rate limits |
+| `MaxQuestionLength` | int | 500 | Max user question length |
+| `MaxResponseLength` | int | 1800 | Max response length in characters |
+| `Model` | string | "claude-sonnet-4-20250514" | Claude model identifier |
+| `MaxTokens` | int | 512 | Max response tokens |
+| `Temperature` | double | 0.7 | Response temperature (0.0–1.0) |
 
 ```json
 {
   "Assistant": {
+    "GloballyEnabled": false,
+    "EnabledByDefaultForNewGuilds": false,
+    "DefaultRateLimit": 5,
+    "RateLimitWindowMinutes": 5,
+    "Model": "claude-sonnet-4-20250514",
+    "MaxTokens": 512,
+    "Temperature": 0.7
+  }
+}
+```
+
+#### DmAssistantOptions — section `DmAssistant`
+
+DM-based AI-assistant feature (independent from the guild assistant; representative subset).
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Enabled` | bool | false | Enable the DM assistant feature |
+| `OwnerSystemPromptPath` | string | "docs/agents/dm-owner-agent.md" | Path to the owner system prompt |
+| `MaxConversationMessages` | int | 20 | Conversation messages retained per user |
+| `Model` | string | "claude-sonnet-4-20250514" | Claude model identifier |
+| `MaxTokens` | int | 4096 | Max response tokens |
+| `Temperature` | double | 0.7 | Response temperature |
+| `EnableCodeExecution` | bool | false | Enable the Python code-execution tool |
+| `EnablePromptCaching` | bool | true | Enable prompt caching for the system prompt |
+
+```json
+{
+  "DmAssistant": {
+    "Enabled": false,
+    "MaxConversationMessages": 20,
+    "Model": "claude-sonnet-4-20250514",
+    "MaxTokens": 4096,
+    "EnableCodeExecution": false
+  }
+}
+```
+
+#### MogwaiOptions — section `Mogwai`
+
+Claude Code CLI integration for coding tasks (disabled by default; see [Mogwai feature guide](mogwai.md)).
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Enabled` | bool | false | Enable the Mogwai feature |
+| `ClaudeCliPath` | string | "claude" | Path to the Claude CLI binary |
+| `WorkingDirectory` | string | "." | Working directory for Claude Code sessions |
+| `AllowedTools` | string | "Bash,Read,Glob,Grep,Write,Edit" | Comma-separated allowed tools |
+| `MaxBudgetUsd` | decimal | 5.00 | Max budget (USD) per invocation |
+| `MaxTurns` | int | 10 | Max turns per invocation |
+| `TimeoutSeconds` | int | 300 | Process timeout in seconds |
+| `SkipPermissions` | bool | false | Use `--dangerously-skip-permissions` |
+
+```json
+{
+  "Mogwai": {
+    "Enabled": false,
+    "ClaudeCliPath": "claude",
+    "WorkingDirectory": ".",
+    "AllowedTools": "Bash,Read,Glob,Grep,Write,Edit",
+    "MaxBudgetUsd": 5.00,
+    "MaxTurns": 10,
+    "TimeoutSeconds": 300
+  }
+}
+```
+
+#### FeatureRequestsOptions — section `FeatureRequests`
+
+Controls the `/feature-request` command and its AI requirements-gathering flow.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Enabled` | bool | true | Enable the `/feature-request` command globally |
+| `MinDescriptionLength` | int | 20 | Minimum valid description length |
+| `MaxDescriptionLength` | int | 500 | Maximum description length |
+| `DirectSubmitThreshold` | int | 100 | Length at which the conversation flow is bypassed |
+| `ConversationTimeoutMinutes` | int | 30 | Minutes before an in-progress DM conversation expires |
+| `RequirementsGatheringModel` | string | "claude-sonnet-4-20250514" | Model for the requirements conversation |
+| `MaxConversationTurns` | int | 10 | Max conversation turns before forcing end |
+
+```json
+{
+  "FeatureRequests": {
     "Enabled": true,
-    "DefaultSystemPrompt": "You are a helpful Discord bot assistant.",
-    "MaxContextMessages": 10,
-    "RateLimitPerMinute": 5
+    "MinDescriptionLength": 20,
+    "MaxDescriptionLength": 500,
+    "DirectSubmitThreshold": 100,
+    "ConversationTimeoutMinutes": 30,
+    "RequirementsGatheringModel": "claude-sonnet-4-20250514",
+    "MaxConversationTurns": 10
+  }
+}
+```
+
+#### NotXOptions — section `NotX`
+
+Controls the not-X feature (X/Twitter link preview via fxtwitter).
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `RequestTimeoutSeconds` | int | 5 | HTTP timeout for fxtwitter API calls |
+| `MaxResponseBytes` | int | 262144 | Max bytes read from the fxtwitter response (256 KB) |
+| `UserAgent` | string | "DiscordBot/1.0 (+not-x)" | User-Agent header sent to fxtwitter |
+
+```json
+{
+  "NotX": {
+    "RequestTimeoutSeconds": 5,
+    "MaxResponseBytes": 262144,
+    "UserAgent": "DiscordBot/1.0 (+not-x)"
   }
 }
 ```
@@ -1059,44 +1322,57 @@ AI Assistant feature configuration.
 
 ### Identity Configuration
 
-#### IdentityConfigOptions
+#### IdentityConfigOptions — section `Identity`
 
-ASP.NET Core Identity configuration.
+ASP.NET Core Identity configuration (representative subset; see the class for cookie and sign-in settings).
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `RequireEmailConfirmation` | bool | false | Require email confirmation for registration |
-| `LockoutEnabled` | bool | true | Enable account lockout after failed attempts |
-| `MaxFailedAccessAttempts` | int | 5 | Max failed login attempts before lockout |
+| `RequireDigit` | bool | true | Require at least one digit in passwords |
+| `RequireLowercase` | bool | true | Require a lowercase letter |
+| `RequireUppercase` | bool | true | Require an uppercase letter |
+| `RequireNonAlphanumeric` | bool | true | Require a non-alphanumeric character |
+| `RequiredLength` | int | 8 | Minimum password length |
 | `LockoutTimeSpanMinutes` | int | 15 | Lockout duration in minutes |
+| `MaxFailedAccessAttempts` | int | 5 | Failed login attempts before lockout |
+| `RequireConfirmedEmail` | bool | false | Require confirmed email to sign in |
+| `CookieExpireDays` | int | 7 | Days before auth cookies expire |
 
 ```json
 {
-  "IdentityConfig": {
-    "RequireEmailConfirmation": false,
-    "LockoutEnabled": true,
+  "Identity": {
+    "RequireDigit": true,
+    "RequiredLength": 8,
     "MaxFailedAccessAttempts": 5,
-    "LockoutTimeSpanMinutes": 15
+    "LockoutTimeSpanMinutes": 15,
+    "RequireConfirmedEmail": false,
+    "CookieExpireDays": 7
   }
 }
 ```
 
-#### VerificationOptions
+**Note:** The optional `Identity:DefaultAdmin` (`Email`, `Password`) sub-section seeds an initial admin account on first run — store it in User Secrets.
 
-Verification code settings.
+#### VerificationOptions — section `Verification`
+
+Verification code generation and validation.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `CodeLength` | int | 6 | Verification code length |
-| `ExpirationMinutes` | int | 15 | Code expiration time |
-| `MaxAttempts` | int | 3 | Max verification attempts |
+| `CodeCharset` | string | "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" | Character set for generated codes |
+| `CodeLength` | int | 6 | Length of generated verification codes |
+| `CodeExpiryMinutes` | int | 15 | Minutes before a code expires |
+| `MaxCodesPerHour` | int | 3 | Max codes a user can request per hour |
+| `OldCodeCleanupHours` | int | 24 | Age threshold for cleaning up old codes |
 
 ```json
 {
   "Verification": {
+    "CodeCharset": "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
     "CodeLength": 6,
-    "ExpirationMinutes": 15,
-    "MaxAttempts": 3
+    "CodeExpiryMinutes": 15,
+    "MaxCodesPerHour": 3,
+    "OldCodeCleanupHours": 24
   }
 }
 ```
@@ -1105,20 +1381,26 @@ Verification code settings.
 
 ### Notification Configuration
 
-#### NotificationOptions
+#### NotificationOptions — section `Notification`
 
-User notification settings.
+Controls which events generate admin notifications.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `MaxPerUser` | int | 100 | Maximum notifications per user |
-| `DefaultExpirationDays` | int | 7 | Default notification retention |
+| `EnablePerformanceAlerts` | bool | true | Notify on performance alerts |
+| `EnableBotStatusChanges` | bool | true | Notify on bot connect/disconnect |
+| `EnableGuildEvents` | bool | true | Notify on guild joined/left |
+| `EnableCommandErrors` | bool | true | Notify on unhandled command errors |
+| `DuplicateSuppressionMinutes` | int | 5 | Window for duplicate notification suppression |
 
 ```json
 {
-  "Notifications": {
-    "MaxPerUser": 100,
-    "DefaultExpirationDays": 7
+  "Notification": {
+    "EnablePerformanceAlerts": true,
+    "EnableBotStatusChanges": true,
+    "EnableGuildEvents": true,
+    "EnableCommandErrors": true,
+    "DuplicateSuppressionMinutes": 5
   }
 }
 ```
@@ -1127,22 +1409,56 @@ User notification settings.
 
 ### Background Services Configuration
 
-#### BackgroundServicesOptions
+#### BackgroundServicesOptions — section `BackgroundServices`
 
-Background service execution intervals.
+Background-service execution intervals and member-sync tuning (representative subset; see the class for all 24 properties).
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `HealthCheckIntervalSeconds` | int | 30 | Health check interval |
-| `ReminderCheckIntervalSeconds` | int | 30 | Reminder execution check interval |
-| `ScheduledMessageCheckIntervalSeconds` | int | 60 | Scheduled message check interval |
+| `TokenRefreshIntervalMinutes` | int | 30 | Interval between Discord token refresh checks |
+| `TokenExpirationThresholdHours` | int | 1 | Refresh tokens expiring within this window |
+| `MetricsUpdateIntervalSeconds` | int | 30 | Interval between real-time metrics updates |
+| `BusinessMetricsUpdateIntervalMinutes` | int | 5 | Interval between business metrics calculations |
+| `MemberSyncEnabled` | bool | true | Enable member sync |
+| `MemberSyncReconciliationIntervalHours` | int | 24 | Interval between full reconciliation syncs |
+| `MemberSyncBatchSize` | int | 500 | Database upsert batch size |
+| `MemberSyncApiDelayMs` | int | 1100 | Delay between Discord API requests (rate-limit) |
+| `HourlyAggregationIntervalMinutes` | int | 60 | Interval between hourly analytics aggregations |
+| `DailyAggregationHourUtc` | int | 0 | UTC hour for daily aggregation |
 
 ```json
 {
   "BackgroundServices": {
-    "HealthCheckIntervalSeconds": 30,
-    "ReminderCheckIntervalSeconds": 30,
-    "ScheduledMessageCheckIntervalSeconds": 60
+    "TokenRefreshIntervalMinutes": 30,
+    "MetricsUpdateIntervalSeconds": 30,
+    "MemberSyncEnabled": true,
+    "MemberSyncReconciliationIntervalHours": 24,
+    "MemberSyncBatchSize": 500,
+    "MemberSyncApiDelayMs": 1100
+  }
+}
+```
+
+---
+
+### Log Sanitization Configuration
+
+#### LogSanitizationOptions — section `LogSanitization`
+
+Controls redaction of sensitive values in log output.
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Enabled` | bool | true | Enable log sanitization |
+| `CustomPatterns` | object | {} | Named custom regex patterns (`Pattern` + `Replacement`) |
+| `AdditionalSensitiveKeys` | string[] | [] | Additional key names to fully redact |
+
+```json
+{
+  "LogSanitization": {
+    "Enabled": true,
+    "CustomPatterns": {},
+    "AdditionalSensitiveKeys": []
   }
 }
 ```
@@ -1151,27 +1467,25 @@ Background service execution intervals.
 
 ### Observability Configuration
 
-#### ObservabilityOptions
+#### ObservabilityOptions — section `Observability`
 
-Logging and observability platform settings.
+Optional links to external observability dashboards. Both URLs are nullable with no defaults; leave null/empty to hide the corresponding admin-sidebar link.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `EnableElasticApm` | bool | false | Enable Elastic APM |
-| `EnableOpenTelemetry` | bool | false | Enable OpenTelemetry |
-| `ElasticsearchUrl` | string | "http://localhost:9200" | Elasticsearch endpoint |
-| `SeqUrl` | string | "http://localhost:5341" | Seq log server endpoint |
+| `KibanaUrl` | string? | null | URL to the Kibana dashboard |
+| `SeqUrl` | string? | null | URL to the Seq log-aggregation dashboard (also read by the Serilog Seq sink) |
 
 ```json
 {
   "Observability": {
-    "EnableElasticApm": false,
-    "EnableOpenTelemetry": false,
-    "ElasticsearchUrl": "http://localhost:9200",
-    "SeqUrl": "http://localhost:5341"
+    "KibanaUrl": null,
+    "SeqUrl": null
   }
 }
 ```
+
+**Note:** Elastic APM is configured under the separate `ElasticApm` section (e.g. `ElasticApm:ServerUrl`), and Elasticsearch log shipping is configured via `ElasticSearch:Url` / `ElasticSearch:ApiKey` (read directly in `Program.cs`), not via `ObservabilityOptions`.
 
 ---
 

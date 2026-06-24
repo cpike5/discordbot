@@ -1262,11 +1262,11 @@ public async Task CreateTimedItem_WithTimezone_StoresUtcCorrectly()
 ```csharp
 // DO
 entity.CreatedAt = DateTime.UtcNow;
-entity.ScheduledAt = TimezoneHelper.ConvertToUtc(localTime, userTimezone);
+entity.RunAt = TimezoneHelper.ConvertToUtc(localTime, userTimezone);
 
 // DON'T
 entity.CreatedAt = DateTime.Now; // Uses server timezone
-entity.ScheduledAt = localTime;  // Stores local time as if UTC
+entity.RunAt = localTime;  // Stores local time as if UTC
 ```
 
 2. **Use TimezoneHelper for All Conversions**
@@ -1285,11 +1285,11 @@ var utc = localTime.AddHours(5);       // Breaks during DST
 
 ```cshtml
 <!-- DO -->
-<input asp-for="Input.ScheduledAt" type="datetime-local" />
+<input asp-for="Input.RunAt" type="datetime-local" />
 <input asp-for="Input.UserTimezone" type="hidden" />
 
 <!-- DON'T -->
-<input asp-for="Input.ScheduledAt" type="datetime-local" />
+<input asp-for="Input.RunAt" type="datetime-local" />
 <!-- Missing timezone - will use server timezone or fail -->
 ```
 

@@ -884,7 +884,7 @@ Get recent auto-recovery events.
     "triggeredAt": "2025-01-28T08:15:00Z",
     "resolvedAt": "2025-01-28T08:22:45Z",
     "durationSeconds": 465,
-    "thresholdValue": 512.0,
+    "thresholdValue": 480.0,
     "peakActualValue": 545.0,
     "recoveredValue": 380.0
   }

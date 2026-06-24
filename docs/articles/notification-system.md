@@ -201,12 +201,12 @@ await notificationService.CreateForGuildAdminsAsync(
 
 ## Existing Integrations
 
-### AlertMonitoringService (Performance Alerts)
+### AlertIncidentManager (Performance Alerts)
 
 Creates notifications for Critical and Warning severity performance alerts:
 
 ```csharp
-// Location: src/DiscordBot.Bot/Services/AlertMonitoringService.cs:545-580
+// Location: src/DiscordBot.Bot/Services/Performance/AlertIncidentManager.cs (~line 190)
 await notificationService.CreateForAllAdminsAsync(
     NotificationType.PerformanceAlert,
     title: $"{incident.MetricName} Alert",  // or "Resolved"
@@ -220,10 +220,10 @@ await notificationService.CreateForAllAdminsAsync(
 
 ### BotHostedService (Bot Status & Guild Events)
 
-Creates notifications for bot status changes:
+Creates notifications for bot status changes (see `BotHostedService.CreateBotStatusNotificationAsync`):
 
 ```csharp
-// Location: src/DiscordBot.Bot/Services/BotHostedService.cs:619-650
+// Location: src/DiscordBot.Bot/Services/BotHostedService.cs (CreateBotStatusNotificationAsync)
 await notificationService.CreateForAllAdminsAsync(
     NotificationType.BotStatus,
     title: "Bot Connected",  // or "Bot Disconnected"
@@ -234,10 +234,10 @@ await notificationService.CreateForAllAdminsAsync(
     deduplicationWindow: deduplicationWindow);
 ```
 
-Creates notifications for guild join/leave events:
+Creates notifications for guild join/leave events (see `BotHostedService.CreateGuildEventNotificationAsync`):
 
 ```csharp
-// Location: src/DiscordBot.Bot/Services/BotHostedService.cs:660-691
+// Location: src/DiscordBot.Bot/Services/BotHostedService.cs (CreateGuildEventNotificationAsync)
 await notificationService.CreateForAllAdminsAsync(
     NotificationType.GuildEvent,
     title: $"Joined Guild: {guild.Name}",  // or "Left Guild"
@@ -253,7 +253,7 @@ await notificationService.CreateForAllAdminsAsync(
 Creates notifications for unhandled command exceptions:
 
 ```csharp
-// Location: src/DiscordBot.Bot/Handlers/InteractionHandler.cs:565-606
+// Location: src/DiscordBot.Bot/Handlers/InteractionHandler.cs (~line 609)
 await notificationService.CreateForAllAdminsAsync(
     NotificationType.CommandError,
     title: $"Command Error: /{commandName}",
@@ -315,6 +315,19 @@ await connection.start();
 const summary = await connection.invoke("GetNotificationSummary");
 const notifications = await connection.invoke("GetNotifications", 15);
 ```
+
+### Server-Side SignalR Notifier Services
+
+Beyond the bell/notification hub methods above, several server-side services broadcast real-time events to dashboard clients over the same `DashboardHub`. They are separate from the persisted `UserNotification` records (the bell feed) — these notifiers push transient, live-update events to connected clients. All inject `IHubContext<DashboardHub>`.
+
+| Service | Interface | Purpose |
+|---------|-----------|---------|
+| `PerformanceNotifier` | `IPerformanceNotifier` | Broadcasts performance alert events (triggers, resolutions, acknowledgments, and active alert count changes) for the live performance dashboard. |
+| `AudioNotifier` | `IAudioNotifier` | Broadcasts audio status events (connect/disconnect, playback started/stopped, etc.) to guild-specific audio groups. |
+| `DashboardNotifier` | `IDashboardNotifier` | Sends general real-time dashboard notifications (e.g. bot status broadcasts) to clients. |
+| `DashboardUpdateService` | `IDashboardUpdateService` | Type-safe broadcast helper for dashboard updates: `BotStatusUpdated`, `CommandExecuted`, `GuildActivity`, `StatsUpdated`. Errors are swallowed so broadcasts never impact callers. |
+
+> These services live under `src/DiscordBot.Bot/Services/`. They complement the persisted notification feed: use `INotificationService` (above) to create durable, per-admin notifications that appear in the bell; use these notifiers to push live UI updates that do not need to persist.
 
 ## Database Schema
 

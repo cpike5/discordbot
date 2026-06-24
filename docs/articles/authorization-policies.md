@@ -109,7 +109,7 @@ public class UserManagementModel : PageModel { }
 
 ## Authorization Policies
 
-Policies are registered in `Program.cs` during application startup and provide a declarative way to enforce authorization requirements.
+Policies are registered in `IdentityServiceExtensions.AddIdentityServices` during application startup and provide a declarative way to enforce authorization requirements.
 
 ### Policy Definitions
 
@@ -962,7 +962,7 @@ authorization to work.
 
 ### Route Parameter Detection
 
-The `GuildAccessAuthorizationHandler` automatically detects guild IDs from:
+The `GuildAccessHandler` automatically detects guild IDs from:
 
 1. **Route parameters**: `/Guilds/{guildId}/Settings`
 2. **Query strings**: `/Guilds/Settings?guildId=123456789`
@@ -1190,24 +1190,20 @@ public class DiagnosticsModel : PageModel
 
 #### 3. Guild Access Always Denied
 
-**Symptom:** User cannot access guild-specific pages even with correct access grants.
+**Symptom:** User cannot access guild-specific pages even though they belong to the guild on Discord.
 
 **Possible Causes:**
-- No `UserGuildAccess` record exists
-- Guild ID not being extracted from route
-- SuperAdmin check not working
+- User's web account has no linked Discord account (`ApplicationUser.DiscordUserId` is null)
+- The user is not (or is no longer) a member of the guild on Discord
+- The user is in the `Admin` role but lacks the Discord `Administrator` permission in that guild
+- The bot's Discord socket client has not cached the guild/member yet (e.g., guild not loaded)
+- Guild ID not being extracted from the route
 
 **Solution:**
-```sql
--- Check if UserGuildAccess record exists
-SELECT * FROM UserGuildAccess
-WHERE ApplicationUserId = 'user-guid'
-  AND GuildId = 123456789;
-
--- If missing, create one
-INSERT INTO UserGuildAccess (ApplicationUserId, GuildId, AccessLevel, GrantedAt)
-VALUES ('user-guid', 123456789, 2, GETUTCDATE());
-```
+- Confirm the account has Discord linked (Profile page, or check `AspNetUsers.DiscordUserId`).
+- Confirm the user is a current member of the guild in Discord.
+- For `Admin` users, confirm they hold the Discord `Administrator` permission in the guild (or use a `SuperAdmin` account, which bypasses the check).
+- Confirm the bot is connected and the guild is available on the socket client.
 
 **Debug Route Parameter Extraction:**
 ```csharp
@@ -1355,7 +1351,7 @@ public class DebugAuthModel : PageModel
 
 **Unit Testing Authorization Handlers:**
 ```csharp
-public class GuildAccessAuthorizationHandlerTests
+public class GuildAccessHandlerTests
 {
     [Fact]
     public async Task HandleRequirementAsync_SuperAdmin_GrantsAccess()
@@ -1364,7 +1360,7 @@ public class GuildAccessAuthorizationHandlerTests
         var user = new ClaimsPrincipal(new ClaimsIdentity(new[]
         {
             new Claim(ClaimTypes.NameIdentifier, "user-1"),
-            new Claim(ClaimTypes.Role, Roles.SuperAdmin)
+            new Claim(ClaimTypes.Role, IdentitySeeder.Roles.SuperAdmin)
         }, "Test"));
 
         var requirement = new GuildAccessRequirement();
@@ -1397,10 +1393,12 @@ public class GuildAccessAuthorizationHandlerTests
 
 | File | Location | Description |
 |------|----------|-------------|
-| Role constants | `src/DiscordBot.Core/Authorization/Roles.cs` | Role name definitions |
-| UserGuildAccess entity | `src/DiscordBot.Core/Entities/UserGuildAccess.cs` | Guild access linking table |
-| GuildAccessRequirement | `src/DiscordBot.Bot/Authorization/GuildAccessRequirement.cs` | Authorization requirement |
-| GuildAccessHandler | `src/DiscordBot.Bot/Authorization/GuildAccessAuthorizationHandler.cs` | Authorization handler |
+| Role constants | `src/DiscordBot.Bot/Extensions/IdentitySeeder.cs` (`IdentitySeeder.Roles`) | Role name definitions |
+| GuildAccessRequirement | `src/DiscordBot.Bot/Authorization/GuildAccessRequirement.cs` | Authorization requirement for `GuildAccess` |
+| GuildAccessHandler | `src/DiscordBot.Bot/Authorization/GuildAccessHandler.cs` | Registered `GuildAccess` handler (live Discord membership) |
+| PortalGuildMemberRequirement | `src/DiscordBot.Bot/Authorization/PortalGuildMemberRequirement.cs` | Requirement for `PortalGuildMember` |
+| PortalGuildMemberAuthorizationHandler | `src/DiscordBot.Bot/Authorization/PortalGuildMemberAuthorizationHandler.cs` | Registered `PortalGuildMember` handler |
+| Policy registration | `src/DiscordBot.Bot/Extensions/IdentityServiceExtensions.cs` | Policy + handler registration |
 | DiscordClaimsTransformation | `src/DiscordBot.Bot/Authorization/DiscordClaimsTransformation.cs` | Claims enrichment |
 | AuthorizeViewTagHelper | `src/DiscordBot.Bot/TagHelpers/AuthorizeTagHelper.cs` | Tag helpers |
 | PortalPageModelBase | `src/DiscordBot.Bot/Pages/Portal/PortalPageModelBase.cs` | Portal authorization base class |
@@ -1409,7 +1407,7 @@ public class GuildAccessAuthorizationHandlerTests
 
 | File | Location | Purpose |
 |------|----------|---------|
-| Policy registration | `src/DiscordBot.Bot/Program.cs` | Service configuration |
+| Policy registration | `src/DiscordBot.Bot/Extensions/IdentityServiceExtensions.cs` | Policy + handler registration |
 | Tag helper registration | `src/DiscordBot.Bot/Pages/_ViewImports.cshtml` | View imports |
 
 ---

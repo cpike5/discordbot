@@ -139,7 +139,7 @@ Discord Interaction / HTTP Request
     │ Cluster             │        │ (Development only)  │
     │                     │        │                     │
     │ - Distributed       │        │ - Single Container  │
-    │ - Indexes by date   │        │ - Real-time UI      │
+    │ - Data stream (ILM) │        │ - Real-time UI      │
     │ - Queries: Kibana   │        │ - Queries: Seq UI   │
     └─────────────────────┘        └─────────────────────┘
 

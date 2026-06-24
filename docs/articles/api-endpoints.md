@@ -946,6 +946,24 @@ GET /api/metrics/api/rate-limits?hours=24
 
 ---
 
+#### GET /api/metrics/api/latency
+
+Returns Discord API latency history with time-series samples and aggregate statistics.
+
+**Authorization:** `RequireViewer` policy (inherited from the controller)
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Default | Range | Description |
+|-----------|------|----------|---------|-------|-------------|
+| `hours` | int | No | 24 | 1-720 | Time range for latency history |
+
+**Response: 200 OK** — Returns an `ApiLatencyHistoryDto` containing `samples` (time-series latency samples) and `statistics` (aggregate latency statistics, including `avgLatencyMs`).
+
+**Response: 400 Bad Request** — `hours` outside the 1-720 range.
+
+---
+
 ### System Health Endpoints
 
 #### GET /api/metrics/system/database
@@ -1897,9 +1915,57 @@ Returns list of guilds currently connected to the bot via Discord gateway.
 
 ---
 
+### GET /api/bot/dashboard-stats
+
+Returns aggregated dashboard statistics (bot status, guild stats, command stats, and recent activity) for the initial dashboard load or as a fallback for SignalR. Results are cached briefly server-side.
+
+**Authorization:** `RequireViewer` policy
+
+**Response: 200 OK** — Returns a `DashboardAggregatedDto`:
+
+```json
+{
+  "botStatus": {
+    "connectionState": "Connected",
+    "latency": 42,
+    "guildCount": 5,
+    "uptime": "2.15:30:45",
+    "timestamp": "2026-06-24T15:30:00Z"
+  },
+  "guildStats": {
+    "totalGuilds": 5,
+    "totalMembers": 1250
+  },
+  "commandStats": {
+    "totalCommands": 3420,
+    "successfulCommands": 9,
+    "failedCommands": 1,
+    "commandUsage": { "ping": 1250, "status": 85 }
+  },
+  "recentActivity": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+      "type": "CommandExecuted",
+      "description": "/ping",
+      "timestamp": "2026-06-24T15:29:00Z",
+      "guildId": 123456789012345678,
+      "guildName": "My Awesome Server",
+      "userId": 987654321098765432,
+      "username": "JohnDoe#1234",
+      "success": true
+    }
+  ],
+  "timestamp": "2026-06-24T15:30:00Z"
+}
+```
+
+---
+
 ### POST /api/bot/restart
 
 Restarts the bot. **Note:** Currently not supported and will return 500 error.
+
+**Authorization:** `RequireAdmin` policy
 
 **Response: 202 Accepted**
 
@@ -1923,6 +1989,8 @@ Restarts the bot. **Note:** Currently not supported and will return 500 error.
 ### POST /api/bot/shutdown
 
 Initiates graceful shutdown of the bot.
+
+**Authorization:** `RequireSuperAdmin` policy
 
 **Response: 202 Accepted**
 
@@ -2593,6 +2661,8 @@ Returns the details of a single command log entry as an HTML partial view (used 
 ---
 
 ## Command Log Endpoints
+
+**Authorization:** All endpoints in this section require the `RequireModerator` policy (controller-level).
 
 ### GET /api/commandlogs
 

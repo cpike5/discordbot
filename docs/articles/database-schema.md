@@ -354,6 +354,7 @@ Log of Discord messages for analytics, auditing, and moderation purposes.
 | DiscordMessageId | INTEGER (long) | No | - | UNIQUE | Discord message snowflake ID |
 | AuthorId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | User who authored the message |
 | ChannelId | INTEGER (long) | No | - | - | Channel where message was sent |
+| ChannelName | TEXT | Yes | NULL | - | Channel name (null for DMs and pre-existing records) |
 | GuildId | INTEGER (long) | Yes | NULL | FOREIGN KEY → Guilds(Id) | Guild ID (null for DMs) |
 | Source | INTEGER | No | - | Enum: MessageSource | DirectMessage or ServerChannel |
 | Content | TEXT | No | - | - | Message text content |
@@ -381,6 +382,7 @@ CREATE TABLE MessageLogs (
     DiscordMessageId INTEGER NOT NULL,
     AuthorId INTEGER NOT NULL,
     ChannelId INTEGER NOT NULL,
+    ChannelName TEXT,
     GuildId INTEGER,
     Source INTEGER NOT NULL,
     Content TEXT NOT NULL,
