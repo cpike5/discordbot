@@ -140,9 +140,9 @@ public class BotService : IBotService
             // Brief delay to ensure clean disconnect
             await Task.Delay(2000, cancellationToken);
 
-            // Reconnect
-            await _client.LoginAsync(TokenType.Bot, _config.Token);
-            await _client.StartAsync();
+            // Reconnect with exponential backoff so a transient login/start failure does not leave
+            // the bot offline after an operator-requested restart.
+            await ReconnectWithBackoffAsync(cancellationToken);
 
             _logger.LogInformation("Bot reconnected successfully");
 
@@ -229,6 +229,42 @@ public class BotService : IBotService
         {
             BotActivitySource.RecordException(activity, ex);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Maximum number of reconnect attempts during a soft restart before giving up.
+    /// </summary>
+    private const int MaxReconnectAttempts = 5;
+
+    /// <summary>
+    /// Logs in and starts the Discord client, retrying transient failures with exponential
+    /// backoff (capped). Rethrows the last failure if all attempts are exhausted.
+    /// </summary>
+    private async Task ReconnectWithBackoffAsync(CancellationToken cancellationToken)
+    {
+        for (var attempt = 1; ; attempt++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            try
+            {
+                await _client.LoginAsync(TokenType.Bot, _config.Token);
+                await _client.StartAsync();
+                return;
+            }
+            catch (Exception ex) when (attempt < MaxReconnectAttempts)
+            {
+                // Exponential backoff (2s, 4s, 8s, 16s) capped at 30s.
+                var delaySeconds = Math.Min(30, Math.Pow(2, attempt));
+                var delay = TimeSpan.FromSeconds(delaySeconds);
+
+                _logger.LogWarning(ex,
+                    "Reconnect attempt {Attempt}/{Max} failed; retrying in {Delay:n0}s",
+                    attempt, MaxReconnectAttempts, delay.TotalSeconds);
+
+                await Task.Delay(delay, cancellationToken);
+            }
         }
     }
 

@@ -16,6 +16,7 @@
   <ItemGroup>
     <PackageReference Include="AspNet.Security.OAuth.Discord" Version="8.0.0" />
     <PackageReference Include="Cronos" Version="0.11.1" />
+    <PackageReference Include="Microsoft.Extensions.Http.Resilience" Version="8.*" />
     <!-- Forked Discord.Net 3.19.0-fork: includes DAVE multi-party voice fix (upstream PR #3244).
          Revert to official NuGet when next stable release includes this fix:
          <PackageReference Include="Discord.Net" Version="3.XX.0" />

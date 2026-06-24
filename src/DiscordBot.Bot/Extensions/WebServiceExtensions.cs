@@ -15,14 +15,17 @@ public static class WebServiceExtensions
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddWebServices(this IServiceCollection services)
     {
-        // Add HttpClient for Discord API calls with tracing handler
+        // Add HttpClient for Discord API calls with tracing handler.
+        // The resilience handler retries transient failures (honoring Retry-After on 429) and
+        // applies per-attempt/total timeouts so a hung Discord API call cannot block indefinitely.
         services.AddTransient<DiscordApiTracingHandler>();
         services.AddHttpClient("Discord", client =>
         {
             client.BaseAddress = new Uri("https://discord.com/api/v10/");
             client.DefaultRequestHeaders.Add("User-Agent", "DiscordBot-Admin");
         })
-        .AddHttpMessageHandler<DiscordApiTracingHandler>();
+        .AddHttpMessageHandler<DiscordApiTracingHandler>()
+        .AddBotResilienceHandler(attemptTimeout: TimeSpan.FromSeconds(10));
 
         // Add Web API services
         services.AddControllers();

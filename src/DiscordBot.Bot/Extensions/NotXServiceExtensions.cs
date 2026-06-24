@@ -27,15 +27,20 @@ public static class NotXServiceExtensions
         services.Configure<NotXOptions>(
             configuration.GetSection(NotXOptions.SectionName));
 
-        // Named HTTP client — single-purpose, points only at api.fxtwitter.com
+        // Named HTTP client — single-purpose, points only at api.fxtwitter.com.
+        // The configured request timeout is applied per attempt by the resilience handler, which
+        // also retries transient failures with jittered backoff and trips a circuit breaker when
+        // the upstream is consistently failing. The pipeline (not HttpClient.Timeout) owns timing
+        // so retries are not cut short by a global client timeout.
+        var fxTwitterTimeout = TimeSpan.FromSeconds(
+            configuration.GetValue("NotX:RequestTimeoutSeconds", 5));
         services.AddHttpClient("FxTwitter", client =>
         {
             client.BaseAddress = new Uri("https://api.fxtwitter.com/");
-            client.Timeout = TimeSpan.FromSeconds(
-                configuration.GetValue("NotX:RequestTimeoutSeconds", 5));
             client.DefaultRequestHeaders.UserAgent
                 .ParseAdd(configuration.GetValue("NotX:UserAgent", "discordbot/1.0"));
-        });
+        })
+        .AddBotResilienceHandler(attemptTimeout: fxTwitterTimeout);
 
         // Scoped services
         services.AddScoped<IFxTwitterClient, FxTwitterClient>();
