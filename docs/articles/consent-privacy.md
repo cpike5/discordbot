@@ -1510,11 +1510,12 @@ The consent system implements GDPR (General Data Protection Regulation) requirem
 - ✅ Source of consent tracked (SlashCommand, WebUI)
 
 **Article 15 (Right of access):**
-- 🟡 Partially implemented (user can view consent status and history)
-- ⏳ Planned: Full data export feature
+- ✅ Users can view consent status and history
+- ✅ Users can export their data via `/privacy export-data` or the Privacy page "Export My Data" button (ZIP archive, 7-day download link)
 
 **Article 17 (Right to erasure):**
-- 🟡 Manual process (contact administrator)
+- ✅ Self-service via `/privacy delete-data confirm:DELETE` (preview with `/privacy preview-delete`)
+- ✅ Admin-initiated via `/Admin/UserPurge`
 - ⏳ Planned: Automated data deletion feature
 
 **Article 25 (Data protection by design and by default):**
@@ -1645,8 +1646,7 @@ WHERE DiscordUserId = 123456789012345678
 2. User runs `/consent status`
 3. Bot displays embed showing:
    - Message Logging: ✅ Granted (since Dec 25, 2024)
-   - Analytics: ❌ Not granted
-   - LLM Interaction: ❌ Not granted
+   - AI Assistant Usage: ❌ Not granted
 
 ---
 

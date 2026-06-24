@@ -289,7 +289,7 @@ public record VoxTokenInfo
 ```
 
 **Pipeline**:
-1. Tokenize input (split on whitespace, lowercase, strip punctuation)
+1. Tokenize input (map `,` and `.` to timing tokens, split on whitespace, lowercase; other punctuation such as `!`/`?` is preserved)
 2. Look up each token in `IVoxClipLibrary` for the requested group
 3. Collect file paths for matched clips; track skipped words
 4. Call `IVoxConcatenationService.ConcatenateAsync()` with matched clip paths
@@ -406,22 +406,23 @@ foreach (var group in Enum.GetValues<VoxClipGroup>())
 
 ### Tokenization Rules
 
-Input text is parsed into tokens for clip lookup:
+Input text is parsed into tokens for clip lookup (see `VoxService.TokenizeMessage`):
 
-1. Split on whitespace
-2. Convert to lowercase
-3. Strip leading/trailing punctuation (periods, commas, exclamation marks, etc.)
-4. Each token is looked up in the clip library for the active group
-5. Tokens with no matching clip are skipped (not an error - just omitted from output)
-6. Empty input or zero matched clips returns an error
+1. Replace `,` with a spaced ` _comma ` token and `.` with a spaced ` _period ` token (these become standalone timing tokens that can map to silence clips)
+2. Split on whitespace
+3. Convert each token to lowercase
+4. All other characters are preserved — punctuation such as `!` and `?` is **not** stripped, because it may be part of a clip name (e.g., `request!`)
+5. Each token is looked up in the clip library for the active group
+6. Tokens with no matching clip are skipped (not an error - just omitted from output)
+7. Empty input or zero matched clips returns an error
 
 **Examples**:
 
 | Input | Tokens | Matched (assuming vox group) |
 |-------|--------|------------------------------|
 | `"warning security breach"` | `[warning, security, breach]` | All matched |
-| `"attention all personnel!"` | `[attention, all, personnel]` | All matched |
-| `"hello world"` | `[hello, world]` | Depends on clip availability |
+| `"attention all, personnel"` | `[attention, all, _comma, personnel]` | `_comma` matched if a `_comma` clip exists |
+| `"affirmative."` | `[affirmative, _period]` | `_period` matched if a `_period` clip exists |
 | `"sector 7"` | `[sector, 7]` | `sector` matched, `7` skipped if no `7.mp3` |
 
 ---

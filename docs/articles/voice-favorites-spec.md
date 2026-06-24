@@ -560,7 +560,7 @@ VoiceFavorites.init();
 - [ ] Removing favorite updates UI immediately
 - [ ] Selecting favorite updates dropdown
 - [ ] Button state matches current selection
-- [ ] Works with all 37 voices
+- [ ] Works with all 34 voices
 - [ ] Works when dropdown is empty
 - [ ] Works when voice is removed from list
 - [ ] No console errors

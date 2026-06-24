@@ -1032,6 +1032,143 @@ Per-guild text-to-speech configuration.
 
 ---
 
+### SoundCategory
+
+User-defined soundboard categories for organizing sounds within a guild. Table name: `SoundCategories`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique category identifier |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild this category belongs to |
+| Name | TEXT | No | - | MaxLength: 50 | Category name |
+| SortOrder | INTEGER | No | 0 | - | Display order |
+| CreatedAt | TEXT (DateTime) | No | - | - | Creation timestamp (UTC) |
+
+**Indexes:**
+- `IX_SoundCategories_GuildId_Name` on `(GuildId, Name)` (UNIQUE) - Prevent duplicate category names per guild
+- `IX_SoundCategories_GuildId` on `GuildId` - Guild category lookups
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### UserSoundFavorite
+
+Per-user favorited soundboard sounds. Table name: `UserSoundFavorites`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique favorite identifier |
+| UserId | INTEGER (long) | No | - | - | User who favorited the sound |
+| GuildId | INTEGER (long) | No | - | - | Guild context |
+| SoundId | BLOB (Guid) | No | - | FOREIGN KEY → Sound(Id) | Favorited sound |
+| FavoritedAt | TEXT (DateTime) | No | - | - | When the sound was favorited (UTC) |
+
+**Indexes:**
+- `IX_UserSoundFavorites_UserId_SoundId_GuildId` on `(UserId, SoundId, GuildId)` (UNIQUE) - Prevent duplicate favorites
+- `IX_UserSoundFavorites_UserId_GuildId` on `(UserId, GuildId)` - Retrieve a user's favorites in a guild
+
+**Foreign Keys:**
+- `SoundId` → `Sound(Id)` with `ON DELETE CASCADE`
+
+---
+
+### AudioPlaybackLog
+
+Unified playback log spanning soundboard, TTS, and VOX features. Table name: `AudioPlaybackLogs`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique playback log entry ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who triggered playback |
+| FeatureType | INTEGER | No | - | Enum: AudioFeatureType | Soundboard, TTS, VOX, etc. |
+| ContentName | TEXT | No | - | MaxLength: 200 | Sound name, TTS preview, or VOX message |
+| ChannelId | INTEGER (long) | Yes | NULL | - | Voice channel where played |
+| PlayedAt | TEXT (DateTime) | No | - | - | Play timestamp (UTC) |
+
+**Indexes:**
+- `IX_AudioPlaybackLogs_GuildId_PlayedAt` on `(GuildId, PlayedAt)` (PlayedAt descending) - Guild playback history
+- `IX_AudioPlaybackLogs_GuildId_UserId_PlayedAt` on `(GuildId, UserId, PlayedAt)` (PlayedAt descending) - Per-user playback history
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### VoxMessageHistory
+
+History of VOX (Half-Life announcer) messages played in a guild. Table name: `VoxMessageHistory`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique history entry ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who played the message |
+| Message | TEXT | No | - | MaxLength: 500 | VOX message text |
+| ClipGroup | TEXT | No | - | MaxLength: 20 | Clip group (vox, fvox, hgrunt) |
+| WordGapMs | INTEGER | No | - | - | Gap between words in milliseconds |
+| IsFavorite | INTEGER (bool) | No | false | - | Whether the user favorited this message |
+| PlayedAt | TEXT (DateTime) | No | - | - | Play timestamp (UTC) |
+
+**Indexes:**
+- `IX_VoxMessageHistory_UserId_GuildId_PlayedAt` on `(UserId, GuildId, PlayedAt)` - Recent history queries
+- `IX_VoxMessageHistory_UserId_GuildId_IsFavorite` on `(UserId, GuildId, IsFavorite)` - Favorite queries
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### TtsMessageHistory
+
+History of TTS messages played in a guild, including voice parameters. Table name: `TtsMessageHistory`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique history entry ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who played the message |
+| Message | TEXT | No | - | MaxLength: 500 | TTS message text |
+| VoiceName | TEXT | No | - | MaxLength: 100 | Azure TTS voice name (e.g., en-US-AriaNeural) |
+| Style | TEXT | Yes | NULL | MaxLength: 50 | Optional voice style (e.g., cheerful, angry) |
+| Speed | REAL (decimal) | No | - | Precision: (5,2) | Speech speed multiplier |
+| Pitch | REAL (decimal) | No | - | Precision: (5,2) | Pitch adjustment multiplier |
+| IsFavorite | INTEGER (bool) | No | false | - | Whether the user favorited this message |
+| PlayedAt | TEXT (DateTime) | No | - | - | Play timestamp (UTC) |
+
+**Indexes:**
+- `IX_TtsMessageHistory_UserId_GuildId_PlayedAt` on `(UserId, GuildId, PlayedAt)` - Recent history queries
+- `IX_TtsMessageHistory_UserId_GuildId_IsFavorite` on `(UserId, GuildId, IsFavorite)` - Favorite queries
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### UserTtsPreset
+
+Saved per-user TTS voice presets. Table name: `UserTtsPresets`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique preset identifier |
+| UserId | INTEGER (long) | No | - | - | User who owns the preset |
+| Name | TEXT | No | - | MaxLength: 50 | User-defined preset name |
+| VoiceName | TEXT | No | - | MaxLength: 100 | Azure TTS voice name |
+| Style | TEXT | Yes | NULL | MaxLength: 50 | Optional speaking style |
+| Speed | REAL (decimal) | No | 1.0 | - | Speech rate multiplier (0.5-2.0) |
+| Pitch | REAL (decimal) | No | 1.0 | - | Pitch adjustment multiplier (0.5-2.0) |
+| Icon | TEXT | Yes | NULL | MaxLength: 50 | Optional icon identifier |
+| CreatedAt | TEXT (DateTime) | No | - | - | Creation timestamp (UTC) |
+| UpdatedAt | TEXT (DateTime) | Yes | NULL | - | Last update timestamp (UTC) |
+
+**Indexes:**
+- `IX_UserTtsPresets_UserId` on `UserId` - Retrieve all presets for a user
+
+---
+
 ## Command Configuration Tables
 
 ### CommandModuleConfiguration
