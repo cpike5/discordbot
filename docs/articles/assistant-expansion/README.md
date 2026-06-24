@@ -14,7 +14,8 @@ Today the community assistant is single-turn, has no memory, and every one of it
 | [PRD.md](PRD.md) | Product / Engineering | Full product requirements — the three pillars, the safety layer, tool catalog, conversation model, knowledge tools, configuration, phasing, open questions |
 | [UserStories.md](UserStories.md) | Product / QA | Acceptance-criteria-driven stories for members, moderators, admins, and the bot owner |
 | [Architecture.md](Architecture.md) | Engineering | Component map, data flow, the safety layer design, tool-context role plumbing, conversation/memory model, new file inventory, risk register |
-| [Reference.md](Reference.md) | Developers / Power Users | Tool catalog reference, configuration keys, per-guild settings, permission tiers, audit/observability, security notes |
+| [Reference.md](Reference.md) | Developers / Power Users | Tool catalog reference, configuration keys, model/pricing, per-guild settings, permission tiers, audit/observability, security notes |
+| [ImplementationPlan.md](ImplementationPlan.md) | Engineering | Concrete phased build plan — prerequisite model fix, then Phases 0–3 with files, migrations, tests, and exit criteria |
 
 ---
 
@@ -34,10 +35,11 @@ Today the community assistant is single-turn, has no memory, and every one of it
 | Document | Status |
 |---|---|
 | BRD | Draft |
-| PRD | Draft |
+| PRD | Draft — all open questions resolved (see Decision Log) |
 | User Stories | Draft |
 | Architecture | Draft |
 | Reference | Draft |
+| Implementation Plan | Draft |
 | Implementation | Not started |
 
 ---
@@ -53,8 +55,8 @@ Today the community assistant is single-turn, has no memory, and every one of it
 
 ---
 
-## Open Questions
+## Decisions
 
-See [PRD.md § Open Questions](PRD.md#open-questions).
+All seven original open questions are resolved — see [PRD.md § Decision Log](PRD.md#9-decision-log). Highlights: tiered confirmation keyed on reversibility (D-01), `ban`/`kick` excluded from v2 (D-02), native Claude web tools (D-04), default model `claude-sonnet-4-6` (D-06), privileged actions require both bot tier and native Discord permission (D-07).
 </content>
 </invoke>

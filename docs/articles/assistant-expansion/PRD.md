@@ -70,12 +70,12 @@ A tool that fails any check returns a structured, non-leaking error result (the 
 
 **Requirement FR-S3:** State-changing actions shall not execute on the first tool call. Instead the assistant shall present the proposed action and require explicit confirmation.
 
-Two acceptable mechanisms (PRD chooses **A** for v2; B is an open question):
+**Decision (D-01): the dividing line is reversibility, not tier.**
 
-- **(A) In-conversation confirmation (chosen):** The tool returns a "preview" result describing exactly what will happen; the assistant asks the member to confirm in natural language; a second tool call with a `confirmed: true` argument executes. This requires Pillar 2 (memory) for multi-turn, OR a single-turn confirmation via Discord buttons.
-- **(B) Discord component confirmation:** The action tool returns a payload that the handler renders as a Discord button ("Confirm" / "Cancel"), wired through the existing component framework (`ComponentIdBuilder`, `IInteractionStateService`). This works even without conversation memory.
+- **Reversible, low-impact self actions** (set a reminder, play a sound) execute directly and return an **undo affordance** where cheap (e.g. reminders return a cancel button). No confirmation round-trip.
+- **Everything else** — anything that messages other people, changes another user's state, deletes data, or can't be cheaply undone — requires **Discord-button confirmation**: the tool returns a `pending_confirmation` payload that the handler renders as a "Confirm" / "Cancel" button via the existing component framework (`ComponentIdBuilder`, `IInteractionStateService`); execution happens in the component handler on click, with the caller's tier re-validated at click time. This is robust without relying on the LLM to re-confirm and works even before conversation memory (Pillar 2) lands.
 
-**Decision:** Destructive/high-impact actions (mod actions, deleting data, scheduled-message changes) use **(B) Discord buttons** so they are robust without relying on the LLM to re-confirm. Low-impact self actions (set a reminder, play a sound) may execute directly with an undo affordance where cheap (e.g. reminders return a cancel button).
+**NL-only confirmation is explicitly rejected** — it is the weakest gate, is ambiguous to parse, and couples the safety model to LLM behavior.
 
 ### 2.4 Per-guild capability toggles
 
@@ -218,7 +218,7 @@ New keys under `Assistant` (extending `AssistantOptions`) with safe defaults:
 
 Per-guild overrides live on `AssistantGuildSettings` (§ 2.4). Global `false` always wins (a guild cannot enable a capability the operator has globally disabled).
 
-Model note: the assistant currently documents a `claude-3-5-sonnet` default; v2 should default the community assistant to a current Claude model and confirm pricing constants against the live model. (See [claude-api skill] / open question OQ-06.)
+**Model (resolved — see Decision Log D-06):** the community assistant defaults to **`claude-sonnet-4-6`** with adaptive thinking. The previously-configured `claude-3-5-sonnet-20241022` was **retired 2025-10-28** and is no longer a valid model ID. Sonnet 4.6 has identical pricing ($3/M input, $15/M output), so the existing cost-tracking constants and metrics dashboard stay accurate with only the model ID changed. `claude-haiku-4-5` ($1/$5) is available as a per-guild "economy" option for very high-volume guilds. Use `thinking: {type: "adaptive"}` — `budget_tokens` is rejected on current models. Note prompt caching has a **2048-token minimum cacheable prefix on Sonnet 4.6**; cache the agent prompt + common docs together (as today) so the prefix clears the threshold.
 
 ---
 
@@ -248,17 +248,19 @@ Each phase is independently shippable and independently reversible via config.
 
 ---
 
-## 9. Open Questions
+## 9. Decision Log
 
-| ID | Question |
-|---|---|
-| OQ-01 | Confirmation UX: standardize on Discord buttons for *all* mutations, or allow NL confirmation for low-impact self actions? (PRD currently: buttons for privileged/destructive, direct+undo for low-impact self) |
-| OQ-02 | Should `ban`/`kick` ever be assistant-accessible, or permanently slash-command-only? |
-| OQ-03 | Conversation key: per-channel-per-user vs thread-first. Do we auto-create a thread for multi-turn to avoid channel clutter? |
-| OQ-04 | Web knowledge: search provider choice and cost controls — which search backend, and what per-guild monthly cap? |
-| OQ-05 | Should self-action tools work in DMs with the bot for non-owners (currently the community assistant ignores DMs entirely)? |
-| OQ-06 | Confirm the target Claude model + pricing constants for the community assistant (the doc baseline references an older Sonnet). |
-| OQ-07 | Do privileged actions require the member to *also* have the corresponding Discord permission (e.g. native Ban Members), or is the bot's role-tier sufficient? |
+All seven open questions are resolved. Decisions are reflected in the body of this PRD and in [Reference.md](Reference.md).
+
+| ID | Decision | Rationale |
+|---|---|---|
+| D-01 | **Tiered confirmation, keyed on reversibility (not tier).** Reversible low-impact actions (e.g. `create_reminder`) execute directly and return an undo affordance; anything that messages other people, changes another user's state, deletes data, or can't be cheaply undone requires Discord-button confirmation. No NL-only confirmation. | A confirmation on every action is sludgy; NL confirmation is the weakest gate and couples safety to LLM behavior. Reversibility is the right line (Anthropic agent-design guidance: gate hard-to-reverse actions). |
+| D-02 | **`ban`/`kick` stay slash-command-only in v2.** Revisit after the button-confirmation flow is proven on warn/timeout/purge. | Highest blast radius, smallest time-saving over the slash command. Prove the confirmation UX on lower-stakes actions first. |
+| D-03 | **Conversation key `(guild, channel, user)` by default; reply-chains also continue a conversation.** Thread auto-creation is an opt-in per-guild setting, deferred. | Simplest path that ships Phase 2; threads are heavier than the problem for many communities. |
+| D-04 | **Use Claude's native server-side `web_search` / `web_fetch` — no third-party backend.** Off by default per guild; counts against the action budget; per-guild monthly USD cap on the metrics dashboard. The existing hardened `WebFetchTools` stays for user-pasted URLs. | Native tools remove the "which backend / which API key" problem and stay inside the existing LLM abstraction; cited results built in. |
+| D-05 | **Self-action tools are guild-channel-only in v2 — no DM support for non-owners.** | Consent, channel allowlist, per-guild capability toggles, and role tier are all guild-scoped and don't exist in a DM. Revisit as its own feature if requested. |
+| D-06 | **Default model `claude-sonnet-4-6` with adaptive thinking** (see § 6). Replaces the retired `claude-3-5-sonnet-20241022`; identical pricing keeps cost constants valid. `claude-haiku-4-5` as a per-guild economy option. | Best speed/intelligence/cost balance for a tool-using FAQ+action assistant; zero cost-tracking drift. |
+| D-07 | **Privileged actions require BOTH the bot role-tier AND the corresponding native Discord permission** (e.g. native Ban/Moderate Members), resolved through the same preconditions the slash commands use. | Defense in depth — the assistant must never become a privilege-escalation path around what Discord or the slash command would allow. |
 
 ---
 

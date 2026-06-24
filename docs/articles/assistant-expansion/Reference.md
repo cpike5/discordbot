@@ -98,6 +98,20 @@ Under the `Assistant` section (`AssistantOptions`). Global `false` always wins o
 
 Existing keys retained: `EnableDocumentationTools`, `MaxToolCallsPerQuestion`, `DefaultRateLimit`, `RateLimitWindowMinutes`, `RequireExplicitConsent`, cost-tracking keys, prompt-caching keys.
 
+### 3.1 Model & Pricing (resolved — PRD Decision D-06)
+
+| Key | Value | Notes |
+|---|---|---|
+| `Model` | `claude-sonnet-4-6` | Default. Replaces the **retired** `claude-3-5-sonnet-20241022` (retired 2025-10-28; no longer a valid ID). |
+| Economy option | `claude-haiku-4-5` | Optional per-guild model for very high-volume guilds. |
+| Thinking | `adaptive` | Use `thinking: {type: "adaptive"}`. `budget_tokens` is rejected on current models. |
+| `CostPerMillionInputTokens` | `3.00` | Unchanged — Sonnet 4.6 pricing matches the retired 3.5-Sonnet, so cost tracking stays accurate. |
+| `CostPerMillionOutputTokens` | `15.00` | Unchanged. |
+
+**Prompt caching caveat:** Sonnet 4.6 has a **2048-token minimum cacheable prefix**. The agent prompt alone (~1500 tokens) may silently not cache; cache the agent prompt **plus** the common documentation files together (as the current implementation does) so the prefix clears the threshold. Verify with `usage.cache_read_input_tokens > 0`.
+
+**Web knowledge (Decision D-04):** uses Claude's native server-side `web_search` / `web_fetch` tools — no third-party search backend or API key. The hardened `WebFetchTools` is retained for user-pasted URLs.
+
 ---
 
 ## 4. Per-Guild Settings (`AssistantGuildSettings`)
