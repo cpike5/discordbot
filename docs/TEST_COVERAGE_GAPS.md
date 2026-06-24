@@ -347,8 +347,11 @@
 - `ExecuteToolAsync_InvalidUrl_ReturnsError`
 - `ExecuteToolAsync_Timeout_HandlesGracefully`
 
-#### CodeExecutionToolProvider, ClaudeCodeToolProvider, DmAnalyticsToolProvider, DmDocumentationToolProvider
+#### DmAnalyticsToolProvider, DmDocumentationToolProvider
 - 2-3 cases each: `GetTools` returns definitions, happy path execution, error handling
+
+> `ClaudeCodeToolProvider` is now covered (owner re-check + budget enforcement) in
+> `ClaudeCodeToolProviderTests`. The Python `CodeExecutionToolProvider` was removed.
 
 ---
 

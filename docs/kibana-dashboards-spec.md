@@ -267,7 +267,6 @@ Traces (`traces-apm-default`):
 - Conversation: 2 tools
 - DmModeration: 2 tools
 - DmAnalytics: 2 tools
-- CodeExecution: 1 tool
 - WebFetch: 1 tool
 
 | # | Title | Viz Type | Data Source | Query / Aggregation |

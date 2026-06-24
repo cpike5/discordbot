@@ -134,34 +134,6 @@ public class DmAssistantOptions
 
     #endregion
 
-    #region Code Execution
-
-    /// <summary>
-    /// Gets or sets whether the Python code execution tool is enabled.
-    /// Default is false (must be explicitly enabled).
-    /// </summary>
-    public bool EnableCodeExecution { get; set; } = false;
-
-    /// <summary>
-    /// Gets or sets the timeout in seconds for code execution.
-    /// Default is 30 seconds.
-    /// </summary>
-    public int CodeExecutionTimeoutSeconds { get; set; } = 30;
-
-    /// <summary>
-    /// Gets or sets the maximum output length in characters from code execution.
-    /// Default is 8000 characters.
-    /// </summary>
-    public int CodeExecutionMaxOutputLength { get; set; } = 8000;
-
-    /// <summary>
-    /// Gets or sets the path to the Python interpreter.
-    /// Default is "python3".
-    /// </summary>
-    public string PythonPath { get; set; } = "python3";
-
-    #endregion
-
     #region Feature Flags
 
     /// <summary>

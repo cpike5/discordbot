@@ -27,7 +27,6 @@ services:
       Database__Provider: ${DATABASE_PROVIDER:-}
       ConnectionStrings__DefaultConnection: ${CONNECTION_STRING:-Data Source=data/discordbot.db}
       DmAssistant__Model: ${DmAssistant__Model:-}
-      DmAssistant__EnableCodeExecution: ${DmAssistant__EnableCodeExecution:-false}
     volumes:
       - bot-data:/app/data            # SQLite database persistence
       - ./sounds:/app/sounds:rw       # Optional: custom sound clips

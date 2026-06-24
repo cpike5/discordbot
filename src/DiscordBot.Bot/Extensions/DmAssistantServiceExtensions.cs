@@ -51,7 +51,6 @@ public static class DmAssistantServiceExtensions
         services.AddScoped<IDmToolProvider, DmAnalyticsToolProvider>();
         services.AddScoped<DocumentationToolProvider>();
         services.AddScoped<IDmToolProvider, DmDocumentationToolProvider>();
-        services.AddScoped<IDmToolProvider, CodeExecutionToolProvider>();
         services.AddScoped<IDmToolProvider, ClaudeCodeToolProvider>();
         services.AddHttpClient("DmAssistantWebFetch", client =>
         {

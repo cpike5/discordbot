@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Implementations;
 using Microsoft.Extensions.Logging;
@@ -21,6 +22,7 @@ public class ClaudeCodeToolProvider : IDmToolProvider
 {
     private readonly ILogger<ClaudeCodeToolProvider> _logger;
     private readonly IOptions<MogwaiOptions> _options;
+    private readonly IBotOwnerResolver _ownerResolver;
 
     private static readonly ConcurrentDictionary<ulong, ClaudeCodeSession> _sessions = new();
     private static readonly ConcurrentDictionary<ulong, bool> _activeExecutions = new();
@@ -33,10 +35,12 @@ public class ClaudeCodeToolProvider : IDmToolProvider
 
     public ClaudeCodeToolProvider(
         ILogger<ClaudeCodeToolProvider> logger,
-        IOptions<MogwaiOptions> options)
+        IOptions<MogwaiOptions> options,
+        IBotOwnerResolver ownerResolver)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _ownerResolver = ownerResolver ?? throw new ArgumentNullException(nameof(ownerResolver));
     }
 
     /// <inheritdoc />
@@ -58,6 +62,16 @@ public class ClaudeCodeToolProvider : IDmToolProvider
         if (!_options.Value.Enabled)
         {
             return ToolExecutionResult.CreateError("Claude Code integration is disabled.");
+        }
+
+        // Defense in depth: this tool spawns a Claude Code process with file-system and shell
+        // access, so it must independently verify the caller is the bot owner rather than trust
+        // the upstream DM gate. Fail closed if ownership cannot be confirmed.
+        if (!await IsOwnerAsync(context.UserId))
+        {
+            _logger.LogWarning(
+                "Rejected Claude Code tool '{Tool}' for non-owner user {UserId}", toolName, context.UserId);
+            return ToolExecutionResult.CreateError("Claude Code integration is restricted to the bot owner.");
         }
 
         return toolName switch
@@ -117,6 +131,22 @@ public class ClaudeCodeToolProvider : IDmToolProvider
         if (input.TryGetProperty("working_directory", out var wdElement))
         {
             workingDirectory = wdElement.GetString();
+        }
+
+        // Budget guard: each Claude Code run can incur real API cost, so refuse once a resumed
+        // session's cumulative spend has reached the configured ceiling. The CLI has no reliable
+        // way to enforce this for us, so we gate on the cost already accounted for per session.
+        // A fresh session (continue_session=false) starts a new budget and is never blocked here.
+        var maxBudget = _options.Value.MaxBudgetUsd;
+        if (continueSession && _sessions.TryGetValue(userId, out var trackedSession)
+            && IsBudgetExhausted(trackedSession.CumulativeCost, maxBudget))
+        {
+            _logger.LogWarning(
+                "Rejected Claude Code run for user {UserId}: cumulative cost ${Cost} reached budget ${Budget}",
+                userId, trackedSession.CumulativeCost, maxBudget);
+            return ToolExecutionResult.CreateError(
+                $"Claude Code budget of ${maxBudget:F2} has been reached for this session " +
+                $"(spent ${trackedSession.CumulativeCost:F2}). Start a new session (continue_session=false) to reset the budget.");
         }
 
         // Concurrency guard
@@ -282,10 +312,10 @@ public class ClaudeCodeToolProvider : IDmToolProvider
         }
 
         // Parse JSON output
-        return ParseClaudeOutput(stdoutStr, userId, opts.MaxOutputLength);
+        return ParseClaudeOutput(stdoutStr, userId, opts.MaxOutputLength, continueSession);
     }
 
-    private ToolExecutionResult ParseClaudeOutput(string rawOutput, ulong userId, int maxOutputLength)
+    private ToolExecutionResult ParseClaudeOutput(string rawOutput, ulong userId, int maxOutputLength, bool continueSession)
     {
         try
         {
@@ -363,7 +393,9 @@ public class ClaudeCodeToolProvider : IDmToolProvider
                 }
             }
 
-            // Update session tracking
+            // Update session tracking. Resuming accumulates cost against the running budget;
+            // a fresh session (continue_session=false) resets the cumulative total so its budget
+            // starts clean.
             if (!string.IsNullOrEmpty(sessionId))
             {
                 _sessions.AddOrUpdate(
@@ -371,7 +403,7 @@ public class ClaudeCodeToolProvider : IDmToolProvider
                     _ => new ClaudeCodeSession(sessionId, totalCost, DateTime.UtcNow),
                     (_, existing) => new ClaudeCodeSession(
                         sessionId,
-                        existing.CumulativeCost + totalCost,
+                        continueSession ? existing.CumulativeCost + totalCost : totalCost,
                         DateTime.UtcNow));
             }
 
@@ -406,6 +438,30 @@ public class ClaudeCodeToolProvider : IDmToolProvider
             var element = JsonDocument.Parse(json).RootElement.Clone();
             return ToolExecutionResult.CreateSuccess(element);
         }
+    }
+
+    private async Task<bool> IsOwnerAsync(ulong userId)
+    {
+        try
+        {
+            var ownerId = await _ownerResolver.GetOwnerIdAsync();
+            return ownerId != 0 && userId == ownerId;
+        }
+        catch (Exception ex)
+        {
+            // Fail closed: if ownership cannot be confirmed, deny access to the process-spawning tool.
+            _logger.LogError(ex, "Failed to resolve bot owner while authorizing Claude Code access");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Determines whether a session's cumulative spend has reached the configured budget ceiling.
+    /// A non-positive ceiling disables the limit (treated as unlimited).
+    /// </summary>
+    internal static bool IsBudgetExhausted(decimal cumulativeCost, decimal maxBudgetUsd)
+    {
+        return maxBudgetUsd > 0m && cumulativeCost >= maxBudgetUsd;
     }
 
     private static string TruncateOutput(string output, int maxLength)
