@@ -43,9 +43,9 @@ public class DmAssistantOptions
 
     /// <summary>
     /// Gets or sets the Claude model identifier to use.
-    /// Default is "claude-sonnet-4-20250514".
+    /// Default is "claude-sonnet-4-6".
     /// </summary>
-    public string Model { get; set; } = "claude-sonnet-4-20250514";
+    public string Model { get; set; } = "claude-sonnet-4-6";
 
     /// <summary>
     /// Gets or sets the maximum number of tokens for Claude's response.

@@ -43,9 +43,9 @@ public class FeatureRequestsOptions
 
     /// <summary>
     /// Model to use for the AI-powered requirements gathering conversation.
-    /// Default: claude-sonnet-4-20250514
+    /// Default: claude-sonnet-4-6
     /// </summary>
-    public string RequirementsGatheringModel { get; set; } = "claude-sonnet-4-20250514";
+    public string RequirementsGatheringModel { get; set; } = "claude-sonnet-4-6";
 
     /// <summary>
     /// Maximum number of conversation turns (user messages) before forcing the session to end.
