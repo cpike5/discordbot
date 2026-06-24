@@ -125,11 +125,6 @@ public class AgentRunner : IAgentRunner
             totalUsage.CachedTokens += response.Usage.CachedTokens;
             totalUsage.CacheWriteTokens += response.Usage.CacheWriteTokens;
 
-            if (response.Usage.EstimatedCost.HasValue)
-            {
-                totalUsage.EstimatedCost = (totalUsage.EstimatedCost ?? 0) + response.Usage.EstimatedCost.Value;
-            }
-
             _logger.LogDebug(
                 "LLM response received. StopReason: {StopReason}, InputTokens: {InputTokens}, OutputTokens: {OutputTokens}, CachedTokens: {CachedTokens}",
                 response.StopReason,

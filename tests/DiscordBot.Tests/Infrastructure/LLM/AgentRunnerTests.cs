@@ -327,54 +327,6 @@ public class AgentRunnerTests
         result.TotalUsage.CacheWriteTokens.Should().Be(20); // 20 + 0
     }
 
-    [Fact]
-    public async Task RunAsync_AccumulatesEstimatedCost_AcrossIterations()
-    {
-        // Arrange
-        const string userMessage = "Test message";
-        var context = new AgentContext
-        {
-            SystemPrompt = "You are a helpful assistant.",
-            ExecutionContext = new ToolContext { UserId = 123, GuildId = 456 },
-            MaxToolCallIterations = 5
-        };
-
-        var response1 = new LlmResponse
-        {
-            Success = true,
-            Content = "Response 1",
-            StopReason = LlmStopReason.EndTurn,
-            Usage = new LlmUsage
-            {
-                InputTokens = 100,
-                OutputTokens = 50,
-                EstimatedCost = 0.01m
-            }
-        };
-
-        var response2 = new LlmResponse
-        {
-            Success = true,
-            Content = "Response 2",
-            StopReason = LlmStopReason.EndTurn,
-            Usage = new LlmUsage
-            {
-                InputTokens = 50,
-                OutputTokens = 25,
-                EstimatedCost = 0.005m
-            }
-        };
-
-        _mockLlmClient.Setup(c => c.CompleteAsync(It.IsAny<LlmRequest>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(response1);
-
-        // Act - First call
-        var result1 = await _agentRunner.RunAsync(userMessage, context);
-
-        // Assert
-        result1.TotalUsage.EstimatedCost.Should().Be(0.01m);
-    }
-
     #endregion
 
     #region Error Handling Tests
