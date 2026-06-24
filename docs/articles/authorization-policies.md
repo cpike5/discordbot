@@ -37,12 +37,16 @@ The system defines four hierarchical roles, where higher roles inherit permissio
 
 ### Role Definitions
 
-| Role | Level | Description | Typical Use Cases |
-|------|-------|-------------|-------------------|
-| **SuperAdmin** | 4 | System owner with full access to all features | User management, system configuration, access all guilds |
-| **Admin** | 3 | Guild administrator with full CRUD access | Guild management, bot control, configuration |
-| **Moderator** | 2 | Limited admin with edit but no delete permissions | Edit guild settings, moderate content |
-| **Viewer** | 1 | Read-only access to dashboards and logs | View dashboards, read logs, monitor bot status |
+Roles are listed from most to least privileged. The hierarchy is expressed
+through the role lists in each policy (a higher role is included in every policy
+a lower role satisfies); there are no numeric "level" values in code.
+
+| Role | Description | Typical Use Cases |
+|------|-------------|-------------------|
+| **SuperAdmin** | System owner with full access to all features | User management, system configuration, access all guilds |
+| **Admin** | Guild administrator with full CRUD access | Guild management, bot control, configuration |
+| **Moderator** | Limited admin with edit but no delete permissions | Edit guild settings, moderate content |
+| **Viewer** | Read-only access to dashboards and logs | View dashboards, read logs, monitor bot status |
 
 ### Visual Hierarchy
 
@@ -73,28 +77,31 @@ Viewer (Read-Only Access)
 
 ### Role Constants
 
-Role names are defined in the `Roles` class for compile-time safety:
+Role names are defined as constants on `IdentitySeeder.Roles` for compile-time
+safety. The same constants are used both when seeding roles and when registering
+the authorization policies:
 
 ```csharp
-// Location: DiscordBot.Core/Authorization/Roles.cs
-namespace DiscordBot.Core.Authorization;
+// Location: src/DiscordBot.Bot/Extensions/IdentitySeeder.cs
+namespace DiscordBot.Bot.Extensions;
 
-public static class Roles
+public static class IdentitySeeder
 {
-    public const string SuperAdmin = "SuperAdmin";
-    public const string Admin = "Admin";
-    public const string Moderator = "Moderator";
-    public const string Viewer = "Viewer";
-
-    public static readonly string[] All = { SuperAdmin, Admin, Moderator, Viewer };
+    public static class Roles
+    {
+        public const string SuperAdmin = "SuperAdmin";
+        public const string Admin = "Admin";
+        public const string Moderator = "Moderator";
+        public const string Viewer = "Viewer";
+    }
 }
 ```
 
 **Usage:**
 ```csharp
-using DiscordBot.Core.Authorization;
+using DiscordBot.Bot.Extensions;
 
-[Authorize(Roles = Roles.SuperAdmin)]
+[Authorize(Roles = IdentitySeeder.Roles.SuperAdmin)]
 public class UserManagementModel : PageModel { }
 ```
 
@@ -113,7 +120,7 @@ Policies are registered in `Program.cs` during application startup and provide a
 **Configuration:**
 ```csharp
 options.AddPolicy("RequireSuperAdmin", policy =>
-    policy.RequireRole(Roles.SuperAdmin));
+    policy.RequireRole(IdentitySeeder.Roles.SuperAdmin));
 ```
 
 **Allowed Roles:** SuperAdmin only
@@ -142,7 +149,7 @@ public class UserManagementModel : PageModel
 **Configuration:**
 ```csharp
 options.AddPolicy("RequireAdmin", policy =>
-    policy.RequireRole(Roles.SuperAdmin, Roles.Admin));
+    policy.RequireRole(IdentitySeeder.Roles.SuperAdmin, IdentitySeeder.Roles.Admin));
 ```
 
 **Allowed Roles:** SuperAdmin, Admin
@@ -171,7 +178,10 @@ public class ComponentsModel : PageModel
 **Configuration:**
 ```csharp
 options.AddPolicy("RequireModerator", policy =>
-    policy.RequireRole(Roles.SuperAdmin, Roles.Admin, Roles.Moderator));
+    policy.RequireRole(
+        IdentitySeeder.Roles.SuperAdmin,
+        IdentitySeeder.Roles.Admin,
+        IdentitySeeder.Roles.Moderator));
 ```
 
 **Allowed Roles:** SuperAdmin, Admin, Moderator
@@ -200,7 +210,11 @@ public IActionResult OnPostUpdateSettings()
 **Configuration:**
 ```csharp
 options.AddPolicy("RequireViewer", policy =>
-    policy.RequireRole(Roles.SuperAdmin, Roles.Admin, Roles.Moderator, Roles.Viewer));
+    policy.RequireRole(
+        IdentitySeeder.Roles.SuperAdmin,
+        IdentitySeeder.Roles.Admin,
+        IdentitySeeder.Roles.Moderator,
+        IdentitySeeder.Roles.Viewer));
 ```
 
 **Allowed Roles:** All roles (SuperAdmin, Admin, Moderator, Viewer)
@@ -224,7 +238,12 @@ public class IndexModel : PageModel
 
 #### GuildAccess
 
-**Description:** Custom policy that enforces guild-specific access control. Users must have explicit access granted to a specific guild through the `UserGuildAccess` table. SuperAdmins automatically have access to all guilds.
+**Description:** Custom policy that enforces guild-specific access control by
+checking **live Discord guild membership**. The registered handler
+(`GuildAccessHandler`) reads the user's linked Discord account, looks up the
+guild on the bot's Discord socket client, and verifies membership. SuperAdmins
+bypass the check entirely. It does **not** query any database table or compare
+stored access levels.
 
 **Configuration:**
 ```csharp
@@ -232,12 +251,22 @@ options.AddPolicy("GuildAccess", policy =>
     policy.Requirements.Add(new GuildAccessRequirement()));
 ```
 
-**Authorization Logic:**
-1. Check if user is SuperAdmin → Grant access to all guilds
-2. Extract `guildId` from route parameters or query string
-3. Look up `UserGuildAccess` record for user + guild
-4. Verify user's access level meets minimum requirement
-5. Grant or deny access accordingly
+**Authorization Logic (as implemented in `GuildAccessHandler`):**
+1. If the user is in the `SuperAdmin` role → succeed immediately.
+2. Extract `guildId` from route values (or query string) using the requirement's
+   `GuildIdParameterName` (default `"guildId"`).
+3. Load the current `ApplicationUser`; the user must have a linked
+   `DiscordUserId` (otherwise access is denied).
+4. Resolve the guild from the Discord socket client and fetch the guild member
+   for the user's Discord ID. If the user is not a member of the guild → deny.
+5. **Admin role:** additionally requires the Discord `Administrator` guild
+   permission. An `Admin` who lacks `Administrator` in that guild is denied.
+6. **Moderator / Viewer roles:** guild membership alone is sufficient → succeed.
+
+> **Note:** `GuildAccessRequirement` still exposes a `MinimumLevel` property, but
+> the registered `GuildAccessHandler` does not consult it. Access is determined
+> by live Discord membership and the Discord `Administrator` permission, not by a
+> stored `GuildAccessLevel`.
 
 **Use Cases:**
 - Guild-specific settings pages
@@ -253,11 +282,41 @@ public class GuildSettingsModel : PageModel
 {
     public async Task<IActionResult> OnGetAsync(ulong guildId)
     {
-        // User must have access to this specific guild
-        // (SuperAdmins bypass this check)
+        // User must be a member of this guild on Discord
+        // (SuperAdmins bypass this check; Admins also need the
+        //  Discord Administrator permission in the guild)
     }
 }
 ```
+
+---
+
+#### PortalGuildMember
+
+**Description:** Lighter-weight guild policy used by the member-facing portal
+pages (Soundboard, TTS). It requires Discord OAuth linkage and live guild
+membership, but no admin role. SuperAdmins and Admins bypass the membership
+check so they can manage any guild's portal.
+
+**Configuration:**
+```csharp
+options.AddPolicy("PortalGuildMember", policy =>
+    policy.Requirements.Add(new PortalGuildMemberRequirement()));
+```
+
+**Authorization Logic (as implemented in `PortalGuildMemberAuthorizationHandler`):**
+1. If the user is in the `SuperAdmin` or `Admin` role → succeed immediately.
+2. Extract `guildId` from route values (or query string).
+3. The user must be authenticated and have a linked `DiscordUserId`; otherwise
+   a 403 Forbidden is signalled.
+4. The guild's portal must be enabled (currently proxied by the guild's
+   `AudioEnabled` audio setting); otherwise a 404 Not Found is signalled.
+5. Verify guild membership via the Discord socket client, falling back to the
+   Discord REST API on a cache miss. Non-members receive 403 Forbidden.
+
+**Handler/Requirement Locations:**
+- `src/DiscordBot.Bot/Authorization/PortalGuildMemberRequirement.cs`
+- `src/DiscordBot.Bot/Authorization/PortalGuildMemberAuthorizationHandler.cs`
 
 ---
 
@@ -777,214 +836,127 @@ else
 
 ## Guild-Specific Authorization
 
-Guild-specific authorization allows fine-grained access control per Discord server. This enables scenarios where different users have different permission levels for different guilds.
+Guild-specific authorization restricts guild-scoped pages to users who are
+actually members of the relevant Discord guild. Authorization is evaluated
+against **live Discord state** through the bot's socket client — there is no
+stored per-guild access table involved in the decision.
 
 ### How It Works
 
-1. **User Authentication**: User logs in via ASP.NET Identity
-2. **Guild Access Linking**: `UserGuildAccess` records are created linking users to guilds
-3. **Authorization Check**: `GuildAccessAuthorizationHandler` verifies user has access to specific guild
-4. **SuperAdmin Bypass**: SuperAdmins automatically have access to all guilds
-
-### UserGuildAccess Entity
-
-The `UserGuildAccess` entity represents a user's access to a specific guild.
-
-**Location:** `DiscordBot.Core/Entities/UserGuildAccess.cs`
-
-```csharp
-public class UserGuildAccess
-{
-    /// <summary>The ApplicationUser ID (ASP.NET Core Identity user).</summary>
-    public string ApplicationUserId { get; set; }
-
-    /// <summary>Navigation property to the ApplicationUser.</summary>
-    public ApplicationUser ApplicationUser { get; set; }
-
-    /// <summary>The Guild ID (Discord snowflake).</summary>
-    public ulong GuildId { get; set; }
-
-    /// <summary>Navigation property to the Guild.</summary>
-    public Guild Guild { get; set; }
-
-    /// <summary>The user's access level for this guild.</summary>
-    public GuildAccessLevel AccessLevel { get; set; }
-
-    /// <summary>When the access was granted.</summary>
-    public DateTime GrantedAt { get; set; }
-
-    /// <summary>Who granted the access (nullable for system-granted).</summary>
-    public string? GrantedByUserId { get; set; }
-}
-```
-
-**Database Schema:**
-- **Primary Key**: Composite key (`ApplicationUserId`, `GuildId`)
-- **Foreign Keys**:
-  - `ApplicationUserId` → `AspNetUsers.Id` (Cascade delete)
-  - `GuildId` → `Guilds.Id` (Cascade delete)
-- **Indexes**: Automatically indexed on primary key for efficient lookups
-
----
-
-### GuildAccessLevel Enum
-
-Defines hierarchical access levels for guild-specific permissions.
-
-**Location:** `DiscordBot.Core/Entities/UserGuildAccess.cs`
-
-```csharp
-public enum GuildAccessLevel
-{
-    /// <summary>Read-only access to guild data (dashboards, logs).</summary>
-    Viewer = 0,
-
-    /// <summary>Can edit guild settings but cannot delete or manage users.</summary>
-    Moderator = 1,
-
-    /// <summary>Full administrative access to the guild (CRUD, bot control).</summary>
-    Admin = 2,
-
-    /// <summary>Guild owner with all permissions (typically Discord server owner).</summary>
-    Owner = 3
-}
-```
-
-**Hierarchy:** Viewer < Moderator < Admin < Owner
-
-**Note:** Guild-specific access levels are independent from application-wide roles. A user with `GuildAccessLevel.Admin` for a guild is not necessarily an `Admin` in the application role system.
-
----
+1. **User Authentication**: User logs in via ASP.NET Identity.
+2. **Discord Linkage**: The user must have a linked Discord account
+   (`ApplicationUser.DiscordUserId`).
+3. **Authorization Check**: `GuildAccessHandler` resolves the guild on the
+   Discord socket client and verifies the user's Discord ID is a member.
+4. **SuperAdmin Bypass**: SuperAdmins are granted access to all guilds without a
+   membership check.
+5. **Admin Permission Gate**: Users in the `Admin` role must additionally hold
+   the Discord `Administrator` permission in that guild.
 
 ### GuildAccessRequirement
 
-Authorization requirement that specifies the minimum guild access level needed.
+The requirement carried by the `GuildAccess` policy.
 
-**Location:** `DiscordBot.Bot/Authorization/GuildAccessRequirement.cs`
+**Location:** `src/DiscordBot.Bot/Authorization/GuildAccessRequirement.cs`
 
 ```csharp
 public class GuildAccessRequirement : IAuthorizationRequirement
 {
-    /// <summary>Minimum access level required. Defaults to Viewer.</summary>
+    /// <summary>Minimum access level. Present on the type but NOT consulted by
+    /// the registered GuildAccessHandler.</summary>
     public GuildAccessLevel MinimumLevel { get; }
 
-    public GuildAccessRequirement(GuildAccessLevel minimumLevel = GuildAccessLevel.Viewer)
+    /// <summary>Route/query parameter name for the guild ID. Default "guildId".</summary>
+    public string GuildIdParameterName { get; }
+
+    public GuildAccessRequirement(
+        GuildAccessLevel minimumLevel = GuildAccessLevel.Viewer,
+        string guildIdParameterName = "guildId")
     {
         MinimumLevel = minimumLevel;
+        GuildIdParameterName = guildIdParameterName;
     }
 }
 ```
 
-**Usage:**
-```csharp
-// In Program.cs policy configuration
-options.AddPolicy("GuildAdmin", policy =>
-    policy.Requirements.Add(new GuildAccessRequirement(GuildAccessLevel.Admin)));
-
-// In Razor Page
-[Authorize(Policy = "GuildAdmin")]
-public class GuildSettingsModel : PageModel { }
-```
+> **Note:** `MinimumLevel` (and the `GuildAccessLevel` enum / `UserGuildAccess`
+> entity it references) exist in the codebase but are **not** used by the
+> registered authorization handler. The live `GuildAccess` decision is based on
+> Discord membership and the Discord `Administrator` permission. The
+> `GuildAdmin` policy shown in older documentation is not registered.
 
 ---
 
-### GuildAccessAuthorizationHandler
+### GuildAccessHandler
 
-Custom authorization handler that enforces guild-specific access control.
+The authorization handler registered for the `GuildAccess` policy (registered in
+`IdentityServiceExtensions.AddIdentityServices`).
 
-**Location:** `DiscordBot.Bot/Authorization/GuildAccessAuthorizationHandler.cs`
+**Location:** `src/DiscordBot.Bot/Authorization/GuildAccessHandler.cs`
+
+> There is also a `GuildAccessAuthorizationHandler.cs` file in the same folder,
+> but it is **not** the type registered in DI. `GuildAccessHandler` is the one
+> that runs.
 
 **Authorization Flow:**
 
-1. **Check SuperAdmin**: If user is SuperAdmin → Grant access immediately
-2. **Extract Guild ID**: Read `guildId` from route parameters or query string
-3. **Validate Guild ID**: Ensure valid ulong Discord snowflake
-4. **Query Database**: Look up `UserGuildAccess` for user + guild combination
-5. **Compare Access Levels**: Verify user's access level >= required minimum level
-6. **Grant or Deny**: Succeed or fail the authorization requirement
+1. **Check SuperAdmin**: If the user is in the `SuperAdmin` role → succeed.
+2. **Extract Guild ID**: Read the guild ID from route values or query string
+   using `requirement.GuildIdParameterName` (default `"guildId"`).
+3. **Load User**: Resolve the `ApplicationUser`; the user must have a linked
+   `DiscordUserId`, otherwise access is denied.
+4. **Resolve Guild & Member**: Get the guild from the Discord socket client and
+   fetch the guild member for the user's Discord ID. Non-members are denied.
+5. **Role Gate**:
+   - `Admin` → must also have the Discord `Administrator` guild permission.
+   - `Moderator` / `Viewer` → guild membership alone is sufficient.
 
-**Code Example:**
+**Code Example (abridged from `GuildAccessHandler`):**
 ```csharp
 protected override async Task HandleRequirementAsync(
     AuthorizationHandlerContext context,
     GuildAccessRequirement requirement)
 {
     // SuperAdmins bypass guild-specific checks
-    if (context.User.IsInRole(Roles.SuperAdmin))
+    if (context.User.IsInRole(IdentitySeeder.Roles.SuperAdmin))
     {
         context.Succeed(requirement);
         return;
     }
 
-    // Extract guildId from route: /Guilds/{guildId}/Settings
-    var guildIdString = _httpContext.Request.RouteValues["guildId"]?.ToString();
+    var guildIdString =
+        _httpContextAccessor.HttpContext?.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
+        ?? _httpContextAccessor.HttpContext?.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
+
     if (!ulong.TryParse(guildIdString, out var guildId))
+        return; // No valid guild ID
+
+    var user = await _userManager.GetUserAsync(context.User);
+    if (user?.DiscordUserId is not ulong discordUserId)
+        return; // No linked Discord account
+
+    var guild = _discordClient.GetGuild(guildId);
+    var guildUser = guild?.GetUser(discordUserId);
+    if (guildUser == null)
+        return; // Not a member of the guild
+
+    // Admins additionally need the Discord Administrator permission
+    if (context.User.IsInRole(IdentitySeeder.Roles.Admin))
     {
-        return; // Fail silently - no valid guild ID
+        if (guildUser.GuildPermissions.Administrator)
+            context.Succeed(requirement);
+        return;
     }
 
-    // Check database for access grant
-    var access = await _dbContext.Set<UserGuildAccess>()
-        .FirstOrDefaultAsync(a =>
-            a.ApplicationUserId == userId &&
-            a.GuildId == guildId);
-
-    if (access?.AccessLevel >= requirement.MinimumLevel)
-    {
-        context.Succeed(requirement);
-    }
+    // Moderators and Viewers just need to be members
+    context.Succeed(requirement);
 }
 ```
 
----
-
-### Granting Guild Access Programmatically
-
-To grant a user access to a specific guild, create a `UserGuildAccess` record.
-
-**Example Service Method:**
-```csharp
-public async Task GrantGuildAccessAsync(
-    string userId,
-    ulong guildId,
-    GuildAccessLevel accessLevel,
-    string? grantedByUserId = null)
-{
-    var access = new UserGuildAccess
-    {
-        ApplicationUserId = userId,
-        GuildId = guildId,
-        AccessLevel = accessLevel,
-        GrantedAt = DateTime.UtcNow,
-        GrantedByUserId = grantedByUserId
-    };
-
-    _dbContext.UserGuildAccess.Add(access);
-    await _dbContext.SaveChangesAsync();
-}
-```
-
-**Example Page Handler:**
-```csharp
-[Authorize(Policy = "RequireSuperAdmin")]
-public async Task<IActionResult> OnPostGrantAccessAsync(
-    string userId, ulong guildId, GuildAccessLevel level)
-{
-    var access = new UserGuildAccess
-    {
-        ApplicationUserId = userId,
-        GuildId = guildId,
-        AccessLevel = level,
-        GrantedAt = DateTime.UtcNow,
-        GrantedByUserId = User.FindFirstValue(ClaimTypes.NameIdentifier)
-    };
-
-    await _dbContext.UserGuildAccess.AddAsync(access);
-    await _dbContext.SaveChangesAsync();
-
-    return RedirectToPage("./GuildPermissions", new { guildId });
-}
-```
+**Dependencies:** `UserManager<ApplicationUser>`, `DiscordSocketClient`,
+`IHttpContextAccessor`. Because membership is read from the live Discord client,
+no `UserGuildAccess` records need to be created or maintained for guild
+authorization to work.
 
 ---
 

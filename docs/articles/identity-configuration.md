@@ -108,14 +108,17 @@ public class ApplicationUser : IdentityUser
 
 ### Role Hierarchy
 
-The system defines four hierarchical roles:
+The system defines four hierarchical roles, listed from most to least
+privileged. The hierarchy is enforced by policy role lists (see
+[authorization-policies.md](authorization-policies.md)); there are no numeric
+"level" values in code.
 
-| Role | Level | Description | Typical Use Case |
-|------|-------|-------------|------------------|
-| `SuperAdmin` | 1 | System owner with unrestricted access | Bot owner, system administrator |
-| `Admin` | 2 | Guild administrator with full bot control | Discord server owner/administrator |
-| `Moderator` | 3 | Limited administrative access | Discord server moderator |
-| `Viewer` | 4 | Read-only access to dashboards | Auditor, read-only staff |
+| Role | Description | Typical Use Case |
+|------|-------------|------------------|
+| `SuperAdmin` | System owner with unrestricted access | Bot owner, system administrator |
+| `Admin` | Guild administrator with full bot control | Discord server owner/administrator |
+| `Moderator` | Limited administrative access | Discord server moderator |
+| `Viewer` | Read-only access to dashboards | Auditor, read-only staff |
 
 ### Role Capabilities
 
@@ -594,7 +597,9 @@ dotnet ef database update \
 
 ### Seed Initial Data
 
-The application automatically seeds roles and an initial admin user on first run.
+The application automatically seeds the four roles on first run. A default admin
+user is seeded **only** when both an email and password are configured under
+`Identity:DefaultAdmin` — there is no hardcoded fallback account.
 
 #### Roles Created
 
@@ -605,41 +610,47 @@ The application automatically seeds roles and an initial admin user on first run
 
 #### Default Admin User
 
-If configured via user secrets:
+To seed an initial SuperAdmin, configure both values (via user secrets):
 
 ```bash
 dotnet user-secrets set "Identity:DefaultAdmin:Email" "admin@example.com"
 dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
 ```
 
-**Default credentials (if not configured):**
-- Email: `admin@example.com`
-- Password: `Admin@123456` (CHANGE IMMEDIATELY)
-- Role: `SuperAdmin`
+**If `Identity:DefaultAdmin` is unset (or only one of email/password is provided),
+no admin user is created.** In that case, create the first SuperAdmin through
+another mechanism (e.g., Discord OAuth login followed by a manual role
+assignment in the database).
 
-**Security Warning:** Change the default admin password immediately after first login.
+**Security Warning:** If you do configure a default admin, change its password
+immediately after first login.
 
 ### Seeding Logic
 
-```csharp
-// Location: DiscordBot.Bot/Data/IdentitySeeder.cs
-public static async Task SeedAsync(IServiceProvider services)
-{
-    var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
-    var roleManager = services.GetRequiredService<RoleManager<IdentityRole>>();
+The seeder lives at `src/DiscordBot.Bot/Extensions/IdentitySeeder.cs`. Its entry
+point is `SeedIdentityAsync`, which seeds roles and then conditionally seeds the
+default admin from `IdentityConfigOptions.DefaultAdmin`:
 
-    // Create roles
-    string[] roles = { "SuperAdmin", "Admin", "Moderator", "Viewer" };
-    foreach (var role in roles)
+```csharp
+// Location: src/DiscordBot.Bot/Extensions/IdentitySeeder.cs
+public static async Task SeedIdentityAsync(IServiceProvider serviceProvider, ILogger logger)
+{
+    var roleManager = serviceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = serviceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var identityOptions = serviceProvider.GetRequiredService<IOptions<IdentityConfigOptions>>();
+
+    // Create roles: SuperAdmin, Admin, Moderator, Viewer
+    await SeedRolesAsync(roleManager, logger);
+
+    // Seed the default admin only if BOTH email and password are configured
+    var adminEmail = identityOptions.Value.DefaultAdmin?.Email;
+    var adminPassword = identityOptions.Value.DefaultAdmin?.Password;
+    if (string.IsNullOrWhiteSpace(adminEmail) || string.IsNullOrWhiteSpace(adminPassword))
     {
-        if (!await roleManager.RoleExistsAsync(role))
-        {
-            await roleManager.CreateAsync(new IdentityRole(role));
-        }
+        logger.LogInformation("Default admin credentials not configured, skipping admin user creation");
+        return;
     }
 
-    // Create default admin
-    var adminEmail = configuration["Identity:DefaultAdmin:Email"] ?? "admin@example.com";
     if (await userManager.FindByEmailAsync(adminEmail) == null)
     {
         var admin = new ApplicationUser
@@ -651,11 +662,10 @@ public static async Task SeedAsync(IServiceProvider services)
             IsActive = true
         };
 
-        var password = configuration["Identity:DefaultAdmin:Password"] ?? "Admin@123456";
-        var result = await userManager.CreateAsync(admin, password);
+        var result = await userManager.CreateAsync(admin, adminPassword);
         if (result.Succeeded)
         {
-            await userManager.AddToRoleAsync(admin, "SuperAdmin");
+            await userManager.AddToRoleAsync(admin, IdentitySeeder.Roles.SuperAdmin);
         }
     }
 }

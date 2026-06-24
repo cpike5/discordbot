@@ -108,11 +108,13 @@ The `.voice-panel-hide-now-playing` class controls Now Playing visibility:
 
 | Portal | IsCompact | ShowNowPlaying | ShowProgress | Layout | Content Type | Update Mechanism |
 |--------|-----------|----------------|--------------|--------|--------------|------------------|
-| **Soundboard** | `false` | `true` | `true` | Full panel with queue | Audio files (known duration) | SignalR |
+| **Soundboard** | `true` | `true` | `false` | Compact sidebar | Audio files | SignalR |
 | **TTS** | `true` | `true` | `false` | Compact sidebar | Text-to-speech (no duration) | SignalR |
 | **VOX** | `true` | `true` | `false` | Compact sidebar | Concatenated clips (no duration) | SignalR |
 | **Admin Soundboard** | `false` | `false` | N/A | Admin page | Audio files | SignalR (separate display) |
 | **Admin TTS** | `false` | `false` | N/A | Admin page | TTS messages | SignalR (separate display) |
+
+> **Note:** All three member portals (Soundboard, TTS, VOX) currently render the panel in compact mode with `ShowProgress = false` (no progress bar). The `ShowProgress = true` / progress-bar path is supported by the component but is not enabled by any shipping portal.
 
 ---
 

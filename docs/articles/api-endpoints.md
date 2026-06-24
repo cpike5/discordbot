@@ -134,14 +134,106 @@ The authorization policy that applies to each endpoint is noted in its section b
 | `/api/theme/current` | GET | Get user's current effective theme |
 | `/api/theme/user` | POST | Set user's theme preference |
 | `/api/theme/default` | POST | Set system default theme (SuperAdmin) |
+| `/api/metrics/api/latency` | GET | Discord API latency history |
+| `/api/analytics/{guildId}/summary` | GET | Guild analytics summary |
+| `/api/analytics/{guildId}/activity` | GET | Member activity analytics |
+| `/api/analytics/{guildId}/channels` | GET | Channel activity analytics |
+| `/api/analytics/{guildId}/growth` | GET | Guild growth analytics |
+| `/api/analytics/{guildId}/server/summary` | GET | Server analytics summary |
+| `/api/analytics/{guildId}/server/activity` | GET | Server activity time series |
+| `/api/analytics/{guildId}/server/heatmap` | GET | Server activity heatmap |
+| `/api/analytics/{guildId}/server/contributors` | GET | Top contributors |
+| `/api/analytics/{guildId}/moderation/summary` | GET | Moderation analytics summary |
+| `/api/analytics/{guildId}/moderation/trends` | GET | Moderation trends |
+| `/api/analytics/{guildId}/moderation/distribution` | GET | Case type distribution |
+| `/api/analytics/{guildId}/moderation/offenders` | GET | Repeat offenders |
+| `/api/analytics/{guildId}/moderation/workload` | GET | Moderator workload |
+| `/api/analytics/{guildId}/engagement/summary` | GET | Engagement analytics summary |
+| `/api/analytics/{guildId}/engagement/messages` | GET | Message trends |
+| `/api/analytics/{guildId}/engagement/retention` | GET | New member retention |
+| `/api/guilds/{guildId}/audio/join/{channelId}` | POST | Join a voice channel |
+| `/api/guilds/{guildId}/audio/leave` | POST | Leave the voice channel |
+| `/api/guilds/{guildId}/audio/stop` | POST | Stop audio playback |
+| `/api/guilds/{guildId}/audio/queue/{position}` | DELETE | Remove a queue item |
+| `/api/guilds/{guildId}/sounds/{soundId}/download` | GET | Download a sound file |
+| `/api/guilds/{guildId}/sounds/export` | GET | Export all sounds as a ZIP |
+| `/api/notifications` | GET | List current user's notifications (paginated) |
+| `/api/notifications/{id}/read` | POST | Mark notification as read |
+| `/api/notifications/{id}/unread` | POST | Mark notification as unread |
+| `/api/notifications/mark-read` | POST | Mark multiple notifications as read |
+| `/api/notifications/mark-all-read` | POST | Mark all notifications as read |
+| `/api/notifications/delete-all` | POST | Delete all notifications |
+| `/api/notifications/{id}` | DELETE | Delete a notification |
+| `/api/notifications/delete` | POST | Delete multiple notifications |
+| `/api/performance/tabs/overview` | GET | Performance overview tab (HTML partial) |
+| `/api/performance/tabs/health` | GET | Performance health tab (HTML partial) |
+| `/api/performance/tabs/commands` | GET | Performance commands tab (HTML partial) |
+| `/api/performance/tabs/api` | GET | Performance API tab (HTML partial) |
+| `/api/performance/tabs/system` | GET | Performance system tab (HTML partial) |
+| `/api/performance/tabs/alerts` | GET | Performance alerts tab (HTML partial) |
+| `/api/preview/users/{userId}` | GET | User preview popup data |
+| `/api/preview/users/{userId}/guild/{guildId}` | GET | User preview with guild context |
+| `/api/preview/guilds/{guildId}` | GET | Guild preview popup data |
+| `/api/bulkpurge/preview` | POST | Preview a bulk purge operation |
+| `/api/bulkpurge/execute` | POST | Execute a bulk purge operation |
+| `/api/portal/soundboard/{guildId}/sounds` | GET | List portal soundboard sounds |
+| `/api/portal/soundboard/{guildId}/sounds/{soundId}/audio` | GET | Stream a sound's audio |
+| `/api/portal/soundboard/{guildId}/sounds` | POST | Upload a sound |
+| `/api/portal/soundboard/{guildId}/sounds/{soundId}` | DELETE | Delete a sound |
+| `/api/portal/soundboard/{guildId}/play/{soundId}` | POST | Play a sound |
+| `/api/portal/soundboard/{guildId}/channels` | GET | List voice channels |
+| `/api/portal/soundboard/{guildId}/channel` | POST | Join a voice channel |
+| `/api/portal/soundboard/{guildId}/channel` | DELETE | Leave the voice channel |
+| `/api/portal/soundboard/{guildId}/stop` | POST | Stop playback |
+| `/api/portal/soundboard/{guildId}/status` | GET | Get playback status |
+| `/api/portal/soundboard/{guildId}/favorites` | GET | List favorite sounds |
+| `/api/portal/soundboard/{guildId}/favorites/{soundId}` | POST | Add favorite |
+| `/api/portal/soundboard/{guildId}/favorites/{soundId}` | DELETE | Remove favorite |
+| `/api/portal/soundboard/{guildId}/categories` | GET | List categories |
+| `/api/portal/soundboard/{guildId}/categories` | POST | Create category |
+| `/api/portal/soundboard/{guildId}/categories/{id}` | PUT | Update category |
+| `/api/portal/soundboard/{guildId}/categories/{id}` | DELETE | Delete category |
+| `/api/portal/soundboard/{guildId}/sounds/{soundId}/category` | PUT | Assign sound category |
+| `/api/portal/tts/{guildId}/status` | GET | Get TTS playback status |
+| `/api/portal/tts/{guildId}/send` | POST | Send a TTS message |
+| `/api/portal/tts/{guildId}/channels` | GET | List voice channels |
+| `/api/portal/tts/{guildId}/channel` | POST | Join a voice channel |
+| `/api/portal/tts/{guildId}/channel` | DELETE | Leave the voice channel |
+| `/api/portal/tts/{guildId}/stop` | POST | Stop TTS playback |
+| `/api/portal/tts/validate-ssml` | POST | Validate SSML markup |
+| `/api/portal/tts/{guildId}/synthesize-ssml` | POST | Synthesize SSML (ModeratorAccess) |
+| `/api/portal/tts/build-ssml` | POST | Build SSML from a request |
+| `/api/portal/tts/voices/{voiceName}/capabilities` | GET | Get voice capabilities |
+| `/api/portal/tts/presets` | GET | List built-in TTS presets |
+| `/api/portal/tts/{guildId}/presets/custom` | GET | List custom TTS presets |
+| `/api/portal/tts/{guildId}/presets/custom` | POST | Create a custom preset |
+| `/api/portal/tts/{guildId}/presets/custom/{id}` | DELETE | Delete a custom preset |
+| `/api/portal/tts/{guildId}/preview` | POST | Preview a TTS message |
+| `/api/portal/tts/{guildId}/history` | GET | List TTS history |
+| `/api/portal/tts/{guildId}/history` | POST | Save a TTS history entry |
+| `/api/portal/tts/{guildId}/history/{id}/replay` | POST | Replay a history entry |
+| `/api/portal/tts/{guildId}/history/{id}/favorite` | PUT | Toggle history favorite |
+| `/api/portal/tts/{guildId}/history/{id}` | DELETE | Delete a history entry |
+| `/api/portal/vox/{guildId}/clips` | GET | List VOX clips |
+| `/api/portal/vox/{guildId}/preview` | GET | Preview a VOX message |
+| `/api/portal/vox/{guildId}/play` | POST | Play a VOX message |
+| `/api/portal/vox/{guildId}/stop` | POST | Stop VOX playback |
+| `/api/portal/vox/{guildId}/history` | GET | List VOX history |
+| `/api/portal/vox/{guildId}/favorites` | GET | List VOX favorites |
+| `/api/portal/vox/{guildId}/history/{id}/favorite` | POST | Toggle VOX history favorite |
+| `/api/portal/vox/{guildId}/history/{id}` | DELETE | Delete a VOX history entry |
+| `/api/portal/preferences/{guildId}` | GET | Get all user preferences |
+| `/api/portal/preferences/{guildId}/{key}` | GET | Get a user preference |
+| `/api/portal/preferences/{guildId}/{key}` | PUT | Set a user preference |
+| `/api/portal/preferences/{guildId}/{key}` | DELETE | Delete a user preference |
 
 ---
 
 ## Health Endpoints
 
-### GET /api/health
+### GET /health
 
-Returns the health status of the application including database connectivity.
+Returns the health status of the application including database connectivity. This endpoint allows anonymous access (no authentication required) and is mapped via `HealthCheckExtensions`.
 
 **Response: 200 OK**
 
@@ -2338,7 +2430,7 @@ UserId,Username,Discriminator,GlobalDisplayName,Nickname,AvatarHash,JoinedAt,Las
 
 The Commands API provides AJAX endpoints for loading command data into the Commands page tab system. All endpoints return HTML partial views (not JSON) for server-side rendering.
 
-**Authorization:** All endpoints require `RequireModerator` policy.
+**Authorization:** All endpoints require `RequireViewer` policy.
 
 ---
 
@@ -2346,7 +2438,7 @@ The Commands API provides AJAX endpoints for loading command data into the Comma
 
 Returns the command list tab content as HTML partial view. Displays all registered slash commands with their modules, parameters, and preconditions.
 
-**Authorization:** `RequireModerator` policy
+**Authorization:** `RequireViewer` policy
 
 **Produces:** `text/html`
 
@@ -2374,7 +2466,7 @@ Returns HTML error state with retry button if service fails.
 
 Returns filtered and paginated command execution logs as HTML partial view. Includes desktop table view and mobile card view with pagination controls.
 
-**Authorization:** `RequireModerator` policy
+**Authorization:** `RequireViewer` policy
 
 **Produces:** `text/html`
 
@@ -2427,7 +2519,7 @@ Returns HTML error state with retry button if service fails.
 
 Returns command analytics data with charts and metrics as HTML partial view. Includes Chart.js visualizations for usage trends, top commands, success rates, and performance.
 
-**Authorization:** `RequireModerator` policy
+**Authorization:** `RequireViewer` policy
 
 **Produces:** `text/html`
 
@@ -2477,6 +2569,26 @@ Returns HTML error state with retry button if service fails.
 - Chart.js 4.4.1 is loaded inline from CDN
 - Charts initialize automatically after partial loads
 - All data is serialized as JSON and passed to Chart.js
+
+---
+
+### GET /api/commands/log-details/{id}
+
+Returns the details of a single command log entry as an HTML partial view (used by the command log details modal).
+
+**Authorization:** `RequireViewer` policy
+
+**Produces:** `text/html`
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | guid | Command log entry ID |
+
+**Response: 200 OK** — Returns HTML partial view with the command log details.
+
+**Response: 404 Not Found** — Log entry not found.
 
 ---
 
@@ -7053,6 +7165,64 @@ Stop the currently playing audio in the guild.
 | 401 Unauthorized | Not authenticated |
 | 403 Forbidden | User is not a member of the guild |
 | 404 Not Found | Guild not found or bot is not a member |
+
+---
+
+### GET /api/portal/vox/{guildId}/history
+
+Returns the current user's recent VOX playback history for the guild.
+
+**Authorization:** `PortalGuildMember` policy
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `limit` | integer | 20 | Maximum number of history entries to return |
+
+**Response: 200 OK** — Returns the list of VOX history entries.
+
+---
+
+### GET /api/portal/vox/{guildId}/favorites
+
+Returns the current user's favorited VOX messages for the guild.
+
+**Authorization:** `PortalGuildMember` policy
+
+**Response: 200 OK** — Returns the list of favorited VOX entries.
+
+---
+
+### POST /api/portal/vox/{guildId}/history/{id}/favorite
+
+Toggles the favorite state of a VOX history entry.
+
+**Authorization:** `PortalGuildMember` policy
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | integer | VOX history entry ID |
+
+**Response: 200 OK** — Returns the updated favorite state.
+
+---
+
+### DELETE /api/portal/vox/{guildId}/history/{id}
+
+Deletes a VOX history entry belonging to the current user.
+
+**Authorization:** `PortalGuildMember` policy
+
+**Path Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `id` | integer | VOX history entry ID |
+
+**Response: 200 OK** — Entry deleted.
 
 ---
 

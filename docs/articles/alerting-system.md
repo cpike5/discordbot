@@ -535,9 +535,9 @@ Retrieve all alert configurations.
     "id": 1,
     "metricName": "gateway_latency",
     "displayName": "Gateway Latency",
-    "description": "Measures round-trip time to Discord gateway",
-    "warningThreshold": 500.0,
-    "criticalThreshold": 1000.0,
+    "description": "Discord gateway heartbeat latency",
+    "warningThreshold": 100.0,
+    "criticalThreshold": 200.0,
     "thresholdUnit": "ms",
     "isEnabled": true,
     "createdAt": "2025-01-01T00:00:00Z",
@@ -548,9 +548,9 @@ Retrieve all alert configurations.
     "id": 2,
     "metricName": "memory_usage",
     "displayName": "Memory Usage",
-    "description": "Current process memory consumption",
+    "description": "Working set memory consumption",
     "warningThreshold": 400.0,
-    "criticalThreshold": 512.0,
+    "criticalThreshold": 480.0,
     "thresholdUnit": "MB",
     "isEnabled": true,
     "createdAt": "2025-01-01T00:00:00Z",
@@ -579,9 +579,9 @@ Retrieve a specific alert configuration by metric name.
   "id": 1,
   "metricName": "gateway_latency",
   "displayName": "Gateway Latency",
-  "description": "Measures round-trip time to Discord gateway",
-  "warningThreshold": 500.0,
-  "criticalThreshold": 1000.0,
+  "description": "Discord gateway heartbeat latency",
+  "warningThreshold": 100.0,
+  "criticalThreshold": 200.0,
   "thresholdUnit": "ms",
   "isEnabled": true,
   "createdAt": "2025-01-01T00:00:00Z",
@@ -923,9 +923,9 @@ INSERT INTO PerformanceAlertConfigs
 (MetricName, DisplayName, Description, WarningThreshold, CriticalThreshold,
  ThresholdUnit, IsEnabled, CreatedAt)
 VALUES
-('gateway_latency', 'Gateway Latency', 'Discord gateway round-trip latency', 500.0, 1000.0, 'ms', 1, GETUTCDATE()),
-('command_p95_latency', 'Command P95 Latency', '95th percentile command response time', 1000.0, 1500.0, 'ms', 1, GETUTCDATE()),
-('memory_usage', 'Memory Usage', 'Current process memory consumption', 400.0, 512.0, 'MB', 1, GETUTCDATE());
+('gateway_latency', 'Gateway Latency', 'Discord gateway heartbeat latency', 100.0, 200.0, 'ms', 1, GETUTCDATE()),
+('command_p95_latency', 'Command P95 Latency', '95th percentile command response time', 300.0, 500.0, 'ms', 1, GETUTCDATE()),
+('memory_usage', 'Memory Usage', 'Working set memory consumption', 400.0, 480.0, 'MB', 1, GETUTCDATE());
 ```
 
 ### PerformanceIncidents Table

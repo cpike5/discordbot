@@ -154,7 +154,7 @@ var utc = TimezoneHelper.ConvertToUtc(localTime, timezone);
 // Result: 2025-12-27 15:30:00 UTC (EST is UTC-5)
 
 // Save to database
-entity.ScheduledAt = utc;
+entity.RunAt = utc;
 ```
 
 **DST Example:**
@@ -200,7 +200,7 @@ public static DateTime ConvertFromUtc(DateTime utcDateTime, string? ianaTimezone
 
 ```csharp
 // Load from database (stored as UTC)
-var utcTime = entity.ScheduledAt; // 2025-12-27 15:30:00 UTC
+var utcTime = entity.RunAt; // 2025-12-27 15:30:00 UTC
 
 // Convert for user in New York
 var timezone = "America/New_York";
@@ -601,32 +601,32 @@ timezoneUtils.setDefaultDateTime('scheduledTime', 30);
 
 ### Complete Form Example
 
-This example shows a complete Razor Page form with timezone handling for a scheduled message feature.
+This example shows a complete Razor Page form with timezone handling. The model below (`TimedItem`) is **illustrative pseudo-code** — it is not the real `ScheduledMessage` entity. (The actual `ScheduledMessage` entity uses `Content`, `IsEnabled`, and `NextExecutionAt`/`LastExecutedAt`, and has no `ScheduledAt` or `IsActive` member.)
 
-**Razor Page (CreateScheduledMessage.cshtml):**
+**Razor Page (CreateTimedItem.cshtml):**
 
 ```cshtml
 @page
-@model CreateScheduledMessageModel
+@model CreateTimedItemModel
 @{
-    ViewData["Title"] = "Schedule Message";
+    ViewData["Title"] = "Schedule Item";
 }
 
-<h1>Schedule Message</h1>
+<h1>Schedule Item</h1>
 
 <form method="post">
-    <!-- Message content -->
+    <!-- Item content -->
     <div class="form-group">
-        <label asp-for="Input.Message" class="form-label"></label>
-        <textarea asp-for="Input.Message" class="form-input" rows="5"></textarea>
-        <span asp-validation-for="Input.Message" class="form-error"></span>
+        <label asp-for="Input.Content" class="form-label"></label>
+        <textarea asp-for="Input.Content" class="form-input" rows="5"></textarea>
+        <span asp-validation-for="Input.Content" class="form-error"></span>
     </div>
 
     <!-- Scheduled time (datetime-local input) -->
     <div class="form-group">
-        <label asp-for="Input.ScheduledAt" class="form-label">Schedule For</label>
-        <input asp-for="Input.ScheduledAt" type="datetime-local" class="form-input" id="scheduledTimeInput" />
-        <span asp-validation-for="Input.ScheduledAt" class="form-error"></span>
+        <label asp-for="Input.RunAt" class="form-label">Schedule For</label>
+        <input asp-for="Input.RunAt" type="datetime-local" class="form-input" id="scheduledTimeInput" />
+        <span asp-validation-for="Input.RunAt" class="form-error"></span>
 
         <!-- Timezone indicator shows user's timezone -->
         <span class="form-help timezone-indicator"></span>
@@ -635,7 +635,7 @@ This example shows a complete Razor Page form with timezone handling for a sched
     <!-- Hidden timezone field (auto-populated by JavaScript) -->
     <input asp-for="Input.UserTimezone" type="hidden" />
 
-    <button type="submit" class="btn btn-primary">Schedule Message</button>
+    <button type="submit" class="btn btn-primary">Schedule Item</button>
 </form>
 
 @section Scripts {
@@ -648,20 +648,22 @@ This example shows a complete Razor Page form with timezone handling for a sched
 }
 ```
 
-**PageModel (CreateScheduledMessage.cshtml.cs):**
+**PageModel (CreateTimedItem.cshtml.cs):**
+
+This PageModel and its `TimedItem` type are **illustrative only** and exist to demonstrate the timezone conversion pattern. For the real scheduled-message create flow, see the Razor Pages under `Pages/Guilds/ScheduledMessages/` and the `IScheduledMessageService` API.
 
 ```csharp
 using DiscordBot.Core.Utilities;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 
-public class CreateScheduledMessageModel : PageModel
+public class CreateTimedItemModel : PageModel
 {
-    private readonly IScheduledMessageService _messageService;
+    private readonly IMyItemService _itemService;
 
-    public CreateScheduledMessageModel(IScheduledMessageService messageService)
+    public CreateTimedItemModel(IMyItemService itemService)
     {
-        _messageService = messageService;
+        _itemService = itemService;
     }
 
     [BindProperty]
@@ -671,10 +673,10 @@ public class CreateScheduledMessageModel : PageModel
     {
         [Required]
         [StringLength(2000)]
-        public string Message { get; set; } = string.Empty;
+        public string Content { get; set; } = string.Empty;
 
         [Required]
-        public DateTime ScheduledAt { get; set; }
+        public DateTime RunAt { get; set; }
 
         // User's timezone from browser (auto-populated by JS)
         public string? UserTimezone { get; set; }
@@ -688,23 +690,23 @@ public class CreateScheduledMessageModel : PageModel
         }
 
         // Convert user's local time to UTC for storage
-        var scheduledAtUtc = TimezoneHelper.ConvertToUtc(
-            Input.ScheduledAt,
+        var runAtUtc = TimezoneHelper.ConvertToUtc(
+            Input.RunAt,
             Input.UserTimezone
         );
 
-        // Create scheduled message with UTC timestamp
-        var message = new ScheduledMessage
+        // Illustrative model - not the real ScheduledMessage entity
+        var item = new TimedItem
         {
-            Content = Input.Message,
-            ScheduledAt = scheduledAtUtc, // Stored in UTC
+            Content = Input.Content,
+            RunAt = runAtUtc, // Stored in UTC
             CreatedAt = DateTime.UtcNow,
-            IsActive = true
+            IsEnabled = true
         };
 
-        await _messageService.CreateAsync(message);
+        await _itemService.CreateAsync(item);
 
-        TempData["SuccessMessage"] = "Message scheduled successfully!";
+        TempData["SuccessMessage"] = "Item scheduled successfully!";
         return RedirectToPage("./Index");
     }
 }
@@ -712,43 +714,43 @@ public class CreateScheduledMessageModel : PageModel
 
 ### Display Existing Timestamps
 
-Show existing timestamps from the database in the user's local timezone.
+Show existing timestamps from the database in the user's local timezone. The `TimedItem` type below is **illustrative pseudo-code**, not the real `ScheduledMessage` entity.
 
-**Razor Page (ViewScheduledMessages.cshtml):**
+**Razor Page (ViewTimedItems.cshtml):**
 
 ```cshtml
 @page
-@model ViewScheduledMessagesModel
+@model ViewTimedItemsModel
 
-<h1>Scheduled Messages</h1>
+<h1>Scheduled Items</h1>
 
 <table class="table">
     <thead>
         <tr>
-            <th>Message</th>
+            <th>Content</th>
             <th>Scheduled For</th>
             <th>Created</th>
             <th>Actions</th>
         </tr>
     </thead>
     <tbody>
-        @foreach (var msg in Model.ScheduledMessages)
+        @foreach (var item in Model.Items)
         {
             <tr>
-                <td>@msg.Content</td>
+                <td>@item.Content</td>
                 <td>
                     <!-- UTC value in data-utc, JavaScript converts to local time -->
-                    <span data-utc="@msg.ScheduledAt.ToString("o")">
-                        @msg.ScheduledAt.ToString("yyyy-MM-dd HH:mm")
+                    <span data-utc="@item.RunAt.ToString("o")">
+                        @item.RunAt.ToString("yyyy-MM-dd HH:mm")
                     </span>
                 </td>
                 <td>
-                    <span data-utc="@msg.CreatedAt.ToString("o")" data-format="datetime">
-                        @msg.CreatedAt.ToString("yyyy-MM-dd HH:mm")
+                    <span data-utc="@item.CreatedAt.ToString("o")" data-format="datetime">
+                        @item.CreatedAt.ToString("yyyy-MM-dd HH:mm")
                     </span>
                 </td>
                 <td>
-                    <a asp-page="./Edit" asp-route-id="@msg.Id" class="btn btn-sm btn-secondary">Edit</a>
+                    <a asp-page="./Edit" asp-route-id="@item.Id" class="btn btn-sm btn-secondary">Edit</a>
                 </td>
             </tr>
         }
@@ -760,27 +762,29 @@ Show existing timestamps from the database in the user's local timezone.
 }
 ```
 
-**PageModel:**
+**PageModel (illustrative):**
 
 ```csharp
-public class ViewScheduledMessagesModel : PageModel
+public class ViewTimedItemsModel : PageModel
 {
-    private readonly IScheduledMessageService _messageService;
+    private readonly IMyItemService _itemService;
 
-    public ViewScheduledMessagesModel(IScheduledMessageService messageService)
+    public ViewTimedItemsModel(IMyItemService itemService)
     {
-        _messageService = messageService;
+        _itemService = itemService;
     }
 
-    public List<ScheduledMessage> ScheduledMessages { get; set; } = new();
+    public List<TimedItem> Items { get; set; } = new();
 
     public async Task OnGetAsync()
     {
-        // Load messages (stored in UTC)
-        ScheduledMessages = await _messageService.GetActiveMessagesAsync();
+        // Load items (stored in UTC)
+        Items = await _itemService.GetEnabledAsync();
     }
 }
 ```
+
+> For the real scheduled-message list, the `ScheduledMessage` entity exposes `Content`, `IsEnabled`, `NextExecutionAt`, and `LastExecutedAt`; messages due for execution are fetched via the repository (e.g. `GetDueMessagesAsync`), not a `GetActiveMessagesAsync` method.
 
 **Result:**
 
@@ -792,25 +796,25 @@ All showing the same moment in time, just in their local timezone.
 
 ### Edit Form with Existing Value
 
-Pre-fill an edit form with an existing UTC timestamp.
+Pre-fill an edit form with an existing UTC timestamp. As above, `TimedItem` / `IMyItemService` are **illustrative pseudo-code**, not the real `ScheduledMessage` entity or `IScheduledMessageService`.
 
-**Razor Page (EditScheduledMessage.cshtml):**
+**Razor Page (EditTimedItem.cshtml):**
 
 ```cshtml
 @page "{id:guid}"
-@model EditScheduledMessageModel
+@model EditTimedItemModel
 
-<h1>Edit Scheduled Message</h1>
+<h1>Edit Scheduled Item</h1>
 
 <form method="post">
     <div class="form-group">
-        <label asp-for="Input.Message" class="form-label"></label>
-        <textarea asp-for="Input.Message" class="form-input" rows="5"></textarea>
+        <label asp-for="Input.Content" class="form-label"></label>
+        <textarea asp-for="Input.Content" class="form-input" rows="5"></textarea>
     </div>
 
     <div class="form-group">
-        <label asp-for="Input.ScheduledAt" class="form-label">Schedule For</label>
-        <input asp-for="Input.ScheduledAt" type="datetime-local" class="form-input" id="scheduledTimeInput" />
+        <label asp-for="Input.RunAt" class="form-label">Schedule For</label>
+        <input asp-for="Input.RunAt" type="datetime-local" class="form-input" id="scheduledTimeInput" />
         <span class="form-help timezone-indicator"></span>
     </div>
 
@@ -823,10 +827,10 @@ Pre-fill an edit form with an existing UTC timestamp.
     <script src="~/js/timezone.js"></script>
     <script>
         // Pre-fill with existing UTC timestamp (converted to local)
-        @if (Model.Message?.ScheduledAt != null)
+        @if (Model.Item != null)
         {
             <text>
-            var utcTime = '@Model.Message.ScheduledAt.ToString("o")';
+            var utcTime = '@Model.Item.RunAt.ToString("o")';
             timezoneUtils.setDateTimeLocalFromUtc('scheduledTimeInput', utcTime);
             </text>
         }
@@ -834,34 +838,34 @@ Pre-fill an edit form with an existing UTC timestamp.
 }
 ```
 
-**PageModel:**
+**PageModel (illustrative):**
 
 ```csharp
-public class EditScheduledMessageModel : PageModel
+public class EditTimedItemModel : PageModel
 {
-    private readonly IScheduledMessageService _messageService;
+    private readonly IMyItemService _itemService;
 
-    public EditScheduledMessageModel(IScheduledMessageService messageService)
+    public EditTimedItemModel(IMyItemService itemService)
     {
-        _messageService = messageService;
+        _itemService = itemService;
     }
 
-    public ScheduledMessage? Message { get; set; }
+    public TimedItem? Item { get; set; }
 
     [BindProperty]
     public InputModel Input { get; set; } = default!;
 
     public class InputModel
     {
-        public string Message { get; set; } = string.Empty;
-        public DateTime ScheduledAt { get; set; }
+        public string Content { get; set; } = string.Empty;
+        public DateTime RunAt { get; set; }
         public string? UserTimezone { get; set; }
     }
 
     public async Task<IActionResult> OnGetAsync(Guid id)
     {
-        Message = await _messageService.GetByIdAsync(id);
-        if (Message == null)
+        Item = await _itemService.GetByIdAsync(id);
+        if (Item == null)
         {
             return NotFound();
         }
@@ -869,9 +873,9 @@ public class EditScheduledMessageModel : PageModel
         // Pre-populate form
         Input = new InputModel
         {
-            Message = Message.Content,
-            // ScheduledAt will be set by JavaScript to local time
-            ScheduledAt = Message.ScheduledAt
+            Content = Item.Content,
+            // RunAt will be set by JavaScript to local time
+            RunAt = Item.RunAt
         };
 
         return Page();
@@ -884,23 +888,23 @@ public class EditScheduledMessageModel : PageModel
             return Page();
         }
 
-        var message = await _messageService.GetByIdAsync(id);
-        if (message == null)
+        var item = await _itemService.GetByIdAsync(id);
+        if (item == null)
         {
             return NotFound();
         }
 
         // Convert user's local time to UTC
-        var scheduledAtUtc = TimezoneHelper.ConvertToUtc(
-            Input.ScheduledAt,
+        var runAtUtc = TimezoneHelper.ConvertToUtc(
+            Input.RunAt,
             Input.UserTimezone
         );
 
-        message.Content = Input.Message;
-        message.ScheduledAt = scheduledAtUtc;
-        message.UpdatedAt = DateTime.UtcNow;
+        item.Content = Input.Content;
+        item.RunAt = runAtUtc;
+        item.UpdatedAt = DateTime.UtcNow;
 
-        await _messageService.UpdateAsync(message);
+        await _itemService.UpdateAsync(item);
 
         return RedirectToPage("./Index");
     }
@@ -983,11 +987,11 @@ console.log(document.querySelector('[name$="UserTimezone"]').value);
 
 ```csharp
 // WRONG - stores user's local time as UTC
-entity.ScheduledAt = Input.ScheduledAt;
+entity.RunAt = Input.RunAt;
 
 // CORRECT - converts to UTC first
-entity.ScheduledAt = TimezoneHelper.ConvertToUtc(
-    Input.ScheduledAt,
+entity.RunAt = TimezoneHelper.ConvertToUtc(
+    Input.RunAt,
     Input.UserTimezone
 );
 ```
@@ -1216,11 +1220,11 @@ public void ConvertToUtc_WithInvalidTimezone_FallsBackToUtc()
 }
 ```
 
-**Integration Test Example:**
+**Integration Test Example** (illustrative — uses the generic `TimedItem` model from the form examples above, not the real `ScheduledMessage` entity):
 
 ```csharp
 [Fact]
-public async Task CreateScheduledMessage_WithTimezone_StoresUtcCorrectly()
+public async Task CreateTimedItem_WithTimezone_StoresUtcCorrectly()
 {
     // Arrange
     var client = _factory.CreateClient();
@@ -1229,21 +1233,21 @@ public async Task CreateScheduledMessage_WithTimezone_StoresUtcCorrectly()
 
     var formData = new Dictionary<string, string>
     {
-        ["Input.Message"] = "Test message",
-        ["Input.ScheduledAt"] = localTime,
+        ["Input.Content"] = "Test content",
+        ["Input.RunAt"] = localTime,
         ["Input.UserTimezone"] = timezone
     };
 
     // Act
-    var response = await client.PostAsync("/ScheduledMessages/Create",
+    var response = await client.PostAsync("/TimedItems/Create",
         new FormUrlEncodedContent(formData));
 
     // Assert
     response.EnsureSuccessStatusCode();
 
-    var message = await _dbContext.ScheduledMessages.FirstAsync();
+    var item = await _dbContext.TimedItems.FirstAsync();
     var expectedUtc = new DateTime(2025, 12, 27, 15, 30, 0, DateTimeKind.Utc);
-    Assert.Equal(expectedUtc, message.ScheduledAt);
+    Assert.Equal(expectedUtc, item.RunAt);
 }
 ```
 

@@ -57,7 +57,7 @@ Reminders are personal and private - only the user who set the reminder receives
 
 Your reminder has been scheduled.
 
-Trigger Time: December 31, 2024 3:00 PM PST (in 2 hours)
+Trigger Time: December 31, 2024 3:00 PM UTC (in 2 hours)
 Message: Check the oven
 
 Reminder ID: a1b2c3d4-e5f6-7890-abcd-ef1234567890
@@ -491,7 +491,6 @@ The reminder system is configured via `appsettings.json` under the `Reminder` se
 
 **For Reliability:**
 - Increase `MaxDeliveryAttempts` (more retries)
-- Increase `ExecutionTimeoutSeconds` (allow slow API calls)
 
 ---
 
@@ -508,7 +507,6 @@ The reminder system is configured via `appsettings.json` under the `Reminder` se
 
 - **Polling Interval:** 30 seconds default (reminders may fire up to 30s late)
 - **Concurrent Deliveries:** 5 default (more may queue)
-- **Delivery Timeout:** 30 seconds per reminder
 - **Max Retry Attempts:** 3 attempts before permanent failure
 
 ### Rate Limiting
@@ -567,12 +565,12 @@ Design documents are available in the `docs/designs/` directory:
 **Symptom:** Reminder scheduled for wrong time
 
 **Possible Causes:**
-1. Guild timezone not configured (defaults to UTC)
+1. Absolute times are parsed in **UTC**, not the user's local time, so an absolute time (e.g. `3pm`) fires at that hour UTC
 2. Ambiguous time format (e.g., "10:00" interpreted as AM instead of PM)
 3. Time input uses unexpected format
 
 **Solutions:**
-- Configure guild timezone in guild settings
+- Remember that absolute times are UTC; offset accordingly or use a relative duration (e.g. `2h`) for local-relative timing
 - Use explicit 12-hour format with AM/PM (e.g., "10pm" instead of "22:00")
 - Use ISO 8601 format for unambiguous parsing (e.g., "2024-12-31 22:00")
 - Check confirmation embed to verify parsed time before confirming

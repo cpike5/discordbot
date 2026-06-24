@@ -57,6 +57,7 @@ The `MessageLog` entity (defined in `C:\Users\cpike\workspace\discordbot\src\Dis
 | `DiscordMessageId` | `ulong` | Discord's unique message ID (snowflake) |
 | `AuthorId` | `ulong` | Discord user ID of the message author |
 | `ChannelId` | `ulong` | Discord channel ID where the message was sent |
+| `ChannelName` | `string?` | Name of the channel where the message was sent; null for direct messages and records created before this column existed |
 | `GuildId` | `ulong?` | Discord guild (server) ID; null for direct messages |
 | `Source` | `MessageSource` | Enum indicating message source (DirectMessage or ServerChannel) |
 | `Content` | `string` | Text content of the message (empty string if no text) |
@@ -93,6 +94,7 @@ CREATE TABLE MessageLogs (
     DiscordMessageId INTEGER NOT NULL,
     AuthorId INTEGER NOT NULL,
     ChannelId INTEGER NOT NULL,
+    ChannelName TEXT NULL,
     GuildId INTEGER NULL,
     Source INTEGER NOT NULL,
     Content TEXT NOT NULL,
@@ -967,7 +969,7 @@ The `MessageLoggingHandler` is tested via `MessageLoggingHandlerTests`:
 tail -f logs/discordbot-*.log | grep "MessageLoggingHandler"
 
 # Check if feature is enabled (requires SQL access)
-sqlite3 discordbot.db "SELECT Value FROM Settings WHERE Key = 'Features:MessageLoggingEnabled';"
+sqlite3 discordbot.db "SELECT Value FROM ApplicationSettings WHERE Key = 'Features:MessageLoggingEnabled';"
 
 # Check user consent (requires SQL access)
 sqlite3 discordbot.db "SELECT * FROM UserConsents WHERE DiscordUserId = 123456789 AND ConsentType = 1;"

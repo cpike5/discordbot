@@ -4,40 +4,51 @@ This document describes the environment-specific configuration files and their i
 
 ## Quick Reference
 
+> The `Section` column is the appsettings.json section key; the `Class` column is the `IOptions<T>` type that binds it. All property names and defaults below were taken directly from the options classes in `src/DiscordBot.Core/Configuration` (plus `DatabaseSettings` in `src/DiscordBot.Infrastructure/Configuration`).
+
 | Section | Class | Key Settings |
 |---------|-------|--------------|
-| `Application` | `ApplicationOptions` | Title, BaseUrl, ContactEmail |
-| `Database` | `DatabaseOptions` | Provider (`Sqlite` \| `PostgreSql`) |
-| `Discord` | `DiscordOAuthOptions` | ClientId, ClientSecret, Token |
-| `AudioCache` | `AudioCacheOptions` | MaxCacheSizeMb, CacheExpirationMinutes |
-| `Soundboard` | `SoundboardOptions` | MaxFileSizeMb, AllowedExtensions, MaxSoundsPerGuild |
-| `VoiceChannel` | `VoiceChannelOptions` | AutoDisconnectSeconds, MaxQueueSize, DefaultVolume |
-| `AzureSpeech` | `AzureSpeechOptions` | SubscriptionKey, Region, DefaultVoice |
-| `Moderation` | `ModerationOptions` | DefaultMuteDurationMinutes, MaxWarnBeforeBan, LogRetentionDays |
-| `AutoModeration` | `AutoModerationOptions` | Enabled, SpamThreshold, RaidJoinThreshold |
-| `RatWatch` | `RatWatchOptions` | DefaultDurationHours, VoteThreshold, CooldownHours |
-| `Reminders` | `ReminderOptions` | MaxRemindersPerUser, MinimumIntervalMinutes, MaxFutureYears |
-| `ScheduledMessages` | `ScheduledMessagesOptions` | MaxMessagesPerGuild, MinimumIntervalMinutes |
-| `AnalyticsRetention` | `AnalyticsRetentionOptions` | HourlySnapshotDays, DailySnapshotDays, WeeklySnapshotDays |
-| `AuditLogRetention` | `AuditLogRetentionOptions` | RetentionDays, CleanupIntervalHours |
-| `MessageLogRetention` | `MessageLogRetentionOptions` | RetentionDays, CleanupIntervalHours |
-| `SoundPlayLogRetention` | `SoundPlayLogRetentionOptions` | RetentionDays, CleanupIntervalHours |
-| `UserActivityEventRetention` | `UserActivityEventRetentionOptions` | RetentionDays, CleanupIntervalHours |
-| `NotificationRetention` | `NotificationRetentionOptions` | RetentionDays, CleanupIntervalHours |
-| `PerformanceMetrics` | `PerformanceMetricsOptions` | CollectionIntervalSeconds, HistoryRetentionMinutes |
-| `PerformanceAlerts` | `PerformanceAlertOptions` | LatencyWarningMs, CpuWarningPercent, MemoryWarningPercent |
-| `PerformanceBroadcast` | `PerformanceBroadcastOptions` | IntervalSeconds, Enabled |
-| `HistoricalMetrics` | `HistoricalMetricsOptions` | AggregationIntervalMinutes, RetentionDays |
-| `Sampling` | `SamplingOptions` | CommandSampleRate, MetricsSampleRate |
-| `Caching` | `CachingOptions` | DefaultExpirationMinutes, SlidingExpiration, MaxCacheSize |
-| `GuildMembershipCache` | `GuildMembershipCacheOptions` | ExpirationMinutes, RefreshThresholdMinutes |
-| `Anthropic` | `AnthropicOptions` | ApiKey, Model, MaxTokens |
-| `Assistant` | `AssistantOptions` | Enabled, DefaultSystemPrompt, MaxContextMessages |
-| `IdentityConfig` | `IdentityConfigOptions` | RequireEmailConfirmation, LockoutEnabled, MaxFailedAccessAttempts |
-| `Verification` | `VerificationOptions` | CodeLength, ExpirationMinutes, MaxAttempts |
-| `Notifications` | `NotificationOptions` | MaxPerUser, DefaultExpirationDays |
-| `BackgroundServices` | `BackgroundServicesOptions` | HealthCheckIntervalSeconds, ReminderCheckIntervalSeconds |
-| `Observability` | `ObservabilityOptions` | EnableElasticApm, EnableOpenTelemetry, ElasticsearchUrl, SeqUrl |
+| `Application` | `ApplicationOptions` | Title, BaseUrl, ContactEmail, Version |
+| `Database` | `DatabaseSettings` | Provider (`Sqlite` \| `PostgreSql`), SlowQueryThresholdMs, LogQueryParameters |
+| `Discord` | *(bot host options)* | TestGuildId, DefaultRateLimitInvokes, DefaultRateLimitPeriodSeconds, AdditionalOwnerIds |
+| `Discord:OAuth` | `DiscordOAuthOptions` | ClientId, ClientSecret, Scopes |
+| `AudioCache` | `AudioCacheOptions` | Enabled, CachePath, MaxCacheSizeBytes, MaxEntries, CleanupIntervalMinutes |
+| `Soundboard` | `SoundboardOptions` | BasePath, DefaultMaxFileSizeBytes, DefaultMaxSoundsPerGuild, SupportedFormats |
+| `Vox` | `VoxOptions` | BasePath, DefaultWordGapMs, MaxMessageWords, MaxMessageLength |
+| `VoiceChannel` | `VoiceChannelOptions` | AutoLeaveTimeoutSeconds, CheckIntervalSeconds |
+| `AzureSpeech` | `AzureSpeechOptions` | SubscriptionKey, Region, DefaultVoice, MaxTextLength |
+| `AzureSpeech:Ssml` | `AzureSpeechSsmlOptions` | EnableValidation, StrictMode, MaxComplexityScore, EnableSanitization |
+| `Moderation` | `ModerationOptions` | DefaultTempBanDurationDays, MaxPurgeMessages, CaseHistoryPageSize, LogActionsToAudit |
+| `AutoModeration` | `AutoModerationOptions` | DetectionCacheExpiryMinutes, MaxCachedGuilds, FlaggedEventRetentionDays |
+| `RatWatch` | `RatWatchOptions` | CheckIntervalSeconds, DefaultVotingDurationMinutes, DefaultMaxAdvanceHours |
+| `Reminder` | `ReminderOptions` | CheckIntervalSeconds, MaxRemindersPerUser, MaxAdvanceDays, MinAdvanceMinutes |
+| `ScheduledMessages` | `ScheduledMessagesOptions` | CheckIntervalSeconds, MaxConcurrentExecutions, ExecutionTimeoutSeconds |
+| `AnalyticsRetention` | `AnalyticsRetentionOptions` | HourlyRetentionDays, DailyRetentionDays, CleanupBatchSize |
+| `AuditLogRetention` | `AuditLogRetentionOptions` | RetentionDays, CleanupBatchSize, CleanupIntervalHours, Enabled |
+| `MessageLogRetention` | `MessageLogRetentionOptions` | RetentionDays, CleanupBatchSize, CleanupIntervalHours, Enabled |
+| `SoundPlayLogRetention` | `SoundPlayLogRetentionOptions` | RetentionDays, CleanupBatchSize, CleanupIntervalHours, Enabled |
+| `UserActivityEventRetention` | `UserActivityEventRetentionOptions` | RetentionDays, CleanupBatchSize, CleanupIntervalHours, Enabled |
+| `NotificationRetention` | `NotificationRetentionOptions` | DismissedRetentionDays, ReadRetentionDays, UnreadRetentionDays |
+| `PerformanceMetrics` | `PerformanceMetricsOptions` | LatencySampleIntervalSeconds, SlowQueryThresholdMs, CpuSampleIntervalSeconds |
+| `PerformanceAlerts` | `PerformanceAlertOptions` | CheckIntervalSeconds, ConsecutiveBreachesRequired, IncidentRetentionDays |
+| `PerformanceBroadcast` | `PerformanceBroadcastOptions` | Enabled, HealthMetricsIntervalSeconds, CommandMetricsIntervalSeconds |
+| `HistoricalMetrics` | `HistoricalMetricsOptions` | SampleIntervalSeconds, RetentionDays, CleanupIntervalHours, Enabled |
+| `OpenTelemetry:Tracing:Sampling` | `SamplingOptions` | DefaultRate, ErrorRate, SlowThresholdMs, HighPriorityRate, LowPriorityRate |
+| `Caching` | `CachingOptions` | GuildMembershipDurationMinutes, DiscordUserInfoDurationMinutes, GuildMemberListDurationMinutes |
+| `GuildMembershipCache` | `GuildMembershipCacheOptions` | StoredGuildMembershipDurationMinutes |
+| `Anthropic` | `AnthropicOptions` | ApiKey, DefaultModel, MaxRetries, TimeoutSeconds, RetryBaseDelayMs |
+| `Assistant` | `AssistantOptions` | GloballyEnabled, DefaultRateLimit, RateLimitWindowMinutes, Model, MaxTokens |
+| `DmAssistant` | `DmAssistantOptions` | Enabled, Model, MaxTokens, MaxConversationMessages, EnableCodeExecution |
+| `Mogwai` | `MogwaiOptions` | Enabled, ClaudeCliPath, WorkingDirectory, AllowedTools, MaxBudgetUsd, MaxTurns |
+| `FeatureRequests` | `FeatureRequestsOptions` | Enabled, MinDescriptionLength, MaxDescriptionLength, RequirementsGatheringModel |
+| `NotX` | `NotXOptions` | RequestTimeoutSeconds, MaxResponseBytes, UserAgent |
+| `Identity` | `IdentityConfigOptions` | RequireDigit, RequiredLength, MaxFailedAccessAttempts, LockoutTimeSpanMinutes |
+| `Verification` | `VerificationOptions` | CodeCharset, CodeLength, CodeExpiryMinutes, MaxCodesPerHour |
+| `Notification` | `NotificationOptions` | EnablePerformanceAlerts, EnableGuildEvents, DuplicateSuppressionMinutes |
+| `BackgroundServices` | `BackgroundServicesOptions` | TokenRefreshIntervalMinutes, MemberSyncEnabled, MetricsUpdateIntervalSeconds |
+| `LogSanitization` | `LogSanitizationOptions` | Enabled, CustomPatterns, AdditionalSensitiveKeys |
+| `Observability` | `ObservabilityOptions` | KibanaUrl, SeqUrl |
+| `OpenTelemetry` | *(bound in `OpenTelemetryExtensions`)* | ServiceName, Metrics, Tracing |
 
 ## Overview
 

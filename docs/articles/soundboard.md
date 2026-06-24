@@ -74,7 +74,7 @@ The `/play` command supports an optional `filter` parameter to apply audio effec
 
 **Features:**
 - View all uploaded sounds with metadata (name, file size, duration, play count)
-- Upload new sound files (mp3, wav, ogg, m4a)
+- Upload new sound files (mp3, wav, ogg)
 - Delete existing sounds
 - Discover sounds from the file system (for bulk imports)
 - Voice channel control panel for testing playback
@@ -129,6 +129,8 @@ Configure in `appsettings.json` under the `Soundboard` section:
 | `DefaultAutoLeaveTimeoutMinutes` | 0 | Idle timeout (0 = indefinite) |
 | `SupportedFormats` | `["mp3", "wav", "ogg"]` | Allowed file formats |
 
+> **Note:** The `Default*` values above belong to the global `SoundboardOptions` class. The effective per-guild limits are stored on the `GuildAudioSettings` entity, whose property defaults differ: `MaxFileSizeBytes` = 5 MB (5,242,880), `MaxSoundsPerGuild` = 50, `MaxStorageBytes` = 100 MB (104,857,600), and `AutoLeaveTimeoutMinutes` = 5. A guild's settings row uses these `GuildAudioSettings` defaults unless an administrator changes them on the Audio Settings page.
+
 ### VoiceChannelOptions
 
 Configure voice channel behavior:
@@ -169,17 +171,18 @@ Represents an audio file in the soundboard.
 
 Per-guild audio configuration.
 
-| Property | Type | Description |
-|----------|------|-------------|
-| `GuildId` | ulong | Primary key (Discord guild ID) |
-| `AudioEnabled` | bool | Whether audio is enabled |
-| `AutoLeaveTimeoutMinutes` | int | Idle timeout (0 = indefinite) |
-| `QueueEnabled` | bool | Queue mode vs replace mode |
-| `SilentPlayback` | bool | Suppress "Now Playing" confirmation messages |
-| `MaxDurationSeconds` | int | Max sound duration |
-| `MaxFileSizeBytes` | long | Max file size |
-| `MaxSoundsPerGuild` | int | Max sounds |
-| `MaxStorageBytes` | long | Total storage limit |
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `GuildId` | ulong | — | Primary key (Discord guild ID) |
+| `AudioEnabled` | bool | `true` | Whether audio is enabled |
+| `AutoLeaveTimeoutMinutes` | int | `5` | Idle timeout (0 = indefinite) |
+| `QueueEnabled` | bool | `true` | Queue mode vs replace mode |
+| `SilentPlayback` | bool | `false` | Suppress "Now Playing" confirmation messages |
+| `MaxDurationSeconds` | int | `30` | Max sound duration |
+| `MaxFileSizeBytes` | long | `5,242,880` (5 MB) | Max file size |
+| `MaxSoundsPerGuild` | int | `50` | Max sounds |
+| `MaxStorageBytes` | long | `104,857,600` (100 MB) | Total storage limit |
+| `EnableMemberPortal` | bool | `false` | Whether the member soundboard portal is enabled |
 
 ### SoundPlayLog
 
@@ -321,34 +324,44 @@ Retrieves all sounds for a guild with play counts.
 - `guildId` (ulong) - The guild's Discord snowflake ID
 
 **Query Parameters:**
-- None
+- `categoryId` (int, optional) - Filter sounds by category. Use `0` for uncategorized sounds only; omit for all sounds.
+
+Sounds are returned in alphabetical order by name.
 
 **Response: 200 OK**
 ```json
-[
-  {
-    "id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8",
-    "name": "airhorn",
-    "duration": 2.5,
-    "fileSizeBytes": 234567,
-    "playCount": 42,
-    "uploadedAt": "2024-12-08T15:30:00Z"
-  }
-]
+{
+  "sounds": [
+    {
+      "id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8",
+      "name": "airhorn",
+      "playCount": 42,
+      "durationSeconds": 2.5,
+      "uploadedById": "123456789012345678",
+      "uploadedAt": "2024-12-08T15:30:00Z",
+      "categoryId": null,
+      "categoryName": null
+    }
+  ],
+  "totalCount": 1
+}
 ```
 
 **Response Fields:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | Guid | Sound unique identifier |
-| `name` | string | Display name |
-| `duration` | double | Audio duration in seconds |
-| `fileSizeBytes` | long | File size in bytes |
-| `playCount` | int | Number of times played |
-| `uploadedAt` | DateTime | Upload timestamp (UTC) |
+| `sounds[].id` | Guid (string) | Sound unique identifier |
+| `sounds[].name` | string | Display name |
+| `sounds[].playCount` | int | Number of times played |
+| `sounds[].durationSeconds` | double | Audio duration in seconds |
+| `sounds[].uploadedById` | string? | ID of user who uploaded (null if unknown) |
+| `sounds[].uploadedAt` | DateTime | Upload timestamp (UTC) |
+| `sounds[].categoryId` | int? | Assigned category ID (null if uncategorized) |
+| `sounds[].categoryName` | string? | Assigned category name (null if uncategorized) |
+| `totalCount` | int | Number of sounds returned |
 
 **Error Responses:**
-- **400 Bad Request** - Audio features globally disabled
+- **400 Bad Request** - Audio features globally disabled, or invalid `categoryId`
 
 #### Upload Sound
 
@@ -362,27 +375,32 @@ Uploads a new sound file to the guild's soundboard.
 **Request Body (multipart/form-data):**
 ```
 file: <audio file>
-name: <optional display name, defaults to filename>
+name: <display name, required>
 ```
 
-**Response: 200 OK**
+**Response: 201 Created**
+
+Includes a `Location` header pointing at the guild sounds list.
+
 ```json
 {
   "id": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8",
   "name": "airhorn",
-  "duration": 2.5,
-  "fileSizeBytes": 234567,
   "playCount": 0,
-  "uploadedAt": "2024-12-08T15:30:00Z"
+  "durationSeconds": 2.5,
+  "uploadedById": "123456789012345678",
+  "uploadedAt": "2024-12-08T15:30:00Z",
+  "categoryId": null,
+  "categoryName": null
 }
 ```
 
 **Error Responses:**
-- **400 Bad Request** - Invalid file, exceeds limits, unsupported format, or storage limit exceeded
-- **409 Conflict** - Sound with same name already exists in guild
+- **400 Bad Request** - No file provided, missing `name`, invalid file, exceeds limits, unsupported format, or storage limit exceeded
 
 **Validation:**
-- Supported formats: mp3, wav, ogg, m4a
+- `name` is required (request fails with `no_name` if missing)
+- Supported formats: mp3, wav, ogg
 - File size must not exceed guild's max file size limit
 - Duration must not exceed guild's max duration limit
 - Total guild storage must not exceed storage limit
@@ -413,14 +431,15 @@ Plays a sound in the bot's current voice channel.
 **Response: 200 OK**
 ```json
 {
-  "status": "playing",
-  "message": "Now playing: airhorn"
+  "message": "Playing sound",
+  "soundName": "airhorn",
+  "soundId": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8"
 }
 ```
 
 **Error Responses:**
-- **400 Bad Request** - Audio disabled, bot not in voice channel, or sound not found
-- **404 Not Found** - Sound file missing
+- **400 Bad Request** - Audio disabled, bot not in voice channel, or playback failed
+- **404 Not Found** - Sound not found
 
 #### List Voice Channels
 
@@ -432,17 +451,18 @@ Gets all voice channels in the guild.
 - `guildId` (ulong) - The guild's Discord snowflake ID
 
 **Response: 200 OK**
+
+Channels are ordered by their Discord position.
+
 ```json
 [
   {
     "id": "987654321098765432",
-    "name": "General Voice",
-    "userCount": 3
+    "name": "General Voice"
   },
   {
     "id": "987654321098765433",
-    "name": "Gaming",
-    "userCount": 0
+    "name": "Gaming"
   }
 ]
 ```
@@ -450,9 +470,11 @@ Gets all voice channels in the guild.
 **Response Fields:**
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | ulong | Channel Discord snowflake ID |
+| `id` | string | Channel Discord snowflake ID (string to preserve precision) |
 | `name` | string | Channel name |
-| `userCount` | int | Number of users in channel (excluding bots) |
+
+**Error Responses:**
+- **404 Not Found** - Guild not found
 
 #### Join Voice Channel
 
@@ -478,14 +500,13 @@ Joins a specific voice channel.
 **Response: 200 OK**
 ```json
 {
-  "status": "connected",
-  "channelId": "987654321098765432",
-  "channelName": "General Voice"
+  "message": "Joined voice channel",
+  "channelId": "987654321098765432"
 }
 ```
 
 **Error Responses:**
-- **400 Bad Request** - Bot cannot access channel or invalid channel ID
+- **400 Bad Request** - Audio disabled, bot cannot access channel, or invalid channel ID
 - **404 Not Found** - Channel not found
 
 #### Leave Voice Channel
@@ -500,13 +521,12 @@ Disconnects the bot from the current voice channel.
 **Response: 200 OK**
 ```json
 {
-  "status": "disconnected",
   "message": "Left voice channel"
 }
 ```
 
 **Error Responses:**
-- **400 Bad Request** - Bot not connected to a voice channel
+- **400 Bad Request** - Audio disabled, or bot not connected to a voice channel
 
 #### Stop Playback
 
@@ -520,13 +540,14 @@ Stops the currently playing sound and clears the queue.
 **Response: 200 OK**
 ```json
 {
-  "status": "stopped",
   "message": "Playback stopped"
 }
 ```
 
+If nothing is currently playing, the endpoint still returns 200 with `{ "message": "Nothing playing" }`.
+
 **Error Responses:**
-- **400 Bad Request** - Bot not playing audio
+- **400 Bad Request** - Audio disabled
 
 #### Get Playback Status
 
@@ -540,28 +561,48 @@ Gets the current playback status and queue information.
 **Response: 200 OK**
 ```json
 {
-  "isPlaying": true,
-  "currentSoundId": "a1b2c3d4-e5f6-7890-a1b2-c3d4e5f6a7b8",
-  "currentSoundName": "airhorn",
-  "position": 1.5,
-  "duration": 2.5,
-  "queueLength": 2,
   "isConnected": true,
-  "currentChannelId": "987654321098765432"
+  "channelId": "987654321098765432",
+  "channelName": "General Voice",
+  "nowPlaying": null,
+  "isPlaying": true
 }
 ```
 
 **Response Fields:**
 | Field | Type | Description |
 |-------|------|-------------|
+| `isConnected` | bool | Whether bot is connected to a voice channel |
+| `channelId` | string? | ID of current voice channel (null if not connected) |
+| `channelName` | string? | Name of current voice channel (null if not connected) |
+| `nowPlaying` | string? | Always `null` — `IPlaybackService` does not expose the currently playing sound name |
 | `isPlaying` | bool | Whether audio is currently playing |
-| `currentSoundId` | Guid? | ID of currently playing sound |
-| `currentSoundName` | string? | Name of currently playing sound |
-| `position` | double | Current playback position in seconds |
-| `duration` | double | Total duration of current sound in seconds |
-| `queueLength` | int | Number of sounds in queue |
-| `isConnected` | bool | Whether bot is connected to voice channel |
-| `currentChannelId` | ulong? | ID of current voice channel |
+
+> **Note:** The status endpoint cannot report the current sound name, playback position, duration, or queue length. `IPlaybackService` only exposes `IsPlaying(guildId)` and `GetQueueLength(guildId)`, and the controller does not surface those queue/position details here.
+
+#### User Favorites
+
+The portal lets the authenticated user favorite sounds (per guild). The user ID is read from the `discord:user_id` claim; all favorite endpoints return **401 Unauthorized** if that claim is missing.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/portal/soundboard/{guildId}/favorites` | Returns the user's favorited sound IDs as `{ "favorites": [ ... ] }` |
+| `POST` | `/api/portal/soundboard/{guildId}/favorites/{soundId}` | Adds a favorite. Returns **201 Created** (`{ "message": "Favorite added" }`); idempotent — returns **200 OK** (`{ "message": "Already favorited" }`) if already favorited; **404** if the sound is not in the guild |
+| `DELETE` | `/api/portal/soundboard/{guildId}/favorites/{soundId}` | Removes a favorite (idempotent). Returns **200 OK** (`{ "message": "Favorite removed" }`) |
+
+Favorites are backed by the `UserSoundFavorite` entity (`UserId`, `GuildId`, `SoundId`, `FavoritedAt`).
+
+#### Sound Categories
+
+Sounds can be organized into per-guild categories. Categories are ordered by `SortOrder` then `Name`. Create/update/delete require management permissions (return **403 Forbidden** otherwise).
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/portal/soundboard/{guildId}/categories` | Lists categories as `{ "categories": [ { "id", "name", "sortOrder", "createdAt" } ] }` |
+| `POST` | `/api/portal/soundboard/{guildId}/categories` | Creates a category (**201 Created**). Body requires `name` (max 50 chars); rejects empty/duplicate names with **400** |
+| `PUT` | `/api/portal/soundboard/{guildId}/categories/{id}` | Renames a category. **404** if not found, **400** on duplicate/too-long name |
+| `DELETE` | `/api/portal/soundboard/{guildId}/categories/{id}` | Deletes a category. Returns `{ "message": "Category deleted", "categoryName": ... }` |
+| `PUT` | `/api/portal/soundboard/{guildId}/sounds/{soundId}/category` | Assigns a sound to a category (body: `categoryId`, nullable to clear). Returns `{ "message": "Category assigned", "soundId", "categoryId" }` |
 
 ## UI Pages
 
@@ -641,11 +682,11 @@ Gets the current playback status and queue information.
      - Filter selection dropdown
      - Stop/pause controls
      - Queue display (if queue mode enabled)
-     - Now Playing with progress bar via unified `_VoiceChannelPanel` component
+     - Now Playing via unified `_VoiceChannelPanel` component (compact, no progress bar)
 
    - **Real-Time Status Updates** (via SignalR)
      - Connection status updates
-     - Now Playing with progress bar (unified `_VoiceChannelPanel` component)
+     - Now Playing via unified `_VoiceChannelPanel` component (compact, no progress bar)
      - Queue updates
      - Error notifications
 
