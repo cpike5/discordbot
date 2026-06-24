@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Handlers;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -28,6 +29,18 @@ public static class WebServiceExtensions
         services.AddControllers();
         services.AddRazorPages();
         services.AddEndpointsApiExplorer();
+
+        // Blazor Server foundation (islands-first modernization — see
+        // docs/architecture/blazor-modernization-selective-plan.md). Interactive
+        // components are embedded into existing Razor Pages via the component tag
+        // helper; routing and auth stay with Razor Pages.
+        services.AddServerSideBlazor();
+        services.AddCascadingAuthenticationState();
+
+        // Interop bridges to the existing toast.js / theme.js modules so islands
+        // reuse the portal's notification and theme systems.
+        services.AddScoped<ToastInterop>();
+        services.AddScoped<ThemeInterop>();
 
         return services;
     }

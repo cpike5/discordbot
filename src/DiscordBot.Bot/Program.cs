@@ -295,6 +295,10 @@ try
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");
 
+    // Map the Blazor Server circuit hub (/_blazor) used by interactive islands.
+    // Coexists with the dashboard hub above; non-Blazor pages are unaffected.
+    app.MapBlazorHub();
+
     // Map Prometheus metrics endpoint
     app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
