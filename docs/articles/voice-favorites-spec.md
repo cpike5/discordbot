@@ -1,5 +1,7 @@
 # Voice Favorites System Specification
 
+> **Status: Proposed — not implemented.** This document is a design specification. The described feature does not exist in the codebase: there is no `VoiceFavorites` JavaScript module, no `tts_favorite_voices` localStorage key, and no favorites UI in the TTS portal. Treat the HTML/CSS/JS below as a proposed design, not a description of shipped behavior.
+
 ## Overview
 
 Allow users to favorite TTS voices in the TTS Portal. Favorites are stored in browser localStorage and displayed as interactive tags/chips above the voice dropdown for quick access.

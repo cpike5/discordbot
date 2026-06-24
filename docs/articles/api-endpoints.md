@@ -2807,6 +2807,69 @@ Dictionary mapping command names (string) to usage counts (integer).
 
 ---
 
+### GET /api/commandlogs/analytics
+
+Returns comprehensive command analytics, including usage over time, success rates, and performance metrics.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `start` | datetime? | 30 days ago | Analytics start date (UTC) |
+| `end` | datetime? | now | Analytics end date (UTC) |
+| `guildId` | ulong? | null | Filter by guild ID |
+
+**Response: 200 OK** — Returns a `CommandAnalyticsDto`.
+
+---
+
+### GET /api/commandlogs/analytics/usage-over-time
+
+Returns daily command usage data points for the requested period.
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `start` | datetime | Yes | Start of the period (UTC) |
+| `end` | datetime | Yes | End of the period (UTC) |
+| `guildId` | ulong? | No | Filter by guild ID |
+
+**Response: 200 OK** — Returns a list of `UsageOverTimeDto`.
+
+---
+
+### GET /api/commandlogs/analytics/success-rate
+
+Returns success/failure rate statistics.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `since` | datetime? | null (all time) | Only include commands since this date (UTC) |
+| `guildId` | ulong? | null | Filter by guild ID |
+
+**Response: 200 OK** — Returns a `CommandSuccessRateDto` (success count, failure count, percentage).
+
+---
+
+### GET /api/commandlogs/analytics/performance
+
+Returns response-time performance metrics per command.
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `since` | datetime? | null (all time) | Only include commands since this date (UTC) |
+| `guildId` | ulong? | null | Filter by guild ID |
+| `limit` | int | 10 | Maximum number of commands to return |
+
+**Response: 200 OK** — Returns a list of `CommandPerformanceDto` (average, min, max response times).
+
+---
+
 ## Welcome Configuration Endpoints
 
 ### GET /api/guilds/{guildId}/welcome

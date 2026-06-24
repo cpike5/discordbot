@@ -186,15 +186,26 @@ The system supports multiple consent types defined in the `ConsentType` enum. Ea
 - Previously logged messages remain in the database per retention policy
 - Message logging feature will skip your messages
 
-### Future Consent Types
+### AssistantUsage (Type ID: 2)
 
-The system is designed to support additional consent types. Planned types include:
+**Display Name:** AI Assistant Usage
 
-- **Analytics:** User interaction analytics and usage patterns
-- **LLMInteraction:** Consent for AI/LLM-powered features that may process message content
-- **PersonalizedFeatures:** Consent for features that use historical data for personalization
+**Description:** Allow the bot to process your messages with its AI assistant
+feature. This consent is required before a user can interact with the bot's AI
+capabilities.
 
-New consent types can be added by extending the `ConsentType` enum and updating the display name and description mapping in `ConsentService`.
+**Default State:** Not granted (opt-in required)
+
+**Impact When Revoked:**
+- The user can no longer use the AI assistant feature
+- Existing assistant data is unaffected (revocation governs future use)
+
+### Adding Consent Types
+
+The `ConsentType` enum currently defines exactly two values: `MessageLogging`
+(1) and `AssistantUsage` (2). New consent types can be added by extending the
+`ConsentType` enum and updating the display name and description mapping in
+`ConsentService` (and `ConsentModule`).
 
 ---
 
@@ -322,6 +333,9 @@ Displays the user's current consent status for all consent types.
 3. For each consent type, determines if an active (non-revoked) consent exists
 4. Builds an embed showing the status of each consent type
 
+The command iterates over every value in the `ConsentType` enum, so the response
+lists both consent types.
+
 **Example Response:**
 ```
 📋 Your Consent Status
@@ -331,10 +345,7 @@ Use /consent grant or /consent revoke to manage your preferences.
 Message Logging
 ✅ Granted (since Dec 25, 2024)
 
-Analytics
-❌ Not granted
-
-LLM Interaction
+AI Assistant Usage
 ❌ Not granted
 ```
 
@@ -347,6 +358,9 @@ You have not granted consent for any data processing activities.
 Use /consent grant to opt in to message logging.
 
 Message Logging
+❌ Not granted
+
+AI Assistant Usage
 ❌ Not granted
 ```
 
@@ -718,28 +732,27 @@ The bot implements automatic data retention policies to minimize data storage an
 
 ### Data Export
 
-**Current Status:** Not implemented (planned for future release)
+**Current Status:** Implemented (GDPR right of access, Article 15)
 
-**Planned Implementation:**
+Users can request a downloadable export of their data. The export is produced by
+`UserDataExportService` as a ZIP archive and made available through a
+time-limited download link.
 
-Users will be able to request a data export containing:
-- All message logs (MessageLog records)
-- All consent records (UserConsent records)
-- Audit log entries related to the user
-- Account information
+**Access Methods:**
+- Slash command: `/privacy export-data` (responds ephemerally with a download link)
+- Web UI: "Export My Data" button on the Privacy page (`/Account/Privacy`)
 
-**Planned Access Methods:**
-- Slash command: `/privacy export-data`
-- Web UI: "Export My Data" button on Privacy page
-- Admin interface: Admins can export data on behalf of users (for compliance requests)
+**Export Format:**
+- ZIP archive containing the user's data
+- Download link expires after 7 days; the generated export file is automatically
+  deleted once it is older than 7 days (`UserDataExportService.ExportExpirationDays = 7`)
 
-**Planned Export Format:**
-- JSON file containing structured data
-- CSV files for tabular data (message logs, consent history)
-- Downloadable as ZIP archive
-- Automatic deletion of export file after 7 days
-
-**Implementation Tracking:** See GitHub issue backlog for data export feature
+**Implementation:**
+- `IUserDataExportService` / `UserDataExportService` in
+  `src/DiscordBot.Bot/Services/UserDataExportService.cs`
+- `PrivacyModule.ExportDataAsync()` in
+  `src/DiscordBot.Bot/Commands/PrivacyModule.cs`
+- Privacy page handler in `src/DiscordBot.Bot/Pages/Account/Privacy.cshtml.cs`
 
 ---
 
