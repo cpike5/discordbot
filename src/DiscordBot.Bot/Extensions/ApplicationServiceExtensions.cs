@@ -5,6 +5,7 @@ using DiscordBot.Bot.Services.Search;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Utilities;
 using DiscordBot.Infrastructure.Services;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -34,6 +35,8 @@ public static class ApplicationServiceExtensions
             configuration.GetSection(GuildMembershipCacheOptions.SectionName));
         services.Configure<BackgroundServicesOptions>(
             configuration.GetSection(BackgroundServicesOptions.SectionName));
+        services.Configure<LogSanitizationOptions>(
+            configuration.GetSection(LogSanitizationOptions.SectionName));
 
         // Singleton services (application-wide state)
         services.AddSingleton<IBackgroundTaskRunner, BackgroundTaskRunner>();

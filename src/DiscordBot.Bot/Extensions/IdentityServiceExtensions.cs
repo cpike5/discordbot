@@ -200,7 +200,7 @@ public static class IdentityServiceExtensions
     /// <summary>
     /// Adds authorization policies for role-based and guild-based access control.
     /// </summary>
-    private static IServiceCollection AddAuthorizationPolicies(this IServiceCollection services)
+    internal static IServiceCollection AddAuthorizationPolicies(this IServiceCollection services)
     {
         services.AddAuthorization(options =>
         {

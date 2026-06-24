@@ -43,9 +43,9 @@ public class DmAssistantOptions
 
     /// <summary>
     /// Gets or sets the Claude model identifier to use.
-    /// Default is "claude-sonnet-4-20250514".
+    /// Default is "claude-sonnet-4-6".
     /// </summary>
-    public string Model { get; set; } = "claude-sonnet-4-20250514";
+    public string Model { get; set; } = "claude-sonnet-4-6";
 
     /// <summary>
     /// Gets or sets the maximum number of tokens for Claude's response.
@@ -131,34 +131,6 @@ public class DmAssistantOptions
     /// Default is 90 days.
     /// </summary>
     public int InteractionLogRetentionDays { get; set; } = 90;
-
-    #endregion
-
-    #region Code Execution
-
-    /// <summary>
-    /// Gets or sets whether the Python code execution tool is enabled.
-    /// Default is false (must be explicitly enabled).
-    /// </summary>
-    public bool EnableCodeExecution { get; set; } = false;
-
-    /// <summary>
-    /// Gets or sets the timeout in seconds for code execution.
-    /// Default is 30 seconds.
-    /// </summary>
-    public int CodeExecutionTimeoutSeconds { get; set; } = 30;
-
-    /// <summary>
-    /// Gets or sets the maximum output length in characters from code execution.
-    /// Default is 8000 characters.
-    /// </summary>
-    public int CodeExecutionMaxOutputLength { get; set; } = 8000;
-
-    /// <summary>
-    /// Gets or sets the path to the Python interpreter.
-    /// Default is "python3".
-    /// </summary>
-    public string PythonPath { get; set; } = "python3";
 
     #endregion
 

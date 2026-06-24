@@ -81,6 +81,7 @@ public class PortalTtsControllerTests
             _mockSettingsService.Object,
             _mockDiscordClient.Object,
             azureSpeechOptions,
+            Options.Create(new AzureSpeechSsmlOptions()),
             _mockVoiceCapabilityProvider.Object,
             _mockStylePresetProvider.Object,
             _mockSsmlValidator.Object,

@@ -97,6 +97,7 @@ public class PortalTtsIntegrationTests : IDisposable
             _mockSettingsService.Object,
             _mockDiscordClient.Object,
             Options.Create(_azureSpeechOptions),
+            Options.Create(new AzureSpeechSsmlOptions()),
             _mockVoiceCapabilityProvider.Object,
             _mockStylePresetProvider.Object,
             _mockSsmlValidator.Object,

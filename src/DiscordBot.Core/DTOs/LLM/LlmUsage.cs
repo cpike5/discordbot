@@ -29,9 +29,4 @@ public class LlmUsage
     /// Total tokens for billing/monitoring purposes.
     /// </summary>
     public int TotalTokens => InputTokens + OutputTokens;
-
-    /// <summary>
-    /// Estimated cost in USD if provider supports billing calculation.
-    /// </summary>
-    public decimal? EstimatedCost { get; set; }
 }

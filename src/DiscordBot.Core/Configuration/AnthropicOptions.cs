@@ -22,13 +22,13 @@ public class AnthropicOptions
 
     /// <summary>
     /// Gets or sets the default Claude model to use.
-    /// Default is "claude-sonnet-4-20250514".
+    /// Default is "claude-sonnet-4-6".
     /// </summary>
     /// <remarks>
-    /// Available models: claude-opus-4-20250514, claude-sonnet-4-20250514, claude-haiku-4-20250514.
+    /// Available models: claude-opus-4-8, claude-sonnet-4-6, claude-haiku-4-5.
     /// Model names may change with new releases. Check Anthropic documentation for current model names.
     /// </remarks>
-    public string DefaultModel { get; set; } = "claude-sonnet-4-20250514";
+    public string DefaultModel { get; set; } = "claude-sonnet-4-6";
 
     /// <summary>
     /// Gets or sets the maximum number of retry attempts for transient failures.

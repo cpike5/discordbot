@@ -51,14 +51,16 @@ public static class DmAssistantServiceExtensions
         services.AddScoped<IDmToolProvider, DmAnalyticsToolProvider>();
         services.AddScoped<DocumentationToolProvider>();
         services.AddScoped<IDmToolProvider, DmDocumentationToolProvider>();
-        services.AddScoped<IDmToolProvider, CodeExecutionToolProvider>();
         services.AddScoped<IDmToolProvider, ClaudeCodeToolProvider>();
+        // The 10s timeout is applied per attempt by the resilience handler, which also retries
+        // transient failures with jittered backoff and trips a circuit breaker on repeated
+        // failures. Timing is owned by the pipeline rather than HttpClient.Timeout.
         services.AddHttpClient("DmAssistantWebFetch", client =>
         {
-            client.Timeout = TimeSpan.FromSeconds(10);
             client.DefaultRequestHeaders.UserAgent.ParseAdd("DiscordBot-DmAssistant/1.0");
             client.MaxResponseContentBufferSize = 512 * 1024;
-        });
+        })
+        .AddBotResilienceHandler(attemptTimeout: TimeSpan.FromSeconds(10));
         services.AddScoped<IDmToolProvider, WebFetchToolProvider>();
 
         // Only register LLM-dependent service if API key is configured

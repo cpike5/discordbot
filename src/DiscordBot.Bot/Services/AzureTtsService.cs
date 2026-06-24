@@ -190,8 +190,9 @@ public class AzureTtsService : ITtsService
 
             using var synthesizer = new SpeechSynthesizer(_speechConfig, null); // null = no audio output, we'll handle the stream
 
-            // Synthesize speech from SSML
-            var result = await synthesizer.SpeakSsmlAsync(ssml);
+            // Synthesize speech from SSML, bounded by a timeout (the SDK ignores the token directly)
+            var result = await RunWithTimeoutAsync(
+                () => synthesizer.SpeakSsmlAsync(ssml), synthesizer, cancellationToken);
 
             // Record synthesis result
             activity?.SetTag(TracingConstants.Attributes.TtsSynthesisResult, result.Reason.ToString());
@@ -234,7 +235,11 @@ public class AzureTtsService : ITtsService
             // Re-throw SSML validation exceptions without wrapping
             throw;
         }
-        catch (Exception ex) when (ex is not ArgumentException && ex is not InvalidOperationException)
+        catch (Exception ex) when (
+            ex is not ArgumentException &&
+            ex is not InvalidOperationException &&
+            ex is not TimeoutException &&
+            ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Unexpected error during speech synthesis");
             scope.RecordException(ex);
@@ -362,7 +367,8 @@ public class AzureTtsService : ITtsService
             try
             {
                 using var synthesizer = new SpeechSynthesizer(_speechConfig!, null);
-                var result = await synthesizer.GetVoicesAsync(locale);
+                var result = await RunWithTimeoutAsync(
+                    () => synthesizer.GetVoicesAsync(locale), synthesizer, cancellationToken);
 
                 if (result.Reason == ResultReason.VoicesListRetrieved)
                 {
@@ -406,6 +412,53 @@ public class AzureTtsService : ITtsService
         {
             _voiceCacheLock.Release();
         }
+    }
+
+    /// <summary>
+    /// Runs an Azure Speech SDK operation under a timeout derived from
+    /// <see cref="AzureSpeechOptions.SynthesisTimeoutSeconds"/>. The SDK's task-returning methods do
+    /// not observe a <see cref="CancellationToken"/>, so on timeout (or caller cancellation) we make
+    /// a best-effort attempt to abort the in-flight synthesis before surfacing the failure.
+    /// </summary>
+    private async Task<T> RunWithTimeoutAsync<T>(
+        Func<Task<T>> operation,
+        SpeechSynthesizer synthesizer,
+        CancellationToken cancellationToken)
+    {
+        var timeoutSeconds = _options.SynthesisTimeoutSeconds;
+        if (timeoutSeconds <= 0)
+        {
+            // Timeout disabled — still honor an already-cancelled caller token.
+            cancellationToken.ThrowIfCancellationRequested();
+            return await operation();
+        }
+
+        using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        timeoutCts.CancelAfter(TimeSpan.FromSeconds(timeoutSeconds));
+
+        var operationTask = operation();
+        var completed = await Task.WhenAny(
+            operationTask,
+            Task.Delay(Timeout.Infinite, timeoutCts.Token));
+
+        if (completed == operationTask)
+        {
+            return await operationTask;
+        }
+
+        // Timed out or the caller cancelled: best-effort abort of the in-flight operation.
+        try
+        {
+            await synthesizer.StopSpeakingAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to abort Azure Speech operation after timeout");
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        throw new TimeoutException(
+            $"Azure Speech operation did not complete within {timeoutSeconds} seconds.");
     }
 
     /// <summary>

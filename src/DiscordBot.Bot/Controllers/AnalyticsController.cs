@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -15,6 +16,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/analytics")]
 [Authorize(Policy = "RequireViewer")]
+[RequireGuildScope]
 public class AnalyticsController : ControllerBase
 {
     private readonly IMemberActivityRepository _memberActivityRepo;

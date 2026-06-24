@@ -28,4 +28,8 @@
     <ProjectReference Include="..\DiscordBot.Core\DiscordBot.Core.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <InternalsVisibleTo Include="DiscordBot.Tests" />
+  </ItemGroup>
+
 </Project>

@@ -77,4 +77,15 @@ public class AzureSpeechOptions
     /// 0.0 = silent, 0.5 = 50% volume, 1.0 = 100% volume.
     /// </remarks>
     public double DefaultVolume { get; set; } = 0.8;
+
+    /// <summary>
+    /// Gets or sets the maximum time in seconds to wait for a single Azure Speech synthesis or
+    /// voice-list call before aborting it. Default is 30 seconds.
+    /// </summary>
+    /// <remarks>
+    /// The Azure Speech SDK calls do not observe the caller's <see cref="System.Threading.CancellationToken"/>,
+    /// so without this guard a stalled synthesis could block a voice playback or web request
+    /// indefinitely. A non-positive value disables the timeout.
+    /// </remarks>
+    public int SynthesisTimeoutSeconds { get; set; } = 30;
 }
