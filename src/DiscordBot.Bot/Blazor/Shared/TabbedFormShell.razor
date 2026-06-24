@@ -1,0 +1,169 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+
+@*
+    Reusable multi-tab settings shell. Owns:
+      - the tab strip (reuses the .settings-tabs / .settings-tab classes from moderation.css),
+      - the active-tab state,
+      - a centralized dirty flag with an "unsaved changes" guard on tab switch, and
+      - a beforeunload guard (via blazorInterop.setUnsavedGuard) so navigating away warns too.
+
+    Panels for every tab are rendered up-front and shown/hidden (matching the legacy
+    markup) so per-field input state survives tab switches. Consumers capture the shell
+    with @ref and call MarkDirty()/MarkClean(); inputs mark dirty, successful saves mark
+    clean. The dirty flag resets on every tab switch, mirroring moderation-settings.js.
+*@
+
+<div class="settings-tabs mb-6" role="tablist" aria-label="@AriaLabel">
+    @foreach (var tab in Tabs)
+    {
+        var isActive = tab.Id == _activeTab;
+        <button type="button"
+                class="settings-tab @(isActive ? "settings-tab-active" : "")"
+                id="tab-btn-@tab.Id"
+                role="tab"
+                aria-selected="@(isActive ? "true" : "false")"
+                aria-controls="tab-@tab.Id"
+                @onclick="() => SwitchToAsync(tab.Id)">
+            @if (!string.IsNullOrEmpty(tab.IconPath))
+            {
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPath" />
+                </svg>
+            }
+            @tab.Label
+        </button>
+    }
+</div>
+
+<div class="bg-bg-secondary border border-border-primary rounded-lg">
+    @foreach (var tab in Tabs)
+    {
+        <div id="tab-@tab.Id"
+             class="p-6 @(tab.Id == _activeTab ? "" : "hidden")"
+             role="tabpanel"
+             aria-labelledby="tab-btn-@tab.Id">
+            @TabContent(tab.Id)
+        </div>
+    }
+</div>
+
+<ConfirmModal @ref="_guardModal" />
+
+@code {
+    /// <summary>The tabs to render, in display order.</summary>
+    [Parameter] public IReadOnlyList<TabDefinition> Tabs { get; set; } = Array.Empty<TabDefinition>();
+
+    /// <summary>Renders the panel body for a given tab id.</summary>
+    [Parameter] public RenderFragment<string> TabContent { get; set; } = default!;
+
+    /// <summary>Accessible label for the tab strip.</summary>
+    [Parameter] public string AriaLabel { get; set; } = "Settings sections";
+
+    /// <summary>Optional starting tab id (defaults to the first tab).</summary>
+    [Parameter] public string? InitialTab { get; set; }
+
+    private string _activeTab = string.Empty;
+    private bool _isDirty;
+    private bool _guardEnabled;
+    private ConfirmModal _guardModal = default!;
+
+    /// <summary>The currently active tab id.</summary>
+    public string ActiveTab => _activeTab;
+
+    /// <summary>Whether the active tab has unsaved changes.</summary>
+    public bool IsDirty => _isDirty;
+
+    protected override void OnInitialized()
+        => _activeTab = InitialTab ?? Tabs.FirstOrDefault()?.Id ?? string.Empty;
+
+    /// <summary>Programmatically switches tabs, honouring the unsaved-changes guard.</summary>
+    public Task GoToTabAsync(string tabId) => SwitchToAsync(tabId);
+
+    /// <summary>Flags the form as having unsaved changes and arms the navigation guard.</summary>
+    public async Task MarkDirtyAsync()
+    {
+        if (_isDirty)
+        {
+            return;
+        }
+
+        _isDirty = true;
+        await SetGuardAsync(true);
+    }
+
+    /// <summary>Clears the unsaved-changes flag and disarms the navigation guard.</summary>
+    public async Task MarkCleanAsync()
+    {
+        if (!_isDirty)
+        {
+            return;
+        }
+
+        _isDirty = false;
+        await SetGuardAsync(false);
+    }
+
+    private async Task SwitchToAsync(string tabId)
+    {
+        if (tabId == _activeTab)
+        {
+            return;
+        }
+
+        if (_isDirty)
+        {
+            var confirmed = await _guardModal.ShowAsync(new ConfirmModal.ConfirmRequest
+            {
+                Title = "Unsaved Changes",
+                Message = "You have unsaved changes. Are you sure you want to switch tabs?",
+                Variant = ConfirmationVariant.Warning,
+                ConfirmText = "Switch Tab",
+                CancelText = "Stay"
+            });
+
+            if (!confirmed)
+            {
+                return;
+            }
+        }
+
+        _activeTab = tabId;
+        await MarkCleanAsync();
+    }
+
+    private async Task SetGuardAsync(bool enabled)
+    {
+        if (_guardEnabled == enabled)
+        {
+            return;
+        }
+
+        _guardEnabled = enabled;
+        try
+        {
+            await JS.InvokeVoidAsync("blazorInterop.setUnsavedGuard", enabled);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit gone (navigation/teardown) — nothing to guard.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        // Best-effort: clear the beforeunload guard if we armed it.
+        if (_guardEnabled)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.setUnsavedGuard", false);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+    }
+}

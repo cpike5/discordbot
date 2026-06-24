@@ -1,0 +1,119 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Server-driven confirmation dialog. The markup mirrors
+    Pages/Shared/Components/_ConfirmationModal.cshtml (same backdrop / dialog / variant
+    colors), but visibility and the confirm/cancel result are held in circuit state
+    instead of being wired through quick-actions.js.
+
+    Usage:
+        <ConfirmModal @ref="_modal" />
+        ...
+        var ok = await _modal.ShowAsync(new ConfirmRequest { Title = "...", Message = "..." });
+
+    ShowAsync returns a Task<bool> that completes true on confirm, false on cancel /
+    backdrop dismiss — the Blazor equivalent of the Promise-based quickActions.confirm.
+*@
+
+@if (_visible)
+{
+    var color = VariantColor(_request.Variant);
+
+    <div class="fixed inset-0 z-[var(--z-modal)]"
+         role="alertdialog"
+         aria-modal="true"
+         aria-labelledby="@(_id)Title"
+         aria-describedby="@(_id)Desc">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" @onclick="Cancel" aria-hidden="true"></div>
+
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+                <div class="p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full @color.IconWrapper flex items-center justify-center">
+                            <svg class="w-5 h-5 @color.IconText" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@VariantIcon(_request.Variant)" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 id="@(_id)Title" class="text-lg font-semibold text-text-primary">@_request.Title</h3>
+                            <p id="@(_id)Desc" class="mt-2 text-sm text-text-secondary">@_request.Message</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                    <button type="button"
+                            @onclick="Cancel"
+                            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                        @_request.CancelText
+                    </button>
+                    <button type="button"
+                            @onclick="Confirm"
+                            class="px-4 py-2 @color.ConfirmButton text-white font-medium text-sm rounded-md transition-colors min-w-[100px] flex items-center justify-center">
+                        @_request.ConfirmText
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly string _id = $"confirm-{Guid.NewGuid():N}";
+    private bool _visible;
+    private ConfirmRequest _request = new();
+    private TaskCompletionSource<bool>? _tcs;
+
+    /// <summary>
+    /// Shows the dialog and returns a task that completes with the user's choice:
+    /// true on confirm, false on cancel or backdrop dismiss.
+    /// </summary>
+    public Task<bool> ShowAsync(ConfirmRequest request)
+    {
+        // Resolve any prior pending dialog as cancelled before reusing the instance.
+        _tcs?.TrySetResult(false);
+
+        _request = request;
+        _visible = true;
+        _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        StateHasChanged();
+        return _tcs.Task;
+    }
+
+    private void Confirm() => Close(true);
+
+    private void Cancel() => Close(false);
+
+    private void Close(bool result)
+    {
+        _visible = false;
+        _tcs?.TrySetResult(result);
+        _tcs = null;
+        StateHasChanged();
+    }
+
+    private static string VariantIcon(ConfirmationVariant variant) => variant switch
+    {
+        ConfirmationVariant.Info => "M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+        _ => "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+    };
+
+    private static (string IconWrapper, string IconText, string ConfirmButton) VariantColor(ConfirmationVariant variant) => variant switch
+    {
+        ConfirmationVariant.Info => ("bg-accent-blue/20", "text-accent-blue", "bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active"),
+        ConfirmationVariant.Danger => ("bg-error/20", "text-error", "bg-error hover:bg-red-600 active:bg-red-700"),
+        _ => ("bg-warning/20", "text-warning", "bg-warning hover:bg-amber-600 active:bg-amber-700")
+    };
+
+    /// <summary>Request describing the dialog to show.</summary>
+    public sealed class ConfirmRequest
+    {
+        public string Title { get; init; } = string.Empty;
+        public string Message { get; init; } = string.Empty;
+        public string ConfirmText { get; init; } = "Confirm";
+        public string CancelText { get; init; } = "Cancel";
+        public ConfirmationVariant Variant { get; init; } = ConfirmationVariant.Warning;
+    }
+}

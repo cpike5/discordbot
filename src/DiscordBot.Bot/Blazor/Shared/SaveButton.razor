@@ -1,0 +1,126 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@implements IDisposable
+
+@*
+    Three-state save button (Idle → Saving → Saved → Idle). Replaces the per-page
+    WeakMap button-state machine the legacy settings JS hand-rolled. The parent
+    supplies an async save delegate returning success; this component owns the
+    transient UI states so each call site stays a one-liner.
+*@
+
+<button type="button"
+        class="@CssClass"
+        disabled="@(_state == SaveState.Saving)"
+        aria-busy="@(_state == SaveState.Saving ? "true" : null)"
+        @onclick="RunAsync">
+    @if (_state == SaveState.Saving)
+    {
+        <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+        </svg>
+        <span>@SavingText</span>
+    }
+    else if (_state == SaveState.Saved)
+    {
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
+        </svg>
+        <span>@SavedText</span>
+    }
+    else
+    {
+        <span>@Text</span>
+    }
+</button>
+
+@code {
+    /// <summary>Idle label.</summary>
+    [Parameter] public string Text { get; set; } = "Save";
+
+    /// <summary>Label shown while the save delegate is running.</summary>
+    [Parameter] public string SavingText { get; set; } = "Saving…";
+
+    /// <summary>Label shown briefly after a successful save.</summary>
+    [Parameter] public string SavedText { get; set; } = "Saved";
+
+    /// <summary>
+    /// Async save delegate. Return true to flash the "Saved" state, false to return
+    /// straight to idle (e.g. validation/server failure where the caller already
+    /// surfaced an error toast).
+    /// </summary>
+    [Parameter] public Func<Task<bool>>? OnSaveAsync { get; set; }
+
+    /// <summary>Extra classes appended to the button (e.g. width utilities).</summary>
+    [Parameter] public string? Class { get; set; }
+
+    private enum SaveState { Idle, Saving, Saved }
+    private SaveState _state = SaveState.Idle;
+    private CancellationTokenSource? _resetCts;
+
+    private string CssClass
+    {
+        get
+        {
+            var variant = _state == SaveState.Saved
+                ? "bg-success text-white"
+                : "bg-accent-orange hover:bg-accent-orange-hover text-white";
+            var baseClasses = $"inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg transition-colors disabled:opacity-70 disabled:cursor-not-allowed {variant}";
+            return string.IsNullOrEmpty(Class) ? baseClasses : $"{baseClasses} {Class}";
+        }
+    }
+
+    private async Task RunAsync()
+    {
+        if (_state == SaveState.Saving || OnSaveAsync is null)
+        {
+            return;
+        }
+
+        _resetCts?.Cancel();
+        _state = SaveState.Saving;
+        StateHasChanged();
+
+        bool success;
+        try
+        {
+            success = await OnSaveAsync();
+        }
+        catch
+        {
+            _state = SaveState.Idle;
+            StateHasChanged();
+            throw;
+        }
+
+        if (!success)
+        {
+            _state = SaveState.Idle;
+            StateHasChanged();
+            return;
+        }
+
+        _state = SaveState.Saved;
+        StateHasChanged();
+
+        // Return to idle after a short confirmation window, cancellable by a new save.
+        _resetCts = new CancellationTokenSource();
+        var token = _resetCts.Token;
+        try
+        {
+            await Task.Delay(1500, token);
+            _state = SaveState.Idle;
+            StateHasChanged();
+        }
+        catch (TaskCanceledException)
+        {
+            // Superseded by another save — leave state to the newer invocation.
+        }
+    }
+
+    public void Dispose()
+    {
+        _resetCts?.Cancel();
+        _resetCts?.Dispose();
+    }
+}

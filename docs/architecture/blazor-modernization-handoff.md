@@ -19,7 +19,17 @@
 
 Nothing is half-finished. Phase 0 is a complete, self-contained increment. The
 **FoundationProbe** island on `/Components` proves circuit + interop + component
-parity end-to-end. Your job is **Slice 1: Moderation Settings** (see §5).
+parity end-to-end.
+
+> **Slice 1 status: DONE.** `Bot/Blazor/Pages/ModerationSettingsIsland.razor` now owns the
+> `/Guilds/{id}/ModerationSettings` interactive body, replacing
+> `wwwroot/js/moderation-settings.js`. It added the reusable kit pieces `TabbedFormShell`,
+> `ConfirmModal`, `SaveButton` (+ `TabDefinition`) under `Blazor/Shared/`, and a
+> `setUnsavedGuard` helper in `blazor-interop.js`. The legacy JS UI stays reachable at
+> `?legacy=true` (parity gate). Nested-route circuit start uses
+> `Blazor.start({ configureSignalR: b => b.withUrl('/_blazor') })` instead of a global
+> `<base href>` (which would break the layout's `#main-content` skip link). **Your job is
+> now Slice 2** (NotificationBell + BotStatusCard — see §5 / plan §5.1).
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.
@@ -122,7 +132,14 @@ Wiring changes:
 
 ---
 
-## 5. Next up — Slice 1: Moderation Settings
+## 5. Slice 1: Moderation Settings — ✅ DONE (reference for the pattern)
+
+> Completed. The build order, services, DTOs and gotchas below are kept as the worked
+> example to copy for later slices. What shipped: `ModerationSettingsIsland` composing
+> `TabbedFormShell` (5 tabs) + per-tab `SaveButton` + `ConfirmModal` (tag-delete &
+> unsaved-switch guard), data via `IServiceScopeFactory`, hosted in `Index.cshtml` behind a
+> `?legacy=true` parity gate. **Next: Slice 2** (NotificationBell + BotStatusCard — event
+> bus + dual-publish, plan §3.2/§5.1).
 
 **Target:** `/Guilds/{guildId:long}/ModerationSettings`
 **Page:** `Pages/Guilds/ModerationSettings/Index.cshtml(.cs)`

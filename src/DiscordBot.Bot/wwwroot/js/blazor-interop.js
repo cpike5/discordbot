@@ -36,6 +36,27 @@
             } catch (e) {
                 console.error("blazorInterop.applyTheme failed", e);
             }
+        },
+
+        // Arms/disarms a beforeunload guard so islands with unsaved changes warn the
+        // user before they navigate away (the Blazor equivalent of the legacy
+        // setupUnloadWarning in moderation-settings.js). TabbedFormShell toggles this
+        // as its centralized dirty flag changes.
+        setUnsavedGuard: function (enabled) {
+            if (enabled) {
+                if (!window.__blazorUnsavedGuard) {
+                    var handler = function (e) {
+                        e.preventDefault();
+                        e.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+                        return e.returnValue;
+                    };
+                    window.__blazorUnsavedGuard = handler;
+                    window.addEventListener("beforeunload", handler);
+                }
+            } else if (window.__blazorUnsavedGuard) {
+                window.removeEventListener("beforeunload", window.__blazorUnsavedGuard);
+                window.__blazorUnsavedGuard = null;
+            }
         }
     };
 })();

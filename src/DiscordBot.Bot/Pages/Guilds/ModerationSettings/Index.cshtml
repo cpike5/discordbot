@@ -5,6 +5,8 @@
     Layout = "_GuildLayout";
 }
 
+@if (Model.Legacy)
+{
 <!-- Tab Navigation -->
 <div class="settings-tabs mb-6" role="tablist" aria-label="Moderation settings sections">
     <button type="button" class="settings-tab settings-tab-active" id="tab-btn-overview" role="tab" aria-selected="true" aria-controls="tab-overview" data-tab="overview" onclick="window.moderationSettings.switchTab('overview')">
@@ -404,6 +406,19 @@
     @Html.AntiForgeryToken()
     <input type="hidden" name="guildId" value="@Model.GuildId" />
 </form>
+}
+else
+{
+    <!-- Blazor island (Slice 1): replaces moderation-settings.js. The page keeps its
+         route, layout, breadcrumb, header, auth and 24h stats; the island owns the
+         interactive settings body. -->
+    <component type="typeof(DiscordBot.Bot.Blazor.Pages.ModerationSettingsIsland)"
+               render-mode="ServerPrerendered"
+               param-GuildId="@Model.GuildId.ToString()"
+               param-EventsFlagged="@Model.EventsFlagged"
+               param-AutoActions="@Model.AutoActions"
+               param-FalsePositives="@Model.FalsePositives" />
+}
 
 @functions {
     private string GetTagColorClass(Core.Enums.TagCategory category)
@@ -423,14 +438,35 @@
 }
 
 @section Scripts {
-    <script>
-        // Pass server data to JavaScript
-        window.moderationData = {
-            guildId: '@Model.GuildId',
-            mode: @((int)Model.ViewModel.Mode),
-            simplePreset: '@Model.ViewModel.SimplePreset',
-            channels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AvailableChannels))
-        };
-    </script>
-    <script src="~/js/moderation-settings.js" asp-append-version="true"></script>
+    @if (Model.Legacy)
+    {
+        <script>
+            // Pass server data to JavaScript
+            window.moderationData = {
+                guildId: '@Model.GuildId',
+                mode: @((int)Model.ViewModel.Mode),
+                simplePreset: '@Model.ViewModel.SimplePreset',
+                channels: @Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.AvailableChannels))
+            };
+        </script>
+        <script src="~/js/moderation-settings.js" asp-append-version="true"></script>
+    }
+    else
+    {
+        <!-- Blazor interop shim (loads after toast.js/theme.js, which the layout renders first) -->
+        <script src="~/js/blazor-interop.js" asp-append-version="true"></script>
+        <!-- Blazor Server circuit (only loaded on pages that host an island). This island
+             lives on a nested route, so start the circuit manually and point SignalR at the
+             absolute hub path — otherwise the negotiate URL resolves relative to the page
+             path and 404s (gotcha §6.5). This avoids a global <base href> and its side
+             effects (e.g. breaking the layout's #main-content skip link). -->
+        <script src="~/_framework/blazor.server.js" autostart="false"></script>
+        <script>
+            Blazor.start({
+                configureSignalR: function (builder) {
+                    builder.withUrl('@Url.Content("~/_blazor")');
+                }
+            });
+        </script>
+    }
 }

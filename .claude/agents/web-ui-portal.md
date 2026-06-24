@@ -26,6 +26,28 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - **Previews:** `_GuildPreviewPopup`
 - **Showcase:** `Components.cshtml` — living reference, keep updated when adding components
 
+### Blazor Server Islands (`Bot/Blazor/`)
+Islands-first modernization (see `docs/architecture/blazor-modernization-selective-plan.md`):
+interactive Blazor Server components embedded into existing Razor Pages via the
+`<component render-mode="ServerPrerendered">` tag helper. Routing/auth/layout stay with the
+host Razor Page; the island inherits them. **Do not** convert whole pages or add an
+`App.razor` — these are embedded regions only.
+- **Shared kit** (`Blazor/Shared/`): `UiButton`, `UiToggle` (design-system twins of the
+  partials), `TabbedFormShell` (tab strip + centralized dirty flag + unsaved-changes guard),
+  `ConfirmModal` (awaitable `ShowAsync` → `Task<bool>`, mirrors `_ConfirmationModal`),
+  `SaveButton` (3-state Idle→Saving→Saved), `TabDefinition`.
+- **Interop** (`Blazor/Interop/`): `ToastInterop`/`ThemeInterop` bridge the existing
+  `toast.js`/`theme.js` via the window shim `wwwroot/js/blazor-interop.js` (must load **after**
+  toast.js/theme.js — put the two island scripts in the host page's `@section Scripts`).
+- **Islands** (`Blazor/Pages/`): `ModerationSettingsIsland` (Slice 1, hosts the
+  `/Guilds/{id}/ModerationSettings` body), `FoundationProbe` (Phase 0 PoC on `/Components`).
+- **Patterns:** pass snowflake IDs as **strings** (`param-GuildId="@Model.GuildId.ToString()"`);
+  data access = `IServiceScopeFactory.CreateScope()` per op resolving the existing services
+  (no circuit-scoped `DbContext`); on **nested-route** hosts start the circuit with
+  `autostart="false"` + `Blazor.start({ configureSignalR: b => b.withUrl('/_blazor') })` so the
+  negotiate URL doesn't resolve relative to the page path. Parity-gate page conversions behind
+  a `?legacy=true` query until the island matches, then remove the legacy branch.
+
 ### Layouts
 - `_Layout.cshtml` — Main application layout
 - `Portal/_PortalLayout.cshtml` — Portal (member-facing) layout
