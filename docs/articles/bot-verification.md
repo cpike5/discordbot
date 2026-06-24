@@ -21,13 +21,13 @@ This guide explains how to link your Discord account to your user account using 
 
 ## Overview
 
-The Discord bot account verification feature provides an alternative method for linking your Discord account to your user account. Instead of redirecting through Discord's OAuth2 flow, you generate a unique verification code within the application and confirm it in Discord using a bot slash command.
+The Discord bot account verification feature provides an alternative method for linking your Discord account to your user account. Instead of redirecting through Discord's OAuth2 flow, you run a bot slash command in Discord to generate a unique verification code, then enter that code on your profile page in the admin panel.
 
 **What This Feature Does:**
 
-1. Generates a unique 6-character verification code
-2. Provides a 15-minute window to confirm the code in Discord
-3. Validates the code through a Discord bot command
+1. Generates a unique 6-character verification code when you run `/verify-account` in Discord
+2. Provides a 15-minute window to enter the code in the admin panel
+3. Validates the code you enter on your profile page
 4. Links your Discord account to your user account upon successful verification
 
 **When You Might Use This:**
@@ -47,7 +47,7 @@ The Discord bot account verification feature provides an alternative method for 
 |--------|------------------|-----------------|
 | **Setup Time** | Immediate (60 seconds) | Requires Discord OAuth configuration |
 | **Privacy** | Minimal permissions requested | Requests email, profile, guilds access |
-| **Code Entry** | Manual code entry in bot | Automatic redirect |
+| **Code Entry** | Manual code entry on profile page | Automatic redirect |
 | **Use Cases** | Quick linking, testing, troubleshooting | Primary authentication method |
 | **Code Expiry** | 15 minutes | No expiry (after authorization) |
 
@@ -59,42 +59,41 @@ The Discord bot account verification feature provides an alternative method for 
 
 ### Step-by-Step Verification Process
 
-#### Step 1: Initiate Verification from Web UI
+The flow starts in Discord and finishes in the admin panel.
+
+#### Step 1: Initiate Verification from the Profile Page
 
 1. Log in to the admin web interface with your email and password
-2. Navigate to your profile or account settings
-3. Find the **"Link via Discord Bot"** button in the Discord account section
-4. Click the button to generate a verification code
+2. Navigate to your profile page
+3. Find the Discord verification section and start a verification
 
-   You'll see a success message:
-   > Verification code generated. You have 15 minutes to confirm this code in Discord.
+   This creates a pending verification record (valid for 15 minutes) that is
+   waiting for a Discord user to claim it by running the bot command.
 
-#### Step 2: Receive Your Verification Code
-
-The code is displayed on the screen in one of two ways:
-
-**Option A: Code Visible in Dialog**
-- A dialog or message displays your 6-character code
-- Example code: `ABC2DE`
-- Copy this code for use in Step 3
-
-**Option B: Code Sent in Discord DM (Future Feature)**
-- If configured, the bot may DM you the code
-- Check your Discord direct messages for the bot message
-
-**Important:** Write down or copy your code immediately. You cannot retrieve it after closing the dialog.
-
-#### Step 3: Confirm Code in Discord
+#### Step 2: Generate Your Code in Discord
 
 1. Open Discord
 2. Go to any server where the bot is a member
-3. Use the `/verify-account` command:
+3. Run the `/verify-account` command (it takes **no parameters**):
    ```
-   /verify-account code:ABC2DE
+   /verify-account
    ```
-   Replace `ABC2DE` with your actual code.
-
 4. Execute the command
+
+The bot replies with an ephemeral (only-visible-to-you) embed containing:
+
+- Your 6-character verification code (e.g., `ABC2DE`)
+- The relative expiry time (15 minutes)
+- Instructions to enter the code on your profile page
+
+**Important:** Copy this code. It is only shown to you in Discord and expires in
+15 minutes.
+
+#### Step 3: Enter the Code on Your Profile Page
+
+1. Return to your profile page in the admin panel
+2. Enter the 6-character code from Discord into the verification form
+3. Click **Verify**
 
 **What You'll See:**
 
@@ -103,15 +102,13 @@ The code is displayed on the screen in one of two ways:
 
 **Failure (see troubleshooting section for each error)**
 
-#### Step 4: Confirm Linking in Web UI
+#### Step 4: Confirmation
 
-1. Return to the web interface in your browser
-2. Refresh the page if not automatic
-3. Your Discord account information is now displayed:
+1. Your Discord account information is now displayed:
    - Discord username (e.g., `JohnDoe#1234`)
    - Discord user ID
    - Profile avatar image
-4. A badge or indicator shows "Discord account linked"
+2. A badge or indicator shows "Discord account linked"
 
 **Verification Complete!** Your Discord account is now linked to your user account.
 
@@ -129,13 +126,25 @@ The code is displayed on the screen in one of two ways:
 - Aligns with common two-factor authentication practices
 
 **What Happens After Expiry:**
-- Code becomes invalid
-- Verification command returns: `"Code expired"`
-- You must generate a new code (Step 1)
+- Code becomes invalid (its status transitions to `Expired`)
+- Entering an expired code on the profile page returns a "code has expired" error
+- You must start a new verification and run `/verify-account` again
 
 ### Rate Limiting
 
 **Rate Limit:** 3 codes per hour per Discord user
+
+Rate limiting is enforced two ways, both keyed to the Discord user running the
+command:
+
+1. A `[RateLimit(3, 3600, RateLimitTarget.User)]` precondition on the
+   `/verify-account` command (3 invocations per 3600 seconds per user).
+2. A check inside `VerificationService.GenerateCodeForDiscordUserAsync` that
+   counts codes generated by the Discord user in the last hour against
+   `Verification:MaxCodesPerHour` (default 3).
+
+There is **no** dedicated rate-limit table; the per-hour count is derived from
+the `VerificationCode` records' `CreatedAt`/`DiscordUserId` values.
 
 **Example Timeline:**
 - 09:00 - Generate code #1
@@ -150,7 +159,7 @@ The code is displayed on the screen in one of two ways:
 - Reasonable for legitimate users (3 attempts per hour is plenty)
 
 **Error When Rate Limited:**
-> Rate limit exceeded. You can generate 3 codes per hour. Please try again later.
+> Rate limit exceeded. You can request a maximum of 3 codes per hour.
 
 ### Single-Use Codes
 
@@ -182,71 +191,56 @@ Once you successfully verify a code:
 
 #### Error: "No pending verification found"
 
-**Symptoms:** Running `/verify-account` returns this error.
+**Symptoms:** Running `/verify-account` in Discord returns this error.
 
-**Causes:**
-1. Code has expired (more than 15 minutes old)
-2. Code was for a different Discord user
-3. Code doesn't exist or was never generated
+**Cause:** There is no unclaimed, non-expired pending verification waiting to be
+claimed. The command can only generate a code if you first started a
+verification from your profile page.
 
 **Solutions:**
-1. **Expired Code:** Generate a new code in the web UI (Step 1)
-2. **Wrong Discord Account:** Make sure you're running the command in Discord with the account you want to link
-   - If using multiple Discord accounts, switch to the correct account
-   - Sign out and back into Discord if needed
-3. **Verification Not Initiated:** Return to the web UI and click "Link via Discord Bot" again
-
-**Steps to Recover:**
-1. Go back to the web UI
-2. Ensure you're logged in with your user account
-3. Click "Link via Discord Bot" to generate a new code
-4. Copy the new code
-5. Run `/verify-account code:NEWCODE` in Discord
+1. **Start Verification First:** Go to your profile page and initiate a
+   verification, then run `/verify-account` within 15 minutes.
+2. **Expired Pending Verification:** If more than 15 minutes passed since you
+   started, start a new one and run the command again promptly.
 
 ---
 
 #### Error: "Rate limit exceeded"
 
-**Symptoms:** Cannot generate a new verification code.
+**Symptoms:** Running `/verify-account` returns this error and no new code is generated.
 
 **Message:**
-> Rate limit exceeded. You can generate 3 codes per hour. Please try again later.
+> Rate limit exceeded. You can request a maximum of 3 codes per hour.
 
-**Cause:** You've already generated 3 codes within the last 60 minutes.
+**Cause:** You (the Discord user) have already generated 3 codes within the last
+hour.
 
 **Solutions:**
 1. **Wait for Rate Limit to Reset:** Wait until an hour has passed since your first code generation
-2. **Use Existing Code:** If you have a valid code within 15 minutes, use that instead of generating a new one
-3. **Check Timing:** The rate limit resets on a rolling hour basis
+2. **Use Existing Code:** If you have a valid code within 15 minutes, enter that on your profile page instead of generating a new one
+3. **Check Timing:** The rate limit is a rolling one-hour window
    - Example: If you generated codes at 9:00, 9:15, and 9:30, you can generate a new code at 10:00
-
-**Example Timeline to Avoid Rate Limiting:**
-- 9:00 - Generate code #1, successfully verify
-- 9:30 - Need to re-link? Generate code #2
-- 10:00 - Can generate code #3 (1 hour has passed since code #1)
 
 ---
 
-#### Error: "Code expired"
+#### Error: "Verification code has expired"
 
-**Symptoms:** Running `/verify-account` with a code returns this error.
+**Symptoms:** Entering a code on your profile page returns this error.
 
 **Message:**
-> Code expired. Generate a new verification code and try again.
+> Verification code has expired. Please request a new code.
 
 **Cause:** More than 15 minutes have passed since the code was generated.
 
 **Solutions:**
-1. **Generate New Code:**
-   - Return to the web UI
-   - Click "Link via Discord Bot"
-   - Copy the new code immediately
-   - Run `/verify-account code:NEWCODE` within 15 minutes
+1. **Generate a New Code:**
+   - Start a new verification on your profile page
+   - Run `/verify-account` in Discord
+   - Enter the new code on your profile page within 15 minutes
 
 2. **Work Faster:**
-   - Prepare to run the Discord command before generating the code
-   - Have Discord open in another window/tab
-   - Copy the code and run the command immediately
+   - Have the profile page open in another window/tab
+   - Copy the code from Discord and enter it immediately
 
 **Why the 15-Minute Limit?**
 - Security measure to limit exposure time
@@ -255,9 +249,9 @@ Once you successfully verify a code:
 
 ---
 
-#### Error: "Discord account already linked"
+#### Error: "This Discord account is already linked"
 
-**Symptoms:** Running `/verify-account` with a valid code returns this error.
+**Symptoms:** Running `/verify-account`, or entering a code on the profile page, returns this error.
 
 **Message:**
 > This Discord account is already linked to a user account.
@@ -265,25 +259,18 @@ Once you successfully verify a code:
 **Causes:**
 1. Your Discord account is already linked to your current user account
 2. Your Discord account is linked to a different user account
-3. You're trying to link the same Discord account to multiple user accounts
 
 **Solutions:**
 
 **If Linked to Your Account (Current Linking):**
-- Verification is successful—your Discord account was linked
-- Check the web UI; you should see the Discord account information
-- If attempting to re-verify, your account is already linked
+- Your Discord account is already linked; no further action is needed
+- Check your profile page; you should see the Discord account information
 
 **If Linked to a Different Account:**
-1. Verify which user account owns the Discord link:
-   - Log in to the user account that has Discord linked
-   - Go to account settings
-   - You should see the Discord account information
-2. Unlink from that account if you want to relink to a different account:
-   - Click "Unlink Discord Account"
-   - Confirm the action
-   - Return to your current account and generate a new code
-3. Generate a new code in your current account and retry `/verify-account`
+1. Log in to the user account that currently has the Discord link
+2. Unlink the Discord account from that account
+3. Return to your current account, start a new verification, run
+   `/verify-account`, and enter the new code
 
 **If Attempting to Link Multiple Accounts:**
 - Each Discord account can only link to one user account
@@ -292,48 +279,36 @@ Once you successfully verify a code:
 
 ---
 
-#### Error: "Invalid code format"
+#### Error: "Invalid verification code"
 
-**Symptoms:** Running `/verify-account` returns this error.
+**Symptoms:** Entering a code on your profile page returns this error.
 
 **Message:**
-> Invalid code format. Code must be 6 characters.
+> Invalid verification code.
 
-**Cause:** The code you entered doesn't match the required format.
+**Cause:** The code you entered does not match a pending verification for your
+account. The code is normalized before lookup (dashes and spaces removed, and
+upper-cased), so casing and separators do not matter.
 
 **Code Requirements:**
-- Exactly 6 characters long
-- Valid characters: `A-Z`, `2-9` (no 0, 1, I, O, or L to avoid confusion)
-- Example valid codes: `ABC2DE`, `XYZ789`, `ABCDEF`
+- 6 characters
+- Valid characters: `A`–`Z` and `2`–`9` (excludes `0`, `1`, `I`, `O`, `L` to avoid confusion)
+- Example valid codes: `ABC2DE`, `XYZ789`
 
 **Solutions:**
-1. **Copy Code Exactly:** When copying from the web UI, ensure you copy all 6 characters
-   - Don't include spaces before/after
-   - Check for accidental extra characters
-2. **Check Code Format:** Verify the code contains only letters and numbers
-   - No spaces
-   - No dashes
-   - No special characters
-3. **Generate New Code:** If in doubt, generate a fresh code in the web UI
-4. **Type Carefully:** If typing manually, be careful with similar characters:
-   - 0 vs O (the letter O is not valid in codes)
-   - 1 vs I vs L (numbers don't use these letters)
-
-**Example Invalid vs Valid:**
-```
-Invalid: "ABC-2DE"  (contains dash)
-Invalid: "ABC2DEF"  (7 characters)
-Invalid: "AB2DE"    (5 characters)
-Valid:   "ABC2DE"   (6 characters, correct format)
-```
+1. **Copy the Code Exactly:** Copy all 6 characters from the bot's Discord message
+2. **Type Carefully:** Watch for visually similar characters:
+   - The letter `O` is not used (excluded from the charset)
+   - The digits `0` and `1` are not used
+3. **Generate a New Code:** If in doubt, start a new verification and run `/verify-account` again
 
 ---
 
-### Web UI Errors
+### Web UI / Profile Page Errors
 
 #### "Failed to generate verification code"
 
-**Symptoms:** Clicking "Link via Discord Bot" shows an error.
+**Symptoms:** Starting a verification on the profile page shows an error.
 
 **Cause:** Server-side error generating the code.
 

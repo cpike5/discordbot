@@ -604,6 +604,8 @@ function selectSuggestion(clipName) {
 
 Shows real-time feedback on which typed words have matching clips.
 
+> **Tokenization note:** The client-side preview below is a simplified approximation. The authoritative tokenizer is server-side (`VoxService.TokenizeMessage`): it maps `,` to a `_comma` token and `.` to a `_period` token, splits on whitespace, lowercases, and **preserves** other punctuation such as `!` and `?` (which may be part of a clip name). For exact matched/skipped results, call `GET /api/portal/vox/{guildId}/preview`, which runs the real tokenizer.
+
 #### Update Logic
 
 ```javascript

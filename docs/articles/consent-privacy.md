@@ -1832,10 +1832,9 @@ Cache staleness. The web UI uses a 15-minute cache for consent checks.
 
 **Planned Features:**
 
-1. **Automated Data Export** (GitHub issue pending)
-   - `/privacy export-data` command
-   - Web UI "Export My Data" button
-   - JSON/CSV export formats
+1. **Data Export** (implemented)
+   - ✅ `/privacy export-data` command (ZIP archive, 7-day download link)
+   - ✅ Web UI "Export My Data" button on the Privacy page
 
 2. **Data Deletion Enhancements**
    - ✅ `/privacy delete-data` command with confirmation (implemented)

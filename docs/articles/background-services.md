@@ -7,7 +7,7 @@
 
 The system uses ASP.NET Core's `IHostedService` and `BackgroundService` patterns for long-running background tasks. All background services are registered in `Program.cs` via domain-specific extension methods in `src/DiscordBot.Bot/Extensions/`.
 
-**Architecture:** Services inherit from `BackgroundService`, execute on separate threads, and report health via `IBackgroundServiceHealthRegistry`.
+**Architecture:** Most services inherit from `MonitoredBackgroundService` (a base class that extends `BackgroundService`), which automatically registers the service with `IBackgroundServiceHealthRegistry` and provides heartbeat, status, and error-recording helpers. A handful of services (for example `BotHostedService`, `VoxClipLibraryInitializer`, `AudioCacheCleanupService`, `ElasticApmFilterRegistrationService`, and `AlertMonitoringService`) inherit from bare `BackgroundService`/`IHostedService` or implement health reporting directly. All background services are registered in `Program.cs` via the domain-specific extension methods in `src/DiscordBot.Bot/Extensions/`.
 
 ---
 

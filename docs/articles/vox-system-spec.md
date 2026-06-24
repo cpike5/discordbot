@@ -806,6 +806,47 @@ Stop current playback (delegates to existing PlaybackService stop).
 }
 ```
 
+### VOX Message History & Favorites
+
+VOX message history and favorites are **implemented**. Each successful portal `play` is persisted to the `VoxMessageHistory` table, and the following endpoints let the authenticated user review, favorite, and delete their entries. The user ID is read from the Discord identity claim; all return **401 Unauthorized** if it is missing.
+
+History entries are saved on `POST /api/portal/vox/{guildId}/play` (non-blocking; a save failure does not fail the play response).
+
+#### `GET /api/portal/vox/{guildId}/history`
+
+Returns the current user's recent history for the guild.
+
+**Query Parameters**:
+- `limit` (optional, default 20, clamped to 1–50)
+
+**Response**:
+```json
+[
+  {
+    "id": 42,
+    "message": "attention all personnel",
+    "clipGroup": "vox",
+    "wordGapMs": 50,
+    "isFavorite": false,
+    "playedAt": "2026-02-03T15:30:00Z"
+  }
+]
+```
+
+#### `GET /api/portal/vox/{guildId}/favorites`
+
+Returns the current user's favorited history entries for the guild. Same item shape as `history`.
+
+#### `POST /api/portal/vox/{guildId}/history/{id}/favorite`
+
+Toggles the favorite flag on a history entry. Returns `{ "id": 42, "isFavorite": true }`. **404** if the entry does not exist, **403** if it belongs to another user/guild.
+
+#### `DELETE /api/portal/vox/{guildId}/history/{id}`
+
+Deletes a history entry. Returns `{ "success": true }`. **404** if not found, **403** if not owned by the caller.
+
+**`VoxMessageHistory` entity columns:** `Id` (int), `GuildId` (ulong), `UserId` (ulong), `Message` (string), `ClipGroup` (string: vox/fvox/hgrunt), `WordGapMs` (int), `IsFavorite` (bool), `PlayedAt` (DateTime, UTC).
+
 ---
 
 ## Security & Rate Limiting
@@ -853,7 +894,8 @@ The simplified design leaves room for the following enhancements (see v1.0 spec 
 - **Sentence Builder UI** - Drag-and-drop composition interface
 - **Word bank management** - Admin UI for bulk generation, import/export
 - **Custom filter parameter UI** - Sliders for highpass, lowpass, compression, distortion
-- **VoxMessage audit logging** - Database tracking of VOX usage
+
+> **Note:** Per-user VOX message history and favorites (database tracking of VOX usage via the `VoxMessageHistory` table) have shipped — see [VOX Message History & Favorites](#vox-message-history--favorites) above. They are no longer a future item.
 
 ---
 
