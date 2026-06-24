@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -14,6 +15,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/guilds/{guildId}/cases")]
 [Authorize(Policy = "RequireAdmin")]
+[RequireGuildScope]
 public class ModerationCasesController : ControllerBase
 {
     private readonly IModerationService _moderationService;

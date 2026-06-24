@@ -163,10 +163,15 @@ public static partial class LogSanitizer
     /// <summary>
     /// Determines if a key name indicates sensitive data.
     /// </summary>
-    private static bool IsSensitiveKey(string key)
+    /// <param name="key">The key/property name to inspect.</param>
+    /// <param name="additionalKeys">
+    /// Optional additional substrings (case-insensitive) that mark a key as sensitive,
+    /// sourced from <see cref="LogSanitizationOptions.AdditionalSensitiveKeys"/>.
+    /// </param>
+    public static bool IsSensitiveKey(string key, IEnumerable<string>? additionalKeys = null)
     {
         var lowerKey = key.ToLowerInvariant();
-        return lowerKey.Contains("password") ||
+        var builtIn = lowerKey.Contains("password") ||
                lowerKey.Contains("passwd") ||
                lowerKey.Contains("secret") ||
                lowerKey.Contains("token") ||
@@ -177,12 +182,31 @@ public static partial class LogSanitizer
                lowerKey.Contains("credential") ||
                lowerKey.Contains("credit") ||
                lowerKey.Contains("card");
+
+        if (builtIn)
+        {
+            return true;
+        }
+
+        if (additionalKeys != null)
+        {
+            foreach (var additional in additionalKeys)
+            {
+                if (!string.IsNullOrEmpty(additional) &&
+                    lowerKey.Contains(additional.ToLowerInvariant()))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /// <summary>
     /// Gets the appropriate marker for a sensitive key.
     /// </summary>
-    private static string GetMarkerForKey(string key)
+    public static string GetMarkerForKey(string key)
     {
         var lowerKey = key.ToLowerInvariant();
 

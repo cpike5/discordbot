@@ -1,7 +1,9 @@
 using DiscordBot.Bot.Commands;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Logging;
 using DiscordBot.Bot.Middleware;
+using DiscordBot.Core.Utilities;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
@@ -74,6 +76,16 @@ try
             .Enrich.WithClientIp()
             .Enrich.WithCorrelationId()
             .Enrich.WithExceptionDetails();
+
+        // Redact sensitive data (tokens, API keys, PII) from every log event before it
+        // reaches any sink. Honors the LogSanitization config section.
+        var sanitizationOptions = context.Configuration
+            .GetSection(LogSanitizationOptions.SectionName)
+            .Get<LogSanitizationOptions>() ?? new LogSanitizationOptions();
+        if (sanitizationOptions.Enabled)
+        {
+            configuration.Enrich.With(new SensitiveDataEnricher(sanitizationOptions));
+        }
 
         // Add Elasticsearch sink programmatically if configured
         var elasticUrl = context.Configuration["ElasticSearch:Url"];
@@ -196,6 +208,9 @@ try
     // Add Web API services (controllers, Razor Pages, HttpClient)
     builder.Services.AddWebServices();
 
+    // Add request rate limiting (anonymous SSML endpoints, etc.)
+    builder.Services.AddPortalRateLimiting();
+
     // Add SignalR for real-time dashboard updates
     builder.Services.AddSignalRServices(builder.Environment);
 
@@ -287,6 +302,9 @@ try
     });
 
     app.UseAuthorization();
+
+    // Enforce rate limiting on endpoints decorated with [EnableRateLimiting]
+    app.UseRateLimiter();
 
     app.MapControllers();
     app.MapDiscordBotHealthChecks();

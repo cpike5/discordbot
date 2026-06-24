@@ -15,6 +15,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Controllers;
@@ -37,6 +38,7 @@ public class PortalTtsController : ControllerBase
     private readonly ISettingsService _settingsService;
     private readonly DiscordSocketClient _discordClient;
     private readonly AzureSpeechOptions _azureSpeechOptions;
+    private readonly AzureSpeechSsmlOptions _ssmlOptions;
     private readonly IVoiceCapabilityProvider _voiceCapabilityProvider;
     private readonly IStylePresetProvider _stylePresetProvider;
     private readonly ISsmlValidator _ssmlValidator;
@@ -86,6 +88,7 @@ public class PortalTtsController : ControllerBase
         ISettingsService settingsService,
         DiscordSocketClient discordClient,
         IOptions<AzureSpeechOptions> azureSpeechOptions,
+        IOptions<AzureSpeechSsmlOptions> ssmlOptions,
         IVoiceCapabilityProvider voiceCapabilityProvider,
         IStylePresetProvider stylePresetProvider,
         ISsmlValidator ssmlValidator,
@@ -104,6 +107,7 @@ public class PortalTtsController : ControllerBase
         _settingsService = settingsService;
         _discordClient = discordClient;
         _azureSpeechOptions = azureSpeechOptions.Value;
+        _ssmlOptions = ssmlOptions.Value;
         _voiceCapabilityProvider = voiceCapabilityProvider;
         _stylePresetProvider = stylePresetProvider;
         _ssmlValidator = ssmlValidator;
@@ -627,9 +631,10 @@ public class PortalTtsController : ControllerBase
     [ProducesResponseType(typeof(SsmlValidationResult), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitingServiceExtensions.AnonymousSsmlPolicy)]
     public IActionResult ValidateSsml([FromBody] Core.DTOs.Tts.SsmlValidationRequest request)
     {
-        _logger.LogDebug("Validate SSML request, length: {Length}", request.Ssml.Length);
+        _logger.LogDebug("Validate SSML request, length: {Length}", request.Ssml?.Length ?? 0);
 
         if (string.IsNullOrWhiteSpace(request.Ssml))
         {
@@ -640,6 +645,18 @@ public class PortalTtsController : ControllerBase
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "ssml_empty"
+            });
+        }
+
+        if (request.Ssml.Length > _ssmlOptions.MaxDocumentLength)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML too large",
+                Detail = $"SSML markup exceeds the maximum allowed length of {_ssmlOptions.MaxDocumentLength} characters.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_too_large"
             });
         }
 
@@ -659,7 +676,7 @@ public class PortalTtsController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Synthesis result with audio ID, duration, and voices used.</returns>
     [HttpPost("synthesize-ssml")]
-    [Authorize(Policy = "ModeratorAccess")]
+    [Authorize(Policy = "RequireModerator")]
     [ProducesResponseType(typeof(SsmlSynthesisResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
@@ -929,6 +946,7 @@ public class PortalTtsController : ControllerBase
     [ProducesResponseType(typeof(Core.DTOs.Tts.SsmlBuildResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitingServiceExtensions.AnonymousSsmlPolicy)]
     public IActionResult BuildSsml([FromBody] Core.DTOs.Tts.SsmlBuildRequest request)
     {
         _logger.LogDebug("Build SSML request, language: {Language}, segments: {SegmentCount}",
@@ -943,6 +961,33 @@ public class PortalTtsController : ControllerBase
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "invalid_request"
+            });
+        }
+
+        // Bound the work performed on unauthenticated input (DoS protection).
+        const int maxSegments = 100;
+        if (request.Segments.Count > maxSegments)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "Too many segments",
+                Detail = $"A maximum of {maxSegments} segments may be built in a single request.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "too_many_segments"
+            });
+        }
+
+        var totalTextLength = request.Segments.Sum(s => s.Text?.Length ?? 0);
+        if (totalTextLength > _ssmlOptions.MaxDocumentLength)
+        {
+            return BadRequest(new ApiErrorDto
+            {
+                Message = "SSML too large",
+                Detail = $"Combined segment text exceeds the maximum allowed length of {_ssmlOptions.MaxDocumentLength} characters.",
+                StatusCode = StatusCodes.Status400BadRequest,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "ssml_too_large"
             });
         }
 
@@ -1099,6 +1144,7 @@ public class PortalTtsController : ControllerBase
     [HttpGet("/api/portal/tts/voices/{voiceName}/capabilities")]
     [ProducesResponseType(typeof(VoiceCapabilities), StatusCodes.Status200OK)]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitingServiceExtensions.AnonymousSsmlPolicy)]
     public IActionResult GetVoiceCapabilities(string voiceName)
     {
         _logger.LogDebug("Get voice capabilities request for voice {VoiceName}", voiceName);
@@ -1129,6 +1175,7 @@ public class PortalTtsController : ControllerBase
     [HttpGet("/api/portal/tts/presets")]
     [ProducesResponseType(typeof(IReadOnlyList<StylePreset>), StatusCodes.Status200OK)]
     [AllowAnonymous]
+    [EnableRateLimiting(RateLimitingServiceExtensions.AnonymousSsmlPolicy)]
     public IActionResult GetPresets([FromQuery] string? category = null)
     {
         _logger.LogDebug("Get presets request, category filter: {Category}", category ?? "(none)");
