@@ -1,0 +1,1009 @@
+@namespace DiscordBot.Bot.Blazor.Pages
+@using System.Globalization
+@using System.Text
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+@inject AuthenticationStateProvider AuthProvider
+@implements IDisposable
+
+@*
+    Slice 4 island: the interactive body of /Commands. Replaces the AJAX tab-loader
+    stack (command-tabs.js, command-tab-loader.js, command-filters.js,
+    command-pagination.js, command-log-modal.js, date-range-filter.js, url-state.js)
+    for the Command List and Execution Logs tabs with server-held Blazor state.
+
+    - Command List: native accordion (replaces _CommandListTab + the toggleModule script).
+    - Execution Logs: native filter panel (debounced search/command, date presets,
+      guild/status selects), results table + mobile cards, Pagination, and a native
+      details modal (replaces command-log-modal.js + /api/commands/log-details).
+    - Analytics: deliberately left on Chart.js (plan §5.2 #3 "don't block on charting").
+      The island delegates that one tab to the unchanged /api/commands/analytics partial
+      + its embedded chart init via commands-island-interop.js.
+
+    Data access creates a DI scope per operation (gotcha §6.4) and resolves the existing
+    ICommandMetadataService / ICommandLogService / IGuildService / ICommandRegistrationService
+    — no DI changes. Snowflake IDs flow as strings in markup (gotcha §6.2).
+*@
+
+<!-- Action Bar: module count + admin clear/re-register -->
+<div class="flex items-center justify-between mb-6">
+    <span class="text-sm text-text-secondary">
+        @_listVm.ModuleCount module@(_listVm.ModuleCount != 1 ? "s" : "") registered
+    </span>
+    @if (IsAdmin)
+    {
+        <button type="button" class="btn btn-warning" @onclick="ClearAndRegisterAsync" disabled="@_clearing">
+            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            @(_clearing ? "Working…" : "Clear & Re-register Globally")
+        </button>
+    }
+</div>
+
+<!-- Tab strip -->
+<div class="settings-tabs mb-6" role="tablist" aria-label="Command sections">
+    @foreach (var tab in _tabs)
+    {
+        var isActive = tab.Id == _activeTab;
+        <button type="button"
+                role="tab"
+                aria-selected="@(isActive ? "true" : "false")"
+                class="settings-tab @(isActive ? "settings-tab-active" : "")"
+                @onclick="() => SetTabAsync(tab.Id)">
+            @tab.Label
+        </button>
+    }
+</div>
+
+@* ---------- Command List ---------- *@
+<div class="@(_activeTab == "command-list" ? "" : "hidden")" role="tabpanel">
+    @if (_listVm.HasModules)
+    {
+        <div class="space-y-4">
+            @foreach (var module in _listVm.Modules)
+            {
+                var expanded = _expandedModules.Contains(module.ModuleId);
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <button type="button"
+                            class="w-full flex items-center justify-between px-6 py-4 hover:bg-bg-hover/50 transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
+                            aria-expanded="@(expanded ? "true" : "false")"
+                            @onclick="() => ToggleModule(module.ModuleId)">
+                        <div class="flex items-center gap-3">
+                            <div class="w-10 h-10 rounded-lg bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white flex-shrink-0">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                            </div>
+                            <div class="text-left">
+                                <h2 class="text-lg font-semibold text-text-primary">
+                                    @module.DisplayName
+                                    @if (module.IsSlashGroup && !string.IsNullOrEmpty(module.GroupName))
+                                    {
+                                        <span class="text-text-tertiary font-normal text-sm ml-2">/@module.GroupName</span>
+                                    }
+                                </h2>
+                                @if (!string.IsNullOrEmpty(module.Description))
+                                {
+                                    <p class="text-sm text-text-secondary">@module.Description</p>
+                                }
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="text-sm text-text-tertiary">@module.CommandCount command@(module.CommandCount != 1 ? "s" : "")</span>
+                            <svg class="w-5 h-5 text-text-tertiary transition-transform duration-200 @(expanded ? "" : "rotate-180")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </button>
+
+                    @if (expanded)
+                    {
+                        <div class="border-t border-border-primary">
+                            <div class="divide-y divide-border-secondary">
+                                @foreach (var command in module.Commands)
+                                {
+                                    <div class="px-6 py-4 hover:bg-bg-hover/30 transition-colors">
+                                        <div class="flex flex-col lg:flex-row lg:items-start gap-3">
+                                            <div class="flex-1 min-w-0">
+                                                <div class="flex flex-wrap items-center gap-2 mb-1">
+                                                    <code class="text-accent-orange font-mono font-semibold text-sm">@command.FullDisplayName</code>
+                                                    @if (!string.IsNullOrEmpty(command.ParametersDisplay))
+                                                    {
+                                                        <code class="text-text-tertiary font-mono text-sm">@command.ParametersDisplay</code>
+                                                    }
+                                                </div>
+                                                <p class="text-sm text-text-secondary">@command.Description</p>
+
+                                                @if (command.HasParameters)
+                                                {
+                                                    <div class="mt-3 space-y-2">
+                                                        @foreach (var param in command.Parameters)
+                                                        {
+                                                            <div class="flex items-start gap-2 text-sm">
+                                                                <span class="font-mono text-text-primary">@param.Name</span>
+                                                                <span class="text-text-tertiary">(@param.Type@(param.IsRequired ? ", required" : ", optional"))</span>
+                                                                @if (!string.IsNullOrEmpty(param.Description))
+                                                                {
+                                                                    <span class="text-text-secondary">- @param.Description</span>
+                                                                }
+                                                            </div>
+                                                            @if (param.HasChoices)
+                                                            {
+                                                                <div class="ml-4 text-xs text-text-tertiary">
+                                                                    Choices: @string.Join(", ", param.Choices!)
+                                                                </div>
+                                                            }
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
+
+                                            @if (command.HasPreconditions)
+                                            {
+                                                <div class="flex flex-wrap gap-2 lg:flex-shrink-0">
+                                                    @foreach (var badge in command.PreconditionBadges)
+                                                    {
+                                                        @Badge(badge.Text, badge.Variant)
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    }
+    else
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+            <h3 class="text-lg font-semibold text-text-primary mb-2">No commands loaded</h3>
+            <p class="text-sm text-text-secondary">The bot hasn't loaded any command modules yet. Commands will appear once the bot has connected to Discord.</p>
+        </div>
+    }
+</div>
+
+@* ---------- Execution Logs ---------- *@
+<div class="@(_activeTab == "execution-logs" ? "" : "hidden")" role="tabpanel">
+    <!-- Filter Panel -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <button type="button"
+                class="w-full flex items-center justify-between px-5 py-4 text-left"
+                aria-expanded="@(_logFiltersExpanded ? "true" : "false")"
+                @onclick="() => _logFiltersExpanded = !_logFiltersExpanded">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-lg font-semibold text-text-primary">Filters</span>
+                @if (_logActiveFilterCount > 0)
+                {
+                    @Badge($"{_logActiveFilterCount} active", BadgeVariant.Orange)
+                }
+            </div>
+            <svg class="w-5 h-5 text-text-secondary transition-transform duration-200 @(_logFiltersExpanded ? "rotate-180" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        @if (_logFiltersExpanded)
+        {
+            <div class="border-t border-border-primary p-6">
+                <!-- Quick Date Presets -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                    <div class="flex flex-wrap gap-2">
+                        @foreach (var preset in _datePresets)
+                        {
+                            var active = IsLogPreset(preset.Days);
+                            <button type="button"
+                                    @onclick="() => ApplyLogPresetAsync(preset.Days)"
+                                    class="px-4 py-2 text-sm font-medium rounded-lg transition-colors border @(active ? "bg-accent-blue text-white border-accent-blue" : "bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover")">
+                                @preset.Label
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Filter Grid -->
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                        <input type="date" @bind="_logStartDate" @bind:after="ApplyLogFiltersAsync" class="@FilterFieldClass" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                        <input type="date" @bind="_logEndDate" @bind:after="ApplyLogFiltersAsync" class="@FilterFieldClass" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Server</label>
+                        <select @onchange="OnLogGuildChanged" class="@FilterFieldClass">
+                            <option value="" selected="@(_logGuildId == null)">All Servers</option>
+                            @foreach (var guild in _guilds)
+                            {
+                                <option value="@guild.Id" selected="@(_logGuildId == guild.Id)">@guild.Name</option>
+                            }
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Command</label>
+                        <input type="text" @bind="_commandName" @bind:event="oninput" @bind:after="OnLogTextFilterInput"
+                               placeholder="Filter by command name..." class="@FilterFieldClass" />
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                        <select @onchange="OnLogStatusChanged" class="@FilterFieldClass">
+                            <option value="" selected="@(_statusFilter == null)">All Statuses</option>
+                            <option value="true" selected="@(_statusFilter == true)">Success</option>
+                            <option value="false" selected="@(_statusFilter == false)">Failure</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Search -->
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                    <input type="text" @bind="_searchTerm" @bind:event="oninput" @bind:after="OnLogTextFilterInput"
+                           placeholder="Search in user names, command names, parameters..." class="@FilterFieldClass" />
+                </div>
+
+                @if (_logActiveFilterCount > 0)
+                {
+                    <button type="button" @onclick="ClearLogFiltersAsync" class="btn btn-secondary">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                        Clear Filters
+                    </button>
+                }
+            </div>
+        }
+    </div>
+
+    <!-- Results -->
+    @if (_loadingLogs)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 flex items-center justify-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-blue"></div>
+        </div>
+    }
+    else
+    {
+        var startItem = _logsVm.TotalCount > 0 ? (_logsVm.CurrentPage - 1) * _logsVm.PageSize + 1 : 0;
+        var endItem = Math.Min(_logsVm.CurrentPage * _logsVm.PageSize, _logsVm.TotalCount);
+
+        <div class="flex items-center justify-between mb-4">
+            @if (_logsVm.TotalCount > 0)
+            {
+                <div class="text-sm text-text-secondary">
+                    Showing <span class="font-semibold text-text-primary">@startItem</span> to <span class="font-semibold text-text-primary">@endItem</span> of <span class="font-semibold text-text-primary">@_logsVm.TotalCount</span> results
+                </div>
+            }
+            else
+            {
+                <div></div>
+            }
+        </div>
+
+        @if (_logsVm.Logs.Any())
+        {
+            <!-- Desktop Table -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+                <div class="overflow-x-auto">
+                    <table class="w-full">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Timestamp</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Command</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Server</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">User</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Duration (ms)</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Status</th>
+                                <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            @foreach (var log in _logsVm.Logs)
+                            {
+                                <tr class="hover:bg-bg-hover/50 transition-colors">
+                                    <td class="px-6 py-4 text-text-secondary text-sm whitespace-nowrap">
+                                        <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds"></span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <span class="font-mono text-sm text-accent-blue">/@log.CommandName</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                        @if (log.GuildId.HasValue)
+                                        {
+                                            <span class="preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                                        }
+                                        else
+                                        {
+                                            @log.GuildName
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4 text-text-secondary text-sm">
+                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" data-context-guild-id="@log.GuildId">@log.Username</span>
+                                    </td>
+                                    <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">@log.ResponseTimeMs</td>
+                                    <td class="px-6 py-4">
+                                        @if (log.Success)
+                                        {
+                                            @Badge("Success", BadgeVariant.Success)
+                                        }
+                                        else
+                                        {
+                                            @Badge("Failed", BadgeVariant.Error)
+                                        }
+                                        @if (!string.IsNullOrEmpty(log.ErrorMessage))
+                                        {
+                                            <div class="mt-1 text-xs text-error truncate max-w-xs" title="@log.ErrorMessage">@log.ErrorMessage</div>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <button type="button" @onclick="() => OpenDetailsAsync(log.Id)" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View</button>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile Cards -->
+            <div class="md:hidden space-y-4">
+                @foreach (var log in _logsVm.Logs)
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 space-y-3">
+                        <div class="flex items-start justify-between gap-3">
+                            <div class="flex-1 min-w-0">
+                                <span class="font-mono text-sm text-accent-blue">/@log.CommandName</span>
+                                <div class="text-xs text-text-tertiary mt-1">
+                                    <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds"></span>
+                                </div>
+                            </div>
+                            @if (log.Success)
+                            {
+                                @Badge("Success", BadgeVariant.Success)
+                            }
+                            else
+                            {
+                                @Badge("Failed", BadgeVariant.Error)
+                            }
+                        </div>
+                        <div class="text-sm text-text-secondary space-y-1">
+                            <div>
+                                <span class="font-medium text-text-primary">User:</span>
+                                <span class="preview-trigger" data-preview-type="user" data-user-id="@log.UserId" data-context-guild-id="@log.GuildId">@log.Username</span>
+                            </div>
+                            <div>
+                                <span class="font-medium text-text-primary">Server:</span>
+                                @if (log.GuildId.HasValue)
+                                {
+                                    <span class="preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+                                }
+                                else
+                                {
+                                    @log.GuildName
+                                }
+                            </div>
+                            <div><span class="font-medium text-text-primary">Duration:</span> @log.ResponseTimeMs ms</div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(log.ErrorMessage))
+                        {
+                            <div class="text-xs text-error bg-error/10 border border-error/20 rounded px-2 py-1.5">@log.ErrorMessage</div>
+                        }
+                        <div>
+                            <button type="button" @onclick="() => OpenDetailsAsync(log.Id)" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">View Details →</button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <Pagination CurrentPage="_logsVm.CurrentPage" TotalPages="_logsVm.TotalPages" OnPageChange="LoadLogsAsync" />
+        }
+        else
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+                <h3 class="text-lg font-semibold text-text-primary mb-2">No command logs found</h3>
+                <p class="text-sm text-text-secondary">
+                    @(_logActiveFilterCount > 0 ? "Try adjusting your filters or date range." : "Command logs will appear here once commands are executed.")
+                </p>
+            </div>
+        }
+    }
+</div>
+
+@* ---------- Analytics (Chart.js, delegated) ---------- *@
+<div class="@(_activeTab == "analytics" ? "" : "hidden")" role="tabpanel">
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6 p-6">
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                <input type="date" @bind="_analyticsStartDate" class="@FilterFieldClass" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                <input type="date" @bind="_analyticsEndDate" class="@FilterFieldClass" />
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-text-primary mb-1">Server</label>
+                <select @onchange="OnAnalyticsGuildChanged" class="@FilterFieldClass">
+                    <option value="" selected="@(_analyticsGuildId == null)">All Servers</option>
+                    @foreach (var guild in _guilds)
+                    {
+                        <option value="@guild.Id" selected="@(_analyticsGuildId == guild.Id)">@guild.Name</option>
+                    }
+                </select>
+            </div>
+        </div>
+        <button type="button" class="btn btn-primary" @onclick="ApplyAnalyticsFilters">Apply Filters</button>
+    </div>
+
+    <div id="@AnalyticsHostId">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8 text-center">
+            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-blue mx-auto"></div>
+        </div>
+    </div>
+</div>
+
+<ConfirmModal @ref="_confirmModal" />
+
+@* ---------- Log details modal (native) ---------- *@
+@if (_detailsVisible)
+{
+    <div class="fixed inset-0 z-[var(--z-modal)]" role="dialog" aria-modal="true" aria-labelledby="commandLogModalTitle">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" @onclick="CloseDetails" aria-hidden="true"></div>
+        <div class="fixed inset-0 flex items-center justify-center p-8 pt-24 pb-8 overflow-y-auto">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-xl w-full max-w-3xl max-h-[calc(100vh-12rem)] flex flex-col" role="document">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary flex-shrink-0">
+                    <h2 id="commandLogModalTitle" class="text-lg font-semibold text-text-primary">Command Log Details</h2>
+                    <button type="button" @onclick="CloseDetails" class="text-text-tertiary hover:text-text-primary transition-colors" aria-label="Close modal">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+                <div class="px-6 py-6 overflow-y-auto flex-1">
+                    @if (_detailsLoading || _detailsVm == null)
+                    {
+                        <div class="flex items-center justify-center py-12">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-blue"></div>
+                        </div>
+                    }
+                    else
+                    {
+                        @DetailsContent(_detailsVm)
+                    }
+                </div>
+                <div class="flex justify-end px-6 py-4 border-t border-border-primary bg-bg-tertiary rounded-b-lg flex-shrink-0">
+                    <button type="button" @onclick="CloseDetails" class="btn btn-secondary">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Whether the current user is an Admin/SuperAdmin (gates the Clear &amp; Re-register action).</summary>
+    [Parameter] public bool IsAdmin { get; set; }
+
+    /// <summary>Tab to open initially: command-list | execution-logs | analytics.</summary>
+    [Parameter] public string InitialTab { get; set; } = "command-list";
+
+    // Initial filter values forwarded from the host page query string (parity with legacy URL state).
+    [Parameter] public DateTime? InitialStartDate { get; set; }
+    [Parameter] public DateTime? InitialEndDate { get; set; }
+    [Parameter] public string? InitialGuildId { get; set; }
+    [Parameter] public string? InitialSearchTerm { get; set; }
+    [Parameter] public string? InitialCommandName { get; set; }
+    [Parameter] public bool? InitialStatusFilter { get; set; }
+
+    private const string AnalyticsHostId = "commands-analytics-host";
+    private const string FilterFieldClass = "w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors";
+    private const int LogPageSize = 25;
+
+    private readonly (string Id, string Label)[] _tabs =
+    {
+        ("command-list", "Command List"),
+        ("execution-logs", "Execution Logs"),
+        ("analytics", "Analytics"),
+    };
+
+    private readonly (string Label, int Days)[] _datePresets =
+    {
+        ("Today", 0),
+        ("Last 7 Days", 7),
+        ("Last 30 Days", 30),
+    };
+
+    private ConfirmModal _confirmModal = default!;
+    private CommandsListViewModel _listVm = new();
+    private readonly HashSet<string> _expandedModules = new();
+    private IReadOnlyList<GuildDto> _guilds = Array.Empty<GuildDto>();
+    private string _activeTab = "command-list";
+    private bool _clearing;
+
+    // Logs state
+    private CommandLogListViewModel _logsVm = new();
+    private bool _logsLoaded;
+    private bool _loadingLogs;
+    private bool _logFiltersExpanded = true;
+    private string? _searchTerm;
+    private string? _commandName;
+    private ulong? _logGuildId;
+    private DateTime? _logStartDate;
+    private DateTime? _logEndDate;
+    private bool? _statusFilter;
+    private Debouncer _searchDebouncer = new(300);
+    private bool _needTimeConvert;
+
+    // Analytics state
+    private DateTime? _analyticsStartDate;
+    private DateTime? _analyticsEndDate;
+    private ulong? _analyticsGuildId;
+    private string? _analyticsLoadedQuery;
+
+    private bool _disposed;
+
+    private int _logActiveFilterCount =>
+        (_logStartDate.HasValue ? 1 : 0) +
+        (_logEndDate.HasValue ? 1 : 0) +
+        (_logGuildId.HasValue ? 1 : 0) +
+        (!string.IsNullOrWhiteSpace(_searchTerm) ? 1 : 0) +
+        (!string.IsNullOrWhiteSpace(_commandName) ? 1 : 0) +
+        (_statusFilter.HasValue ? 1 : 0);
+
+    protected override async Task OnInitializedAsync()
+    {
+        _activeTab = _tabs.Any(t => t.Id == InitialTab) ? InitialTab : "command-list";
+
+        // Seed log filters from the host query string; default to the last 7 days (legacy default).
+        var today = DateTime.UtcNow.Date;
+        _logStartDate = InitialStartDate ?? today.AddDays(-7);
+        _logEndDate = InitialEndDate ?? today;
+        _searchTerm = InitialSearchTerm;
+        _commandName = InitialCommandName;
+        _statusFilter = InitialStatusFilter;
+        if (!string.IsNullOrEmpty(InitialGuildId) && ulong.TryParse(InitialGuildId, out var gid))
+        {
+            _logGuildId = gid;
+        }
+
+        _analyticsStartDate = InitialStartDate ?? today.AddDays(-30);
+        _analyticsEndDate = InitialEndDate ?? today;
+        _analyticsGuildId = _logGuildId;
+
+        using var scope = ScopeFactory.CreateScope();
+        var metadata = scope.ServiceProvider.GetRequiredService<ICommandMetadataService>();
+        var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+
+        var modules = await metadata.GetAllModulesAsync();
+        _listVm = CommandsListViewModel.FromDtos(modules);
+        foreach (var module in _listVm.Modules)
+        {
+            _expandedModules.Add(module.ModuleId);
+        }
+
+        _guilds = await guildService.GetAllGuildsAsync();
+
+        // Pre-load logs server-side so the tab prerenders with content when it is the initial tab.
+        if (_activeTab == "execution-logs")
+        {
+            await LoadLogsAsync(1);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_activeTab == "analytics")
+        {
+            var query = BuildAnalyticsQuery();
+            if (_analyticsLoadedQuery != query)
+            {
+                _analyticsLoadedQuery = query;
+                await SafeInvokeAsync("commandsIslandInterop.loadAnalytics", AnalyticsHostId, query);
+            }
+        }
+
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            await SafeInvokeAsync("commandsIslandInterop.convertTimes");
+        }
+    }
+
+    private async Task SetTabAsync(string tab)
+    {
+        _activeTab = tab;
+        if (tab == "execution-logs" && !_logsLoaded)
+        {
+            await LoadLogsAsync(1);
+        }
+        // Analytics loads itself in OnAfterRenderAsync once its host element is shown.
+    }
+
+    private void ToggleModule(string moduleId)
+    {
+        if (!_expandedModules.Remove(moduleId))
+        {
+            _expandedModules.Add(moduleId);
+        }
+    }
+
+    // ----- Logs loading & filters -----
+
+    private async Task LoadLogsAsync(int page)
+    {
+        _loadingLogs = true;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var logService = scope.ServiceProvider.GetRequiredService<ICommandLogService>();
+
+            var query = new CommandLogQueryDto
+            {
+                SearchTerm = _searchTerm,
+                GuildId = _logGuildId,
+                CommandName = _commandName,
+                StartDate = _logStartDate,
+                EndDate = _logEndDate,
+                SuccessOnly = _statusFilter,
+                Page = page < 1 ? 1 : page,
+                PageSize = LogPageSize,
+            };
+
+            var result = await logService.GetLogsAsync(query);
+            var filters = new CommandLogFilterOptions
+            {
+                SearchTerm = _searchTerm,
+                GuildId = _logGuildId,
+                CommandName = _commandName,
+                StartDate = _logStartDate,
+                EndDate = _logEndDate,
+                SuccessOnly = _statusFilter,
+            };
+            _logsVm = CommandLogListViewModel.FromPaginatedDto(result, filters);
+            _logsLoaded = true;
+            _needTimeConvert = true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to load command logs.");
+        }
+        finally
+        {
+            _loadingLogs = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task ApplyLogFiltersAsync() => LoadLogsAsync(1);
+
+    private async Task OnLogTextFilterInput()
+    {
+        await _searchDebouncer.DebounceAsync(async _ =>
+            await InvokeAsync(() => LoadLogsAsync(1)));
+    }
+
+    private async Task OnLogGuildChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        _logGuildId = string.IsNullOrEmpty(raw) ? null : ulong.Parse(raw, CultureInfo.InvariantCulture);
+        await LoadLogsAsync(1);
+    }
+
+    private async Task OnLogStatusChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        _statusFilter = string.IsNullOrEmpty(raw) ? null : bool.Parse(raw);
+        await LoadLogsAsync(1);
+    }
+
+    private async Task ApplyLogPresetAsync(int days)
+    {
+        var today = DateTime.UtcNow.Date;
+        _logStartDate = today.AddDays(-days);
+        _logEndDate = today;
+        await LoadLogsAsync(1);
+    }
+
+    private bool IsLogPreset(int days)
+    {
+        var today = DateTime.UtcNow.Date;
+        return _logStartDate?.Date == today.AddDays(-days) && _logEndDate?.Date == today;
+    }
+
+    private async Task ClearLogFiltersAsync()
+    {
+        _searchTerm = null;
+        _commandName = null;
+        _logGuildId = null;
+        _statusFilter = null;
+        _logStartDate = null;
+        _logEndDate = null;
+        await LoadLogsAsync(1);
+    }
+
+    // ----- Analytics -----
+
+    private string BuildAnalyticsQuery()
+    {
+        var sb = new StringBuilder();
+        if (_analyticsStartDate.HasValue)
+        {
+            sb.Append("startDate=").Append(_analyticsStartDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        }
+        if (_analyticsEndDate.HasValue)
+        {
+            if (sb.Length > 0) sb.Append('&');
+            sb.Append("endDate=").Append(_analyticsEndDate.Value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        }
+        if (_analyticsGuildId.HasValue)
+        {
+            if (sb.Length > 0) sb.Append('&');
+            sb.Append("guildId=").Append(_analyticsGuildId.Value.ToString(CultureInfo.InvariantCulture));
+        }
+        return sb.ToString();
+    }
+
+    private void OnAnalyticsGuildChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        _analyticsGuildId = string.IsNullOrEmpty(raw) ? null : ulong.Parse(raw, CultureInfo.InvariantCulture);
+    }
+
+    private void ApplyAnalyticsFilters()
+    {
+        // Force a reload on the next render (OnAfterRenderAsync compares against the loaded query).
+        _analyticsLoadedQuery = null;
+    }
+
+    // ----- Clear & re-register -----
+
+    private async Task ClearAndRegisterAsync()
+    {
+        // Defense in depth: re-check the role inside the circuit, not just the host-page param.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        if (!authState.User.IsInRole("Admin") && !authState.User.IsInRole("SuperAdmin"))
+        {
+            await Toast.ErrorAsync("You do not have permission to perform this action.");
+            return;
+        }
+
+        var ok = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Clear & Re-register Commands Globally",
+            Message = "This will clear all registered commands (global and guild-specific) and re-register them globally. Global commands may take up to 1 hour to propagate to all servers. Are you sure you want to continue?",
+            ConfirmText = "Clear & Re-register",
+            Variant = ConfirmationVariant.Warning,
+        });
+        if (!ok)
+        {
+            return;
+        }
+
+        _clearing = true;
+        StateHasChanged();
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var registration = scope.ServiceProvider.GetRequiredService<ICommandRegistrationService>();
+            var result = await registration.ClearAndRegisterGloballyAsync();
+
+            if (result.Success)
+            {
+                await Toast.SuccessAsync(result.Message);
+            }
+            else
+            {
+                await Toast.ErrorAsync(result.Message);
+            }
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to clear and re-register commands. Please check logs for details.");
+        }
+        finally
+        {
+            _clearing = false;
+            StateHasChanged();
+        }
+    }
+
+    // ----- Details modal -----
+
+    private async Task OpenDetailsAsync(Guid id)
+    {
+        _detailsVisible = true;
+        _detailsLoading = true;
+        _detailsVm = null;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var logService = scope.ServiceProvider.GetRequiredService<ICommandLogService>();
+            var log = await logService.GetByIdAsync(id);
+            _detailsVm = log == null ? null : CommandLogDetailsModalViewModel.FromDto(log);
+            _needTimeConvert = true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to load command log details.");
+            _detailsVm = null;
+        }
+        finally
+        {
+            _detailsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseDetails()
+    {
+        _detailsVisible = false;
+        _detailsVm = null;
+    }
+
+    private bool _detailsVisible;
+    private bool _detailsLoading;
+    private CommandLogDetailsModalViewModel? _detailsVm;
+
+    private async Task SafeInvokeAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
+        }
+        catch (JSDisconnectedException)
+        {
+            // Circuit gone — nothing to do.
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _searchDebouncer.Dispose();
+    }
+
+    // ----- Render helpers (@<text> markup-mode form) -----
+
+    private RenderFragment Badge(string text, BadgeVariant variant) => @<text>
+        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full @BadgeClasses(variant)">@text</span>
+    </text>;
+
+    private static string BadgeClasses(BadgeVariant variant) => variant switch
+    {
+        BadgeVariant.Orange => "bg-accent-orange text-white",
+        BadgeVariant.Blue => "bg-accent-blue text-white",
+        BadgeVariant.Success => "bg-success text-white",
+        BadgeVariant.Warning => "bg-warning text-bg-primary",
+        BadgeVariant.Error => "bg-error text-white",
+        BadgeVariant.Info => "bg-info text-white",
+        _ => "bg-bg-tertiary text-text-secondary",
+    };
+
+    private RenderFragment DetailsContent(CommandLogDetailsModalViewModel m) => @<text>
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold text-text-primary mb-3">Command Information</h3>
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 space-y-3">
+                <div>
+                    <div class="text-sm text-text-tertiary mb-1">Command</div>
+                    <div class="text-lg font-mono text-accent-blue font-bold">@m.FullCommandText</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold text-text-primary mb-3">Execution Details</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+                    <div class="text-sm text-text-tertiary font-medium mb-2">Executed At</div>
+                    <p class="text-base font-semibold text-text-primary" data-utc="@m.ExecutedAtUtcIso" data-format="datetime-seconds"></p>
+                </div>
+                <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+                    <div class="text-sm text-text-tertiary font-medium mb-2">Response Time</div>
+                    <div class="flex items-center gap-2">
+                        <p class="text-base font-semibold text-text-primary">@m.ResponseTimeMs ms</p>
+                        @if (m.ResponseTimeMs < 1000)
+                        {
+                            @Badge("Fast", BadgeVariant.Success)
+                        }
+                        else if (m.ResponseTimeMs < 3000)
+                        {
+                            @Badge("Normal", BadgeVariant.Blue)
+                        }
+                        else
+                        {
+                            @Badge("Slow", BadgeVariant.Warning)
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold text-text-primary mb-3">User Information</h3>
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+                <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="user" data-user-id="@m.UserId" data-context-guild-id="@m.GuildId">
+                    <p class="text-base font-semibold text-text-primary">@m.Username</p>
+                    <p class="text-xs text-text-tertiary font-mono mt-1">ID: @m.UserId</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold text-text-primary mb-3">Server Information</h3>
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+                @if (m.GuildId.HasValue)
+                {
+                    <div class="preview-trigger cursor-pointer hover:underline" data-preview-type="guild" data-guild-id="@m.GuildId">
+                        <p class="text-base font-semibold text-text-primary">@m.GuildName</p>
+                        <p class="text-xs text-text-tertiary font-mono mt-1">ID: @m.GuildId</p>
+                    </div>
+                }
+                else
+                {
+                    <p class="text-base font-semibold text-text-primary">@m.GuildName</p>
+                }
+            </div>
+        </div>
+
+        @if (m.HasParameters)
+        {
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-text-primary mb-3">Parameters</h3>
+                <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 overflow-x-auto">
+                    <pre class="text-sm text-text-primary font-mono whitespace-pre-wrap">@m.FormattedParameters</pre>
+                </div>
+            </div>
+        }
+
+        <div class="mb-6">
+            <h3 class="text-lg font-semibold text-text-primary mb-3">Status</h3>
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+                @if (m.IsSuccess)
+                {
+                    <span class="text-lg font-semibold text-success">Success</span>
+                }
+                else
+                {
+                    <span class="text-lg font-semibold text-error">Failed</span>
+                }
+            </div>
+        </div>
+
+        @if (m.HasError)
+        {
+            <div class="mb-6">
+                <h3 class="text-lg font-semibold text-text-primary mb-3">Error Details</h3>
+                <div class="bg-error/10 border border-error/20 rounded-lg p-4">
+                    <p class="text-sm font-semibold text-error mb-1">Error Message</p>
+                    <p class="text-sm text-error">@m.ErrorMessage</p>
+                </div>
+            </div>
+        }
+    </text>;
+}

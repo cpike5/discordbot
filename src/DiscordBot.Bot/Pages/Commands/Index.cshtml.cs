@@ -45,6 +45,14 @@ public class IndexModel : PageModel
     public string ActiveTab { get; set; } = "command-list";
 
     /// <summary>
+    /// Gets or sets whether to render the legacy JavaScript-driven UI instead of the
+    /// Blazor island. Parity gate (plan §9): reachable at <c>?legacy=true</c> until the
+    /// island reaches full parity, then the legacy branch is removed.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool Legacy { get; set; }
+
+    /// <summary>
     /// Gets the view model containing command list data for the Command List tab.
     /// </summary>
     public CommandsListViewModel ViewModel { get; private set; } = new();

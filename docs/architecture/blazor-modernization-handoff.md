@@ -54,8 +54,31 @@ parity end-to-end.
 > reflects state. Inline per-category alerts were dropped in favour of the shared toast path
 > (matches Slices 1–2). The legacy JS UI + page handlers stay reachable at `?legacy=true` (parity
 > gate); host wires `param-IsSuperAdmin`/`param-InitialCategory` and loads `moderation.css` for the
-> shared `.settings-tabs` styles. **Your job is now Slice 4** (Commands List+Logs islands —
-> `FilterableTable`/`Pagination`/log-details modal; Analytics stays Chart.js; see plan §5.2 Tier 1 #3, §7).
+> shared `.settings-tabs` styles.
+
+> **Slice 4 status: DONE.** `Bot/Blazor/Pages/CommandsIsland.razor` owns the interactive body of
+> `/Commands`, replacing the AJAX tab-loader stack (`command-tabs.js`, `command-tab-loader.js`,
+> `command-filters.js`, `command-pagination.js`, `command-log-modal.js`, `date-range-filter.js`,
+> `url-state.js`) for the **Command List** and **Execution Logs** tabs. List is a native accordion;
+> Logs is a native filter panel (debounced search/command via `Debouncer`, date presets,
+> guild/status selects), results table + mobile cards, the new reusable
+> `Bot/Blazor/Shared/Pagination.razor`, and a **native** log-details modal (replaces
+> `command-log-modal.js` + `/api/commands/log-details`). The admin **Clear & Re-register Globally**
+> action runs through `ConfirmModal` (re-checks the Admin/SuperAdmin role inside the circuit).
+> **Analytics deliberately stays on Chart.js** (plan §5.2 #3 "don't block on charting"): the island
+> delegates that one tab to the unchanged `/api/commands/analytics` partial + its embedded chart
+> init via the new `wwwroot/js/commands-island-interop.js` shim (`loadAnalytics` re-execs the
+> partial's scripts; `convertTimes` reruns `timezoneUtils.convertDisplayTimes` for the logs
+> timestamps). Data access resolves the existing
+> `ICommandMetadataService`/`ICommandLogService`/`IGuildService`/`ICommandRegistrationService` in a
+> DI scope per op. The legacy JS UI + page handlers + tab partials stay reachable at `?legacy=true`
+> (parity gate); the host loads `moderation.css` (shared `.settings-tabs`) and, in island mode, only
+> Chart.js + the interop shim (Blazor bootstrap/timezone/preview-popup are global in `_Layout`).
+> `FilterableTable` was **not** built as a generic component this slice — the logs table is rendered
+> inline in the island; co-designing a reusable `FilterableTable` is deferred to Slice 5 (Member
+> Directory) where a second real consumer makes the generics concrete. **Your job is now Slice 5**
+> (Member Directory island — `FilterableTable` + `Virtualize`; replaces `member-directory.js`; see
+> plan §5.2 Tier 2 #4, §7).
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.

@@ -51,9 +51,15 @@ host Razor Page; the island inherits them. **Do not** convert whole pages or add
   `AdminSettingsIsland` (Slice 3, `/Admin/Settings` body — replaces `settings.js`; 7 tabs, per-category
   & global save/reset, command modules, appearance (SuperAdmin), Bot Control with event-bus live status
   + restart/typed-confirm shutdown; audit-log enqueues mirror the page handlers),
+  `CommandsIsland` (Slice 4, `/Commands` body — replaces the AJAX tab-loader stack for the Command
+  List + Execution Logs tabs: native accordion, debounced filter panel, results table/cards, native
+  log-details modal, admin clear/re-register via `ConfirmModal`; the Analytics tab stays on Chart.js,
+  delegated to `/api/commands/analytics` via `commands-island-interop.js`),
   `FoundationProbe` (Phase 0 PoC on `/Components`).
 - **Shared kit additions:** `TypedConfirmModal` (Slice 3) — awaitable type-to-confirm dialog mirroring
-  `_TypedConfirmationModal.cshtml`, used for the bot shutdown flow.
+  `_TypedConfirmationModal.cshtml`, used for the bot shutdown flow. `Pagination` (Slice 4) — reusable
+  numbered-window pager raising `OnPageChange`; Member Directory (Slice 5) reuses it. (A generic
+  `FilterableTable` is intentionally still deferred — to be co-designed in Slice 5 with a second consumer.)
 - **Blazor bootstrap is global** (Slice 2): the bell lives in `_Navbar`, so `_Layout` starts the
   circuit for every layout page (`blazor.server.js` autostart=false + `blazor-interop.js`, after
   toast/theme). Host pages no longer add their own `blazor.server.js`.
