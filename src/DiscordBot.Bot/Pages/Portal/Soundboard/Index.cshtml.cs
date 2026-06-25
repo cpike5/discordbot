@@ -92,6 +92,14 @@ public class IndexModel : PortalPageModelBase
     public string? CurrentUserId { get; set; }
 
     /// <summary>
+    /// When true, renders the legacy JavaScript-driven soundboard grid instead of the
+    /// Blazor island (parity gate — see blazor-modernization-selective-plan.md §9).
+    /// Reachable at <c>?legacy=true</c>.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool Legacy { get; set; }
+
+    /// <summary>
     /// Handles GET requests to display the Soundboard Portal page.
     /// Shows a landing page for unauthenticated users.
     /// </summary>

@@ -1,0 +1,593 @@
+@namespace DiscordBot.Bot.Blazor.Pages
+@using System.Globalization
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Shared
+@using Microsoft.AspNetCore.Components.Web.Virtualization
+@using DiscordBot.Bot.Interfaces
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Entities
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@implements IAsyncDisposable
+@inject IServiceScopeFactory ScopeFactory
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+
+@*
+    Slice 6 — Soundboard portal grid island. Owns the interactive body of the
+    .sound-grid-wrapper on /Portal/Soundboard/{id}: the search bar, sort, the
+    virtualized sound grid, favorites, preview/play, and self-delete. Replaces the
+    hand-rolled VirtualSoundGrid + IntersectionObserver in portal-soundboard.js with
+    Blazor <Virtualize> over rows. Audio playback (browser preview + bot play) stays in
+    JS via soundboard-island.js (low-latency client behavior; reads the voice panel DOM
+    state). Real-time playback/upload/delete events arrive over DashboardHub and are
+    bridged back into this circuit through a DotNetObjectReference. The upload widget
+    (soundboard-upload.js) keeps file bytes off the circuit and talks to this island
+    through the JSInvokable bridge methods at the bottom.
+*@
+
+<div class="search-container">
+    <div class="search-input-wrapper">
+        <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+        <input type="text" class="search-input" placeholder="Search sounds..." style="padding-right: 2.5rem;"
+               value="@_search" @oninput="OnSearchInput" aria-label="Search sounds" />
+        <button type="button" class="search-clear-btn @(string.IsNullOrEmpty(_search) ? "" : "visible")"
+                title="Clear search" @onclick="ClearSearchAsync">
+            <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    </div>
+    <select class="sort-select" title="Sort sounds" aria-label="Sort sounds" @onchange="OnSortChanged">
+        <option value="name-asc" selected="@(_sort == "name-asc")">A-Z</option>
+        <option value="name-desc" selected="@(_sort == "name-desc")">Z-A</option>
+        <option value="most-played" selected="@(_sort == "most-played")">Most Played</option>
+        <option value="newest" selected="@(_sort == "newest")">Newest</option>
+        <option value="oldest" selected="@(_sort == "oldest")">Oldest</option>
+    </select>
+    <button type="button" class="fullscreen-toggle-btn" title="Enter full screen" aria-label="Enter full screen"
+            @onclick="ToggleFullscreenAsync">
+        <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
+        </svg>
+    </button>
+</div>
+
+@if (_visible.Count > 0)
+{
+    <div class="island-sound-scroll" style="flex:1; min-height:0; overflow-y:auto; overflow-x:hidden;">
+        <Virtualize Items="_rows" Context="row" ItemSize="166" OverscanCount="2">
+            <div style="display:grid; grid-template-columns:repeat(@_columns, 1fr); gap:1rem; align-content:start; margin-bottom:1rem;">
+                @foreach (var sound in row)
+                {
+                    var isFav = _favorites.Contains(sound.Id);
+                    var canDelete = !string.IsNullOrEmpty(sound.UploadedById) && sound.UploadedById == CurrentUserId;
+                    <div class="sound-card @(_playingId == sound.Id ? "playing" : "")" @key="sound.Id"
+                         role="button" tabindex="0" aria-label="@($"Play {sound.Name}")"
+                         @onclick="() => PlayAsync(sound)"
+                         @onkeydown="e => OnCardKeyDown(e, sound)">
+                        <button type="button" class="preview-btn @(_previewingId == sound.Id ? "previewing" : "")"
+                                title="Preview in browser" aria-label="@($"Preview {sound.Name} in browser")"
+                                @onclick="() => PreviewAsync(sound)" @onclick:stopPropagation="true">
+                            <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            </svg>
+                        </button>
+                        <button type="button" class="favorite-btn @(isFav ? "active" : "")"
+                                title="@(isFav ? "Remove from favorites" : "Add to favorites")" aria-pressed="@(isFav ? "true" : "false")"
+                                @onclick="() => ToggleFavoriteAsync(sound)" @onclick:stopPropagation="true">
+                            <svg style="width: 20px; height: 20px;" fill="@(isFav ? "currentColor" : "none")" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                            </svg>
+                        </button>
+                        <div class="play-icon-wrapper">
+                            <svg class="play-icon" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M8 5v14l11-7z" />
+                            </svg>
+                        </div>
+                        <div class="sound-name">@sound.Name</div>
+                        <div class="sound-plays">@sound.PlayCount plays</div>
+                        @if (sound.DurationSeconds > 0)
+                        {
+                            <div class="sound-duration">@FormatDuration(sound.DurationSeconds)</div>
+                        }
+                        @if (canDelete)
+                        {
+                            <button type="button" class="delete-btn" title="Delete sound" aria-label="@($"Delete {sound.Name}")"
+                                    @onclick="() => DeleteAsync(sound)" @onclick:stopPropagation="true">
+                                <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
+        </Virtualize>
+    </div>
+}
+else
+{
+    <div class="empty-state">
+        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        @if (string.IsNullOrWhiteSpace(_search))
+        {
+            <p class="empty-state-title">No sounds yet</p>
+            <p class="empty-state-text">Upload a sound to get started</p>
+        }
+        else
+        {
+            <p class="empty-state-title">No sounds found</p>
+            <p class="empty-state-text">Try a different search term</p>
+        }
+    </div>
+}
+
+<ConfirmModal @ref="_confirm" />
+
+@code {
+    [Parameter] public string GuildId { get; set; } = string.Empty;
+    [Parameter] public string? CurrentUserId { get; set; }
+
+    private readonly List<SoundItem> _sounds = new();
+    private readonly HashSet<Guid> _favorites = new();
+    private List<SoundItem> _visible = new();
+    private List<SoundItem[]> _rows = new();
+    private string _search = string.Empty;
+    private string _sort = "name-asc";
+    private int _columns = 4;
+    private Guid? _playingId;
+    private Guid? _previewingId;
+
+    private ConfirmModal _confirm = default!;
+    private Debouncer? _searchDebounce;
+    private DotNetObjectReference<SoundboardIsland>? _selfRef;
+    private bool _registered;
+
+    private ulong GuildIdValue => ulong.TryParse(GuildId, out var g) ? g : 0UL;
+    private ulong? UserIdValue => ulong.TryParse(CurrentUserId, out var u) ? u : null;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _searchDebounce = new Debouncer(150);
+
+        using var scope = ScopeFactory.CreateScope();
+        var soundService = scope.ServiceProvider.GetRequiredService<ISoundService>();
+        var sounds = await soundService.GetAllByGuildAsync(GuildIdValue);
+        foreach (var s in sounds)
+        {
+            _sounds.Add(new SoundItem(s.Id, s.Name, s.PlayCount, s.DurationSeconds,
+                s.UploadedById?.ToString(), s.UploadedAt));
+        }
+
+        var userId = UserIdValue;
+        if (userId.HasValue)
+        {
+            var favRepo = scope.ServiceProvider.GetRequiredService<IUserSoundFavoriteRepository>();
+            var favIds = await favRepo.GetFavoriteSoundIdsAsync(userId.Value, GuildIdValue);
+            foreach (var id in favIds)
+            {
+                _favorites.Add(id);
+            }
+        }
+
+        Recompute();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender || _registered)
+        {
+            return;
+        }
+
+        _registered = true;
+        _selfRef = DotNetObjectReference.Create(this);
+        try
+        {
+            await JS.InvokeVoidAsync("soundboardIsland.register", _selfRef, GuildId, CurrentUserId ?? string.Empty);
+            var savedSort = await JS.InvokeAsync<string?>("soundboardIsland.getSort");
+            var cols = await JS.InvokeAsync<int>("soundboardIsland.getColumns");
+            var changed = false;
+            if (!string.IsNullOrEmpty(savedSort) && savedSort != _sort)
+            {
+                _sort = savedSort;
+                changed = true;
+            }
+            if (cols > 0 && cols != _columns)
+            {
+                _columns = cols;
+                changed = true;
+            }
+            if (changed)
+            {
+                Recompute();
+                StateHasChanged();
+            }
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException)
+        {
+            // Circuit went away before we could register — nothing to do.
+        }
+    }
+
+    // ── Filtering / sorting ─────────────────────────────────────────────
+    private void Recompute()
+    {
+        IEnumerable<SoundItem> q = _sounds;
+        if (!string.IsNullOrWhiteSpace(_search))
+        {
+            var term = _search.Trim();
+            q = q.Where(s => s.Name.Contains(term, StringComparison.OrdinalIgnoreCase));
+        }
+
+        _visible = q.ToList();
+        _visible.Sort(Compare);
+
+        var rows = new List<SoundItem[]>();
+        var cols = Math.Max(1, _columns);
+        for (var i = 0; i < _visible.Count; i += cols)
+        {
+            rows.Add(_visible.Skip(i).Take(cols).ToArray());
+        }
+        _rows = rows;
+    }
+
+    private int Compare(SoundItem a, SoundItem b)
+    {
+        var af = _favorites.Contains(a.Id);
+        var bf = _favorites.Contains(b.Id);
+        if (af && !bf) return -1;
+        if (!af && bf) return 1;
+
+        return _sort switch
+        {
+            "name-desc" => string.Compare(b.Name, a.Name, StringComparison.OrdinalIgnoreCase),
+            "most-played" => b.PlayCount != a.PlayCount
+                ? b.PlayCount - a.PlayCount
+                : string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase),
+            "newest" => CompareDatesDesc(a.UploadedAt, b.UploadedAt),
+            "oldest" => CompareDatesAsc(a.UploadedAt, b.UploadedAt),
+            _ => string.Compare(a.Name, b.Name, StringComparison.OrdinalIgnoreCase),
+        };
+    }
+
+    private static int CompareDatesDesc(DateTime? a, DateTime? b)
+    {
+        if (a == null && b == null) return 0;
+        if (a == null) return 1;
+        if (b == null) return -1;
+        return b.Value.CompareTo(a.Value);
+    }
+
+    private static int CompareDatesAsc(DateTime? a, DateTime? b)
+    {
+        if (a == null && b == null) return 0;
+        if (a == null) return 1;
+        if (b == null) return -1;
+        return a.Value.CompareTo(b.Value);
+    }
+
+    private static string FormatDuration(double seconds)
+    {
+        var total = (int)Math.Floor(seconds);
+        if (total < 60) return $"{total}s";
+        return $"{total / 60}:{(total % 60).ToString("D2", CultureInfo.InvariantCulture)}";
+    }
+
+    // ── Search / sort handlers ──────────────────────────────────────────
+    private async Task OnSearchInput(ChangeEventArgs e)
+    {
+        _search = e.Value?.ToString() ?? string.Empty;
+        if (_searchDebounce is null)
+        {
+            Recompute();
+            StateHasChanged();
+            return;
+        }
+        await _searchDebounce.DebounceAsync(async _ =>
+        {
+            await InvokeAsync(() =>
+            {
+                Recompute();
+                StateHasChanged();
+            });
+        });
+    }
+
+    private Task ClearSearchAsync()
+    {
+        _search = string.Empty;
+        Recompute();
+        return Task.CompletedTask;
+    }
+
+    private async Task OnSortChanged(ChangeEventArgs e)
+    {
+        _sort = e.Value?.ToString() ?? "name-asc";
+        Recompute();
+        await SafeInvokeVoidAsync("soundboardIsland.setSort", _sort);
+    }
+
+    private async Task ToggleFullscreenAsync() => await SafeInvokeVoidAsync("soundboardIsland.toggleFullscreen");
+
+    // ── Card interactions ───────────────────────────────────────────────
+    private async Task OnCardKeyDown(KeyboardEventArgs e, SoundItem sound)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+        {
+            await PlayAsync(sound);
+        }
+    }
+
+    private async Task PlayAsync(SoundItem sound)
+        => await SafeInvokeVoidAsync("soundboardIsland.play", sound.Id.ToString());
+
+    private async Task PreviewAsync(SoundItem sound)
+    {
+        try
+        {
+            var playing = await JS.InvokeAsync<bool>("soundboardIsland.preview", sound.Id.ToString());
+            _previewingId = playing ? sound.Id : null;
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException)
+        {
+            // ignore
+        }
+    }
+
+    private async Task ToggleFavoriteAsync(SoundItem sound)
+    {
+        var userId = UserIdValue;
+        if (!userId.HasValue)
+        {
+            return;
+        }
+
+        var adding = !_favorites.Contains(sound.Id);
+
+        // Optimistic update.
+        if (adding) _favorites.Add(sound.Id);
+        else _favorites.Remove(sound.Id);
+        Recompute();
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var favRepo = scope.ServiceProvider.GetRequiredService<IUserSoundFavoriteRepository>();
+            if (adding)
+            {
+                try
+                {
+                    await favRepo.AddAsync(new UserSoundFavorite
+                    {
+                        UserId = userId.Value,
+                        GuildId = GuildIdValue,
+                        SoundId = sound.Id,
+                        FavoritedAt = DateTime.UtcNow
+                    });
+                }
+                catch (Microsoft.EntityFrameworkCore.DbUpdateException)
+                {
+                    // Already favorited (unique constraint) — treat as success.
+                }
+            }
+            else
+            {
+                await favRepo.RemoveFavoriteAsync(userId.Value, sound.Id, GuildIdValue);
+            }
+        }
+        catch
+        {
+            // Revert optimistic update on failure.
+            if (adding) _favorites.Remove(sound.Id);
+            else _favorites.Add(sound.Id);
+            Recompute();
+            StateHasChanged();
+            await Toast.ErrorAsync("Failed to update favorite. Please try again.");
+        }
+    }
+
+    private async Task DeleteAsync(SoundItem sound)
+    {
+        var userId = UserIdValue;
+        if (!userId.HasValue || sound.UploadedById != CurrentUserId)
+        {
+            return;
+        }
+
+        var ok = await _confirm.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Delete sound",
+            Message = $"Are you sure you want to delete \"{sound.Name}\"? This cannot be undone.",
+            ConfirmText = "Delete",
+            CancelText = "Cancel",
+            Variant = ConfirmationVariant.Danger
+        });
+        if (!ok)
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var soundService = scope.ServiceProvider.GetRequiredService<ISoundService>();
+            var entity = await soundService.GetByIdAsync(sound.Id, GuildIdValue);
+            if (entity == null || entity.UploadedById != userId.Value)
+            {
+                await Toast.ErrorAsync("You can only delete sounds that you uploaded.");
+                return;
+            }
+
+            var orchestration = scope.ServiceProvider.GetRequiredService<ISoundboardOrchestrationService>();
+            var result = await orchestration.DeleteSoundAsync(GuildIdValue, sound.Id);
+            if (!result.Success)
+            {
+                await Toast.ErrorAsync(result.ErrorMessage ?? "Failed to delete sound. Please try again.");
+                return;
+            }
+
+            RemoveLocal(sound.Id);
+            StateHasChanged();
+            await Toast.SuccessAsync($"Sound \"{sound.Name}\" deleted");
+        }
+        catch
+        {
+            await Toast.ErrorAsync("Failed to delete sound. Please try again.");
+        }
+    }
+
+    private void RemoveLocal(Guid id)
+    {
+        var idx = _sounds.FindIndex(s => s.Id == id);
+        if (idx >= 0) _sounds.RemoveAt(idx);
+        _favorites.Remove(id);
+        if (_playingId == id) _playingId = null;
+        if (_previewingId == id) _previewingId = null;
+        Recompute();
+    }
+
+    // ── JS bridge (called from soundboard-island.js / soundboard-upload.js) ──
+    [JSInvokable]
+    public Task OnPlaybackStarted(string soundId)
+    {
+        if (Guid.TryParse(soundId, out var id))
+        {
+            _playingId = id;
+            var idx = _sounds.FindIndex(s => s.Id == id);
+            if (idx >= 0)
+            {
+                _sounds[idx] = _sounds[idx] with { PlayCount = _sounds[idx].PlayCount + 1 };
+                Recompute();
+            }
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnPlaybackStopped()
+    {
+        if (_playingId != null)
+        {
+            _playingId = null;
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnPreviewEnded(string soundId)
+    {
+        if (Guid.TryParse(soundId, out var id) && _previewingId == id)
+        {
+            _previewingId = null;
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+
+    [JSInvokable]
+    public Task OnColumnsChanged(int cols)
+    {
+        if (cols > 0 && cols != _columns)
+        {
+            _columns = cols;
+            Recompute();
+            StateHasChanged();
+        }
+        return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Adds a sound to the grid. Called both for the user's own upload (notify=false,
+    /// the upload widget shows its own success message) and for cross-client
+    /// SoundUploaded broadcasts (notify=true). Deduped by id, so the uploader's own
+    /// SignalR echo is ignored.
+    /// </summary>
+    [JSInvokable]
+    public async Task AddSound(IncomingSound dto, bool notify)
+    {
+        if (!Guid.TryParse(dto.Id, out var id) || _sounds.Any(s => s.Id == id))
+        {
+            return;
+        }
+
+        _sounds.Add(new SoundItem(id, dto.Name ?? string.Empty, dto.PlayCount, dto.DurationSeconds,
+            string.IsNullOrEmpty(dto.UploadedById) ? null : dto.UploadedById,
+            DateTime.TryParse(dto.UploadedAt, CultureInfo.InvariantCulture,
+                DateTimeStyles.RoundtripKind, out var when) ? when : DateTime.UtcNow));
+        Recompute();
+        StateHasChanged();
+
+        if (notify)
+        {
+            await Toast.InfoAsync($"New sound \"{dto.Name}\" was added");
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnSoundDeleted(string soundId)
+    {
+        if (Guid.TryParse(soundId, out var id))
+        {
+            var sound = _sounds.FirstOrDefault(s => s.Id == id);
+            if (sound != null)
+            {
+                RemoveLocal(id);
+                StateHasChanged();
+                await Toast.WarningAsync($"Sound \"{sound.Name}\" was deleted");
+            }
+        }
+    }
+
+    /// <summary>Returns true if a sound with the given name already exists (case-insensitive).</summary>
+    [JSInvokable]
+    public bool HasName(string name)
+        => _sounds.Any(s => string.Equals(s.Name, name?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    /// <summary>Returns the current sound count (for the upload limit check).</summary>
+    [JSInvokable]
+    public int GetSoundCount() => _sounds.Count;
+
+    private async Task SafeInvokeVoidAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
+        }
+        catch (Exception ex) when (ex is JSDisconnectedException or ObjectDisposedException)
+        {
+            // Circuit disconnected — safe to ignore.
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        _searchDebounce?.Dispose();
+        if (_registered)
+        {
+            await SafeInvokeVoidAsync("soundboardIsland.unregister");
+        }
+        _selfRef?.Dispose();
+    }
+
+    private sealed record SoundItem(Guid Id, string Name, int PlayCount, double DurationSeconds,
+        string? UploadedById, DateTime? UploadedAt);
+
+    public sealed class IncomingSound
+    {
+        public string Id { get; set; } = string.Empty;
+        public string? Name { get; set; }
+        public int PlayCount { get; set; }
+        public double DurationSeconds { get; set; }
+        public string? UploadedById { get; set; }
+        public string? UploadedAt { get; set; }
+    }
+}

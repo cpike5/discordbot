@@ -102,8 +102,42 @@ parity end-to-end.
 > pagination** (25/page) — virtualizing 25 rows adds nothing and pagination preserves the existing
 > UX. The legacy JS UI + `_MemberDetailModal` partial stay reachable at `?legacy=true` (parity gate);
 > island mode needs no page scripts (Blazor bootstrap, timezone.js, preview-popup.js and
-> blazor-interop.js are global in `_Layout`). **Your job is now Slice 6** (Soundboard portal grid
-> island — `<Virtualize>`; audio playback stays in JS; see plan §5.2 Tier 2 #5, §7).
+> blazor-interop.js are global in `_Layout`).
+
+> **Slice 6 status: DONE.** `Bot/Blazor/Pages/SoundboardIsland.razor` owns the interactive grid
+> body of `/Portal/Soundboard/{id}` (the `.sound-grid-wrapper`): the search bar (debounced 150ms
+> via `Debouncer`), sort (persisted to `localStorage`), the **virtualized** sound grid, favorites
+> (optimistic toggle + favorites-first sort, persisted via `IUserSoundFavoriteRepository`),
+> preview/play, and self-delete (`ConfirmModal` + `ISoundboardOrchestrationService`, re-checking
+> ownership server-side). It replaces the grid half of `wwwroot/js/portal-soundboard.js` — the
+> hand-rolled `VirtualSoundGrid` + `IntersectionObserver` batch renderer is now Blazor
+> **`<Virtualize>`** over rows chunked to a responsive column count (4/3/2, recomputed from a JS
+> `resize` listener; max 500 sounds/guild so virtualization is a real DOM/diff win).
+>
+> **Audio playback stays in JS** (plan §5.2 #5): the new `wwwroot/js/soundboard-island.js`
+> (`window.soundboardIsland`) owns the browser-`<audio>` preview, the bot-play POST (reads the
+> `#voice-channel-panel` DOM connection state, which is still rendered + driven by the
+> `_VoiceChannelPanel` partial + `voice-channel-panel.js` **outside** the island), the
+> `localStorage` sort/fullscreen prefs, the responsive column count, and the **DashboardHub**
+> real-time subscription (PlaybackStarted/Finished, SoundUploaded/Deleted) bridged back into the
+> circuit through the island's `DotNetObjectReference`. **Uploads also stay in JS**
+> (`wwwroot/js/soundboard-upload.js`) — streaming multi-MB audio over the Blazor Server circuit is
+> an anti-pattern, so the dropzone/File-API/duration-probe/XHR-progress flow was extracted from the
+> legacy module and keeps file bytes off the circuit; it reaches the island only through the
+> JSInvokable bridge (`HasName`/`GetSoundCount` for dup-name + limit checks, `AddSound` to insert
+> the new card). The island dedupes adds/removes by id, so a user's own SignalR echo is a no-op.
+>
+> Deviations (documented, like Slice 5's Virtualize call): the floating **fullscreen toolbar** +
+> its separate search input were dropped — `body.portal-fullscreen` keeps the island's own search
+> bar visible, so the toggle button + Esc are enough; **categories** are not surfaced (the member
+> portal grid never rendered category badges/filters — that's a guild-admin soundboard feature).
+> The legacy JS grid + `portal-soundboard.js` + the progressive-render `soundboard-data` JSON stay
+> reachable at `?legacy=true` (parity gate). `_PortalLayout` has **no** global Blazor bootstrap (it
+> isn't `_Layout`), so the host page starts the circuit itself in island mode with an explicit
+> `~/_blazor` hub URL (nested route, gotcha §6.5); `blazor-interop.js` loads after the layout's
+> `toast.js` so `ToastInterop` can bridge `ToastManager`. **Slice 7** (Performance live-tile islands
+> via `IDashboardEventBus`; charts stay Chart.js) is the next and final planned slice — see plan
+> §5.2 Tier 3 #6, §7.
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.
