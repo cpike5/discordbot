@@ -1,0 +1,1068 @@
+@namespace DiscordBot.Bot.Blazor.Pages
+@using System.Text.Json
+@using DiscordBot.Bot.Services
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject ToastInterop Toast
+@inject NavigationManager Nav
+@inject AuthenticationStateProvider AuthProvider
+@inject IDashboardEventBus EventBus
+@implements IDisposable
+
+@*
+    Slice 3 island: the interactive body of /Admin/Settings. Replaces wwwroot/js/settings.js
+    (1101 lines: tab switching, dirty tracking, WeakMap button-state machine, AJAX category/all
+    saves + resets, command-module save, appearance save/reset, typed-confirm shutdown, and 5s
+    bot-status polling). Server-held Blazor state via TabbedFormShell + ConfirmModal +
+    TypedConfirmModal, and push bot-status over IDashboardEventBus (no more polling).
+
+    Data access creates a DI scope per operation (gotcha §6.4) and resolves the existing
+    ISettingsService / ICommandModuleConfigurationService / IThemeService / IBotService —
+    no DI changes, all business logic reused. Audit logging mirrors the page-model handlers
+    so the modern path keeps full parity while the legacy ?legacy=true path still works.
+*@
+
+<!-- Header -->
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Settings</h1>
+        <p class="text-text-secondary mt-1">Manage your bot configuration and preferences</p>
+    </div>
+    <div class="flex items-center gap-3">
+        <button type="button"
+                @onclick="ResetAllAsync"
+                class="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-semibold text-sm rounded-lg transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Reset All
+        </button>
+        <SaveButton Text="Save All" SavingText="Saving…" SavedText="Saved" OnSaveAsync="SaveAllAsync" />
+    </div>
+</div>
+
+<TabbedFormShell @ref="_shell" Tabs="_tabs" AriaLabel="Settings sections" InitialTab="@InitialCategory">
+    <TabContent Context="tabId">
+        @if (tabId == "General")
+        {
+            @SettingsCard("General Settings", "Configure your bot's basic settings and behavior", _general, "General")
+        }
+        else if (tabId == "Features")
+        {
+            @SettingsCard("Features Settings", "Enable or disable global bot features", _features, "Features")
+        }
+        else if (tabId == "Commands")
+        {
+            <div class="px-1 pb-2">
+                <h2 class="text-lg font-semibold text-text-primary">Command Modules</h2>
+                <p class="text-sm text-text-secondary mt-1">Enable or disable Discord slash command modules. Changes require a bot restart to take effect.</p>
+            </div>
+            <div class="space-y-8 mt-4">
+                @foreach (var category in _categoryOrder)
+                {
+                    if (_modulesByCategory.TryGetValue(category, out var modules) && modules.Count > 0)
+                    {
+                        var isCore = category == "Core";
+                        <div class="command-module-category">
+                            <div class="flex items-center gap-2 mb-4">
+                                <h3 class="text-base font-semibold text-text-primary">@category Commands</h3>
+                                @if (isCore)
+                                {
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-info/10 border border-info text-info text-xs font-medium rounded">
+                                        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                        </svg>
+                                        Always Enabled
+                                    </span>
+                                }
+                            </div>
+                            @if (_categoryDescriptions.TryGetValue(category, out var desc))
+                            {
+                                <p class="text-sm text-text-secondary mb-4">@desc</p>
+                            }
+                            <div class="space-y-3">
+                                @foreach (var module in modules)
+                                {
+                                    <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-primary @(isCore ? "opacity-75" : "")" @key="module.ModuleName">
+                                        <label class="form-toggle @(isCore ? "opacity-60 cursor-not-allowed" : "cursor-pointer")">
+                                            @if (isCore)
+                                            {
+                                                <input type="checkbox" class="form-toggle-input" checked disabled />
+                                            }
+                                            else
+                                            {
+                                                <input type="checkbox" class="form-toggle-input" checked="@_moduleStates[module.ModuleName]"
+                                                       @onchange="e => OnModuleToggled(module.ModuleName, e)" />
+                                            }
+                                            <span class="form-toggle-track">
+                                                <span class="form-toggle-thumb"></span>
+                                            </span>
+                                        </label>
+                                        <div class="flex-1 min-w-0">
+                                            <span class="block text-sm font-semibold text-text-primary @(isCore ? "cursor-not-allowed" : "")">@module.DisplayName</span>
+                                            @if (!string.IsNullOrEmpty(module.Description))
+                                            {
+                                                <p class="text-xs text-text-secondary mt-1">@module.Description</p>
+                                            }
+                                        </div>
+                                        @if (module.RequiresRestart && !isCore)
+                                        {
+                                            <div class="flex-shrink-0">
+                                                <span class="inline-flex items-center gap-1 px-2 py-1 bg-warning/10 border border-warning text-warning text-xs font-medium rounded">
+                                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                                    </svg>
+                                                    Restart Required
+                                                </span>
+                                            </div>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                }
+            </div>
+            <div class="mt-8 pt-6 border-t border-border-primary flex justify-end">
+                <SaveButton Text="Save Changes" OnSaveAsync="SaveCommandModulesAsync" />
+            </div>
+        }
+        else if (tabId == "Advanced")
+        {
+            @SettingsCard("Advanced Settings", "Configure data retention policies", _advanced, "Advanced")
+        }
+        else if (tabId == "BotControl")
+        {
+            <!-- Status + Actions -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+                <div class="lg:col-span-2">
+                    <div class="bg-bg-primary border border-border-primary rounded-lg">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h2 class="text-lg font-semibold text-text-primary">Bot Status</h2>
+                            <p class="text-sm text-text-secondary mt-1">Real-time bot connection status</p>
+                        </div>
+                        <div class="p-6">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-6">
+                                <div>
+                                    <p class="text-sm font-medium text-text-tertiary mb-1">Status</p>
+                                    <div class="flex items-center gap-2">
+                                        <span class="w-2.5 h-2.5 rounded-full @(_isOnline ? "bg-success animate-pulse" : "bg-error")"></span>
+                                        <span class="text-lg font-semibold text-text-primary">@_connectionState</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-text-tertiary mb-1">Uptime</p>
+                                    <span class="text-lg font-semibold text-text-primary">@_uptimeFormatted</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-text-tertiary mb-1">Latency</p>
+                                    <span class="text-lg font-semibold text-text-primary">@_latencyMs ms</span>
+                                </div>
+                                <div>
+                                    <p class="text-sm font-medium text-text-tertiary mb-1">Servers</p>
+                                    <span class="text-lg font-semibold text-text-primary">@_guildCount</span>
+                                </div>
+                            </div>
+                            <div class="mt-4 pt-4 border-t border-border-primary">
+                                <p class="text-xs text-text-tertiary">Status updates in real time. Last updated: <span>@_lastUpdated</span></p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="bg-bg-primary border border-border-primary rounded-lg">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h2 class="text-lg font-semibold text-text-primary">Actions</h2>
+                            <p class="text-sm text-text-secondary mt-1">Bot lifecycle controls</p>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <button type="button"
+                                    @onclick="RestartBotAsync"
+                                    class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
+                                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                Restart Bot
+                            </button>
+                            <p class="text-xs text-text-tertiary text-center">Restarts the Discord connection without stopping the application.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Configuration (read-only) -->
+            <div class="mb-6">
+                <div class="bg-bg-primary border border-border-primary rounded-lg">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h2 class="text-lg font-semibold text-text-primary">Configuration</h2>
+                        <p class="text-sm text-text-secondary mt-1">Current bot configuration (read-only)</p>
+                    </div>
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            @ConfigRow("Bot Token", _config.TokenMasked, mono: true)
+                            @ConfigRow("Test Guild ID", _config.HasTestGuild && _config.TestGuildId.HasValue ? _config.TestGuildId.Value.ToString() : "Not configured", mono: true)
+                            @ConfigRow("Database Provider", _config.DatabaseProvider)
+                            @ConfigRow("Default Rate Limit", $"{_config.DefaultRateLimitInvokes} invokes / {_config.DefaultRateLimitPeriodSeconds} seconds")
+                            @ConfigRow("Discord.NET Version", _config.DiscordNetVersion)
+                            @ConfigRow("Application Version", _config.AppVersion)
+                            @ConfigRow(".NET Runtime", _config.RuntimeVersion)
+                            @ConfigRow("Started At (UTC)", _startTime.ToString("yyyy-MM-dd HH:mm:ss"))
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Shutdown -->
+            <div class="border-2 border-error rounded-lg p-6 bg-error/5">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div class="flex-1">
+                        <h3 class="text-lg font-semibold text-error">Bot Shutdown</h3>
+                        <p class="text-sm text-text-secondary mt-1">
+                            Shutting down the bot will stop all functionality. The bot will need to be manually restarted from the server.
+                            This action is irreversible and requires typing confirmation.
+                        </p>
+                        <div class="mt-4">
+                            <button type="button"
+                                    @onclick="ShutdownBotAsync"
+                                    class="flex items-center gap-2 px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-lg transition-colors">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                                </svg>
+                                Shutdown Bot
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+        else if (tabId == "Appearance" && IsSuperAdmin)
+        {
+            <div class="px-1 pb-2">
+                <h2 class="text-lg font-semibold text-text-primary">Appearance Settings</h2>
+                <p class="text-sm text-text-secondary mt-1">Configure the default theme for your application</p>
+            </div>
+            <div class="mt-4 max-w-md">
+                <label for="default-theme" class="block text-sm font-semibold text-text-primary mb-2">Default Theme</label>
+                <select id="default-theme" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:ring-2 focus:ring-accent-orange focus:border-accent-orange transition-colors"
+                        @bind="_selectedThemeId">
+                    @foreach (var theme in _themes)
+                    {
+                        <option value="@theme.Id">@theme.DisplayName</option>
+                    }
+                </select>
+                <p class="text-xs text-text-secondary mt-2">This will be the default theme for all users who haven't set a personal preference.</p>
+            </div>
+            <div class="mt-8 pt-6 border-t border-border-primary flex justify-end gap-3">
+                <button type="button"
+                        @onclick="ResetAppearanceAsync"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                    Reset
+                </button>
+                <SaveButton Text="Save Changes" OnSaveAsync="SaveAppearanceAsync" />
+            </div>
+        }
+    </TabContent>
+</TabbedFormShell>
+
+<!-- Danger Zone -->
+<div class="border-2 border-error rounded-lg p-6 bg-error/5 mt-6">
+    <div class="flex items-start gap-4">
+        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-error/20 flex items-center justify-center">
+            <svg class="w-5 h-5 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+        </div>
+        <div class="flex-1">
+            <h3 class="text-lg font-semibold text-error">Danger Zone</h3>
+            <p class="text-sm text-text-secondary mt-1">
+                Resetting all settings will restore all configuration to default values. This action cannot be undone.
+            </p>
+            <div class="mt-4">
+                <button type="button"
+                        @onclick="ResetAllAsync"
+                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-lg transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Reset All Settings to Defaults
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<ConfirmModal @ref="_confirmModal" />
+<TypedConfirmModal @ref="_shutdownModal" />
+
+@code {
+    /// <summary>Whether the current user is a SuperAdmin (gates the Appearance tab). Passed by the host page.</summary>
+    [Parameter] public bool IsSuperAdmin { get; set; }
+
+    /// <summary>Initial active tab (from the host page's ?category= / active category).</summary>
+    [Parameter] public string InitialCategory { get; set; } = "General";
+
+    private TabbedFormShell _shell = default!;
+    private ConfirmModal _confirmModal = default!;
+    private TypedConfirmModal _shutdownModal = default!;
+
+    // Editable settings values keyed by setting key ("true"/"false" for booleans).
+    private readonly Dictionary<string, string> _values = new();
+    private IReadOnlyList<SettingDto> _general = Array.Empty<SettingDto>();
+    private IReadOnlyList<SettingDto> _features = Array.Empty<SettingDto>();
+    private IReadOnlyList<SettingDto> _advanced = Array.Empty<SettingDto>();
+
+    // Command modules.
+    private IReadOnlyDictionary<string, IReadOnlyList<CommandModuleConfigurationDto>> _modulesByCategory
+        = new Dictionary<string, IReadOnlyList<CommandModuleConfigurationDto>>();
+    private readonly Dictionary<string, bool> _moduleStates = new();
+
+    // Appearance.
+    private IReadOnlyList<ThemeDto> _themes = Array.Empty<ThemeDto>();
+    private int? _selectedThemeId;
+
+    // Bot control / status.
+    private BotConfigurationDto _config = new();
+    private string _connectionState = "Disconnected";
+    private bool _isOnline;
+    private string _uptimeFormatted = "0m";
+    private int _latencyMs;
+    private int _guildCount;
+    private DateTime _startTime;
+    private string _lastUpdated = "Just now";
+
+    private bool _subscribed;
+    private bool _disposed;
+    private string _userId = "Unknown";
+
+    private static readonly string[] _categoryOrder = { "Admin", "Moderation", "Features", "Audio", "Utility", "Core" };
+
+    private static readonly Dictionary<string, string> _categoryDescriptions = new()
+    {
+        ["Admin"] = "Server administration and configuration commands",
+        ["Moderation"] = "User moderation and enforcement commands",
+        ["Features"] = "Optional feature commands",
+        ["Audio"] = "Voice channel and audio playback commands",
+        ["Utility"] = "Information and utility commands",
+        ["Core"] = "Essential bot commands (always enabled)"
+    };
+
+    private IReadOnlyList<TabDefinition> _tabs = Array.Empty<TabDefinition>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        _userId = authState.User.Identity?.Name ?? "Unknown";
+
+        BuildTabs();
+
+        using var scope = ScopeFactory.CreateScope();
+        var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+        var moduleService = scope.ServiceProvider.GetRequiredService<ICommandModuleConfigurationService>();
+        var botService = scope.ServiceProvider.GetRequiredService<IBotService>();
+
+        _general = await settingsService.GetSettingsByCategoryAsync(SettingCategory.General);
+        _features = await settingsService.GetSettingsByCategoryAsync(SettingCategory.Features);
+        _advanced = await settingsService.GetSettingsByCategoryAsync(SettingCategory.Advanced);
+
+        foreach (var setting in _general.Concat(_features).Concat(_advanced))
+        {
+            _values[setting.Key] = setting.Value ?? string.Empty;
+        }
+
+        var modules = await moduleService.GetAllModulesAsync();
+        _modulesByCategory = modules
+            .GroupBy(m => m.Category)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<CommandModuleConfigurationDto>)g.OrderBy(m => m.DisplayName).ToList());
+        foreach (var module in modules.Where(m => m.Category != "Core"))
+        {
+            _moduleStates[module.ModuleName] = module.IsEnabled;
+        }
+
+        // Bot status + configuration (read-only).
+        ApplyStatus(botService.GetStatus());
+        _config = botService.GetConfiguration();
+
+        if (IsSuperAdmin)
+        {
+            var themeService = scope.ServiceProvider.GetRequiredService<IThemeService>();
+            _themes = await themeService.GetActiveThemesAsync();
+            _selectedThemeId = (await themeService.GetDefaultThemeAsync())?.Id;
+        }
+    }
+
+    private void BuildTabs()
+    {
+        var tabs = new List<TabDefinition>
+        {
+            new("General", "General", "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"),
+            new("Features", "Features", "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"),
+            new("Commands", "Commands", "M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"),
+            new("Advanced", "Advanced", "M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4"),
+            new("BotControl", "Bot Control", "M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"),
+        };
+
+        if (IsSuperAdmin)
+        {
+            tabs.Add(new("Appearance", "Appearance", "M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"));
+        }
+
+        _tabs = tabs;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        if (firstRender && !_subscribed)
+        {
+            EventBus.BotStatusChanged += OnBotStatusChanged;
+            _subscribed = true;
+        }
+    }
+
+    // ---- Field rendering ------------------------------------------------------------------
+
+    private RenderFragment SettingsCard(string title, string description, IReadOnlyList<SettingDto> settings, string category) =>
+        @<text>
+            <div class="px-1 pb-2">
+                <h2 class="text-lg font-semibold text-text-primary">@title</h2>
+                <p class="text-sm text-text-secondary mt-1">@description</p>
+            </div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-4">
+                @foreach (var setting in settings)
+                {
+                    @FieldTemplate(setting)
+                }
+            </div>
+            <div class="mt-8 pt-6 border-t border-border-primary flex justify-end gap-3">
+                <button type="button"
+                        @onclick="() => ResetCategoryAsync(category)"
+                        class="inline-flex items-center gap-2 px-4 py-2 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-lg transition-colors">
+                    Reset
+                </button>
+                <SaveButton Text="Save Changes" OnSaveAsync="() => SaveCategoryAsync(category, settings)" />
+            </div>
+        </text>;
+
+    private RenderFragment FieldTemplate(SettingDto setting) =>
+        @<text>
+            @{
+                var hasOptions = setting.AllowedValues is { Count: > 0 };
+                var isNumber = setting.DataType is SettingDataType.Integer or SettingDataType.Decimal;
+            }
+            @if (setting.DataType == SettingDataType.Boolean)
+            {
+                <div class="lg:col-span-2">
+                    <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-primary">
+                        <label class="form-toggle cursor-pointer">
+                            <input type="checkbox" class="form-toggle-input" checked="@(_values[setting.Key] == "true")"
+                                   @onchange="e => OnBoolChanged(setting.Key, e)" />
+                            <span class="form-toggle-track"><span class="form-toggle-thumb"></span></span>
+                        </label>
+                        <div class="flex-1 min-w-0">
+                            <span class="block text-sm font-semibold text-text-primary">@setting.DisplayName</span>
+                            @if (!string.IsNullOrEmpty(setting.Description))
+                            {
+                                <p class="text-xs text-text-secondary mt-1">@setting.Description</p>
+                            }
+                        </div>
+                        @RestartBadge(setting.RequiresRestart)
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div>
+                    <label for="setting-@setting.Key" class="block text-sm font-medium text-text-primary mb-1">@setting.DisplayName</label>
+                    @if (!string.IsNullOrEmpty(setting.Description))
+                    {
+                        <p class="text-xs text-text-tertiary mb-2">@setting.Description</p>
+                    }
+                    @if (hasOptions)
+                    {
+                        <select id="setting-@setting.Key" class="@FieldClass" @bind="_values[setting.Key]" @bind:after="MarkDirtyAsync">
+                            @foreach (var option in setting.AllowedValues!)
+                            {
+                                <option value="@option">@option</option>
+                            }
+                        </select>
+                    }
+                    else if (isNumber)
+                    {
+                        <input id="setting-@setting.Key" type="number"
+                               step="@(setting.DataType == SettingDataType.Decimal ? "0.01" : "1")"
+                               class="@FieldClass" @bind="_values[setting.Key]" @bind:after="MarkDirtyAsync" />
+                    }
+                    else
+                    {
+                        <input id="setting-@setting.Key" type="text" class="@FieldClass" @bind="_values[setting.Key]" @bind:after="MarkDirtyAsync" />
+                    }
+                    @RestartBadge(setting.RequiresRestart)
+                </div>
+            }
+        </text>;
+
+    private RenderFragment RestartBadge(bool requiresRestart) =>
+        @<text>
+            @if (requiresRestart)
+            {
+                <span class="inline-flex items-center gap-1 px-2 py-1 mt-2 bg-warning/10 border border-warning text-warning text-xs font-medium rounded">
+                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Restart Required
+                </span>
+            }
+        </text>;
+
+    private RenderFragment ConfigRow(string label, string value, bool mono = false) =>
+        @<text>
+            <div class="space-y-1">
+                <p class="text-sm font-medium text-text-tertiary">@label</p>
+                <p class="text-sm @(mono ? "font-mono " : "")text-text-primary bg-bg-secondary px-3 py-2 rounded-md border border-border-primary">@value</p>
+            </div>
+        </text>;
+
+    private const string FieldClass = "w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors";
+
+    private async Task OnBoolChanged(string key, ChangeEventArgs e)
+    {
+        _values[key] = (e.Value is bool b && b) ? "true" : "false";
+        await MarkDirtyAsync();
+    }
+
+    private async Task OnModuleToggled(string moduleName, ChangeEventArgs e)
+    {
+        _moduleStates[moduleName] = e.Value is bool b && b;
+        await MarkDirtyAsync();
+    }
+
+    private Task MarkDirtyAsync() => _shell?.MarkDirtyAsync() ?? Task.CompletedTask;
+
+    // ---- Save / reset handlers ------------------------------------------------------------
+
+    private Task<bool> SaveAllAsync()
+        => SaveSettingsAsync(_general.Concat(_features).Concat(_advanced).ToList(), "All", saveAll: true);
+
+    private Task<bool> SaveCategoryAsync(string category, IReadOnlyList<SettingDto> settings)
+        => SaveSettingsAsync(settings, category, saveAll: false);
+
+    private async Task<bool> SaveSettingsAsync(IReadOnlyList<SettingDto> settings, string category, bool saveAll)
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            var dto = new SettingsUpdateDto
+            {
+                Settings = settings.ToDictionary(s => s.Key, s => _values[s.Key])
+            };
+
+            var result = await settingsService.UpdateSettingsAsync(dto, _userId);
+            if (!result.Success)
+            {
+                await Toast.ErrorAsync(result.Errors.Count > 0 ? string.Join(", ", result.Errors) : "Failed to save settings.");
+                return false;
+            }
+
+            if (result.Changes.Count > 0)
+            {
+                auditQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = _userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        SettingsCategory = category,
+                        Changes = result.Changes.Select(c => new
+                        {
+                            Key = c.Key,
+                            c.Value.DisplayName,
+                            c.Value.OldValue,
+                            c.Value.NewValue
+                        }),
+                        RestartRequired = result.RestartRequired
+                    })
+                });
+            }
+
+            await _shell.MarkCleanAsync();
+            await Toast.SuccessAsync(result.Changes.Count > 0
+                ? $"{(saveAll ? "All settings" : $"{category} settings")} saved successfully. {result.Changes.Count} setting(s) updated."
+                : "No changes detected.");
+
+            if (result.RestartRequired)
+            {
+                Reload();
+            }
+
+            return true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("An error occurred while saving settings.");
+            return false;
+        }
+    }
+
+    private async Task<bool> SaveCommandModulesAsync()
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var moduleService = scope.ServiceProvider.GetRequiredService<ICommandModuleConfigurationService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            // Snapshot current states for audit before/after.
+            var current = (await moduleService.GetAllModulesAsync()).ToDictionary(m => m.ModuleName, m => m.IsEnabled);
+
+            var updateDto = new CommandModuleConfigurationUpdateDto { Modules = new Dictionary<string, bool>(_moduleStates) };
+            var result = await moduleService.UpdateModulesAsync(updateDto, _userId);
+
+            if (!result.Success && result.UpdatedModules.Count == 0)
+            {
+                await Toast.ErrorAsync(result.Errors.Count > 0 ? string.Join(", ", result.Errors) : "Failed to save command module settings.");
+                return false;
+            }
+
+            foreach (var moduleName in result.UpdatedModules)
+            {
+                var previous = current.GetValueOrDefault(moduleName, true);
+                var updated = _moduleStates.GetValueOrDefault(moduleName, true);
+                auditQueue.Enqueue(new AuditLogCreateDto
+                {
+                    Category = AuditLogCategory.Configuration,
+                    Action = AuditLogAction.SettingChanged,
+                    ActorType = AuditLogActorType.User,
+                    ActorId = _userId,
+                    Details = JsonSerializer.Serialize(new
+                    {
+                        SettingsCategory = "Commands",
+                        ModuleName = moduleName,
+                        Change = new
+                        {
+                            Key = $"CommandModule:{moduleName}:IsEnabled",
+                            DisplayName = $"Command module '{moduleName}'",
+                            OldValue = previous.ToString(),
+                            NewValue = updated.ToString()
+                        },
+                        Description = $"Command module '{moduleName}' {(updated ? "enabled" : "disabled")}",
+                        RestartRequired = result.RequiresRestart
+                    })
+                });
+            }
+
+            await _shell.MarkCleanAsync();
+            await Toast.SuccessAsync(result.UpdatedModules.Count > 0
+                ? $"Command module settings saved successfully. {result.UpdatedModules.Count} module(s) updated."
+                : "No changes detected.");
+
+            if (result.RequiresRestart)
+            {
+                Reload();
+            }
+
+            return true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("An error occurred while saving command module settings.");
+            return false;
+        }
+    }
+
+    private async Task ResetCategoryAsync(string category)
+    {
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Reset Category",
+            Message = "Are you sure you want to reset this category to default values? This action cannot be undone.",
+            Variant = ConfirmationVariant.Warning,
+            ConfirmText = "Reset Category",
+            CancelText = "Cancel"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        if (!Enum.TryParse<SettingCategory>(category, out var categoryEnum))
+        {
+            await Toast.ErrorAsync($"Invalid category: {category}");
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            var result = await settingsService.ResetCategoryAsync(categoryEnum, _userId);
+            if (!result.Success)
+            {
+                await Toast.ErrorAsync(result.Errors.Count > 0 ? string.Join(", ", result.Errors) : $"Failed to reset {category} settings.");
+                return;
+            }
+
+            auditQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.Configuration,
+                Action = AuditLogAction.SettingChanged,
+                ActorType = AuditLogActorType.User,
+                ActorId = _userId,
+                Details = JsonSerializer.Serialize(new { Operation = "ResetCategory", SettingsCategory = category, RestartRequired = result.RestartRequired })
+            });
+
+            await Toast.SuccessAsync($"{category} settings have been reset to defaults.");
+            Reload();
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("An error occurred while resetting settings.");
+        }
+    }
+
+    private async Task ResetAllAsync()
+    {
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Reset All Settings",
+            Message = "Are you sure you want to reset ALL settings to their default values? This will affect all categories and cannot be undone.",
+            Variant = ConfirmationVariant.Danger,
+            ConfirmText = "Reset All Settings",
+            CancelText = "Cancel"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            var result = await settingsService.ResetAllAsync(_userId);
+            if (!result.Success)
+            {
+                await Toast.ErrorAsync(result.Errors.Count > 0 ? string.Join(", ", result.Errors) : "Failed to reset all settings.");
+                return;
+            }
+
+            auditQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.Configuration,
+                Action = AuditLogAction.SettingChanged,
+                ActorType = AuditLogActorType.User,
+                ActorId = _userId,
+                Details = JsonSerializer.Serialize(new { Operation = "ResetAll", RestartRequired = result.RestartRequired })
+            });
+
+            await Toast.SuccessAsync("All settings have been reset to defaults.");
+            Reload();
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("An error occurred while resetting settings.");
+        }
+    }
+
+    private async Task<bool> SaveAppearanceAsync()
+    {
+        if (!_selectedThemeId.HasValue)
+        {
+            await Toast.ErrorAsync("No theme selected.");
+            return false;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            if (!await IsSuperAdminVerifiedAsync(scope))
+            {
+                await Toast.ErrorAsync("You are not authorized to change the default theme.");
+                return false;
+            }
+
+            var themeService = scope.ServiceProvider.GetRequiredService<IThemeService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            var selectedTheme = await themeService.GetThemeByIdAsync(_selectedThemeId.Value);
+            if (selectedTheme == null)
+            {
+                await Toast.ErrorAsync("Selected theme not found.");
+                return false;
+            }
+
+            var previous = await themeService.GetDefaultThemeAsync();
+            if (!await themeService.SetDefaultThemeAsync(_selectedThemeId.Value))
+            {
+                await Toast.ErrorAsync("Failed to update default theme.");
+                return false;
+            }
+
+            auditQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.Configuration,
+                Action = AuditLogAction.SettingChanged,
+                ActorType = AuditLogActorType.User,
+                ActorId = _userId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    SettingsCategory = "Appearance",
+                    Change = new
+                    {
+                        Key = "DefaultTheme",
+                        DisplayName = "Default Theme",
+                        OldValue = previous?.DisplayName ?? "Discord Dark",
+                        NewValue = selectedTheme.DisplayName
+                    }
+                })
+            });
+
+            await _shell.MarkCleanAsync();
+            await Toast.SuccessAsync($"Default theme updated. New users will see {selectedTheme.DisplayName} theme.");
+            return true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("An error occurred while saving appearance settings.");
+            return false;
+        }
+    }
+
+    private async Task ResetAppearanceAsync()
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            if (!await IsSuperAdminVerifiedAsync(scope))
+            {
+                await Toast.ErrorAsync("You are not authorized to reset the default theme.");
+                return;
+            }
+
+            var themeService = scope.ServiceProvider.GetRequiredService<IThemeService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            var systemDefault = await themeService.GetThemeByIdAsync(1);
+            if (systemDefault == null)
+            {
+                await Toast.ErrorAsync("System default theme not found.");
+                return;
+            }
+
+            var previous = await themeService.GetDefaultThemeAsync();
+            if (!await themeService.SetDefaultThemeAsync(1))
+            {
+                await Toast.ErrorAsync("Failed to reset default theme.");
+                return;
+            }
+
+            auditQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.Configuration,
+                Action = AuditLogAction.SettingChanged,
+                ActorType = AuditLogActorType.User,
+                ActorId = _userId,
+                Details = JsonSerializer.Serialize(new
+                {
+                    SettingsCategory = "Appearance",
+                    Operation = "Reset",
+                    Change = new
+                    {
+                        Key = "DefaultTheme",
+                        DisplayName = "Default Theme",
+                        OldValue = previous?.DisplayName ?? "Discord Dark",
+                        NewValue = systemDefault.DisplayName
+                    }
+                })
+            });
+
+            await Toast.SuccessAsync($"Default theme reset to {systemDefault.DisplayName}.");
+            Reload();
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("An error occurred while resetting appearance settings.");
+        }
+    }
+
+    private async Task RestartBotAsync()
+    {
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Restart Bot",
+            Message = "Are you sure you want to restart the bot? This will briefly disconnect the bot from all servers. The bot will automatically reconnect after a few seconds.",
+            Variant = ConfirmationVariant.Warning,
+            ConfirmText = "Restart Bot",
+            CancelText = "Cancel"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var botService = scope.ServiceProvider.GetRequiredService<IBotService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            await botService.RestartAsync();
+
+            auditQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.Updated,
+                ActorType = AuditLogActorType.User,
+                ActorId = _userId,
+                Details = JsonSerializer.Serialize(new { Operation = "BotRestart", Description = "Bot restart initiated by administrator", Timestamp = DateTime.UtcNow })
+            });
+
+            await Toast.SuccessAsync("Bot is restarting...");
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to restart bot. Please check logs for details.");
+        }
+    }
+
+    private async Task ShutdownBotAsync()
+    {
+        var confirmed = await _shutdownModal.ShowAsync(new TypedConfirmModal.TypedConfirmRequest
+        {
+            Title = "Shutdown Bot",
+            Message = "This action will completely shut down the bot. The bot will NOT restart automatically and will need to be manually started from the server. This action is critical and should only be used when necessary.",
+            RequiredText = "SHUTDOWN",
+            InputLabel = "Type SHUTDOWN to confirm",
+            ConfirmText = "Shutdown Bot",
+            CancelText = "Cancel",
+            Variant = ConfirmationVariant.Danger
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var botService = scope.ServiceProvider.GetRequiredService<IBotService>();
+            var auditQueue = scope.ServiceProvider.GetRequiredService<IAuditLogQueue>();
+
+            await botService.ShutdownAsync();
+
+            auditQueue.Enqueue(new AuditLogCreateDto
+            {
+                Category = AuditLogCategory.System,
+                Action = AuditLogAction.BotStopped,
+                ActorType = AuditLogActorType.User,
+                ActorId = _userId,
+                Details = JsonSerializer.Serialize(new { Operation = "ManualShutdown", Reason = "Administrator initiated shutdown", Timestamp = DateTime.UtcNow })
+            });
+
+            await Toast.SuccessAsync("Bot is shutting down...");
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to shutdown bot. Please check logs for details.");
+        }
+    }
+
+    private async Task<bool> IsSuperAdminVerifiedAsync(IServiceScope scope)
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authService = scope.ServiceProvider.GetRequiredService<IAuthorizationService>();
+        var result = await authService.AuthorizeAsync(authState.User, "RequireSuperAdmin");
+        return result.Succeeded;
+    }
+
+    private void Reload() => Nav.NavigateTo(Nav.Uri, forceLoad: true);
+
+    // ---- Live bot status ------------------------------------------------------------------
+
+    private void ApplyStatus(BotStatusDto status)
+    {
+        _connectionState = status.ConnectionState;
+        _isOnline = status.ConnectionState.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+        _uptimeFormatted = FormatUptime(status.Uptime);
+        _latencyMs = status.LatencyMs;
+        _guildCount = status.GuildCount;
+        _startTime = status.StartTime;
+    }
+
+    private void OnBotStatusChanged(BotStatusUpdateDto status)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = InvokeSafe(() =>
+        {
+            _connectionState = status.ConnectionState;
+            _isOnline = status.ConnectionState.Equals("Connected", StringComparison.OrdinalIgnoreCase);
+            _uptimeFormatted = FormatUptime(status.Uptime);
+            _latencyMs = status.Latency;
+            _guildCount = status.GuildCount;
+            _lastUpdated = "Just now";
+        });
+    }
+
+    private async Task InvokeSafe(Action mutate)
+    {
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                mutate();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // Circuit torn down mid-update; safe to ignore.
+        }
+    }
+
+    /// <summary>Mirrors BotStatusViewModel.FormatUptime so the live value matches the server render.</summary>
+    private static string FormatUptime(TimeSpan uptime)
+    {
+        if (uptime.TotalDays >= 1)
+        {
+            return $"{(int)uptime.TotalDays}d {uptime.Hours}h {uptime.Minutes}m";
+        }
+
+        if (uptime.TotalHours >= 1)
+        {
+            return $"{uptime.Hours}h {uptime.Minutes}m";
+        }
+
+        return $"{uptime.Minutes}m";
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_subscribed)
+        {
+            EventBus.BotStatusChanged -= OnBotStatusChanged;
+            _subscribed = false;
+        }
+    }
+}

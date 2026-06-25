@@ -38,8 +38,24 @@ parity end-to-end.
 > `/_blazor` hub URL, after toast.js/theme.js per gotcha §6.1) — so every layout page starts
 > one circuit and the per-page `blazor.server.js` blocks were removed from `Components.cshtml`
 > and `ModerationSettings/Index.cshtml`. `notification-bell.js`/`bot-status-refresh.js` are no
-> longer referenced (files kept for easy revert). **Your job is now Slice 3** (Admin Settings —
-> reuses TabbedFormShell/ConfirmModal/BotStatus; see plan §5.2 Tier 1 #2, §7).
+> longer referenced (files kept for easy revert).
+
+> **Slice 3 status: DONE.** `Bot/Blazor/Pages/AdminSettingsIsland.razor` owns the `/Admin/Settings`
+> interactive body, replacing `wwwroot/js/settings.js` (1101 lines). Seven tabs via
+> `TabbedFormShell` (General/Features/Commands/Advanced/BotControl + Appearance for SuperAdmin),
+> per-category and global Save/Reset, command-module toggles, appearance default-theme save/reset
+> (re-checks `RequireSuperAdmin` server-side), and a Bot Control tab whose status is now **push
+> over `IDashboardEventBus`** (no more 5s polling) with restart (`ConfirmModal`) and typed-confirm
+> shutdown via the new `Bot/Blazor/Shared/TypedConfirmModal.razor` (awaitable, mirrors
+> `_TypedConfirmationModal.cshtml`). Data access resolves the existing
+> `ISettingsService`/`ICommandModuleConfigurationService`/`IThemeService`/`IBotService` in a DI
+> scope per op; audit-log enqueues mirror the page-model handlers so parity holds. Saves that flag
+> `RestartRequired`, and all resets, force a full page reload so the host page's `_RestartBanner`
+> reflects state. Inline per-category alerts were dropped in favour of the shared toast path
+> (matches Slices 1–2). The legacy JS UI + page handlers stay reachable at `?legacy=true` (parity
+> gate); host wires `param-IsSuperAdmin`/`param-InitialCategory` and loads `moderation.css` for the
+> shared `.settings-tabs` styles. **Your job is now Slice 4** (Commands List+Logs islands —
+> `FilterableTable`/`Pagination`/log-details modal; Analytics stays Chart.js; see plan §5.2 Tier 1 #3, §7).
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.

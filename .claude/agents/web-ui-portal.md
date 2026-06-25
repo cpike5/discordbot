@@ -48,7 +48,12 @@ host Razor Page; the island inherits them. **Do not** convert whole pages or add
 - **Islands** (`Blazor/Pages/`): `ModerationSettingsIsland` (Slice 1, `/Guilds/{id}/ModerationSettings`
   body), `NotificationBellIsland` (Slice 2, global navbar bell — replaces `notification-bell.js`),
   `BotStatusCardIsland` (Slice 2, dashboard banner — replaces `bot-status-refresh.js` 30s polling),
+  `AdminSettingsIsland` (Slice 3, `/Admin/Settings` body — replaces `settings.js`; 7 tabs, per-category
+  & global save/reset, command modules, appearance (SuperAdmin), Bot Control with event-bus live status
+  + restart/typed-confirm shutdown; audit-log enqueues mirror the page handlers),
   `FoundationProbe` (Phase 0 PoC on `/Components`).
+- **Shared kit additions:** `TypedConfirmModal` (Slice 3) — awaitable type-to-confirm dialog mirroring
+  `_TypedConfirmationModal.cshtml`, used for the bot shutdown flow.
 - **Blazor bootstrap is global** (Slice 2): the bell lives in `_Navbar`, so `_Layout` starts the
   circuit for every layout page (`blazor.server.js` autostart=false + `blazor-interop.js`, after
   toast/theme). Host pages no longer add their own `blazor.server.js`.
