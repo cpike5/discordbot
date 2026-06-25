@@ -76,9 +76,34 @@ parity end-to-end.
 > Chart.js + the interop shim (Blazor bootstrap/timezone/preview-popup are global in `_Layout`).
 > `FilterableTable` was **not** built as a generic component this slice — the logs table is rendered
 > inline in the island; co-designing a reusable `FilterableTable` is deferred to Slice 5 (Member
-> Directory) where a second real consumer makes the generics concrete. **Your job is now Slice 5**
-> (Member Directory island — `FilterableTable` + `Virtualize`; replaces `member-directory.js`; see
-> plan §5.2 Tier 2 #4, §7).
+> Directory) where a second real consumer makes the generics concrete.
+
+> **Slice 5 status: DONE.** `Bot/Blazor/Pages/MemberDirectoryIsland.razor` owns the interactive body
+> of `/Guilds/{id}/Members`, replacing `wwwroot/js/member-directory.js` (filter panel, role
+> multi-select, bulk selection + CSV export, member detail modal). Filters apply **live** (search
+> debounced 300ms via `Debouncer`; role/date/activity/sort changes reload immediately — the legacy
+> Apply/Reset form became live + a Reset button). Bulk select drives a toolbar (select-all tristate
+> via `blazorInterop.setIndeterminate`, deselect-all, **Export Selected** → `blazorInterop.download`
+> of the `/api/guilds/{id}/members/export?userIds=…` CSV). The member detail modal renders
+> **natively** from `IGuildMemberService.GetMemberAsync` (replacing the JSON fetch + DOM-building in
+> JS); copy-user-id uses `blazorInterop.copyText`. Timestamps use `data-utc` spans refreshed via
+> `blazorInterop.convertTimes`.
+>
+> This slice built the deferred **`Bot/Blazor/Shared/FilterableTable.razor`** — a generic
+> `@@typeparam TItem` results shell (Filters/Toolbar slots, loading spinner, "Showing X to Y of Z"
+> summary, responsive desktop-table/mobile-card split via `HeaderTemplate`/`RowTemplate`/
+> `MobileTemplate`, empty state, and `Pagination`). It was **co-designed against two real consumers**:
+> the member directory **and** the Slice 4 command logs table, which was **retrofitted** onto it
+> (its filter panel stays in place; only the results region now flows through `FilterableTable`).
+> Generic helpers were added to the global `wwwroot/js/blazor-interop.js`
+> (`download`, `copyText`, `convertTimes`, `setIndeterminate`) for reuse by future islands.
+>
+> Note: the plan mentioned `<Virtualize>` for the member list, but the page keeps **server-side
+> pagination** (25/page) — virtualizing 25 rows adds nothing and pagination preserves the existing
+> UX. The legacy JS UI + `_MemberDetailModal` partial stay reachable at `?legacy=true` (parity gate);
+> island mode needs no page scripts (Blazor bootstrap, timezone.js, preview-popup.js and
+> blazor-interop.js are global in `_Layout`). **Your job is now Slice 6** (Soundboard portal grid
+> island — `<Virtualize>`; audio playback stays in JS; see plan §5.2 Tier 2 #5, §7).
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.

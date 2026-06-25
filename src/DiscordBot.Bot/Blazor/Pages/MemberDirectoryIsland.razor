@@ -1,0 +1,905 @@
+@namespace DiscordBot.Bot.Blazor.Pages
+@using System.Globalization
+@using System.Text
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+@implements IDisposable
+
+@*
+    Slice 5 island: the interactive body of /Guilds/{id}/Members. Replaces
+    wwwroot/js/member-directory.js (filter panel, role multi-select, bulk selection +
+    export, member detail modal) with server-held Blazor state. The results region
+    uses the new reusable FilterableTable shell + Pagination. Filters apply live
+    (search debounced 300ms via Debouncer); the member detail modal renders natively
+    from IGuildMemberService instead of fetching the JSON API. Data access creates a
+    DI scope per operation (gotcha §6.4); GuildId arrives as a string (gotcha §6.2).
+*@
+
+<FilterableTable TItem="MemberListItemViewModel"
+                 Items="_members"
+                 Loading="_loading"
+                 CurrentPage="_page"
+                 TotalPages="_totalPages"
+                 TotalCount="_totalCount"
+                 PageSize="_pageSize"
+                 OnPageChange="LoadMembersAsync"
+                 ItemNoun="members"
+                 EmptyTitle="@(HasActiveFilters ? "No members found" : "No members yet")"
+                 EmptyDescription="@(HasActiveFilters ? "Try adjusting your search or filters" : "This server has no members")">
+    <Filters>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <button type="button"
+                    class="w-full flex items-center justify-between px-5 py-4 text-left"
+                    aria-expanded="@(_filtersExpanded ? "true" : "false")"
+                    @onclick="() => _filtersExpanded = !_filtersExpanded">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                    </svg>
+                    <span class="text-lg font-semibold text-text-primary">Filters</span>
+                    @if (ActiveFilterCount > 0)
+                    {
+                        <span class="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-accent-orange text-white">@ActiveFilterCount active</span>
+                    }
+                </div>
+                <svg class="w-5 h-5 text-text-secondary transition-transform duration-200 @(_filtersExpanded ? "rotate-180" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+
+            @if (_filtersExpanded)
+            {
+                <div class="border-t border-border-primary p-6">
+                    <!-- Row 1: Search + Roles -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                            <input type="search" @bind="_search" @bind:event="oninput" @bind:after="OnSearchInput"
+                                   placeholder="Username, display name, or user ID..." class="@FieldClass" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Roles</label>
+                            <div class="relative">
+                                <button type="button"
+                                        class="@FieldClass flex items-center justify-between cursor-pointer"
+                                        aria-haspopup="listbox"
+                                        aria-expanded="@(_roleDropdownOpen ? "true" : "false")"
+                                        @onclick="() => _roleDropdownOpen = !_roleDropdownOpen">
+                                    <span class="truncate">@RoleSelectionText</span>
+                                    <svg class="w-4 h-4 ml-2 flex-shrink-0 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                </button>
+                                @if (_roleDropdownOpen)
+                                {
+                                    <div class="fixed inset-0 z-0" @onclick="() => _roleDropdownOpen = false"></div>
+                                    <div class="absolute z-10 mt-1 w-full bg-bg-tertiary border border-border-primary rounded-lg shadow-lg max-h-60 overflow-auto" role="listbox">
+                                        @if (_availableRoles.Count == 0)
+                                        {
+                                            <div class="px-3 py-4 text-center text-sm text-text-tertiary">No roles available</div>
+                                        }
+                                        @foreach (var role in _availableRoles)
+                                        {
+                                            var colorHex = role.Color > 0 ? $"#{role.Color:X6}" : "#99aab5";
+                                            <label class="flex items-center gap-2 px-3 py-2 hover:bg-bg-hover cursor-pointer transition-colors">
+                                                <input type="checkbox" class="w-4 h-4 rounded border-border-primary"
+                                                       checked="@_roleIds.Contains(role.Id)"
+                                                       @onchange="e => OnRoleToggled(role.Id, e)" />
+                                                <span class="inline-flex items-center gap-2">
+                                                    <span class="w-3 h-3 rounded-full" style="background-color: @colorHex"></span>
+                                                    <span class="text-sm text-text-primary">@role.Name</span>
+                                                </span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Row 2: Join date range -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Joined After</label>
+                            <input type="date" @bind="_joinedAfter" @bind:after="ApplyFiltersAsync" class="@FieldClass" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Joined Before</label>
+                            <input type="date" @bind="_joinedBefore" @bind:after="ApplyFiltersAsync" class="@FieldClass" />
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Activity / Sort / Order -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Activity</label>
+                            <select @onchange="OnActivityChanged" class="@FieldClass cursor-pointer">
+                                @foreach (var option in _activityOptions)
+                                {
+                                    <option value="@option.Key" selected="@(_activity == option.Key || (string.IsNullOrEmpty(_activity) && option.Key == ""))">@option.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Sort By</label>
+                            <select @onchange="OnSortByChanged" class="@FieldClass cursor-pointer">
+                                @foreach (var option in _sortOptions)
+                                {
+                                    <option value="@option.Key" selected="@(_sortBy == option.Key)">@option.Value</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-1">Order</label>
+                            <select @onchange="OnOrderChanged" class="@FieldClass cursor-pointer">
+                                <option value="false" selected="@(!_sortDescending)">Ascending</option>
+                                <option value="true" selected="@(_sortDescending)">Descending</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    @if (ActiveFilterCount > 0)
+                    {
+                        <div class="pt-4 border-t border-border-secondary">
+                            <button type="button" @onclick="ClearFiltersAsync" class="btn btn-secondary">
+                                <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                                Reset Filters
+                            </button>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+    </Filters>
+
+    <Toolbar>
+        @if (_selectedMemberIds.Count > 0)
+        {
+            <div class="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span class="text-sm font-medium text-text-primary">@_selectedMemberIds.Count member(s) selected</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm" @onclick="DeselectAll">Deselect All</button>
+                    <button type="button" class="btn btn-accent btn-sm" @onclick="ExportSelectedAsync">
+                        <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+                        </svg>
+                        Export Selected
+                    </button>
+                </div>
+            </div>
+        }
+    </Toolbar>
+
+    <HeaderTemplate>
+        <tr>
+            <th class="px-4 py-4 text-left w-12">
+                <input type="checkbox" @ref="_selectAllCheckbox" class="w-4 h-4 rounded border-border-primary cursor-pointer"
+                       checked="@AllOnPageSelected" @onchange="OnSelectAllChanged" aria-label="Select all members" />
+            </th>
+            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Member</th>
+            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider">Roles</th>
+            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden lg:table-cell">Joined</th>
+            <th scope="col" class="px-6 py-4 text-left text-xs font-semibold text-text-primary uppercase tracking-wider hidden xl:table-cell">Last Active</th>
+            <th scope="col" class="px-6 py-4 text-right text-xs font-semibold text-text-primary uppercase tracking-wider">Actions</th>
+        </tr>
+    </HeaderTemplate>
+
+    <RowTemplate Context="member">
+        <tr class="hover:bg-bg-hover/50 transition-colors">
+            <td class="px-4 py-4">
+                <input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer"
+                       checked="@_selectedMemberIds.Contains(member.UserId)"
+                       @onchange="e => OnMemberToggled(member.UserId, e)" aria-label="Select @member.DisplayName" />
+            </td>
+            <td class="px-6 py-4">
+                <div class="flex items-center gap-3">
+                    @AvatarBlock(member.AvatarUrl, member.DisplayName, "w-10 h-10", "text-sm")
+                    <div class="min-w-0">
+                        <p class="font-medium text-text-primary truncate preview-trigger" data-preview-type="user" data-user-id="@member.UserId" data-context-guild-id="@GuildId">@member.DisplayName</p>
+                        <p class="text-xs text-text-tertiary font-mono">@("@")@member.Username</p>
+                    </div>
+                </div>
+            </td>
+            <td class="px-6 py-4">@RoleChips(member.Roles, 3)</td>
+            <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                <span data-utc="@member.JoinedAtUtcIso" data-format="date"></span>
+            </td>
+            <td class="px-6 py-4 text-text-secondary text-sm hidden xl:table-cell">
+                @if (member.LastActiveAt.HasValue)
+                {
+                    <span data-utc="@member.LastActiveAtUtcIso" data-format="relative"></span>
+                }
+                else
+                {
+                    <span class="text-text-tertiary">Never</span>
+                }
+            </td>
+            <td class="px-6 py-4 text-right">
+                <button type="button" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors" @onclick="() => OpenDetailAsync(member.UserId)">View</button>
+            </td>
+        </tr>
+    </RowTemplate>
+
+    <MobileTemplate Context="member">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <div class="flex items-start justify-between mb-3">
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" class="w-4 h-4 rounded border-border-primary cursor-pointer mt-1"
+                           checked="@_selectedMemberIds.Contains(member.UserId)"
+                           @onchange="e => OnMemberToggled(member.UserId, e)" aria-label="Select @member.DisplayName" />
+                    @AvatarBlock(member.AvatarUrl, member.DisplayName, "w-10 h-10", "text-sm")
+                    <div class="min-w-0">
+                        <p class="font-medium text-text-primary truncate preview-trigger" data-preview-type="user" data-user-id="@member.UserId" data-context-guild-id="@GuildId">@member.DisplayName</p>
+                        <p class="text-xs text-text-tertiary font-mono">@("@")@member.Username</p>
+                    </div>
+                </div>
+            </div>
+            @if (member.Roles.Any())
+            {
+                <div class="mb-3">
+                    <p class="text-xs text-text-tertiary mb-1">Roles:</p>
+                    @RoleChips(member.Roles, 5)
+                </div>
+            }
+            <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                <div>
+                    <span class="text-text-tertiary">Joined:</span>
+                    <span class="text-text-primary ml-1" data-utc="@member.JoinedAtUtcIso" data-format="date"></span>
+                </div>
+                <div class="col-span-2">
+                    <span class="text-text-tertiary">Last Active:</span>
+                    @if (member.LastActiveAt.HasValue)
+                    {
+                        <span class="text-text-primary ml-1" data-utc="@member.LastActiveAtUtcIso" data-format="relative"></span>
+                    }
+                    else
+                    {
+                        <span class="text-text-tertiary ml-1">Never</span>
+                    }
+                </div>
+            </div>
+            <div class="flex items-center gap-2 pt-3 border-t border-border-secondary">
+                <button type="button" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors" @onclick="() => OpenDetailAsync(member.UserId)">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </svg>
+                    View Details
+                </button>
+            </div>
+        </div>
+    </MobileTemplate>
+</FilterableTable>
+
+@* ---------- Member detail modal (native) ---------- *@
+@if (_detailVisible)
+{
+    <div class="fixed inset-0 z-50 overflow-y-auto" role="dialog" aria-modal="true" aria-labelledby="memberDetailTitle">
+        <div class="flex min-h-screen items-center justify-center p-4">
+            <div class="fixed inset-0 bg-black/75" @onclick="CloseDetail" aria-hidden="true"></div>
+            <div class="relative bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-hidden">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <h2 id="memberDetailTitle" class="text-xl font-semibold text-text-primary">Member Details</h2>
+                    <button type="button" class="text-text-secondary hover:text-text-primary transition-colors p-1" @onclick="CloseDetail" aria-label="Close modal">
+                        <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+
+                <div class="overflow-y-auto max-h-[calc(90vh-140px)] px-6 py-6">
+                    @if (_detailLoading)
+                    {
+                        <div class="flex items-center justify-center py-12">
+                            <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-blue"></div>
+                            <span class="ml-3 text-sm text-text-secondary">Loading member details...</span>
+                        </div>
+                    }
+                    else if (_detailMember is null)
+                    {
+                        <div class="px-6 py-12 text-center">
+                            <svg class="w-12 h-12 mx-auto text-error mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <h3 class="text-lg font-medium text-text-primary mb-2">Failed to load member</h3>
+                            <p class="text-sm text-text-secondary">This member may have left the server or been removed.</p>
+                        </div>
+                    }
+                    else
+                    {
+                        @DetailContent(_detailMember)
+                    }
+                </div>
+
+                <div class="flex items-center justify-between gap-3 px-6 py-4 border-t border-border-primary bg-bg-secondary">
+                    @if (_detailMember is not null)
+                    {
+                        <a href="/Guilds/@GuildId/Members/@_detailMember.UserId/Moderation" class="btn btn-accent">
+                            <svg class="w-4 h-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                            </svg>
+                            View Moderation Profile
+                        </a>
+                    }
+                    else
+                    {
+                        <span></span>
+                    }
+                    <button type="button" class="btn btn-secondary" @onclick="CloseDetail">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Discord guild snowflake ID (string to preserve precision — gotcha §6.2).</summary>
+    [Parameter] public string GuildId { get; set; } = string.Empty;
+
+    // Initial filter state forwarded from the host query string (deep-link parity).
+    [Parameter] public string? InitialSearchTerm { get; set; }
+    [Parameter] public string? InitialRoleIds { get; set; }
+    [Parameter] public DateTime? InitialJoinedAfter { get; set; }
+    [Parameter] public DateTime? InitialJoinedBefore { get; set; }
+    [Parameter] public string? InitialActivity { get; set; }
+    [Parameter] public string InitialSortBy { get; set; } = "JoinedAt";
+    [Parameter] public bool InitialSortDescending { get; set; } = true;
+
+    private const string FieldClass = "w-full px-3 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors";
+    private const int PageSizeConst = 25;
+
+    private readonly (string Key, string Value)[] _sortOptions =
+    {
+        ("JoinedAt", "Join Date"),
+        ("Username", "Username"),
+        ("LastActiveAt", "Last Active"),
+    };
+
+    private readonly (string Key, string Value)[] _activityOptions =
+    {
+        ("", "All Members"),
+        ("active-today", "Active Today"),
+        ("active-week", "Active This Week"),
+        ("active-month", "Active This Month"),
+        ("inactive-week", "Inactive 7+ Days"),
+        ("inactive-month", "Inactive 30+ Days"),
+        ("never-messaged", "Never Messaged"),
+    };
+
+    private ulong _guildIdValue;
+    private List<MemberListItemViewModel> _members = new();
+    private List<GuildRoleDto> _availableRoles = new();
+    private int _page = 1;
+    private int _pageSize = PageSizeConst;
+    private int _totalPages = 1;
+    private int _totalCount;
+    private bool _loading;
+    private bool _filtersExpanded;
+    private bool _roleDropdownOpen;
+
+    // Filters
+    private string? _search;
+    private readonly HashSet<ulong> _roleIds = new();
+    private DateTime? _joinedAfter;
+    private DateTime? _joinedBefore;
+    private string? _activity;
+    private string _sortBy = "JoinedAt";
+    private bool _sortDescending = true;
+
+    private readonly HashSet<ulong> _selectedMemberIds = new();
+    private ElementReference _selectAllCheckbox;
+
+    private readonly Debouncer _searchDebouncer = new(300);
+    private bool _needTimeConvert;
+    private bool _disposed;
+
+    // Detail modal
+    private bool _detailVisible;
+    private bool _detailLoading;
+    private GuildMemberDto? _detailMember;
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(_search) ||
+        _roleIds.Count > 0 ||
+        _joinedAfter.HasValue ||
+        _joinedBefore.HasValue ||
+        !string.IsNullOrWhiteSpace(_activity);
+
+    private int ActiveFilterCount =>
+        (!string.IsNullOrWhiteSpace(_search) ? 1 : 0) +
+        (_roleIds.Count > 0 ? 1 : 0) +
+        (_joinedAfter.HasValue ? 1 : 0) +
+        (_joinedBefore.HasValue ? 1 : 0) +
+        (!string.IsNullOrWhiteSpace(_activity) ? 1 : 0);
+
+    private string RoleSelectionText => _roleIds.Count switch
+    {
+        0 => "All roles",
+        1 => "1 role selected",
+        _ => $"{_roleIds.Count} roles selected",
+    };
+
+    private bool AllOnPageSelected => _members.Count > 0 && _members.All(m => _selectedMemberIds.Contains(m.UserId));
+
+    protected override async Task OnInitializedAsync()
+    {
+        ulong.TryParse(GuildId, NumberStyles.Integer, CultureInfo.InvariantCulture, out _guildIdValue);
+
+        _search = InitialSearchTerm;
+        _joinedAfter = InitialJoinedAfter;
+        _joinedBefore = InitialJoinedBefore;
+        _activity = InitialActivity;
+        _sortBy = string.IsNullOrEmpty(InitialSortBy) ? "JoinedAt" : InitialSortBy;
+        _sortDescending = InitialSortDescending;
+        _filtersExpanded = HasActiveFilters;
+
+        if (!string.IsNullOrWhiteSpace(InitialRoleIds))
+        {
+            foreach (var part in InitialRoleIds.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                if (ulong.TryParse(part, NumberStyles.Integer, CultureInfo.InvariantCulture, out var id))
+                {
+                    _roleIds.Add(id);
+                }
+            }
+        }
+
+        await LoadRolesAsync();
+        await LoadMembersAsync(_page);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        // Reflect a partial page selection as the indeterminate (tristate) checkbox.
+        // The header checkbox only exists when the table is rendered (members present
+        // and not loading); skip otherwise so we never marshal an unset ElementReference.
+        if (!_loading && _members.Count > 0)
+        {
+            var anySelectedOnPage = _members.Any(m => _selectedMemberIds.Contains(m.UserId));
+            await SafeInvokeAsync("blazorInterop.setIndeterminate", _selectAllCheckbox, anySelectedOnPage && !AllOnPageSelected);
+        }
+
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            await SafeInvokeAsync("blazorInterop.convertTimes");
+        }
+    }
+
+    private async Task LoadRolesAsync()
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var memberService = scope.ServiceProvider.GetRequiredService<IGuildMemberService>();
+            // Distinct roles surfaced across the (active) membership, ordered for the picker.
+            var sample = await memberService.GetMembersAsync(
+                _guildIdValue,
+                new GuildMemberQueryDto { IsActive = true, Page = 1, PageSize = 100 });
+            _availableRoles = sample.Items
+                .SelectMany(m => m.Roles)
+                .GroupBy(r => r.Id)
+                .Select(g => g.First())
+                .OrderByDescending(r => r.Position)
+                .ToList();
+        }
+        catch (Exception)
+        {
+            _availableRoles = new List<GuildRoleDto>();
+        }
+    }
+
+    private async Task LoadMembersAsync(int page)
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var memberService = scope.ServiceProvider.GetRequiredService<IGuildMemberService>();
+
+            var query = new GuildMemberQueryDto
+            {
+                SearchTerm = _search,
+                RoleIds = _roleIds.Count > 0 ? _roleIds.ToList() : null,
+                JoinedAtStart = _joinedAfter,
+                JoinedAtEnd = _joinedBefore?.AddDays(1).AddSeconds(-1),
+                SortBy = _sortBy,
+                SortDescending = _sortDescending,
+                Page = page < 1 ? 1 : page,
+                PageSize = _pageSize,
+                IsActive = true,
+            };
+            ApplyActivityFilter(query);
+
+            var result = await memberService.GetMembersAsync(_guildIdValue, query);
+            _members = result.Items.Select(MapToListItem).ToList();
+            _page = result.Page;
+            _totalPages = result.TotalPages;
+            _totalCount = result.TotalCount;
+            _needTimeConvert = true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to load members.");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void ApplyActivityFilter(GuildMemberQueryDto query)
+    {
+        if (string.IsNullOrWhiteSpace(_activity))
+        {
+            return;
+        }
+
+        var now = DateTime.UtcNow;
+        switch (_activity)
+        {
+            case "active-today": query.LastActiveAtStart = now.Date; break;
+            case "active-week": query.LastActiveAtStart = now.AddDays(-7); break;
+            case "active-month": query.LastActiveAtStart = now.AddDays(-30); break;
+            case "inactive-week": query.LastActiveAtEnd = now.AddDays(-7); break;
+            case "inactive-month": query.LastActiveAtEnd = now.AddDays(-30); break;
+            case "never-messaged": query.LastActiveAtEnd = null; break;
+        }
+    }
+
+    private static MemberListItemViewModel MapToListItem(GuildMemberDto dto)
+    {
+        string? avatarUrl = null;
+        if (!string.IsNullOrEmpty(dto.AvatarHash))
+        {
+            var extension = dto.AvatarHash.StartsWith("a_") ? "gif" : "png";
+            avatarUrl = $"https://cdn.discordapp.com/avatars/{dto.UserId}/{dto.AvatarHash}.{extension}?size=80";
+        }
+
+        return new MemberListItemViewModel
+        {
+            UserId = dto.UserId,
+            DisplayName = dto.DisplayName,
+            Username = dto.Username,
+            Nickname = dto.Nickname,
+            GlobalDisplayName = dto.GlobalDisplayName,
+            AvatarUrl = avatarUrl,
+            JoinedAt = dto.JoinedAt,
+            LastActiveAt = dto.LastActiveAt,
+            AccountCreatedAt = dto.AccountCreatedAt,
+            Roles = dto.Roles.OrderByDescending(r => r.Position).Select(r => new RoleViewModel
+            {
+                Id = r.Id,
+                Name = r.Name,
+                ColorHex = r.Color > 0 ? $"#{r.Color:X6}" : "#99aab5",
+            }).ToList(),
+        };
+    }
+
+    // ----- Filter handlers (live apply) -----
+
+    private Task ApplyFiltersAsync()
+    {
+        _selectedMemberIds.Clear();
+        return LoadMembersAsync(1);
+    }
+
+    private async Task OnSearchInput()
+    {
+        await _searchDebouncer.DebounceAsync(async _ =>
+            await InvokeAsync(ApplyFiltersAsync));
+    }
+
+    private Task OnRoleToggled(ulong roleId, ChangeEventArgs e)
+    {
+        if (e.Value is bool isChecked && isChecked)
+        {
+            _roleIds.Add(roleId);
+        }
+        else
+        {
+            _roleIds.Remove(roleId);
+        }
+        return ApplyFiltersAsync();
+    }
+
+    private Task OnActivityChanged(ChangeEventArgs e)
+    {
+        _activity = e.Value?.ToString();
+        return ApplyFiltersAsync();
+    }
+
+    private Task OnSortByChanged(ChangeEventArgs e)
+    {
+        _sortBy = e.Value?.ToString() ?? "JoinedAt";
+        return ApplyFiltersAsync();
+    }
+
+    private Task OnOrderChanged(ChangeEventArgs e)
+    {
+        _sortDescending = bool.TryParse(e.Value?.ToString(), out var desc) && desc;
+        return ApplyFiltersAsync();
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        _search = null;
+        _roleIds.Clear();
+        _joinedAfter = null;
+        _joinedBefore = null;
+        _activity = null;
+        return ApplyFiltersAsync();
+    }
+
+    // ----- Bulk selection -----
+
+    private void OnMemberToggled(ulong userId, ChangeEventArgs e)
+    {
+        if (e.Value is bool isChecked && isChecked)
+        {
+            _selectedMemberIds.Add(userId);
+        }
+        else
+        {
+            _selectedMemberIds.Remove(userId);
+        }
+    }
+
+    private void OnSelectAllChanged(ChangeEventArgs e)
+    {
+        var select = e.Value is bool b && b;
+        foreach (var member in _members)
+        {
+            if (select)
+            {
+                _selectedMemberIds.Add(member.UserId);
+            }
+            else
+            {
+                _selectedMemberIds.Remove(member.UserId);
+            }
+        }
+    }
+
+    private void DeselectAll() => _selectedMemberIds.Clear();
+
+    private async Task ExportSelectedAsync()
+    {
+        if (_selectedMemberIds.Count == 0)
+        {
+            await Toast.WarningAsync("No members selected");
+            return;
+        }
+
+        var sb = new StringBuilder($"/api/guilds/{_guildIdValue}/members/export?");
+        var first = true;
+        foreach (var id in _selectedMemberIds)
+        {
+            if (!first) sb.Append('&');
+            sb.Append("userIds=").Append(id.ToString(CultureInfo.InvariantCulture));
+            first = false;
+        }
+
+        await SafeInvokeAsync("blazorInterop.download", sb.ToString());
+        await Toast.InfoAsync($"Exporting {_selectedMemberIds.Count} member(s)...");
+    }
+
+    // ----- Detail modal -----
+
+    private async Task OpenDetailAsync(ulong userId)
+    {
+        _detailVisible = true;
+        _detailLoading = true;
+        _detailMember = null;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var memberService = scope.ServiceProvider.GetRequiredService<IGuildMemberService>();
+            _detailMember = await memberService.GetMemberAsync(_guildIdValue, userId);
+            _needTimeConvert = true;
+        }
+        catch (Exception)
+        {
+            _detailMember = null;
+        }
+        finally
+        {
+            _detailLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private void CloseDetail()
+    {
+        _detailVisible = false;
+        _detailMember = null;
+    }
+
+    private async Task CopyUserIdAsync(ulong userId)
+    {
+        var ok = await JS.InvokeAsync<bool>("blazorInterop.copyText", userId.ToString(CultureInfo.InvariantCulture));
+        if (ok)
+        {
+            await Toast.SuccessAsync("User ID copied to clipboard");
+        }
+        else
+        {
+            await Toast.ErrorAsync("Failed to copy user ID");
+        }
+    }
+
+    private async Task SafeInvokeAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _searchDebouncer.Dispose();
+    }
+
+    // ----- Render helpers (@<text> markup-mode form) -----
+
+    private RenderFragment AvatarBlock(string? avatarUrl, string displayName, string sizeClass, string textSize) => @<text>
+        @if (!string.IsNullOrEmpty(avatarUrl))
+        {
+            <img src="@avatarUrl" alt="@displayName" class="@sizeClass rounded-full flex-shrink-0" loading="lazy" />
+        }
+        else
+        {
+            <div class="@sizeClass rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold @textSize flex-shrink-0">
+                @(displayName.Length >= 2 ? displayName[..2].ToUpper() : displayName.ToUpper())
+            </div>
+        }
+    </text>;
+
+    private RenderFragment RoleChips(IReadOnlyList<RoleViewModel> roles, int max) => @<text>
+        <div class="flex flex-wrap gap-1">
+            @foreach (var role in roles.Take(max))
+            {
+                <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium text-white" style="background-color: @role.ColorHex">@role.Name</span>
+            }
+            @if (roles.Count > max)
+            {
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-bg-tertiary text-text-secondary" title="@string.Join(", ", roles.Skip(max).Select(r => r.Name))">+@(roles.Count - max)</span>
+            }
+            @if (roles.Count == 0)
+            {
+                <span class="text-xs text-text-tertiary">No roles</span>
+            }
+        </div>
+    </text>;
+
+    private RenderFragment DetailContent(GuildMemberDto m) => @<text>
+        @{
+            var sortedRoles = m.Roles.OrderByDescending(r => r.Position).ToList();
+            string? avatarUrl = null;
+            if (!string.IsNullOrEmpty(m.AvatarHash))
+            {
+                var ext = m.AvatarHash.StartsWith("a_") ? "gif" : "png";
+                avatarUrl = $"https://cdn.discordapp.com/avatars/{m.UserId}/{m.AvatarHash}.{ext}?size=160";
+            }
+        }
+        <div class="flex items-start gap-4 mb-6 pb-6 border-b border-border-secondary">
+            @AvatarBlock(avatarUrl, m.DisplayName, "w-20 h-20", "text-2xl")
+            <div class="flex-1 min-w-0">
+                <h3 class="text-lg font-semibold text-text-primary mb-1">@m.DisplayName</h3>
+                <p class="text-sm text-text-secondary font-mono mb-2">@("@")@m.Username</p>
+                <p class="text-xs text-text-tertiary">
+                    <span>User ID: </span>
+                    <span class="font-mono select-all">@m.UserId</span>
+                    <button type="button" class="ml-2 text-accent-blue hover:text-accent-blue-hover align-middle" @onclick="() => CopyUserIdAsync(m.UserId)" aria-label="Copy user ID">
+                        <svg class="w-4 h-4 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                        </svg>
+                    </button>
+                </p>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-6 mb-6">
+            <div>
+                <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Account Created</p>
+                @if (m.AccountCreatedAt.HasValue)
+                {
+                    <p class="text-sm text-text-primary" data-utc="@DateTime.SpecifyKind(m.AccountCreatedAt.Value, DateTimeKind.Utc).ToString("o")" data-format="date"></p>
+                    <p class="text-xs text-text-tertiary" data-utc="@DateTime.SpecifyKind(m.AccountCreatedAt.Value, DateTimeKind.Utc).ToString("o")" data-format="relative"></p>
+                }
+                else
+                {
+                    <p class="text-sm text-text-primary">Unknown</p>
+                }
+            </div>
+            <div>
+                <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Joined Server</p>
+                <p class="text-sm text-text-primary" data-utc="@DateTime.SpecifyKind(m.JoinedAt, DateTimeKind.Utc).ToString("o")" data-format="date"></p>
+                <p class="text-xs text-text-tertiary" data-utc="@DateTime.SpecifyKind(m.JoinedAt, DateTimeKind.Utc).ToString("o")" data-format="relative"></p>
+            </div>
+            <div>
+                <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Last Active</p>
+                @if (m.LastActiveAt.HasValue)
+                {
+                    <p class="text-sm text-text-primary" data-utc="@DateTime.SpecifyKind(m.LastActiveAt.Value, DateTimeKind.Utc).ToString("o")" data-format="relative"></p>
+                    <p class="text-xs text-text-tertiary" data-utc="@DateTime.SpecifyKind(m.LastActiveAt.Value, DateTimeKind.Utc).ToString("o")" data-format="datetime"></p>
+                }
+                else
+                {
+                    <p class="text-sm text-text-primary">Never</p>
+                }
+            </div>
+            <div>
+                <p class="text-xs text-text-tertiary uppercase tracking-wider mb-1">Nickname</p>
+                <p class="text-sm text-text-primary">@(string.IsNullOrEmpty(m.Nickname) ? "None" : m.Nickname)</p>
+            </div>
+        </div>
+
+        <div class="mb-6">
+            <h4 class="text-sm font-semibold text-text-primary uppercase tracking-wider mb-3">
+                Roles <span class="text-text-tertiary font-normal">(@sortedRoles.Count)</span>
+            </h4>
+            @if (sortedRoles.Count > 0)
+            {
+                <div class="flex flex-wrap gap-2">
+                    @foreach (var role in sortedRoles)
+                    {
+                        var colorHex = role.Color > 0 ? $"#{role.Color:X6}" : "#99aab5";
+                        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded text-sm font-medium text-white" style="background-color: @colorHex">
+                            <span class="w-2 h-2 rounded-full bg-white/30"></span>@role.Name
+                        </span>
+                    }
+                </div>
+            }
+            else
+            {
+                <div class="text-sm text-text-tertiary">No roles assigned</div>
+            }
+        </div>
+
+        <div class="grid grid-cols-3 gap-4">
+            <div class="bg-bg-secondary rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-accent-blue">@sortedRoles.Count</p>
+                <p class="text-xs text-text-tertiary">Roles</p>
+            </div>
+            <div class="bg-bg-secondary rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold @(m.IsActive ? "text-success" : "text-error")">@(m.IsActive ? "Active" : "Inactive")</p>
+                <p class="text-xs text-text-tertiary">Status</p>
+            </div>
+            <div class="bg-bg-secondary rounded-lg p-4 text-center">
+                <p class="text-2xl font-bold text-text-tertiary">-</p>
+                <p class="text-xs text-text-tertiary">Messages</p>
+            </div>
+        </div>
+    </text>;
+}

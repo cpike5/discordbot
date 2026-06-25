@@ -9,6 +9,8 @@
     var endItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
 }
 
+@if (Model.Legacy)
+{
 <!-- Filter Panel -->
 <filter-panel title="Filters"
               is-collapsible="true"
@@ -454,11 +456,35 @@
 
 <!-- Toast Container -->
 <partial name="Shared/Components/_ToastContainer" />
+}
+else
+{
+    <!-- Blazor island (Slice 5): replaces member-directory.js. The page keeps its route,
+         _GuildLayout, breadcrumb/header/nav and guild auth; the island owns the filter
+         panel, bulk selection + export, results table and member detail modal. -->
+    <component type="typeof(DiscordBot.Bot.Blazor.Pages.MemberDirectoryIsland)"
+               render-mode="ServerPrerendered"
+               param-GuildId="@Model.GuildId.ToString()"
+               param-InitialSearchTerm="@Model.SearchTerm"
+               param-InitialRoleIds="@(Model.RoleFilter != null && Model.RoleFilter.Any() ? string.Join(",", Model.RoleFilter) : null)"
+               param-InitialJoinedAfter="@Model.JoinedAfter"
+               param-InitialJoinedBefore="@Model.JoinedBefore"
+               param-InitialActivity="@Model.ActivityFilter"
+               param-InitialSortBy="@Model.SortBy"
+               param-InitialSortDescending="@Model.SortDescending" />
+}
 
 @section Scripts {
-    <script src="~/js/member-directory.js"></script>
-    <script>
-        // Initialize member directory with guild ID (as string to preserve precision)
-        window.memberDirectoryGuildId = '@Model.GuildId';
-    </script>
+    @if (Model.Legacy)
+    {
+        <script src="~/js/member-directory.js"></script>
+        <text>
+        <script>
+            // Initialize member directory with guild ID (as string to preserve precision)
+            window.memberDirectoryGuildId = '@Model.GuildId';
+        </script>
+        </text>
+    }
+    @* Island mode needs no page scripts: Blazor bootstrap, timezone.js, preview-popup.js
+       and blazor-interop.js are all loaded globally in _Layout. *@
 }
