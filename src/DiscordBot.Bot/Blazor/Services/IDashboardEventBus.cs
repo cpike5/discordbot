@@ -35,6 +35,41 @@ public interface IDashboardEventBus
     /// <summary>Raised when the bot's connection status changes (broadcast to all).</summary>
     event Action<BotStatusUpdateDto>? BotStatusChanged;
 
+    // ── Performance dashboard live-tile streams (Slice 7) ──────────────────
+    // Dual-published by PerformanceMetricsBroadcastService / PerformanceNotifier
+    // alongside their DashboardHub broadcasts, so the perf islands receive the same
+    // real-time data over the in-process bus instead of a second WebSocket.
+
+    /// <summary>Raised on each health-metrics tick (latency/memory/cpu/connection).</summary>
+    event Action<HealthMetricsUpdateDto>? HealthMetricsUpdated;
+
+    /// <summary>Raised on each command-performance tick (avg/p95/p99/totals/error rate).</summary>
+    event Action<CommandPerformanceUpdateDto>? CommandPerformanceUpdated;
+
+    /// <summary>Raised on each system-metrics tick (db/cache/background-service stats).</summary>
+    event Action<SystemMetricsUpdateDto>? SystemMetricsUpdated;
+
+    /// <summary>Raised when a performance alert is triggered.</summary>
+    event Action<PerformanceIncidentDto>? AlertTriggered;
+
+    /// <summary>Raised when a performance alert is resolved.</summary>
+    event Action<PerformanceIncidentDto>? AlertResolved;
+
+    /// <summary>Raised when an alert is acknowledged. Args: incidentId, acknowledgedBy.</summary>
+    event Action<Guid, string>? AlertAcknowledged;
+
+    /// <summary>Raised when the active-alert summary changes.</summary>
+    event Action<ActiveAlertSummaryDto>? ActiveAlertCountChanged;
+
+    /// <summary>True when at least one island is subscribed to <see cref="HealthMetricsUpdated"/>.</summary>
+    bool HasHealthMetricsSubscribers { get; }
+
+    /// <summary>True when at least one island is subscribed to <see cref="CommandPerformanceUpdated"/>.</summary>
+    bool HasCommandPerformanceSubscribers { get; }
+
+    /// <summary>True when at least one island is subscribed to <see cref="SystemMetricsUpdated"/>.</summary>
+    bool HasSystemMetricsSubscribers { get; }
+
     /// <summary>Publishes a new-notification event to subscribed islands.</summary>
     void PublishNotificationReceived(string userId, UserNotificationDto notification);
 
@@ -49,4 +84,25 @@ public interface IDashboardEventBus
 
     /// <summary>Publishes a bot-status change to subscribed islands.</summary>
     void PublishBotStatusChanged(BotStatusUpdateDto status);
+
+    /// <summary>Publishes a health-metrics tick to subscribed islands.</summary>
+    void PublishHealthMetricsUpdated(HealthMetricsUpdateDto metrics);
+
+    /// <summary>Publishes a command-performance tick to subscribed islands.</summary>
+    void PublishCommandPerformanceUpdated(CommandPerformanceUpdateDto metrics);
+
+    /// <summary>Publishes a system-metrics tick to subscribed islands.</summary>
+    void PublishSystemMetricsUpdated(SystemMetricsUpdateDto metrics);
+
+    /// <summary>Publishes an alert-triggered event to subscribed islands.</summary>
+    void PublishAlertTriggered(PerformanceIncidentDto incident);
+
+    /// <summary>Publishes an alert-resolved event to subscribed islands.</summary>
+    void PublishAlertResolved(PerformanceIncidentDto incident);
+
+    /// <summary>Publishes an alert-acknowledged event to subscribed islands.</summary>
+    void PublishAlertAcknowledged(Guid incidentId, string acknowledgedBy);
+
+    /// <summary>Publishes an active-alert-summary change to subscribed islands.</summary>
+    void PublishActiveAlertCountChanged(ActiveAlertSummaryDto summary);
 }

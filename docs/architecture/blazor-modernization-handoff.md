@@ -135,9 +135,41 @@ parity end-to-end.
 > reachable at `?legacy=true` (parity gate). `_PortalLayout` has **no** global Blazor bootstrap (it
 > isn't `_Layout`), so the host page starts the circuit itself in island mode with an explicit
 > `~/_blazor` hub URL (nested route, gotcha §6.5); `blazor-interop.js` loads after the layout's
-> `toast.js` so `ToastInterop` can bridge `ToastManager`. **Slice 7** (Performance live-tile islands
-> via `IDashboardEventBus`; charts stay Chart.js) is the next and final planned slice — see plan
-> §5.2 Tier 3 #6, §7.
+> `toast.js` so `ToastInterop` can bridge `ToastManager`.
+
+> **Slice 7 status: FOUNDATION SHIPPED; page islands deferred (reassess/hold).** The additive,
+> low-risk half is done and verified: `IDashboardEventBus` now carries the performance live-tile
+> streams — `HealthMetricsUpdated`, `CommandPerformanceUpdated`, `SystemMetricsUpdated`, and the
+> alert events (`AlertTriggered`/`AlertResolved`/`AlertAcknowledged`/`ActiveAlertCountChanged`) —
+> and `PerformanceMetricsBroadcastService` + `PerformanceNotifier` **dual-publish** to it after
+> their `DashboardHub` SendAsync (additive; JS path untouched), exactly like Slice 2's notifier
+> dual-publish. Because the metric collectors are gated on *SignalR* subscriber count
+> (`PerformanceGroupClientCount == 0 → skip`), the bus exposes `HasHealthMetricsSubscribers` /
+> `HasCommandPerformanceSubscribers` / `HasSystemMetricsSubscribers` and the gate now also fires
+> when an island is the only subscriber, so a future island still gets data. Two existing tests got
+> the new ctor arg. (Solution build 0 errors; perf/bus tests 21/21.)
+>
+> **Why the four page islands were NOT built.** On reading the actual pages, converting their "live
+> tiles" to islands is a poor tradeoff that the plan itself flags ("after Slice 7, reassess whether
+> to pursue the full-rewrite north star or **hold**"):
+> 1. **Shared tab partials.** `SystemHealth`/`Alerts`/`Commands` render the *same* `Tabs/_*Tab`
+>    partials the AJAX `/Admin/Performance` overview injects — and Blazor Server cannot attach a
+>    circuit to AJAX-injected markup. So an island can't live inside those partials; the standalone
+>    page would have to render the island *instead of* the partial.
+> 2. **Interleaved non-realtime content.** Inside each page the handful of live values (e.g. on
+>    HealthMetrics just `#currentLatency`/`#memoryUsage`/`#cpuUsage` + the connection label, plus the
+>    gauge/sparkline charts) are embedded in large, mostly-static pages full of non-realtime charts,
+>    tables, timelines, and (Alerts) a config editor. Hosting an island means reproducing most of
+>    each page in Blazor and re-bridging the kept Chart.js charts — a big, higher-risk rewrite of
+>    admin-only observability pages whose only gain is swapping a SignalR subscription for the bus.
+>
+> The existing `wwwroot/js/performance/*-realtime.js` modules (on the standalone HealthMetrics /
+> Commands / SystemHealth / Alerts pages) are unchanged and keep working over `DashboardHub`. If the
+> islands are picked up later, the pattern is: gate each page with `?legacy=true`, render an island
+> that subscribes to the new bus events (coalesce ≤1 Hz per plan §6) and reproduces the live region +
+> chart canvases, forwarding each DTO to the existing Chart.js code via a small interop. The bus
+> plumbing is already in place to support exactly that. **Recommendation: hold** unless the perf
+> dashboard is being redesigned anyway.
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.

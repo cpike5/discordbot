@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -14,6 +15,7 @@ public class PerformanceNotifier : IPerformanceNotifier
 {
     private readonly IHubContext<DashboardHub> _hubContext;
     private readonly IServiceProvider _serviceProvider;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<PerformanceNotifier> _logger;
 
     /// <summary>
@@ -25,10 +27,12 @@ public class PerformanceNotifier : IPerformanceNotifier
     public PerformanceNotifier(
         IHubContext<DashboardHub> hubContext,
         IServiceProvider serviceProvider,
+        IDashboardEventBus eventBus,
         ILogger<PerformanceNotifier> logger)
     {
         _hubContext = hubContext;
         _serviceProvider = serviceProvider;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -46,6 +50,9 @@ public class PerformanceNotifier : IPerformanceNotifier
             await _hubContext.Clients
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnAlertTriggered", incident, cancellationToken);
+
+            // Dual-publish to the in-process bus for Blazor islands (additive; JS untouched).
+            _eventBus.PublishAlertTriggered(incident);
 
             // Also broadcast the updated active alert count
             await BroadcastActiveAlertCountAsync(cancellationToken);
@@ -74,6 +81,9 @@ public class PerformanceNotifier : IPerformanceNotifier
             await _hubContext.Clients
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnAlertResolved", incident, cancellationToken);
+
+            // Dual-publish to the in-process bus for Blazor islands (additive; JS untouched).
+            _eventBus.PublishAlertResolved(incident);
 
             // Also broadcast the updated active alert count
             await BroadcastActiveAlertCountAsync(cancellationToken);
@@ -110,6 +120,9 @@ public class PerformanceNotifier : IPerformanceNotifier
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnAlertAcknowledged", payload, cancellationToken);
 
+            // Dual-publish to the in-process bus for Blazor islands (additive; JS untouched).
+            _eventBus.PublishAlertAcknowledged(incidentId, acknowledgedBy);
+
             _logger.LogTrace("Alert acknowledged event broadcast completed: IncidentId={IncidentId}", incidentId);
         }
         catch (Exception ex)
@@ -145,6 +158,9 @@ public class PerformanceNotifier : IPerformanceNotifier
             await _hubContext.Clients
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnActiveAlertCountChanged", summary, cancellationToken);
+
+            // Dual-publish to the in-process bus for Blazor islands (additive; JS untouched).
+            _eventBus.PublishActiveAlertCountChanged(summary);
 
             _logger.LogTrace(
                 "Active alert count broadcast completed: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",

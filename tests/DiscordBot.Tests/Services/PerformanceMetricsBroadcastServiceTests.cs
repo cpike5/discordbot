@@ -80,6 +80,7 @@ public class PerformanceMetricsBroadcastServiceTests
             _mockBackgroundServiceHealthRegistry.Object,
             _mockInstrumentedCache.Object,
             _mockCpuHistoryService.Object,
+            new Mock<DiscordBot.Bot.Blazor.Services.IDashboardEventBus>().Object,
             Options.Create(options),
             _mockLogger.Object);
     }

@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
@@ -25,6 +26,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
     private readonly IInstrumentedCache _instrumentedCache;
     private readonly ICpuHistoryService _cpuHistoryService;
+    private readonly IDashboardEventBus _eventBus;
     private readonly IOptions<PerformanceBroadcastOptions> _options;
 
     /// <inheritdoc />
@@ -46,6 +48,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
         IInstrumentedCache instrumentedCache,
         ICpuHistoryService cpuHistoryService,
+        IDashboardEventBus eventBus,
         IOptions<PerformanceBroadcastOptions> options,
         ILogger<PerformanceMetricsBroadcastService> logger)
         : base(serviceProvider, logger)
@@ -59,6 +62,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
         _instrumentedCache = instrumentedCache;
         _cpuHistoryService = cpuHistoryService;
+        _eventBus = eventBus;
         _options = options;
     }
 
@@ -233,8 +237,8 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 
     internal async Task BroadcastHealthMetricsAsync(CancellationToken stoppingToken)
     {
-        // Skip if no clients are subscribed
-        if (_subscriptionTracker.PerformanceGroupClientCount == 0)
+        // Skip if no clients are subscribed (SignalR JS clients or Blazor islands on the bus)
+        if (_subscriptionTracker.PerformanceGroupClientCount == 0 && !_eventBus.HasHealthMetricsSubscribers)
         {
             _logger.LogTrace("Skipping health metrics broadcast - no subscribers");
             return;
@@ -251,6 +255,9 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
             await _hubContext.Clients
                 .Group(DashboardHub.PerformanceGroupName)
                 .SendAsync("HealthMetricsUpdate", metrics, stoppingToken);
+
+            // Dual-publish to the in-process bus for Blazor islands (additive; JS untouched).
+            _eventBus.PublishHealthMetricsUpdated(metrics);
 
             _logger.LogDebug(
                 "Broadcast health metrics to {ClientCount} clients: Latency={LatencyMs}ms, Memory={MemoryMB}MB",
@@ -269,8 +276,8 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 
     internal async Task BroadcastCommandPerformanceAsync(CancellationToken stoppingToken)
     {
-        // Skip if no clients are subscribed
-        if (_subscriptionTracker.PerformanceGroupClientCount == 0)
+        // Skip if no clients are subscribed (SignalR JS clients or Blazor islands on the bus)
+        if (_subscriptionTracker.PerformanceGroupClientCount == 0 && !_eventBus.HasCommandPerformanceSubscribers)
         {
             _logger.LogTrace("Skipping command performance broadcast - no subscribers");
             return;
@@ -287,6 +294,9 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
             await _hubContext.Clients
                 .Group(DashboardHub.PerformanceGroupName)
                 .SendAsync("CommandPerformanceUpdate", metrics, stoppingToken);
+
+            // Dual-publish to the in-process bus for Blazor islands (additive; JS untouched).
+            _eventBus.PublishCommandPerformanceUpdated(metrics);
 
             _logger.LogDebug(
                 "Broadcast command performance to {ClientCount} clients: Total={TotalCommands}, AvgMs={AvgMs}",
@@ -305,8 +315,8 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 
     internal async Task BroadcastSystemMetricsAsync(CancellationToken stoppingToken)
     {
-        // Skip if no clients are subscribed
-        if (_subscriptionTracker.SystemHealthGroupClientCount == 0)
+        // Skip if no clients are subscribed (SignalR JS clients or Blazor islands on the bus)
+        if (_subscriptionTracker.SystemHealthGroupClientCount == 0 && !_eventBus.HasSystemMetricsSubscribers)
         {
             _logger.LogTrace("Skipping system metrics broadcast - no subscribers");
             return;
@@ -323,6 +333,9 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
             await _hubContext.Clients
                 .Group(DashboardHub.SystemHealthGroupName)
                 .SendAsync("SystemMetricsUpdate", metrics, stoppingToken);
+
+            // Dual-publish to the in-process bus for Blazor islands (additive; JS untouched).
+            _eventBus.PublishSystemMetricsUpdated(metrics);
 
             _logger.LogDebug(
                 "Broadcast system metrics to {ClientCount} clients: AvgQueryMs={AvgQueryMs}, TotalQueries={TotalQueries}",
