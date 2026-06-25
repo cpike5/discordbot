@@ -32,8 +32,8 @@ Server administration and configuration commands.
 | Module | Display Name | Commands |
 |--------|--------------|----------|
 | `AdminModule` | Admin | `/status`, `/guilds`, `/shutdown` |
-| `WelcomeModule` | Welcome | `/welcome setup/test/disable` |
-| `ScheduleModule` | Scheduled Messages | `/schedule-message create/list/delete/edit` |
+| `WelcomeModule` | Welcome | `/welcome show/enable/disable/channel/message/test` |
+| `ScheduleModule` | Scheduled Messages | `/schedule-list`, `/schedule-create`, `/schedule-delete`, `/schedule-toggle`, `/schedule-run` |
 
 ### Moderation Commands
 
@@ -41,11 +41,11 @@ User moderation and enforcement commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `ModerationActionModule` | Moderation Actions | `/warn`, `/kick`, `/ban`, `/mute`, `/purge` |
-| `ModerationHistoryModule` | Moderation History | `/mod-history` |
-| `ModStatsModule` | Moderator Stats | `/mod-stats` |
-| `ModNoteModule` | Mod Notes | `/mod-notes add/list/delete` |
-| `ModTagModule` | Mod Tags | `/mod-tag add/remove/list` |
+| `ModerationActionModule` | Moderation Actions | `/warn`, `/kick`, `/ban`, `/unban`, `/mute`, `/purge` |
+| `ModerationHistoryModule` | Moderation History | `/modlog`, `/case`, `/reason`, `/modexport` |
+| `ModStatsModule` | Moderator Stats | `/modstats` |
+| `ModNoteModule` | Mod Notes | `/modnote add/list/remove` |
+| `ModTagModule` | Mod Tags | `/modtag create/delete/add/remove/list` |
 | `WatchlistModule` | Watchlist | `/watchlist add/remove/list` |
 | `InvestigateModule` | Investigate | `/investigate` |
 
@@ -56,8 +56,8 @@ Optional feature commands.
 | Module | Display Name | Commands |
 |--------|--------------|----------|
 | `RatWatchModule` | Rat Watch | Rat Watch (context menu), `/rat-clear`, `/rat-stats`, `/rat-leaderboard`, `/rat-settings` |
-| `ReminderModule` | Reminders | `/remind set/list/delete` |
-| `PrivacyModule` | Privacy | `/privacy preview-delete`, `/privacy delete-data` |
+| `ReminderModule` | Reminders | `/remind set/list/cancel` |
+| `PrivacyModule` | Privacy | `/privacy preview-delete`, `/privacy export-data`, `/privacy delete-data` |
 
 ### Audio Commands
 
@@ -65,7 +65,7 @@ Voice channel and audio playback commands.
 
 | Module | Display Name | Commands |
 |--------|--------------|----------|
-| `TtsModule` | Text-to-Speech | `/tts <message> [voice]` |
+| `TtsModule` | Text-to-Speech | `/tts <message> [voice]`, `/tts-styled <message> <preset>` |
 | `SoundboardModule` | Soundboard | `/play <sound>`, `/sounds`, `/stop` |
 | `VoiceModule` | Voice | `/join`, `/join-channel <channel>`, `/leave` |
 
@@ -84,7 +84,7 @@ Essential bot commands that cannot be disabled.
 | Module | Display Name | Commands |
 |--------|--------------|----------|
 | `GeneralModule` | General | `/ping` |
-| `VerifyAccountModule` | Verify Account | `/verify` |
+| `VerifyAccountModule` | Verify Account | `/verify-account` |
 | `ConsentModule` | Consent | `/consent grant/revoke/status` |
 
 ## Always-Enabled Modules

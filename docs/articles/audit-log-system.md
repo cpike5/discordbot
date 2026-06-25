@@ -67,6 +67,9 @@ The `AuditLogAction` enum defines specific actions that can be performed within 
 | `BotStopped` | 17 | The Discord bot has stopped | System |
 | `BotConnected` | 18 | The bot connected to Discord gateway | System |
 | `BotDisconnected` | 19 | The bot disconnected from Discord gateway | System |
+| `UserDataPurged` | 20 | User data was purged from the system (GDPR right to be forgotten) | User, Security |
+| `BulkDataPurged` | 21 | A bulk data purge operation was executed | User, Security |
+| `UserDataExported` | 22 | User data was exported (GDPR right of access) | User, Security |
 
 **Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Enums\AuditLogAction.cs`
 
@@ -146,7 +149,7 @@ The `IAuditLogBuilder` interface provides the following methods:
 
 **Interface Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Interfaces\IAuditLogBuilder.cs`
 
-**Implementation Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogBuilder.cs`
+**Implementation Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\Audit\AuditLogBuilder.cs`
 
 ### Usage Examples
 
@@ -261,7 +264,7 @@ The audit log system uses a high-performance background queue to ensure logging 
 - **Backpressure Strategy:** `BoundedChannelFullMode.DropOldest` (drops oldest entries when full)
 - **Concurrency:** Single reader (background processor), multiple writers (thread-safe)
 
-**Queue Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogQueue.cs`
+**Queue Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\Audit\AuditLogQueue.cs`
 
 ### Queue Processor
 
@@ -271,7 +274,7 @@ The `AuditLogQueueProcessor` is a background service that continuously reads fro
 - **Error Handling:** Retries failed writes, logs errors without crashing
 - **Shutdown:** Gracefully processes remaining entries on application shutdown
 
-**Processor Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogQueueProcessor.cs`
+**Processor Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\Audit\AuditLogQueueProcessor.cs`
 
 ### Performance Benefits
 
@@ -334,7 +337,7 @@ The `AuditLogRetentionService` is a background service that automatically cleans
 - **Deletion Strategy:** Deletes logs older than `RetentionDays` in batches of `CleanupBatchSize`
 - **Graceful Shutdown:** Stops cleanly when application shuts down
 
-**Service Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogRetentionService.cs`
+**Service Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\Audit\AuditLogRetentionService.cs`
 
 ---
 
@@ -697,7 +700,7 @@ public interface IAuditLogService
 
 **Service Interface:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Core\Interfaces\IAuditLogService.cs`
 
-**Service Implementation:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\AuditLogService.cs`
+**Service Implementation:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Services\Audit\AuditLogService.cs`
 
 ### Dependency Injection
 

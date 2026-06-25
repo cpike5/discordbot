@@ -461,7 +461,6 @@ When implementing similar commands:
 
 Guilds must be active in the bot system for utility commands to work. Guild activation happens automatically when:
 - Bot joins the guild
-- Administrator runs `/setup` or similar initialization command
 - Guild is manually activated via admin UI
 
 **Checking Guild Status:**

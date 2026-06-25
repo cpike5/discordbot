@@ -116,7 +116,7 @@ Welcome messages support dynamic placeholders that are replaced with actual valu
 | `{server}` | Guild/server name | `My Awesome Server` |
 | `{membercount}` | Current member count in guild | `1,234` |
 
-**Case Insensitive:** Placeholders are matched case-insensitively (e.g., `{User}`, `{USER}`, `{user}` all work).
+**Case Insensitive:** Placeholders are matched case-insensitively (e.g., `{User}`, `{USER}`, `{user}` all work). The default welcome template seeded by the admin UI uses the camelCase form `{memberCount}`: `Welcome to {server}, {user}! You are member #{memberCount}.`
 
 ### Template Processing
 
@@ -298,7 +298,7 @@ Sets the welcome message template.
 
 #### `/welcome test`
 
-Sends a test welcome message to the configured channel using the current user.
+Sends a test welcome message to the configured channel using the invoking user as the preview target. The command takes no parameters.
 
 **Effect:** Calls `WelcomeService.SendWelcomeMessageAsync()` with the executing user's ID.
 

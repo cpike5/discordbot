@@ -344,6 +344,7 @@ public interface IRatWatchService
     Task<RatWatchDto?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<(IEnumerable<RatWatchDto> Items, int TotalCount)> GetByGuildAsync(ulong guildId, int page, int pageSize, CancellationToken ct = default);
     Task<(IEnumerable<RatWatchDto> Items, int TotalCount)> GetFilteredByGuildAsync(ulong guildId, RatWatchIncidentFilterDto filter, CancellationToken ct = default);
+    Task<IEnumerable<RatWatchDto>> GetRecentActivityAsync(int limit = 10, CancellationToken ct = default);
     Task<bool> ClearWatchAsync(Guid watchId, ulong userId, CancellationToken ct = default);
     Task<bool> CancelWatchAsync(Guid id, string reason, CancellationToken ct = default);
 
@@ -357,6 +358,7 @@ public interface IRatWatchService
     Task<bool> StartVotingAsync(Guid watchId, ulong? votingMessageId = null, CancellationToken ct = default);
     Task<bool> FinalizeVotingAsync(Guid watchId, CancellationToken ct = default);
     Task<bool> HasActiveWatchesAsync(CancellationToken ct = default);
+    Task<bool> HasStatusAsync(Guid watchId, RatWatchStatus expectedStatus, CancellationToken ct = default);
 
     // Stats & Leaderboard
     Task<RatStatsDto> GetUserStatsAsync(ulong guildId, ulong userId, CancellationToken ct = default);

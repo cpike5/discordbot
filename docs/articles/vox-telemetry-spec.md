@@ -2,8 +2,12 @@
 
 **Version:** 1.0
 **Date:** 2026-02-03
-**Status:** Design
+**Status:** Largely implemented (see note below)
 **Target Framework:** .NET 8, System.Diagnostics.Metrics, OpenTelemetry
+
+---
+
+> **Implementation status:** The `VoxMetrics` meter (`DiscordBot.Vox`, 5 counters + 5 histograms) and the structured `VOX_COMMAND_*` / `VOX_CONCATENATION_*` logging are implemented in `src/DiscordBot.Bot/Metrics/VoxMetrics.cs` and `VoxService`. **However, portal-source telemetry is not implemented:** the `source="portal"` tag value, the `VOX_PORTAL_PLAY_STARTED` event, and any "Portal vs Slash Command" split are not produced by the current code — `VoxService.PlayAsync` always records `source="slash_command"`. Treat every "Portal" telemetry reference in this document as a proposal, not shipped behavior.
 
 ---
 
@@ -214,6 +218,8 @@ _logger.LogWarning(
 
 #### VOX_PORTAL_PLAY_STARTED
 
+> **Not implemented (proposed).** This event is not emitted by the current code. The portal `play` endpoint does not log a `VOX_PORTAL_PLAY_STARTED` event or set `Source="Portal"`.
+
 **Purpose**: Record portal-initiated playback (distinct from slash commands).
 
 **Log Level**: `Information`
@@ -335,6 +341,8 @@ public sealed class VoxMetrics : IDisposable
 - `group` - `"vox"`, `"fvox"`, or `"hgrunt"`
 - `source` - `"slash_command"` or `"portal"`
 - `status` - `"success"` or `"failure"`
+
+> **Not implemented:** The `source` tag is defined on the instrument, but in practice every caller passes `"slash_command"`. `VoxService.PlayAsync` is the only code path that records VOX command metrics and it hard-codes `"slash_command"`. The `"portal"` source value is never emitted today (the portal `play` endpoint does not record VOX command metrics).
 
 **Implementation**:
 ```csharp
@@ -489,7 +497,7 @@ public void RecordError(string group, string errorType)
 
 **Tags**:
 - `group` - `"vox"`, `"fvox"`, or `"hgrunt"`
-- `source` - `"slash_command"` or `"portal"`
+- `source` - `"slash_command"` or `"portal"` (in practice only `"slash_command"` is emitted — see the not-implemented note under `discordbot.vox.commands.total`)
 - `status` - `"success"` or `"failure"`
 
 **Implementation**:
@@ -822,6 +830,7 @@ message:"VOX_COMMAND_FAILED" AND labels.ErrorType:"NoClipsMatched"
 message:"VOX_COMMAND_COMPLETED" AND labels.DurationMs:>2000
 
 # VOX portal vs slash command usage
+# NOTE: Not implemented — no log currently sets Source="Portal", so this query returns nothing today.
 message:"VOX_COMMAND_STARTED" AND labels.Source:"Portal"
 ```
 
@@ -871,6 +880,8 @@ The following visualizations could be added for deeper VOX analytics:
 ```
 
 #### Portal vs Slash Command Usage
+
+> Not implemented — `Source` is never set to `"Portal"` by the current code, so this split is always entirely `slash_command`.
 
 ```
 @message: "VOX_COMMAND_STARTED" | stats count() by Source

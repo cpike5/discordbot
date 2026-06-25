@@ -139,31 +139,39 @@ Discord Interaction / HTTP Request
     │ Cluster             │        │ (Development only)  │
     │                     │        │                     │
     │ - Distributed       │        │ - Single Container  │
-    │ - Indexes by date   │        │ - Real-time UI      │
+    │ - Data stream (ILM) │        │ - Real-time UI      │
     │ - Queries: Kibana   │        │ - Queries: Seq UI   │
     └─────────────────────┘        └─────────────────────┘
 
 * Seq is optional and only enabled in Development/Staging environments.
 ```
 
-### Index Naming Convention
+### Data Stream Naming Convention
 
-Elasticsearch automatically creates indices with the following naming pattern:
+The Elasticsearch sink writes to an Elastic **data stream** (not a date-suffixed index). The data stream name is composed from a fixed `type` and `dataset` plus the current ASP.NET Core environment name (lower-cased):
 
 ```
-discordbot-logs-{ENVIRONMENT}-{DATE}
+logs-discordbot-{environment}
 
 Examples:
-- discordbot-logs-dev-2026.01.05       (Development)
-- discordbot-logs-staging-2026.01.05   (Staging)
-- discordbot-logs-prod-2026.01.05      (Production)
+- logs-discordbot-development   (Development)
+- logs-discordbot-staging       (Staging)
+- logs-discordbot-production    (Production)
 ```
 
-This naming scheme enables:
-- **Automatic Rollover**: New index created daily via ILM policies
-- **Retention Policies**: Delete old indices after X days
-- **Environment Isolation**: Separate indices for each environment
-- **Query Filtering**: Easy filtering by environment via index name
+The name is built in `Program.cs` via:
+
+```csharp
+opts.DataStream = new DataStreamName("logs", "discordbot", environment);
+```
+
+where `environment` is `context.HostingEnvironment.EnvironmentName?.ToLower() ?? "development"`.
+
+This data-stream scheme enables:
+- **Automatic Rollover**: Data streams roll over backing indices via Index Lifecycle Management (ILM)
+- **Retention Policies**: ILM handles deletion of old backing indices
+- **Environment Isolation**: Separate data stream per environment
+- **Query Filtering**: Easy filtering by environment via the data stream name
 
 ### Structured Properties
 
@@ -236,77 +244,55 @@ To minimize performance impact, the Seq sink uses asynchronous batch posting:
 
 ## Configuration
 
-### ElasticOptions Configuration Class
+### Sink Wiring (Program.cs)
 
-The `ElasticOptions` class (located in `src/DiscordBot.Core/Configuration/ElasticOptions.cs`) provides strongly-typed configuration for Elasticsearch:
+There is no strongly-typed options class for the Elasticsearch sink. Both the Elasticsearch and Seq sinks are wired **programmatically** in `Program.cs` inside `builder.Host.UseSerilog(...)`. The base Serilog configuration (minimum level, enrichers, Console/File sinks) is read from `appsettings.json` via `ReadFrom.Configuration(...)`, then the two centralized sinks are added in code when their config keys are present.
+
+**Elasticsearch sink** is enabled when `ElasticSearch:Url` is set:
 
 ```csharp
-public class ElasticOptions
+var elasticUrl = context.Configuration["ElasticSearch:Url"];
+if (!string.IsNullOrEmpty(elasticUrl))
 {
-    // Elastic Cloud ID (for managed Elasticsearch Cloud)
-    public string? CloudId { get; set; }
+    var apiKey = context.Configuration["ElasticSearch:ApiKey"] ?? "";
+    var environment = context.HostingEnvironment.EnvironmentName?.ToLower() ?? "development";
 
-    // API key for authentication
-    public string? ApiKey { get; set; }
-
-    // Self-hosted Elasticsearch endpoints
-    public string[] Endpoints { get; set; } = [];
-
-    // Index naming format (supports date placeholders)
-    public string IndexFormat { get; set; } = "discordbot-logs-{0:yyyy.MM.dd}";
-
-    // Elastic APM server URL (for distributed tracing)
-    public string? ApmServerUrl { get; set; }
-
-    // APM secret token
-    public string? ApmSecretToken { get; set; }
-
-    // Environment name (development, staging, production)
-    public string Environment { get; set; } = "development";
+    configuration.WriteTo.Elasticsearch(new[] { new Uri(elasticUrl) }, opts =>
+    {
+        opts.DataStream = new DataStreamName("logs", "discordbot", environment);
+        opts.BootstrapMethod = BootstrapMethod.None;
+    }, transport =>
+    {
+        if (!string.IsNullOrEmpty(apiKey))
+        {
+            transport.Authentication(new ApiKey(apiKey));
+        }
+    });
 }
 ```
 
-### Base Configuration (appsettings.json)
+**Seq sink** is enabled when `Observability:SeqUrl` is set:
 
-The base configuration file defines Elasticsearch endpoints and index format:
-
-```json
+```csharp
+var seqUrl = context.Configuration["Observability:SeqUrl"];
+if (!string.IsNullOrEmpty(seqUrl))
 {
-  "Elastic": {
-    "CloudId": null,
-    "ApiKey": null,
-    "Endpoints": [],
-    "IndexFormat": "discordbot-logs-{0:yyyy.MM.dd}",
-    "ApmServerUrl": null,
-    "ApmSecretToken": null,
-    "Environment": "development"
-  },
-  "Serilog": {
-    "WriteTo": [
-      {
-        "Name": "Console",
-        "Args": {}
-      },
-      {
-        "Name": "File",
-        "Args": {}
-      }
-    ]
-  }
+    configuration.WriteTo.Seq(seqUrl);
 }
 ```
 
-### Elasticsearch Configuration Options
+This uses the `Elastic.Serilog.Sinks` sink, which writes to an Elastic **data stream** (see [Data Stream Naming Convention](#data-stream-naming-convention)) rather than a date-suffixed index.
 
-| Setting | Type | Default | Description |
+### Configuration Keys
+
+| Key | Type | Default | Description |
 |---------|------|---------|-------------|
-| `CloudId` | string | null | Elastic Cloud ID (e.g., "deployment:hash"). Takes precedence over Endpoints if set. |
-| `ApiKey` | string | null | Elasticsearch API key for authentication. Required for production. Use user secrets or environment variables. |
-| `Endpoints` | string[] | [] | Self-hosted Elasticsearch node URLs (e.g., "http://localhost:9200"). Required if CloudId not set. |
-| `IndexFormat` | string | discordbot-logs-{0:yyyy.MM.dd} | Index naming pattern. Date placeholder `{0:yyyy.MM.dd}` creates daily indices. |
-| `ApmServerUrl` | string | null | Elastic APM server URL for distributed tracing integration. |
-| `ApmSecretToken` | string | null | APM secret token for authentication. |
-| `Environment` | string | development | Environment name to distinguish logs by deployment stage. |
+| `ElasticSearch:Url` | string | null (not set) | Elasticsearch endpoint URL (e.g., "http://localhost:9200"). The Elasticsearch sink is added only when this is non-empty. |
+| `ElasticSearch:ApiKey` | string | null (not set) | Elasticsearch API key for authentication. When set, applied via `transport.Authentication(new ApiKey(...))`. Use user secrets or environment variables. |
+| `Observability:SeqUrl` | string | null (not set) | Seq server URL (e.g., "http://localhost:5341"). The Seq sink is added only when this is non-empty. |
+| `ElasticApm:ServiceName` | string | "discordbot" | Service name; also used to enrich every log event with the `service.name` property. |
+
+> **Note:** There is no `Elastic:*` configuration section and no `Serilog:WriteTo[n]` array driving the Elasticsearch or Seq sinks. The `Serilog` section in `appsettings.json` configures only the base pipeline (levels, enrichers, Console/File). The data stream name is fixed as `logs-discordbot-{environment}`; there is no configurable index format.
 
 ### Elastic Observability Integration
 
@@ -337,240 +323,67 @@ This single configuration value is used for both APM traces and log enrichment, 
 
 ### Environment-Specific Configuration
 
+The Elasticsearch and Seq sinks are toggled purely by the presence of their config keys (`ElasticSearch:Url` and `Observability:SeqUrl`). To enable a sink in a given environment, set its key in that environment's `appsettings.{Environment}.json`, user secrets, or environment variables. The data stream name automatically reflects the running environment (`logs-discordbot-{environment}`), so no per-environment index format is needed.
+
 #### Development (appsettings.Development.json)
 
-**Option 1: Elasticsearch Only**
+**Option 1: Seq only (lightweight local logging)**
 
 ```json
 {
-  "Elastic": {
-    "Endpoints": [ "http://localhost:9200" ],
-    "IndexFormat": "discordbot-logs-dev-{0:yyyy.MM.dd}",
-    "Environment": "development"
-  },
-  "Serilog": {
-    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Elastic.Serilog.Sinks" ],
-    "WriteTo": [
-      {
-        "Name": "Console",
-        "Args": {}
-      },
-      {
-        "Name": "File",
-        "Args": {}
-      },
-      {
-        "Name": "Elasticsearch",
-        "Args": {
-          "nodeUris": "http://localhost:9200",
-          "indexFormat": "discordbot-logs-dev-{0:yyyy.MM.dd}",
-          "autoRegisterTemplate": true,
-          "batchPostingLimit": 50,
-          "period": "00:00:02"
-        }
-      }
-    ]
+  "Observability": {
+    "SeqUrl": "http://localhost:5341"
   }
 }
 ```
 
-**Option 2: Elasticsearch + Seq (Dual-Write)**
-
-For developers who prefer Seq's lighter resource requirements or real-time UI, configure both sinks:
+**Option 2: Elasticsearch (optionally alongside Seq)**
 
 ```json
 {
-  "Elastic": {
-    "Endpoints": [ "http://localhost:9200" ],
-    "Environment": "development"
+  "ElasticSearch": {
+    "Url": "http://localhost:9200"
   },
-  "Serilog": {
-    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Serilog.Sinks.Seq", "Elastic.Serilog.Sinks" ],
-    "WriteTo": [
-      {
-        "Name": "Console",
-        "Args": {}
-      },
-      {
-        "Name": "File",
-        "Args": {}
-      },
-      {
-        "Name": "Seq",
-        "Args": {
-          "serverUrl": "http://localhost:5341",
-          "batchPostingLimit": 100,
-          "period": "00:00:02"
-        }
-      },
-      {
-        "Name": "Elasticsearch",
-        "Args": {
-          "nodeUris": "http://localhost:9200",
-          "indexFormat": "discordbot-logs-dev-{0:yyyy.MM.dd}",
-          "autoRegisterTemplate": true,
-          "batchPostingLimit": 50,
-          "period": "00:00:02"
-        }
-      }
-    ]
+  "Observability": {
+    "SeqUrl": "http://localhost:5341"
   }
 }
 ```
 
-**Configuration Details:**
+If both keys are set, both sinks receive events (in addition to the Console/File sinks configured in the base `Serilog` section). `ElasticSearch:ApiKey` is not required for a local cluster with security disabled.
 
-- **Elasticsearch Endpoints**: Points to local Elasticsearch instance (see [Local Development Setup](#local-development-setup))
-- **Elasticsearch batchPostingLimit**: 50 events (smaller batches for faster feedback during development)
-- **Elasticsearch period**: 2 seconds (more frequent posting for near real-time logs)
-- **Seq serverUrl**: Optional, only if using Seq (see [Local Development Setup](#local-development-setup) for setup instructions)
-- **ApiKey**: Not required for local development
-
-#### Staging (appsettings.Staging.json)
+#### Staging / Production
 
 ```json
 {
-  "Elastic": {
-    "Endpoints": [ "http://elasticsearch-staging:9200" ],
-    "Environment": "staging"
-  },
-  "Serilog": {
-    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Serilog.Sinks.Seq", "Elastic.Serilog.Sinks" ],
-    "WriteTo": [
-      {
-        "Name": "Console",
-        "Args": {}
-      },
-      {
-        "Name": "File",
-        "Args": {}
-      },
-      {
-        "Name": "Seq",
-        "Args": {
-          "serverUrl": "http://seq-staging:5341"
-        }
-      },
-      {
-        "Name": "Elasticsearch",
-        "Args": {
-          "nodeUris": "http://elasticsearch-staging:9200",
-          "indexFormat": "discordbot-logs-staging-{0:yyyy.MM.dd}",
-          "autoRegisterTemplate": true,
-          "batchPostingLimit": 100,
-          "period": "00:00:05"
-        }
-      }
-    ]
+  "ElasticSearch": {
+    "Url": "https://elasticsearch.yourdomain.com:9200"
   }
 }
 ```
 
-**Configuration Details:**
-
-- **Elasticsearch Endpoints**: Internal DNS name for staging Elasticsearch cluster
-- **Elasticsearch batchPostingLimit**: 100 events (balanced throughput)
-- **Elasticsearch ApiKey**: Configured via environment variable or secrets management (required)
-- **Seq serverUrl**: Optional, for staging testing alongside Elasticsearch
-- **Seq apiKey**: Configured via environment variable (optional, only if using Seq)
-
-#### Production (appsettings.Production.json)
-
-```json
-{
-  "Elastic": {
-    "Endpoints": [ "{ELASTICSEARCH_URL}" ],
-    "ApiKey": null,
-    "Environment": "production"
-  },
-  "Serilog": {
-    "Using": [ "Serilog.Sinks.Console", "Serilog.Sinks.File", "Elastic.Serilog.Sinks" ],
-    "WriteTo": [
-      {
-        "Name": "Console",
-        "Args": {}
-      },
-      {
-        "Name": "File",
-        "Args": {}
-      },
-      {
-        "Name": "Elasticsearch",
-        "Args": {
-          "nodeUris": "{ELASTICSEARCH_URL}",
-          "indexFormat": "discordbot-logs-prod-{0:yyyy.MM.dd}",
-          "autoRegisterTemplate": true,
-          "batchPostingLimit": 100,
-          "period": "00:00:05"
-        }
-      }
-    ]
-  }
-}
-```
-
-**Configuration Details:**
-
-- **Elasticsearch Endpoints**: Production cluster URL (via environment variable `ELASTICSEARCH_URL`)
-- **Elasticsearch batchPostingLimit**: 100 events (optimal efficiency for production workloads)
-- **Elasticsearch period**: 5 seconds (reduces HTTP request frequency)
-- **Elasticsearch ApiKey**: Configured via environment variable `ELASTICSEARCH_API_KEY` (required)
-- **Seq**: NOT used in production (Elasticsearch only)
-- **Index Format**: `discordbot-logs-prod-YYYY.MM.DD` for environment isolation
+The API key is supplied out-of-band (environment variable or secrets management — see below). Seq can be enabled in staging by also setting `Observability:SeqUrl`; production typically omits it and relies on Elasticsearch only.
 
 ### Environment Variable Overrides
 
-For staging and production deployments, override sensitive configuration via environment variables:
-
-**Elasticsearch Configuration:**
+For staging and production deployments, override sensitive configuration via environment variables (double-underscore maps to the config section separator):
 
 ```bash
 # Linux/macOS
-export Elastic__Endpoints__0="https://elasticsearch.yourdomain.com:9200"
-export Elastic__ApiKey="your-elasticsearch-api-key"
-export Elastic__ApmServerUrl="https://apm.yourdomain.com:8200"
-export Elastic__ApmSecretToken="your-apm-secret-token"
+export ElasticSearch__Url="https://elasticsearch.yourdomain.com:9200"
+export ElasticSearch__ApiKey="your-elasticsearch-api-key"
+export Observability__SeqUrl="http://seq-staging:5341"
 
 # Windows PowerShell
-$env:Elastic__Endpoints__0="https://elasticsearch.yourdomain.com:9200"
-$env:Elastic__ApiKey="your-elasticsearch-api-key"
-$env:Elastic__ApmServerUrl="https://apm.yourdomain.com:8200"
-$env:Elastic__ApmSecretToken="your-apm-secret-token"
+$env:ElasticSearch__Url="https://elasticsearch.yourdomain.com:9200"
+$env:ElasticSearch__ApiKey="your-elasticsearch-api-key"
+$env:Observability__SeqUrl="http://seq-staging:5341"
 
 # Docker
-docker run -e Elastic__Endpoints__0="https://elasticsearch.yourdomain.com:9200" \
-           -e Elastic__ApiKey="your-elasticsearch-api-key" \
+docker run -e ElasticSearch__Url="https://elasticsearch.yourdomain.com:9200" \
+           -e ElasticSearch__ApiKey="your-elasticsearch-api-key" \
            discordbot:latest
 ```
-
-**Alternative: Elastic Cloud**
-
-For Elastic Cloud deployments, use CloudId instead of individual endpoints:
-
-```bash
-# Linux/macOS
-export Elastic__CloudId="deployment-id:hash"
-export Elastic__ApiKey="your-cloud-api-key"
-
-# Docker
-docker run -e Elastic__CloudId="deployment-id:hash" \
-           -e Elastic__ApiKey="your-cloud-api-key" \
-           discordbot:latest
-```
-
-**Seq Configuration (Staging Only):**
-
-```bash
-# Linux/macOS
-export Serilog__WriteTo__3__Args__serverUrl="http://seq-staging:5341"
-export Serilog__WriteTo__3__Args__apiKey="your-seq-api-key"
-
-# Windows PowerShell
-$env:Serilog__WriteTo__3__Args__serverUrl="http://seq-staging:5341"
-$env:Serilog__WriteTo__3__Args__apiKey="your-seq-api-key"
-```
-
-**Note:** `WriteTo__3` corresponds to the fourth sink (0-indexed: Console=0, File=1, Seq=2, Elasticsearch=3) in dual-write configurations.
 
 ### User Secrets (Development)
 
@@ -579,11 +392,12 @@ For local development with API key authentication:
 ```bash
 cd src/DiscordBot.Bot
 
-# Elasticsearch API Key (if needed for local testing)
-dotnet user-secrets set "Elastic:ApiKey" "your-dev-api-key"
+# Elasticsearch URL and API key (if needed for local testing)
+dotnet user-secrets set "ElasticSearch:Url" "http://localhost:9200"
+dotnet user-secrets set "ElasticSearch:ApiKey" "your-dev-api-key"
 
-# Seq API Key (optional, if using Seq)
-dotnet user-secrets set "Serilog:WriteTo:2:Args:apiKey" "your-seq-api-key"
+# Seq URL (optional, if using Seq)
+dotnet user-secrets set "Observability:SeqUrl" "http://localhost:5341"
 ```
 
 **Security Best Practice:** NEVER commit API keys to configuration files. Always use user secrets (development) or environment variables/secrets management (staging/production).
@@ -878,7 +692,7 @@ services:
     depends_on:
       - elasticsearch
     environment:
-      - Elastic__Endpoints__0=http://elasticsearch:9200
+      - ElasticSearch__Url=http://elasticsearch:9200
     # ... other bot configuration
 
 volumes:
@@ -1008,7 +822,7 @@ services:
       - elasticsearch
       - apm-server
     environment:
-      - Elastic__Endpoints__0=http://elasticsearch:9200
+      - ElasticSearch__Url=http://elasticsearch:9200
       - ElasticApm__ServerUrl=http://apm-server:8200
     # ... other bot configuration
 
@@ -1046,7 +860,7 @@ services:
     depends_on:
       - seq
     environment:
-      - Serilog__WriteTo__2__Args__serverUrl=http://seq:80
+      - Observability__SeqUrl=http://seq:80
     # ... other bot configuration
 
 volumes:
@@ -1124,7 +938,7 @@ volumes:
 
    **Logs:**
    - In Kibana, go to Discovery → Create Index Pattern
-   - Index pattern: `discordbot-logs-dev-*`
+   - Index pattern: `logs-discordbot-development-*`
    - Timestamp field: `@timestamp`
    - Logs should appear within 2 seconds
 
@@ -1217,7 +1031,7 @@ docker volume rm seq-data
 1. Open Kibana: `http://localhost:5601`
 2. Go to Management → Index Patterns (or Stack Management → Index Patterns)
 3. Click "Create index pattern"
-4. Index pattern: `discordbot-logs-*` (matches all environments)
+4. Index pattern: `logs-discordbot-*` (matches all environments)
 5. Timestamp field: `@timestamp`
 6. Click "Create index pattern"
 
@@ -1226,7 +1040,7 @@ docker volume rm seq-data
 The Discovery tab provides a real-time log browser similar to Seq:
 
 1. Go to Analytics → Discover
-2. Select the `discordbot-logs-*` index pattern
+2. Select the `logs-discordbot-*` index pattern
 3. View logs in chronological order with expandable details
 
 **Filtering Logs:**
@@ -1262,7 +1076,7 @@ GuildId: "123456789012345678" AND ExecutionTimeMs > 500
 1. Go to Analytics → Visualize
 2. Click "Create visualization"
 3. Select visualization type (metric, line chart, bar chart, etc.)
-4. Choose the `discordbot-logs-*` index
+4. Choose the `logs-discordbot-*` index
 5. Use aggregations to summarize data:
    - **Count of errors by hour**: X-axis: Date histogram (@timestamp, 1h), Y-axis: Count
    - **Top commands**: Terms aggregation on CommandName, sorted by count
@@ -1294,7 +1108,7 @@ For complex queries, use Elasticsearch's Query DSL directly:
 2. Write DSL queries:
 
 ```json
-GET discordbot-logs-dev-*/_search
+GET logs-discordbot-development-*/_search
 {
   "query": {
     "bool": {
@@ -1890,7 +1704,7 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
    ```
 
 2. **Check Configuration:**
-   - Verify `Elastic:Endpoints` in `appsettings.Development.json`
+   - Verify `ElasticSearch:Url` in `appsettings.Development.json`
    - Ensure URL is correct: `http://localhost:9200` (without trailing slash)
    - Check for typos in configuration keys
 
@@ -1922,7 +1736,7 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
 7. **Create Index Pattern in Kibana:**
    - If logs are present but not showing in Kibana:
    - Go to Management → Index Patterns
-   - Create new index pattern: `discordbot-logs-*`
+   - Create new index pattern: `logs-discordbot-*`
    - Set timestamp field to `@timestamp`
 
 ### Logs Not Appearing in Seq
@@ -1970,7 +1784,7 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
    # Check user secrets
    dotnet user-secrets list --project src/DiscordBot.Bot
 
-   # Should show: Elastic:ApiKey = your-key
+   # Should show: ElasticSearch:ApiKey = your-key
    ```
 
 2. **Validate API Key in Elasticsearch:**
@@ -1982,8 +1796,8 @@ Bandwidth = 10,000 * 500 bytes = 5MB/hour ≈ 120MB/day
 3. **Check Environment Variable Override:**
    ```bash
    # Verify environment variable is set correctly
-   echo $Elastic__ApiKey  # Linux/macOS
-   echo $env:Elastic__ApiKey  # PowerShell
+   echo $ElasticSearch__ApiKey  # Linux/macOS
+   echo $env:ElasticSearch__ApiKey  # PowerShell
    ```
 
 4. **Test Authentication Manually:**
@@ -2466,7 +2280,7 @@ services:
       - elasticsearch
       - apm-server
     environment:
-      - Elastic__Endpoints__0=http://elasticsearch:9200
+      - ElasticSearch__Url=http://elasticsearch:9200
       - ElasticApm__ServerUrl=http://apm-server:8200
     ports:
       - "5001:5001"

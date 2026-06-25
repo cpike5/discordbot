@@ -354,6 +354,7 @@ Log of Discord messages for analytics, auditing, and moderation purposes.
 | DiscordMessageId | INTEGER (long) | No | - | UNIQUE | Discord message snowflake ID |
 | AuthorId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | User who authored the message |
 | ChannelId | INTEGER (long) | No | - | - | Channel where message was sent |
+| ChannelName | TEXT | Yes | NULL | - | Channel name (null for DMs and pre-existing records) |
 | GuildId | INTEGER (long) | Yes | NULL | FOREIGN KEY → Guilds(Id) | Guild ID (null for DMs) |
 | Source | INTEGER | No | - | Enum: MessageSource | DirectMessage or ServerChannel |
 | Content | TEXT | No | - | - | Message text content |
@@ -381,6 +382,7 @@ CREATE TABLE MessageLogs (
     DiscordMessageId INTEGER NOT NULL,
     AuthorId INTEGER NOT NULL,
     ChannelId INTEGER NOT NULL,
+    ChannelName TEXT,
     GuildId INTEGER,
     Source INTEGER NOT NULL,
     Content TEXT NOT NULL,
@@ -1030,6 +1032,143 @@ Per-guild text-to-speech configuration.
 
 ---
 
+### SoundCategory
+
+User-defined soundboard categories for organizing sounds within a guild. Table name: `SoundCategories`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique category identifier |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild this category belongs to |
+| Name | TEXT | No | - | MaxLength: 50 | Category name |
+| SortOrder | INTEGER | No | 0 | - | Display order |
+| CreatedAt | TEXT (DateTime) | No | - | - | Creation timestamp (UTC) |
+
+**Indexes:**
+- `IX_SoundCategories_GuildId_Name` on `(GuildId, Name)` (UNIQUE) - Prevent duplicate category names per guild
+- `IX_SoundCategories_GuildId` on `GuildId` - Guild category lookups
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### UserSoundFavorite
+
+Per-user favorited soundboard sounds. Table name: `UserSoundFavorites`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique favorite identifier |
+| UserId | INTEGER (long) | No | - | - | User who favorited the sound |
+| GuildId | INTEGER (long) | No | - | - | Guild context |
+| SoundId | BLOB (Guid) | No | - | FOREIGN KEY → Sound(Id) | Favorited sound |
+| FavoritedAt | TEXT (DateTime) | No | - | - | When the sound was favorited (UTC) |
+
+**Indexes:**
+- `IX_UserSoundFavorites_UserId_SoundId_GuildId` on `(UserId, SoundId, GuildId)` (UNIQUE) - Prevent duplicate favorites
+- `IX_UserSoundFavorites_UserId_GuildId` on `(UserId, GuildId)` - Retrieve a user's favorites in a guild
+
+**Foreign Keys:**
+- `SoundId` → `Sound(Id)` with `ON DELETE CASCADE`
+
+---
+
+### AudioPlaybackLog
+
+Unified playback log spanning soundboard, TTS, and VOX features. Table name: `AudioPlaybackLogs`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique playback log entry ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who triggered playback |
+| FeatureType | INTEGER | No | - | Enum: AudioFeatureType | Soundboard, TTS, VOX, etc. |
+| ContentName | TEXT | No | - | MaxLength: 200 | Sound name, TTS preview, or VOX message |
+| ChannelId | INTEGER (long) | Yes | NULL | - | Voice channel where played |
+| PlayedAt | TEXT (DateTime) | No | - | - | Play timestamp (UTC) |
+
+**Indexes:**
+- `IX_AudioPlaybackLogs_GuildId_PlayedAt` on `(GuildId, PlayedAt)` (PlayedAt descending) - Guild playback history
+- `IX_AudioPlaybackLogs_GuildId_UserId_PlayedAt` on `(GuildId, UserId, PlayedAt)` (PlayedAt descending) - Per-user playback history
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### VoxMessageHistory
+
+History of VOX (Half-Life announcer) messages played in a guild. Table name: `VoxMessageHistory`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique history entry ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who played the message |
+| Message | TEXT | No | - | MaxLength: 500 | VOX message text |
+| ClipGroup | TEXT | No | - | MaxLength: 20 | Clip group (vox, fvox, hgrunt) |
+| WordGapMs | INTEGER | No | - | - | Gap between words in milliseconds |
+| IsFavorite | INTEGER (bool) | No | false | - | Whether the user favorited this message |
+| PlayedAt | TEXT (DateTime) | No | - | - | Play timestamp (UTC) |
+
+**Indexes:**
+- `IX_VoxMessageHistory_UserId_GuildId_PlayedAt` on `(UserId, GuildId, PlayedAt)` - Recent history queries
+- `IX_VoxMessageHistory_UserId_GuildId_IsFavorite` on `(UserId, GuildId, IsFavorite)` - Favorite queries
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### TtsMessageHistory
+
+History of TTS messages played in a guild, including voice parameters. Table name: `TtsMessageHistory`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique history entry ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User who played the message |
+| Message | TEXT | No | - | MaxLength: 500 | TTS message text |
+| VoiceName | TEXT | No | - | MaxLength: 100 | Azure TTS voice name (e.g., en-US-AriaNeural) |
+| Style | TEXT | Yes | NULL | MaxLength: 50 | Optional voice style (e.g., cheerful, angry) |
+| Speed | REAL (decimal) | No | - | Precision: (5,2) | Speech speed multiplier |
+| Pitch | REAL (decimal) | No | - | Precision: (5,2) | Pitch adjustment multiplier |
+| IsFavorite | INTEGER (bool) | No | false | - | Whether the user favorited this message |
+| PlayedAt | TEXT (DateTime) | No | - | - | Play timestamp (UTC) |
+
+**Indexes:**
+- `IX_TtsMessageHistory_UserId_GuildId_PlayedAt` on `(UserId, GuildId, PlayedAt)` - Recent history queries
+- `IX_TtsMessageHistory_UserId_GuildId_IsFavorite` on `(UserId, GuildId, IsFavorite)` - Favorite queries
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### UserTtsPreset
+
+Saved per-user TTS voice presets. Table name: `UserTtsPresets`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique preset identifier |
+| UserId | INTEGER (long) | No | - | - | User who owns the preset |
+| Name | TEXT | No | - | MaxLength: 50 | User-defined preset name |
+| VoiceName | TEXT | No | - | MaxLength: 100 | Azure TTS voice name |
+| Style | TEXT | Yes | NULL | MaxLength: 50 | Optional speaking style |
+| Speed | REAL (decimal) | No | 1.0 | - | Speech rate multiplier (0.5-2.0) |
+| Pitch | REAL (decimal) | No | 1.0 | - | Pitch adjustment multiplier (0.5-2.0) |
+| Icon | TEXT | Yes | NULL | MaxLength: 50 | Optional icon identifier |
+| CreatedAt | TEXT (DateTime) | No | - | - | Creation timestamp (UTC) |
+| UpdatedAt | TEXT (DateTime) | Yes | NULL | - | Last update timestamp (UTC) |
+
+**Indexes:**
+- `IX_UserTtsPresets_UserId` on `UserId` - Retrieve all presets for a user
+
+---
+
 ## Command Configuration Tables
 
 ### CommandModuleConfiguration
@@ -1140,6 +1279,105 @@ Detailed log of all AI assistant interactions for auditing and analysis.
 
 **Foreign Keys:**
 - `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### DmConversationMessage
+
+Per-user direct-message conversation history with the DM assistant. Table name: `DmConversationMessages`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER (long) | No | Auto-increment | PRIMARY KEY | Unique message ID |
+| UserId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | User in the conversation |
+| Role | TEXT | No | - | MaxLength: 20 | "user" or "assistant" |
+| Content | TEXT | No | - | MaxLength: 4096 | Message text |
+| Timestamp | TEXT (DateTime) | No | - | - | Message timestamp (UTC) |
+
+**Indexes:**
+- `IX_DmConversationMessages_UserId_Timestamp` on `(UserId, Timestamp)` - Conversation history retrieval
+
+**Foreign Keys:**
+- `UserId` → `Users(Id)` with `ON DELETE CASCADE`
+
+---
+
+### DmAssistantInteractionLog
+
+Detailed per-interaction telemetry for the DM assistant (tokens, tools, cost). Table name: `DmAssistantInteractionLogs`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER (long) | No | Auto-increment | PRIMARY KEY | Unique interaction ID |
+| UserId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | User who interacted |
+| Timestamp | TEXT (DateTime) | No | - | - | Interaction timestamp (UTC) |
+| IsOwner | INTEGER (bool) | No | - | - | Whether the user is the bot owner |
+| Message | TEXT | No | - | MaxLength: 2000 | User's message |
+| Response | TEXT | Yes | NULL | MaxLength: 2000 | Assistant's response |
+| InputTokens | INTEGER | No | 0 | - | Claude input token count |
+| OutputTokens | INTEGER | No | 0 | - | Claude output token count |
+| CachedTokens | INTEGER | No | 0 | - | Prompt-caching tokens used |
+| ToolCalls | INTEGER | No | - | - | Number of tool invocations |
+| ToolNames | TEXT | Yes | NULL | - | Names of tools called |
+| LoopCount | INTEGER | No | - | - | Number of interaction loops |
+| LatencyMs | INTEGER | No | 0 | - | Response latency in milliseconds |
+| Success | INTEGER (bool) | No | true | - | Whether the interaction succeeded |
+| ErrorMessage | TEXT | Yes | NULL | MaxLength: 1000 | Error details if failed |
+| EstimatedCostUsd | TEXT (decimal) | No | 0 | Precision: (18,8) | Estimated API cost in USD |
+
+**Indexes:**
+- `IX_DmAssistantInteractionLogs_UserId_Timestamp` on `(UserId, Timestamp)` - Per-user time-series queries
+- `IX_DmAssistantInteractionLogs_Timestamp` on `Timestamp` - Global time-series queries
+
+**Foreign Keys:**
+- `UserId` → `Users(Id)` with `ON DELETE CASCADE`
+
+---
+
+### DmAssistantUsageMetrics
+
+Daily aggregated DM assistant usage and cost per user (upsert pattern). Table name: `DmAssistantUsageMetrics`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER (long) | No | Auto-increment | PRIMARY KEY | Unique metrics row ID |
+| UserId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | User the metrics belong to |
+| Date | TEXT (DateTime) | No | - | - | Date of the metrics (UTC) |
+| TotalMessages | INTEGER | No | 0 | - | Messages sent that day |
+| TotalInputTokens | INTEGER | No | 0 | - | Total input tokens |
+| TotalOutputTokens | INTEGER | No | 0 | - | Total output tokens |
+| TotalCachedTokens | INTEGER | No | 0 | - | Total cached tokens used |
+| FailedRequests | INTEGER | No | 0 | - | Count of failed requests |
+| AverageLatencyMs | INTEGER | No | 0 | - | Average response latency |
+| EstimatedCostUsd | TEXT (decimal) | No | 0 | Precision: (18,8) | Daily estimated cost in USD |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp (UTC) |
+
+**Indexes:**
+- `IX_DmAssistantUsageMetrics_UserId_Date` on `(UserId, Date)` (UNIQUE) - One row per user per day
+
+**Foreign Keys:**
+- `UserId` → `Users(Id)` with `ON DELETE CASCADE`
+
+---
+
+### DmAssistantNote
+
+Free-form notes the DM assistant persists about a user. Table name: `DmAssistantNotes`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER (long) | No | Auto-increment | PRIMARY KEY | Unique note ID |
+| UserId | INTEGER (long) | No | - | FOREIGN KEY → Users(Id) | User the note belongs to |
+| Tag | TEXT | Yes | NULL | MaxLength: 100 | Optional categorization tag |
+| Content | TEXT | No | - | MaxLength: 4096 | Note content |
+| CreatedAt | TEXT (DateTime) | No | - | - | Creation timestamp (UTC) |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp (UTC) |
+
+**Indexes:**
+- `IX_DmAssistantNotes_UserId_Tag` on `(UserId, Tag)` - Tagged note lookups per user
+
+**Foreign Keys:**
+- `UserId` → `Users(Id)` with `ON DELETE CASCADE`
 
 ---
 
@@ -1432,6 +1670,141 @@ Audit log of user actions for security and compliance.
 
 **Foreign Keys:**
 - `UserId` → `AspNetUsers(Id)` with `ON DELETE CASCADE`
+
+---
+
+### DiscordOAuthToken
+
+Stores encrypted Discord OAuth tokens for a portal user (one-to-one with ApplicationUser). Table name: `DiscordOAuthTokens`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | - | PRIMARY KEY | Unique token record ID |
+| ApplicationUserId | TEXT | No | - | FOREIGN KEY → AspNetUsers(Id), MaxLength: 450 | Owning portal user |
+| EncryptedAccessToken | TEXT | No | - | MaxLength: 2000 | Encrypted OAuth access token |
+| EncryptedRefreshToken | TEXT | No | - | MaxLength: 2000 | Encrypted OAuth refresh token |
+| Scopes | TEXT | No | - | MaxLength: 500 | Space-separated OAuth scopes |
+| DiscordUserId | INTEGER (long) | No | - | - | Linked Discord user ID |
+| AccessTokenExpiresAt | TEXT (DateTime) | No | - | - | Access token expiration (UTC) |
+| CreatedAt | TEXT (DateTime) | No | CURRENT_TIMESTAMP | - | Creation timestamp (UTC) |
+| LastRefreshedAt | TEXT (DateTime) | No | CURRENT_TIMESTAMP | - | Last refresh timestamp (UTC) |
+
+**Indexes:**
+- `IX_DiscordOAuthTokens_ApplicationUserId` on `ApplicationUserId` (UNIQUE) - Enforces one-to-one relationship
+- `IX_DiscordOAuthTokens_DiscordUserId` on `DiscordUserId` - User lookups
+- `IX_DiscordOAuthTokens_AccessTokenExpiresAt` on `AccessTokenExpiresAt` - Find expiring tokens
+
+**Foreign Keys:**
+- `ApplicationUserId` → `AspNetUsers(Id)` with `ON DELETE CASCADE`
+
+---
+
+### ConnectionEvent
+
+Record of Discord gateway connect/disconnect events. Table name: `ConnectionEvents` (no explicit configuration; uses EF Core default conventions).
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER (long) | No | Auto-increment | PRIMARY KEY | Unique event ID |
+| EventType | TEXT | No | - | - | "Connected" or "Disconnected" |
+| Timestamp | TEXT (DateTime) | No | - | - | When the event occurred (UTC) |
+| Reason | TEXT | Yes | NULL | - | Exception message for disconnections |
+| Details | TEXT | Yes | NULL | - | Additional details (e.g., exception type) |
+
+**Foreign Keys:**
+- None
+
+---
+
+### UserPreference
+
+Per-user, per-guild key/value preference store. Table name: `UserPreferences`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | INTEGER | No | Auto-increment | PRIMARY KEY | Unique preference ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| UserId | INTEGER (long) | No | - | - | User the preference belongs to |
+| Key | TEXT | No | - | MaxLength: 100 | Preference key (e.g., tts_selected_voice) |
+| Value | TEXT | No | - | MaxLength: 2000 | Preference value (JSON for complex types) |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp (UTC) |
+
+**Indexes:**
+- `IX_UserPreferences_UserId_GuildId_Key` on `(UserId, GuildId, Key)` (UNIQUE) - One value per user/guild/key
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### FeatureRequest
+
+User-submitted feature requests with requirements-gathering and documentation-generation workflow state. Table name: `FeatureRequests`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | - | PRIMARY KEY | Unique request ID |
+| GuildId | INTEGER (long) | No | - | FOREIGN KEY → Guilds(Id) | Guild context |
+| SubmittedByUserId | INTEGER (long) | No | - | - | User who submitted the request |
+| Title | TEXT | No | - | MaxLength: 200 | Feature title |
+| Description | TEXT | No | - | MaxLength: 500 | Original description |
+| GatheredRequirements | TEXT (JSON) | Yes | NULL | MaxLength: 4000 | Requirements gathered during the flow |
+| ConsolidatedSummary | TEXT | Yes | NULL | MaxLength: 4000 | Summary of gathered requirements |
+| Status | INTEGER | No | - | Enum: FeatureRequestStatus | Submitted, InProgress, Implemented, Rejected, etc. |
+| ReviewedByUserId | INTEGER (long) | Yes | NULL | - | Admin who reviewed the request |
+| ReviewedAt | TEXT (DateTime) | Yes | NULL | - | Review timestamp (UTC) |
+| ReviewNotes | TEXT | Yes | NULL | MaxLength: 1000 | Admin notes at review |
+| DocBranchName | TEXT | Yes | NULL | MaxLength: 500 | Git branch created by doc generation |
+| DocPath | TEXT | Yes | NULL | MaxLength: 500 | Path to generated documentation |
+| DocGenError | TEXT | Yes | NULL | MaxLength: 4000 | Error if doc generation failed |
+| CreatedAt | TEXT (DateTime) | No | - | - | Creation timestamp (UTC) |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp (UTC) |
+
+**Indexes:**
+- `IX_FeatureRequests_GuildId_Status_CreatedAt` on `(GuildId, Status, CreatedAt)` - List requests by guild and status
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
+
+---
+
+### FeatureRequestRejection
+
+Standalone log of rejected feature-request submissions for abuse detection. Intentionally has no foreign keys so records persist independently of guild deletion. Table name: `FeatureRequestRejections`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| Id | BLOB (Guid) | No | - | PRIMARY KEY | Unique rejection record ID |
+| GuildId | INTEGER (long) | No | - | - | Guild context (no FK) |
+| UserId | INTEGER (long) | No | - | - | User who was rejected (no FK) |
+| RejectionReason | TEXT | No | - | MaxLength: 200 | Human-readable rejection reason |
+| CreatedAt | TEXT (DateTime) | No | - | - | Rejection timestamp (UTC) |
+
+**Indexes:**
+- `IX_FeatureRequestRejections_GuildId_UserId_CreatedAt` on `(GuildId, UserId, CreatedAt)` - Abuse-pattern queries
+
+**Foreign Keys:**
+- None (intentionally decoupled)
+
+---
+
+### NotXGuildSettings
+
+Per-guild configuration for the "NotX" tweet-preview feature. Table name: `NotXGuildSettings`.
+
+| Column | Type | Nullable | Default | Constraints | Description |
+|--------|------|----------|---------|-------------|-------------|
+| GuildId | INTEGER (long) | No | - | PRIMARY KEY, FOREIGN KEY → Guilds(Id) | Guild ID |
+| IsEnabled | INTEGER (bool) | No | false | - | Whether the feature is enabled |
+| OutputChannelId | INTEGER (long) | Yes | NULL | - | Channel for tweet-preview output |
+| MonitoredChannelIdsJson | TEXT (JSON) | Yes | NULL | - | JSON array of monitored channel IDs |
+| SensitiveOnly | INTEGER (bool) | No | true | - | Post previews only for sensitive tweets |
+| HideSensitiveLabel | INTEGER (bool) | No | false | - | Suppress the sensitive content label |
+| CreatedAt | TEXT (DateTime) | No | - | - | Creation timestamp (UTC) |
+| UpdatedAt | TEXT (DateTime) | No | - | - | Last update timestamp (UTC) |
+
+**Foreign Keys:**
+- `GuildId` → `Guilds(Id)` with `ON DELETE CASCADE`
 
 ---
 

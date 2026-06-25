@@ -186,7 +186,7 @@ REST API for Portal functionality. All endpoints require `[Authorize(Policy = "P
 
 ## Discord Command Modules
 
-Using Discord.NET 3.19.0-beta.1 - slash commands only, registered via `InteractionHandler`.
+Using Discord.NET 3.19.0-fork (forked split `Discord.Net.*` packages) - slash commands only, registered via `InteractionHandler`.
 
 | Module | Commands |
 |--------|----------|

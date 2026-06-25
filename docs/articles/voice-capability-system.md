@@ -1,20 +1,24 @@
 # Voice Capability-Aware UI System
 
-Plan for expanding the TTS voice capability registry and making the Portal UI dynamically adapt to show only features the selected voice supports.
+> **Status: Implemented.** The TTS voice capability registry covers all 34 curated voices, the `SupportsEmphasis` property exists on `VoiceCapabilities`, and the Portal UI adapts to show only the features the selected voice supports. This document describes the shipped behavior; the "Implementation Plan" section below is retained as a record of how the system was built.
 
-## Problem
+Describes the TTS voice capability registry and how the Portal UI dynamically adapts to show only the features the selected voice supports.
 
-The `VoiceCapabilityProvider` only has capability data for 4 out of 34 curated voices. Voices not in the registry cause the capabilities API to return 404, and the UI has no way to know whether a voice supports styles or emphasis. The EmphasisToolbar is always shown in Pro mode regardless of voice support.
+## Background
 
-### Current Gaps
+`VoiceCapabilityProvider` registers capability data for all 34 curated voices. Each voice exposes its supported styles and roles, plus a `SupportsEmphasis` flag, so the UI can hide or disable features (style dropdown, emphasis toolbar) that a given voice does not support. Voices with no styles are registered with empty `SupportedStyles` arrays rather than being omitted.
 
-| Gap | Impact |
+### History (resolved)
+
+Earlier the registry held capability data for only 4 voices, which caused the gaps below. All of these are now resolved:
+
+| Former gap | Impact (now resolved) |
 |-----|--------|
-| Only 4 voices in capability registry | 30 voices return 404 from capabilities API |
-| No `SupportsEmphasis` property on model | UI can't adapt emphasis toolbar per voice |
-| Aria missing 4 styles | `customerservice`, `narration-professional`, `newscast-casual`, `newscast-formal` not available |
-| No "no styles" UI message | Users see a style dropdown with all options disabled and no explanation |
-| Emphasis toolbar ignores voice capability | Shows in Pro mode even for voices that don't support `<emphasis>` |
+| Only 4 voices in capability registry | All 34 curated voices are now registered |
+| No `SupportsEmphasis` property on model | `SupportsEmphasis` exists; UI adapts the emphasis toolbar per voice |
+| Aria missing 4 styles | Aria now includes `customerservice`, `narration-professional`, `newscast-casual`, `newscast-formal` |
+| No "no styles" UI message | Style dropdown is disabled with an explanatory message for no-style voices |
+| Emphasis toolbar ignores voice capability | Emphasis buttons are disabled for voices that do not support `<emphasis>` |
 
 ## Azure Voice Capability Reference
 
@@ -69,7 +73,9 @@ All other curated voices have no style or emphasis support:
 
 `en-GB-LibbyNeural`, `ja-JP-KeitaNeural`, `ja-JP-MayuNeural`, `ja-JP-NaokiNeural`, `fr-FR-BrigitteNeural`, `de-DE-KatjaNeural`, `it-IT-ElsaNeural`, `es-ES-ElviraNeural`, `hi-IN-MadhurNeural`, `sv-SE-SofieNeural`, `sv-SE-MattiasNeural`, `ru-RU-SvetlanaNeural`, `ru-RU-DmitryNeural`, `ar-SA-ZariyahNeural`, `ar-SA-HamedNeural`
 
-## Implementation Plan
+## Implementation Plan (completed)
+
+The steps below were the build plan and are all shipped. They are kept as a record of how each piece was implemented; each "File" reference points at the current source.
 
 ### Step 1: Add `SupportsEmphasis` to VoiceCapabilities Model
 

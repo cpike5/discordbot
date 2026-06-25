@@ -102,11 +102,12 @@ docker compose --profile seq up -d
 Enable Seq log ingestion by uncommenting in `.env`:
 
 ```env
-Serilog__WriteTo__2__Name=Seq
-Serilog__WriteTo__2__Args__serverUrl=http://seq
+SEQ_URL=http://seq:80
 ```
 
-Seq UI is available at `http://localhost:5341`.
+The compose file maps `SEQ_URL` to the `Observability__SeqUrl` environment variable, which the Serilog Seq sink reads at startup.
+
+Seq UI is available at `http://localhost:7301`.
 
 ### Full Stack — All Services
 
@@ -198,8 +199,7 @@ Configure the bot by editing `.env`. See `.env.example` for all available settin
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `Serilog__WriteTo__2__Name` | *(none)* | Set to `Seq` to enable |
-| `Serilog__WriteTo__2__Args__serverUrl` | *(none)* | Set to `http://seq` (compose service name) |
+| `SEQ_URL` | *(none)* | Seq ingestion URL; set to `http://seq:80` (compose service name). Mapped to `Observability__SeqUrl`. |
 
 ## Volume Mounts
 
@@ -216,10 +216,10 @@ Mount your sound clips directory for VOX/soundboard features:
 ```yaml
 # Already configured in docker-compose.yml:
 volumes:
-  - ./sounds:/app/sounds:ro
+  - ./sounds:/app/sounds:rw
 ```
 
-Place `.wav` files in a `sounds/` directory next to `docker-compose.yml`. The mount is read-only (`:ro`). See [soundboard.md](soundboard.md) and [vox-system-spec.md](vox-system-spec.md) for clip organization.
+Place `.wav` files in a `sounds/` directory next to `docker-compose.yml`. The mount is read-write (`:rw`) so the soundboard can persist uploaded clips. See [soundboard.md](soundboard.md) and [vox-system-spec.md](vox-system-spec.md) for clip organization.
 
 ## Database Options
 
@@ -426,7 +426,7 @@ Both `Anthropic__ApiKey` (for .NET) and `ANTHROPIC_API_KEY` (for the `claude` pr
 The bot has a 60-second startup grace period. If it's still unhealthy after that:
 
 ```bash
-docker compose exec bot wget -q --spider http://localhost:5000/api/health/live
+docker compose exec bot wget -q --spider http://localhost:5000/health
 ```
 
 ## Related Documentation

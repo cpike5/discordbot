@@ -41,6 +41,7 @@ See [Audio Dependencies](audio-dependencies.md) for detailed installation instru
 | Command | Description | Preconditions |
 |---------|-------------|---------------|
 | `/tts <message> [voice]` | Convert text to speech and play in voice channel | `RequireGuildActive`, `RequireTtsEnabled`, `RequireVoiceChannel`, `RateLimit(5, 10)` |
+| `/tts-styled <message> <preset>` | Convert text to speech using a style preset and play in voice channel | `RequireGuildActive`, `RequireTtsEnabled`, `RequireVoiceChannel`, `RateLimit(5, 10)` |
 
 **Parameters:**
 - `message` (required) - The text to speak (max 500 characters by default)
@@ -431,15 +432,25 @@ User-defined custom TTS presets.
 public interface ITtsService
 {
     Task<Stream> SynthesizeSpeechAsync(string text, TtsOptions? options = null, CancellationToken cancellationToken = default);
+    Task<Stream> SynthesizeSpeechAsync(string input, TtsOptions? options, SynthesisMode mode, CancellationToken cancellationToken = default);
     Task<IEnumerable<VoiceInfo>> GetAvailableVoicesAsync(string? locale = "en-US", CancellationToken cancellationToken = default);
+    Task<VoiceCapabilities?> GetVoiceCapabilitiesAsync(string voiceName);
+    IEnumerable<StylePreset> GetStylePresets();
+    SsmlValidationResult ValidateSsml(string ssml);
     bool IsConfigured { get; }
+    IEnumerable<VoiceInfo> GetCuratedVoices();
 }
 ```
 
 **Methods:**
-- `SynthesizeSpeechAsync` - Converts text to PCM audio stream (48kHz, 16-bit, stereo)
+- `SynthesizeSpeechAsync(text, options, ct)` - Converts plain text to PCM audio stream (48kHz, 16-bit, stereo)
+- `SynthesizeSpeechAsync(input, options, mode, ct)` - Converts text or SSML to PCM audio, selecting plain-text/SSML/auto handling via `SynthesisMode`
 - `GetAvailableVoicesAsync` - Retrieves available voices for a locale
+- `GetVoiceCapabilitiesAsync` - Gets the capabilities (supported styles, roles, etc.) for a specific voice, or null if unknown
+- `GetStylePresets` - Returns all available style presets for voice configuration
+- `ValidateSsml` - Validates SSML markup and returns errors, warnings, and detected voices
 - `IsConfigured` - Checks if Azure Speech is configured
+- `GetCuratedVoices` - Returns the curated list of popular voices shared between the `/tts` command and the web TTS portal
 
 ### SignalR Notifications
 
@@ -492,7 +503,6 @@ Azure Cognitive Services provides high-quality neural voices in multiple languag
 | `en-GB-SoniaNeural` | British English | Female | Clear, professional |
 | `en-GB-RyanNeural` | British English | Male | Authoritative |
 | `en-AU-NatashaNeural` | Australian English | Female | Friendly |
-| `en-CA-ClaraNeural` | Canadian English | Female | Clear |
 
 ### Voice Discovery
 
@@ -514,8 +524,8 @@ See [Azure Speech voice gallery](https://learn.microsoft.com/azure/ai-services/s
 3. Bot verifies Azure Speech is configured
 4. Bot auto-joins user's voice channel (if not already connected)
 5. Text is synthesized via Azure Speech SDK using SSML for voice control
-6. Azure returns audio as WAV format
-7. FFmpeg transcodes to PCM (48kHz, 16-bit, stereo)
+6. Azure returns raw PCM directly (`Raw48Khz16BitMonoPcm` output format) — no FFmpeg transcoding in the TTS path
+7. Mono PCM is converted to stereo (48kHz, 16-bit) for Discord
 8. Audio is encrypted via libsodium
 9. Opus-encoded audio streams to Discord voice server
 10. Message is logged to `TtsMessage` history

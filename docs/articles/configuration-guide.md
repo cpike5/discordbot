@@ -110,7 +110,7 @@ All other Options classes rely on in-class defaults and do not validate at start
 | `Identity:DefaultAdmin:Password` | Password for seeded admin account | No admin created on first run |
 | `Anthropic:ApiKey` | Claude API key for AI assistant | Assistant feature disabled |
 | `AzureSpeech:SubscriptionKey` | Azure Speech Services key for TTS | TTS feature disabled |
-| `Elastic:ApiKey` | Elasticsearch ingestion API key | No Elasticsearch log shipping |
+| `ElasticSearch:ApiKey` | Elasticsearch ingestion API key (used by the Serilog Elasticsearch sink; requires `ElasticSearch:Url` to be set) | No Elasticsearch log shipping |
 | `ElasticApm:ServerUrl` | Elastic APM server URL | APM disabled |
 
 #### Setting Secrets

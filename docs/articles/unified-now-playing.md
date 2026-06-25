@@ -108,17 +108,19 @@ The `.voice-panel-hide-now-playing` class controls Now Playing visibility:
 
 | Portal | IsCompact | ShowNowPlaying | ShowProgress | Layout | Content Type | Update Mechanism |
 |--------|-----------|----------------|--------------|--------|--------------|------------------|
-| **Soundboard** | `false` | `true` | `true` | Full panel with queue | Audio files (known duration) | SignalR |
+| **Soundboard** | `true` | `true` | `false` | Compact sidebar | Audio files | SignalR |
 | **TTS** | `true` | `true` | `false` | Compact sidebar | Text-to-speech (no duration) | SignalR |
 | **VOX** | `true` | `true` | `false` | Compact sidebar | Concatenated clips (no duration) | SignalR |
 | **Admin Soundboard** | `false` | `false` | N/A | Admin page | Audio files | SignalR (separate display) |
 | **Admin TTS** | `false` | `false` | N/A | Admin page | TTS messages | SignalR (separate display) |
 
+> **Note:** All three member portals (Soundboard, TTS, VOX) currently render the panel in compact mode with `ShowProgress = false` (no progress bar). The `ShowProgress = true` / progress-bar path is supported by the component but is not enabled by any shipping portal.
+
 ---
 
 ## Implementation Examples
 
-### Soundboard Portal (Full Panel with Progress)
+### Soundboard Portal (Compact Sidebar, No Progress)
 
 **PageModel** (`Pages/Portal/Soundboard/Index.cshtml.cs`):
 
@@ -126,18 +128,26 @@ The `.voice-panel-hide-now-playing` class controls Now Playing visibility:
 VoicePanel = new VoiceChannelPanelViewModel
 {
     GuildId = guildId,
-    IsCompact = false,  // Full layout
-    ShowNowPlaying = true,  // Default (play display on)
-    ShowProgress = true,  // Default (show progress bar)
+    IsCompact = true,  // Compact sidebar
+    ShowNowPlaying = true,  // Show Now Playing section
+    ShowProgress = false,  // No progress bar — the controller cannot report position/duration
     IsConnected = isConnected,
     ConnectedChannelId = connectedChannelId,
     ConnectedChannelName = connectedChannelName,
     ChannelMemberCount = channelMemberCount,
     AvailableChannels = BuildVoiceChannelList(context.SocketGuild),
-    NowPlaying = nowPlayingInfo,
-    Queue = queueItems
+    // Soundboard derives Now Playing from IPlaybackService.IsPlaying(guildId) only;
+    // it has no public accessor for the current sound name.
+    NowPlaying = _playbackService.IsPlaying(guildId)
+        ? new NowPlayingInfo { Name = "Now Playing" }
+        : null,
+    Queue = []
 };
 ```
+
+**Why ShowProgress = false:**
+- `IPlaybackService` exposes only `IsPlaying(guildId)` and `GetQueueLength(guildId)` — there is no position/duration accessor
+- The Soundboard portal cannot populate a meaningful progress bar, so it shows the compact "Playing..." status instead
 
 **View** (`Pages/Portal/Soundboard/Index.cshtml`):
 
@@ -267,11 +277,13 @@ function updatePlaybackProgress(position, duration) {
 
 ## Initial State via Server-Side Rendering (SSR)
 
-The component supports populating initial playback state server-side to avoid empty UI on page load:
+The component supports populating initial playback state server-side to avoid empty UI on page load. `IPlaybackService` exposes only `IsPlaying(guildId)` and `GetQueueLength(guildId)` (there is no `GetCurrentlyPlayingAsync`), so portals derive the initial `NowPlaying` value from `IsPlaying`:
 
 ```csharp
 // In PageModel, populate NowPlaying if content is currently playing
-NowPlaying = await _playbackService.GetCurrentlyPlayingAsync(guildId);
+NowPlaying = _playbackService.IsPlaying(guildId)
+    ? new NowPlayingInfo { Name = "Now Playing" }
+    : null;
 ```
 
 ```html
@@ -308,23 +320,24 @@ public VoiceChannelPanelViewModel? VoicePanel { get; set; }
 public async Task OnGetAsync(ulong guildId)
 {
     var context = await _botService.GetGuildContextAsync(guildId);
-    var isConnected = await _audioService.IsConnectedAsync(guildId);
-    var connectedChannelId = await _audioService.GetConnectedChannelIdAsync(guildId);
-    var channelMemberCount = await _audioService.GetChannelMemberCountAsync(guildId);
+    var isConnected = _audioService.IsConnected(guildId);
+    var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
 
     VoicePanel = new VoiceChannelPanelViewModel
     {
         GuildId = guildId,
-        IsCompact = true,  // Adjust based on layout
+        IsCompact = true,  // All shipping portals use compact mode
         ShowNowPlaying = true,  // Usually true for portals
-        ShowProgress = true,  // Adjust based on content type
+        ShowProgress = false,  // No progress bar — IPlaybackService has no position/duration accessor
         IsConnected = isConnected,
         ConnectedChannelId = connectedChannelId,
-        ConnectedChannelName = await _audioService.GetChannelNameAsync(guildId),
+        ConnectedChannelName = connectedChannelName,
         ChannelMemberCount = channelMemberCount,
         AvailableChannels = BuildVoiceChannelList(context.SocketGuild),
-        NowPlaying = await _playbackService.GetCurrentlyPlayingAsync(guildId),
-        Queue = await _queueService.GetQueueAsync(guildId)
+        NowPlaying = _playbackService.IsPlaying(guildId)
+            ? new NowPlayingInfo { Name = "Now Playing" }
+            : null,
+        Queue = []
     };
 }
 ```
@@ -451,18 +464,17 @@ Remove:
 
 ### Initial State Population
 
-On page load, the component displays initial state from server:
+On page load, the component displays initial state from server. The current portals derive `NowPlaying` from `IPlaybackService.IsPlaying(guildId)` and pass an empty queue (there is no `GetCurrentlyPlayingAsync` or queue service to enumerate items):
 
 ```csharp
-// Fetch current playback state for this guild
-var nowPlaying = await _playbackService.GetCurrentlyPlayingAsync(guildId);
-var queue = await _queueService.GetQueueAsync(guildId);
-
+// Determine whether anything is currently playing for this guild
 VoicePanel = new VoiceChannelPanelViewModel
 {
     // ... connection info ...
-    NowPlaying = nowPlaying,  // Populated from database/cache
-    Queue = queue              // Populated from queue service
+    NowPlaying = _playbackService.IsPlaying(guildId)
+        ? new NowPlayingInfo { Name = "Now Playing" }
+        : null,
+    Queue = []
 };
 ```
 

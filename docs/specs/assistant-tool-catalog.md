@@ -2,29 +2,41 @@
 
 ## Overview
 
-This catalog documents all tools available to the AI assistant for answering user questions, providing support, and retrieving bot state information. Tools are organized by category and prioritized for implementation.
+This catalog documents the tools available to the AI assistant for answering user questions, providing support, and retrieving bot state information. Tools are grouped by the provider that registers them.
 
-The assistant uses these tools to provide contextual help, troubleshooting guidance, and information retrieval without requiring direct API access. All tools include security validations to prevent unauthorized access to sensitive data.
+The assistant uses these tools to provide contextual help, troubleshooting guidance, and information retrieval without requiring direct API access.
 
----
+There are two tracks of tool provider:
 
-## Implementation Priority Matrix
+- **Guild assistant** providers implement `IToolProvider` and are registered in `AddAssistant`. They serve the mention-based, in-channel assistant.
+- **DM assistant** providers implement `IDmToolProvider` and are registered in `AddDmAssistant`. They serve the owner-only direct-message assistant.
 
-| Priority | Category | Tool Count | Status | Phase |
-|----------|----------|-----------|--------|-------|
-| MVP | Documentation | 4 tools | Planned | Phase 1 |
-| MVP | User & Guild Information | 2 tools | Planned | Phase 1 |
-| Phase 2 | Guild Members | 1 tool | Planned | Phase 2 |
-| Phase 2 | Permissions & Access | 2 tools | Planned | Phase 2 |
-| Phase 3 | Bot Configuration | 3 tools | Planned | Phase 3 |
-| Phase 3 | Moderation & Logging | 3 tools | Planned | Phase 3 |
-| Phase 3 | Bot Diagnostics | 2 tools | Planned | Phase 3 |
-
-**Total Tools Planned**: 17 across all phases
+In addition, `FeatureRequestToolProvider` backs the `/feature-request` conversational flow (`FeatureRequestConversationService`) rather than the general assistant registry.
 
 ---
 
-## MVP Tools - Phase 1
+## Registered Providers and Tools
+
+| Provider | Track | Tools |
+|----------|-------|-------|
+| `DocumentationToolProvider` | Guild | `get_feature_documentation`, `search_commands`, `get_command_details`, `list_features` |
+| `UserGuildInfoToolProvider` | Guild | `get_user_profile`, `get_guild_info`, `get_user_roles` |
+| `RatWatchToolProvider` | Guild | `get_rat_watch_leaderboard`, `get_rat_watch_user_stats`, `get_rat_watch_summary` |
+| `MemoryToolProvider` | DM | `save_note`, `search_notes`, `get_note`, `list_notes`, `delete_note` |
+| `ConversationToolProvider` | DM | `clear_conversation`, `summarize_conversation` |
+| `BotManagementToolProvider` | DM | `list_guilds`, `set_active_guild`, `get_bot_health`, `search_audit_logs` |
+| `DmModerationToolProvider` | DM | `get_moderation_cases`, `get_user_mod_history` |
+| `DmAnalyticsToolProvider` | DM | `get_server_activity_summary`, `get_command_analytics` |
+| `DmDocumentationToolProvider` | DM | documentation lookup for the DM assistant |
+| `WebFetchToolProvider` | DM | `fetch_url` |
+| `CodeExecutionToolProvider` | DM | `execute_python` |
+| `ClaudeCodeToolProvider` | DM | `run_claude_code`, `get_claude_code_status` |
+
+The sections below detail the guild-assistant tools. The DM-assistant tools are summarized in the table above; see [Mogwai](../articles/mogwai.md) for the Claude Code track.
+
+---
+
+## Guild Assistant Tools
 
 ### Documentation Tools
 
@@ -264,30 +276,29 @@ These tools retrieve public user and guild information with permission-based acc
 
 #### get_user_profile
 
-Retrieves basic user information and optionally includes roles within a specific guild context.
+Retrieves basic user information and optionally includes the user's roles in the current guild.
 
 **Parameters**:
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| user_id | string | Yes | Discord user ID (snowflake) |
-| guild_id | string | No | Guild context for role lookup |
-| include_roles | boolean | No | Include roles in guild (default: false) |
+| user_id | string | No | Discord user ID (snowflake). If omitted, returns info for the requesting user. |
+| include_roles | boolean | No | Include the user's roles in the current guild (default: false) |
+
+There is no `guild_id` parameter — roles are looked up in the current guild context.
 
 **Returns**:
 
 - Username and discriminator (if available)
 - Avatar URL
 - Account creation date
-- Roles in guild (if `guild_id` and `include_roles` provided)
-- Last activity timestamp (if available)
+- Roles in the current guild (if `include_roles` is true)
 - Bot status (if user is a bot)
 
 **Example Request**:
 ```json
 {
   "user_id": "123456789012345678",
-  "guild_id": "987654321098765432",
   "include_roles": true
 }
 ```
@@ -313,21 +324,10 @@ Retrieves basic user information and optionally includes roles within a specific
 ```
 
 **Use Cases**:
-- Permission troubleshooting: "Why can't user X access feature Y?"
 - User identification: "Who is this user?"
 - Role verification: "What roles does this user have?"
 
-**Security**:
-- Regular users can only view public information
-- Users can view their own profile without restriction
-- Moderators and Admins can view any user's profile
-- Sensitive data (email, phone, IP) never returned
-
-**Permission Levels**:
-- Regular User: Own profile only
-- Moderator: Any user in guild where moderator
-- Admin: Any user in bot's presence
-- SuperAdmin: Unrestricted
+**Security**: Returns public Discord profile information only. Sensitive data (email, phone, IP) is never returned.
 
 ---
 
@@ -339,7 +339,7 @@ Retrieves basic guild/server information.
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| guild_id | string | Yes | Discord guild ID (snowflake) |
+| guild_id | string | No | Discord guild ID (snowflake). If omitted, returns info for the current guild. |
 
 **Returns**:
 
@@ -385,22 +385,17 @@ Retrieves basic guild/server information.
 
 ---
 
-## Phase 2 Tools
-
-### Guild Member Information
-
-**Provider**: `UserGuildInfoToolProvider`
-
 #### get_user_roles
 
-Gets all roles for a specific user within a guild, including role hierarchy and special properties.
+Gets all roles for a user within the current guild, including role hierarchy and special properties.
 
 **Parameters**:
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| user_id | string | Yes | Discord user ID |
-| guild_id | string | Yes | Discord guild ID |
+| user_id | string | No | Discord user ID. If omitted, returns roles for the requesting user. |
+
+There is no `guild_id` parameter — roles are read from the current guild context.
 
 **Returns**:
 
@@ -412,8 +407,7 @@ Gets all roles for a specific user within a guild, including role hierarchy and 
 **Example Request**:
 ```json
 {
-  "user_id": "123456789012345678",
-  "guild_id": "987654321098765432"
+  "user_id": "123456789012345678"
 }
 ```
 
@@ -421,7 +415,6 @@ Gets all roles for a specific user within a guild, including role hierarchy and 
 ```json
 {
   "user_id": "123456789012345678",
-  "guild_id": "987654321098765432",
   "roles": [
     {
       "name": "@everyone",
@@ -445,26 +438,65 @@ Gets all roles for a specific user within a guild, including role hierarchy and 
 ```
 
 **Use Cases**:
-- Permission debugging: "What roles does this user have?"
+- Role debugging: "What roles does this user have?"
 - Access level verification: "Is this user a moderator?"
-- Role inquiry: "Can I assign this role?"
 
-**Security**:
-- Requires guild membership to query
-- Regular users can only view their own roles
-- Moderators can view guild members they have access to
-- Admins can view any member's roles
-
-**Permission Levels**:
-- Regular User: Own roles only
-- Moderator: Guild members
-- Admin: Any member in guild where admin
+**Security**: Reads roles from the current guild context. Returns Discord role metadata only.
 
 ---
 
-### List Guild Members
+## Rat Watch Tools
 
-**Provider**: `UserGuildInfoToolProvider`
+**Provider**: `RatWatchToolProvider`
+
+These tools expose read-only Rat Watch accountability data for the current guild.
+
+#### get_rat_watch_leaderboard
+
+Returns the guild's Rat Watch leaderboard.
+
+#### get_rat_watch_user_stats
+
+Returns Rat Watch statistics for a specific user.
+
+#### get_rat_watch_summary
+
+Returns a guild-wide Rat Watch summary.
+
+See [Rat Watch](../articles/rat-watch.md) for the underlying feature and data model.
+
+---
+
+## DM Assistant Tools
+
+The following providers serve the owner-only DM assistant (`IDmToolProvider`). They are registered in `AddDmAssistant` and are not available to the guild assistant.
+
+| Provider | Tools |
+|----------|-------|
+| `MemoryToolProvider` | `save_note`, `search_notes`, `get_note`, `list_notes`, `delete_note` |
+| `ConversationToolProvider` | `clear_conversation`, `summarize_conversation` |
+| `BotManagementToolProvider` | `list_guilds`, `set_active_guild`, `get_bot_health`, `search_audit_logs` |
+| `DmModerationToolProvider` | `get_moderation_cases`, `get_user_mod_history` |
+| `DmAnalyticsToolProvider` | `get_server_activity_summary`, `get_command_analytics` |
+| `DmDocumentationToolProvider` | documentation lookup for the DM assistant |
+| `WebFetchToolProvider` | `fetch_url` |
+| `CodeExecutionToolProvider` | `execute_python` (gated by `DmAssistant:EnableCodeExecution`) |
+| `ClaudeCodeToolProvider` | `run_claude_code`, `get_claude_code_status` |
+
+`set_active_guild` stores an active guild ID in `IMemoryCache`; DM tools that need a guild fall back to this value via `ToolContext.ActiveGuildId` when no explicit guild is supplied. See [Mogwai](../articles/mogwai.md) for the Claude Code (`run_claude_code`) track.
+
+<!-- The remaining content below describes the historical design only and is retained for reference. -->
+
+### (Removed) Phantom design entries
+
+<details>
+<summary>Earlier draft sections — not implemented</summary>
+
+The original draft described several providers and tools that were never built and are **not** registered in the bot: `list_guild_members`, the `PermissionToolProvider` (`check_user_permissions`, `check_oauth_status`), the `BotConfigToolProvider` (`get_bot_config`, `get_soundboard_sounds`, `get_text_to_speech_config`), the `ModerationToolProvider` (`get_moderation_log`, `get_muted_users`, `get_audit_log`), and the `DiagnosticsToolProvider` (`get_bot_health`, `get_feature_status`). They are omitted from the current catalog.
+
+</details>
+
+<!-- BEGIN REMOVED DRAFT (kept collapsed; superseded by the registered providers above)
 
 #### list_guild_members
 
@@ -867,33 +899,43 @@ Checks status of specific bot features.
 
 **Use Cases**: Feature troubleshooting, status inquiries, diagnostic queries
 
+END REMOVED DRAFT -->
+
 ---
 
 ## Tool Provider Implementation Map
 
-| Provider Class | Tools | MVP Phase | Total Tools |
-|----------------|-------|-----------|-------------|
-| `DocumentationToolProvider` | get_feature_documentation, search_commands, get_command_details, list_features | Phase 1 | 4 |
-| `UserGuildInfoToolProvider` | get_user_profile, get_guild_info, get_user_roles, list_guild_members | Phase 1-2 | 4 |
-| `PermissionToolProvider` | check_user_permissions, check_oauth_status | Phase 2 | 2 |
-| `BotConfigToolProvider` | get_bot_config, get_soundboard_sounds, get_text_to_speech_config | Phase 3 | 3 |
-| `ModerationToolProvider` | get_moderation_log, get_muted_users, get_audit_log | Phase 3 | 3 |
-| `DiagnosticsToolProvider` | get_bot_health, get_feature_status | Phase 3 | 2 |
+### Guild Assistant (`IToolProvider`)
+
+| Provider Class | Tools |
+|----------------|-------|
+| `DocumentationToolProvider` | get_feature_documentation, search_commands, get_command_details, list_features |
+| `UserGuildInfoToolProvider` | get_user_profile, get_guild_info, get_user_roles |
+| `RatWatchToolProvider` | get_rat_watch_leaderboard, get_rat_watch_user_stats, get_rat_watch_summary |
+
+### DM Assistant (`IDmToolProvider`)
+
+| Provider Class | Tools |
+|----------------|-------|
+| `MemoryToolProvider` | save_note, search_notes, get_note, list_notes, delete_note |
+| `ConversationToolProvider` | clear_conversation, summarize_conversation |
+| `BotManagementToolProvider` | list_guilds, set_active_guild, get_bot_health, search_audit_logs |
+| `DmModerationToolProvider` | get_moderation_cases, get_user_mod_history |
+| `DmAnalyticsToolProvider` | get_server_activity_summary, get_command_analytics |
+| `DmDocumentationToolProvider` | documentation lookup |
+| `WebFetchToolProvider` | fetch_url |
+| `CodeExecutionToolProvider` | execute_python |
+| `ClaudeCodeToolProvider` | run_claude_code, get_claude_code_status |
+
+### Other
+
+| Provider Class | Tools | Notes |
+|----------------|-------|-------|
+| `FeatureRequestToolProvider` | feature-request flow tools | Used by `FeatureRequestConversationService` for `/feature-request`, not the general assistant registry. |
 
 ---
 
 ## Security & Data Handling
-
-### Permission Validation Strategy
-
-All tools validate permissions based on user role hierarchy:
-
-| Role | Access Level | Tools Available |
-|------|--------------|-----------------|
-| Regular User | Basic | Documentation, own profile, guild info, feature status (basic) |
-| Moderator | Enhanced | All basic + moderation logs, muted users, member directory |
-| Admin | Full | All + configuration, audit logs, diagnostics |
-| SuperAdmin | Unrestricted | All tools, all data |
 
 ### Data Sanitization Rules
 
@@ -913,16 +955,7 @@ All tools validate permissions based on user role hierarchy:
 
 ### Rate Limiting
 
-Tool execution is rate-limited per user and guild:
-
-| User Role | Calls Per Minute | Calls Per Hour |
-|-----------|-----------------|-----------------|
-| Regular User | 10 | 100 |
-| Moderator | 20 | 200 |
-| Admin | 50 | 500 |
-| SuperAdmin | Unlimited | Unlimited |
-
-**Configuration**: Via `AssistantOptions.ToolRateLimits`
+The guild assistant applies a per-user question rate limit (see `Assistant:DefaultRateLimit` / `Assistant:RateLimitWindowMinutes`, default 5 questions per 5 minutes). The number of tool calls made while answering a single question is bounded by `Assistant:MaxToolCallsPerQuestion` (default 5), and individual tool executions are bounded by `Assistant:ToolExecutionTimeoutMs` (default 5000 ms). There is no separate per-role tool-call rate limit table.
 
 ### Audit Logging
 
@@ -940,28 +973,25 @@ Audit logs are retained for 90 days per GDPR requirements.
 
 ## Tool Execution Context
 
-Tools receive execution context for validation and logging:
+Tools receive a `ToolContext` (in `DiscordBot.Core.DTOs.LLM`) for validation and logging:
 
 ```csharp
-public class ToolExecutionContext
+public class ToolContext
 {
     public ulong UserId { get; set; }
     public ulong GuildId { get; set; }
     public ulong ChannelId { get; set; }
-    public UserRole UserRole { get; set; }  // Calculated from Discord roles
-    public string BaseUrl { get; set; }     // For URL generation
-    public DateTime ExecutedAt { get; set; }
-}
+    public ulong MessageId { get; set; }
+    public List<string> UserRoles { get; set; } = new();
 
-public enum UserRole
-{
-    Unknown = 0,
-    User = 1,
-    Moderator = 2,
-    Admin = 3,
-    SuperAdmin = 4
+    // Active guild for the DM assistant, set via set_active_guild and
+    // persisted in IMemoryCache. DM tools use this as a fallback when no
+    // explicit guild_id is provided.
+    public ulong? ActiveGuildId { get; set; }
 }
 ```
+
+There is no `UserRole` enum; the user's guild roles are exposed as the `UserRoles` string list.
 
 ---
 

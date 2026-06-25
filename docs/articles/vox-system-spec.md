@@ -289,7 +289,7 @@ public record VoxTokenInfo
 ```
 
 **Pipeline**:
-1. Tokenize input (split on whitespace, lowercase, strip punctuation)
+1. Tokenize input (map `,` and `.` to timing tokens, split on whitespace, lowercase; other punctuation such as `!`/`?` is preserved)
 2. Look up each token in `IVoxClipLibrary` for the requested group
 3. Collect file paths for matched clips; track skipped words
 4. Call `IVoxConcatenationService.ConcatenateAsync()` with matched clip paths
@@ -406,22 +406,23 @@ foreach (var group in Enum.GetValues<VoxClipGroup>())
 
 ### Tokenization Rules
 
-Input text is parsed into tokens for clip lookup:
+Input text is parsed into tokens for clip lookup (see `VoxService.TokenizeMessage`):
 
-1. Split on whitespace
-2. Convert to lowercase
-3. Strip leading/trailing punctuation (periods, commas, exclamation marks, etc.)
-4. Each token is looked up in the clip library for the active group
-5. Tokens with no matching clip are skipped (not an error - just omitted from output)
-6. Empty input or zero matched clips returns an error
+1. Replace `,` with a spaced ` _comma ` token and `.` with a spaced ` _period ` token (these become standalone timing tokens that can map to silence clips)
+2. Split on whitespace
+3. Convert each token to lowercase
+4. All other characters are preserved — punctuation such as `!` and `?` is **not** stripped, because it may be part of a clip name (e.g., `request!`)
+5. Each token is looked up in the clip library for the active group
+6. Tokens with no matching clip are skipped (not an error - just omitted from output)
+7. Empty input or zero matched clips returns an error
 
 **Examples**:
 
 | Input | Tokens | Matched (assuming vox group) |
 |-------|--------|------------------------------|
 | `"warning security breach"` | `[warning, security, breach]` | All matched |
-| `"attention all personnel!"` | `[attention, all, personnel]` | All matched |
-| `"hello world"` | `[hello, world]` | Depends on clip availability |
+| `"attention all, personnel"` | `[attention, all, _comma, personnel]` | `_comma` matched if a `_comma` clip exists |
+| `"affirmative."` | `[affirmative, _period]` | `_period` matched if a `_period` clip exists |
 | `"sector 7"` | `[sector, 7]` | `sector` matched, `7` skipped if no `7.mp3` |
 
 ---
@@ -805,6 +806,47 @@ Stop current playback (delegates to existing PlaybackService stop).
 }
 ```
 
+### VOX Message History & Favorites
+
+VOX message history and favorites are **implemented**. Each successful portal `play` is persisted to the `VoxMessageHistory` table, and the following endpoints let the authenticated user review, favorite, and delete their entries. The user ID is read from the Discord identity claim; all return **401 Unauthorized** if it is missing.
+
+History entries are saved on `POST /api/portal/vox/{guildId}/play` (non-blocking; a save failure does not fail the play response).
+
+#### `GET /api/portal/vox/{guildId}/history`
+
+Returns the current user's recent history for the guild.
+
+**Query Parameters**:
+- `limit` (optional, default 20, clamped to 1–50)
+
+**Response**:
+```json
+[
+  {
+    "id": 42,
+    "message": "attention all personnel",
+    "clipGroup": "vox",
+    "wordGapMs": 50,
+    "isFavorite": false,
+    "playedAt": "2026-02-03T15:30:00Z"
+  }
+]
+```
+
+#### `GET /api/portal/vox/{guildId}/favorites`
+
+Returns the current user's favorited history entries for the guild. Same item shape as `history`.
+
+#### `POST /api/portal/vox/{guildId}/history/{id}/favorite`
+
+Toggles the favorite flag on a history entry. Returns `{ "id": 42, "isFavorite": true }`. **404** if the entry does not exist, **403** if it belongs to another user/guild.
+
+#### `DELETE /api/portal/vox/{guildId}/history/{id}`
+
+Deletes a history entry. Returns `{ "success": true }`. **404** if not found, **403** if not owned by the caller.
+
+**`VoxMessageHistory` entity columns:** `Id` (int), `GuildId` (ulong), `UserId` (ulong), `Message` (string), `ClipGroup` (string: vox/fvox/hgrunt), `WordGapMs` (int), `IsFavorite` (bool), `PlayedAt` (DateTime, UTC).
+
 ---
 
 ## Security & Rate Limiting
@@ -852,7 +894,8 @@ The simplified design leaves room for the following enhancements (see v1.0 spec 
 - **Sentence Builder UI** - Drag-and-drop composition interface
 - **Word bank management** - Admin UI for bulk generation, import/export
 - **Custom filter parameter UI** - Sliders for highpass, lowpass, compression, distortion
-- **VoxMessage audit logging** - Database tracking of VOX usage
+
+> **Note:** Per-user VOX message history and favorites (database tracking of VOX usage via the `VoxMessageHistory` table) have shipped — see [VOX Message History & Favorites](#vox-message-history--favorites) above. They are no longer a future item.
 
 ---
 

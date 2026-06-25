@@ -179,7 +179,7 @@ The modal is implemented in `Pages/Guilds/Members/_MemberDetailModal.cshtml` and
 The pagination component provides:
 - First, previous, next, and last page buttons
 - Current page indicator with page number buttons
-- Page size selector (25, 50, 100 items per page)
+- Page size selector (10, 25, 50, 100 items per page)
 - Total item count display
 - Results summary (e.g., "Showing 1 to 25 of 150 members")
 
@@ -238,8 +238,8 @@ Members with null `LastActiveAt` are sorted to the end when sorting by last acti
 ### Export All (Filtered)
 
 The "Export CSV" button in the page header exports all members matching the current filters:
-- **Route**: `GET /Guilds/{guildId}/Members/Export`
-- **Behavior**: Redirects to API endpoint with current query parameters
+- **Route**: `GET /api/guilds/{guildId}/members/export`
+- **Behavior**: Builds the export URL from the current query parameters and triggers a download
 - **Limit**: 10,000 rows maximum
 - **Pagination**: Ignored (exports all matching members)
 
@@ -260,14 +260,22 @@ The exported CSV file contains the following columns:
 |--------|-------------|--------|
 | UserId | Discord user snowflake ID | Numeric string |
 | Username | Discord username | String |
-| DisplayName | Effective display name (nickname > global > username) | String |
-| Nickname | Server-specific nickname | String (empty if none) |
+| Discriminator | Legacy discriminator (4-digit tag) | String (empty if none) |
 | GlobalDisplayName | Global display name | String (empty if none) |
-| JoinedAt | Date joined the guild | ISO 8601 (UTC) |
-| LastActiveAt | Last message activity | ISO 8601 (UTC) or empty |
-| AccountCreatedAt | Discord account creation date | ISO 8601 (UTC) |
-| Roles | Pipe-delimited list of role names | String (e.g., "Admin\|Moderator\|Member") |
+| Nickname | Server-specific nickname | String (empty if none) |
+| DisplayName | Effective display name (nickname > global > username) | String |
+| JoinedAt | Date joined the guild | `yyyy-MM-dd HH:mm:ss` (UTC) |
+| LastActiveAt | Last message activity | `yyyy-MM-dd HH:mm:ss` (UTC) or empty |
+| AccountCreatedAt | Discord account creation date | `yyyy-MM-dd HH:mm:ss` (UTC) or empty |
+| RoleIds | Semicolon-delimited list of role snowflake IDs | String (e.g., "123;456;789") |
+| RoleNames | Semicolon-delimited list of role names | String (e.g., "Admin;Moderator;Member") |
 | IsActive | Active status | Boolean (true/false) |
+
+The header row is:
+
+```
+UserId,Username,Discriminator,GlobalDisplayName,Nickname,DisplayName,JoinedAt,LastActiveAt,AccountCreatedAt,RoleIds,RoleNames,IsActive
+```
 
 **File Naming:** `members-{guildId}-{timestamp}.csv`
 
@@ -279,10 +287,10 @@ The exported CSV file contains the following columns:
 
 ### Caching
 
-Member data is cached to reduce Discord API calls:
-- **Cache Duration**: Configurable via `CachingOptions.MemberCacheDuration`
-- **Default**: 15 minutes
-- **Strategy**: Members are cached per guild after first fetch
+Member data is cached to reduce database queries:
+- **Cache Duration**: Configurable via `CachingOptions.GuildMemberListDurationMinutes`
+- **Default**: 5 minutes
+- **Strategy**: Filtered member lists are cached per guild after first fetch
 - **Invalidation**: Cache expires after duration, or can be manually cleared
 
 ### Large Guilds
@@ -334,9 +342,9 @@ The Member Directory page uses the following JavaScript modules:
 **Functions:**
 - `viewMemberDetails(userId)`: Opens detail modal and loads member data via AJAX
 - `exportSelected()`: Builds export URL with selected user IDs and triggers download
-- `selectAll()`: Toggles selection state for all members on current page
 - `deselectAll()`: Clears all member selections
-- `updateBulkActionsToolbar()`: Shows/hides bulk actions toolbar based on selection count
+- Select-all behavior: a `change` event listener on the `#selectAll` header checkbox toggles the selection state of all members on the current page
+- Bulk selection updates: show/hide the bulk actions toolbar and selected count based on the number of checked members
 - Role multi-select dropdown toggle and selection handling
 - Filter panel toggle and state management
 
