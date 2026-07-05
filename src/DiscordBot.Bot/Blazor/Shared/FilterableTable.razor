@@ -1,0 +1,136 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@typeparam TItem
+
+@*
+    Reusable results region for filtered, server-paged lists (Slice 5 shared kit).
+    Centralizes the chrome every such list repeats — a Filters slot, an optional
+    Toolbar slot (e.g. bulk-actions bar), a loading spinner, the "Showing X to Y of
+    Z" summary, the responsive desktop-table / mobile-card split, the empty state,
+    and the Pagination pager — while leaving the column shape to the caller via the
+    HeaderTemplate / RowTemplate / MobileTemplate render fragments. The desktop table
+    iterates Items and renders RowTemplate per item (each fragment supplies its own
+    <tr>); mobile iterates MobileTemplate. Designed against both the member directory
+    (Slice 5) and the command logs table (Slice 4) so a second consumer can adopt it.
+*@
+
+@if (Filters is not null)
+{
+    @Filters
+}
+
+@if (Toolbar is not null)
+{
+    @Toolbar
+}
+
+@if (Loading)
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 flex items-center justify-center">
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-accent-blue"></div>
+    </div>
+}
+else
+{
+    @if (ShowResultsSummary && TotalCount > 0)
+    {
+        var startItem = (CurrentPage - 1) * PageSize + 1;
+        var endItem = Math.Min(CurrentPage * PageSize, TotalCount);
+        <div class="@(SummaryAtTop ? "mb-4" : "mt-4") text-sm text-text-secondary">
+            Showing <span class="font-semibold text-text-primary">@startItem</span> to
+            <span class="font-semibold text-text-primary">@endItem</span> of
+            <span class="font-semibold text-text-primary">@TotalCount.ToString("N0")</span> @ItemNoun
+        </div>
+    }
+
+    @if (Items.Count > 0)
+    {
+        <!-- Desktop table -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden hidden md:block">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="bg-bg-tertiary">
+                        @HeaderTemplate
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var item in Items)
+                        {
+                            @RowTemplate(item)
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Mobile cards -->
+        <div class="md:hidden space-y-4">
+            @foreach (var item in Items)
+            {
+                @MobileTemplate(item)
+            }
+        </div>
+
+        <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" OnPageChange="OnPageChange" />
+    }
+    else
+    {
+        @if (EmptyContent is not null)
+        {
+            @EmptyContent
+        }
+        else
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+                <h3 class="text-lg font-semibold text-text-primary mb-2">@EmptyTitle</h3>
+                <p class="text-sm text-text-secondary">@EmptyDescription</p>
+            </div>
+        }
+    }
+}
+
+@code {
+    /// <summary>The current page's items. Empty renders the empty state.</summary>
+    [Parameter] public IReadOnlyList<TItem> Items { get; set; } = Array.Empty<TItem>();
+
+    /// <summary>When true, a spinner replaces the whole region.</summary>
+    [Parameter] public bool Loading { get; set; }
+
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; } = 1;
+
+    /// <summary>Total items across all pages (drives the summary line).</summary>
+    [Parameter] public int TotalCount { get; set; }
+
+    [Parameter] public int PageSize { get; set; } = 25;
+
+    /// <summary>Raised when the pager requests a new page.</summary>
+    [Parameter] public EventCallback<int> OnPageChange { get; set; }
+
+    /// <summary>Noun for the summary line, e.g. "members" / "results".</summary>
+    [Parameter] public string ItemNoun { get; set; } = "results";
+
+    [Parameter] public bool ShowResultsSummary { get; set; } = true;
+
+    /// <summary>Render the summary above (true) or below (false) the table.</summary>
+    [Parameter] public bool SummaryAtTop { get; set; } = true;
+
+    [Parameter] public string EmptyTitle { get; set; } = "No results";
+    [Parameter] public string EmptyDescription { get; set; } = string.Empty;
+
+    /// <summary>Optional filter UI rendered above the toolbar/table.</summary>
+    [Parameter] public RenderFragment? Filters { get; set; }
+
+    /// <summary>Optional toolbar (e.g. bulk actions) rendered above the table.</summary>
+    [Parameter] public RenderFragment? Toolbar { get; set; }
+
+    /// <summary>Contents of the desktop &lt;thead&gt; (supply a single &lt;tr&gt;).</summary>
+    [Parameter] public RenderFragment HeaderTemplate { get; set; } = default!;
+
+    /// <summary>Per-item desktop row (supply a full &lt;tr&gt;…&lt;/tr&gt;).</summary>
+    [Parameter] public RenderFragment<TItem> RowTemplate { get; set; } = default!;
+
+    /// <summary>Per-item mobile card.</summary>
+    [Parameter] public RenderFragment<TItem> MobileTemplate { get; set; } = default!;
+
+    /// <summary>Optional custom empty state, overriding EmptyTitle/EmptyDescription.</summary>
+    [Parameter] public RenderFragment? EmptyContent { get; set; }
+}

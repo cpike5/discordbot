@@ -77,8 +77,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@@microsoft/signalr@8.0.0/dist/browser/signalr.min.js"></script>
     <!-- Dashboard Hub Connection Manager -->
     <script src="~/js/dashboard-hub.js" asp-append-version="true"></script>
-    <!-- Notification Bell Module -->
-    <script src="~/js/notification-bell.js" asp-append-version="true"></script>
+    @* Notification bell is now a Blazor island (NotificationBellIsland in _Navbar) — notification-bell.js retired (Slice 2). *@
     <!-- JavaScript for Navigation -->
     <script src="~/js/navigation.js" asp-append-version="true"></script>
     <!-- JavaScript for Toast Notifications -->
@@ -89,8 +88,7 @@
     <script src="~/js/loading-manager.js" asp-append-version="true"></script>
     <!-- Timezone Utilities -->
     <script src="~/js/timezone.js" asp-append-version="true"></script>
-    <!-- Bot Status Auto-Refresh -->
-    <script src="~/js/bot-status-refresh.js" asp-append-version="true"></script>
+    @* Bot status banner is now a Blazor island (BotStatusCardIsland) — bot-status-refresh.js polling retired (Slice 2). *@
     <!-- Search Keyboard Shortcuts -->
     <script src="~/js/search.js" asp-append-version="true"></script>
     <!-- Preview Popup Module -->
@@ -107,5 +105,25 @@
     </script>
 
     @await RenderSectionAsync("Scripts", required: false)
+
+    @*
+        Blazor Server bootstrap (Slice 2). The notification bell island lives in the
+        global navbar, so the circuit is started here for every page that uses this
+        layout (authenticated admin pages — landing/login/error/portal use other layouts).
+        Loaded after toast.js/theme.js so the blazor-interop.js shim can bridge them
+        (gotcha §6.1). Most of these pages sit on nested routes (e.g. /Guilds/123/...),
+        so the circuit is started manually with an absolute hub URL — otherwise the
+        negotiate URL resolves relative to the page path and 404s. This avoids a global
+        <base href> and its side effects (e.g. breaking the #main-content skip link).
+    *@
+    <script src="~/js/blazor-interop.js" asp-append-version="true"></script>
+    <script src="~/_framework/blazor.server.js" autostart="false"></script>
+    <script>
+        Blazor.start({
+            configureSignalR: function (builder) {
+                builder.withUrl('@Url.Content("~/_blazor")');
+            }
+        });
+    </script>
 </body>
 </html>

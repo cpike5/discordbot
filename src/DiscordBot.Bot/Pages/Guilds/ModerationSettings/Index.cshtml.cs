@@ -55,6 +55,15 @@ public class IndexModel : GuildPageModelBase
     public ulong GuildId { get; set; }
 
     /// <summary>
+    /// Gets or sets whether to render the legacy JS-driven UI instead of the Blazor
+    /// island. Parity gate (plan §9): the old markup stays reachable at
+    /// <c>?legacy=true</c> until the island is confirmed at full parity, then this
+    /// branch is removed. Defaults to the island.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool Legacy { get; set; }
+
+    /// <summary>
     /// Gets or sets the guild name for display.
     /// </summary>
     public string GuildName { get; set; } = string.Empty;

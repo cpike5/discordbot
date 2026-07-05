@@ -1,0 +1,179 @@
+@namespace DiscordBot.Bot.Blazor.Pages
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@implements IDisposable
+
+@*
+    Slice 2 island: the dashboard bot-status banner. Replaces the 30s polling in
+    wwwroot/js/bot-status-refresh.js with push updates over the in-process
+    IDashboardEventBus (DashboardUpdateService dual-publishes BotStatusChanged) — strictly
+    fewer requests. Server-renders from the host page's view model so the prerendered HTML
+    matches the old partial exactly; live fields then update on push. TotalMembers/Version
+    aren't carried by the push DTO (as with the old poll), so they keep their initial values.
+*@
+
+<div class="@BannerClass">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <!-- Status Info Section -->
+        <div class="flex items-center gap-4">
+            <!-- Icon -->
+            <div class="w-12 h-12 rounded-xl @IconBgColor flex items-center justify-center">
+                @if (_isOnline)
+                {
+                    <svg class="w-6 h-6 @IconColor" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                }
+                else
+                {
+                    <svg class="w-6 h-6 @IconColor" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01" />
+                    </svg>
+                }
+            </div>
+
+            <!-- Text Content -->
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-lg font-semibold text-text-primary">@(_isOnline ? "Bot is Online" : "Bot is Offline")</h2>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold @StatusBadgeText @StatusBadgeBg rounded-full">
+                        <span class="w-1.5 h-1.5 @StatusDotColor rounded-full @(_isOnline ? "animate-pulse" : "")"></span>
+                        <span>@_statusText</span>
+                    </span>
+                </div>
+                <p class="text-sm text-text-secondary mt-0.5">
+                    @if (_isOnline)
+                    {
+                        <text>Connected to @_serverCount.ToString("N0") @(_serverCount == 1 ? "server" : "servers") with @_totalMembers.ToString("N0") total @(_totalMembers == 1 ? "member" : "members")</text>
+                    }
+                    else
+                    {
+                        <text>Not currently connected to Discord</text>
+                    }
+                </p>
+            </div>
+        </div>
+
+        <!-- Metrics Section -->
+        <div class="flex items-center gap-6 text-sm @(_isOnline ? "" : "hidden")">
+            <div class="text-center">
+                <p class="font-semibold text-text-primary">@_uptimeDisplay</p>
+                <p class="text-xs text-text-tertiary">Uptime</p>
+            </div>
+            <div class="text-center">
+                <p class="font-semibold text-text-primary">@_version</p>
+                <p class="text-xs text-text-tertiary">Version</p>
+            </div>
+            <div class="text-center">
+                <p class="font-semibold text-text-primary"><span>@_latencyMs</span><span class="text-text-tertiary">ms</span></p>
+                <p class="text-xs text-text-tertiary">Latency</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Server-rendered initial state from the host page (IndexModel.BotStatusBanner).</summary>
+    [Parameter] public BotStatusBannerViewModel Initial { get; set; } = new();
+
+    [Inject] private IDashboardEventBus EventBus { get; set; } = default!;
+
+    private bool _isOnline;
+    private string _statusText = "Disconnected";
+    private int _serverCount;
+    private int _totalMembers;
+    private string _uptimeDisplay = "0m";
+    private string _version = "v0.0.0";
+    private int _latencyMs;
+
+    private bool _subscribed;
+    private bool _disposed;
+
+    private string BannerClass => _isOnline ? "bot-status-banner" : "bot-status-banner offline";
+    private string IconColor => _isOnline ? "text-success" : "text-error";
+    private string IconBgColor => _isOnline ? "bg-success/20" : "bg-error/20";
+    private string StatusBadgeBg => _isOnline ? "bg-success/20" : "bg-error/20";
+    private string StatusBadgeText => _isOnline ? "text-success" : "text-error";
+    private string StatusDotColor => _isOnline ? "bg-success" : "bg-error";
+
+    protected override void OnInitialized()
+    {
+        _isOnline = Initial.IsOnline;
+        _statusText = Initial.StatusText;
+        _serverCount = Initial.ServerCount;
+        _totalMembers = Initial.TotalMembers;
+        _uptimeDisplay = Initial.UptimeDisplay;
+        _version = Initial.Version;
+        _latencyMs = Initial.LatencyMs;
+    }
+
+    protected override void OnAfterRender(bool firstRender)
+    {
+        // Subscribe once, in the interactive circuit (never during prerender).
+        if (firstRender && !_subscribed)
+        {
+            EventBus.BotStatusChanged += OnBotStatusChanged;
+            _subscribed = true;
+        }
+    }
+
+    private void OnBotStatusChanged(BotStatusUpdateDto status)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        _ = InvokeSafe(() =>
+        {
+            _isOnline = string.Equals(status.ConnectionState, "Connected", StringComparison.OrdinalIgnoreCase);
+            _statusText = status.ConnectionState;
+            _serverCount = status.GuildCount;
+            _uptimeDisplay = FormatUptime(status.Uptime);
+            _latencyMs = status.Latency;
+            // TotalMembers and Version are not carried by the push DTO; keep last-known.
+        });
+    }
+
+    private async Task InvokeSafe(Action mutate)
+    {
+        try
+        {
+            await InvokeAsync(() =>
+            {
+                mutate();
+                StateHasChanged();
+            });
+        }
+        catch (ObjectDisposedException)
+        {
+            // Circuit torn down mid-update; safe to ignore.
+        }
+    }
+
+    /// <summary>Mirrors BotStatusViewModel.FormatUptime so the live value matches the server render.</summary>
+    private static string FormatUptime(TimeSpan uptime)
+    {
+        if (uptime.TotalDays >= 1)
+        {
+            return $"{(int)uptime.TotalDays}d {uptime.Hours}h {uptime.Minutes}m";
+        }
+
+        if (uptime.TotalHours >= 1)
+        {
+            return $"{uptime.Hours}h {uptime.Minutes}m";
+        }
+
+        return $"{uptime.Minutes}m";
+    }
+
+    public void Dispose()
+    {
+        _disposed = true;
+        if (_subscribed)
+        {
+            EventBus.BotStatusChanged -= OnBotStatusChanged;
+            _subscribed = false;
+        }
+    }
+}

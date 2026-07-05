@@ -19,7 +19,157 @@
 
 Nothing is half-finished. Phase 0 is a complete, self-contained increment. The
 **FoundationProbe** island on `/Components` proves circuit + interop + component
-parity end-to-end. Your job is **Slice 1: Moderation Settings** (see §5).
+parity end-to-end.
+
+> **Slice 1 status: DONE.** `Bot/Blazor/Pages/ModerationSettingsIsland.razor` owns the
+> `/Guilds/{id}/ModerationSettings` interactive body, replacing
+> `wwwroot/js/moderation-settings.js`. It added `TabbedFormShell`, `ConfirmModal`,
+> `SaveButton` (+ `TabDefinition`) under `Blazor/Shared/`, and a `setUnsavedGuard` helper in
+> `blazor-interop.js`. The legacy JS UI stays reachable at `?legacy=true` (parity gate).
+
+> **Slice 2 status: DONE.** Added the in-process event bus
+> `Bot/Blazor/Services/IDashboardEventBus.cs` (+ impl, singleton); `NotificationBroadcaster`
+> and `DashboardUpdateService` now **dual-publish** to it alongside their existing SignalR
+> broadcasts (additive — JS path untouched). `Bot/Blazor/Pages/NotificationBellIsland.razor`
+> replaces `notification-bell.js` (badge/dropdown/mark-read/dismiss/mark-all, real-time via
+> the bus filtered to the current user) and `Bot/Blazor/Pages/BotStatusCardIsland.razor`
+> replaces `bot-status-refresh.js` (30s polling → push). Because the bell lives in the global
+> navbar, the **Blazor bootstrap was centralized in `_Layout`** (autostart=false + explicit
+> `/_blazor` hub URL, after toast.js/theme.js per gotcha §6.1) — so every layout page starts
+> one circuit and the per-page `blazor.server.js` blocks were removed from `Components.cshtml`
+> and `ModerationSettings/Index.cshtml`. `notification-bell.js`/`bot-status-refresh.js` are no
+> longer referenced (files kept for easy revert).
+
+> **Slice 3 status: DONE.** `Bot/Blazor/Pages/AdminSettingsIsland.razor` owns the `/Admin/Settings`
+> interactive body, replacing `wwwroot/js/settings.js` (1101 lines). Seven tabs via
+> `TabbedFormShell` (General/Features/Commands/Advanced/BotControl + Appearance for SuperAdmin),
+> per-category and global Save/Reset, command-module toggles, appearance default-theme save/reset
+> (re-checks `RequireSuperAdmin` server-side), and a Bot Control tab whose status is now **push
+> over `IDashboardEventBus`** (no more 5s polling) with restart (`ConfirmModal`) and typed-confirm
+> shutdown via the new `Bot/Blazor/Shared/TypedConfirmModal.razor` (awaitable, mirrors
+> `_TypedConfirmationModal.cshtml`). Data access resolves the existing
+> `ISettingsService`/`ICommandModuleConfigurationService`/`IThemeService`/`IBotService` in a DI
+> scope per op; audit-log enqueues mirror the page-model handlers so parity holds. Saves that flag
+> `RestartRequired`, and all resets, force a full page reload so the host page's `_RestartBanner`
+> reflects state. Inline per-category alerts were dropped in favour of the shared toast path
+> (matches Slices 1–2). The legacy JS UI + page handlers stay reachable at `?legacy=true` (parity
+> gate); host wires `param-IsSuperAdmin`/`param-InitialCategory` and loads `moderation.css` for the
+> shared `.settings-tabs` styles.
+
+> **Slice 4 status: DONE.** `Bot/Blazor/Pages/CommandsIsland.razor` owns the interactive body of
+> `/Commands`, replacing the AJAX tab-loader stack (`command-tabs.js`, `command-tab-loader.js`,
+> `command-filters.js`, `command-pagination.js`, `command-log-modal.js`, `date-range-filter.js`,
+> `url-state.js`) for the **Command List** and **Execution Logs** tabs. List is a native accordion;
+> Logs is a native filter panel (debounced search/command via `Debouncer`, date presets,
+> guild/status selects), results table + mobile cards, the new reusable
+> `Bot/Blazor/Shared/Pagination.razor`, and a **native** log-details modal (replaces
+> `command-log-modal.js` + `/api/commands/log-details`). The admin **Clear & Re-register Globally**
+> action runs through `ConfirmModal` (re-checks the Admin/SuperAdmin role inside the circuit).
+> **Analytics deliberately stays on Chart.js** (plan §5.2 #3 "don't block on charting"): the island
+> delegates that one tab to the unchanged `/api/commands/analytics` partial + its embedded chart
+> init via the new `wwwroot/js/commands-island-interop.js` shim (`loadAnalytics` re-execs the
+> partial's scripts; `convertTimes` reruns `timezoneUtils.convertDisplayTimes` for the logs
+> timestamps). Data access resolves the existing
+> `ICommandMetadataService`/`ICommandLogService`/`IGuildService`/`ICommandRegistrationService` in a
+> DI scope per op. The legacy JS UI + page handlers + tab partials stay reachable at `?legacy=true`
+> (parity gate); the host loads `moderation.css` (shared `.settings-tabs`) and, in island mode, only
+> Chart.js + the interop shim (Blazor bootstrap/timezone/preview-popup are global in `_Layout`).
+> `FilterableTable` was **not** built as a generic component this slice — the logs table is rendered
+> inline in the island; co-designing a reusable `FilterableTable` is deferred to Slice 5 (Member
+> Directory) where a second real consumer makes the generics concrete.
+
+> **Slice 5 status: DONE.** `Bot/Blazor/Pages/MemberDirectoryIsland.razor` owns the interactive body
+> of `/Guilds/{id}/Members`, replacing `wwwroot/js/member-directory.js` (filter panel, role
+> multi-select, bulk selection + CSV export, member detail modal). Filters apply **live** (search
+> debounced 300ms via `Debouncer`; role/date/activity/sort changes reload immediately — the legacy
+> Apply/Reset form became live + a Reset button). Bulk select drives a toolbar (select-all tristate
+> via `blazorInterop.setIndeterminate`, deselect-all, **Export Selected** → `blazorInterop.download`
+> of the `/api/guilds/{id}/members/export?userIds=…` CSV). The member detail modal renders
+> **natively** from `IGuildMemberService.GetMemberAsync` (replacing the JSON fetch + DOM-building in
+> JS); copy-user-id uses `blazorInterop.copyText`. Timestamps use `data-utc` spans refreshed via
+> `blazorInterop.convertTimes`.
+>
+> This slice built the deferred **`Bot/Blazor/Shared/FilterableTable.razor`** — a generic
+> `@@typeparam TItem` results shell (Filters/Toolbar slots, loading spinner, "Showing X to Y of Z"
+> summary, responsive desktop-table/mobile-card split via `HeaderTemplate`/`RowTemplate`/
+> `MobileTemplate`, empty state, and `Pagination`). It was **co-designed against two real consumers**:
+> the member directory **and** the Slice 4 command logs table, which was **retrofitted** onto it
+> (its filter panel stays in place; only the results region now flows through `FilterableTable`).
+> Generic helpers were added to the global `wwwroot/js/blazor-interop.js`
+> (`download`, `copyText`, `convertTimes`, `setIndeterminate`) for reuse by future islands.
+>
+> Note: the plan mentioned `<Virtualize>` for the member list, but the page keeps **server-side
+> pagination** (25/page) — virtualizing 25 rows adds nothing and pagination preserves the existing
+> UX. The legacy JS UI + `_MemberDetailModal` partial stay reachable at `?legacy=true` (parity gate);
+> island mode needs no page scripts (Blazor bootstrap, timezone.js, preview-popup.js and
+> blazor-interop.js are global in `_Layout`).
+
+> **Slice 6 status: DONE.** `Bot/Blazor/Pages/SoundboardIsland.razor` owns the interactive grid
+> body of `/Portal/Soundboard/{id}` (the `.sound-grid-wrapper`): the search bar (debounced 150ms
+> via `Debouncer`), sort (persisted to `localStorage`), the **virtualized** sound grid, favorites
+> (optimistic toggle + favorites-first sort, persisted via `IUserSoundFavoriteRepository`),
+> preview/play, and self-delete (`ConfirmModal` + `ISoundboardOrchestrationService`, re-checking
+> ownership server-side). It replaces the grid half of `wwwroot/js/portal-soundboard.js` — the
+> hand-rolled `VirtualSoundGrid` + `IntersectionObserver` batch renderer is now Blazor
+> **`<Virtualize>`** over rows chunked to a responsive column count (4/3/2, recomputed from a JS
+> `resize` listener; max 500 sounds/guild so virtualization is a real DOM/diff win).
+>
+> **Audio playback stays in JS** (plan §5.2 #5): the new `wwwroot/js/soundboard-island.js`
+> (`window.soundboardIsland`) owns the browser-`<audio>` preview, the bot-play POST (reads the
+> `#voice-channel-panel` DOM connection state, which is still rendered + driven by the
+> `_VoiceChannelPanel` partial + `voice-channel-panel.js` **outside** the island), the
+> `localStorage` sort/fullscreen prefs, the responsive column count, and the **DashboardHub**
+> real-time subscription (PlaybackStarted/Finished, SoundUploaded/Deleted) bridged back into the
+> circuit through the island's `DotNetObjectReference`. **Uploads also stay in JS**
+> (`wwwroot/js/soundboard-upload.js`) — streaming multi-MB audio over the Blazor Server circuit is
+> an anti-pattern, so the dropzone/File-API/duration-probe/XHR-progress flow was extracted from the
+> legacy module and keeps file bytes off the circuit; it reaches the island only through the
+> JSInvokable bridge (`HasName`/`GetSoundCount` for dup-name + limit checks, `AddSound` to insert
+> the new card). The island dedupes adds/removes by id, so a user's own SignalR echo is a no-op.
+>
+> Deviations (documented, like Slice 5's Virtualize call): the floating **fullscreen toolbar** +
+> its separate search input were dropped — `body.portal-fullscreen` keeps the island's own search
+> bar visible, so the toggle button + Esc are enough; **categories** are not surfaced (the member
+> portal grid never rendered category badges/filters — that's a guild-admin soundboard feature).
+> The legacy JS grid + `portal-soundboard.js` + the progressive-render `soundboard-data` JSON stay
+> reachable at `?legacy=true` (parity gate). `_PortalLayout` has **no** global Blazor bootstrap (it
+> isn't `_Layout`), so the host page starts the circuit itself in island mode with an explicit
+> `~/_blazor` hub URL (nested route, gotcha §6.5); `blazor-interop.js` loads after the layout's
+> `toast.js` so `ToastInterop` can bridge `ToastManager`.
+
+> **Slice 7 status: FOUNDATION SHIPPED; page islands deferred (reassess/hold).** The additive,
+> low-risk half is done and verified: `IDashboardEventBus` now carries the performance live-tile
+> streams — `HealthMetricsUpdated`, `CommandPerformanceUpdated`, `SystemMetricsUpdated`, and the
+> alert events (`AlertTriggered`/`AlertResolved`/`AlertAcknowledged`/`ActiveAlertCountChanged`) —
+> and `PerformanceMetricsBroadcastService` + `PerformanceNotifier` **dual-publish** to it after
+> their `DashboardHub` SendAsync (additive; JS path untouched), exactly like Slice 2's notifier
+> dual-publish. Because the metric collectors are gated on *SignalR* subscriber count
+> (`PerformanceGroupClientCount == 0 → skip`), the bus exposes `HasHealthMetricsSubscribers` /
+> `HasCommandPerformanceSubscribers` / `HasSystemMetricsSubscribers` and the gate now also fires
+> when an island is the only subscriber, so a future island still gets data. Two existing tests got
+> the new ctor arg. (Solution build 0 errors; perf/bus tests 21/21.)
+>
+> **Why the four page islands were NOT built.** On reading the actual pages, converting their "live
+> tiles" to islands is a poor tradeoff that the plan itself flags ("after Slice 7, reassess whether
+> to pursue the full-rewrite north star or **hold**"):
+> 1. **Shared tab partials.** `SystemHealth`/`Alerts`/`Commands` render the *same* `Tabs/_*Tab`
+>    partials the AJAX `/Admin/Performance` overview injects — and Blazor Server cannot attach a
+>    circuit to AJAX-injected markup. So an island can't live inside those partials; the standalone
+>    page would have to render the island *instead of* the partial.
+> 2. **Interleaved non-realtime content.** Inside each page the handful of live values (e.g. on
+>    HealthMetrics just `#currentLatency`/`#memoryUsage`/`#cpuUsage` + the connection label, plus the
+>    gauge/sparkline charts) are embedded in large, mostly-static pages full of non-realtime charts,
+>    tables, timelines, and (Alerts) a config editor. Hosting an island means reproducing most of
+>    each page in Blazor and re-bridging the kept Chart.js charts — a big, higher-risk rewrite of
+>    admin-only observability pages whose only gain is swapping a SignalR subscription for the bus.
+>
+> The existing `wwwroot/js/performance/*-realtime.js` modules (on the standalone HealthMetrics /
+> Commands / SystemHealth / Alerts pages) are unchanged and keep working over `DashboardHub`. If the
+> islands are picked up later, the pattern is: gate each page with `?legacy=true`, render an island
+> that subscribes to the new bus events (coalesce ≤1 Hz per plan §6) and reproduces the live region +
+> chart canvases, forwarding each DTO to the existing Chart.js code via a small interop. The bus
+> plumbing is already in place to support exactly that. **Recommendation: hold** unless the perf
+> dashboard is being redesigned anyway.
 
 Read these first (already written, don't redo):
 - `docs/architecture/blazor-modernization-selective-plan.md` — the plan, phasing, debounce rules, risks.
@@ -122,7 +272,14 @@ Wiring changes:
 
 ---
 
-## 5. Next up — Slice 1: Moderation Settings
+## 5. Slice 1: Moderation Settings — ✅ DONE (reference for the pattern)
+
+> Completed. The build order, services, DTOs and gotchas below are kept as the worked
+> example to copy for later slices. What shipped: `ModerationSettingsIsland` composing
+> `TabbedFormShell` (5 tabs) + per-tab `SaveButton` + `ConfirmModal` (tag-delete &
+> unsaved-switch guard), data via `IServiceScopeFactory`, hosted in `Index.cshtml` behind a
+> `?legacy=true` parity gate. **Next: Slice 2** (NotificationBell + BotStatusCard — event
+> bus + dual-publish, plan §3.2/§5.1).
 
 **Target:** `/Guilds/{guildId:long}/ModerationSettings`
 **Page:** `Pages/Guilds/ModerationSettings/Index.cshtml(.cs)`

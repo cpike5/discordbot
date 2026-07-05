@@ -1,0 +1,144 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Server-driven "type-to-confirm" dialog. The markup mirrors
+    Pages/Shared/Components/_TypedConfirmationModal.cshtml (same backdrop / dialog /
+    danger styling), but the required-text gate and the confirm/cancel result are held
+    in circuit state instead of being wired through settings.js.
+
+    Usage:
+        <TypedConfirmModal @ref="_modal" />
+        ...
+        var ok = await _modal.ShowAsync(new TypedConfirmRequest
+        {
+            Title = "Shutdown Bot", Message = "...", RequiredText = "SHUTDOWN",
+            InputLabel = "Type SHUTDOWN to confirm", ConfirmText = "Shutdown Bot"
+        });
+
+    ShowAsync returns a Task<bool> that completes true only when the user typed the
+    required text and pressed confirm, false on cancel / backdrop dismiss.
+*@
+
+@if (_visible)
+{
+    var color = VariantColor(_request.Variant);
+
+    <div class="fixed inset-0 z-[var(--z-modal)]"
+         role="alertdialog"
+         aria-modal="true"
+         aria-labelledby="@(_id)Title"
+         aria-describedby="@(_id)Desc">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" @onclick="Cancel" aria-hidden="true"></div>
+
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+                <div class="p-6">
+                    <div class="flex items-start gap-4">
+                        <div class="flex-shrink-0 w-10 h-10 rounded-full @color.IconWrapper flex items-center justify-center">
+                            <svg class="w-5 h-5 @color.IconText" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <div class="flex-1">
+                            <h3 id="@(_id)Title" class="text-lg font-semibold text-text-primary">@_request.Title</h3>
+                            <p id="@(_id)Desc" class="mt-2 text-sm text-text-secondary">@_request.Message</p>
+
+                            <div class="mt-4">
+                                <label for="@(_id)Input" class="block text-sm font-medium text-text-primary mb-2">
+                                    @_request.InputLabel
+                                </label>
+                                <input type="text"
+                                       id="@(_id)Input"
+                                       class="w-full px-3 py-2 text-sm bg-bg-primary border border-error rounded-md text-text-primary placeholder-text-tertiary focus:border-error focus:ring-1 focus:ring-error transition-colors"
+                                       placeholder="@_request.RequiredText"
+                                       autocomplete="off"
+                                       @bind="_typed" @bind:event="oninput" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                    <button type="button"
+                            @onclick="Cancel"
+                            class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                        @_request.CancelText
+                    </button>
+                    <button type="button"
+                            @onclick="Confirm"
+                            disabled="@(!IsMatch)"
+                            class="px-4 py-2 @color.ConfirmButton text-white font-medium text-sm rounded-md transition-colors min-w-[100px] flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed">
+                        @_request.ConfirmText
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    private readonly string _id = $"typed-confirm-{Guid.NewGuid():N}";
+    private bool _visible;
+    private string _typed = string.Empty;
+    private TypedConfirmRequest _request = new();
+    private TaskCompletionSource<bool>? _tcs;
+
+    private bool IsMatch => string.Equals(_typed, _request.RequiredText, StringComparison.Ordinal);
+
+    /// <summary>
+    /// Shows the dialog and returns a task that completes true only when the user typed
+    /// the required text and confirmed; false on cancel or backdrop dismiss.
+    /// </summary>
+    public Task<bool> ShowAsync(TypedConfirmRequest request)
+    {
+        _tcs?.TrySetResult(false);
+
+        _request = request;
+        _typed = string.Empty;
+        _visible = true;
+        _tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        StateHasChanged();
+        return _tcs.Task;
+    }
+
+    private void Confirm()
+    {
+        if (!IsMatch)
+        {
+            return;
+        }
+
+        Close(true);
+    }
+
+    private void Cancel() => Close(false);
+
+    private void Close(bool result)
+    {
+        _visible = false;
+        _typed = string.Empty;
+        _tcs?.TrySetResult(result);
+        _tcs = null;
+        StateHasChanged();
+    }
+
+    private static (string IconWrapper, string IconText, string ConfirmButton) VariantColor(ConfirmationVariant variant) => variant switch
+    {
+        ConfirmationVariant.Info => ("bg-accent-blue/20", "text-accent-blue", "bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active"),
+        ConfirmationVariant.Warning => ("bg-warning/20", "text-warning", "bg-warning hover:bg-amber-600 active:bg-amber-700"),
+        _ => ("bg-error/20", "text-error", "bg-error hover:bg-red-600 active:bg-red-700")
+    };
+
+    /// <summary>Request describing the typed-confirmation dialog to show.</summary>
+    public sealed class TypedConfirmRequest
+    {
+        public string Title { get; init; } = string.Empty;
+        public string Message { get; init; } = string.Empty;
+        public string RequiredText { get; init; } = string.Empty;
+        public string InputLabel { get; init; } = "Type to confirm";
+        public string ConfirmText { get; init; } = "Confirm";
+        public string CancelText { get; init; } = "Cancel";
+        public ConfirmationVariant Variant { get; init; } = ConfirmationVariant.Danger;
+    }
+}

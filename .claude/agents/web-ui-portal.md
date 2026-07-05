@@ -26,6 +26,71 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - **Previews:** `_GuildPreviewPopup`
 - **Showcase:** `Components.cshtml` — living reference, keep updated when adding components
 
+### Blazor Server Islands (`Bot/Blazor/`)
+Islands-first modernization (see `docs/architecture/blazor-modernization-selective-plan.md`):
+interactive Blazor Server components embedded into existing Razor Pages via the
+`<component render-mode="ServerPrerendered">` tag helper. Routing/auth/layout stay with the
+host Razor Page; the island inherits them. **Do not** convert whole pages or add an
+`App.razor` — these are embedded regions only.
+- **Shared kit** (`Blazor/Shared/`): `UiButton`, `UiToggle` (design-system twins of the
+  partials), `TabbedFormShell` (tab strip + centralized dirty flag + unsaved-changes guard),
+  `ConfirmModal` (awaitable `ShowAsync` → `Task<bool>`, mirrors `_ConfirmationModal`),
+  `SaveButton` (3-state Idle→Saving→Saved), `TabDefinition`.
+- **Interop** (`Blazor/Interop/`): `ToastInterop`/`ThemeInterop` bridge the existing
+  `toast.js`/`theme.js` via the window shim `wwwroot/js/blazor-interop.js` (must load **after**
+  toast.js/theme.js).
+- **Event bus** (`Blazor/Services/`): `IDashboardEventBus` (singleton, Slice 2) is in-process
+  pub/sub for real-time islands. Existing notifiers **dual-publish** to it after their SignalR
+  broadcast (`NotificationBroadcaster` → notification events; `DashboardUpdateService` →
+  `BotStatusChanged`) — additive, JS path untouched. Islands subscribe in
+  `OnAfterRenderAsync(firstRender)`, marshal with `InvokeAsync(StateHasChanged)`, unsubscribe in
+  `Dispose`; notification events carry `userId` so each circuit filters to its own user.
+- **Islands** (`Blazor/Pages/`): `ModerationSettingsIsland` (Slice 1, `/Guilds/{id}/ModerationSettings`
+  body), `NotificationBellIsland` (Slice 2, global navbar bell — replaces `notification-bell.js`),
+  `BotStatusCardIsland` (Slice 2, dashboard banner — replaces `bot-status-refresh.js` 30s polling),
+  `AdminSettingsIsland` (Slice 3, `/Admin/Settings` body — replaces `settings.js`; 7 tabs, per-category
+  & global save/reset, command modules, appearance (SuperAdmin), Bot Control with event-bus live status
+  + restart/typed-confirm shutdown; audit-log enqueues mirror the page handlers),
+  `CommandsIsland` (Slice 4, `/Commands` body — replaces the AJAX tab-loader stack for the Command
+  List + Execution Logs tabs: native accordion, debounced filter panel, results table/cards, native
+  log-details modal, admin clear/re-register via `ConfirmModal`; the Analytics tab stays on Chart.js,
+  delegated to `/api/commands/analytics` via `commands-island-interop.js`),
+  `MemberDirectoryIsland` (Slice 5, `/Guilds/{id}/Members` body — replaces `member-directory.js`:
+  live-applied filter panel + role multi-select, bulk select/export via `blazorInterop.download`,
+  native member detail modal from `IGuildMemberService`; uses the `FilterableTable` shell),
+  `SoundboardIsland` (Slice 6, `/Portal/Soundboard/{id}` grid body — replaces the grid half of
+  `portal-soundboard.js`: `<Virtualize>` over responsive row chunks (4/3/2 cols), debounced search,
+  persisted sort, favorites (favorites-first sort via `IUserSoundFavoriteRepository`), self-delete
+  via `ConfirmModal` + `ISoundboardOrchestrationService`. **Audio/upload stay in JS**:
+  `soundboard-island.js` owns browser preview, bot-play (reads the `#voice-channel-panel` DOM),
+  localStorage prefs, the responsive column count, and the DashboardHub real-time bridge
+  (`DotNetObjectReference`); `soundboard-upload.js` keeps multi-MB upload bytes off the circuit and
+  reaches the island via the JSInvokable bridge. The voice panel stays the `_VoiceChannelPanel`
+  partial + `voice-channel-panel.js` outside the island),
+  `FoundationProbe` (Phase 0 PoC on `/Components`).
+- **Shared kit additions:** `TypedConfirmModal` (Slice 3) — awaitable type-to-confirm dialog mirroring
+  `_TypedConfirmationModal.cshtml`, used for the bot shutdown flow. `Pagination` (Slice 4) — reusable
+  numbered-window pager raising `OnPageChange`. `FilterableTable` (Slice 5) — generic `@typeparam TItem`
+  results shell (Filters/Toolbar slots, loading/summary/empty states, responsive desktop-table +
+  mobile-card split via `HeaderTemplate`/`RowTemplate`/`MobileTemplate`, embeds `Pagination`); used by
+  both the member directory and the (retrofitted) command logs table. Generic JS helpers now live on
+  `blazor-interop.js`: `download`, `copyText`, `convertTimes`, `setIndeterminate`.
+- **Blazor bootstrap is global** (Slice 2): the bell lives in `_Navbar`, so `_Layout` starts the
+  circuit for every layout page (`blazor.server.js` autostart=false + `blazor-interop.js`, after
+  toast/theme). Host pages no longer add their own `blazor.server.js`.
+- **Patterns:** pass snowflake IDs as **strings** (`param-GuildId="@Model.GuildId.ToString()"`);
+  data access = `IServiceScopeFactory.CreateScope()` per op resolving the existing services
+  (no circuit-scoped `DbContext`); the circuit starts with an explicit absolute `/_blazor` hub URL
+  (nested routes would otherwise resolve negotiate relative to the page path); auth/userId inside
+  an island via injected `AuthenticationStateProvider` (NameIdentifier claim). Parity-gate page
+  conversions behind a `?legacy=true` query until the island matches, then remove the legacy branch.
+  **Portal pages use `_PortalLayout`, which has no global Blazor bootstrap** (that lives in
+  `_Layout`) — a portal island's host page must start the circuit itself in its Scripts section
+  (explicit `~/_blazor` hub URL for nested routes), loading `blazor-interop.js` after the layout's
+  `toast.js`. For long client-side lists prefer `<Virtualize>` (Slice 6) over hand-rolled
+  IntersectionObserver batching; for a multi-column grid, chunk items into rows and virtualize the
+  rows (the spacer divs break `display:grid` on the direct parent).
+
 ### Layouts
 - `_Layout.cshtml` — Main application layout
 - `Portal/_PortalLayout.cshtml` — Portal (member-facing) layout

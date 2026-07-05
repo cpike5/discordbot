@@ -71,6 +71,7 @@ public class PerformanceNotifierTests
         _notifier = new PerformanceNotifier(
             _mockHubContext.Object,
             _mockServiceProvider.Object,
+            new Mock<DiscordBot.Bot.Blazor.Services.IDashboardEventBus>().Object,
             _mockLogger.Object);
     }
 

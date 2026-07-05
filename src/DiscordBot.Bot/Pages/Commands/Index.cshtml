@@ -50,6 +50,8 @@
     <!-- Header -->
     <partial name="Shared/Components/_CommandHeader" model="headerModel" />
 
+@if (Model.Legacy)
+{
     <!-- Action Bar (Clear Commands button and module count) -->
     <div class="flex items-center justify-between mb-6">
         <span class="text-sm text-text-secondary">
@@ -496,22 +498,61 @@
             </div>
         </div>
     </div>
+}
+else
+{
+    <!-- Blazor island (Slice 4): replaces the AJAX tab-loader stack for the Command
+         List + Execution Logs tabs. The page keeps its route, layout, breadcrumb and
+         header; the island owns the interactive body. Analytics stays on Chart.js,
+         delegated by the island to /api/commands/analytics via commands-island-interop.js. -->
+    <component type="typeof(DiscordBot.Bot.Blazor.Pages.CommandsIsland)"
+               render-mode="ServerPrerendered"
+               param-IsAdmin="@(User.IsInRole("Admin") || User.IsInRole("SuperAdmin"))"
+               param-InitialTab="@(Model.ActiveTab ?? "command-list")"
+               param-InitialStartDate="@Model.StartDate"
+               param-InitialEndDate="@Model.EndDate"
+               param-InitialGuildId="@Model.GuildId?.ToString()"
+               param-InitialSearchTerm="@Model.SearchTerm"
+               param-InitialCommandName="@Model.CommandName"
+               param-InitialStatusFilter="@Model.StatusFilter" />
+}
 </div>
 
-<!-- Modals -->
-@if (Model.ClearCommandsModal != null)
+<!-- Modals (legacy parity path only) -->
+@if (Model.Legacy)
 {
-    <partial name="Shared/Components/_ConfirmationModal" model="Model.ClearCommandsModal" />
+    @if (Model.ClearCommandsModal != null)
+    {
+        <partial name="Shared/Components/_ConfirmationModal" model="Model.ClearCommandsModal" />
+    }
+
+    <!-- Command Log Details Modal -->
+    @Html.Partial("~/Pages/Shared/Components/_CommandLogDetailsModal.cshtml")
 }
 
-<!-- Command Log Details Modal -->
-@Html.Partial("~/Pages/Shared/Components/_CommandLogDetailsModal.cshtml")
-
 @section Styles {
-    <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+    @if (Model.Legacy)
+    {
+        <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
+    }
+    else
+    {
+        <!-- Island uses the shared .settings-tabs strip defined in moderation.css -->
+        <link rel="stylesheet" href="~/css/moderation.css" asp-append-version="true" />
+    }
 }
 
 @section Scripts {
+@if (!Model.Legacy)
+{
+    <!-- Island mode: Chart.js powers the (still-Chart.js) Analytics tab; the interop
+         shim loads that tab's partial and refreshes timezone display conversion.
+         Blazor bootstrap + timezone.js + preview-popup.js are global in _Layout. -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script src="~/js/commands-island-interop.js" asp-append-version="true"></script>
+}
+else
+{
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script src="~/js/tab-panel.js" asp-append-version="true"></script>
     <script src="~/js/command-tabs.js" asp-append-version="true"></script>
@@ -722,4 +763,5 @@
             }
         });
     </script>
+}
 }

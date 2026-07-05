@@ -1,0 +1,590 @@
+@namespace DiscordBot.Bot.Blazor.Pages
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject ToastInterop Toast
+
+@*
+    Slice 1 island: the interactive body of /Guilds/{id}/ModerationSettings.
+    Replaces wwwroot/js/moderation-settings.js (tab switching, dirty tracking, AJAX
+    saves, tag CRUD, preset apply) with server-held Blazor state via TabbedFormShell +
+    ConfirmModal. Data access creates a DI scope per operation (gotcha §6.4) and resolves
+    the existing IGuildModerationConfigService / IModTagService — no DI changes, all
+    business logic reused. GuildId arrives as a string (snowflake precision, gotcha §6.2).
+*@
+
+<TabbedFormShell @ref="_shell" Tabs="_tabs" AriaLabel="Moderation settings sections">
+    <TabContent Context="tabId">
+        @if (tabId == "overview")
+        {
+            <!-- Mode Toggle -->
+            <div class="mb-8">
+                <h3 class="text-lg font-semibold text-text-primary mb-2">Configuration Mode</h3>
+                <p class="text-sm text-text-secondary mb-4">Choose between simplified presets or advanced custom configuration.</p>
+                <div class="mode-toggle">
+                    <button type="button" class="mode-toggle-btn @(_config.Mode == ConfigMode.Simple ? "mode-toggle-btn-active" : "")" @onclick="() => SetModeAsync(ConfigMode.Simple)">Simple</button>
+                    <button type="button" class="mode-toggle-btn @(_config.Mode == ConfigMode.Advanced ? "mode-toggle-btn-active" : "")" @onclick="() => SetModeAsync(ConfigMode.Advanced)">Advanced</button>
+                </div>
+            </div>
+
+            @if (_config.Mode == ConfigMode.Simple)
+            {
+                <!-- Simple Mode: Presets -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-text-primary mb-4">Protection Level</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        @foreach (var preset in _presets)
+                        {
+                            <label class="relative cursor-pointer">
+                                <input type="radio" name="preset" value="@preset.Name" class="sr-only peer"
+                                       checked="@(_config.SimplePreset == preset.Name)"
+                                       @onchange="() => ApplyPresetAsync(preset.Name)" />
+                                <div class="p-4 bg-bg-tertiary border-2 border-border-primary rounded-lg peer-checked:border-accent-orange transition-colors">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <div class="w-3 h-3 rounded-full @preset.DotClass"></div>
+                                        <span class="font-semibold text-text-primary">@preset.Name</span>
+                                    </div>
+                                    <p class="text-sm text-text-secondary">@preset.Description</p>
+                                </div>
+                            </label>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <!-- Advanced Mode: Configuration Guide -->
+                <div class="mb-8">
+                    <div class="p-4 bg-bg-tertiary border border-border-primary rounded-lg">
+                        <div class="flex items-start gap-3">
+                            <svg class="w-6 h-6 text-accent-orange flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div>
+                                <h4 class="font-semibold text-text-primary mb-1">Advanced Configuration Mode</h4>
+                                <p class="text-sm text-text-secondary mb-3">
+                                    Configure each moderation feature individually using the tabs below.
+                                    Each tab provides granular control over thresholds, actions, and exclusions.
+                                </p>
+                                <div class="flex flex-wrap gap-2">
+                                    <button type="button" @onclick='() => GoToTabAsync("spam")' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">Spam Detection</button>
+                                    <button type="button" @onclick='() => GoToTabAsync("content")' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">Content Filter</button>
+                                    <button type="button" @onclick='() => GoToTabAsync("raid")' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">Raid Protection</button>
+                                    <button type="button" @onclick='() => GoToTabAsync("tags")' class="px-3 py-1.5 text-sm bg-bg-secondary border border-border-primary rounded-lg hover:border-accent-orange transition-colors">Tags</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Quick Stats -->
+            <div>
+                <h3 class="text-lg font-semibold text-text-primary mb-4">Activity Summary (Last 24h)</h3>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div class="history-stat-card">
+                        <span class="history-stat-value">@EventsFlagged</span>
+                        <span class="history-stat-label">Events Flagged</span>
+                    </div>
+                    <div class="history-stat-card">
+                        <span class="history-stat-value text-success">@AutoActions</span>
+                        <span class="history-stat-label">Auto-Actions</span>
+                    </div>
+                    <div class="history-stat-card">
+                        <span class="history-stat-value">@ActiveRules</span>
+                        <span class="history-stat-label">Active Rules</span>
+                    </div>
+                    <div class="history-stat-card">
+                        <span class="history-stat-value text-warning">@FalsePositives</span>
+                        <span class="history-stat-label">False Positives</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Save Button -->
+            <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                <SaveButton Text="Save Overview Settings" OnSaveAsync="SaveOverviewAsync" />
+            </div>
+        }
+        else if (tabId == "spam")
+        {
+            <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+                <div>
+                    <h3 class="text-lg font-semibold text-text-primary">Spam Detection</h3>
+                    <p class="text-sm text-text-secondary">Detect and flag spam messages automatically</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" @bind="_config.SpamConfig.Enabled" @bind:after="MarkDirtyAsync" />
+                    <span class="toggle-switch-track"></span>
+                    <span class="toggle-switch-thumb"></span>
+                </label>
+            </div>
+
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="spam-max-messages" class="block text-sm font-medium text-text-primary mb-1">Message Rate Threshold</label>
+                        <p class="text-xs text-text-tertiary mb-2">Flag when user sends this many messages...</p>
+                        <input type="number" id="spam-max-messages" min="1" max="100" class="@NumberInputClass" @bind="_config.SpamConfig.MaxMessagesPerWindow" @bind:after="MarkDirtyAsync" />
+                    </div>
+                    <div>
+                        <label for="spam-window-seconds" class="block text-sm font-medium text-text-primary mb-1">Time Window (seconds)</label>
+                        <p class="text-xs text-text-tertiary mb-2">...within this time period</p>
+                        <input type="number" id="spam-window-seconds" min="1" max="60" class="@NumberInputClass" @bind="_config.SpamConfig.WindowSeconds" @bind:after="MarkDirtyAsync" />
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="spam-max-mentions" class="block text-sm font-medium text-text-primary mb-1">Max Mentions Per Message</label>
+                        <p class="text-xs text-text-tertiary mb-2">Maximum mentions allowed per message</p>
+                        <input type="number" id="spam-max-mentions" min="1" max="50" class="@NumberInputClass" @bind="_config.SpamConfig.MaxMentionsPerMessage" @bind:after="MarkDirtyAsync" />
+                    </div>
+                    <div>
+                        <label for="spam-duplicate-threshold" class="block text-sm font-medium text-text-primary mb-1">Similarity Threshold (%)</label>
+                        <p class="text-xs text-text-tertiary mb-2">Messages this similar count as duplicates</p>
+                        <input type="number" id="spam-duplicate-threshold" min="50" max="100" class="@NumberInputClass" @bind="SpamDuplicatePercent" @bind:after="MarkDirtyAsync" />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="spam-auto-action" class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Detection</label>
+                    <p class="text-xs text-text-tertiary mb-2">Automatically take action when spam is detected</p>
+                    <select id="spam-auto-action" class="@SelectClass" @bind="_config.SpamConfig.AutoAction" @bind:after="MarkDirtyAsync">
+                        <option value="@AutoAction.None">None (Flag Only)</option>
+                        <option value="@AutoAction.Delete">Delete Message</option>
+                        <option value="@AutoAction.Warn">Warn User</option>
+                        <option value="@AutoAction.Mute">Mute User (1 hour)</option>
+                        <option value="@AutoAction.Kick">Kick User</option>
+                        <option value="@AutoAction.Ban">Ban User</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                <SaveButton Text="Save Spam Settings" OnSaveAsync="SaveSpamAsync" />
+            </div>
+        }
+        else if (tabId == "content")
+        {
+            <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+                <div>
+                    <h3 class="text-lg font-semibold text-text-primary">Content Filter</h3>
+                    <p class="text-sm text-text-secondary">Block harmful, offensive, or unwanted content</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" @bind="_config.ContentFilterConfig.Enabled" @bind:after="MarkDirtyAsync" />
+                    <span class="toggle-switch-track"></span>
+                    <span class="toggle-switch-thumb"></span>
+                </label>
+            </div>
+
+            <div class="space-y-6">
+                <div>
+                    <label for="content-prohibited-words" class="block text-sm font-medium text-text-primary mb-1">Custom Blocklist</label>
+                    <p class="text-xs text-text-tertiary mb-2">Words and phrases to block (comma-separated)</p>
+                    <textarea id="content-prohibited-words" rows="3" placeholder="Enter words or phrases..."
+                              class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors resize-none"
+                              @bind="ProhibitedWordsText" @bind:after="MarkDirtyAsync"></textarea>
+                </div>
+
+                <div class="flex items-center gap-3">
+                    <input type="checkbox" id="content-block-invites" class="w-4 h-4 rounded border-border-primary" aria-describedby="content-block-invites-desc"
+                           @bind="_config.ContentFilterConfig.BlockInviteLinks" @bind:after="MarkDirtyAsync" />
+                    <div>
+                        <label for="content-block-invites" class="text-sm text-text-primary font-medium cursor-pointer">Block Discord Invite Links</label>
+                        <p id="content-block-invites-desc" class="text-xs text-text-tertiary">Prevent users from posting Discord server invites</p>
+                    </div>
+                </div>
+
+                <div>
+                    <label for="content-auto-action" class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Detection</label>
+                    <select id="content-auto-action" class="@SelectClass" @bind="_config.ContentFilterConfig.AutoAction" @bind:after="MarkDirtyAsync">
+                        <option value="@AutoAction.None">None (Flag Only)</option>
+                        <option value="@AutoAction.Delete">Delete Message</option>
+                        <option value="@AutoAction.Warn">Warn User</option>
+                        <option value="@AutoAction.Mute">Delete + Mute User</option>
+                        <option value="@AutoAction.Ban">Delete + Ban User</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                <SaveButton Text="Save Content Settings" OnSaveAsync="SaveContentAsync" />
+            </div>
+        }
+        else if (tabId == "raid")
+        {
+            <div class="flex items-center justify-between mb-6 pb-6 border-b border-border-secondary">
+                <div>
+                    <h3 class="text-lg font-semibold text-text-primary">Raid Protection</h3>
+                    <p class="text-sm text-text-secondary">Detect and respond to coordinated attacks</p>
+                </div>
+                <label class="toggle-switch">
+                    <input type="checkbox" @bind="_config.RaidProtectionConfig.Enabled" @bind:after="MarkDirtyAsync" />
+                    <span class="toggle-switch-track"></span>
+                    <span class="toggle-switch-thumb"></span>
+                </label>
+            </div>
+
+            <div class="space-y-6">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="raid-max-joins" class="block text-sm font-medium text-text-primary mb-1">Mass Join Threshold</label>
+                        <p class="text-xs text-text-tertiary mb-2">Trigger when this many users join...</p>
+                        <input type="number" id="raid-max-joins" min="5" max="100" class="@NumberInputClass" @bind="_config.RaidProtectionConfig.MaxJoinsPerWindow" @bind:after="MarkDirtyAsync" />
+                    </div>
+                    <div>
+                        <label for="raid-window-seconds" class="block text-sm font-medium text-text-primary mb-1">Time Window (seconds)</label>
+                        <p class="text-xs text-text-tertiary mb-2">...within this time period</p>
+                        <input type="number" id="raid-window-seconds" min="10" max="300" class="@NumberInputClass" @bind="_config.RaidProtectionConfig.WindowSeconds" @bind:after="MarkDirtyAsync" />
+                    </div>
+                </div>
+
+                <div>
+                    <label for="raid-min-account-age" class="block text-sm font-medium text-text-primary mb-1">Minimum Account Age (hours)</label>
+                    <p class="text-xs text-text-tertiary mb-2">Require accounts to be older than this (0 = no restriction)</p>
+                    <input type="number" id="raid-min-account-age" min="0" max="720" class="w-32 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" @bind="_config.RaidProtectionConfig.MinAccountAgeHours" @bind:after="MarkDirtyAsync" />
+                </div>
+
+                <div>
+                    <label for="raid-auto-action" class="block text-sm font-medium text-text-primary mb-1">Auto-Action on Raid Detection</label>
+                    <p class="text-xs text-text-tertiary mb-2">Action to take when a raid is detected</p>
+                    <select id="raid-auto-action" class="@SelectClass" @bind="_config.RaidProtectionConfig.AutoAction" @bind:after="MarkDirtyAsync">
+                        <option value="@RaidAutoAction.None">None</option>
+                        <option value="@RaidAutoAction.AlertOnly">Alert Only</option>
+                        <option value="@RaidAutoAction.LockInvites">Lock Invites</option>
+                        <option value="@RaidAutoAction.LockServer">Lock Server</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="mt-8 pt-6 border-t border-border-secondary flex justify-end">
+                <SaveButton Text="Save Raid Settings" OnSaveAsync="SaveRaidAsync" />
+            </div>
+        }
+        else if (tabId == "tags")
+        {
+            <div class="flex items-center justify-between mb-6">
+                <div>
+                    <h3 class="text-lg font-semibold text-text-primary">User Tags</h3>
+                    <p class="text-sm text-text-secondary">Define custom tags for categorizing users</p>
+                </div>
+                <button type="button" class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-text-secondary bg-bg-tertiary border border-border-primary rounded-lg hover:bg-bg-hover transition-colors" @onclick="ShowImportTemplatesAsync">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                    </svg>
+                    Import Templates
+                </button>
+            </div>
+
+            <div class="space-y-3 mb-6">
+                @foreach (var tag in _tags)
+                {
+                    <div class="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg" @key="tag.Id">
+                        <div class="flex items-center gap-3">
+                            <span class="user-tag @GetTagColorClass(tag.Category)">@tag.Name</span>
+                            <span class="text-sm text-text-secondary">Used @tag.UserCount times</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button type="button" class="p-1.5 text-text-tertiary hover:text-error hover:bg-error-bg rounded transition-colors" title="Delete" @onclick="() => DeleteTagAsync(tag)">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="p-4 bg-bg-tertiary rounded-lg">
+                <h4 class="font-medium text-text-primary mb-4">Add New Tag</h4>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label for="new-tag-name" class="block text-sm font-medium text-text-primary mb-1">Tag Name</label>
+                        <input type="text" id="new-tag-name" placeholder="e.g., VIP, Trusted, etc." class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" @bind="_newTagName" />
+                    </div>
+                    <div>
+                        <label for="new-tag-color" class="block text-sm font-medium text-text-primary mb-1">Color</label>
+                        <select id="new-tag-color" class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer" @bind="_newTagCategory">
+                            <option value="@TagCategory.Positive">Positive (Green)</option>
+                            <option value="@TagCategory.Negative">Negative (Red)</option>
+                            <option value="@TagCategory.Neutral">Neutral (Blue)</option>
+                        </select>
+                    </div>
+                    <div class="flex items-end">
+                        <SaveButton Text="Add Tag" SavedText="Added" OnSaveAsync="CreateTagAsync" Class="w-full" />
+                    </div>
+                </div>
+            </div>
+        }
+    </TabContent>
+</TabbedFormShell>
+
+<ConfirmModal @ref="_deleteModal" />
+
+@code {
+    /// <summary>The guild snowflake id, passed as a string to preserve precision (gotcha §6.2).</summary>
+    [Parameter, EditorRequired] public string GuildId { get; set; } = string.Empty;
+
+    /// <summary>Events flagged in the last 24h (computed by the host page model).</summary>
+    [Parameter] public int EventsFlagged { get; set; }
+
+    /// <summary>Auto-actions taken in the last 24h (computed by the host page model).</summary>
+    [Parameter] public int AutoActions { get; set; }
+
+    /// <summary>False positives dismissed in the last 24h (computed by the host page model).</summary>
+    [Parameter] public int FalsePositives { get; set; }
+
+    private ulong _guildId;
+    private GuildModerationConfigDto _config = new();
+    private List<ModTagDto> _tags = new();
+    private string _newTagName = string.Empty;
+    private TagCategory _newTagCategory = TagCategory.Positive;
+
+    private TabbedFormShell _shell = default!;
+    private ConfirmModal _deleteModal = default!;
+
+    private static readonly IReadOnlyList<TabDefinition> _tabs = new[]
+    {
+        new TabDefinition("overview", "Overview", "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"),
+        new TabDefinition("spam", "Spam", "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"),
+        new TabDefinition("content", "Content", "M20.618 5.984A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016zM12 9v2m0 4h.01"),
+        new TabDefinition("raid", "Raid", "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"),
+        new TabDefinition("tags", "Tags", "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"),
+    };
+
+    private readonly IReadOnlyList<PresetOption> _presets = new[]
+    {
+        new PresetOption("Relaxed", "bg-success", "Minimal intervention. Only catches obvious spam and severe violations."),
+        new PresetOption("Moderate", "bg-warning", "Balanced protection. Flags suspicious activity for review."),
+        new PresetOption("Strict", "bg-error", "Maximum protection. Aggressive detection with auto-actions enabled."),
+    };
+
+    private const string NumberInputClass = "w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors";
+    private const string SelectClass = "w-full md:w-64 px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors cursor-pointer";
+
+    private int ActiveRules =>
+        (_config.SpamConfig.Enabled ? 1 : 0)
+        + (_config.ContentFilterConfig.Enabled ? 1 : 0)
+        + (_config.RaidProtectionConfig.Enabled ? 1 : 0);
+
+    private int SpamDuplicatePercent
+    {
+        get => (int)Math.Round(_config.SpamConfig.DuplicateMessageThreshold * 100);
+        set => _config.SpamConfig.DuplicateMessageThreshold = Math.Clamp(value, 0, 100) / 100.0;
+    }
+
+    private string ProhibitedWordsText
+    {
+        get => string.Join(", ", _config.ContentFilterConfig.ProhibitedWords);
+        set => _config.ContentFilterConfig.ProhibitedWords = (value ?? string.Empty)
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        _guildId = ulong.Parse(GuildId);
+
+        using var scope = ScopeFactory.CreateScope();
+        var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+        var tagService = scope.ServiceProvider.GetRequiredService<IModTagService>();
+
+        _config = await configService.GetConfigAsync(_guildId);
+        _tags = (await tagService.GetGuildTagsAsync(_guildId)).ToList();
+    }
+
+    private Task MarkDirtyAsync() => _shell?.MarkDirtyAsync() ?? Task.CompletedTask;
+
+    private Task GoToTabAsync(string tabId) => _shell?.GoToTabAsync(tabId) ?? Task.CompletedTask;
+
+    private async Task SetModeAsync(ConfigMode mode)
+    {
+        if (_config.Mode == mode)
+        {
+            return;
+        }
+
+        _config.Mode = mode;
+        await MarkDirtyAsync();
+    }
+
+    private async Task ApplyPresetAsync(string presetName)
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+            _config = await configService.ApplyPresetAsync(_guildId, presetName);
+
+            // Applying a preset is an explicit, persisted action — the form is no longer dirty.
+            await _shell.MarkCleanAsync();
+            await Toast.SuccessAsync($"Preset '{presetName}' applied successfully.");
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to apply preset.");
+        }
+    }
+
+    private async Task<bool> SaveOverviewAsync()
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+
+            var config = await configService.GetConfigAsync(_guildId);
+            config.Mode = _config.Mode;
+            config.SimplePreset = _config.SimplePreset ?? "Moderate";
+            await configService.UpdateConfigAsync(_guildId, config);
+
+            await _shell.MarkCleanAsync();
+            await Toast.SuccessAsync("Overview settings saved successfully.");
+            return true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to save overview settings.");
+            return false;
+        }
+    }
+
+    private Task<bool> SaveSpamAsync()
+        => SaveSectionAsync(c => c.SpamConfig = _config.SpamConfig, "Spam detection settings saved successfully.", "Failed to save spam settings.");
+
+    private Task<bool> SaveContentAsync()
+        => SaveSectionAsync(c => c.ContentFilterConfig = _config.ContentFilterConfig, "Content filter settings saved successfully.", "Failed to save content settings.");
+
+    private Task<bool> SaveRaidAsync()
+        => SaveSectionAsync(c => c.RaidProtectionConfig = _config.RaidProtectionConfig, "Raid protection settings saved successfully.", "Failed to save raid settings.");
+
+    private async Task<bool> SaveSectionAsync(Action<GuildModerationConfigDto> apply, string successMessage, string errorMessage)
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var configService = scope.ServiceProvider.GetRequiredService<IGuildModerationConfigService>();
+
+            // Re-read then patch the single section, matching the legacy per-tab save handlers.
+            var config = await configService.GetConfigAsync(_guildId);
+            apply(config);
+            await configService.UpdateConfigAsync(_guildId, config);
+
+            await _shell.MarkCleanAsync();
+            await Toast.SuccessAsync(successMessage);
+            return true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync(errorMessage);
+            return false;
+        }
+    }
+
+    private async Task<bool> CreateTagAsync()
+    {
+        var name = _newTagName.Trim();
+        if (string.IsNullOrEmpty(name))
+        {
+            await Toast.ErrorAsync("Please enter a tag name.");
+            return false;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var tagService = scope.ServiceProvider.GetRequiredService<IModTagService>();
+
+            var dto = new ModTagCreateDto
+            {
+                GuildId = _guildId,
+                Name = name,
+                Category = _newTagCategory,
+                Color = ColorFor(_newTagCategory),
+                Description = null
+            };
+
+            var tag = await tagService.CreateTagAsync(_guildId, dto);
+            _tags.Add(tag);
+
+            _newTagName = string.Empty;
+            _newTagCategory = TagCategory.Positive;
+
+            // The save originates in the SaveButton child (a plain Func, not an
+            // EventCallback), so the island isn't auto-re-rendered — flag it explicitly
+            // so the new tag row and cleared form fields show.
+            StateHasChanged();
+            await Toast.SuccessAsync("Tag created successfully.");
+            return true;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to create tag.");
+            return false;
+        }
+    }
+
+    private async Task DeleteTagAsync(ModTagDto tag)
+    {
+        var confirmed = await _deleteModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Delete Tag",
+            Message = $"Are you sure you want to delete the tag \"{tag.Name}\"? This will remove it from all users.",
+            Variant = ConfirmationVariant.Danger,
+            ConfirmText = "Delete Tag",
+            CancelText = "Cancel"
+        });
+
+        if (!confirmed)
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var tagService = scope.ServiceProvider.GetRequiredService<IModTagService>();
+
+            var success = await tagService.DeleteTagAsync(_guildId, tag.Name);
+            if (success)
+            {
+                _tags.RemoveAll(t => t.Id == tag.Id);
+                await Toast.SuccessAsync("Tag deleted successfully.");
+            }
+            else
+            {
+                await Toast.ErrorAsync("Tag not found.");
+            }
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to delete tag.");
+        }
+    }
+
+    private async Task ShowImportTemplatesAsync()
+        => await Toast.InfoAsync("Template import is not yet implemented.", "Not Available");
+
+    private static string GetTagColorClass(TagCategory category) => category switch
+    {
+        TagCategory.Positive => "user-tag-success",
+        TagCategory.Negative => "user-tag-danger",
+        TagCategory.Neutral => "user-tag-info",
+        _ => string.Empty
+    };
+
+    private static string ColorFor(TagCategory category) => category switch
+    {
+        TagCategory.Positive => "#10b981",
+        TagCategory.Negative => "#ef4444",
+        TagCategory.Neutral => "#06b6d4",
+        _ => "#7a7876"
+    };
+
+    private sealed record PresetOption(string Name, string DotClass, string Description);
+}

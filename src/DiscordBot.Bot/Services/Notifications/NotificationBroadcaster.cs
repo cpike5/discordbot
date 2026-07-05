@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -14,15 +15,18 @@ public class NotificationBroadcaster : INotificationBroadcaster
 {
     private readonly IHubContext<DashboardHub> _hubContext;
     private readonly INotificationRepository _repository;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<NotificationBroadcaster> _logger;
 
     public NotificationBroadcaster(
         IHubContext<DashboardHub> hubContext,
         INotificationRepository repository,
+        IDashboardEventBus eventBus,
         ILogger<NotificationBroadcaster> logger)
     {
         _hubContext = hubContext;
         _repository = repository;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -44,6 +48,11 @@ public class NotificationBroadcaster : INotificationBroadcaster
             await _hubContext.Clients
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            // Dual-publish to in-process islands (Slice 2). Additive — the SignalR
+            // path above still drives the legacy notification-bell.js on non-Blazor pages.
+            _eventBus.PublishNotificationReceived(userId, notificationDto);
+            _eventBus.PublishNotificationCountChanged(userId, summary);
 
             _logger.LogDebug(
                 "Broadcast notification {NotificationId} to user {UserId}",
@@ -78,6 +87,9 @@ public class NotificationBroadcaster : INotificationBroadcaster
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
 
+            _eventBus.PublishNotificationMarkedRead(userId, notificationId);
+            _eventBus.PublishNotificationCountChanged(userId, summary);
+
             _logger.LogDebug(
                 "Broadcast notification {NotificationId} marked as read to user {UserId}",
                 notificationId,
@@ -104,6 +116,8 @@ public class NotificationBroadcaster : INotificationBroadcaster
             await _hubContext.Clients
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            _eventBus.PublishNotificationCountChanged(userId, summary);
 
             _logger.LogDebug(
                 "Broadcast notification count change to user {UserId}: TotalUnread={TotalUnread}",
@@ -135,6 +149,9 @@ public class NotificationBroadcaster : INotificationBroadcaster
             await _hubContext.Clients
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            _eventBus.PublishAllNotificationsRead(userId);
+            _eventBus.PublishNotificationCountChanged(userId, summary);
 
             _logger.LogDebug(
                 "Broadcast all notifications read to user {UserId}",

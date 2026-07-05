@@ -1,0 +1,79 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@*
+    Reusable pager. Mirrors the legacy numbered-window pagination rendered by the
+    Razor partials (prev / current ±2 / next), but raises an OnPageChange callback
+    instead of calling window.CommandTabs.loadExecutionLogsPage. Shared kit piece
+    (Slice 4) — Member Directory (Slice 5) reuses it. Renders nothing for a single
+    page so callers can drop it in unconditionally.
+*@
+
+@if (TotalPages > 1)
+{
+    <div class="mt-6 flex items-center justify-between">
+        <div class="text-sm text-text-secondary">
+            Page @CurrentPage of @TotalPages
+        </div>
+        <div class="flex items-center gap-2">
+            <!-- Previous -->
+            <button type="button"
+                    @onclick="() => GoToAsync(CurrentPage - 1)"
+                    disabled="@(CurrentPage <= 1)"
+                    aria-label="Previous page"
+                    class="px-3 py-2 text-sm font-medium bg-bg-secondary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+                </svg>
+            </button>
+
+            <!-- Numbered window (current ±2) -->
+            @{
+                var startPage = Math.Max(1, CurrentPage - 2);
+                var endPage = Math.Min(TotalPages, CurrentPage + 2);
+            }
+            @for (var i = startPage; i <= endPage; i++)
+            {
+                var pageNum = i;
+                var isActive = pageNum == CurrentPage;
+                <button type="button"
+                        @onclick="() => GoToAsync(pageNum)"
+                        aria-current="@(isActive ? "page" : null)"
+                        class="px-3 py-2 text-sm font-medium rounded-lg transition-colors @(isActive ? "bg-accent-blue text-white" : "bg-bg-secondary border border-border-primary text-text-primary hover:bg-bg-hover")">
+                    @pageNum
+                </button>
+            }
+
+            <!-- Next -->
+            <button type="button"
+                    @onclick="() => GoToAsync(CurrentPage + 1)"
+                    disabled="@(CurrentPage >= TotalPages)"
+                    aria-label="Next page"
+                    class="px-3 py-2 text-sm font-medium bg-bg-secondary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover disabled:opacity-50 disabled:cursor-not-allowed transition-colors">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                </svg>
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Current page (1-based).</summary>
+    [Parameter] public int CurrentPage { get; set; } = 1;
+
+    /// <summary>Total number of pages. The pager renders nothing when this is &lt;= 1.</summary>
+    [Parameter] public int TotalPages { get; set; } = 1;
+
+    /// <summary>Raised with the requested page when the user clicks a pager control.</summary>
+    [Parameter] public EventCallback<int> OnPageChange { get; set; }
+
+    private async Task GoToAsync(int page)
+    {
+        if (page < 1 || page > TotalPages || page == CurrentPage)
+        {
+            return;
+        }
+
+        await OnPageChange.InvokeAsync(page);
+    }
+}

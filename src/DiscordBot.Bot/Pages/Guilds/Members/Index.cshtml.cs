@@ -45,6 +45,14 @@ public class IndexModel : PaginatedGuildPageModel
     public ulong GuildId { get; set; }
 
     /// <summary>
+    /// Whether to render the legacy JavaScript-driven UI instead of the Blazor island.
+    /// Parity gate (plan §9): reachable at <c>?legacy=true</c> until the island reaches
+    /// full parity, then the legacy branch is removed.
+    /// </summary>
+    [BindProperty(SupportsGet = true)]
+    public bool Legacy { get; set; }
+
+    /// <summary>
     /// Search term for filtering by username, display name, or user ID.
     /// </summary>
     [BindProperty(SupportsGet = true)]

@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.DTOs;
@@ -16,6 +17,7 @@ public class DashboardUpdateServiceTests
 {
     private readonly Mock<IHubContext<DashboardHub>> _mockHubContext;
     private readonly Mock<ILogger<DashboardUpdateService>> _mockLogger;
+    private readonly Mock<IDashboardEventBus> _mockEventBus;
     private readonly Mock<IHubClients> _mockClients;
     private readonly Mock<IClientProxy> _mockAllClientsProxy;
     private readonly Mock<IClientProxy> _mockGroupClientsProxy;
@@ -25,6 +27,7 @@ public class DashboardUpdateServiceTests
     {
         _mockHubContext = new Mock<IHubContext<DashboardHub>>();
         _mockLogger = new Mock<ILogger<DashboardUpdateService>>();
+        _mockEventBus = new Mock<IDashboardEventBus>();
         _mockClients = new Mock<IHubClients>();
         _mockAllClientsProxy = new Mock<IClientProxy>();
         _mockGroupClientsProxy = new Mock<IClientProxy>();
@@ -34,7 +37,7 @@ public class DashboardUpdateServiceTests
         _mockClients.Setup(c => c.All).Returns(_mockAllClientsProxy.Object);
         _mockClients.Setup(c => c.Group(It.IsAny<string>())).Returns(_mockGroupClientsProxy.Object);
 
-        _service = new DashboardUpdateService(_mockHubContext.Object, _mockLogger.Object);
+        _service = new DashboardUpdateService(_mockHubContext.Object, _mockEventBus.Object, _mockLogger.Object);
     }
 
     #region BroadcastBotStatusAsync Tests

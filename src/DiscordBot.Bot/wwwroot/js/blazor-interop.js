@@ -36,6 +36,76 @@
             } catch (e) {
                 console.error("blazorInterop.applyTheme failed", e);
             }
+        },
+
+        // Triggers a browser file download for the given URL without navigating away
+        // (the Blazor equivalent of the legacy `window.location.href = exportUrl` for
+        // CSV exports). Uses a transient anchor so content-disposition attachments
+        // download in place.
+        download: function (url) {
+            try {
+                var a = document.createElement("a");
+                a.href = url;
+                a.rel = "noopener";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+            } catch (e) {
+                console.error("blazorInterop.download failed", e);
+            }
+        },
+
+        // Copies text to the clipboard; returns true on success so the caller can
+        // raise the matching toast from .NET. Mirrors the legacy copyUserId helper.
+        copyText: async function (text) {
+            try {
+                await navigator.clipboard.writeText(text);
+                return true;
+            } catch (e) {
+                console.error("blazorInterop.copyText failed", e);
+                return false;
+            }
+        },
+
+        // Re-runs the shared timezone conversion over any [data-utc] spans an island
+        // just rendered (table dates, modal timestamps). Safe to call repeatedly.
+        convertTimes: function () {
+            try {
+                if (window.timezoneUtils && typeof window.timezoneUtils.convertDisplayTimes === "function") {
+                    window.timezoneUtils.convertDisplayTimes();
+                }
+            } catch (e) {
+                console.error("blazorInterop.convertTimes failed", e);
+            }
+        },
+
+        // Sets/clears the indeterminate state on a checkbox element (not settable via
+        // HTML attributes) — used by the member directory's select-all tristate.
+        setIndeterminate: function (element, value) {
+            if (element) {
+                element.indeterminate = value === true;
+            }
+        },
+
+        // Arms/disarms a beforeunload guard so islands with unsaved changes warn the
+        // user before they navigate away (the Blazor equivalent of the legacy
+        // setupUnloadWarning in moderation-settings.js). TabbedFormShell toggles this
+        // as its centralized dirty flag changes.
+        setUnsavedGuard: function (enabled) {
+            if (enabled) {
+                if (!window.__blazorUnsavedGuard) {
+                    var handler = function (e) {
+                        e.preventDefault();
+                        e.returnValue = "You have unsaved changes. Are you sure you want to leave?";
+                        return e.returnValue;
+                    };
+                    window.__blazorUnsavedGuard = handler;
+                    window.addEventListener("beforeunload", handler);
+                }
+            } else if (window.__blazorUnsavedGuard) {
+                window.removeEventListener("beforeunload", window.__blazorUnsavedGuard);
+                window.__blazorUnsavedGuard = null;
+            }
         }
     };
 })();
