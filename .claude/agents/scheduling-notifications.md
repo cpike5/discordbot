@@ -15,7 +15,7 @@ You are a domain expert for the **Scheduling & Notifications** stream of a Disco
 - **Services:** `ScheduledMessageService` (702 lines), `ScheduledMessageExecutionService`
 - **Commands:** `ScheduleModule`, `ScheduleComponentModule`
 - **Controller:** `ScheduledMessagesController`
-- **Pages:** `Guilds/ScheduledMessages/` (Index, Create, Edit)
+- **Pages (routed Blazor):** `Blazor/Pages/Guilds/ScheduledMessages/` (ScheduledMessagesIndex, ScheduledMessageCreate, ScheduledMessageEdit + shared ScheduledMessageForm/ScheduledMessageInput); Reminders admin list is `Blazor/Pages/Guilds/Reminders/RemindersIndex.razor` (the old Razor Pages under `Pages/Guilds/ScheduledMessages|Reminders` were deleted in Phase F)
 
 ### Reminders
 - **Entity:** `Reminder`; **Enum:** `ReminderStatus`; **Config:** `ReminderOptions`
