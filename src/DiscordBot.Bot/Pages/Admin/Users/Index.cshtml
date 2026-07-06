@@ -202,7 +202,7 @@
                                 </td>
                                 <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                                     <div class="flex justify-end gap-2">
-                                        <a asp-page="Details" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                                        <a href="/Admin/Users/Details?id=@user.Id" class="text-accent-blue hover:text-accent-blue/80">
                                             View
                                         </a>
                                         <a asp-page="Edit" asp-route-id="@user.Id" class="text-accent-blue hover:text-accent-blue/80">

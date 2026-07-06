@@ -1,0 +1,466 @@
+@page "/Guilds/FeatureRequests/Details/{GuildId:long}/{Id:guid}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using System.Text.Json
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Entities
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+@inject ILogger<FeatureRequestDetails> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/FeatureRequests/Details.cshtml(.cs) —
+    Phase E of docs/architecture/blazor-completion-plan.md. Same route
+    (/Guilds/FeatureRequests/Details/{guildId}/{id}), same RequireAdmin + GuildAccess
+    policies; GuildAccess is additionally re-checked in code (resource-based
+    AuthorizeAsync) because the handler's route-value fallback may not fire inside
+    circuits. Markup verbatim with the _Alert partial swapped for its Blazor twin.
+
+    The Approve/Reject POST handlers (OnPostApproveAsync/OnPostRejectAsync) are
+    ported to in-circuit Blazor handlers calling IFeatureRequestService with the
+    same guild-ownership check, reviewer resolution from the discord:user_id claim,
+    and success message; instead of the redirect + TempData round-trip, the item is
+    reloaded in place. Data access is a DI scope per operation; not-found redirects
+    to /Error/404 (mirrors the page model's NotFound()).
+*@
+
+<PageTitle>Feature Request Details - @_guildName - Discord Bot Admin</PageTitle>
+
+<!-- Success Message -->
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+    </div>
+}
+
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+    </div>
+}
+
+@if (_loaded && _item == null)
+{
+    <p class="text-text-secondary">Feature request not found.</p>
+}
+else if (_item != null)
+{
+    var item = _item;
+    var shortId = item.Id.ToString("N")[..8].ToUpperInvariant();
+    var (badgeColor, badgeLabel) = StatusBadgeParts(item.Status);
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content Column -->
+        <div class="lg:col-span-2 space-y-6">
+
+            <!-- Summary Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs font-mono text-text-tertiary">#@shortId</span>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @badgeColor">
+                            @badgeLabel
+                        </span>
+                    </div>
+                    <div class="text-sm text-text-tertiary">
+                        <span data-utc="@item.CreatedAt.ToString("o")" data-format="datetime"></span>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
+                        <p class="text-text-primary whitespace-pre-wrap">@item.Description</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Submitter</h3>
+                        <p class="text-text-primary text-sm">User ID: <span class="font-mono">@item.SubmittedByUserId</span></p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gathered Requirements Card -->
+            @if (!string.IsNullOrEmpty(item.GatheredRequirements))
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Gathered Requirements</h2>
+                    @{
+                        var gathered = TryParseGatheredRequirements(item.GatheredRequirements);
+                    }
+                    @if (gathered != null)
+                    {
+                        <div class="space-y-4">
+                            @if (!string.IsNullOrEmpty(gathered.ProblemStatement))
+                            {
+                                <div>
+                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Problem Statement</h3>
+                                    <p class="text-text-primary">@gathered.ProblemStatement</p>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(gathered.SuccessCriteria))
+                            {
+                                <div>
+                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Success Criteria</h3>
+                                    <p class="text-text-primary">@gathered.SuccessCriteria</p>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(gathered.Priority))
+                            {
+                                <div>
+                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Priority</h3>
+                                    <p class="text-text-primary">@gathered.Priority</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto">@item.GatheredRequirements</pre>
+                    }
+                </div>
+            }
+
+            <!-- Doc Generation Card -->
+            @if (!string.IsNullOrEmpty(item.DocBranchName) || !string.IsNullOrEmpty(item.DocGenError))
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Documentation Generation</h2>
+
+                    @if (!string.IsNullOrEmpty(item.DocBranchName))
+                    {
+                        <div class="space-y-3">
+                            <div>
+                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Branch</h3>
+                                <p class="text-accent-blue font-mono text-sm">@item.DocBranchName</p>
+                            </div>
+                            @if (!string.IsNullOrEmpty(item.DocPath))
+                            {
+                                <div>
+                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Doc Path</h3>
+                                    <p class="text-text-primary font-mono text-sm">@item.DocPath</p>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(item.DocGenError))
+                    {
+                        <div class="mt-4">
+                            <h3 class="text-sm font-semibold text-red-500 uppercase tracking-wider mb-1">Error</h3>
+                            <pre class="bg-bg-primary border border-red-500/30 rounded-md p-3 text-sm text-red-400 overflow-x-auto">@item.DocGenError</pre>
+                        </div>
+                    }
+                </div>
+            }
+
+            <!-- Review Information Card -->
+            @if (item.ReviewedAt.HasValue)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">Review Information</h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <span class="text-sm text-text-secondary">Reviewed by:</span>
+                            <p class="text-text-primary text-sm font-mono">@(item.ReviewedByUserId?.ToString() ?? "Unknown")</p>
+                        </div>
+                        <div>
+                            <span class="text-sm text-text-secondary">Reviewed at:</span>
+                            <p class="text-text-primary"><span data-utc="@item.ReviewedAt.Value.ToString("o")" data-format="datetime"></span></p>
+                        </div>
+                    </div>
+                    @if (!string.IsNullOrEmpty(item.ReviewNotes))
+                    {
+                        <div class="mt-4">
+                            <span class="text-sm text-text-secondary">Notes:</span>
+                            <p class="text-text-primary mt-1">@item.ReviewNotes</p>
+                        </div>
+                    }
+                </div>
+            }
+        </div>
+
+        <!-- Action Panel Column -->
+        <div class="lg:col-span-1">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sticky top-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
+
+                @if (item.Status == FeatureRequestStatus.Submitted
+                    || item.Status == FeatureRequestStatus.DocsGenerated
+                    || item.Status == FeatureRequestStatus.GeneratingDocs)
+                {
+                    <!-- Review Notes -->
+                    <div class="mb-4">
+                        <label for="reviewNotes" class="block text-sm font-medium text-text-secondary mb-1">Review Notes (optional)</label>
+                        <textarea id="reviewNotes" rows="3" @bind="_reviewNotes" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Add notes for the record..."></textarea>
+                    </div>
+
+                    <div class="space-y-3">
+                        <!-- Approve -->
+                        <button type="button" @onclick="ApproveAsync" disabled="@_actionBusy"
+                            class="w-full px-4 py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 transition-colors">
+                            Approve
+                        </button>
+
+                        <!-- Reject -->
+                        <button type="button" @onclick="RejectAsync" disabled="@_actionBusy"
+                            class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors">
+                            Reject
+                        </button>
+                    </div>
+                }
+                else if (item.Status == FeatureRequestStatus.DocGenFailed)
+                {
+                    <!-- Approve / Reject available after DocGenFailed -->
+                    <div class="mb-4">
+                        <label for="reviewNotesFailed" class="block text-sm font-medium text-text-secondary mb-1">Review Notes (optional)</label>
+                        <textarea id="reviewNotesFailed" rows="3" @bind="_reviewNotes" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Add notes for the record..."></textarea>
+                    </div>
+
+                    <div class="space-y-3">
+                        <button type="button" @onclick="ApproveAsync" disabled="@_actionBusy"
+                            class="w-full px-4 py-2 bg-green-600 text-white font-medium rounded-md hover:bg-green-700 transition-colors">
+                            Approve Anyway
+                        </button>
+
+                        <button type="button" @onclick="RejectAsync" disabled="@_actionBusy"
+                            class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors">
+                            Reject
+                        </button>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-sm text-text-secondary">
+                        This request has been <span class="font-medium">@badgeLabel.ToLower()</span>.
+                    </div>
+                }
+
+                <div class="mt-6 pt-4 border-t border-border-primary">
+                    <a href="/Guilds/@GuildIdValue/FeatureRequests" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                        &larr; Back to Feature Requests
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long GuildId { get; set; }
+
+    /// <summary>The feature request ID route value.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    private ulong GuildIdValue => (ulong)GuildId;
+
+    private string _guildName = string.Empty;
+    private FeatureRequest? _item;
+    private bool _loaded;
+    private string? _reviewNotes;
+    private string? _successMessage;
+    private string? _errorMessage;
+    private bool _actionBusy;
+    private bool _needTimeConvert;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        Logger.LogInformation("User accessing Feature Request details for {RequestId} in guild {GuildId}",
+            Id, GuildIdValue);
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        using var scope = ScopeFactory.CreateScope();
+        var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+        var service = scope.ServiceProvider.GetRequiredService<IFeatureRequestService>();
+
+        var guild = await guildService.GetGuildByIdAsync(GuildIdValue);
+        if (guild == null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        _guildName = guild.Name;
+
+        _item = await service.GetByIdAsync(Id);
+        if (_item == null || _item.GuildId != GuildIdValue)
+        {
+            Logger.LogWarning("Feature request {RequestId} not found for guild {GuildId}", Id, GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        // Populate guild layout chrome (same viewmodels the page model built —
+        // PopulateGuildLayout followed by the custom breadcrumb override).
+        GuildContext?.Set(
+            new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildIdValue}" },
+                    new() { Label = "Feature Requests", Url = $"/Guilds/{GuildIdValue}/FeatureRequests" },
+                    new() { Label = "Details", IsCurrent = true }
+                }
+            },
+            new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Feature Request Details",
+                PageDescription = $"Request details for {guild.Name}"
+            },
+            new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "feature-requests",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            });
+
+        _loaded = true;
+        _needTimeConvert = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.convertTimes");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    // ── Review actions (ports of OnPostApproveAsync / OnPostRejectAsync) ──
+
+    private Task ApproveAsync() =>
+        UpdateStatusAsync(FeatureRequestStatus.Approved, "Feature request approved.");
+
+    private Task RejectAsync() =>
+        UpdateStatusAsync(FeatureRequestStatus.Rejected, "Feature request rejected.");
+
+    private async Task UpdateStatusAsync(FeatureRequestStatus status, string successMessage)
+    {
+        // In-circuit authorization recheck before mutating.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var adminResult = await AuthService.AuthorizeAsync(authState.User, "RequireAdmin");
+        var guildResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!adminResult.Succeeded || !guildResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        _actionBusy = true;
+        try
+        {
+            Logger.LogInformation("Admin {Action} feature request {RequestId} in guild {GuildId}",
+                status == FeatureRequestStatus.Approved ? "approving" : "rejecting", Id, GuildIdValue);
+
+            using var scope = ScopeFactory.CreateScope();
+            var service = scope.ServiceProvider.GetRequiredService<IFeatureRequestService>();
+
+            var item = await service.GetByIdAsync(Id);
+            if (item == null || item.GuildId != GuildIdValue)
+            {
+                Navigation.NavigateTo("/Error/404");
+                return;
+            }
+
+            // Same reviewer resolution as the page model (discord:user_id claim; null when unlinked).
+            ulong? reviewerId = null;
+            var claim = authState.User.FindFirst("discord:user_id");
+            if (claim != null && ulong.TryParse(claim.Value, out var parsed))
+            {
+                reviewerId = parsed;
+            }
+
+            await service.UpdateStatusAsync(Id, status, reviewerId, _reviewNotes);
+
+            _successMessage = successMessage;
+            _errorMessage = null;
+            _reviewNotes = null;
+
+            // The page model redirected back to itself; reload the item in place instead.
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error updating feature request {RequestId} status", Id);
+            _errorMessage = "An error occurred while updating the feature request.";
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+    }
+
+    // ── Display helpers (ports of the .cshtml @{} block) ──
+
+    private static (string Color, string Label) StatusBadgeParts(FeatureRequestStatus status) => status switch
+    {
+        FeatureRequestStatus.Submitted => ("bg-accent-blue/10 text-accent-blue", "Submitted"),
+        FeatureRequestStatus.GeneratingDocs => ("bg-yellow-500/10 text-yellow-500", "Generating Docs"),
+        FeatureRequestStatus.DocsGenerated => ("bg-green-500/10 text-green-500", "Docs Generated"),
+        FeatureRequestStatus.DocGenFailed => ("bg-red-500/10 text-red-500", "Doc Gen Failed"),
+        FeatureRequestStatus.Approved => ("bg-green-600/10 text-green-600", "Approved"),
+        FeatureRequestStatus.Rejected => ("bg-text-tertiary/10 text-text-tertiary", "Rejected"),
+        _ => ("bg-text-tertiary/10 text-text-tertiary", status.ToString())
+    };
+
+    private static DiscordBot.Core.Models.FeatureRequests.GatheredRequirements? TryParseGatheredRequirements(string json)
+    {
+        try
+        {
+            return JsonSerializer.Deserialize<DiscordBot.Core.Models.FeatureRequests.GatheredRequirements>(json);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+}

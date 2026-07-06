@@ -1,18 +1,41 @@
-@page "{id:long}"
-@model DiscordBot.Bot.Pages.Admin.AuditLogs.DetailsModel
-@{
-    ViewData["Title"] = "Audit Entry Details";
-}
+@page "/Admin/AuditLogs/Details/{Id:long}"
+@namespace DiscordBot.Bot.Blazor.Pages.Admin
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using System.Text.Json
+@using System.Text.Json.Nodes
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.Extensions.Logging
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@inject IServiceScopeFactory ScopeFactory
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<AuditLogDetails> Logger
 
+@*
+    Routed-Blazor replacement for Pages/Admin/AuditLogs/Details.cshtml(.cs) — Phase E
+    of docs/architecture/blazor-completion-plan.md. Markup is carried over verbatim;
+    the page-specific inline script (raw-JSON expand/collapse, copy entry ID, export
+    JSON) is replaced by component state + blazorInterop helpers, and [data-utc]
+    timestamps are re-converted after interactive render via blazorInterop.convertTimes
+    (MemberDirectoryIsland pattern).
+*@
+
+<PageTitle>Audit Entry Details - Discord Bot Admin</PageTitle>
+
+@if (_vm is not null)
+{
 <!-- Breadcrumb -->
 <nav aria-label="Breadcrumb" class="mb-6">
     <ol class="flex items-center gap-2 text-sm">
         <li>
-            <a asp-page="/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
+            <a href="/" class="text-text-secondary hover:text-accent-blue transition-colors">Admin</a>
         </li>
         <li class="text-text-tertiary">/</li>
         <li>
-            <a asp-page="/Admin/AuditLogs/Index" class="text-text-secondary hover:text-accent-blue transition-colors">Audit Logs</a>
+            <a href="/Admin/AuditLogs" class="text-text-secondary hover:text-accent-blue transition-colors">Audit Logs</a>
         </li>
         <li class="text-text-tertiary">/</li>
         <li class="text-text-primary font-medium">Entry Details</li>
@@ -22,19 +45,19 @@
 <!-- Header with Back Button -->
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <div class="flex items-center gap-4">
-        <a href="@Model.ReturnUrl" class="inline-flex items-center justify-center w-10 h-10 text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Back to audit logs">
+        <a href="@BackUrl" class="inline-flex items-center justify-center w-10 h-10 text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Back to audit logs">
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
             </svg>
         </a>
         <div>
             <h1 class="text-2xl font-bold text-text-primary">Audit Entry Details</h1>
-            <p class="mt-1 text-sm text-text-secondary">Entry ID: <span class="font-mono">@Model.ViewModel.Id</span></p>
+            <p class="mt-1 text-sm text-text-secondary">Entry ID: <span class="font-mono">@_vm.Id</span></p>
         </div>
     </div>
     <div class="flex items-center gap-2">
-        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold @Model.ViewModel.ActionBadgeClass">
-            @Model.ViewModel.Action
+        <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold @_vm.ActionBadgeClass">
+            @_vm.Action
         </span>
     </div>
 </div>
@@ -54,25 +77,25 @@
             </div>
             <div class="p-4">
                 <div class="flex items-center gap-4 mb-4">
-                    <div class="h-12 w-12 rounded-full @Model.ViewModel.ActorAvatarClass flex items-center justify-center">
-                        <span class="font-bold text-lg">@Model.ViewModel.ActorInitials</span>
+                    <div class="h-12 w-12 rounded-full @_vm.ActorAvatarClass flex items-center justify-center">
+                        <span class="font-bold text-lg">@_vm.ActorInitials</span>
                     </div>
                     <div>
-                        <p class="text-base font-medium text-text-primary">@Model.ViewModel.ActorName</p>
-                        <p class="text-sm text-text-secondary">@Model.ViewModel.ActorTypeName</p>
+                        <p class="text-base font-medium text-text-primary">@_vm.ActorName</p>
+                        <p class="text-sm text-text-secondary">@_vm.ActorTypeName</p>
                     </div>
                 </div>
                 <div class="space-y-3 pt-3 border-t border-border-secondary">
                     <div class="flex justify-between items-start">
                         <span class="text-sm text-text-tertiary">Actor ID</span>
-                        <span class="text-sm font-mono text-text-secondary break-all text-right">@Model.ViewModel.ActorId</span>
+                        <span class="text-sm font-mono text-text-secondary break-all text-right">@_vm.ActorId</span>
                     </div>
                 </div>
             </div>
         </div>
 
         <!-- Target Resource Card -->
-        @if (!string.IsNullOrEmpty(Model.ViewModel.TargetType))
+        @if (!string.IsNullOrEmpty(_vm.TargetType))
         {
             <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
                 <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary">
@@ -86,21 +109,21 @@
                 <div class="p-4 space-y-3">
                     <div class="flex justify-between items-start">
                         <span class="text-sm text-text-tertiary">Type</span>
-                        <span class="text-sm text-text-primary">@Model.ViewModel.TargetType</span>
+                        <span class="text-sm text-text-primary">@_vm.TargetType</span>
                     </div>
-                    @if (!string.IsNullOrEmpty(Model.ViewModel.TargetId))
+                    @if (!string.IsNullOrEmpty(_vm.TargetId))
                     {
                         <div class="flex justify-between items-start">
                             <span class="text-sm text-text-tertiary">Resource ID</span>
-                            <span class="text-sm font-mono text-text-secondary break-all text-right">@Model.ViewModel.TargetId</span>
+                            <span class="text-sm font-mono text-text-secondary break-all text-right">@_vm.TargetId</span>
                         </div>
                     }
-                    @if (Model.ViewModel.HasGuild)
+                    @if (_vm.HasGuild)
                     {
                         <div class="flex justify-between items-start">
                             <span class="text-sm text-text-tertiary">Guild</span>
-                            <a asp-page="/Admin/Guilds/Details" asp-route-id="@Model.ViewModel.GuildId" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
-                                @Model.ViewModel.GuildName
+                            <a href="@($"/Guilds/Details/{_vm.GuildId}")" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
+                                @_vm.GuildName
                                 <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                 </svg>
@@ -108,7 +131,7 @@
                         </div>
                         <div class="flex justify-between items-start">
                             <span class="text-sm text-text-tertiary">Guild ID</span>
-                            <span class="text-sm font-mono text-text-secondary">@Model.ViewModel.GuildId</span>
+                            <span class="text-sm font-mono text-text-secondary">@_vm.GuildId</span>
                         </div>
                     }
                 </div>
@@ -129,22 +152,22 @@
                 <div class="flex justify-between items-start">
                     <span class="text-sm text-text-tertiary">Timestamp</span>
                     <div class="text-right">
-                        <p class="text-sm text-text-primary" data-utc="@Model.ViewModel.TimestampUtcIso" data-format="datetime-seconds">Loading...</p>
+                        <p class="text-sm text-text-primary" data-utc="@_vm.TimestampUtcIso" data-format="datetime-seconds">Loading...</p>
                         <p class="text-xs text-text-tertiary timezone-indicator"></p>
                     </div>
                 </div>
-                @if (!string.IsNullOrEmpty(Model.ViewModel.IpAddress))
+                @if (!string.IsNullOrEmpty(_vm.IpAddress))
                 {
                     <div class="flex justify-between items-start">
                         <span class="text-sm text-text-tertiary">IP Address</span>
-                        <span class="text-sm font-mono text-text-secondary">@Model.ViewModel.IpAddress</span>
+                        <span class="text-sm font-mono text-text-secondary">@_vm.IpAddress</span>
                     </div>
                 }
-                @if (!string.IsNullOrEmpty(Model.ViewModel.CorrelationId))
+                @if (!string.IsNullOrEmpty(_vm.CorrelationId))
                 {
                     <div class="flex flex-col gap-1">
                         <span class="text-sm text-text-tertiary">Correlation ID</span>
-                        <span class="text-xs font-mono text-text-secondary bg-bg-primary rounded px-2 py-1.5 break-all">@Model.ViewModel.CorrelationId</span>
+                        <span class="text-xs font-mono text-text-secondary bg-bg-primary rounded px-2 py-1.5 break-all">@_vm.CorrelationId</span>
                     </div>
                 }
             </div>
@@ -154,7 +177,7 @@
     <!-- Right Column - Changes & Details -->
     <div class="lg:col-span-2">
         <!-- Changes/Details Panel -->
-        @if (Model.ViewModel.HasDetails)
+        @if (_vm.HasDetails)
         {
             <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
                 <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary flex items-center justify-between">
@@ -166,10 +189,10 @@
                     </h2>
                 </div>
                 <div class="p-4">
-                    @if (Model.ViewModel.ParsedDetails != null && Model.ViewModel.ParsedDetails.Any())
+                    @if (_vm.ParsedDetails != null && _vm.ParsedDetails.Any())
                     {
                         <div class="space-y-4">
-                            @foreach (var (key, value) in Model.ViewModel.ParsedDetails)
+                            @foreach (var (key, value) in _vm.ParsedDetails)
                             {
                                 <div class="rounded-lg border border-border-primary overflow-hidden">
                                     <div class="px-3 py-2 bg-bg-tertiary border-b border-border-primary">
@@ -207,15 +230,15 @@
                         </svg>
                         Raw Change Data
                     </h2>
-                    <button id="toggleRawData" type="button" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="false">
-                        <span id="rawDataToggleText">Expand</span>
-                        <svg id="rawDataToggleIcon" class="w-4 h-4 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <button type="button" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="@(_rawDataExpanded ? "true" : "false")" @onclick="ToggleRawData">
+                        <span>@(_rawDataExpanded ? "Collapse" : "Expand")</span>
+                        <svg class="w-4 h-4 transition-transform" style="@(_rawDataExpanded ? "transform: rotate(180deg)" : "transform: rotate(0deg)")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                         </svg>
                     </button>
                 </div>
-                <div id="rawDataContent" class="json-collapsed relative">
-                    <pre class="p-4 text-xs font-mono text-text-secondary overflow-x-auto">@Model.ViewModel.FormattedDetails</pre>
+                <div class="@(_rawDataExpanded ? "" : "json-collapsed") relative">
+                    <pre class="p-4 text-xs font-mono text-text-secondary overflow-x-auto">@_vm.FormattedDetails</pre>
                 </div>
             </div>
         }
@@ -231,7 +254,7 @@
         }
 
         <!-- Related Entries Panel -->
-        @if (Model.ViewModel.HasRelatedEntries)
+        @if (_vm.HasRelatedEntries)
         {
             <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
                 <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary">
@@ -240,7 +263,7 @@
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
                         </svg>
                         Related Entries
-                        <span class="ml-auto text-xs font-normal text-text-tertiary">@Model.ViewModel.RelatedEntries.Count entries</span>
+                        <span class="ml-auto text-xs font-normal text-text-tertiary">@_vm.RelatedEntries.Count entries</span>
                     </h2>
                 </div>
                 <div class="overflow-x-auto">
@@ -255,7 +278,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-border-secondary">
-                            @foreach (var entry in Model.ViewModel.RelatedEntries)
+                            @foreach (var entry in _vm.RelatedEntries)
                             {
                                 <tr class="hover:bg-bg-hover transition-colors">
                                     <td class="px-4 py-3 whitespace-nowrap">
@@ -278,7 +301,7 @@
                                         <span class="text-sm text-text-secondary">@entry.TargetType</span>
                                     </td>
                                     <td class="px-4 py-3 whitespace-nowrap text-right">
-                                        <a asp-page="/Admin/AuditLogs/Details" asp-route-id="@entry.Id" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                        <a href="@($"/Admin/AuditLogs/Details/{entry.Id}")" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
                                             View
                                         </a>
                                     </td>
@@ -292,19 +315,19 @@
 
         <!-- Action Buttons -->
         <div class="flex flex-wrap gap-3">
-            <a href="@Model.ReturnUrl" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+            <a href="@BackUrl" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />
                 </svg>
                 Back to Audit Logs
             </a>
-            <button id="copyEntryIdBtn" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Copy entry ID to clipboard">
+            <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Copy entry ID to clipboard" @onclick="CopyEntryIdAsync">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                 </svg>
-                <span id="copyEntryIdText">Copy Entry ID</span>
+                <span>@(_entryIdCopied ? "Copied!" : "Copy Entry ID")</span>
             </button>
-            <button id="exportJsonBtn" type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export this entry as JSON">
+            <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export this entry as JSON" @onclick="ExportJsonAsync">
                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                 </svg>
@@ -313,121 +336,164 @@
         </div>
     </div>
 </div>
+}
 
-@section Scripts {
-    <style>
-        /* JSON expand/collapse */
-        .json-collapsed {
-            max-height: 100px;
-            overflow: hidden;
-            position: relative;
-        }
-        .json-collapsed::after {
-            content: '';
-            position: absolute;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            height: 40px;
-            background: linear-gradient(transparent, #262a2d);
-        }
-    </style>
+@code {
+    [Parameter] public long Id { get; set; }
 
-    <script>
-        // Toggle raw data expand/collapse
-        const toggleRawDataBtn = document.getElementById('toggleRawData');
-        const rawDataContent = document.getElementById('rawDataContent');
-        const rawDataToggleText = document.getElementById('rawDataToggleText');
-        const rawDataToggleIcon = document.getElementById('rawDataToggleIcon');
+    [SupplyParameterFromQuery(Name = "returnUrl")]
+    public string? ReturnUrl { get; set; }
 
-        if (toggleRawDataBtn && rawDataContent) {
-            toggleRawDataBtn.addEventListener('click', function() {
-                const isExpanded = this.getAttribute('aria-expanded') === 'true';
+    private AuditLogDetailViewModel? _vm;
+    private bool _rawDataExpanded;
+    private bool _entryIdCopied;
+    private bool _needTimeConvert;
 
-                if (isExpanded) {
-                    rawDataContent.classList.add('json-collapsed');
-                    rawDataToggleText.textContent = 'Expand';
-                    rawDataToggleIcon.style.transform = 'rotate(0deg)';
-                    this.setAttribute('aria-expanded', 'false');
-                } else {
-                    rawDataContent.classList.remove('json-collapsed');
-                    rawDataToggleText.textContent = 'Collapse';
-                    rawDataToggleIcon.style.transform = 'rotate(180deg)';
-                    this.setAttribute('aria-expanded', 'true');
-                }
-            });
+    private string BackUrl => string.IsNullOrEmpty(ReturnUrl) ? "/Admin/AuditLogs" : ReturnUrl;
+
+    protected override async Task OnInitializedAsync()
+    {
+        Logger.LogDebug("Loading audit log details for entry ID {EntryId}", Id);
+
+        using var scope = ScopeFactory.CreateScope();
+        var auditLogService = scope.ServiceProvider.GetRequiredService<IAuditLogService>();
+
+        var log = await auditLogService.GetByIdAsync(Id);
+        if (log is null)
+        {
+            Logger.LogWarning("Audit log entry {EntryId} not found", Id);
+            Navigation.NavigateTo("/Error/404");
+            return;
         }
 
-        // Copy Entry ID functionality
-        const copyEntryIdBtn = document.getElementById('copyEntryIdBtn');
-        const copyEntryIdText = document.getElementById('copyEntryIdText');
-        const entryId = '@Model.ViewModel.Id';
+        Logger.LogInformation("Retrieved audit log entry {EntryId} - {Category}/{Action} by {Actor}",
+            Id, log.CategoryName, log.ActionName, log.ActorDisplayName ?? log.ActorId ?? "Unknown");
 
-        if (copyEntryIdBtn) {
-            copyEntryIdBtn.addEventListener('click', function() {
-                navigator.clipboard.writeText(entryId).then(() => {
-                    const originalText = copyEntryIdText.textContent;
-                    copyEntryIdText.textContent = 'Copied!';
-                    setTimeout(() => {
-                        copyEntryIdText.textContent = originalText;
-                    }, 2000);
-                }).catch(err => {
-                    console.error('Failed to copy entry ID:', err);
-                });
-            });
+        // Get related entries by correlation ID if present
+        IReadOnlyList<Core.DTOs.AuditLogDto>? relatedEntries = null;
+        if (!string.IsNullOrEmpty(log.CorrelationId))
+        {
+            Logger.LogDebug("Loading related audit log entries for correlation ID {CorrelationId}", log.CorrelationId);
+            relatedEntries = await auditLogService.GetByCorrelationIdAsync(log.CorrelationId);
+            Logger.LogInformation("Found {Count} related audit log entries for correlation ID {CorrelationId}",
+                relatedEntries.Count, log.CorrelationId);
         }
 
-        // Export JSON functionality
-        const exportJsonBtn = document.getElementById('exportJsonBtn');
-        if (exportJsonBtn) {
-            exportJsonBtn.addEventListener('click', function() {
-                const jsonData = {
-                    entryId: @Model.ViewModel.Id,
-                    timestamp: '@Model.ViewModel.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.fffZ")',
-                    category: '@Model.ViewModel.Category',
-                    action: '@Model.ViewModel.Action',
-                    actor: {
-                        id: '@Model.ViewModel.ActorId',
-                        name: '@Model.ViewModel.ActorName',
-                        type: '@Model.ViewModel.ActorTypeName'
-                    },
-                    target: {
-                        type: '@Model.ViewModel.TargetType',
-                        id: '@Model.ViewModel.TargetId'
-                    },
-                    @if (Model.ViewModel.HasGuild)
-                    {
-                        <text>
-                        guild: {
-                            id: '@Model.ViewModel.GuildId',
-                            name: '@Model.ViewModel.GuildName'
-                        },
-                        </text>
-                    }
-                    @if (!string.IsNullOrEmpty(Model.ViewModel.IpAddress))
-                    {
-                        <text>ipAddress: '@Model.ViewModel.IpAddress',</text>
-                    }
-                    @if (!string.IsNullOrEmpty(Model.ViewModel.CorrelationId))
-                    {
-                        <text>correlationId: '@Model.ViewModel.CorrelationId',</text>
-                    }
-                    @if (Model.ViewModel.HasDetails)
-                    {
-                        <text>details: @Html.Raw(Model.ViewModel.Details)</text>
-                    }
-                };
+        _vm = AuditLogDetailViewModel.FromDto(log, relatedEntries);
+        _needTimeConvert = true;
+    }
 
-                const blob = new Blob([JSON.stringify(jsonData, null, 2)], { type: 'application/json' });
-                const url = URL.createObjectURL(blob);
-                const a = document.createElement('a');
-                a.href = url;
-                a.download = `audit-entry-${entryId}.json`;
-                document.body.appendChild(a);
-                a.click();
-                document.body.removeChild(a);
-                URL.revokeObjectURL(url);
-            });
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            await SafeInvokeAsync("blazorInterop.convertTimes");
         }
-    </script>
+    }
+
+    private void ToggleRawData() => _rawDataExpanded = !_rawDataExpanded;
+
+    private async Task CopyEntryIdAsync()
+    {
+        if (_vm is null)
+        {
+            return;
+        }
+
+        bool ok;
+        try
+        {
+            ok = await JS.InvokeAsync<bool>("blazorInterop.copyText", _vm.Id.ToString());
+        }
+        catch (JSDisconnectedException)
+        {
+            return;
+        }
+
+        if (ok)
+        {
+            _entryIdCopied = true;
+            StateHasChanged();
+            await Task.Delay(2000);
+            _entryIdCopied = false;
+        }
+    }
+
+    private async Task ExportJsonAsync()
+    {
+        if (_vm is null)
+        {
+            return;
+        }
+
+        // Mirrors the JSON document the legacy inline export script assembled.
+        var json = new JsonObject
+        {
+            ["entryId"] = _vm.Id,
+            ["timestamp"] = _vm.Timestamp.ToString("yyyy-MM-ddTHH:mm:ss.fffZ"),
+            ["category"] = _vm.Category,
+            ["action"] = _vm.Action,
+            ["actor"] = new JsonObject
+            {
+                ["id"] = _vm.ActorId,
+                ["name"] = _vm.ActorName,
+                ["type"] = _vm.ActorTypeName
+            },
+            ["target"] = new JsonObject
+            {
+                ["type"] = _vm.TargetType,
+                ["id"] = _vm.TargetId
+            }
+        };
+
+        if (_vm.HasGuild)
+        {
+            json["guild"] = new JsonObject
+            {
+                ["id"] = _vm.GuildId?.ToString(),
+                ["name"] = _vm.GuildName
+            };
+        }
+
+        if (!string.IsNullOrEmpty(_vm.IpAddress))
+        {
+            json["ipAddress"] = _vm.IpAddress;
+        }
+
+        if (!string.IsNullOrEmpty(_vm.CorrelationId))
+        {
+            json["correlationId"] = _vm.CorrelationId;
+        }
+
+        if (_vm.HasDetails)
+        {
+            try
+            {
+                json["details"] = JsonNode.Parse(_vm.Details!);
+            }
+            catch (JsonException)
+            {
+                json["details"] = _vm.Details;
+            }
+        }
+
+        var content = json.ToJsonString(new JsonSerializerOptions { WriteIndented = true });
+        await SafeInvokeAsync("blazorInterop.downloadData", $"audit-entry-{_vm.Id}.json", "application/json", content);
+    }
+
+    private async Task SafeInvokeAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Static prerender pass — no JS runtime yet; the interactive render repeats the call.
+        }
+    }
 }

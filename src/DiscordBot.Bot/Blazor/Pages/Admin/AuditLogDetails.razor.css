@@ -1,0 +1,16 @@
+/* JSON expand/collapse (carried over from the legacy page's inline <style>) */
+.json-collapsed {
+    max-height: 100px;
+    overflow: hidden;
+    position: relative;
+}
+
+.json-collapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, #262a2d);
+}

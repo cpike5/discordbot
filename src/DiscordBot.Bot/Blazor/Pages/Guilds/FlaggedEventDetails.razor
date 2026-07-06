@@ -1,0 +1,595 @@
+@page "/Guilds/FlaggedEvents/Details/{GuildId:long}/{Id:guid}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+@inject ILogger<FlaggedEventDetails> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/FlaggedEvents/Details.cshtml(.cs) —
+    Phase E of docs/architecture/blazor-completion-plan.md. Same route
+    (/Guilds/FlaggedEvents/Details/{guildId}/{id}), same RequireAdmin + GuildAccess
+    policies; GuildAccess is additionally re-checked in code (resource-based
+    AuthorizeAsync) because the handler's route-value fallback may not fire inside
+    circuits. Markup verbatim, with the _SeverityBadge/_StatusBadge/_RuleTypeIcon/
+    _Alert partials swapped for their Blazor twins.
+
+    The page's JS action handlers (dismiss/acknowledge/take-action, evidence toggle,
+    action dropdown, custom-action modal — previously fetch() calls against
+    FlaggedEventsController) are ported to in-circuit Blazor handlers calling
+    IFlaggedEventService directly, each behind a ConfirmModal (same confirm
+    title/message/variant as the old quickActions.confirm calls) and behind an
+    in-circuit authorization recheck. Data access is a DI scope per operation;
+    not-found redirects to /Error/404 (mirrors the page model's NotFound()).
+*@
+
+<PageTitle>Flagged Event Details - @_guildName - Discord Bot Admin</PageTitle>
+
+@if (_event is not null)
+{
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Main Content Column -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Event Summary Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-center gap-3">
+                        <SeverityBadge Severity="_event.Severity" />
+                        <StatusBadge Status="_event.Status" />
+                    </div>
+                    <div class="text-sm text-text-tertiary">
+                        <span data-utc="@_event.CreatedAt.ToString("o")" data-format="datetime"></span>
+                    </div>
+                </div>
+
+                <div class="space-y-4">
+                    <div>
+                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
+                        <p class="text-text-primary">@_event.Description</p>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-4">
+                        <div>
+                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Rule Type</h3>
+                            <div class="flex items-center gap-2">
+                                <RuleTypeIcon Type="_event.RuleType" />
+                                <span class="text-text-primary">@_event.RuleType</span>
+                            </div>
+                        </div>
+
+                        @if (_event.ChannelId > 0)
+                        {
+                            <div>
+                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Channel</h3>
+                                <p class="text-text-primary">#{@_event.ChannelName}</p>
+                            </div>
+                        }
+                    </div>
+
+                    @if (_event.ReviewedAt.HasValue)
+                    {
+                        <div class="border-t border-border-primary pt-4">
+                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-2">Review Information</h3>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <span class="text-sm text-text-secondary">Reviewed by:</span>
+                                    <p class="text-text-primary">@(_event.ReviewedByUsername ?? "Unknown")</p>
+                                </div>
+                                <div>
+                                    <span class="text-sm text-text-secondary">Reviewed at:</span>
+                                    <p class="text-text-primary"><span data-utc="@_event.ReviewedAt.Value.ToString("o")" data-format="datetime"></span></p>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(_event.ActionTaken))
+                            {
+                                <div class="mt-4">
+                                    <span class="text-sm text-text-secondary">Action taken:</span>
+                                    <p class="text-text-primary">@_event.ActionTaken</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- User Info Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">User Information</h2>
+                <div class="flex items-center gap-4 mb-4">
+                    <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-bold text-lg">
+                        @(_event.Username.Length > 0 ? _event.Username[0].ToString().ToUpper() : "?")
+                    </div>
+                    <div>
+                        <div class="text-text-primary font-medium">@_event.Username</div>
+                        <div class="text-sm text-text-tertiary">User ID: @_event.UserId</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Evidence Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <button type="button" @onclick="() => _evidenceCollapsed = !_evidenceCollapsed" class="w-full flex items-center justify-between text-left">
+                    <h2 class="text-lg font-semibold text-text-primary">Evidence</h2>
+                    <svg id="evidenceChevron" class="w-5 h-5 text-text-secondary transition-transform @(_evidenceCollapsed ? "rotate-180" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                    </svg>
+                </button>
+                <div id="evidenceContent" class="mt-4 @(_evidenceCollapsed ? "hidden" : "")">
+                    <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto">@_event.Evidence</pre>
+                </div>
+            </div>
+
+            <!-- User History Card -->
+            @if (_userHistory.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <h2 class="text-lg font-semibold text-text-primary mb-4">User History (@_userHistory.Count previous events)</h2>
+                    <div class="space-y-3">
+                        @foreach (var evt in _userHistory)
+                        {
+                            <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-primary rounded-md">
+                                <div class="flex items-center gap-3">
+                                    <SeverityBadge Severity="evt.Severity" />
+                                    <span class="text-sm text-text-primary">@evt.RuleType</span>
+                                    <span class="text-xs text-text-tertiary"><span data-utc="@evt.CreatedAt.ToString("o")" data-format="date"></span></span>
+                                </div>
+                                <StatusBadge Status="evt.Status" />
+                            </div>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Action Panel Column -->
+        <div class="lg:col-span-1">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sticky top-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
+
+                @if (_event.Status == FlaggedEventStatus.Pending)
+                {
+                    <div class="space-y-3">
+                        <button type="button" @onclick="DismissEventAsync" disabled="@_actionBusy" class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors">
+                            Dismiss
+                        </button>
+                        <button type="button" @onclick="AcknowledgeEventAsync" disabled="@_actionBusy" class="w-full px-4 py-2 bg-accent-blue text-white font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
+                            Acknowledge
+                        </button>
+                        <div class="relative">
+                            <button type="button"
+                                    id="actionDropdownTrigger"
+                                    @onclick="() => _actionDropdownOpen = !_actionDropdownOpen"
+                                    aria-haspopup="true"
+                                    aria-expanded="@(_actionDropdownOpen ? "true" : "false")"
+                                    aria-controls="actionDropdown"
+                                    class="w-full px-4 py-2 bg-warning text-white font-medium rounded-md hover:bg-warning/90 transition-colors flex items-center justify-between">
+                                <span>Take Action</span>
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </button>
+                            @if (_actionDropdownOpen)
+                            {
+                                <div class="fixed inset-0 z-0" @onclick="() => _actionDropdownOpen = false"></div>
+                            }
+                            <div id="actionDropdown"
+                                 role="menu"
+                                 aria-label="Moderation actions"
+                                 class="@(_actionDropdownOpen ? "" : "hidden") absolute z-10 mt-2 w-full bg-bg-secondary border border-border-primary rounded-md shadow-lg">
+                                <div class="py-1">
+                                    <button type="button" role="menuitem" @onclick='() => TakeActionAsync("Warned user")' class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                        Warn User
+                                    </button>
+                                    <button type="button" role="menuitem" @onclick='() => TakeActionAsync("Muted user for 24 hours")' class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                        Mute User
+                                    </button>
+                                    <button type="button" role="menuitem" @onclick='() => TakeActionAsync("Kicked user from server")' class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                        Kick User
+                                    </button>
+                                    <button type="button" role="menuitem" @onclick='() => TakeActionAsync("Banned user from server")' class="block w-full text-left px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
+                                        Ban User
+                                    </button>
+                                    <button type="button" role="menuitem" @onclick="ShowCustomActionModal" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors border-t border-border-primary">
+                                        Custom Action...
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                }
+                else
+                {
+                    <div class="text-center text-text-secondary">
+                        This event has been @_event.Status.ToString().ToLower()
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+
+    <!-- Custom Action Modal -->
+    @if (_customActionModalVisible)
+    {
+        <div id="customActionModal"
+             role="dialog"
+             aria-modal="true"
+             aria-labelledby="customActionModalTitle"
+             class="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+             @onclick="HideCustomActionModal">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg max-w-md w-full p-6" @onclick:stopPropagation="true">
+                <h3 id="customActionModalTitle" class="text-lg font-semibold text-text-primary mb-4">Custom Action</h3>
+                <textarea id="customActionText" rows="4" @bind="_customActionText" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Describe the action you took..." aria-label="Action description"></textarea>
+                <div class="flex items-center justify-end gap-3 mt-4">
+                    <button type="button" @onclick="HideCustomActionModal" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+                        Cancel
+                    </button>
+                    <button type="button" @onclick="SubmitCustomActionAsync" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
+                        Submit
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+<ConfirmModal @ref="_confirmModal" />
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long GuildId { get; set; }
+
+    /// <summary>The flagged event ID route value.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    private ulong GuildIdValue => (ulong)GuildId;
+
+    private string _guildName = string.Empty;
+    private FlaggedEventDto? _event;
+    private List<FlaggedEventDto> _userHistory = new();
+    private string? _errorMessage;
+
+    private bool _evidenceCollapsed;
+    private bool _actionDropdownOpen;
+    private bool _customActionModalVisible;
+    private string _customActionText = string.Empty;
+    private bool _actionBusy;
+    private bool _needTimeConvert;
+
+    private ConfirmModal _confirmModal = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        Logger.LogInformation("User accessing Flagged Event details for event {EventId} in guild {GuildId}",
+            Id, GuildIdValue);
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        using var scope = ScopeFactory.CreateScope();
+        var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+        var flaggedEventService = scope.ServiceProvider.GetRequiredService<IFlaggedEventService>();
+
+        var guild = await guildService.GetGuildByIdAsync(GuildIdValue);
+        if (guild == null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        _guildName = guild.Name;
+
+        var eventDto = await flaggedEventService.GetEventAsync(Id);
+        if (eventDto == null || eventDto.GuildId != GuildIdValue)
+        {
+            Logger.LogWarning("Flagged event {EventId} not found for guild {GuildId}", Id, GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        _event = eventDto;
+
+        // Get user's other flagged events for history (limit to last 10, excluding current event)
+        var userEvents = await flaggedEventService.GetUserEventsAsync(GuildIdValue, _event.UserId);
+        _userHistory = userEvents
+            .Where(e => e.Id != Id)
+            .OrderByDescending(e => e.CreatedAt)
+            .Take(10)
+            .ToList();
+
+        Logger.LogDebug("Retrieved flagged event {EventId} details with {HistoryCount} user history items",
+            Id, _userHistory.Count);
+
+        // Populate guild layout chrome (same viewmodels the page model built)
+        GuildContext?.Set(
+            new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildIdValue}" },
+                    new() { Label = "Moderation", Url = $"/Guilds/ModerationSettings/{GuildIdValue}" },
+                    new() { Label = "Flagged Events", Url = $"/Guilds/{GuildIdValue}/FlaggedEvents" },
+                    new() { Label = "Details", IsCurrent = true }
+                }
+            },
+            new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Flagged Event Details",
+                PageDescription = $"Event details for {guild.Name}"
+            },
+            new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "moderation",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            });
+
+        _needTimeConvert = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.convertTimes");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    // ── Action handlers (ports of the page's fetch() calls to FlaggedEventsController) ──
+
+    /// <summary>
+    /// Re-checks RequireAdmin + resource-based GuildAccess inside the circuit and
+    /// resolves the acting reviewer's Discord ID. Returns null (with a toast) when
+    /// the action must not proceed.
+    /// </summary>
+    private async Task<ulong?> AuthorizeActionAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+
+        var adminResult = await AuthService.AuthorizeAsync(authState.User, "RequireAdmin");
+        var guildResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!adminResult.Succeeded || !guildResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return null;
+        }
+
+        var claim = authState.User.FindFirst("discord:user_id");
+        if (claim == null || !ulong.TryParse(claim.Value, out var reviewerId))
+        {
+            await Toast.ErrorAsync("Your account has no linked Discord user; cannot record the review.");
+            return null;
+        }
+
+        return reviewerId;
+    }
+
+    private async Task DismissEventAsync()
+    {
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Dismiss Flagged Event",
+            Message = "Are you sure you want to dismiss this flagged event?",
+            Variant = ConfirmationVariant.Warning,
+            ConfirmText = "Dismiss"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var reviewerId = await AuthorizeActionAsync();
+        if (reviewerId is null)
+        {
+            return;
+        }
+
+        _actionBusy = true;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var flaggedEventService = scope.ServiceProvider.GetRequiredService<IFlaggedEventService>();
+
+            var updated = await flaggedEventService.DismissEventAsync(Id, reviewerId.Value);
+            if (updated == null)
+            {
+                await Toast.ErrorAsync("Error dismissing event: flagged event not found.");
+                return;
+            }
+
+            Logger.LogInformation("Flagged event {EventId} dismissed by reviewer {ReviewerId}", Id, reviewerId.Value);
+
+            // Same post-dismiss destination as the old JS handler (Index is still a
+            // Razor Page, so force a full load).
+            Navigation.NavigateTo(
+                $"/Guilds/FlaggedEvents/Index/{GuildIdValue}?successMessage={Uri.EscapeDataString("Event dismissed successfully")}",
+                forceLoad: true);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error dismissing flagged event {EventId}", Id);
+            await Toast.ErrorAsync("An error occurred while dismissing the event.");
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+    }
+
+    private async Task AcknowledgeEventAsync()
+    {
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Acknowledge Flagged Event",
+            Message = "Are you sure you want to acknowledge this flagged event?",
+            Variant = ConfirmationVariant.Warning,
+            ConfirmText = "Acknowledge"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var reviewerId = await AuthorizeActionAsync();
+        if (reviewerId is null)
+        {
+            return;
+        }
+
+        _actionBusy = true;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var flaggedEventService = scope.ServiceProvider.GetRequiredService<IFlaggedEventService>();
+
+            var updated = await flaggedEventService.AcknowledgeEventAsync(Id, reviewerId.Value);
+            if (updated == null)
+            {
+                await Toast.ErrorAsync("Error acknowledging event: flagged event not found.");
+                return;
+            }
+
+            Logger.LogInformation("Flagged event {EventId} acknowledged by reviewer {ReviewerId}", Id, reviewerId.Value);
+
+            // The old JS reloaded the page; reload the data in place instead.
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error acknowledging flagged event {EventId}", Id);
+            await Toast.ErrorAsync("An error occurred while acknowledging the event.");
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+    }
+
+    private async Task TakeActionAsync(string action)
+    {
+        _actionDropdownOpen = false;
+
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Confirm Action",
+            Message = $"Are you sure you want to take this action: {action}?",
+            Variant = ConfirmationVariant.Danger,
+            ConfirmText = action
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        var reviewerId = await AuthorizeActionAsync();
+        if (reviewerId is null)
+        {
+            return;
+        }
+
+        _actionBusy = true;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var flaggedEventService = scope.ServiceProvider.GetRequiredService<IFlaggedEventService>();
+
+            var updated = await flaggedEventService.TakeActionAsync(Id, action, reviewerId.Value);
+            if (updated == null)
+            {
+                await Toast.ErrorAsync("Error taking action: flagged event not found.");
+                return;
+            }
+
+            Logger.LogInformation("Flagged event {EventId} actioned by reviewer {ReviewerId}: {Action}",
+                Id, reviewerId.Value, action);
+
+            await LoadAsync();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error taking action on flagged event {EventId}", Id);
+            await Toast.ErrorAsync("An error occurred while taking action.");
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+    }
+
+    private void ShowCustomActionModal()
+    {
+        _actionDropdownOpen = false;
+        _customActionModalVisible = true;
+    }
+
+    private void HideCustomActionModal()
+    {
+        _customActionModalVisible = false;
+        _customActionText = string.Empty;
+    }
+
+    private async Task SubmitCustomActionAsync()
+    {
+        var actionText = _customActionText.Trim();
+        if (string.IsNullOrEmpty(actionText))
+        {
+            await Toast.WarningAsync("Please enter an action description.");
+            return;
+        }
+
+        HideCustomActionModal();
+        await TakeActionAsync(actionText);
+    }
+}

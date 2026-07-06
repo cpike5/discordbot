@@ -55,6 +55,26 @@
             }
         },
 
+        // Downloads in-memory text content as a named file (Blob + object URL) — the
+        // Blazor equivalent of the legacy inline export scripts that built a Blob and
+        // clicked a transient anchor (e.g. the audit-entry JSON export).
+        downloadData: function (filename, mimeType, content) {
+            try {
+                var blob = new Blob([content], { type: mimeType || "application/octet-stream" });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = filename || "download";
+                a.rel = "noopener";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error("blazorInterop.downloadData failed", e);
+            }
+        },
+
         // Copies text to the clipboard; returns true on success so the caller can
         // raise the matching toast from .NET. Mirrors the legacy copyUserId helper.
         copyText: async function (text) {
