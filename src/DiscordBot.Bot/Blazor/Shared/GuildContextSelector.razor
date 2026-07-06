@@ -1,0 +1,82 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_GuildContextSelector.cshtml.
+    The partial's inline onclick toggle + document-click-outside script are
+    replaced by native C# open/close state (invisible backdrop closes, same
+    pattern as MemberDirectoryIsland's role dropdown). Selection stays plain
+    navigation via href, exactly like the partial.
+*@
+
+@if (Guilds.Count == 0)
+{
+    <span class="text-sm text-text-tertiary italic">No guilds available</span>
+}
+else if (Guilds.Count == 1)
+{
+    var guild = Guilds[0];
+    var url = RouteTemplate.Replace("{guildId}", guild.GuildId);
+    <a href="@url" class="inline-flex items-center gap-2 text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+        @if (!string.IsNullOrEmpty(guild.GuildIconUrl))
+        {
+            <img src="@guild.GuildIconUrl" alt="" class="w-4 h-4 rounded-full" />
+        }
+        <span>Open in @guild.GuildName</span>
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+        </svg>
+    </a>
+}
+else
+{
+    <div class="relative inline-block">
+        <button type="button"
+                class="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/20 rounded-lg hover:bg-accent-blue/20 transition-colors"
+                aria-haspopup="true"
+                aria-expanded="@(_open ? "true" : "false")"
+                @onclick="() => _open = !_open">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+            </svg>
+            <span>Select guild</span>
+            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+        @if (_open)
+        {
+            <div class="fixed inset-0 z-40" @onclick="() => _open = false"></div>
+            <div class="absolute left-0 z-50 mt-1 w-56 bg-bg-secondary border border-border-primary rounded-lg shadow-lg overflow-hidden">
+                @foreach (var guild in Guilds)
+                {
+                    var guildUrl = RouteTemplate.Replace("{guildId}", guild.GuildId);
+                    <a href="@guildUrl"
+                       class="flex items-center gap-3 px-4 py-2.5 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                        @if (!string.IsNullOrEmpty(guild.GuildIconUrl))
+                        {
+                            <img src="@guild.GuildIconUrl" alt="" class="w-5 h-5 rounded-full flex-shrink-0" />
+                        }
+                        else
+                        {
+                            <div class="w-5 h-5 rounded-full bg-bg-tertiary flex items-center justify-center flex-shrink-0">
+                                <span class="text-xs font-medium text-text-secondary">@guild.GuildName.FirstOrDefault()</span>
+                            </div>
+                        }
+                        <span class="truncate">@guild.GuildName</span>
+                    </a>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Route with a <c>{guildId}</c> token, e.g. <c>/Guilds/{guildId}/Members</c>.</summary>
+    [Parameter] public string RouteTemplate { get; set; } = string.Empty;
+
+    /// <summary>Guilds offered for navigation. 0 → placeholder, 1 → direct link, 2+ → dropdown.</summary>
+    [Parameter] public IReadOnlyList<GuildSelectorItem> Guilds { get; set; } = [];
+
+    private bool _open;
+}

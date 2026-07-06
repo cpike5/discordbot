@@ -1,0 +1,41 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_Skeleton.cshtml.
+    Takes the existing SkeletonViewModel (6 props) as a single parameter.
+*@
+
+<div class="@AllClasses" aria-hidden="true"></div>
+
+@code {
+    [Parameter] public SkeletonViewModel Model { get; set; } = new();
+
+    private (string DefaultWidth, string DefaultHeight, string DefaultRounded) Defaults => Model.Type switch
+    {
+        SkeletonType.Text => ("w-full", "h-4", "rounded"),
+        SkeletonType.Title => ("w-full", "h-6", "rounded"),
+        SkeletonType.Avatar => ("w-10", "h-10", "rounded-full"),
+        SkeletonType.AvatarSmall => ("w-8", "h-8", "rounded-full"),
+        SkeletonType.AvatarLarge => ("w-16", "h-16", "rounded-full"),
+        SkeletonType.Button => ("w-24", "h-10", "rounded-md"),
+        SkeletonType.Card => ("w-full", "h-32", "rounded-lg"),
+        SkeletonType.Rectangle => ("w-full", "h-20", "rounded-md"),
+        _ => ("w-full", "h-4", "rounded")
+    };
+
+    private string AllClasses
+    {
+        get
+        {
+            var (defaultWidth, defaultHeight, defaultRounded) = Defaults;
+            var width = Model.Width ?? defaultWidth;
+            var height = Model.Height ?? defaultHeight;
+            var rounded = Model.Rounded ? defaultRounded : "";
+            var animateClass = Model.Animate ? "skeleton" : "skeleton-static";
+            var additionalClass = Model.CssClass ?? "";
+
+            return $"{width} {height} {rounded} {animateClass} {additionalClass}".Trim();
+        }
+    }
+}

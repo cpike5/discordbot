@@ -1,0 +1,114 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_LoadingSpinner.cshtml.
+    Takes the existing LoadingSpinnerViewModel (6 props) as a single parameter.
+*@
+
+@if (Model.IsOverlay)
+{
+    <div class="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-bg-primary/80 rounded-lg">
+        @if (Model.Variant == SpinnerVariant.Dots)
+        {
+            <div class="flex items-center justify-center gap-1.5">
+                <div class="@DotSize @BgColorClass rounded-full animate-bounce" style="animation-delay: -0.32s"></div>
+                <div class="@DotSize @BgColorClass rounded-full animate-bounce" style="animation-delay: -0.16s"></div>
+                <div class="@DotSize @BgColorClass rounded-full animate-bounce"></div>
+            </div>
+        }
+        else if (Model.Variant == SpinnerVariant.Pulse)
+        {
+            <div class="relative flex items-center justify-center">
+                <div class="absolute @OuterSize @BorderWidth @BorderColorClass rounded-full animate-ping opacity-75"></div>
+                <div class="@InnerSize @BgColorClass rounded-full animate-pulse"></div>
+            </div>
+        }
+        else
+        {
+            <div class="@OuterSize @BorderWidth border-white/20 @ColorClass rounded-full animate-spin"></div>
+        }
+        @if (!string.IsNullOrEmpty(Model.Message))
+        {
+            <p class="text-sm text-text-primary">@Model.Message</p>
+        }
+        @if (!string.IsNullOrEmpty(Model.SubMessage))
+        {
+            <p class="text-xs text-text-tertiary">@Model.SubMessage</p>
+        }
+    </div>
+}
+else
+{
+    <div class="@(string.IsNullOrEmpty(Model.Message) ? "inline-flex" : "flex flex-col items-center justify-center gap-3")">
+        @if (Model.Variant == SpinnerVariant.Dots)
+        {
+            <div class="flex items-center justify-center gap-1.5">
+                <div class="@DotSize @BgColorClass rounded-full animate-bounce" style="animation-delay: -0.32s"></div>
+                <div class="@DotSize @BgColorClass rounded-full animate-bounce" style="animation-delay: -0.16s"></div>
+                <div class="@DotSize @BgColorClass rounded-full animate-bounce"></div>
+            </div>
+        }
+        else if (Model.Variant == SpinnerVariant.Pulse)
+        {
+            <div class="relative flex items-center justify-center">
+                <div class="absolute @OuterSize @BorderWidth @BorderColorClass rounded-full animate-ping opacity-75"></div>
+                <div class="@InnerSize @BgColorClass rounded-full animate-pulse"></div>
+            </div>
+        }
+        else
+        {
+            <div class="@OuterSize @BorderWidth border-white/20 @ColorClass rounded-full animate-spin"></div>
+        }
+        @if (!string.IsNullOrEmpty(Model.Message))
+        {
+            <p class="text-sm text-text-primary">@Model.Message</p>
+        }
+        @if (!string.IsNullOrEmpty(Model.SubMessage))
+        {
+            <p class="text-xs text-text-tertiary">@Model.SubMessage</p>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public LoadingSpinnerViewModel Model { get; set; } = new();
+
+    private (string OuterSize, string InnerSize, string BorderWidth) Sizes => Model.Size switch
+    {
+        SpinnerSize.Small => ("w-6 h-6", "w-3 h-3", "border-2"),
+        SpinnerSize.Large => ("w-16 h-16", "w-8 h-8", "border-4"),
+        _ => ("w-10 h-10", "w-5 h-5", "border-[3px]")
+    };
+
+    private string OuterSize => Sizes.OuterSize;
+    private string InnerSize => Sizes.InnerSize;
+    private string BorderWidth => Sizes.BorderWidth;
+
+    private string ColorClass => Model.Color switch
+    {
+        SpinnerColor.Orange => "border-t-accent-orange",
+        SpinnerColor.White => "border-white/20 border-t-white",
+        _ => "border-t-accent-blue"
+    };
+
+    private string BgColorClass => Model.Color switch
+    {
+        SpinnerColor.Orange => "bg-accent-orange",
+        SpinnerColor.White => "bg-white",
+        _ => "bg-accent-blue"
+    };
+
+    private string BorderColorClass => Model.Color switch
+    {
+        SpinnerColor.White => "border-white",
+        _ => $"border-{(Model.Color == SpinnerColor.Orange ? "accent-orange" : "accent-blue")}"
+    };
+
+    private string DotSize => Model.Size switch
+    {
+        SpinnerSize.Small => "w-1.5 h-1.5",
+        SpinnerSize.Large => "w-4 h-4",
+        _ => "w-2.5 h-2.5"
+    };
+}

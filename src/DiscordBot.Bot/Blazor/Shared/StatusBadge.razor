@@ -1,0 +1,27 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Core.Enums
+
+@*
+    Blazor twin of Pages/Shared/Components/_StatusBadge.cshtml.
+    Renders a status badge for a FlaggedEventStatus value.
+*@
+
+<span class="status-badge @StatusClass">
+    @Label
+</span>
+
+@code {
+    [Parameter] public FlaggedEventStatus Status { get; set; }
+
+    private (string StatusClass, string Label) Mapped => Status switch
+    {
+        FlaggedEventStatus.Pending => ("status-pending", "Pending"),
+        FlaggedEventStatus.Dismissed => ("status-dismissed", "Dismissed"),
+        FlaggedEventStatus.Acknowledged => ("status-acknowledged", "Acknowledged"),
+        FlaggedEventStatus.Actioned => ("status-actioned", "Actioned"),
+        _ => ("status-dismissed", "Unknown")
+    };
+
+    private string StatusClass => Mapped.StatusClass;
+    private string Label => Mapped.Label;
+}

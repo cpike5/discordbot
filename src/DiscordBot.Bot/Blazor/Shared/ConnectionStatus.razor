@@ -1,0 +1,33 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_ConnectionStatus.cshtml.
+    SignalR connection status pill; styling of the dot/text is driven by the
+    data-state attribute via the site stylesheet, same as the partial.
+*@
+
+<div id="connection-status"
+     class="connection-status inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-bg-tertiary border border-border-primary"
+     data-state="@StateStr"
+     role="status"
+     aria-live="polite">
+    <span class="connection-dot relative w-2 h-2 rounded-full"></span>
+    <span class="connection-text">@DisplayText</span>
+</div>
+
+@code {
+    [Parameter] public ConnectionState State { get; set; } = ConnectionState.Disconnected;
+    [Parameter] public string? CustomText { get; set; }
+
+    private string StateStr => State.ToString().ToLowerInvariant();
+
+    private string DisplayText => CustomText ?? State switch
+    {
+        ConnectionState.Connected => "Connected",
+        ConnectionState.Connecting => "Connecting...",
+        ConnectionState.Reconnecting => "Reconnecting...",
+        ConnectionState.Disconnected => "Disconnected",
+        _ => "Unknown"
+    };
+}

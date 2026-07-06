@@ -1,0 +1,215 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@typeparam TItem
+@implements IDisposable
+@using DiscordBot.Bot.Blazor.Common
+
+@*
+    Blazor twin of Pages/Shared/Components/_AutocompleteInput.cshtml.
+    The partial delegates all behavior to wwwroot/js/autocomplete.js
+    (AutocompleteManager); this component owns the behavior natively:
+    - text input bound oninput, debounced via Blazor/Common/Debouncer (~300ms)
+    - SearchFunc delegate replaces the JSON endpoint fetch
+    - dropdown of results rendered through ItemTemplate
+    - click (mousedown, so it wins the blur race) or Enter selects → OnSelect
+    - Escape/blur closes; ArrowUp/ArrowDown move the highlight
+    The hidden input is kept for form-post parity with the partial.
+*@
+
+<div class="space-y-1.5">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@SearchInputId" class="block text-sm font-medium text-text-primary">
+            @Label
+            @if (IsRequired)
+            {
+                <span class="text-error">*</span>
+            }
+        </label>
+    }
+
+    <div class="autocomplete-wrapper relative">
+        <input
+            type="text"
+            id="@SearchInputId"
+            class="form-input w-full"
+            placeholder="@(Placeholder ?? "Search...")"
+            autocomplete="off"
+            aria-required="@(IsRequired ? "true" : null)"
+            aria-describedby="@(!string.IsNullOrEmpty(HelpText) ? HelpTextId : null)"
+            aria-expanded="@(_open ? "true" : "false")"
+            value="@_searchText"
+            @oninput="OnInputAsync"
+            @onkeydown="OnKeyDownAsync"
+            @onblur="CloseDropdown"
+        />
+        <input
+            type="hidden"
+            id="@Id"
+            name="@Name"
+            value="@_value"
+        />
+        @if (_open)
+        {
+            <div class="absolute z-10 mt-1 w-full bg-bg-tertiary border border-border-primary rounded-lg shadow-lg max-h-60 overflow-auto" role="listbox">
+                @if (_results.Count == 0)
+                {
+                    <div class="px-3 py-4 text-center text-sm text-text-tertiary">@NoResultsMessage</div>
+                }
+                else
+                {
+                    @for (var i = 0; i < _results.Count; i++)
+                    {
+                        var index = i;
+                        var item = _results[index];
+                        <div role="option"
+                             aria-selected="@(index == _highlightIndex ? "true" : "false")"
+                             class="px-3 py-2 text-sm text-text-primary cursor-pointer transition-colors @(index == _highlightIndex ? "bg-bg-hover" : "hover:bg-bg-hover")"
+                             @onmousedown="() => SelectAsync(item)"
+                             @onmousedown:preventDefault>
+                            @if (ItemTemplate is not null)
+                            {
+                                @ItemTemplate(item)
+                            }
+                            else
+                            {
+                                @GetDisplayText(item)
+                            }
+                        </div>
+                    }
+                }
+            </div>
+        }
+    </div>
+
+    @if (!string.IsNullOrEmpty(HelpText))
+    {
+        <p id="@HelpTextId" class="text-xs text-text-secondary">@HelpText</p>
+    }
+</div>
+
+@code {
+    /// <summary>ID for the hidden value input; also the base for related element IDs (matches the partial).</summary>
+    [Parameter] public string Id { get; set; } = string.Empty;
+
+    /// <summary>Form name for the hidden value input.</summary>
+    [Parameter] public string Name { get; set; } = string.Empty;
+
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public bool IsRequired { get; set; }
+
+    /// <summary>Initial display text when editing existing data.</summary>
+    [Parameter] public string? InitialDisplayText { get; set; }
+
+    /// <summary>Initial hidden-input value when editing existing data.</summary>
+    [Parameter] public string? InitialValue { get; set; }
+
+    /// <summary>Minimum characters before a search fires.</summary>
+    [Parameter] public int MinChars { get; set; } = 2;
+
+    /// <summary>Debounce delay in milliseconds.</summary>
+    [Parameter] public int DebounceMs { get; set; } = 300;
+
+    [Parameter] public string NoResultsMessage { get; set; } = "No results found";
+
+    /// <summary>Server-side search — replaces the partial's JSON endpoint fetch.</summary>
+    [Parameter] public Func<string, Task<IReadOnlyList<TItem>>>? SearchFunc { get; set; }
+
+    /// <summary>Template for a result row; falls back to <see cref="DisplayTextSelector"/> / ToString().</summary>
+    [Parameter] public RenderFragment<TItem>? ItemTemplate { get; set; }
+
+    /// <summary>Raised when the user picks a result.</summary>
+    [Parameter] public EventCallback<TItem> OnSelect { get; set; }
+
+    /// <summary>Text placed into the search input after selection.</summary>
+    [Parameter] public Func<TItem, string>? DisplayTextSelector { get; set; }
+
+    /// <summary>Value placed into the hidden input after selection (form-post parity with the partial).</summary>
+    [Parameter] public Func<TItem, string>? ValueSelector { get; set; }
+
+    private string SearchInputId => $"{Id}-search";
+    private string HelpTextId => $"{Id}-help";
+
+    private Debouncer? _debouncer;
+    private string _searchText = string.Empty;
+    private string? _value;
+    private List<TItem> _results = new();
+    private bool _open;
+    private int _highlightIndex = -1;
+
+    protected override void OnInitialized()
+    {
+        _debouncer = new Debouncer(DebounceMs);
+        _searchText = InitialDisplayText ?? string.Empty;
+        _value = InitialValue;
+    }
+
+    private async Task OnInputAsync(ChangeEventArgs e)
+    {
+        _searchText = e.Value?.ToString() ?? string.Empty;
+
+        if (_searchText.Length < MinChars || SearchFunc is null)
+        {
+            _open = false;
+            _results.Clear();
+            _highlightIndex = -1;
+            return;
+        }
+
+        var term = _searchText;
+        await _debouncer!.DebounceAsync(async _ =>
+        {
+            var results = await SearchFunc(term);
+            await InvokeAsync(() =>
+            {
+                _results = results.ToList();
+                _highlightIndex = _results.Count > 0 ? 0 : -1;
+                _open = true;
+                StateHasChanged();
+            });
+        });
+    }
+
+    private async Task OnKeyDownAsync(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Escape":
+                CloseDropdown();
+                break;
+            case "ArrowDown" when _open && _results.Count > 0:
+                _highlightIndex = (_highlightIndex + 1) % _results.Count;
+                break;
+            case "ArrowUp" when _open && _results.Count > 0:
+                _highlightIndex = (_highlightIndex - 1 + _results.Count) % _results.Count;
+                break;
+            case "Enter" when _open && _highlightIndex >= 0 && _highlightIndex < _results.Count:
+                await SelectAsync(_results[_highlightIndex]);
+                break;
+        }
+    }
+
+    private async Task SelectAsync(TItem item)
+    {
+        _searchText = GetDisplayText(item);
+        _value = ValueSelector?.Invoke(item) ?? item?.ToString();
+        CloseDropdown();
+
+        if (OnSelect.HasDelegate)
+        {
+            await OnSelect.InvokeAsync(item);
+        }
+    }
+
+    private void CloseDropdown()
+    {
+        _open = false;
+        _highlightIndex = -1;
+    }
+
+    private string GetDisplayText(TItem item) =>
+        DisplayTextSelector?.Invoke(item) ?? item?.ToString() ?? string.Empty;
+
+    public void Dispose() => _debouncer?.Dispose();
+}
