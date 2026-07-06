@@ -5,7 +5,7 @@
 # protocol) needs GLIBC 2.38 / GLIBCXX 3.4.32. Debian Bookworm (the default
 # 8.0 tag) ships older versions, and Alpine uses musl instead of glibc, so
 # neither can load the prebuilt libdave binary.
-FROM mcr.microsoft.com/dotnet/sdk:8.0-noble AS build
+FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 
 WORKDIR /src
 
@@ -60,7 +60,7 @@ RUN dotnet publish src/DiscordBot.Bot/DiscordBot.Bot.csproj \
 # Runtime Stage
 # =============================================================================
 # See build stage comment for why Noble is required (libdave glibc dependency).
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-noble AS runtime
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-noble AS runtime
 
 # Install runtime dependencies (audio libs + curl for health checks)
 RUN apt-get update && apt-get install -y --no-install-recommends \

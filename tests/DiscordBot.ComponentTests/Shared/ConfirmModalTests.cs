@@ -19,14 +19,17 @@ public class ConfirmModalTests : TestContext
     {
         var cut = RenderComponent<ConfirmModal>();
 
-        await cut.InvokeAsync(() => _ = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest
+        await cut.InvokeAsync(() =>
         {
-            Title = "Delete Tag",
-            Message = "This cannot be undone.",
-            ConfirmText = "Delete",
-            CancelText = "Keep",
-            Variant = ConfirmationVariant.Danger
-        }));
+            _ = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest
+            {
+                Title = "Delete Tag",
+                Message = "This cannot be undone.",
+                ConfirmText = "Delete",
+                CancelText = "Keep",
+                Variant = ConfirmationVariant.Danger
+            });
+        });
 
         cut.Find("[role=alertdialog]").TextContent.Should().Contain("Delete Tag");
         cut.Find("[role=alertdialog]").TextContent.Should().Contain("This cannot be undone.");
@@ -39,7 +42,9 @@ public class ConfirmModalTests : TestContext
         Task<bool> result = Task.FromResult(false);
 
         await cut.InvokeAsync(() =>
-            result = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest { Title = "T", Message = "M", ConfirmText = "Yes" }));
+        {
+            result = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest { Title = "T", Message = "M", ConfirmText = "Yes" });
+        });
 
         cut.FindAll("button").Single(b => b.TextContent.Trim() == "Yes").Click();
 
@@ -54,7 +59,9 @@ public class ConfirmModalTests : TestContext
         Task<bool> result = Task.FromResult(true);
 
         await cut.InvokeAsync(() =>
-            result = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest { Title = "T", Message = "M", CancelText = "No" }));
+        {
+            result = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest { Title = "T", Message = "M", CancelText = "No" });
+        });
 
         cut.FindAll("button").Single(b => b.TextContent.Trim() == "No").Click();
 
@@ -68,7 +75,9 @@ public class ConfirmModalTests : TestContext
         Task<bool> result = Task.FromResult(true);
 
         await cut.InvokeAsync(() =>
-            result = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest { Title = "T", Message = "M" }));
+        {
+            result = cut.Instance.ShowAsync(new ConfirmModal.ConfirmRequest { Title = "T", Message = "M" });
+        });
 
         cut.Find("div.bg-black\\/70").Click();
 

@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Blazor.Shared;
 using FluentAssertions;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Components.Web;
 
 namespace DiscordBot.ComponentTests.Shared;
 
@@ -52,12 +53,15 @@ public class TabbedFormShellTests : TestContext
         var cut = Render();
         await cut.InvokeAsync(() => cut.Instance.MarkDirtyAsync());
 
-        cut.Find("#tab-btn-spam").Click();
+        // The click handler awaits the guard modal, so hold the task un-awaited
+        // until the modal is dismissed (a sync Click() would deadlock).
+        var switchTask = cut.Find("#tab-btn-spam").ClickAsync(new MouseEventArgs());
 
         // Guard modal is up; cancel keeps the current tab and the dirty flag.
         var dialog = cut.Find("[role=alertdialog]");
         dialog.TextContent.Should().Contain("Unsaved Changes");
         cut.FindAll("button").Single(b => b.TextContent.Trim() == "Stay").Click();
+        await switchTask;
 
         cut.Instance.ActiveTab.Should().Be("overview");
         cut.Instance.IsDirty.Should().BeTrue();
@@ -69,8 +73,9 @@ public class TabbedFormShellTests : TestContext
         var cut = Render();
         await cut.InvokeAsync(() => cut.Instance.MarkDirtyAsync());
 
-        cut.Find("#tab-btn-spam").Click();
+        var switchTask = cut.Find("#tab-btn-spam").ClickAsync(new MouseEventArgs());
         cut.FindAll("button").Single(b => b.TextContent.Trim() == "Switch Tab").Click();
+        await switchTask;
 
         cut.Instance.ActiveTab.Should().Be("spam");
         cut.Instance.IsDirty.Should().BeFalse();
