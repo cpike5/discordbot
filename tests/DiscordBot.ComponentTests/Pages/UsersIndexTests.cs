@@ -103,8 +103,7 @@ public class UsersIndexTests : TestContext
         var cut = RenderComponent<UsersIndex>();
         _queries.Clear();
 
-        // selects: [0] Role, [1] Status, [2] Discord
-        cut.FindAll("select")[1].Change("true");
+        cut.Find("#ActiveFilter").Change("true");
 
         cut.WaitForAssertion(() =>
         {
