@@ -288,6 +288,9 @@ try
 
     app.UseAuthorization();
 
+    // Required by MapRazorComponents (routed Blazor pages); must follow auth.
+    app.UseAntiforgery();
+
     app.MapControllers();
     app.MapDiscordBotHealthChecks();
     app.MapRazorPages();
@@ -295,9 +298,12 @@ try
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");
 
-    // Map the Blazor Server circuit hub (/_blazor) used by interactive islands.
-    // Coexists with the dashboard hub above; non-Blazor pages are unaffected.
-    app.MapBlazorHub();
+    // Routed Blazor pages (Blazor/App.razor) — coexists with MapRazorPages while
+    // pages migrate one at a time. AddInteractiveServerRenderMode maps the circuit
+    // hub at /_blazor, which also serves the classic component-tag-helper islands
+    // (blazor.server.js), so MapBlazorHub is no longer called separately.
+    app.MapRazorComponents<DiscordBot.Bot.Blazor.App>()
+        .AddInteractiveServerRenderMode();
 
     // Map Prometheus metrics endpoint
     app.UseOpenTelemetryPrometheusScrapingEndpoint();

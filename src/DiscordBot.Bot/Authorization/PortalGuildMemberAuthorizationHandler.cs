@@ -48,21 +48,32 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
             return;
         }
 
+        // Resource-based callers (Blazor circuits have no route values) pass the
+        // guild id directly: AuthorizeAsync(user, guildId, policy). The HttpContext
+        // is still used below for the forbidden/not-found signalling when present.
         var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext == null)
+        ulong guildId;
+        if (context.Resource is ulong resourceGuildId)
         {
-            _logger.LogWarning("PortalGuildMember: HttpContext is null");
-            return;
+            guildId = resourceGuildId;
         }
-
-        // Extract guild ID from route
-        var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
-            ?? httpContext.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
-
-        if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out var guildId))
+        else
         {
-            _logger.LogDebug("PortalGuildMember: No valid guildId found in route or query");
-            return;
+            if (httpContext == null)
+            {
+                _logger.LogWarning("PortalGuildMember: HttpContext is null");
+                return;
+            }
+
+            // Extract guild ID from route
+            var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
+                ?? httpContext.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
+
+            if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out guildId))
+            {
+                _logger.LogDebug("PortalGuildMember: No valid guildId found in route or query");
+                return;
+            }
         }
 
         // Check if user is authenticated
@@ -146,16 +157,22 @@ public class PortalGuildMemberAuthorizationHandler : AuthorizationHandler<Portal
     /// <summary>
     /// Sets an item in HttpContext to signal a 403 Forbidden response.
     /// </summary>
-    private static void SetForbiddenResult(HttpContext httpContext)
+    private static void SetForbiddenResult(HttpContext? httpContext)
     {
-        httpContext.Items["AuthorizationFailureReason"] = "Forbidden";
+        if (httpContext != null)
+        {
+            httpContext.Items["AuthorizationFailureReason"] = "Forbidden";
+        }
     }
 
     /// <summary>
     /// Sets an item in HttpContext to signal a 404 Not Found response.
     /// </summary>
-    private static void SetNotFoundResult(HttpContext httpContext)
+    private static void SetNotFoundResult(HttpContext? httpContext)
     {
-        httpContext.Items["AuthorizationFailureReason"] = "NotFound";
+        if (httpContext != null)
+        {
+            httpContext.Items["AuthorizationFailureReason"] = "NotFound";
+        }
     }
 }

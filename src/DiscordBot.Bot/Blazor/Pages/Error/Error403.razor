@@ -1,0 +1,51 @@
+@page "/Error/403"
+@namespace DiscordBot.Bot.Blazor.Pages.Error
+@attribute [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+@layout DiscordBot.Bot.Blazor.Layout.EmptyLayout
+
+<PageTitle>Access Forbidden - Discord Bot Admin</PageTitle>
+
+<StandaloneErrorShell IconPath="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                      Title="Access Forbidden"
+                      Subtitle="You don't have permission to access this resource."
+                      BannerTitle="403 Forbidden"
+                      BannerMessage="Access to this resource is restricted.">
+    <AuthorizeView>
+        <Authorized>
+            <p class="text-sm text-text-primary mb-4">
+                You are currently signed in, but you don't have the necessary permissions to access this resource.
+            </p>
+
+            <p class="text-sm text-text-secondary mb-6">
+                If you believe you should have access, please contact your administrator.
+            </p>
+
+            <div class="flex gap-3">
+                <a href="/" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Go to Dashboard
+                </a>
+                <button onclick="history.back()" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Go Back
+                </button>
+            </div>
+        </Authorized>
+        <NotAuthorized>
+            <p class="text-sm text-text-primary mb-4">
+                You need to be signed in to access this resource. Please sign in with your credentials.
+            </p>
+
+            <p class="text-sm text-text-secondary mb-6">
+                After signing in, you may be able to access this page if you have the necessary permissions.
+            </p>
+
+            <div class="flex gap-3">
+                <a href="/" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Go to Dashboard
+                </a>
+                <a href="/Account/Login" class="flex-1 text-center py-2.5 px-4 text-sm font-semibold text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Sign In
+                </a>
+            </div>
+        </NotAuthorized>
+    </AuthorizeView>
+</StandaloneErrorShell>

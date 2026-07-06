@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Handlers;
+using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Extensions;
@@ -31,17 +32,31 @@ public static class WebServiceExtensions
         services.AddRazorPages();
         services.AddEndpointsApiExplorer();
 
-        // Blazor Server foundation (islands-first modernization — see
-        // docs/architecture/blazor-modernization-selective-plan.md). Interactive
-        // components are embedded into existing Razor Pages via the component tag
-        // helper; routing and auth stay with Razor Pages.
+        // Blazor Server foundation. Two hosting modes coexist during the migration
+        // (docs/architecture/blazor-completion-plan.md Phase C):
+        //  - islands embedded in Razor Pages via the component tag helper
+        //    (blazor.server.js circuits), and
+        //  - routed razor components served by MapRazorComponents<App> — pages
+        //    migrate there one at a time, deleting their .cshtml as they go.
+        // Both modes share the circuit hub mapped by AddInteractiveServerRenderMode.
+        services.AddRazorComponents()
+            .AddInteractiveServerComponents();
         services.AddServerSideBlazor();
         services.AddCascadingAuthenticationState();
 
+        // Circuits outlive the auth cookie — revalidate connected users periodically.
+        services.AddScoped<AuthenticationStateProvider, RevalidatingIdentityAuthenticationStateProvider>();
+
+        // Per-circuit client info (IP/user agent) captured from the initial request
+        // so audit logging keeps recording an address for in-circuit actions.
+        services.AddScoped<CircuitClientInfoService>();
+
         // Interop bridges to the existing toast.js / theme.js modules so islands
-        // reuse the portal's notification and theme systems.
+        // reuse the portal's notification and theme systems. ChartJsInterop bridges
+        // Chart.js (kept permanently) for chart-bearing Blazor pages.
         services.AddScoped<ToastInterop>();
         services.AddScoped<ThemeInterop>();
+        services.AddScoped<ChartJsInterop>();
 
         // In-process event bus (Slice 2): real-time islands (NotificationBell,
         // BotStatusCard) subscribe to this instead of a second hub connection; the

@@ -1199,7 +1199,10 @@ else
         Blazor.start({
             configureSignalR: function (builder) {
                 builder.withUrl('@Url.Content("~/_blazor")');
-            }
+            },
+            // Skip the page-relative "_blazor/initializers" fetch, which 404s on
+            // nested routes and kills the circuit (see _Layout.cshtml).
+            initializers: { beforeStart: [], afterStarted: [] }
         });
     </script>
     <script src="~/js/soundboard-island.js" asp-append-version="true"></script>
