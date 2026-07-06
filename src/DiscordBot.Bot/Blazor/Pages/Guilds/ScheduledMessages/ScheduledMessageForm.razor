@@ -1,0 +1,477 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds.ScheduledMessages
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Core.Utilities
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IJSRuntime JS
+
+@*
+    Shared form body for the scheduled message Create/Edit pages (Phase F port of
+    the near-identical markup in Pages/Guilds/ScheduledMessages/Create.cshtml and
+    Edit.cshtml). EditForm + DataAnnotationsValidator replace jQuery unobtrusive
+    validation; the page models' extra OnPost checks (channel selected, cron
+    required + IScheduledMessageService.ValidateCronExpressionAsync for Custom
+    frequency, next execution required) run in HandleSubmitAsync against the same
+    service — cron logic is NOT re-implemented — and surface through a
+    ValidationMessageStore on the same fields.
+
+    The old timezone.js round-trip (hidden Input.UserTimezone + client-side
+    default/UTC-to-local conversion) becomes: detect the IANA timezone via
+    timezoneUtils.getTimezone on first render, convert the stored UTC value to
+    local for the datetime-local input (edit) or default it to now+5min rounded
+    to the next 5-minute mark (create), then convert back to UTC with
+    TimezoneHelper.ConvertToUtc at submit — the exact helper the page models used.
+    The inline char-count/preview/frequency-selector scripts become plain bindings.
+*@
+
+<EditForm EditContext="_editContext" OnSubmit="HandleSubmitAsync">
+    <DataAnnotationsValidator />
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Form Column (2/3 width) -->
+        <div class="lg:col-span-2 space-y-6">
+            <!-- Message Content Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Message Content</h2>
+
+                <!-- Title Field -->
+                <div class="mb-4">
+                    <label for="Input_Title" class="block text-sm font-medium text-text-primary mb-2">
+                        Title
+                    </label>
+                    <InputText id="Input_Title"
+                               @bind-Value="Input.Title"
+                               class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                               placeholder="Enter a descriptive title..."
+                               maxlength="200" />
+                    <p class="text-xs text-text-tertiary mt-1">A short title to identify this scheduled message</p>
+                    <ValidationMessage For="() => Input.Title" class="text-error text-xs" />
+                </div>
+
+                <!-- Message Textarea -->
+                <div class="mb-4">
+                    <label for="Input_Content" class="block text-sm font-medium text-text-primary mb-2">
+                        Message
+                    </label>
+    @* Plain textarea (not InputTextArea) so @bind:event="oninput" drives the live
+       char count and Discord preview, like the old updateCharCount()/updatePreview(). *@
+                    <textarea id="Input_Content"
+                              @bind="Input.Content"
+                              @bind:event="oninput"
+                              rows="4"
+                              class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                              placeholder="Enter your message..."
+                              maxlength="2000"></textarea>
+                    <div class="flex items-center justify-between mt-2">
+                        <p class="text-xs text-text-tertiary">Supports Discord markdown formatting</p>
+                        <p class="text-xs text-text-secondary">
+                            <span id="char-count">@(Input.Content?.Length ?? 0)</span>/2000
+                        </p>
+                    </div>
+                    <ValidationMessage For="() => Input.Content" class="text-error text-xs" />
+                </div>
+
+                <!-- Channel Selector -->
+                <div>
+                    <label for="Input_ChannelId" class="block text-sm font-medium text-text-primary mb-2">
+                        Target Channel
+                    </label>
+                    <div class="relative">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                            </svg>
+                        </div>
+                        <InputSelect id="Input_ChannelId"
+                                     @bind-Value="Input.ChannelId"
+                                     class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20">
+                            <option value="">Select a channel...</option>
+                            @foreach (var channel in AvailableChannels)
+                            {
+                                var prefix = channel.Type switch
+                                {
+                                    ChannelDisplayType.Text => "#",
+                                    ChannelDisplayType.Voice => "🔊",
+                                    ChannelDisplayType.Announcement => "📢",
+                                    ChannelDisplayType.Stage => "🎭",
+                                    ChannelDisplayType.Forum => "💬",
+                                    _ => "#"
+                                };
+                                <option value="@channel.Id">@prefix @channel.Name</option>
+                            }
+                        </InputSelect>
+                        <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                    </div>
+                    <p class="text-xs text-text-secondary mt-1">Select the channel where this message will be sent</p>
+                    <ValidationMessage For="() => Input.ChannelId" class="text-error text-xs" />
+                </div>
+            </div>
+
+            <!-- Schedule Configuration Card -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Schedule</h2>
+
+                <!-- Schedule Type Selector -->
+                <div class="mb-6">
+                    <label class="block text-sm font-medium text-text-primary mb-3">
+                        Schedule Type
+                    </label>
+                    <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                        @foreach (var freq in Enum.GetValues<ScheduleFrequency>())
+                        {
+                            var frequency = freq;
+                            var isSelected = Input.Frequency == frequency;
+                            var icon = frequency switch
+                            {
+                                ScheduleFrequency.Once => "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+                                ScheduleFrequency.Hourly => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+                                ScheduleFrequency.Daily => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+                                ScheduleFrequency.Weekly => "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2",
+                                ScheduleFrequency.Monthly => "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+                                ScheduleFrequency.Custom => "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z",
+                                _ => "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                            };
+                            var label = frequency switch
+                            {
+                                ScheduleFrequency.Once => "One-time",
+                                ScheduleFrequency.Hourly => "Hourly",
+                                ScheduleFrequency.Daily => "Daily",
+                                ScheduleFrequency.Weekly => "Weekly",
+                                ScheduleFrequency.Monthly => "Monthly",
+                                ScheduleFrequency.Custom => "Custom",
+                                _ => frequency.ToString()
+                            };
+                            <button type="button"
+                                    @onclick="() => Input.Frequency = frequency"
+                                    class="schedule-type-option @(isSelected ? "selected" : "") border border-border-secondary rounded-lg p-3 text-center cursor-pointer hover:border-border-primary hover:bg-bg-tertiary transition-colors">
+                                <svg class="w-6 h-6 mx-auto mb-2 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@icon" />
+                                </svg>
+                                <span class="text-xs font-medium text-text-primary">@label</span>
+                            </button>
+                        }
+                    </div>
+                </div>
+
+                <!-- Next Execution Time -->
+                <div class="mb-4">
+                    <label for="Input_NextExecutionAt" class="block text-sm font-medium text-text-primary mb-2">
+                        Next Execution Time
+                    </label>
+                    <InputDate Type="InputDateType.DateTimeLocal"
+                               id="Input_NextExecutionAt"
+                               @bind-Value="Input.NextExecutionAt"
+                               class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20" />
+                    <p class="text-xs text-text-tertiary mt-1">
+                        Your timezone: <span class="timezone-indicator font-medium">@(_timezoneDisplay ?? "Detecting...")</span>
+                    </p>
+                    <ValidationMessage For="() => Input.NextExecutionAt" class="text-error text-xs" />
+                </div>
+
+                <!-- Cron Expression (shown for Custom frequency) -->
+                <div id="cron-expression-container" class="@(Input.Frequency != ScheduleFrequency.Custom ? "hidden" : "")">
+                    <label for="Input_CronExpression" class="block text-sm font-medium text-text-primary mb-2">
+                        Cron Expression
+                    </label>
+                    <InputText id="Input_CronExpression"
+                               @bind-Value="Input.CronExpression"
+                               class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary font-mono focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                               placeholder="0 9 * * 1" />
+                    <p class="text-xs text-text-secondary mt-1">
+                        Standard cron format: minute hour day month weekday
+                        <a href="https://crontab.guru/" target="_blank" class="text-accent-blue hover:underline">Learn more</a>
+                    </p>
+                    <ValidationMessage For="() => Input.CronExpression" class="text-error text-xs" />
+                </div>
+            </div>
+
+            <!-- Status Toggle -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <UiToggle @bind-Value="Input.IsEnabled"
+                          Label="Active"
+                          Description="Enable or disable this scheduled message" />
+            </div>
+
+            <!-- Form Actions -->
+            <div class="flex flex-col sm:flex-row gap-3">
+                <button type="submit"
+                        disabled="@Busy"
+                        class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    @SubmitLabel
+                </button>
+                <a href="@CancelUrl"
+                   class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-border-focus focus-visible:ring-offset-2 focus-visible:ring-offset-bg-primary">
+                    Cancel
+                </a>
+            </div>
+        </div>
+
+        <!-- Preview Column (1/3 width) -->
+        <div class="lg:col-span-1">
+            <div class="lg:sticky lg:top-8 space-y-6">
+                <!-- Message Preview -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h3 class="text-sm font-semibold text-text-primary">Message Preview</h3>
+                    </div>
+                    <div class="p-4">
+                        <!-- Discord-styled Message Preview -->
+                        <div class="bg-[#36393f] rounded-md p-3">
+                            <div class="flex gap-3">
+                                <!-- Bot Avatar -->
+                                <div class="flex-shrink-0">
+                                    <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <!-- Message Content -->
+                                <div class="flex-1 min-w-0">
+                                    <!-- Username and Timestamp -->
+                                    <div class="flex items-center gap-1 mb-1">
+                                        <span class="font-medium text-white text-sm">Bot</span>
+                                        <span class="bg-discord text-white text-[10px] px-1 py-0.5 rounded uppercase font-semibold">BOT</span>
+                                        <span class="text-[#72767d] text-xs ml-1">Today at <span data-utc="@DateTime.UtcNow.ToString("o")" data-format="time">--:--</span></span>
+                                    </div>
+                                    <!-- Message Text -->
+                                    <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
+                                        @if (!string.IsNullOrWhiteSpace(Input.Content))
+                                        {
+                                            var lines = Input.Content.Split('\n');
+                                            for (var i = 0; i < lines.Length; i++)
+                                            {
+                                                @lines[i]
+                                                @if (i < lines.Length - 1)
+                                                {
+                                                    <br />
+                                                }
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <span class="text-[#72767d] italic">Enter a message to see preview...</span>
+                                        }
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schedule Info -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h3 class="text-sm font-semibold text-text-primary">Schedule Information</h3>
+                    </div>
+                    <div class="p-4 space-y-3">
+                        <div class="flex items-start gap-2">
+                            <svg class="w-4 h-4 text-text-tertiary mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <div class="flex-1">
+                                <p class="text-xs text-text-tertiary">Frequency</p>
+                                <p id="schedule-frequency-display" class="text-sm text-text-primary font-medium">
+                                    @(Input.Frequency switch
+                                    {
+                                        ScheduleFrequency.Once => "One-time",
+                                        ScheduleFrequency.Hourly => "Every hour",
+                                        ScheduleFrequency.Daily => "Daily",
+                                        ScheduleFrequency.Weekly => "Weekly",
+                                        ScheduleFrequency.Monthly => "Monthly",
+                                        ScheduleFrequency.Custom => "Custom schedule",
+                                        _ => "Not set"
+                                    })
+                                </p>
+                            </div>
+                        </div>
+                        @if (Input.NextExecutionAt.HasValue)
+                        {
+                            <div class="flex items-start gap-2">
+                                <svg class="w-4 h-4 text-success mt-0.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                </svg>
+                                <div class="flex-1">
+                                    <p class="text-xs text-text-tertiary">Next Run</p>
+                                    @* The input value is already the user's local wall-clock time. *@
+                                    <p class="text-sm text-text-primary font-medium" id="next-run-display">
+                                        @Input.NextExecutionAt.Value.ToString("MMM d, yyyy, h:mm tt")
+                                    </p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(LastExecutedAtUtcIso))
+                {
+                    <!-- Recent Executions -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Recent Executions</h3>
+                        </div>
+                        <div class="p-4">
+                            <div class="flex items-center justify-between p-2 bg-bg-tertiary rounded-md">
+                                <span class="text-sm text-text-secondary" data-utc="@LastExecutedAtUtcIso" data-format="datetime-short"></span>
+                                <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
+                                    Sent
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</EditForm>
+
+@code {
+    /// <summary>The bound form model. In edit mode <c>NextExecutionAt</c> should arrive as stored UTC; it is converted to the user's local time on first render.</summary>
+    [Parameter, EditorRequired] public ScheduledMessageInput Input { get; set; } = new();
+
+    /// <summary>Text channels available as delivery targets.</summary>
+    [Parameter] public List<ChannelSelectItem> AvailableChannels { get; set; } = new();
+
+    /// <summary>True on the Edit page: converts the stored UTC NextExecutionAt to local instead of defaulting it.</summary>
+    [Parameter] public bool IsEditMode { get; set; }
+
+    /// <summary>Last execution time ISO string (edit mode only) for the Recent Executions card.</summary>
+    [Parameter] public string? LastExecutedAtUtcIso { get; set; }
+
+    /// <summary>Submit button label ("Create Message" / "Save Changes").</summary>
+    [Parameter] public string SubmitLabel { get; set; } = "Save";
+
+    /// <summary>Cancel link target (the guild's scheduled messages index).</summary>
+    [Parameter] public string CancelUrl { get; set; } = "/Guilds";
+
+    /// <summary>Disables the submit button while the parent persists.</summary>
+    [Parameter] public bool Busy { get; set; }
+
+    /// <summary>
+    /// Raised after DataAnnotations + the ported page-model validations all pass,
+    /// with the next execution converted to UTC and the detected IANA timezone.
+    /// </summary>
+    [Parameter] public EventCallback<Submission> OnValidatedSubmit { get; set; }
+
+    /// <summary>Validated submit payload handed to the parent page.</summary>
+    public sealed record Submission(DateTime NextExecutionUtc, string? UserTimezone);
+
+    private EditContext _editContext = default!;
+    private ValidationMessageStore _messageStore = default!;
+    private string? _userTimezone;
+    private string? _timezoneDisplay;
+
+    protected override void OnInitialized()
+    {
+        _editContext = new EditContext(Input);
+        _messageStore = new ValidationMessageStore(_editContext);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        try
+        {
+            // Detect the browser timezone (replaces the Input.UserTimezone hidden field
+            // that timezone.js populated for the Razor Pages form).
+            _userTimezone = await JS.InvokeAsync<string>("timezoneUtils.getTimezone");
+            var abbreviation = await JS.InvokeAsync<string>("timezoneUtils.getTimezoneAbbreviation");
+            _timezoneDisplay = string.IsNullOrEmpty(abbreviation) ? _userTimezone : $"{_userTimezone} ({abbreviation})";
+
+            if (IsEditMode)
+            {
+                // Stored value is UTC; show it as the user's local wall-clock time
+                // (replaces timezoneUtils.setDateTimeLocalFromUtc).
+                if (Input.NextExecutionAt.HasValue)
+                {
+                    Input.NextExecutionAt = TimezoneHelper.ConvertFromUtc(
+                        DateTime.SpecifyKind(Input.NextExecutionAt.Value, DateTimeKind.Utc),
+                        _userTimezone);
+                }
+            }
+            else if (!Input.NextExecutionAt.HasValue)
+            {
+                // Default to 5 minutes from now, rounded up to the next 5-minute mark,
+                // in the user's local timezone (replaces timezoneUtils.setDefaultDateTime).
+                var nowLocal = TimezoneHelper.ConvertFromUtc(DateTime.UtcNow, _userTimezone).AddMinutes(5);
+                var rounded = nowLocal.AddMinutes((5 - nowLocal.Minute % 5) % 5);
+                Input.NextExecutionAt = new DateTime(rounded.Year, rounded.Month, rounded.Day, rounded.Hour, rounded.Minute, 0);
+            }
+
+            StateHasChanged();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+
+    private async Task HandleSubmitAsync()
+    {
+        _messageStore.Clear();
+
+        var valid = _editContext.Validate();
+
+        // Ported page-model validations (Create/Edit OnPostAsync), same messages and fields.
+        if (Input.ChannelId is null)
+        {
+            _messageStore.Add(_editContext.Field(nameof(Input.ChannelId)), "A channel must be selected.");
+            valid = false;
+        }
+
+        if (Input.Frequency == ScheduleFrequency.Custom)
+        {
+            if (string.IsNullOrWhiteSpace(Input.CronExpression))
+            {
+                _messageStore.Add(_editContext.Field(nameof(Input.CronExpression)), "Cron expression is required for custom schedules.");
+                valid = false;
+            }
+            else
+            {
+                // Same service-side cron validation the page models used.
+                using var scope = ScopeFactory.CreateScope();
+                var scheduledMessageService = scope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
+                var (isValid, errorMessage) = await scheduledMessageService.ValidateCronExpressionAsync(Input.CronExpression);
+                if (!isValid)
+                {
+                    _messageStore.Add(_editContext.Field(nameof(Input.CronExpression)), errorMessage ?? "Invalid cron expression.");
+                    valid = false;
+                }
+            }
+        }
+
+        if (!Input.NextExecutionAt.HasValue)
+        {
+            _messageStore.Add(_editContext.Field(nameof(Input.NextExecutionAt)), "Next execution time is required.");
+            valid = false;
+        }
+
+        if (!valid)
+        {
+            _editContext.NotifyValidationStateChanged();
+            return;
+        }
+
+        // Convert the user's local wall-clock time to UTC using the detected IANA
+        // timezone — the same TimezoneHelper call the page models made with the
+        // posted Input.UserTimezone value.
+        var nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt!.Value, _userTimezone);
+
+        await OnValidatedSubmit.InvokeAsync(new Submission(nextExecutionUtc, _userTimezone));
+    }
+}

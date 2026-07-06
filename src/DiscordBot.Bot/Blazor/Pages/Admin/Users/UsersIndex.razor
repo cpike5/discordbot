@@ -1,0 +1,542 @@
+@page "/Admin/Users"
+@page "/Admin/Users/Index"
+@namespace DiscordBot.Bot.Blazor.Pages.Admin.Users
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@using System.Security.Claims
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject AuthenticationStateProvider AuthProvider
+@inject IAuthorizationService AuthService
+@inject ToastInterop Toast
+@inject CircuitClientInfoService ClientInfo
+@inject IJSRuntime JS
+@inject ILogger<UsersIndex> Logger
+@implements IDisposable
+
+@*
+    Routed-Blazor replacement for Pages/Admin/Users/Index.cshtml(.cs) — Phase F of
+    docs/architecture/blazor-completion-plan.md. Same routes (/Admin/Users and the
+    Razor Pages Index alias), same RequireAdmin policy. The GET-form filter panel is
+    ported to live filters (search debounced 300ms via Debouncer, selects apply
+    immediately); the results region uses the shared FilterableTable + Pagination
+    shell. The page model's OnPostToggleActiveAsync handler (which had no form in
+    the old markup) is ported as ToggleActiveAsync behind a ConfirmModal with an
+    in-circuit RequireAdmin recheck; audit parity is unchanged because
+    IUserManagementService.SetUserActiveStatusAsync receives the same
+    actorUserId + client IP (via CircuitClientInfoService) as the old handler.
+    Data access is a DI scope per operation.
+*@
+
+<PageTitle>User Management - Discord Bot Admin</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="flex justify-between items-center mb-6">
+        <div>
+            <h1 class="text-h1 text-text-primary">Users</h1>
+            <p class="mt-1 text-sm text-text-secondary">Manage application users and their roles</p>
+        </div>
+        @if (_canCreateUsers)
+        {
+            <a href="/Admin/Users/Create" class="btn btn-primary">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                </svg>
+                Create User
+            </a>
+        }
+    </div>
+
+    <!-- Success/Error Messages (twin of the TempData banners) -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <FilterableTable TItem="UserDto"
+                     Items="_users"
+                     Loading="_loading"
+                     CurrentPage="_page"
+                     TotalPages="_totalPages"
+                     TotalCount="_totalCount"
+                     PageSize="PageSize"
+                     OnPageChange="LoadUsersAsync"
+                     ItemNoun="users"
+                     SummaryAtTop="false"
+                     EmptyTitle="@(HasActiveFilters ? "No users found" : "No users yet")"
+                     EmptyDescription="@(HasActiveFilters ? "Try adjusting your search or filters" : "Create your first user to get started")">
+        <Filters>
+            <!-- Search and Filters -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <!-- Search -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                        <input
+                            type="text"
+                            @bind="_searchTerm" @bind:event="oninput" @bind:after="OnSearchInput"
+                            placeholder="Email, name, or Discord username..."
+                            class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md placeholder-text-tertiary focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent" />
+                    </div>
+
+                    <!-- Role Filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Role</label>
+                        <select
+                            @bind="_roleFilter" @bind:after="ApplyFiltersAsync"
+                            class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
+                            <option value="">All Roles</option>
+                            @foreach (var role in _availableRoles)
+                            {
+                                <option value="@role">@role</option>
+                            }
+                        </select>
+                    </div>
+
+                    <!-- Status Filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Status</label>
+                        <select
+                            @bind="_activeFilter" @bind:after="ApplyFiltersAsync"
+                            class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
+                            <option value="">All</option>
+                            <option value="true">Active</option>
+                            <option value="false">Inactive</option>
+                        </select>
+                    </div>
+
+                    <!-- Discord Filter -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-1">Discord</label>
+                        <select
+                            @bind="_discordLinkedFilter" @bind:after="ApplyFiltersAsync"
+                            class="w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent">
+                            <option value="">All</option>
+                            <option value="true">Linked</option>
+                            <option value="false">Not Linked</option>
+                        </select>
+                    </div>
+
+                    <!-- Clear Button (filters apply live; the old Search submit is redundant) -->
+                    <div class="md:col-span-4 flex justify-end gap-2">
+                        <button type="button" @onclick="ClearFiltersAsync" class="btn btn-secondary">Clear</button>
+                    </div>
+                </div>
+            </div>
+        </Filters>
+
+        <HeaderTemplate>
+            <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Role</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Discord</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Last Login</th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+            </tr>
+        </HeaderTemplate>
+
+        <RowTemplate Context="user">
+            <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        @if (!string.IsNullOrEmpty(user.DiscordAvatarUrl))
+                        {
+                            <img class="h-10 w-10 rounded-full" src="@user.DiscordAvatarUrl" alt="@user.Email" />
+                        }
+                        else
+                        {
+                            <div class="h-10 w-10 rounded-full bg-accent-blue flex items-center justify-center">
+                                <span class="text-white font-medium text-sm">@user.Email.Substring(0, 1).ToUpper()</span>
+                            </div>
+                        }
+                        <div class="ml-4">
+                            <div class="text-sm font-medium text-text-primary">@user.Email</div>
+                            @if (!string.IsNullOrEmpty(user.DisplayName))
+                            {
+                                <div class="text-sm text-text-secondary">@user.DisplayName</div>
+                            }
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <Badge Model="new BadgeViewModel { Text = user.HighestRole, Variant = RoleBadgeVariant(user.HighestRole), Size = BadgeSize.Small }" />
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    @StatusPill(user.IsActive)
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    @if (user.IsDiscordLinked)
+                    {
+                        <div class="flex items-center text-sm text-text-primary">
+                            <svg class="w-4 h-4 mr-1.5 text-accent-blue" fill="currentColor" viewBox="0 0 24 24">
+                                <path d="M20.317 4.37a19.791 19.791 0 00-4.885-1.515.074.074 0 00-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 00-5.487 0 12.64 12.64 0 00-.617-1.25.077.077 0 00-.079-.037A19.736 19.736 0 003.677 4.37a.07.07 0 00-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 00.031.057 19.9 19.9 0 005.993 3.03.078.078 0 00.084-.028c.462-.63.874-1.295 1.226-1.994.021-.041.001-.09-.041-.106a13.107 13.107 0 01-1.872-.892.077.077 0 01-.008-.128 10.2 10.2 0 00.372-.292.074.074 0 01.077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 01.078.01c.12.098.246.198.373.292a.077.077 0 01-.006.127 12.299 12.299 0 01-1.873.892.077.077 0 00-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 00.084.028 19.839 19.839 0 006.002-3.03.077.077 0 00.032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 00-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z"/>
+                            </svg>
+                            @user.DiscordUsername
+                        </div>
+                    }
+                    else
+                    {
+                        <span class="text-sm text-text-tertiary">-</span>
+                    }
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    @if (user.LastLoginAt.HasValue)
+                    {
+                        <span data-utc="@user.LastLoginAtUtcIso" data-format="date"></span>
+                    }
+                    else
+                    {
+                        <span class="text-text-tertiary">Never</span>
+                    }
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                    <div class="flex justify-end gap-2">
+                        <a href="/Admin/Users/Details?id=@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                            View
+                        </a>
+                        <a href="/Admin/Users/Edit?id=@user.Id" class="text-accent-blue hover:text-accent-blue/80">
+                            Edit
+                        </a>
+                        @if (user.Id != _currentUserId)
+                        {
+                            <button type="button" class="@(user.IsActive ? "text-error hover:text-error/80" : "text-success hover:text-success/80")"
+                                    @onclick="() => ToggleActiveAsync(user)">
+                                @(user.IsActive ? "Disable" : "Enable")
+                            </button>
+                        }
+                    </div>
+                </td>
+            </tr>
+        </RowTemplate>
+
+        <MobileTemplate Context="user">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center">
+                        @if (!string.IsNullOrEmpty(user.DiscordAvatarUrl))
+                        {
+                            <img class="h-10 w-10 rounded-full" src="@user.DiscordAvatarUrl" alt="@user.Email" />
+                        }
+                        else
+                        {
+                            <div class="h-10 w-10 rounded-full bg-accent-blue flex items-center justify-center">
+                                <span class="text-white font-medium text-sm">@user.Email.Substring(0, 1).ToUpper()</span>
+                            </div>
+                        }
+                        <div class="ml-3 min-w-0">
+                            <div class="text-sm font-medium text-text-primary truncate">@user.Email</div>
+                            @if (!string.IsNullOrEmpty(user.DisplayName))
+                            {
+                                <div class="text-sm text-text-secondary truncate">@user.DisplayName</div>
+                            }
+                        </div>
+                    </div>
+                    <Badge Model="new BadgeViewModel { Text = user.HighestRole, Variant = RoleBadgeVariant(user.HighestRole), Size = BadgeSize.Small }" />
+                </div>
+                <div class="flex items-center gap-3 mb-3">
+                    @StatusPill(user.IsActive)
+                    @if (user.IsDiscordLinked)
+                    {
+                        <span class="text-sm text-text-primary">@user.DiscordUsername</span>
+                    }
+                </div>
+                <div class="text-sm text-text-secondary mb-3">
+                    <span class="text-text-tertiary">Last Login:</span>
+                    @if (user.LastLoginAt.HasValue)
+                    {
+                        <span data-utc="@user.LastLoginAtUtcIso" data-format="date"></span>
+                    }
+                    else
+                    {
+                        <span class="text-text-tertiary">Never</span>
+                    }
+                </div>
+                <div class="flex justify-end gap-4 pt-3 border-t border-border-secondary text-sm font-medium">
+                    <a href="/Admin/Users/Details?id=@user.Id" class="text-accent-blue hover:text-accent-blue/80">View</a>
+                    <a href="/Admin/Users/Edit?id=@user.Id" class="text-accent-blue hover:text-accent-blue/80">Edit</a>
+                    @if (user.Id != _currentUserId)
+                    {
+                        <button type="button" class="@(user.IsActive ? "text-error hover:text-error/80" : "text-success hover:text-success/80")"
+                                @onclick="() => ToggleActiveAsync(user)">
+                            @(user.IsActive ? "Disable" : "Enable")
+                        </button>
+                    }
+                </div>
+            </div>
+        </MobileTemplate>
+    </FilterableTable>
+</div>
+
+<ConfirmModal @ref="_confirmModal" />
+
+@code {
+    // Deep-link parity with the old GET-bound filter properties.
+    [SupplyParameterFromQuery] public string? SearchTerm { get; set; }
+    [SupplyParameterFromQuery] public string? RoleFilter { get; set; }
+    [SupplyParameterFromQuery] public bool? ActiveFilter { get; set; }
+    [SupplyParameterFromQuery] public bool? DiscordLinkedFilter { get; set; }
+    [SupplyParameterFromQuery(Name = "pageNumber")] public int? PageNumber { get; set; }
+
+    private const int PageSize = 20;
+
+    private List<UserDto> _users = new();
+    private IReadOnlyList<string> _availableRoles = Array.Empty<string>();
+    private int _page = 1;
+    private int _totalPages = 1;
+    private int _totalCount;
+    private bool _loading = true;
+    private bool _canCreateUsers;
+    private string? _currentUserId;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    // Filter state (live-applied; search debounced 300ms).
+    private string? _searchTerm;
+    private string _roleFilter = string.Empty;
+    private string _activeFilter = string.Empty;
+    private string _discordLinkedFilter = string.Empty;
+
+    private readonly Debouncer _searchDebouncer = new(300);
+    private ConfirmModal _confirmModal = default!;
+    private bool _needTimeConvert;
+    private bool _disposed;
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(_searchTerm) ||
+        !string.IsNullOrEmpty(_roleFilter) ||
+        !string.IsNullOrEmpty(_activeFilter) ||
+        !string.IsNullOrEmpty(_discordLinkedFilter);
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(_currentUserId))
+        {
+            Logger.LogWarning("User ID not found in claims");
+            return;
+        }
+
+        Logger.LogInformation("User {UserId} accessing user management list", _currentUserId);
+
+        _canCreateUsers = authState.User.IsInRole("Admin") || authState.User.IsInRole("SuperAdmin");
+
+        _searchTerm = SearchTerm;
+        _roleFilter = RoleFilter ?? string.Empty;
+        _activeFilter = ActiveFilter?.ToString().ToLowerInvariant() ?? string.Empty;
+        _discordLinkedFilter = DiscordLinkedFilter?.ToString().ToLowerInvariant() ?? string.Empty;
+
+        using (var scope = ScopeFactory.CreateScope())
+        {
+            var userManagementService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
+            _availableRoles = await userManagementService.GetAvailableRolesAsync(_currentUserId);
+        }
+
+        await LoadUsersAsync(PageNumber ?? 1);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_disposed)
+        {
+            return;
+        }
+
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.convertTimes");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    private async Task LoadUsersAsync(int page)
+    {
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var userManagementService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
+
+            // Same query the page model built in OnGetAsync.
+            var query = new UserSearchQueryDto
+            {
+                SearchTerm = _searchTerm,
+                Role = string.IsNullOrEmpty(_roleFilter) ? null : _roleFilter,
+                IsActive = ParseTriState(_activeFilter),
+                IsDiscordLinked = ParseTriState(_discordLinkedFilter),
+                Page = page < 1 ? 1 : page,
+                PageSize = PageSize,
+                SortBy = "CreatedAt",
+                SortDescending = true
+            };
+
+            var paginatedUsers = await userManagementService.GetUsersAsync(query);
+            _users = paginatedUsers.Items.ToList();
+            _page = paginatedUsers.Page;
+            _totalPages = paginatedUsers.TotalPages;
+            _totalCount = paginatedUsers.TotalCount;
+            _needTimeConvert = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load users");
+            await Toast.ErrorAsync("Failed to load users.");
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private Task ApplyFiltersAsync() => LoadUsersAsync(1);
+
+    private async Task OnSearchInput()
+    {
+        await _searchDebouncer.DebounceAsync(async _ =>
+            await InvokeAsync(ApplyFiltersAsync));
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        _searchTerm = null;
+        _roleFilter = string.Empty;
+        _activeFilter = string.Empty;
+        _discordLinkedFilter = string.Empty;
+        return ApplyFiltersAsync();
+    }
+
+    /// <summary>
+    /// In-circuit port of OnPostToggleActiveAsync (the old page model handler had no
+    /// invoking form). Destructive action: ConfirmModal + RequireAdmin recheck before
+    /// the same IUserManagementService.SetUserActiveStatusAsync call (which performs
+    /// the authorization + audit logging), with the same actorUserId + IP arguments.
+    /// </summary>
+    private async Task ToggleActiveAsync(UserDto user)
+    {
+        var enabling = !user.IsActive;
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = enabling ? "Enable User" : "Disable User",
+            Message = enabling
+                ? $"Are you sure you want to enable {user.Email}? They will be able to log in again."
+                : $"Are you sure you want to disable {user.Email}? They will no longer be able to log in.",
+            ConfirmText = enabling ? "Enable" : "Disable",
+            Variant = enabling ? ConfirmationVariant.Info : ConfirmationVariant.Danger
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        // In-circuit authorization recheck before mutating.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var adminResult = await AuthService.AuthorizeAsync(authState.User, "RequireAdmin");
+        var currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!adminResult.Succeeded || string.IsNullOrEmpty(currentUserId))
+        {
+            await Toast.ErrorAsync("You are no longer authorized to perform this action.");
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var userManagementService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
+
+            var result = await userManagementService.SetUserActiveStatusAsync(
+                user.Id,
+                enabling,
+                currentUserId,
+                ClientInfo.IpAddress);
+
+            if (result.Succeeded)
+            {
+                _successMessage = $"User {(enabling ? "enabled" : "disabled")} successfully";
+                _errorMessage = null;
+                Logger.LogInformation("User {UserId} {Action} user {TargetUserId}",
+                    currentUserId, enabling ? "enabled" : "disabled", user.Id);
+                await Toast.SuccessAsync(_successMessage);
+            }
+            else
+            {
+                _errorMessage = result.ErrorMessage ?? "Failed to update user status";
+                _successMessage = null;
+                Logger.LogWarning("Failed to toggle active status for user {UserId}: {Error}",
+                    user.Id, result.ErrorMessage);
+                await Toast.ErrorAsync(_errorMessage);
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error toggling active status for user {UserId}", user.Id);
+            _errorMessage = "Failed to update user status";
+            await Toast.ErrorAsync(_errorMessage);
+        }
+
+        await LoadUsersAsync(_page);
+    }
+
+    private static bool? ParseTriState(string value) =>
+        bool.TryParse(value, out var parsed) ? parsed : null;
+
+    private static BadgeVariant RoleBadgeVariant(string role) => role switch
+    {
+        "SuperAdmin" => BadgeVariant.Error,
+        "Admin" => BadgeVariant.Orange,
+        "Moderator" => BadgeVariant.Blue,
+        "Viewer" => BadgeVariant.Info,
+        _ => BadgeVariant.Default
+    };
+
+    private RenderFragment StatusPill(bool isActive) => @<text>
+        @if (isActive)
+        {
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success/20 text-success">
+                <svg class="w-2 h-2 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                    <circle cx="4" cy="4" r="3" />
+                </svg>
+                Active
+            </span>
+        }
+        else
+        {
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-text-tertiary/20 text-text-tertiary">
+                <svg class="w-2 h-2 mr-1.5" fill="currentColor" viewBox="0 0 8 8">
+                    <circle cx="4" cy="4" r="3" />
+                </svg>
+                Inactive
+            </span>
+        }
+    </text>;
+
+    public void Dispose()
+    {
+        _disposed = true;
+        _searchDebouncer.Dispose();
+    }
+}

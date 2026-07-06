@@ -99,6 +99,28 @@
             }
         },
 
+        // Inserts text at the caret position of a textarea/input (by element id),
+        // restores focus/caret, and returns the new value so the Blazor circuit
+        // can sync its bound model — used by GuildWelcome's token toolbar (the
+        // Blazor twin of the legacy inline insertToken helper).
+        insertAtCursor: function (elementId, text) {
+            try {
+                var el = document.getElementById(elementId);
+                if (!el) {
+                    return null;
+                }
+                var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+                var end = el.selectionEnd != null ? el.selectionEnd : start;
+                el.value = el.value.substring(0, start) + text + el.value.substring(end);
+                el.focus();
+                el.setSelectionRange(start + text.length, start + text.length);
+                return el.value;
+            } catch (e) {
+                console.error("blazorInterop.insertAtCursor failed", e);
+                return null;
+            }
+        },
+
         // Sets/clears the indeterminate state on a checkbox element (not settable via
         // HTML attributes) — used by the member directory's select-all tristate.
         setIndeterminate: function (element, value) {

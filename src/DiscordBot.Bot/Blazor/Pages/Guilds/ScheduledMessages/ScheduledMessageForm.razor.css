@@ -1,0 +1,16 @@
+/* Carried over from the inline <style> blocks of the legacy Create/Edit pages. */
+
+/* Schedule Type Option Styles */
+.schedule-type-option.selected {
+    border-color: #cb4e1b;
+    background-color: rgba(203, 78, 27, 0.1);
+}
+
+/* Form Input Focus Styles */
+::deep .form-input:focus,
+::deep .form-select:focus,
+::deep .form-textarea:focus {
+    outline: none;
+    border-color: #098ecf;
+    box-shadow: 0 0 0 3px rgba(9, 142, 207, 0.15);
+}

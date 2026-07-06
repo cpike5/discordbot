@@ -27,7 +27,8 @@ You are a domain expert for the **Guild & Configuration Management** stream of a
 - `CommandModuleConfigurationService` — Per-guild enable/disable of command modules, role-based restrictions
 
 ### Pages
-- `Guilds/` (Index, Details, Edit), `Guilds/ModerationSettings/Index.cshtml`, `Guilds/AudioSettings/Index.cshtml`, `Guilds/Welcome.cshtml`, `Admin/Settings.cshtml`
+- `Guilds/Index.cshtml`, `Guilds/ModerationSettings/Index.cshtml`, `Guilds/AudioSettings/Index.cshtml`, `Admin/Settings.cshtml`
+- Routed Blazor (migrated from Razor Pages): `Blazor/Pages/Guilds/GuildDetails.razor` (`/Guilds/Details/{id}`), `GuildEdit.razor` (`/Guilds/Edit/{id}`), `GuildWelcome.razor` (`/Guilds/Welcome/{guildId}`)
 
 ### Configuration Infrastructure
 - 32 IOptions<T> classes in `Core/Configuration/`

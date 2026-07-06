@@ -316,7 +316,7 @@
                             </div>
                             @if (Model.ViewModel.TotalUserResults > Model.ViewModel.UserResults.Count)
                             {
-                                <a asp-page="/Admin/Users/Index" asp-route-SearchTerm="@Model.ViewModel.SearchTerm" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                <a href="/Admin/Users?SearchTerm=@Uri.EscapeDataString(Model.ViewModel.SearchTerm)" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
                                     View all @Model.ViewModel.TotalUserResults results →
                                 </a>
                             }

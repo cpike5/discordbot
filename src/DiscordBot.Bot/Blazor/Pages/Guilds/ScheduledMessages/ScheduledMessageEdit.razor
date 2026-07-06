@@ -1,0 +1,246 @@
+@page "/Guilds/ScheduledMessages/Edit/{GuildId:long}/{Id:guid}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds.ScheduledMessages
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<ScheduledMessageEdit> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/ScheduledMessages/Edit.cshtml(.cs) —
+    Phase F of docs/architecture/blazor-completion-plan.md. Same route
+    (/Guilds/ScheduledMessages/Edit/{guildId}/{id}), same RequireAdmin + GuildAccess
+    policies; GuildAccess is additionally re-checked in code (resource-based
+    AuthorizeAsync) because the handler's route-value fallback may not fire inside
+    circuits.
+
+    The form body (markup + validation + timezone handling, shared with Create)
+    lives in ScheduledMessageForm; this page performs the OnPostAsync tail: builds
+    the ScheduledMessageUpdateDto and calls IScheduledMessageService.UpdateAsync in
+    a DI scope, then navigates to the Blazor index with ?successMessage (replaces
+    the TempData + RedirectToPage round-trip). Guild-mismatch and missing message
+    redirect to /Error/404, mirroring NotFound().
+
+    Not ported (dead code in the .cshtml): the OnPostDeleteAsync handler and the
+    #delete-modal markup/scripts — no element on the page ever called
+    showDeleteModal(), so the modal was unreachable. Deletion lives on the index
+    page (ConfirmModal-backed row action).
+*@
+
+<PageTitle>Edit Scheduled Message - @_guildName - Discord Bot Admin</PageTitle>
+
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+    </div>
+}
+
+@if (_loaded)
+{
+    <ScheduledMessageForm Input="_input"
+                          AvailableChannels="_availableChannels"
+                          IsEditMode="true"
+                          LastExecutedAtUtcIso="@_lastExecutedAtUtcIso"
+                          SubmitLabel="Save Changes"
+                          CancelUrl="@($"/Guilds/ScheduledMessages/{GuildIdValue}")"
+                          Busy="_busy"
+                          OnValidatedSubmit="UpdateAsync" />
+}
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long GuildId { get; set; }
+
+    /// <summary>The scheduled message ID route value.</summary>
+    [Parameter] public Guid Id { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    private ulong GuildIdValue => (ulong)GuildId;
+
+    private string _guildName = string.Empty;
+    private ScheduledMessageInput _input = new();
+    private List<ChannelSelectItem> _availableChannels = new();
+    private string? _lastExecutedAtUtcIso;
+    private bool _loaded;
+    private bool _busy;
+    private string? _errorMessage;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        Logger.LogInformation("User accessing scheduled message edit page for message {MessageId} in guild {GuildId}",
+            Id, GuildIdValue);
+
+        using var scope = ScopeFactory.CreateScope();
+        var scheduledMessageService = scope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
+        var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+        var channelResolver = scope.ServiceProvider.GetRequiredService<IDiscordChannelResolver>();
+
+        var message = await scheduledMessageService.GetByIdAsync(Id);
+        if (message == null)
+        {
+            Logger.LogWarning("Scheduled message {MessageId} not found", Id);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        // Validate that the message belongs to the specified guild
+        if (message.GuildId != GuildIdValue)
+        {
+            Logger.LogWarning("Scheduled message {MessageId} does not belong to guild {GuildId}", Id, GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        _lastExecutedAtUtcIso = message.LastExecutedAt.HasValue
+            ? DateTime.SpecifyKind(message.LastExecutedAt.Value, DateTimeKind.Utc).ToString("o")
+            : null;
+
+        var guild = await guildService.GetGuildByIdAsync(GuildIdValue);
+        if (guild == null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        _guildName = guild.Name;
+
+        _availableChannels = channelResolver.GetTextChannels(GuildIdValue)
+            .Select(ChannelSelectItem.FromChannelInfo).ToList();
+
+        Logger.LogDebug("Found {ChannelCount} text-capable channels for guild {GuildId}",
+            _availableChannels.Count, GuildIdValue);
+
+        // Populate form input with existing values. NextExecutionAt stays UTC here;
+        // the form converts it to the user's local time on first render.
+        _input = new ScheduledMessageInput
+        {
+            GuildId = GuildIdValue,
+            Title = message.Title,
+            Content = message.Content,
+            ChannelId = message.ChannelId,
+            Frequency = message.Frequency,
+            CronExpression = message.CronExpression,
+            IsEnabled = message.IsEnabled,
+            NextExecutionAt = message.NextExecutionAt
+        };
+
+        // Populate guild layout chrome (same viewmodels the page model built)
+        GuildContext?.Set(
+            new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{GuildIdValue}" },
+                    new() { Label = "Messages", Url = $"/Guilds/ScheduledMessages/{GuildIdValue}" },
+                    new() { Label = "Edit", IsCurrent = true }
+                }
+            },
+            new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Edit Scheduled Message",
+                PageDescription = $"Edit scheduled message for {guild.Name}"
+            },
+            new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "messages",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            });
+
+        _loaded = true;
+    }
+
+    /// <summary>In-circuit port of OnPostAsync's update tail (validation happens in the form).</summary>
+    private async Task UpdateAsync(ScheduledMessageForm.Submission submission)
+    {
+        Logger.LogInformation("Submit received for updating scheduled message {MessageId} in guild {GuildId}",
+            Id, GuildIdValue);
+
+        // Re-check RequireAdmin + resource-based GuildAccess inside the circuit
+        // before mutating.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var adminResult = await AuthService.AuthorizeAsync(authState.User, "RequireAdmin");
+        var guildResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!adminResult.Succeeded || !guildResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        Logger.LogInformation("Updating scheduled message {MessageId} with Title={Title}, Frequency={Frequency}, NextExecution={NextExecution} UTC (from user input: {LocalTime} in {Timezone})",
+            Id, _input.Title, _input.Frequency, submission.NextExecutionUtc, _input.NextExecutionAt, submission.UserTimezone ?? "UTC");
+
+        var updateDto = new ScheduledMessageUpdateDto
+        {
+            ChannelId = _input.ChannelId!.Value,
+            Title = _input.Title,
+            Content = _input.Content,
+            Frequency = _input.Frequency,
+            CronExpression = _input.Frequency == ScheduleFrequency.Custom ? _input.CronExpression : null,
+            IsEnabled = _input.IsEnabled,
+            NextExecutionAt = submission.NextExecutionUtc
+        };
+
+        _busy = true;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var scheduledMessageService = scope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
+
+            var result = await scheduledMessageService.UpdateAsync(Id, updateDto);
+            if (result == null)
+            {
+                Logger.LogWarning("Scheduled message {MessageId} not found during update", Id);
+                Navigation.NavigateTo("/Error/404");
+                return;
+            }
+
+            Logger.LogInformation("Successfully updated scheduled message {MessageId} for guild {GuildId}",
+                Id, GuildIdValue);
+
+            Navigation.NavigateTo(
+                $"/Guilds/ScheduledMessages/{GuildIdValue}?successMessage={Uri.EscapeDataString("Scheduled message updated successfully.")}");
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to update scheduled message {MessageId} for guild {GuildId}", Id, GuildIdValue);
+            _errorMessage = "An error occurred while updating the scheduled message. Please try again.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

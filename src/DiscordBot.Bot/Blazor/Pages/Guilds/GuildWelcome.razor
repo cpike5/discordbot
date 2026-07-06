@@ -1,0 +1,760 @@
+@page "/Guilds/Welcome/{GuildId:long}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using System.ComponentModel.DataAnnotations
+@using System.Net
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+@inject ILogger<GuildWelcome> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/Welcome.cshtml(.cs) — Phase F of
+    docs/architecture/blazor-completion-plan.md. Same route
+    (/Guilds/Welcome/{guildId}), same RequireAdmin + GuildAccess policies;
+    GuildAccess is additionally re-checked in code (resource-based
+    AuthorizeAsync) because the handler's route-value fallback may not fire
+    inside circuits.
+
+    Handler port:
+    - OnGetAsync → OnInitializedAsync (guild + welcome config + channel list in
+      a DI scope per operation; same defaults when no config exists;
+      guild-not-found redirects to /Error/404).
+    - OnPostAsync → SaveAsync: same manual validations (channel required when
+      enabled, embed-color hex check) on top of the DataAnnotations, same
+      IWelcomeService.UpdateConfigurationAsync call. The RedirectToPage-to-self
+      + TempData success round-trip becomes an in-circuit success alert (same
+      Alert DOM) plus a toast — the form already holds the saved values.
+
+    The inline preview/token scripts are ported into circuit code:
+    - toggleWelcomeEnabled / toggleEmbedOptions / updatePreview → computed
+      render state (form-section-disabled class, hidden color container,
+      PreviewHtml MarkupString built from the same token→sample-data
+      replacements, with the user text HTML-encoded first like
+      JavaScriptStringEncode guarded the old inline script).
+    - insertToken → blazorInterop.insertAtCursor (caret-aware insertion has to
+      stay in JS; the helper returns the new textarea value to the circuit).
+    - toggleTokenHelp → _tokenHelpOpen state on the same collapsible classes.
+    The Discord-preview <style> block is carried over verbatim; the preview
+    timestamp keeps data-utc + blazorInterop.convertTimes.
+
+    No Discord-API "send test message" action existed on this page — the only
+    Discord touchpoint is IDiscordChannelResolver.GetTextChannels (read-only,
+    same service).
+*@
+
+<PageTitle>Welcome Settings - @_viewModel.GuildName - Discord Bot Admin</PageTitle>
+
+@if (_loaded)
+{
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <EditForm Model="Input" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Configuration Form Column -->
+            <div class="space-y-6">
+                <!-- Enable Welcome Messages Toggle -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <label for="Input_IsEnabled" class="text-sm font-semibold text-text-primary">Enable Welcome Messages</label>
+                            <p class="text-xs text-text-secondary mt-1">Send a message when new members join the server</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <InputCheckbox id="Input_IsEnabled" @bind-Value="Input.IsEnabled" class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Main Configuration Form -->
+                <div id="welcome-config-form" class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6 @(!Input.IsEnabled ? "form-section-disabled" : "")">
+                    <!-- Welcome Channel Selector -->
+                    <div>
+                        <label for="Input_WelcomeChannelId" class="block text-sm font-medium text-text-primary mb-2">Welcome Channel</label>
+                        <div class="relative">
+                            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                                </svg>
+                            </div>
+                            <select id="Input_WelcomeChannelId"
+                                    class="form-select w-full py-2.5 pl-10 pr-10 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                                    @bind="SelectedChannelId">
+                                <option value="">Select a channel...</option>
+                                @foreach (var channel in _availableChannels)
+                                {
+                                    var prefix = channel.Type switch
+                                    {
+                                        ChannelDisplayType.Text => "#",
+                                        ChannelDisplayType.Voice => "🔊",
+                                        ChannelDisplayType.Announcement => "📢",
+                                        ChannelDisplayType.Stage => "🎭",
+                                        ChannelDisplayType.Forum => "💬",
+                                        _ => "#"
+                                    };
+                                    <option value="@channel.Id">@prefix @channel.Name</option>
+                                }
+                            </select>
+                            <div class="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
+                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                </svg>
+                            </div>
+                        </div>
+                        <p class="text-xs text-text-secondary mt-1">Select the channel where welcome messages will be sent</p>
+                        @if (!string.IsNullOrEmpty(_channelError))
+                        {
+                            <span class="text-error text-xs">@_channelError</span>
+                        }
+                    </div>
+
+                    <!-- Welcome Message Template -->
+                    <div>
+                        <label for="Input_WelcomeMessage" class="block text-sm font-medium text-text-primary mb-2">Welcome Message Template</label>
+
+                        <!-- Token Insertion Toolbar -->
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            @foreach (var token in Tokens)
+                            {
+                                <button type="button"
+                                        @onclick="() => InsertTokenAsync(token.Token)"
+                                        class="token-btn px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue transition-all"
+                                        title="@token.ButtonTitle">
+                                    @token.Token
+                                </button>
+                            }
+                        </div>
+
+                        <textarea id="Input_WelcomeMessage"
+                                  rows="4"
+                                  class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                                  placeholder="Enter your welcome message..."
+                                  maxlength="2000"
+                                  @bind="Input.WelcomeMessage"
+                                  @bind:event="oninput"></textarea>
+                        <p class="text-xs text-text-secondary mt-1">Use tokens to personalize your message. Click a token above to insert it.</p>
+                        <ValidationMessage For="() => Input.WelcomeMessage" class="text-error text-xs" />
+                    </div>
+
+                    <!-- Include Avatar Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_IncludeAvatar" class="text-sm font-medium text-text-primary">Include User Avatar</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Display the user's avatar in the welcome message</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <InputCheckbox id="Input_IncludeAvatar" @bind-Value="Input.IncludeAvatar" class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- Use Embed Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_UseEmbed" class="text-sm font-medium text-text-primary">Use Embed</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Send welcome message as a rich embed instead of plain text</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <InputCheckbox id="Input_UseEmbed" @bind-Value="Input.UseEmbed" class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- Embed Color Picker (shown when UseEmbed is true) -->
+                    <div id="embed-color-container" class="@(!Input.UseEmbed ? "hidden" : "")">
+                        <label for="Input_EmbedColor" class="block text-sm font-medium text-text-primary mb-2">Embed Color</label>
+                        <div class="flex items-center gap-3">
+                            <input type="color"
+                                   id="embed-color-picker"
+                                   value="@PickerColor"
+                                   @onchange="OnColorPickerChanged"
+                                   class="w-12 h-10 rounded border border-border-primary cursor-pointer" />
+                            <input type="text"
+                                   id="Input_EmbedColor"
+                                   @bind="Input.EmbedColor"
+                                   @bind:event="oninput"
+                                   pattern="^#[0-9A-Fa-f]{6}$"
+                                   class="form-input flex-1 py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary font-mono focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                                   placeholder="#5865F2"
+                                   maxlength="7" />
+                        </div>
+                        <p class="text-xs text-text-secondary mt-1">Choose a color for the embed border (hex format, e.g., #5865F2)</p>
+                        <ValidationMessage For="() => Input.EmbedColor" class="text-error text-xs" />
+                        @if (!string.IsNullOrEmpty(_embedColorError))
+                        {
+                            <span class="text-error text-xs">@_embedColorError</span>
+                        }
+                    </div>
+                </div>
+
+                <!-- Token Help Panel -->
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <button type="button"
+                            @onclick="() => _tokenHelpOpen = !_tokenHelpOpen"
+                            class="w-full px-6 py-4 flex items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-inset"
+                            aria-expanded="@(_tokenHelpOpen ? "true" : "false")"
+                            aria-controls="token-help-content">
+                        <div class="flex items-center gap-2">
+                            <svg class="w-5 h-5 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-sm font-semibold text-text-primary">Available Tokens</span>
+                        </div>
+                        <svg id="token-help-chevron" class="w-5 h-5 text-text-tertiary transform transition-transform @(_tokenHelpOpen ? "rotate-180" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="token-help-content" class="collapsible-content @(_tokenHelpOpen ? "open" : "")">
+                        <div class="px-6 pb-4">
+                            <table class="w-full text-sm">
+                                <thead>
+                                    <tr class="border-b border-border-secondary">
+                                        <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Token</th>
+                                        <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Description</th>
+                                        <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Example</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border-secondary">
+                                    @foreach (var token in Tokens)
+                                    {
+                                        <tr class="hover:bg-bg-hover cursor-pointer" @onclick="() => InsertTokenAsync(token.Token)" title="Click to insert">
+                                            <td class="py-2">
+                                                <code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">@token.Token</code>
+                                            </td>
+                                            <td class="py-2 text-text-secondary">@token.Description</td>
+                                            <td class="py-2 text-text-tertiary">@(token.Token == "{server}" ? _viewModel.GuildName : token.Example)</td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                            <p class="text-xs text-text-tertiary mt-3 flex items-center gap-1">
+                                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                                </svg>
+                                Click any row to insert the token into your message
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Actions -->
+                <div class="flex flex-col sm:flex-row gap-3">
+                    <button type="submit"
+                            class="btn btn-primary inline-flex items-center justify-center gap-2"
+                            disabled="@_saving">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                        </svg>
+                        @(_saving ? "Saving…" : "Save Configuration")
+                    </button>
+                    <a href="/Guilds/Details/@_viewModel.GuildId"
+                       class="btn btn-secondary inline-flex items-center justify-center gap-2">
+                        Cancel
+                    </a>
+                </div>
+            </div>
+
+            <!-- Live Preview Column -->
+            <div class="lg:sticky lg:top-8 lg:self-start">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h3 class="text-sm font-semibold text-text-primary">Live Preview</h3>
+                        <p class="text-xs text-text-secondary mt-1">See how your welcome message will appear</p>
+                    </div>
+                    <div class="p-6">
+                        <!-- Discord-styled Message Preview -->
+                        <div class="discord-message" id="discord-preview">
+                            <!-- Bot Avatar and Message -->
+                            <div class="flex gap-4" id="preview-content" style="@PreviewContentStyle">
+                                <!-- Bot Avatar -->
+                                <div class="flex-shrink-0" id="preview-avatar">
+                                    <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 24 24">
+                                            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                                <!-- Message Content -->
+                                <div class="flex-1 min-w-0">
+                                    <!-- Username and Timestamp -->
+                                    <div class="flex items-center gap-1 mb-1">
+                                        <span class="font-medium text-white">WelcomeBot</span>
+                                        <span class="discord-bot-badge">BOT</span>
+                                        <span class="discord-timestamp">Today at <span data-utc="@DateTime.UtcNow.ToString("o")" data-format="time">--:--</span></span>
+                                    </div>
+                                    <!-- Message Text -->
+                                    <div id="preview-message" class="text-[#dcddde] text-sm leading-relaxed break-words">
+                                        @PreviewHtml
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Sample Data Reference -->
+                        <div class="mt-4 pt-4 border-t border-border-secondary">
+                            <p class="text-xs text-text-tertiary mb-2">Sample data used for preview:</p>
+                            <ul class="text-xs text-text-tertiary space-y-1">
+                                <li><code class="px-1 bg-bg-tertiary rounded">{user}</code> = @@NewMember</li>
+                                <li><code class="px-1 bg-bg-tertiary rounded">{username}</code> = NewMember</li>
+                                <li><code class="px-1 bg-bg-tertiary rounded">{server}</code> = @_viewModel.GuildName</li>
+                                <li><code class="px-1 bg-bg-tertiary rounded">{memberCount}</code> = 1,234</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </EditForm>
+}
+
+<style>
+    /* ========================================
+       Form Section Disabled Overlay
+       ======================================== */
+    .form-section-disabled {
+        position: relative;
+    }
+
+    .form-section-disabled::after {
+        content: '';
+        position: absolute;
+        inset: 0;
+        background-color: rgba(29, 32, 34, 0.6);
+        border-radius: 0.5rem;
+        pointer-events: none;
+    }
+
+    .form-section-disabled > * {
+        pointer-events: none;
+    }
+
+    /* ========================================
+       Discord Message Preview Styles
+       ======================================== */
+    .discord-message {
+        background-color: #36393f;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+
+    .discord-mention {
+        background-color: #404675;
+        color: #dee0fc;
+        padding: 0 2px;
+        border-radius: 3px;
+        font-weight: 500;
+    }
+
+    .discord-mention:hover {
+        background-color: #5865f2;
+        color: white;
+    }
+
+    .discord-bot-badge {
+        background-color: #5865f2;
+        color: white;
+        font-size: 0.625rem;
+        padding: 0.0625rem 0.25rem;
+        border-radius: 0.1875rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        vertical-align: middle;
+        margin-left: 0.25rem;
+    }
+
+    .discord-timestamp {
+        color: #72767d;
+        font-size: 0.75rem;
+        margin-left: 0.25rem;
+    }
+
+    /* ========================================
+       Collapsible Panel Styles
+       ======================================== */
+    .collapsible-content {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-out;
+    }
+
+    .collapsible-content.open {
+        max-height: 500px;
+    }
+
+    /* ========================================
+       Token Button Styles
+       ======================================== */
+    .token-btn {
+        transition: all 0.15s ease-in-out;
+    }
+
+    .token-btn:hover {
+        transform: translateY(-1px);
+    }
+
+    .token-btn:active {
+        transform: translateY(0);
+    }
+</style>
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long GuildId { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    private ulong GuildIdValue => (ulong)GuildId;
+
+    /// <summary>Form input model (verbatim twin of WelcomeModel.InputModel, incl. validation attributes).</summary>
+    public InputModel Input { get; set; } = new();
+
+    private WelcomeConfigurationViewModel _viewModel = new();
+    private List<ChannelSelectItem> _availableChannels = new();
+    private bool _loaded;
+    private bool _saving;
+    private bool _tokenHelpOpen = true;
+    private bool _needTimeConvert;
+    private string? _successMessage;
+    private string? _errorMessage;
+    private string? _channelError;
+    private string? _embedColorError;
+
+    private static readonly System.Text.RegularExpressions.Regex HexColorRegex =
+        new(@"^#[0-9A-Fa-f]{6}$", System.Text.RegularExpressions.RegexOptions.Compiled);
+
+    private static readonly (string Token, string ButtonTitle, string Description, string Example)[] Tokens =
+    {
+        ("{user}", "Insert user mention", "Mentions the new member", "@NewMember"),
+        ("{username}", "Insert username", "Member's display name", "NewMember"),
+        ("{server}", "Insert server name", "Server name", ""),
+        ("{memberCount}", "Insert member count", "Total member count", "1,234")
+    };
+
+    /// <summary>
+    /// Input model for form binding with validation attributes.
+    /// </summary>
+    public class InputModel
+    {
+        public ulong GuildId { get; set; }
+
+        [Display(Name = "Enable Welcome Messages")]
+        public bool IsEnabled { get; set; }
+
+        [Display(Name = "Welcome Channel")]
+        public ulong? WelcomeChannelId { get; set; }
+
+        [StringLength(2000, ErrorMessage = "Welcome message cannot exceed 2000 characters")]
+        [Display(Name = "Welcome Message")]
+        public string? WelcomeMessage { get; set; }
+
+        [Display(Name = "Include User Avatar")]
+        public bool IncludeAvatar { get; set; }
+
+        [Display(Name = "Use Embed")]
+        public bool UseEmbed { get; set; }
+
+        [RegularExpression(@"^#[0-9A-Fa-f]{6}$", ErrorMessage = "Embed color must be a valid hex color (e.g., #5865F2)")]
+        [Display(Name = "Embed Color")]
+        public string? EmbedColor { get; set; }
+    }
+
+    /// <summary>String bridge for the channel select (ulong? isn't bindable by InputSelect).</summary>
+    private string SelectedChannelId
+    {
+        get => Input.WelcomeChannelId?.ToString() ?? string.Empty;
+        set => Input.WelcomeChannelId = ulong.TryParse(value, out var id) ? id : null;
+    }
+
+    /// <summary>Color-picker value (falls back to the Discord blurple like the old page).</summary>
+    private string PickerColor =>
+        !string.IsNullOrEmpty(Input.EmbedColor) && HexColorRegex.IsMatch(Input.EmbedColor)
+            ? Input.EmbedColor
+            : "#5865F2";
+
+    /// <summary>Twin of updatePreview()'s embed border styling.</summary>
+    private string PreviewContentStyle =>
+        Input.IsEnabled && Input.UseEmbed && !string.IsNullOrEmpty(Input.EmbedColor) && HexColorRegex.IsMatch(Input.EmbedColor)
+            ? $"border-left: 4px solid {Input.EmbedColor}; padding-left: 0.75rem;"
+            : string.Empty;
+
+    /// <summary>
+    /// Twin of updatePreview(): token → sample-data replacement over the
+    /// HTML-encoded message, newlines to &lt;br&gt;.
+    /// </summary>
+    private MarkupString PreviewHtml
+    {
+        get
+        {
+            if (!Input.IsEnabled)
+            {
+                return new MarkupString("<span class=\"text-[#72767d] italic\">Welcome messages are disabled</span>");
+            }
+
+            if (string.IsNullOrEmpty(Input.WelcomeMessage))
+            {
+                return new MarkupString("<span class=\"text-[#72767d] italic\">Enter a message to see preview</span>");
+            }
+
+            var message = WebUtility.HtmlEncode(Input.WelcomeMessage)
+                .Replace("{user}", "<span class=\"discord-mention\">@NewMember</span>")
+                .Replace("{username}", "<strong>NewMember</strong>")
+                .Replace("{server}", $"<strong>{WebUtility.HtmlEncode(_viewModel.GuildName)}</strong>")
+                .Replace("{memberCount}", "<strong>1,234</strong>")
+                .Replace("\n", "<br>");
+
+            return new MarkupString(message);
+        }
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        Logger.LogInformation("User accessing welcome configuration page for guild {GuildId}", GuildIdValue);
+
+        using var scope = ScopeFactory.CreateScope();
+        var services = scope.ServiceProvider;
+        var guildService = services.GetRequiredService<IGuildService>();
+
+        // Get guild info from service
+        var guild = await guildService.GetGuildByIdAsync(GuildIdValue);
+        if (guild == null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        // Get welcome configuration (may be null if not configured yet)
+        var welcomeService = services.GetRequiredService<IWelcomeService>();
+        var welcomeConfig = await welcomeService.GetConfigurationAsync(GuildIdValue);
+
+        // Get available text channels from Discord
+        var channelResolver = services.GetRequiredService<IDiscordChannelResolver>();
+        _availableChannels = channelResolver.GetTextChannels(GuildIdValue)
+            .Select(ChannelSelectItem.FromChannelInfo).ToList();
+
+        // If no configuration exists, create default values
+        if (welcomeConfig == null)
+        {
+            Logger.LogDebug("No welcome configuration found for guild {GuildId}, using defaults", GuildIdValue);
+            welcomeConfig = new WelcomeConfigurationDto
+            {
+                GuildId = GuildIdValue,
+                IsEnabled = false,
+                WelcomeMessage = "Welcome to {server}, {user}! You are member #{memberCount}.",
+                IncludeAvatar = true,
+                UseEmbed = true,
+                EmbedColor = "#5865F2"
+            };
+        }
+
+        // Populate view model
+        _viewModel = WelcomeConfigurationViewModel.FromDto(
+            welcomeConfig,
+            guild.Name,
+            guild.IconUrl,
+            _availableChannels);
+
+        // Populate form input model
+        Input = new InputModel
+        {
+            GuildId = welcomeConfig.GuildId,
+            IsEnabled = welcomeConfig.IsEnabled,
+            WelcomeChannelId = welcomeConfig.WelcomeChannelId,
+            WelcomeMessage = welcomeConfig.WelcomeMessage,
+            IncludeAvatar = welcomeConfig.IncludeAvatar,
+            UseEmbed = welcomeConfig.UseEmbed,
+            EmbedColor = welcomeConfig.EmbedColor
+        };
+
+        // Populate guild layout chrome (same viewmodels the page model built)
+        GuildContext?.Set(
+            new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                    new() { Label = "Welcome Settings", IsCurrent = true }
+                }
+            },
+            new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Welcome Settings",
+                PageDescription = $"Configure automatic welcome messages for {guild.Name}"
+            },
+            new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "welcome",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            });
+
+        _loaded = true;
+        _needTimeConvert = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.convertTimes");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    /// <summary>
+    /// Twin of insertToken(): caret-aware insertion stays in JS
+    /// (blazorInterop.insertAtCursor), which returns the new textarea value.
+    /// </summary>
+    private async Task InsertTokenAsync(string token)
+    {
+        try
+        {
+            var newValue = await JS.InvokeAsync<string?>("blazorInterop.insertAtCursor", "Input_WelcomeMessage", token);
+            if (newValue is not null)
+            {
+                Input.WelcomeMessage = newValue;
+            }
+        }
+        catch (JSException)
+        {
+            // Fall back to appending if the JS helper is unavailable.
+            Input.WelcomeMessage = (Input.WelcomeMessage ?? string.Empty) + token;
+        }
+    }
+
+    /// <summary>Twin of updateEmbedColorHex(): picker change writes the uppercased hex into the text input.</summary>
+    private void OnColorPickerChanged(ChangeEventArgs e)
+    {
+        var color = e.Value?.ToString();
+        if (!string.IsNullOrEmpty(color))
+        {
+            Input.EmbedColor = color.ToUpperInvariant();
+        }
+    }
+
+    /// <summary>Twin of OnPostAsync — same manual validations and service call.</summary>
+    private async Task SaveAsync()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        Logger.LogInformation("Welcome configuration submitted - GuildId={GuildId}, IsEnabled={IsEnabled}, ChannelId={ChannelId}, UseEmbed={UseEmbed}",
+            Input.GuildId, Input.IsEnabled, Input.WelcomeChannelId, Input.UseEmbed);
+
+        _channelError = null;
+        _embedColorError = null;
+        _errorMessage = null;
+        _successMessage = null;
+
+        // Validate that if enabled, a channel is selected
+        if (Input.IsEnabled && !Input.WelcomeChannelId.HasValue)
+        {
+            _channelError = "A welcome channel must be selected when welcome messages are enabled.";
+            return;
+        }
+
+        // Validate that if UseEmbed is true and EmbedColor is provided, it's a valid hex color
+        if (Input.UseEmbed && !string.IsNullOrWhiteSpace(Input.EmbedColor) && !HexColorRegex.IsMatch(Input.EmbedColor))
+        {
+            _embedColorError = "Embed color must be a valid hex color (e.g., #5865F2)";
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var welcomeService = scope.ServiceProvider.GetRequiredService<IWelcomeService>();
+
+            // Create the update request
+            var updateRequest = new WelcomeConfigurationUpdateDto
+            {
+                IsEnabled = Input.IsEnabled,
+                WelcomeChannelId = Input.WelcomeChannelId,
+                WelcomeMessage = Input.WelcomeMessage,
+                IncludeAvatar = Input.IncludeAvatar,
+                UseEmbed = Input.UseEmbed,
+                EmbedColor = Input.EmbedColor
+            };
+
+            var result = await welcomeService.UpdateConfigurationAsync(Input.GuildId, updateRequest);
+
+            if (result == null)
+            {
+                Logger.LogWarning("Failed to update welcome configuration for guild {GuildId} - guild not found", Input.GuildId);
+                _errorMessage = "Guild not found. It may have been removed.";
+                await Toast.ErrorAsync(_errorMessage);
+                return;
+            }
+
+            Logger.LogInformation("Successfully updated welcome configuration for guild {GuildId}", Input.GuildId);
+
+            // In-circuit twin of the TempData + RedirectToPage-to-self round-trip:
+            // the form already holds the saved values, so surface the alert + toast.
+            _successMessage = "Welcome configuration saved successfully.";
+            await Toast.SuccessAsync(_successMessage);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

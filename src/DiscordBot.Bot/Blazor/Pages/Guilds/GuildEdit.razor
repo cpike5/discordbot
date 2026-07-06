@@ -1,0 +1,349 @@
+@page "/Guilds/Edit/{Id:long}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using System.ComponentModel.DataAnnotations
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject ToastInterop Toast
+@inject ILogger<GuildEdit> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/Edit.cshtml(.cs) — Phase F of
+    docs/architecture/blazor-completion-plan.md. Same route (/Guilds/Edit/{id}),
+    same RequireAdmin + GuildAccess policies; GuildAccess is additionally
+    re-checked in code (resource-based AuthorizeAsync) because the handler's
+    route-value fallback may not fire inside circuits.
+
+    Handler port:
+    - OnGetAsync → OnInitializedAsync (guild + audio settings load in a DI scope
+      per operation; guild-not-found redirects to /Error/404, audio-settings
+      failure hides the audio section exactly like AudioSettingsLoaded=false).
+    - OnPostAsync → SaveAsync (same IGuildService.UpdateGuildAsync +
+      IGuildAudioSettingsService.UpdateSettingsAsync calls, same partial-failure
+      error message). On success it navigates to
+      /Guilds/Details/{id}?successMessage=… — the same redirect the page model
+      performed after Details became routed Blazor (no forceLoad needed).
+
+    Markup verbatim; the asp-for checkbox/number inputs become
+    InputCheckbox/InputNumber inside an EditForm with DataAnnotationsValidator
+    (the InputModel and its [Range] validation are carried over unchanged).
+*@
+
+<PageTitle>Edit @_viewModel.Name - Discord Bot Admin</PageTitle>
+
+@if (_loaded)
+{
+<div class="max-w-3xl mx-auto">
+    <!-- Success Message -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <EditForm Model="Input" OnValidSubmit="SaveAsync">
+        <DataAnnotationsValidator />
+
+        <!-- General Settings Section -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">General Settings</h2>
+            </div>
+            <div class="p-6">
+                <!-- Bot Active Toggle -->
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex-1 pr-4">
+                        <label for="Input_IsActive" class="text-sm font-medium text-text-primary">Bot Active</label>
+                        <p class="text-xs text-text-tertiary mt-0.5">Enable or disable the bot for this server</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <InputCheckbox id="Input_IsActive" @bind-Value="Input.IsActive" class="sr-only peer" />
+                        <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Audio Settings Section -->
+        @if (_audioSettingsLoaded)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-lg font-semibold text-text-primary">Audio Settings</h2>
+                </div>
+                <div class="p-6 space-y-4">
+                    <!-- Audio Enabled Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_AudioEnabled" class="text-sm font-medium text-text-primary">Audio Enabled</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Enable or disable audio features</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <InputCheckbox id="Input_AudioEnabled" @bind-Value="Input.AudioEnabled" class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- Auto-leave Timeout -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_AutoLeaveTimeoutMinutes" class="text-sm font-medium text-text-primary">Auto-leave Timeout</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Minutes of inactivity before leaving voice (0 = stay indefinitely)</p>
+                        </div>
+                        <InputNumber id="Input_AutoLeaveTimeoutMinutes"
+                                     @bind-Value="Input.AutoLeaveTimeoutMinutes"
+                                     min="0"
+                                     max="1440"
+                                     class="w-24 px-3 py-1.5 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20" />
+                    </div>
+                    <ValidationMessage For="() => Input.AutoLeaveTimeoutMinutes" class="text-error text-xs" />
+
+                    <!-- Queue Enabled Toggle -->
+                    <div class="flex items-center justify-between py-2">
+                        <div class="flex-1 pr-4">
+                            <label for="Input_QueueEnabled" class="text-sm font-medium text-text-primary">Queue Enabled</label>
+                            <p class="text-xs text-text-tertiary mt-0.5">Whether sounds queue or replace current</p>
+                        </div>
+                        <label class="relative inline-flex items-center cursor-pointer">
+                            <InputCheckbox id="Input_QueueEnabled" @bind-Value="Input.QueueEnabled" class="sr-only peer" />
+                            <div class="w-11 h-6 bg-bg-tertiary peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-border-focus/50 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-text-primary after:border-border-primary after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-accent-orange"></div>
+                        </label>
+                    </div>
+
+                    <!-- More Settings Link -->
+                    <div class="pt-2 border-t border-border-primary">
+                        <a href="/Guilds/AudioSettings/@_viewModel.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                            More settings...
+                        </a>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Form Actions -->
+        <div class="flex items-center justify-end gap-4">
+            <a href="/Guilds/Details/@_viewModel.Id" class="btn btn-secondary">
+                Cancel
+            </a>
+            <button type="submit" class="btn btn-primary" disabled="@_saving">
+                <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                </svg>
+                @(_saving ? "Saving…" : "Save Settings")
+            </button>
+        </div>
+    </EditForm>
+</div>
+}
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long Id { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    private ulong GuildIdValue => (ulong)Id;
+
+    /// <summary>Form input model (verbatim twin of EditModel.InputModel, incl. validation attributes).</summary>
+    public InputModel Input { get; set; } = new();
+
+    private GuildEditViewModel _viewModel = new();
+    private bool _loaded;
+    private bool _audioSettingsLoaded;
+    private bool _saving;
+    private string? _successMessage;
+    private string? _errorMessage;
+
+    /// <summary>
+    /// Input model for form binding with validation attributes.
+    /// </summary>
+    public class InputModel
+    {
+        public ulong GuildId { get; set; }
+
+        [Display(Name = "Bot Active")]
+        public bool IsActive { get; set; } = true;
+
+        [Display(Name = "Audio Enabled")]
+        public bool AudioEnabled { get; set; } = true;
+
+        [Display(Name = "Auto-leave Timeout")]
+        [Range(0, 1440, ErrorMessage = "Auto-leave timeout must be between 0 and 1440 minutes")]
+        public int AutoLeaveTimeoutMinutes { get; set; } = 5;
+
+        [Display(Name = "Queue Enabled")]
+        public bool QueueEnabled { get; set; } = true;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        Logger.LogInformation("User accessing guild edit page for guild {GuildId}", GuildIdValue);
+
+        using var scope = ScopeFactory.CreateScope();
+        var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+
+        var guild = await guildService.GetGuildByIdAsync(GuildIdValue);
+        if (guild == null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", GuildIdValue);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        // Populate display view model
+        _viewModel = GuildEditViewModel.FromDto(guild);
+
+        // Populate form input model
+        Input = new InputModel
+        {
+            GuildId = guild.Id,
+            IsActive = _viewModel.IsActive
+        };
+
+        // Load audio settings (don't fail page if this fails)
+        try
+        {
+            var audioSettingsService = scope.ServiceProvider.GetRequiredService<IGuildAudioSettingsService>();
+            var audioSettings = await audioSettingsService.GetSettingsAsync(GuildIdValue);
+            Input.AudioEnabled = audioSettings.AudioEnabled;
+            Input.AutoLeaveTimeoutMinutes = audioSettings.AutoLeaveTimeoutMinutes;
+            Input.QueueEnabled = audioSettings.QueueEnabled;
+            _audioSettingsLoaded = true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Failed to load audio settings for guild {GuildId}", GuildIdValue);
+            _audioSettingsLoaded = false;
+        }
+
+        // Populate guild layout chrome (twin of PopulateGuildLayout(..., "overview", "Edit Settings", ...))
+        GuildContext?.Set(
+            new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                    new() { Label = "Edit Settings", IsCurrent = true }
+                }
+            },
+            new GuildHeaderViewModel
+            {
+                GuildId = guild.Id,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                PageTitle = "Edit Settings",
+                PageDescription = $"Configure bot settings for {guild.Name}"
+            },
+            new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "overview",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            });
+
+        _loaded = true;
+    }
+
+    /// <summary>Twin of OnPostAsync — same service calls, same error handling.</summary>
+    private async Task SaveAsync()
+    {
+        if (_saving)
+        {
+            return;
+        }
+
+        Logger.LogInformation("User submitting guild edit for guild {GuildId}, IsActive={IsActive}, AudioEnabled={AudioEnabled}",
+            Input.GuildId, Input.IsActive, Input.AudioEnabled);
+
+        _saving = true;
+        _errorMessage = null;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+
+            // Create the update request
+            var updateRequest = new GuildUpdateRequestDto
+            {
+                IsActive = Input.IsActive
+            };
+
+            Logger.LogInformation("Updating guild {GuildId} with IsActive={IsActive}",
+                Input.GuildId, updateRequest.IsActive);
+
+            var result = await guildService.UpdateGuildAsync(Input.GuildId, updateRequest);
+
+            if (result == null)
+            {
+                Logger.LogWarning("Failed to update guild {GuildId} - guild not found", Input.GuildId);
+                _errorMessage = "Guild not found. It may have been removed.";
+                await Toast.ErrorAsync(_errorMessage);
+                return;
+            }
+
+            // Update audio settings
+            try
+            {
+                var audioSettingsService = scope.ServiceProvider.GetRequiredService<IGuildAudioSettingsService>();
+                await audioSettingsService.UpdateSettingsAsync(Input.GuildId, settings =>
+                {
+                    settings.AudioEnabled = Input.AudioEnabled;
+                    settings.AutoLeaveTimeoutMinutes = Input.AutoLeaveTimeoutMinutes;
+                    settings.QueueEnabled = Input.QueueEnabled;
+                });
+
+                Logger.LogInformation("Successfully updated audio settings for guild {GuildId}", Input.GuildId);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex, "Failed to update audio settings for guild {GuildId}", Input.GuildId);
+                _errorMessage = "Guild settings saved, but audio settings failed to update. Please try again.";
+                await Toast.ErrorAsync(_errorMessage);
+                return;
+            }
+
+            Logger.LogInformation("Successfully updated guild {GuildId}", Input.GuildId);
+
+            // Same post-save redirect the page model performed: Details surfaces the
+            // success message from the query string (routed Blazor page, no forceLoad).
+            Navigation.NavigateTo($"/Guilds/Details/{Input.GuildId}?successMessage={Uri.EscapeDataString("Guild settings saved successfully.")}");
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+}

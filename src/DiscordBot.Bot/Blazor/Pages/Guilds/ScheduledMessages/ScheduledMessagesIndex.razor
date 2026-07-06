@@ -1,0 +1,563 @@
+@page "/Guilds/ScheduledMessages/{GuildId:long}"
+@page "/Guilds/ScheduledMessages/Index/{GuildId:long}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds.ScheduledMessages
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<ScheduledMessagesIndex> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/ScheduledMessages/Index.cshtml(.cs) —
+    Phase F of docs/architecture/blazor-completion-plan.md. Same routes
+    (/Guilds/ScheduledMessages/{guildId} and the explicit /Index/ form), same
+    RequireAdmin + GuildAccess policies; GuildAccess is additionally re-checked in
+    code (resource-based AuthorizeAsync) because the handler's route-value fallback
+    may not fire inside circuits.
+
+    The table body is verbatim, hosted in the FilterableTable shell (which adds the
+    standard "Showing X to Y of Z" summary, the mobile card split, and the shared
+    Pagination pager in place of the page's hand-rolled prev/next links). The
+    OnPostDelete/OnPostToggle handlers become in-circuit handlers calling
+    IScheduledMessageService directly (same log lines and TempData message strings,
+    now circuit-held alerts) with a RequireAdmin + GuildAccess recheck per action;
+    delete keeps its confirmation via the shared ConfirmModal (same title/message).
+    Data access is a DI scope per operation; guild not-found redirects to /Error/404
+    (mirrors NotFound()). Create/Edit redirect back here with ?successMessage.
+*@
+
+<PageTitle>Scheduled Messages - @_viewModel.GuildName - Discord Bot Admin</PageTitle>
+
+<!-- Success Message -->
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+    </div>
+}
+
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+    </div>
+}
+
+@if (_loaded)
+{
+    <FilterableTable TItem="ScheduledMessageListItem"
+                     Items="_viewModel.Messages"
+                     Loading="_loading"
+                     CurrentPage="_viewModel.Page"
+                     TotalPages="_viewModel.TotalPages"
+                     TotalCount="_viewModel.TotalCount"
+                     PageSize="_viewModel.PageSize"
+                     OnPageChange="LoadPageAsync"
+                     ItemNoun="results">
+        <HeaderTemplate>
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Status
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Message Preview
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Channel
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Schedule
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Next Run
+                </th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Actions
+                </th>
+            </tr>
+        </HeaderTemplate>
+        <RowTemplate Context="message">
+            @{
+                var rowOpacity = message.StatusDisplay == "Expired" ? "opacity-60" : "";
+                var dotColor = message.StatusDisplay switch
+                {
+                    "Active" => "bg-success",
+                    "Paused" => "bg-warning",
+                    "Expired" => "bg-text-tertiary",
+                    _ => "bg-text-tertiary"
+                };
+            }
+            <tr class="group hover:bg-bg-hover transition-colors @rowOpacity">
+                <td class="px-6 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @(message.StatusDisplay == "Active" ? "bg-success/20 text-success" : message.StatusDisplay == "Paused" ? "bg-warning/20 text-warning" : "bg-bg-tertiary text-text-tertiary")">
+                        <span class="w-1.5 h-1.5 rounded-full @dotColor mr-1.5"></span>
+                        @message.StatusDisplay
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="max-w-xs">
+                        <p class="text-sm text-text-primary truncate">@message.MessagePreview</p>
+                        <p class="text-xs text-text-tertiary mt-0.5">Created <span data-utc="@message.CreatedAtUtcIso" data-format="date">...</span></p>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-2 text-sm text-text-primary">
+                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14" />
+                        </svg>
+                        @message.ChannelName
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-2">
+                        <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span class="text-sm text-text-primary">@message.ScheduleDescription</span>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    @if (!string.IsNullOrEmpty(message.NextRunUtcIso))
+                    {
+                        @* Use data-utc pattern for JavaScript timezone conversion *@
+                        <span class="text-sm text-text-primary" data-utc="@message.NextRunUtcIso" data-format="datetime-short"></span>
+                    }
+                    else
+                    {
+                        <span class="text-sm text-text-tertiary">--</span>
+                    }
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <!-- Edit Button -->
+                        <a href="/Guilds/ScheduledMessages/Edit/@_viewModel.GuildId/@message.Id"
+                           class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
+                           title="Edit">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </a>
+
+                        @if (message.StatusDisplay != "Expired")
+                        {
+                            <!-- Pause/Resume Button -->
+                            <button type="button"
+                                    @onclick="() => ToggleAsync(message)"
+                                    disabled="@_actionBusy"
+                                    class="p-2 text-text-secondary @(message.IsEnabled ? "hover:text-warning hover:bg-warning/10" : "hover:text-success hover:bg-success/10") rounded-md transition-colors"
+                                    title="@(message.IsEnabled ? "Pause" : "Resume")">
+                                @if (message.IsEnabled)
+                                {
+                                    <!-- Pause Icon -->
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <!-- Resume Icon -->
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                }
+                            </button>
+                        }
+
+                        <!-- Delete Button -->
+                        <button type="button"
+                                @onclick="() => DeleteAsync(message)"
+                                disabled="@_actionBusy"
+                                class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
+                                title="Delete">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </td>
+            </tr>
+        </RowTemplate>
+        <MobileTemplate Context="message">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 @(message.StatusDisplay == "Expired" ? "opacity-60" : "")">
+                <div class="flex items-center justify-between mb-2">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @(message.StatusDisplay == "Active" ? "bg-success/20 text-success" : message.StatusDisplay == "Paused" ? "bg-warning/20 text-warning" : "bg-bg-tertiary text-text-tertiary")">
+                        @message.StatusDisplay
+                    </span>
+                    <div class="flex items-center gap-1">
+                        <a href="/Guilds/ScheduledMessages/Edit/@_viewModel.GuildId/@message.Id"
+                           class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
+                           title="Edit">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                            </svg>
+                        </a>
+                        @if (message.StatusDisplay != "Expired")
+                        {
+                            <button type="button"
+                                    @onclick="() => ToggleAsync(message)"
+                                    disabled="@_actionBusy"
+                                    class="p-2 text-text-secondary rounded-md transition-colors"
+                                    title="@(message.IsEnabled ? "Pause" : "Resume")">
+                                @if (message.IsEnabled)
+                                {
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                }
+                                else
+                                {
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                }
+                            </button>
+                        }
+                        <button type="button"
+                                @onclick="() => DeleteAsync(message)"
+                                disabled="@_actionBusy"
+                                class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
+                                title="Delete">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-sm text-text-primary truncate">@message.MessagePreview</p>
+                <div class="mt-2 space-y-1 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-text-tertiary">Channel:</span>
+                        <span class="text-text-secondary">@message.ChannelName</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-text-tertiary">Schedule:</span>
+                        <span class="text-text-secondary">@message.ScheduleDescription</span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-text-tertiary">Next Run:</span>
+                        @if (!string.IsNullOrEmpty(message.NextRunUtcIso))
+                        {
+                            <span class="text-text-secondary" data-utc="@message.NextRunUtcIso" data-format="datetime-short"></span>
+                        }
+                        else
+                        {
+                            <span class="text-text-tertiary">--</span>
+                        }
+                    </div>
+                </div>
+            </div>
+        </MobileTemplate>
+        <EmptyContent>
+            <!-- Empty State -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+                <div class="w-16 h-16 mx-auto mb-4 rounded-full bg-bg-tertiary flex items-center justify-center">
+                    <svg class="w-8 h-8 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <h3 class="text-lg font-semibold text-text-primary mb-2">No Scheduled Messages</h3>
+                <p class="text-sm text-text-secondary mb-6 max-w-sm mx-auto">
+                    You haven't created any scheduled messages yet. Create your first one to automate messages in your server.
+                </p>
+                <a href="/Guilds/ScheduledMessages/Create/@_viewModel.GuildId"
+                   class="inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                    </svg>
+                    Create First Message
+                </a>
+            </div>
+        </EmptyContent>
+    </FilterableTable>
+}
+
+<ConfirmModal @ref="_confirmModal" />
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long GuildId { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    /// <summary>Page number from the query string (default 1), mirroring the page model's [FromQuery].</summary>
+    [SupplyParameterFromQuery(Name = "page")] public int? PageQuery { get; set; }
+
+    /// <summary>Page size from the query string (default 20), mirroring the page model's [FromQuery].</summary>
+    [SupplyParameterFromQuery(Name = "pageSize")] public int? PageSizeQuery { get; set; }
+
+    /// <summary>Success message from a redirecting page (replaces the old TempData round-trip, e.g. Create/Edit).</summary>
+    [SupplyParameterFromQuery(Name = "successMessage")] public string? SuccessMessageQuery { get; set; }
+
+    private ulong GuildIdValue => (ulong)GuildId;
+
+    private ScheduledMessageListViewModel _viewModel = new();
+    private bool _loaded;
+    private bool _loading;
+    private bool _actionBusy;
+    private string? _successMessage;
+    private string? _errorMessage;
+    private int _page = 1;
+    private int _pageSize = 20;
+    private bool _needTimeConvert;
+
+    private ConfirmModal _confirmModal = default!;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        _successMessage = SuccessMessageQuery;
+
+        // Validate pagination parameters (same clamping as the page model)
+        _page = PageQuery ?? 1;
+        _pageSize = PageSizeQuery ?? 20;
+        if (_page < 1) _page = 1;
+        if (_pageSize < 1 || _pageSize > 100) _pageSize = 20;
+
+        Logger.LogInformation("User accessing scheduled messages list for guild {GuildId}, page {Page}, pageSize {PageSize}",
+            GuildIdValue, _page, _pageSize);
+
+        await LoadPageAsync(_page);
+        _loaded = true;
+    }
+
+    private async Task LoadPageAsync(int page)
+    {
+        _loading = true;
+        _page = page;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var services = scope.ServiceProvider;
+            var guildService = services.GetRequiredService<IGuildService>();
+            var scheduledMessageService = services.GetRequiredService<IScheduledMessageService>();
+            var channelResolver = services.GetRequiredService<IDiscordChannelResolver>();
+
+            var guild = await guildService.GetGuildByIdAsync(GuildIdValue);
+            if (guild == null)
+            {
+                Logger.LogWarning("Guild {GuildId} not found", GuildIdValue);
+                Navigation.NavigateTo("/Error/404");
+                return;
+            }
+
+            var (messages, totalCount) = await scheduledMessageService.GetByGuildIdAsync(GuildIdValue, _page, _pageSize);
+
+            Logger.LogDebug("Retrieved {Count} scheduled messages for guild {GuildId} (page {Page} of {TotalPages})",
+                messages.Count(), GuildIdValue, _page, (int)Math.Ceiling((double)totalCount / _pageSize));
+
+            _viewModel = ScheduledMessageListViewModel.Create(
+                GuildIdValue,
+                guild.Name,
+                guild.IconUrl,
+                messages,
+                channelId => channelResolver.ResolveChannelName(GuildIdValue, channelId),
+                _page,
+                _pageSize,
+                totalCount);
+
+            // Populate guild layout chrome (same viewmodels the page model built)
+            GuildContext?.Set(
+                new GuildBreadcrumbViewModel
+                {
+                    Items = new List<BreadcrumbItem>
+                    {
+                        new() { Label = "Home", Url = "/" },
+                        new() { Label = "Servers", Url = "/Guilds" },
+                        new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                        new() { Label = "Scheduled Messages", IsCurrent = true }
+                    }
+                },
+                new GuildHeaderViewModel
+                {
+                    GuildId = guild.Id,
+                    GuildName = guild.Name,
+                    GuildIconUrl = guild.IconUrl,
+                    PageTitle = "Scheduled Messages",
+                    PageDescription = "Manage scheduled and recurring messages",
+                    Actions = new List<HeaderAction>
+                    {
+                        new()
+                        {
+                            Label = "Create New",
+                            Url = $"/Guilds/ScheduledMessages/Create/{GuildIdValue}",
+                            Style = HeaderActionStyle.Primary,
+                            Icon = "M12 4v16m8-8H4"
+                        }
+                    }
+                },
+                new GuildNavBarViewModel
+                {
+                    GuildId = guild.Id,
+                    ActiveTab = "messages",
+                    Tabs = GuildNavigationConfig.GetTabs().ToList()
+                });
+
+            _needTimeConvert = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.convertTimes");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    /// <summary>
+    /// Re-checks RequireAdmin + resource-based GuildAccess inside the circuit before
+    /// a mutating action. Returns false (after redirecting) when it must not proceed.
+    /// </summary>
+    private async Task<bool> AuthorizeActionAsync()
+    {
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var adminResult = await AuthService.AuthorizeAsync(authState.User, "RequireAdmin");
+        var guildResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!adminResult.Succeeded || !guildResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return false;
+        }
+
+        return true;
+    }
+
+    /// <summary>In-circuit port of OnPostToggleAsync (pause/resume).</summary>
+    private async Task ToggleAsync(ScheduledMessageListItem message)
+    {
+        if (!await AuthorizeActionAsync())
+        {
+            return;
+        }
+
+        _actionBusy = true;
+        try
+        {
+            Logger.LogInformation("User attempting to toggle scheduled message {MessageId} for guild {GuildId}",
+                message.Id, GuildIdValue);
+
+            using var scope = ScopeFactory.CreateScope();
+            var scheduledMessageService = scope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
+
+            var scheduledMessage = await scheduledMessageService.GetByIdAsync(message.Id);
+            if (scheduledMessage == null)
+            {
+                Logger.LogWarning("Failed to toggle scheduled message {MessageId} - not found", message.Id);
+                _errorMessage = "Scheduled message not found. It may have been deleted.";
+            }
+            else
+            {
+                var updateDto = new Core.DTOs.ScheduledMessageUpdateDto
+                {
+                    IsEnabled = !scheduledMessage.IsEnabled
+                };
+
+                var result = await scheduledMessageService.UpdateAsync(message.Id, updateDto);
+                if (result != null)
+                {
+                    var action = result.IsEnabled ? "resumed" : "paused";
+                    Logger.LogInformation("Successfully {Action} scheduled message {MessageId}", action, message.Id);
+                    _successMessage = $"Scheduled message {action} successfully.";
+                }
+                else
+                {
+                    Logger.LogWarning("Failed to toggle scheduled message {MessageId}", message.Id);
+                    _errorMessage = "Failed to update scheduled message.";
+                }
+            }
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+
+        await LoadPageAsync(_page);
+    }
+
+    /// <summary>In-circuit port of OnPostDeleteAsync, behind the shared ConfirmModal.</summary>
+    private async Task DeleteAsync(ScheduledMessageListItem message)
+    {
+        var preview = string.IsNullOrWhiteSpace(message.MessagePreview) ? "this message" : message.MessagePreview;
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Delete Scheduled Message",
+            Message = $"Are you sure you want to delete \"{preview}\"? This action cannot be undone.",
+            Variant = ConfirmationVariant.Danger,
+            ConfirmText = "Delete"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        if (!await AuthorizeActionAsync())
+        {
+            return;
+        }
+
+        _actionBusy = true;
+        try
+        {
+            Logger.LogInformation("User attempting to delete scheduled message {MessageId} for guild {GuildId}",
+                message.Id, GuildIdValue);
+
+            using var scope = ScopeFactory.CreateScope();
+            var scheduledMessageService = scope.ServiceProvider.GetRequiredService<IScheduledMessageService>();
+
+            var success = await scheduledMessageService.DeleteAsync(message.Id);
+            if (success)
+            {
+                Logger.LogInformation("Successfully deleted scheduled message {MessageId}", message.Id);
+                _successMessage = "Scheduled message deleted successfully.";
+            }
+            else
+            {
+                Logger.LogWarning("Failed to delete scheduled message {MessageId} - not found", message.Id);
+                _errorMessage = "Scheduled message not found. It may have already been deleted.";
+            }
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+
+        await LoadPageAsync(_page);
+    }
+}
