@@ -1,0 +1,163 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_NavTabs.cshtml.
+    The partial delegates tab switching to nav-tabs.js; this component owns the
+    active-tab state natively in C# instead (click handlers, show/hide panels,
+    ActiveTabChanged callback). The JS auto-init hooks (data-nav-tabs,
+    data-navigation-mode, data-persistence-mode) are intentionally omitted so
+    nav-tabs.js never attaches; all Tailwind/CSS classes match the partial.
+
+    InPage mode renders buttons and per-tab panels via TabContent (keyed by tab
+    id, like TabbedFormShell). PageNavigation mode renders plain anchor tabs.
+*@
+
+<div class="nav-tabs-container @StyleClass"
+     id="@($"{ContainerId}-container")"
+     data-container-id="@ContainerId">
+    <nav class="nav-tabs-list"
+         id="@($"{ContainerId}-nav")"
+         role="tablist"
+         aria-label="@AriaLabel">
+        @foreach (var tab in Tabs)
+        {
+            var isActive = tab.Id == ActiveTab;
+            var tabElementId = $"{ContainerId}-tab-{tab.Id}";
+            var panelElementId = $"{ContainerId}-panel-{tab.Id}";
+
+            if (NavigationMode == NavMode.PageNavigation)
+            {
+                <a href="@(tab.Href ?? "#")"
+                   class="@GetTabClass(tab)"
+                   id="@tabElementId"
+                   role="tab"
+                   aria-selected="@(isActive ? "true" : "false")"
+                   aria-disabled="@(tab.Disabled ? "true" : null)"
+                   tabindex="@(isActive ? "0" : "-1")"
+                   data-tab-id="@tab.Id">
+                    @TabInner(tab)
+                </a>
+            }
+            else
+            {
+                <button type="button"
+                        class="@GetTabClass(tab)"
+                        id="@tabElementId"
+                        role="tab"
+                        aria-selected="@(isActive ? "true" : "false")"
+                        aria-controls="@panelElementId"
+                        tabindex="@(isActive ? "0" : "-1")"
+                        disabled="@tab.Disabled"
+                        aria-disabled="@(tab.Disabled ? "true" : null)"
+                        data-tab-id="@tab.Id"
+                        @onclick="() => SelectTabAsync(tab)">
+                    @TabInner(tab)
+                </button>
+            }
+        }
+    </nav>
+</div>
+
+@if (TabContent is not null && NavigationMode != NavMode.PageNavigation)
+{
+    @foreach (var tab in Tabs)
+    {
+        <div id="@($"{ContainerId}-panel-{tab.Id}")"
+             role="tabpanel"
+             aria-labelledby="@($"{ContainerId}-tab-{tab.Id}")"
+             hidden="@(tab.Id != ActiveTab)">
+            @TabContent(tab.Id)
+        </div>
+    }
+}
+
+@code {
+    /// <summary>The navigation tabs to display (twin of NavTabsViewModel.Tabs).</summary>
+    [Parameter] public IReadOnlyList<NavTabItem> Tabs { get; set; } = [];
+
+    /// <summary>Optional starting tab id (defaults to the first tab).</summary>
+    [Parameter] public string? InitialTab { get; set; }
+
+    /// <summary>Raised when the user activates a different tab (in-page mode).</summary>
+    [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
+
+    /// <summary>Visual style variant, rendered as nav-tabs-{variant} on the container.</summary>
+    [Parameter] public NavTabStyle StyleVariant { get; set; } = NavTabStyle.Underline;
+
+    /// <summary>InPage renders buttons + native panels; PageNavigation renders anchor links.</summary>
+    [Parameter] public NavMode NavigationMode { get; set; } = NavMode.InPage;
+
+    /// <summary>ARIA label for the tablist element.</summary>
+    [Parameter] public string AriaLabel { get; set; } = "Navigation";
+
+    /// <summary>Unique id prefix for element ids ({ContainerId}-tab-{tabId} etc.).</summary>
+    [Parameter] public string ContainerId { get; set; } = "navTabs";
+
+    /// <summary>Renders the panel body for a given tab id (in-page mode).</summary>
+    [Parameter] public RenderFragment<string>? TabContent { get; set; }
+
+    private string _activeTab = string.Empty;
+
+    /// <summary>The currently active tab id.</summary>
+    public string ActiveTab => _activeTab;
+
+    protected override void OnInitialized()
+        => _activeTab = InitialTab ?? Tabs.FirstOrDefault()?.Id ?? string.Empty;
+
+    private string StyleClass => StyleVariant switch
+    {
+        NavTabStyle.Pills => "nav-tabs-pills",
+        NavTabStyle.Bordered => "nav-tabs-bordered",
+        _ => "nav-tabs-underline"
+    };
+
+    private string GetTabClass(NavTabItem tab)
+    {
+        var classes = "nav-tabs-item";
+        if (tab.Id == _activeTab)
+        {
+            classes += " active";
+        }
+        if (tab.Disabled)
+        {
+            classes += " disabled";
+        }
+        return classes;
+    }
+
+    private async Task SelectTabAsync(NavTabItem tab)
+    {
+        if (tab.Disabled || tab.Id == _activeTab)
+        {
+            return;
+        }
+
+        _activeTab = tab.Id;
+        if (ActiveTabChanged.HasDelegate)
+        {
+            await ActiveTabChanged.InvokeAsync(tab.Id);
+        }
+    }
+
+    // Mirrors the partial's RenderTabContent helper (icon + long/short labels).
+    private RenderFragment TabInner(NavTabItem tab) => __builder =>
+    {
+        if (tab.HasIcon)
+        {
+            <svg class="nav-tabs-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
+            </svg>
+        }
+
+        if (!string.IsNullOrEmpty(tab.ShortLabel))
+        {
+            <span class="tab-label-long">@tab.Label</span>
+            <span class="tab-label-short">@tab.ShortLabel</span>
+        }
+        else
+        {
+            <span>@tab.Label</span>
+        }
+    };
+}

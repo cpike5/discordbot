@@ -1,0 +1,178 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_TabPanel.cshtml.
+    The partial delegates tab switching to tab-panel.js; this component owns the
+    active-tab state natively in C# instead (click handlers, show/hide panels,
+    ActiveTabChanged callback). The JS auto-init hooks (data-tab-panel,
+    data-navigation-mode, data-persistence-mode, data-ajax-*) are intentionally
+    omitted so tab-panel.js never attaches; all Tailwind/CSS classes match the
+    partial. The complex TabPanelViewModel is accepted as a single parameter;
+    panel bodies come from TabContent keyed by tab id (like TabbedFormShell).
+*@
+
+<div class="@ContainerClasses" id="@($"{Model.Id}-container")">
+    <nav class="tab-panel-tabs"
+         id="@($"{Model.Id}-tablist")"
+         role="tablist"
+         aria-label="@Model.AriaLabel">
+        @foreach (var tab in Model.Tabs)
+        {
+            var isActive = tab.Id == ActiveTab;
+            var tabElementId = $"{Model.Id}-tab-{tab.Id}";
+            var panelElementId = $"{Model.Id}-panel-{tab.Id}";
+
+            if (Model.NavigationMode == TabNavigationMode.PageNavigation)
+            {
+                <a href="@(tab.Href ?? "#")"
+                   class="@GetTabClass(tab)"
+                   id="@tabElementId"
+                   role="tab"
+                   aria-selected="@(isActive ? "true" : "false")"
+                   aria-disabled="@(tab.Disabled ? "true" : null)"
+                   tabindex="@(tab.Disabled ? "-1" : null)"
+                   data-tab-id="@tab.Id">
+                    @TabInner(tab, isActive)
+                </a>
+            }
+            else
+            {
+                <button type="button"
+                        class="@GetTabClass(tab)"
+                        id="@tabElementId"
+                        role="tab"
+                        aria-selected="@(isActive ? "true" : "false")"
+                        aria-controls="@panelElementId"
+                        tabindex="@(isActive ? "0" : "-1")"
+                        disabled="@tab.Disabled"
+                        aria-disabled="@(tab.Disabled ? "true" : null)"
+                        data-tab-id="@tab.Id"
+                        @onclick="() => SelectTabAsync(tab)">
+                    @TabInner(tab, isActive)
+                </button>
+            }
+        }
+    </nav>
+</div>
+
+@if (TabContent is not null && Model.NavigationMode != TabNavigationMode.PageNavigation)
+{
+    @foreach (var tab in Model.Tabs)
+    {
+        <div id="@($"{Model.Id}-panel-{tab.Id}")"
+             role="tabpanel"
+             aria-labelledby="@($"{Model.Id}-tab-{tab.Id}")"
+             hidden="@(tab.Id != ActiveTab)">
+            @TabContent(tab.Id)
+        </div>
+    }
+}
+
+@code {
+    /// <summary>The full tab panel view model (tabs, style, navigation mode, aria label).</summary>
+    [Parameter, EditorRequired] public TabPanelViewModel Model { get; set; } = new();
+
+    /// <summary>Renders the panel body for a given tab id (in-page mode).</summary>
+    [Parameter] public RenderFragment<string>? TabContent { get; set; }
+
+    /// <summary>Raised when the user activates a different tab (in-page mode).</summary>
+    [Parameter] public EventCallback<string> ActiveTabChanged { get; set; }
+
+    private string _activeTab = string.Empty;
+
+    /// <summary>The currently active tab id.</summary>
+    public string ActiveTab => _activeTab;
+
+    protected override void OnInitialized()
+        => _activeTab = !string.IsNullOrEmpty(Model.ActiveTabId)
+            ? Model.ActiveTabId
+            : Model.Tabs.FirstOrDefault()?.Id ?? string.Empty;
+
+    private string ContainerClasses
+    {
+        get
+        {
+            var containerClass = "tab-panel-container";
+            containerClass += $" tab-panel-{Model.StyleVariant.ToString().ToLowerInvariant()}";
+            if (Model.Compact)
+            {
+                containerClass += " tab-panel-compact";
+            }
+            if (!string.IsNullOrEmpty(Model.ContainerClass))
+            {
+                containerClass += $" {Model.ContainerClass}";
+            }
+            return containerClass;
+        }
+    }
+
+    private string GetTabClass(TabItemViewModel tab)
+    {
+        var classes = "tab-panel-tab";
+        if (tab.Id == _activeTab)
+        {
+            classes += " active";
+        }
+        if (tab.Disabled)
+        {
+            classes += " disabled";
+        }
+        return classes;
+    }
+
+    private async Task SelectTabAsync(TabItemViewModel tab)
+    {
+        if (tab.Disabled || tab.Id == _activeTab)
+        {
+            return;
+        }
+
+        _activeTab = tab.Id;
+        if (ActiveTabChanged.HasDelegate)
+        {
+            await ActiveTabChanged.InvokeAsync(tab.Id);
+        }
+    }
+
+    private static string GetBadgeClass(TabBadgeVariant variant) => variant switch
+    {
+        TabBadgeVariant.Success => "tab-badge tab-badge-success",
+        TabBadgeVariant.Warning => "tab-badge tab-badge-warning",
+        TabBadgeVariant.Error => "tab-badge tab-badge-error",
+        TabBadgeVariant.Info => "tab-badge tab-badge-info",
+        _ => "tab-badge"
+    };
+
+    // Mirrors the partial's RenderTabContent helper (icon, labels, subtitle, badge).
+    private RenderFragment TabInner(TabItemViewModel tab, bool isActive) => __builder =>
+    {
+        if (tab.HasIcon)
+        {
+            var iconClass = isActive ? "tab-icon tab-icon-active" : "tab-icon";
+            <svg class="@iconClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@tab.IconPathOutline" />
+            </svg>
+        }
+
+        if (!string.IsNullOrEmpty(tab.ShortLabel))
+        {
+            <span class="tab-label-long">@tab.Label</span>
+            <span class="tab-label-short">@tab.ShortLabel</span>
+        }
+        else
+        {
+            <span>@tab.Label</span>
+        }
+
+        if (tab.HasSubtitle)
+        {
+            <span class="tab-subtitle">@tab.Subtitle</span>
+        }
+
+        if (tab.HasBadge)
+        {
+            <span class="@GetBadgeClass(tab.BadgeVariant)">@tab.BadgeCount</span>
+        }
+    };
+}
