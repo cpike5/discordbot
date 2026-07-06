@@ -36,11 +36,28 @@
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
     <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
     <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/tab-panel.css" />
     <!-- Scoped CSS bundle for .razor component isolation -->
     <link rel="stylesheet" href="DiscordBot.Bot.styles.css" />
+    <!-- Early sidebar state restoration to prevent FOUC (Flash of Unstyled Content) -->
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 1024) {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
     <HeadOutlet />
 </head>
-<body class="bg-bg-primary text-text-primary font-sans antialiased">
+@*
+    data-enhance-nav="false": MainLayout loads blazor.web.js for its interactive
+    bell island; without the opt-out it would also enhance-navigate every link.
+    Most links still target Razor Pages, whose scripts don't re-run under
+    enhanced navigation — keep classic full-page loads until Phase J.
+*@
+<body class="bg-bg-primary text-text-primary font-sans antialiased" data-enhance-nav="false">
     <Routes />
 </body>
 </html>

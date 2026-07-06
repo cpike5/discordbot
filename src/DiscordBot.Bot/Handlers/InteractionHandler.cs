@@ -82,10 +82,14 @@ public class InteractionHandler
             .Select(m => m.ModuleName)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Discover command module types from the executing assembly
+        // Discover command module types from the executing assembly. Nested module
+        // classes (sub-groups like NotXCommandModule.ChannelSubModule) are excluded:
+        // Discord.Net registers them automatically with their declaring module, and
+        // AddModuleAsync rejects nested types outright ("did you pass an invalid type?"),
+        // which previously crashed startup.
         var assembly = Assembly.GetExecutingAssembly();
         var allModuleTypes = assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && IsInteractionModule(t))
+            .Where(t => t.IsClass && !t.IsAbstract && !t.IsNested && IsInteractionModule(t))
             .ToList();
 
         var loadedModules = new List<string>();
