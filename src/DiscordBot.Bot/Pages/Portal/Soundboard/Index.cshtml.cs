@@ -1,7 +1,6 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
-using DiscordBot.Bot.ViewModels.Portal;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -46,11 +45,6 @@ public class IndexModel : PortalPageModelBase
     }
 
     /// <summary>
-    /// Gets the list of sounds available in this guild.
-    /// </summary>
-    public IReadOnlyList<PortalSoundViewModel> Sounds { get; set; } = Array.Empty<PortalSoundViewModel>();
-
-    /// <summary>
     /// Gets the voice channel panel view model.
     /// </summary>
     public VoiceChannelPanelViewModel? VoicePanel { get; set; }
@@ -90,14 +84,6 @@ public class IndexModel : PortalPageModelBase
     /// Null if user ID cannot be determined from claims.
     /// </summary>
     public string? CurrentUserId { get; set; }
-
-    /// <summary>
-    /// When true, renders the legacy JavaScript-driven soundboard grid instead of the
-    /// Blazor island (parity gate — see blazor-modernization-selective-plan.md §9).
-    /// Reachable at <c>?legacy=true</c>.
-    /// </summary>
-    [BindProperty(SupportsGet = true)]
-    public bool Legacy { get; set; }
 
     /// <summary>
     /// Handles GET requests to display the Soundboard Portal page.
@@ -153,19 +139,6 @@ public class IndexModel : PortalPageModelBase
             // Get audio settings for limits
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
 
-            // Map sounds to portal view models
-            var soundViewModels = sounds
-                .Select(s => new PortalSoundViewModel
-                {
-                    Id = s.Id,
-                    Name = s.Name,
-                    PlayCount = s.PlayCount,
-                    DurationSeconds = s.DurationSeconds,
-                    UploadedById = s.UploadedById?.ToString(),
-                    UploadedAt = s.UploadedAt
-                })
-                .ToList();
-
             // Build voice channel panel data
             var connectedChannelId = _audioService.GetConnectedChannelId(guildId);
             var isConnected = _audioService.IsConnected(guildId);
@@ -206,7 +179,6 @@ public class IndexModel : PortalPageModelBase
             };
 
             // Set remaining view properties
-            Sounds = soundViewModels;
             MaxSounds = settings.MaxSoundsPerGuild;
             CurrentSoundCount = sounds.Count;
             SupportedFormats = "MP3, WAV, OGG";
