@@ -167,7 +167,9 @@ public class EditModel : GuildPageModelBase
         _logger.LogInformation("Successfully updated guild {GuildId}", Input.GuildId);
         SuccessMessage = "Guild settings saved successfully.";
 
-        return RedirectToPage("Details", new { id = Input.GuildId });
+        // Details is now a routed Blazor page (no Razor Page to RedirectToPage to);
+        // it surfaces the success message from the query string instead of TempData.
+        return Redirect($"/Guilds/Details/{Input.GuildId}?successMessage={Uri.EscapeDataString("Guild settings saved successfully.")}");
     }
 
     /// <summary>
