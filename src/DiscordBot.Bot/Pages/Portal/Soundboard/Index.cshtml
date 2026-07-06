@@ -1141,89 +1141,18 @@ else
         <div class="sound-panel">
             <div class="sound-grid-wrapper">
 
-@if (Model.Legacy)
-{
-                <!-- Search Bar -->
-                <div class="search-container">
-                    <div class="search-input-wrapper">
-                        <svg class="search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        <input type="text" id="searchInput" class="search-input" placeholder="Search sounds..." style="padding-right: 2.5rem;">
-                        <button type="button" id="searchClearBtn" class="search-clear-btn" title="Clear search">
-                            <svg style="width: 16px; height: 16px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </button>
-                    </div>
-                    <select id="sortSelect" class="sort-select" title="Sort sounds" aria-label="Sort sounds">
-                        <option value="name-asc">A-Z</option>
-                        <option value="name-desc">Z-A</option>
-                        <option value="most-played">Most Played</option>
-                        <option value="newest">Newest</option>
-                        <option value="oldest">Oldest</option>
-                    </select>
-                    <button type="button" id="fullscreenToggle" class="fullscreen-toggle-btn" title="Enter full screen" aria-label="Enter full screen">
-                        <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5v-4m0 4h-4m4 0l-5-5" />
-                        </svg>
-                    </button>
-                </div>
-
-                <!-- Sound Grid (rendered progressively by portal-soundboard.js) -->
-                <div id="soundGrid" class="sound-grid">
-                    @if (Model.Sounds.Count > 0)
-                    {
-                        @* Skeleton placeholders shown during initial JS load *@
-                        @for (var i = 0; i < Math.Min(Model.Sounds.Count, 8); i++)
-                        {
-                            <div class="sound-card-skeleton">
-                                <div class="skeleton-circle"></div>
-                                <div class="skeleton-line skeleton-line-name"></div>
-                                <div class="skeleton-line skeleton-line-plays"></div>
-                            </div>
-                        }
-                    }
-                </div>
-
-                <!-- Empty State -->
-                <div id="emptyState" class="empty-state @(Model.Sounds.Count == 0 ? "" : "hidden")">
-                    <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <p class="empty-state-title">No sounds found</p>
-                    <p class="empty-state-text">Try a different search term</p>
-                </div>
-}
-else
-{
-                @* Slice 6 — Blazor island owns the search bar, virtualized grid, favorites,
+                @* Blazor island owns the search bar, virtualized grid, favorites,
                    preview/play and self-delete. IDs as strings (snowflake safety). *@
                 <component type="typeof(DiscordBot.Bot.Blazor.Pages.SoundboardIsland)"
                            render-mode="ServerPrerendered"
                            param-GuildId="@Model.GuildId.ToString()"
                            param-CurrentUserId="@(Model.CurrentUserId ?? "")" />
-}
 
             </div>
         </div>
 
     </div>
 </main>
-
-@if (Model.Legacy)
-{
-    <!-- Full-Screen Floating Toolbar (legacy only — the island keeps its own search bar
-         visible in fullscreen, so the floating toolbar is unnecessary there) -->
-    <div id="fullscreenToolbar" class="fullscreen-toolbar">
-        <input type="text" id="fullscreenSearchInput" class="fullscreen-search" placeholder="Search sounds...">
-        <button type="button" id="fullscreenExitBtn" class="toolbar-btn" title="Exit full screen (Esc)" aria-label="Exit full screen">
-            <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25" />
-            </svg>
-        </button>
-    </div>
-}
 
     <!-- Hidden file input for upload -->
     <input type="file" id="fileInput" accept="audio/mp3,audio/wav,audio/ogg,.mp3,.wav,.ogg" class="hidden">
@@ -1247,21 +1176,6 @@ else
          data-max-duration-seconds="@Model.MaxDurationSeconds"
          style="display:none;"></div>
 
-    @if (Model.Legacy)
-    {
-        <!-- Sound data for progressive rendering (legacy JS grid only) -->
-        <script id="soundboard-data" type="application/json">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(Model.Sounds.Select(s => new {
-            id = s.Id.ToString(),
-            name = s.Name,
-            playCount = s.PlayCount,
-            durationSeconds = s.DurationSeconds,
-            uploadedById = s.UploadedById ?? "",
-            uploadedAt = s.UploadedAt?.ToString("o") ?? "",
-            categoryId = s.CategoryId?.ToString() ?? "",
-            categoryName = s.CategoryName ?? ""
-        })))</script>
-    }
-
     <script>
         // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
         window.guildId = '@Model.GuildId';
@@ -1274,28 +1188,24 @@ else
 
     </script>
 
-    @if (Model.Legacy)
-    {
-        <script src="~/js/portal-soundboard.js" asp-append-version="true"></script>
-    }
-    else
-    {
-        @* Slice 6 island: Blazor bootstrap is not in _PortalLayout, so start it here.
-           Nested route (/Portal/Soundboard/{id}) → explicit absolute hub URL (gotcha §6.5).
-           blazor-interop.js loads after toast.js (rendered by the layout) so ToastInterop
-           can bridge ToastManager. soundboard-island.js drives audio/real-time; the upload
-           widget keeps file bytes off the circuit. *@
-        <script src="~/js/blazor-interop.js" asp-append-version="true"></script>
-        <script src="~/_framework/blazor.server.js" autostart="false"></script>
-        <script>
-            Blazor.start({
-                configureSignalR: function (builder) {
-                    builder.withUrl('@Url.Content("~/_blazor")');
-                }
-            });
-        </script>
-        <script src="~/js/soundboard-island.js" asp-append-version="true"></script>
-        <script src="~/js/soundboard-upload.js" asp-append-version="true"></script>
-    }
+    @* Blazor island bootstrap: not in _PortalLayout, so start it here.
+       Nested route (/Portal/Soundboard/{id}) → explicit absolute hub URL (gotcha §6.5).
+       blazor-interop.js loads after toast.js (rendered by the layout) so ToastInterop
+       can bridge ToastManager. soundboard-island.js drives audio/real-time; the upload
+       widget keeps file bytes off the circuit. *@
+    <script src="~/js/blazor-interop.js" asp-append-version="true"></script>
+    <script src="~/_framework/blazor.server.js" autostart="false"></script>
+    <script>
+        Blazor.start({
+            configureSignalR: function (builder) {
+                builder.withUrl('@Url.Content("~/_blazor")');
+            },
+            // Skip the page-relative "_blazor/initializers" fetch, which 404s on
+            // nested routes and kills the circuit (see _Layout.cshtml).
+            initializers: { beforeStart: [], afterStarted: [] }
+        });
+    </script>
+    <script src="~/js/soundboard-island.js" asp-append-version="true"></script>
+    <script src="~/js/soundboard-upload.js" asp-append-version="true"></script>
 }
 }

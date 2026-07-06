@@ -1,0 +1,693 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Admin
+@using System.Globalization
+@using System.Text
+@using Discord
+@using Discord.WebSocket
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+@implements IDisposable
+
+@*
+    Messages tab of the unified /Admin/Logs page (Phase F). Replaces
+    Pages/Admin/Logs/Tabs/_MessagesTab.cshtml plus autocomplete.js/message-logs.js
+    (guild → channel autocomplete dependency, clear-on-guild-change) with native
+    Blazor state (MemberDirectoryIsland list pattern: debounced search, CTS
+    cancellation, scope-per-op data access, data-utc + blazorInterop.convertTimes
+    after render). CSV export delegates to the existing /api/messages/export
+    endpoint via blazorInterop.download.
+*@
+
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-xl font-semibold text-text-primary">Message Logs</h2>
+            <p class="mt-1 text-sm text-text-secondary">View and search logged Discord messages</p>
+        </div>
+        <button type="button"
+                @onclick="ExportCsvAsync"
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
+                aria-label="Export message logs to CSV">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Export CSV
+        </button>
+    </div>
+
+    <FilterableTable TItem="MessageLogDto"
+                     Items="_messages"
+                     Loading="_loading"
+                     CurrentPage="_page"
+                     TotalPages="_totalPages"
+                     TotalCount="_totalCount"
+                     PageSize="_pageSize"
+                     OnPageChange="LoadPageAsync"
+                     ItemNoun="messages"
+                     EmptyTitle="@(HasActiveFilters ? "No messages found" : "No messages logged yet")"
+                     EmptyDescription="@(HasActiveFilters ? "Try adjusting your search or filters" : "Messages will appear here as they are logged")">
+        <Filters>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-text-primary">Filters</h3>
+                </div>
+
+                <div class="space-y-4">
+                    <!-- Row 1: User, Guild, Channel -->
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4" @key="_autocompleteResetToken">
+                        <AutocompleteInput TItem="AutocompleteSuggestionDto"
+                                           Id="AuthorId"
+                                           Name="AuthorId"
+                                           Label="User"
+                                           Placeholder="Search by username..."
+                                           NoResultsMessage="No users found"
+                                           InitialValue="@(_authorId?.ToString(CultureInfo.InvariantCulture))"
+                                           InitialDisplayText="@_authorUsername"
+                                           SearchFunc="SearchUsersAsync"
+                                           DisplayTextSelector="@(s => s.DisplayText)"
+                                           ValueSelector="@(s => s.Id)"
+                                           OnSelect="OnAuthorSelected" />
+
+                        <AutocompleteInput TItem="AutocompleteSuggestionDto"
+                                           Id="MessageGuildId"
+                                           Name="MessageGuildId"
+                                           Label="Guild"
+                                           Placeholder="Search by guild name..."
+                                           NoResultsMessage="No guilds found"
+                                           InitialValue="@(_guildId?.ToString(CultureInfo.InvariantCulture))"
+                                           InitialDisplayText="@_guildName"
+                                           SearchFunc="SearchGuildsAsync"
+                                           DisplayTextSelector="@(s => s.DisplayText)"
+                                           ValueSelector="@(s => s.Id)"
+                                           OnSelect="OnGuildSelected" />
+
+                        @if (_guildId.HasValue)
+                        {
+                            <div @key="@($"channel-{_guildId}")">
+                                <AutocompleteInput TItem="AutocompleteSuggestionDto"
+                                                   Id="ChannelId"
+                                                   Name="ChannelId"
+                                                   Label="Channel"
+                                                   Placeholder="Search by channel name..."
+                                                   NoResultsMessage="No channels found"
+                                                   InitialValue="@(_channelId?.ToString(CultureInfo.InvariantCulture))"
+                                                   InitialDisplayText="@_channelName"
+                                                   SearchFunc="SearchChannelsAsync"
+                                                   DisplayTextSelector="@(s => s.DisplayText)"
+                                                   ValueSelector="@(s => s.Id)"
+                                                   OnSelect="OnChannelSelected" />
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="space-y-1.5">
+                                <label for="ChannelId-disabled" class="block text-sm font-medium text-text-primary">Channel</label>
+                                <input type="text" id="ChannelId-disabled" class="form-input w-full" placeholder="Select a guild first..." disabled />
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Row 2: Date Range -->
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                            <label for="messageStartDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                            <input type="date" id="messageStartDate" @bind="_startDate" @bind:after="ApplyFiltersAsync" class="@FieldClass" />
+                        </div>
+                        <div>
+                            <label for="messageEndDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                            <input type="date" id="messageEndDate" @bind="_endDate" @bind:after="ApplyFiltersAsync" class="@FieldClass" />
+                        </div>
+                    </div>
+
+                    <!-- Row 3: Source Type -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-2">Source Type</label>
+                        <div class="flex flex-wrap items-center gap-4">
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="MessageSource" value="" checked="@(string.IsNullOrEmpty(_source))" @onchange="@(() => OnSourceChangedAsync(string.Empty))" class="w-4 h-4">
+                                <span class="text-sm text-text-primary">All</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="MessageSource" value="DirectMessage" checked="@(_source == "DirectMessage")" @onchange="@(() => OnSourceChangedAsync("DirectMessage"))" class="w-4 h-4">
+                                <span class="text-sm text-text-primary">DMs Only</span>
+                            </label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="radio" name="MessageSource" value="ServerChannel" checked="@(_source == "ServerChannel")" @onchange="@(() => OnSourceChangedAsync("ServerChannel"))" class="w-4 h-4">
+                                <span class="text-sm text-text-primary">Server Only</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Row 4: Content Search -->
+                    <div>
+                        <label for="messageSearchTerm" class="block text-sm font-medium text-text-primary mb-1">Content Search</label>
+                        <input type="text" id="messageSearchTerm"
+                               @bind="_search" @bind:event="oninput" @bind:after="OnSearchInput"
+                               placeholder="Search message content..."
+                               class="@FieldClass placeholder-text-tertiary" />
+                    </div>
+
+                    <!-- Actions -->
+                    <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                        <button type="button" @onclick="ClearFiltersAsync" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                            Clear Filters
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Filters>
+
+        <HeaderTemplate>
+            <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Author</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Guild</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Channel</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Source</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Content</th>
+                <th scope="col" class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+            </tr>
+        </HeaderTemplate>
+
+        <RowTemplate Context="message">
+            <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    <span data-utc="@message.TimestampUtcIso" data-format="datetime-short"></span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <div class="flex items-center">
+                        <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center">
+                            <span class="text-white font-medium text-xs">@AuthorInitials(message)</span>
+                        </div>
+                        <div class="ml-3">
+                            <div class="text-sm font-medium text-text-primary">
+                                <span class="preview-trigger" data-preview-type="user" data-user-id="@message.AuthorId">@(message.AuthorUsername ?? "(Unknown)")</span>
+                            </div>
+                            <div class="text-xs text-text-tertiary font-mono">@message.AuthorId</div>
+                        </div>
+                    </div>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">
+                    @if (message.GuildId.HasValue)
+                    {
+                        <span class="preview-trigger" data-preview-type="guild" data-guild-id="@message.GuildId">@(message.GuildName ?? message.GuildId.ToString())</span>
+                    }
+                    else
+                    {
+                        <span class="text-text-tertiary">(DM)</span>
+                    }
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                    @if (message.GuildId.HasValue)
+                    {
+                        @(message.ChannelName ?? $"#{message.ChannelId}")
+                    }
+                    else
+                    {
+                        <span class="text-text-tertiary">-</span>
+                    }
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap">
+                    @SourceBadge(message)
+                </td>
+                <td class="px-6 py-4 text-sm text-text-primary max-w-xs truncate">
+                    @message.Content
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-right">
+                    <a href="/Admin/MessageLogs/Details/@message.Id" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                        <svg class="w-5 h-5 inline-block" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                        </svg>
+                    </a>
+                </td>
+            </tr>
+        </RowTemplate>
+
+        <MobileTemplate Context="message">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-start justify-between mb-3">
+                    <div class="flex items-center gap-3">
+                        <div class="h-8 w-8 rounded-full bg-accent-blue flex items-center justify-center flex-shrink-0">
+                            <span class="text-white font-medium text-xs">@AuthorInitials(message)</span>
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-text-primary truncate preview-trigger" data-preview-type="user" data-user-id="@message.AuthorId">@(message.AuthorUsername ?? "(Unknown)")</p>
+                            <p class="text-xs text-text-tertiary" data-utc="@message.TimestampUtcIso" data-format="datetime-short"></p>
+                        </div>
+                    </div>
+                    @SourceBadge(message)
+                </div>
+
+                <div class="grid grid-cols-2 gap-3 text-sm mb-3">
+                    <div>
+                        <span class="text-text-tertiary">Guild:</span>
+                        @if (message.GuildId.HasValue)
+                        {
+                            <span class="text-text-primary ml-1">@(message.GuildName ?? message.GuildId.ToString())</span>
+                        }
+                        else
+                        {
+                            <span class="text-text-tertiary ml-1">(DM)</span>
+                        }
+                    </div>
+                    <div>
+                        <span class="text-text-tertiary">Channel:</span>
+                        @if (message.GuildId.HasValue)
+                        {
+                            <span class="text-text-primary ml-1">@(message.ChannelName ?? $"#{message.ChannelId}")</span>
+                        }
+                        else
+                        {
+                            <span class="text-text-tertiary ml-1">-</span>
+                        }
+                    </div>
+                </div>
+
+                @if (!string.IsNullOrEmpty(message.Content))
+                {
+                    <p class="text-sm text-text-primary line-clamp-2 mb-3">@message.Content</p>
+                }
+
+                <div class="pt-3 border-t border-border-secondary">
+                    <a href="/Admin/MessageLogs/Details/@message.Id"
+                       class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors inline-flex items-center gap-1 min-h-[44px]">
+                        View Details
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </MobileTemplate>
+    </FilterableTable>
+</div>
+
+@code {
+    /// <summary>Initial filter state forwarded from the host query string (deep-link parity with the Razor page).</summary>
+    [Parameter] public string? InitialAuthorId { get; set; }
+    [Parameter] public string? InitialGuildId { get; set; }
+    [Parameter] public string? InitialChannelId { get; set; }
+    [Parameter] public string? InitialSource { get; set; }
+    [Parameter] public DateTime? InitialStartDate { get; set; }
+    [Parameter] public DateTime? InitialEndDate { get; set; }
+    [Parameter] public string? InitialSearchTerm { get; set; }
+
+    private const string FieldClass = "w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent";
+
+    private List<MessageLogDto> _messages = new();
+    private int _page = 1;
+    private int _pageSize = 25;
+    private int _totalPages = 1;
+    private int _totalCount;
+    private bool _loading = true;
+
+    // Filters
+    private ulong? _authorId;
+    private string? _authorUsername;
+    private ulong? _guildId;
+    private string? _guildName;
+    private ulong? _channelId;
+    private string? _channelName;
+    private string? _source;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private string? _search;
+    private int _autocompleteResetToken;
+
+    private readonly Debouncer _searchDebouncer = new(300);
+    private CancellationTokenSource? _cts;
+    private bool _initialized;
+    private bool _needTimeConvert;
+
+    private bool HasActiveFilters =>
+        _authorId.HasValue ||
+        _guildId.HasValue ||
+        _channelId.HasValue ||
+        !string.IsNullOrEmpty(_source) ||
+        !string.IsNullOrWhiteSpace(_search);
+
+    protected override void OnInitialized()
+    {
+        if (ulong.TryParse(InitialAuthorId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var authorId))
+        {
+            _authorId = authorId;
+        }
+
+        if (ulong.TryParse(InitialGuildId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var guildId))
+        {
+            _guildId = guildId;
+        }
+
+        if (ulong.TryParse(InitialChannelId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var channelId))
+        {
+            _channelId = channelId;
+        }
+
+        _source = InitialSource;
+        _startDate = InitialStartDate;
+        _endDate = InitialEndDate;
+        _search = InitialSearchTerm;
+
+        // Default to last 7 days when no date filters specified (page-model parity).
+        if (!_startDate.HasValue && !_endDate.HasValue)
+        {
+            _startDate = DateTime.UtcNow.Date.AddDays(-7);
+            _endDate = DateTime.UtcNow.Date.AddDays(1);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+            await PopulateDisplayNamesAsync();
+            await LoadPageAsync(1);
+        }
+
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            await SafeInvokeAsync("blazorInterop.convertTimes");
+        }
+    }
+
+    /// <summary>
+    /// Resolves display names for deep-linked filter IDs so the autocomplete
+    /// inputs show names instead of raw snowflakes (page-model parity).
+    /// </summary>
+    private async Task PopulateDisplayNamesAsync()
+    {
+        if (!_authorId.HasValue && !_guildId.HasValue)
+        {
+            return;
+        }
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+
+            if (_authorId.HasValue)
+            {
+                var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+                var messages = await messageLogRepository.GetUserMessagesAsync(_authorId.Value, limit: 1);
+                _authorUsername = messages.FirstOrDefault()?.User?.Username;
+            }
+
+            if (_guildId.HasValue)
+            {
+                var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+                var guild = await guildService.GetGuildByIdAsync(_guildId.Value);
+                _guildName = guild?.Name;
+
+                if (_channelId.HasValue)
+                {
+                    var discordClient = scope.ServiceProvider.GetRequiredService<DiscordSocketClient>();
+                    var socketGuild = discordClient.GetGuild(_guildId.Value);
+                    _channelName = socketGuild?.GetChannel(_channelId.Value)?.Name;
+                }
+            }
+
+            _autocompleteResetToken++;
+        }
+        catch (Exception)
+        {
+            // Display names are cosmetic; the raw IDs still filter correctly.
+        }
+    }
+
+    private MessageLogQueryDto BuildQuery(int page, int pageSize)
+    {
+        DiscordBot.Core.Enums.MessageSource? sourceFilter = null;
+        if (!string.IsNullOrEmpty(_source) && Enum.TryParse<DiscordBot.Core.Enums.MessageSource>(_source, true, out var parsedSource))
+        {
+            sourceFilter = parsedSource;
+        }
+
+        return new MessageLogQueryDto
+        {
+            AuthorId = _authorId,
+            GuildId = _guildId,
+            ChannelId = _channelId,
+            Source = sourceFilter,
+            StartDate = _startDate,
+            EndDate = _endDate,
+            SearchTerm = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private async Task LoadPageAsync(int page)
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var messageLogService = scope.ServiceProvider.GetRequiredService<IMessageLogService>();
+
+            var result = await messageLogService.GetLogsAsync(BuildQuery(page < 1 ? 1 : page, _pageSize), ct);
+
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _messages = result.Items.ToList();
+            _page = result.Page;
+            _totalPages = Math.Max(1, result.TotalPages);
+            _totalCount = result.TotalCount;
+            _needTimeConvert = true;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to load message logs.");
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _loading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private Task ApplyFiltersAsync() => LoadPageAsync(1);
+
+    private async Task OnSearchInput()
+    {
+        await _searchDebouncer.DebounceAsync(async _ =>
+            await InvokeAsync(ApplyFiltersAsync));
+    }
+
+    private Task OnAuthorSelected(AutocompleteSuggestionDto suggestion)
+    {
+        _authorId = ulong.TryParse(suggestion.Id, out var id) ? id : null;
+        _authorUsername = suggestion.DisplayText;
+        return ApplyFiltersAsync();
+    }
+
+    private Task OnGuildSelected(AutocompleteSuggestionDto suggestion)
+    {
+        var newGuildId = ulong.TryParse(suggestion.Id, out var id) ? (ulong?)id : null;
+
+        // Clear the channel filter whenever the guild changes (message-logs.js parity).
+        if (newGuildId != _guildId)
+        {
+            _channelId = null;
+            _channelName = null;
+        }
+
+        _guildId = newGuildId;
+        _guildName = suggestion.DisplayText;
+        return ApplyFiltersAsync();
+    }
+
+    private Task OnChannelSelected(AutocompleteSuggestionDto suggestion)
+    {
+        _channelId = ulong.TryParse(suggestion.Id, out var id) ? id : null;
+        _channelName = suggestion.DisplayText;
+        return ApplyFiltersAsync();
+    }
+
+    private Task OnSourceChangedAsync(string source)
+    {
+        _source = source;
+        return ApplyFiltersAsync();
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        _authorId = null;
+        _authorUsername = null;
+        _guildId = null;
+        _guildName = null;
+        _channelId = null;
+        _channelName = null;
+        _source = null;
+        _startDate = DateTime.UtcNow.Date.AddDays(-7);
+        _endDate = DateTime.UtcNow.Date.AddDays(1);
+        _search = null;
+        _autocompleteResetToken++;
+        return ApplyFiltersAsync();
+    }
+
+    // ----- Autocomplete search delegates (replace /api/autocomplete fetches) -----
+
+    private async Task<IReadOnlyList<AutocompleteSuggestionDto>> SearchUsersAsync(string term)
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+            var authors = await messageLogRepository.SearchAuthorsAsync(term, guildId: null, limit: 25);
+            return authors
+                .Select(a => new AutocompleteSuggestionDto { Id = a.UserId.ToString(), DisplayText = a.Username })
+                .ToList();
+        }
+        catch (Exception)
+        {
+            return Array.Empty<AutocompleteSuggestionDto>();
+        }
+    }
+
+    private async Task<IReadOnlyList<AutocompleteSuggestionDto>> SearchGuildsAsync(string term)
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+            var allGuilds = await guildService.GetAllGuildsAsync();
+            return allGuilds
+                .Where(g => g.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+                .Take(25)
+                .Select(g => new AutocompleteSuggestionDto { Id = g.Id.ToString(), DisplayText = g.Name })
+                .ToList();
+        }
+        catch (Exception)
+        {
+            return Array.Empty<AutocompleteSuggestionDto>();
+        }
+    }
+
+    private Task<IReadOnlyList<AutocompleteSuggestionDto>> SearchChannelsAsync(string term)
+    {
+        IReadOnlyList<AutocompleteSuggestionDto> results = Array.Empty<AutocompleteSuggestionDto>();
+
+        if (_guildId.HasValue)
+        {
+            try
+            {
+                using var scope = ScopeFactory.CreateScope();
+                var discordClient = scope.ServiceProvider.GetRequiredService<DiscordSocketClient>();
+                var guild = discordClient.GetGuild(_guildId.Value);
+                if (guild is not null)
+                {
+                    results = guild.Channels
+                        .Where(c => c is ITextChannel || c is IVoiceChannel || c is IThreadChannel)
+                        .Where(c => c.Name.Contains(term, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(c => c.Name)
+                        .Take(25)
+                        .Select(c => new AutocompleteSuggestionDto { Id = c.Id.ToString(), DisplayText = c.Name })
+                        .ToList();
+                }
+            }
+            catch (Exception)
+            {
+                // Fall through to empty results.
+            }
+        }
+
+        return Task.FromResult(results);
+    }
+
+    /// <summary>
+    /// Downloads a CSV of the current filter set via the existing
+    /// /api/messages/export endpoint (the old tab linked a broken
+    /// asp-page export URL; the API endpoint is the real exporter).
+    /// </summary>
+    private async Task ExportCsvAsync()
+    {
+        var query = new List<string>();
+
+        void Add(string name, string? value)
+        {
+            if (!string.IsNullOrEmpty(value))
+            {
+                query.Add($"{name}={Uri.EscapeDataString(value)}");
+            }
+        }
+
+        Add("AuthorId", _authorId?.ToString(CultureInfo.InvariantCulture));
+        Add("GuildId", _guildId?.ToString(CultureInfo.InvariantCulture));
+        Add("ChannelId", _channelId?.ToString(CultureInfo.InvariantCulture));
+        Add("Source", _source);
+        Add("StartDate", _startDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        Add("EndDate", _endDate?.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture));
+        Add("SearchTerm", _search);
+
+        var url = "/api/messages/export" + (query.Count > 0 ? "?" + string.Join("&", query) : string.Empty);
+        await SafeInvokeAsync("blazorInterop.download", url);
+    }
+
+    private static string AuthorInitials(MessageLogDto message) =>
+        string.IsNullOrEmpty(message.AuthorUsername)
+            ? "?"
+            : message.AuthorUsername.Substring(0, Math.Min(2, message.AuthorUsername.Length)).ToUpper();
+
+    private async Task SafeInvokeAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Static prerender pass — no JS runtime yet.
+        }
+    }
+
+    public void Dispose()
+    {
+        _searchDebouncer.Dispose();
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+
+    // ----- Render helpers -----
+
+    private RenderFragment SourceBadge(MessageLogDto message) => @<text>
+        @if (message.Source == DiscordBot.Core.Enums.MessageSource.DirectMessage)
+        {
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-accent-blue text-white">
+                DM
+            </span>
+        }
+        else
+        {
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-success text-white">
+                Server
+            </span>
+        }
+    </text>;
+}

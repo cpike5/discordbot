@@ -1,0 +1,63 @@
+@namespace DiscordBot.Bot.Blazor
+
+@*
+    Root HTML shell for routed Blazor pages (Phase C of
+    docs/architecture/blazor-completion-plan.md). Served by MapRazorComponents<App>;
+    coexists with MapRazorPages — pages migrate here one at a time, each deleting its
+    .cshtml in the same commit (route-conflict rule).
+
+    Head mirrors _Layout.cshtml's theme/FOUC handling so routed pages match the rest
+    of the site. Pages render statically (SSR) unless they opt into an interactive
+    render mode; the standalone pages (errors, access denied) load no Blazor script
+    at all — no circuit is opened for anonymous traffic (plan §7 guardrail).
+*@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#1d2022" />
+    <link rel="icon" type="image/svg+xml" href="images/logo.svg" />
+    <base href="/" />
+    <!-- Blocking theme application script - runs before first paint to prevent flash -->
+    <script>
+        (function() {
+            try {
+                var match = document.cookie.match(/theme-preference=([^;]+)/);
+                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
+                if (theme) document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+    <!-- Heading typeface - Plus Jakarta Sans (600-700 weight only) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+    <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/tab-panel.css" />
+    <!-- Scoped CSS bundle for .razor component isolation -->
+    <link rel="stylesheet" href="DiscordBot.Bot.styles.css" />
+    <!-- Early sidebar state restoration to prevent FOUC (Flash of Unstyled Content) -->
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 1024) {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <HeadOutlet />
+</head>
+@*
+    data-enhance-nav="false": MainLayout loads blazor.web.js for its interactive
+    bell island; without the opt-out it would also enhance-navigate every link.
+    Most links still target Razor Pages, whose scripts don't re-run under
+    enhanced navigation — keep classic full-page loads until Phase J.
+*@
+<body class="bg-bg-primary text-text-primary font-sans antialiased" data-enhance-nav="false">
+    <Routes />
+</body>
+</html>

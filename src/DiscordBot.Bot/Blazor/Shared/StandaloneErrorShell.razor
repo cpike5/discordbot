@@ -1,0 +1,58 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@*
+    Full-viewport shell shared by the standalone error/access pages (403/404/500,
+    AccessDenied). Mirrors the markup the Razor Pages versions each duplicated:
+    centered column, icon header, and message card with a status banner.
+*@
+
+<div class="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-8 font-sans">
+    <div class="w-full max-w-md">
+        <!-- Error Icon -->
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-16 h-16 @IconBackgroundClass rounded-xl mb-4">
+                <svg class="w-10 h-10 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@IconPath" />
+                </svg>
+            </div>
+            <h1 class="text-2xl font-bold text-text-primary">@Title</h1>
+            <p class="text-text-secondary mt-2">@Subtitle</p>
+        </div>
+
+        <!-- Message Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
+            <div class="mb-6 p-4 @BannerBackgroundClass border @BannerBorderClass rounded-lg">
+                <p class="text-sm @BannerTextClass">
+                    <strong>@BannerTitle:</strong> @BannerMessage
+                </p>
+            </div>
+
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Heroicon outline path for the header icon.</summary>
+    [Parameter, EditorRequired] public string IconPath { get; set; } = string.Empty;
+
+    /// <summary>Tailwind background class for the icon tile (e.g. bg-error, bg-warning).</summary>
+    [Parameter] public string IconBackgroundClass { get; set; } = "bg-error";
+
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string Subtitle { get; set; } = string.Empty;
+
+    /// <summary>Bold lead-in of the status banner (e.g. "404 Not Found").</summary>
+    [Parameter, EditorRequired] public string BannerTitle { get; set; } = string.Empty;
+    [Parameter, EditorRequired] public string BannerMessage { get; set; } = string.Empty;
+
+    /// <summary>Banner palette: "error" (default) or "warning".</summary>
+    [Parameter] public string Variant { get; set; } = "error";
+
+    /// <summary>Card body below the banner (paragraphs + action buttons).</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string BannerBackgroundClass => Variant == "warning" ? "bg-warning-bg" : "bg-error-bg";
+    private string BannerBorderClass => Variant == "warning" ? "border-warning-border" : "border-error-border";
+    private string BannerTextClass => Variant == "warning" ? "text-warning" : "text-error";
+}

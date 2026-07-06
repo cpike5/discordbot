@@ -1,0 +1,26 @@
+@namespace DiscordBot.Bot.Blazor
+@using DiscordBot.Bot.Blazor.Layout
+
+<Router AppAssembly="typeof(App).Assembly">
+    <Found Context="routeData">
+        <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(MainLayout)">
+            <NotAuthorized>
+                @if (context.User.Identity?.IsAuthenticated == true)
+                {
+                    <RedirectTo Href="@($"/Account/AccessDenied?returnUrl={CurrentPathEscaped}")" />
+                }
+                else
+                {
+                    <RedirectTo Href="@($"/Account/Login?returnUrl={CurrentPathEscaped}")" />
+                }
+            </NotAuthorized>
+        </AuthorizeRouteView>
+    </Found>
+</Router>
+
+@code {
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+
+    private string CurrentPathEscaped =>
+        Uri.EscapeDataString(new Uri(Navigation.Uri).PathAndQuery);
+}

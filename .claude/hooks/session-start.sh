@@ -5,7 +5,7 @@
 #   The remote web environment ships without the .NET SDK, and the official
 #   dotnet-install CDN (builds.dotnet.microsoft.com) is blocked by the egress
 #   policy (HTTP 403). Ubuntu 24.04's own archive, however, ships
-#   `dotnet-sdk-8.0` and is reachable — so we install from there.
+#   `dotnet-sdk-10.0` and is reachable — so we install from there.
 #
 # Behaviour:
 #   - Runs only in the remote (web) environment.
@@ -30,11 +30,11 @@ export DEBIAN_FRONTEND=noninteractive
 if command -v dotnet >/dev/null 2>&1; then
   log "dotnet already present ($(dotnet --version))"
 else
-  log "Installing dotnet-sdk-8.0 from the Ubuntu archive (see $LOG)..."
-  if ! sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0 >>"$LOG" 2>&1; then
+  log "Installing dotnet-sdk-10.0 from the Ubuntu archive (see $LOG)..."
+  if ! sudo apt-get install -y --no-install-recommends dotnet-sdk-10.0 >>"$LOG" 2>&1; then
     log "First attempt failed; refreshing package lists and retrying..."
     sudo apt-get update >>"$LOG" 2>&1
-    sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0 >>"$LOG" 2>&1
+    sudo apt-get install -y --no-install-recommends dotnet-sdk-10.0 >>"$LOG" 2>&1
   fi
   log "Installed dotnet $(dotnet --version)"
 fi

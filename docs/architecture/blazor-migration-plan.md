@@ -1,5 +1,12 @@
 # Blazor Server Migration Plan
 
+> **Status (2026-07): superseded as the working plan.** The islands increment
+> ([`blazor-modernization-selective-plan.md`](./blazor-modernization-selective-plan.md)) is
+> complete, and the updated path to this document's end-state — revised for .NET 10 LTS, the
+> shipped islands, and pages added since this was written — is
+> [`blazor-completion-plan.md`](./blazor-completion-plan.md). This document remains the
+> north-star reference for the full end-state rationale.
+
 ## Context
 
 The Discord bot admin portal is built on Razor Pages with 63 vanilla JavaScript files (~25,500 lines) handling all client-side interactivity via `fetch()` calls to 29 API controllers and manual DOM manipulation. Despite documentation mentioning HTMX/Alpine.js, neither is actually used. The architecture works but the JS-heavy approach creates significant maintenance overhead and poor developer experience when adding new features.

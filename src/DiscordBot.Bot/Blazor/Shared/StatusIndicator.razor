@@ -1,0 +1,100 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_StatusIndicator.cshtml.
+    Colored status dot with optional text label, badge style, and pulse animation.
+*@
+
+@if (DisplayStyle == StatusDisplayStyle.DotOnly)
+{
+    @if (IsPulsing)
+    {
+        <span class="relative inline-flex">
+            <span class="@SizeClasses @ColorClass rounded-full"></span>
+            <span class="absolute inset-0 @SizeClasses @ColorClass rounded-full animate-ping opacity-75"></span>
+        </span>
+    }
+    else
+    {
+        <span class="@SizeClasses @ColorClass rounded-full"></span>
+    }
+}
+else if (DisplayStyle == StatusDisplayStyle.BadgeStyle)
+{
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full @BadgeBgClass">
+        @if (IsPulsing)
+        {
+            <span class="relative inline-flex">
+                <span class="@BadgeDotSize @ColorClass rounded-full"></span>
+                <span class="absolute inset-0 @BadgeDotSize @ColorClass rounded-full animate-ping opacity-75"></span>
+            </span>
+        }
+        else
+        {
+            <span class="@BadgeDotSize @ColorClass rounded-full"></span>
+        }
+        @DisplayText
+    </span>
+}
+else
+{
+    <span class="inline-flex items-center gap-2 text-sm font-medium @TextColorClass">
+        @if (IsPulsing)
+        {
+            <span class="relative inline-flex">
+                <span class="@SizeClasses @ColorClass rounded-full"></span>
+                <span class="absolute inset-0 @SizeClasses @ColorClass rounded-full animate-ping opacity-75"></span>
+            </span>
+        }
+        else
+        {
+            <span class="@SizeClasses @ColorClass rounded-full"></span>
+        }
+        @DisplayText
+    </span>
+}
+
+@code {
+    [Parameter] public StatusType Status { get; set; } = StatusType.Offline;
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public StatusDisplayStyle DisplayStyle { get; set; } = StatusDisplayStyle.DotWithText;
+    [Parameter] public bool IsPulsing { get; set; }
+    [Parameter] public StatusSize Size { get; set; } = StatusSize.Medium;
+
+    private const string BadgeDotSize = "w-1.5 h-1.5";
+
+    private string SizeClasses => Size switch
+    {
+        StatusSize.Small => "w-1.5 h-1.5",
+        StatusSize.Large => "w-3 h-3",
+        _ => "w-2 h-2"
+    };
+
+    private (string ColorClass, string TextColorClass) Colors => Status switch
+    {
+        StatusType.Online => ("bg-success", "text-success"),
+        StatusType.Idle => ("bg-warning", "text-warning"),
+        StatusType.Busy => ("bg-error", "text-error"),
+        _ => ("bg-text-tertiary", "text-text-tertiary")
+    };
+
+    private string ColorClass => Colors.ColorClass;
+    private string TextColorClass => Colors.TextColorClass;
+
+    private string BadgeBgClass => Status switch
+    {
+        StatusType.Online => "bg-success/20 text-success",
+        StatusType.Idle => "bg-warning/20 text-warning",
+        StatusType.Busy => "bg-error/20 text-error",
+        _ => "bg-border-primary text-text-tertiary"
+    };
+
+    private string DisplayText => Text ?? Status switch
+    {
+        StatusType.Online => "Online",
+        StatusType.Idle => "Idle",
+        StatusType.Busy => "Do Not Disturb",
+        _ => "Offline"
+    };
+}

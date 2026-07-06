@@ -1,0 +1,32 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Core.Enums
+
+@*
+    Blazor twin of Pages/Shared/Components/_SeverityBadge.cshtml.
+    Renders a severity badge; Critical severity shows a pulsing dot.
+*@
+
+<span class="severity-badge @SeverityClass">
+    @if (ShowPulse)
+    {
+        <span class="pulse-dot"></span>
+    }
+    @Label
+</span>
+
+@code {
+    [Parameter] public Severity Severity { get; set; }
+
+    private (string SeverityClass, string Label) Mapped => Severity switch
+    {
+        Severity.Low => ("severity-low", "Low"),
+        Severity.Medium => ("severity-medium", "Medium"),
+        Severity.High => ("severity-high", "High"),
+        Severity.Critical => ("severity-critical", "Critical"),
+        _ => ("severity-low", "Unknown")
+    };
+
+    private string SeverityClass => Mapped.SeverityClass;
+    private string Label => Mapped.Label;
+    private bool ShowPulse => Severity == Severity.Critical;
+}

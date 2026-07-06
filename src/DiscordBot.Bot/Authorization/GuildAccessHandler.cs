@@ -40,21 +40,31 @@ public class GuildAccessHandler : AuthorizationHandler<GuildAccessRequirement>
             return;
         }
 
-        // Get the guild ID from route data
-        var httpContext = _httpContextAccessor.HttpContext;
-        if (httpContext == null)
+        // Resource-based callers (Blazor circuits have no route values) pass the
+        // guild id directly: AuthorizeAsync(user, guildId, policy).
+        ulong guildId;
+        if (context.Resource is ulong resourceGuildId)
         {
-            _logger.LogWarning("HttpContext is null, cannot verify guild access");
-            return;
+            guildId = resourceGuildId;
         }
-
-        var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
-            ?? httpContext.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
-
-        if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out var guildId))
+        else
         {
-            _logger.LogDebug("Guild ID not found in route, skipping guild access check");
-            return;
+            // Get the guild ID from route data
+            var httpContext = _httpContextAccessor.HttpContext;
+            if (httpContext == null)
+            {
+                _logger.LogWarning("HttpContext is null, cannot verify guild access");
+                return;
+            }
+
+            var guildIdString = httpContext.Request.RouteValues[requirement.GuildIdParameterName]?.ToString()
+                ?? httpContext.Request.Query[requirement.GuildIdParameterName].FirstOrDefault();
+
+            if (string.IsNullOrEmpty(guildIdString) || !ulong.TryParse(guildIdString, out guildId))
+            {
+                _logger.LogDebug("Guild ID not found in route, skipping guild access check");
+                return;
+            }
         }
 
         // Get the current user

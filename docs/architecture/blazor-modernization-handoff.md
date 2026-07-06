@@ -1,5 +1,9 @@
 # Blazor Modernization — Agent Handoff
 
+> **Status (2026-07): all slices complete and merged.** The continuation is
+> [`blazor-completion-plan.md`](./blazor-completion-plan.md), which takes the app from
+> islands to the full Blazor UI. This document remains the record of the islands work.
+
 > **Purpose.** Pick up the islands-first Blazor modernization (PR #1927) cleanly.
 > Phase 0 (foundation) is done, verified, and pushed. Slice 1 is the next unit of
 > work. The environment now provisions itself via a SessionStart hook, so you can

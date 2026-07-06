@@ -1,0 +1,625 @@
+@page "/Guilds/Reminders/{GuildId:long}"
+@page "/Guilds/Reminders/Index/{GuildId:long}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds.Reminders
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using Discord.WebSocket
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<RemindersIndex> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/Reminders/Index.cshtml(.cs) — Phase F
+    of docs/architecture/blazor-completion-plan.md. Same routes
+    (/Guilds/Reminders/{guildId} and the explicit /Index/ form), same GuildAccess
+    policy (the page model carried no RequireAdmin/RequireModerator); GuildAccess is
+    additionally re-checked in code (resource-based AuthorizeAsync) because the
+    handler's route-value fallback may not fire inside circuits.
+
+    Stats cards and the status filter are verbatim (the filter's form-GET submit
+    becomes an in-circuit reload). The table body is hosted in the FilterableTable
+    shell (standard summary + mobile card split + shared Pagination pager replacing
+    the hand-rolled prev/next links). OnPostCancelAsync becomes an in-circuit
+    handler behind the shared ConfirmModal (same "Cancel Reminder"/"Keep Reminder"
+    dialog copy) with a GuildAccess recheck; the TempData messages become
+    circuit-held alerts with the same strings. The Discord username/avatar lookup
+    (socket guild user, then REST fallback) is ported as-is. Data access is a DI
+    scope per operation; guild not-found redirects to /Error/404 (mirrors
+    NotFound()).
+*@
+
+<PageTitle>Reminders - @_viewModel.GuildName - Discord Bot Admin</PageTitle>
+
+<!-- Success Message -->
+@if (!string.IsNullOrEmpty(_successMessage))
+{
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+    </div>
+}
+
+<!-- Error Message -->
+@if (!string.IsNullOrEmpty(_errorMessage))
+{
+    <div class="mb-6">
+        <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+    </div>
+}
+
+@if (_loaded)
+{
+    <!-- Statistics Cards -->
+    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-6">
+        <!-- Total Reminders -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Total Reminders</p>
+                    <p class="mt-2 text-3xl font-bold text-text-primary">@_viewModel.Stats.TotalCount.ToString("N0")</p>
+                    <p class="mt-1 text-xs text-text-tertiary">All-time</p>
+                </div>
+                <div class="p-3 bg-accent-blue/10 rounded-lg">
+                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Pending Reminders -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Pending</p>
+                    <p class="mt-2 text-3xl font-bold text-accent-blue">@_viewModel.Stats.PendingCount.ToString("N0")</p>
+                    <p class="mt-1 text-xs text-text-tertiary">Awaiting delivery</p>
+                </div>
+                <div class="p-3 bg-accent-blue/10 rounded-lg">
+                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Delivered Today -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Delivered Today</p>
+                    <p class="mt-2 text-3xl font-bold text-success">@_viewModel.Stats.DeliveredTodayCount.ToString("N0")</p>
+                    <p class="mt-1 text-xs text-text-tertiary">Successfully sent</p>
+                </div>
+                <div class="p-3 bg-success/10 rounded-lg">
+                    <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+
+        <!-- Failed -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+            <div class="flex items-center justify-between">
+                <div>
+                    <p class="text-sm font-medium text-text-secondary">Failed</p>
+                    <p class="mt-2 text-3xl font-bold @(_viewModel.Stats.FailedCount > 0 ? "text-error" : "text-text-primary")">@_viewModel.Stats.FailedCount.ToString("N0")</p>
+                    <p class="mt-1 text-xs text-text-tertiary">Needs attention</p>
+                </div>
+                <div class="p-3 @(_viewModel.Stats.FailedCount > 0 ? "bg-error/10" : "bg-bg-tertiary") rounded-lg">
+                    <svg class="w-6 h-6 @(_viewModel.Stats.FailedCount > 0 ? "text-error" : "text-text-tertiary")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <FilterableTable TItem="ReminderItemViewModel"
+                     Items="_viewModel.Reminders"
+                     Loading="_loading"
+                     CurrentPage="_viewModel.CurrentPage"
+                     TotalPages="_viewModel.TotalPages"
+                     TotalCount="_viewModel.TotalCount"
+                     PageSize="_viewModel.PageSize"
+                     OnPageChange="LoadPageAsync"
+                     ItemNoun="reminders">
+        <Filters>
+            <!-- Filters -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+                <div class="flex flex-col sm:flex-row gap-4">
+                    <!-- Status Filter -->
+                    <div class="flex-1">
+                        <label for="status" class="block text-sm font-medium text-text-secondary mb-1">Status</label>
+                        <select id="status"
+                                @bind="StatusFilterRaw"
+                                @bind:after="() => LoadPageAsync(1)"
+                                class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue">
+                            <option value="">All Statuses</option>
+                            <option value="@((int)ReminderStatus.Pending)">Pending</option>
+                            <option value="@((int)ReminderStatus.Delivered)">Delivered</option>
+                            <option value="@((int)ReminderStatus.Failed)">Failed</option>
+                            <option value="@((int)ReminderStatus.Cancelled)">Cancelled</option>
+                        </select>
+                    </div>
+
+                    <!-- Clear Filters -->
+                    @if (_statusFilter.HasValue)
+                    {
+                        <div class="flex items-end">
+                            <button type="button"
+                                    @onclick="ClearFiltersAsync"
+                                    class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+                                Clear Filters
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+        </Filters>
+        <HeaderTemplate>
+            <tr>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    User
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Message
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Trigger Time
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Created
+                </th>
+                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Status
+                </th>
+                <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
+                    Actions
+                </th>
+            </tr>
+        </HeaderTemplate>
+        <RowTemplate Context="reminder">
+            @{
+                var statusClass = reminder.Status switch
+                {
+                    ReminderStatus.Pending => "bg-accent-blue/20 text-accent-blue",
+                    ReminderStatus.Delivered => "bg-success/20 text-success",
+                    ReminderStatus.Failed => "bg-error/20 text-error",
+                    ReminderStatus.Cancelled => "bg-bg-tertiary text-text-secondary",
+                    _ => "bg-bg-tertiary text-text-tertiary"
+                };
+                var dotClass = reminder.Status switch
+                {
+                    ReminderStatus.Pending => "bg-accent-blue",
+                    ReminderStatus.Delivered => "bg-success",
+                    ReminderStatus.Failed => "bg-error",
+                    ReminderStatus.Cancelled => "bg-text-secondary",
+                    _ => "bg-text-tertiary"
+                };
+            }
+            <tr class="group hover:bg-bg-hover transition-colors">
+                <td class="px-6 py-4">
+                    <div class="flex items-center gap-3">
+                        @if (!string.IsNullOrEmpty(reminder.AvatarUrl))
+                        {
+                            <img src="@reminder.AvatarUrl" alt="" class="w-8 h-8 rounded-full" />
+                        }
+                        else
+                        {
+                            <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center">
+                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                        }
+                        <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@reminder.UserId" data-context-guild-id="@_viewModel.GuildId">@reminder.Username</span>
+                    </div>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="text-sm text-text-secondary max-w-[250px] truncate block" title="@reminder.Message">
+                        @reminder.MessagePreview
+                    </span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="text-sm text-text-primary" data-utc="@reminder.TriggerAtUtcIso" data-format="datetime-short"></span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="text-sm text-text-secondary" data-utc="@reminder.CreatedAtUtcIso" data-format="datetime-short"></span>
+                </td>
+                <td class="px-6 py-4">
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @statusClass">
+                        <span class="w-1.5 h-1.5 rounded-full @dotClass mr-1.5"></span>
+                        @reminder.StatusText
+                    </span>
+                    @if (reminder.Status == ReminderStatus.Failed && !string.IsNullOrEmpty(reminder.LastError))
+                    {
+                        <span class="ml-2 cursor-help" title="@reminder.LastError">
+                            <svg class="w-4 h-4 text-error inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                        </span>
+                    }
+                </td>
+                <td class="px-6 py-4">
+                    <div class="flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        @if (reminder.CanCancel)
+                        {
+                            <button type="button"
+                                    @onclick="() => CancelAsync(reminder)"
+                                    disabled="@_actionBusy"
+                                    class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
+                                    title="Cancel Reminder">
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                                </svg>
+                            </button>
+                        }
+                    </div>
+                </td>
+            </tr>
+        </RowTemplate>
+        <MobileTemplate Context="reminder">
+            @{
+                var statusClass = reminder.Status switch
+                {
+                    ReminderStatus.Pending => "bg-accent-blue/20 text-accent-blue",
+                    ReminderStatus.Delivered => "bg-success/20 text-success",
+                    ReminderStatus.Failed => "bg-error/20 text-error",
+                    ReminderStatus.Cancelled => "bg-bg-tertiary text-text-secondary",
+                    _ => "bg-bg-tertiary text-text-tertiary"
+                };
+            }
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-3">
+                        @if (!string.IsNullOrEmpty(reminder.AvatarUrl))
+                        {
+                            <img src="@reminder.AvatarUrl" alt="" class="w-8 h-8 rounded-full" />
+                        }
+                        else
+                        {
+                            <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center">
+                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                </svg>
+                            </div>
+                        }
+                        <span class="text-sm text-text-primary">@reminder.Username</span>
+                    </div>
+                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @statusClass">
+                        @reminder.StatusText
+                    </span>
+                </div>
+                <p class="text-sm text-text-secondary truncate" title="@reminder.Message">@reminder.MessagePreview</p>
+                <div class="mt-2 space-y-1 text-sm">
+                    <div class="flex justify-between">
+                        <span class="text-text-tertiary">Trigger:</span>
+                        <span class="text-text-secondary" data-utc="@reminder.TriggerAtUtcIso" data-format="datetime-short"></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span class="text-text-tertiary">Created:</span>
+                        <span class="text-text-secondary" data-utc="@reminder.CreatedAtUtcIso" data-format="datetime-short"></span>
+                    </div>
+                </div>
+                @if (reminder.CanCancel)
+                {
+                    <div class="mt-3 flex justify-end">
+                        <button type="button"
+                                @onclick="() => CancelAsync(reminder)"
+                                disabled="@_actionBusy"
+                                class="px-3 py-1.5 text-sm font-medium text-error hover:bg-error/10 border border-error/40 rounded-md transition-colors">
+                            Cancel Reminder
+                        </button>
+                    </div>
+                }
+            </div>
+        </MobileTemplate>
+        <EmptyContent>
+            <!-- Empty State -->
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                <EmptyState Model='new EmptyStateViewModel
+                {
+                    Type = _statusFilter.HasValue ? EmptyStateType.NoResults : EmptyStateType.FirstTime,
+                    Title = _statusFilter.HasValue ? "No Reminders Match Filter" : "No Reminders Yet",
+                    Description = _statusFilter.HasValue
+                        ? "No reminders match the selected status filter. Try adjusting your filters."
+                        : "No reminders have been created in this server. Users can create reminders using the /remind command in Discord.",
+                    Size = EmptyStateSize.Default,
+                    IconSvgPath = "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                }' />
+            </div>
+        </EmptyContent>
+    </FilterableTable>
+}
+
+<ConfirmModal @ref="_confirmModal" />
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long GuildId { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    /// <summary>Page number from the query string (default 1), mirroring the page model's binding.</summary>
+    [SupplyParameterFromQuery(Name = "page")] public int? PageQuery { get; set; }
+
+    /// <summary>Page size from the query string (default 20), mirroring the page model's binding.</summary>
+    [SupplyParameterFromQuery(Name = "pageSize")] public int? PageSizeQuery { get; set; }
+
+    /// <summary>Status filter from the query string (numeric ReminderStatus), mirroring the page model's binding.</summary>
+    [SupplyParameterFromQuery(Name = "status")] public int? StatusQuery { get; set; }
+
+    private ulong GuildIdValue => (ulong)GuildId;
+
+    private RemindersIndexViewModel _viewModel = new();
+    private ReminderStatus? _statusFilter;
+    private int _page = 1;
+    private int _pageSize = 20;
+    private bool _loaded;
+    private bool _loading;
+    private bool _actionBusy;
+    private string? _successMessage;
+    private string? _errorMessage;
+    private bool _needTimeConvert;
+
+    private ConfirmModal _confirmModal = default!;
+
+    /// <summary>String-backed binding for the status &lt;select&gt; ("" = all statuses).</summary>
+    private string StatusFilterRaw
+    {
+        get => _statusFilter.HasValue ? ((int)_statusFilter.Value).ToString() : string.Empty;
+        set => _statusFilter = int.TryParse(value, out var parsed) ? (ReminderStatus)parsed : null;
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        // Validate pagination parameters (same clamping as the page model)
+        _page = PageQuery ?? 1;
+        _pageSize = PageSizeQuery ?? 20;
+        if (_page < 1) _page = 1;
+        if (_pageSize < 1 || _pageSize > 100) _pageSize = 20;
+        _statusFilter = StatusQuery.HasValue && Enum.IsDefined((ReminderStatus)StatusQuery.Value)
+            ? (ReminderStatus)StatusQuery.Value
+            : null;
+
+        Logger.LogInformation("User accessing Reminders admin page for guild {GuildId}, page {Page}", GuildIdValue, _page);
+
+        await LoadPageAsync(_page);
+        _loaded = true;
+    }
+
+    private async Task LoadPageAsync(int page)
+    {
+        _loading = true;
+        _page = page;
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var services = scope.ServiceProvider;
+            var guildService = services.GetRequiredService<IGuildService>();
+            var reminderRepository = services.GetRequiredService<IReminderRepository>();
+            var discordClient = services.GetRequiredService<DiscordSocketClient>();
+
+            var guild = await guildService.GetGuildByIdAsync(GuildIdValue);
+            if (guild == null)
+            {
+                Logger.LogWarning("Guild {GuildId} not found", GuildIdValue);
+                Navigation.NavigateTo("/Error/404");
+                return;
+            }
+
+            // Populate guild layout chrome (same as PopulateGuildLayout in the page model)
+            GuildContext?.Set(
+                new GuildBreadcrumbViewModel
+                {
+                    Items = new List<BreadcrumbItem>
+                    {
+                        new() { Label = "Home", Url = "/" },
+                        new() { Label = "Servers", Url = "/Guilds" },
+                        new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
+                        new() { Label = "Reminders", IsCurrent = true }
+                    }
+                },
+                new GuildHeaderViewModel
+                {
+                    GuildId = guild.Id,
+                    GuildName = guild.Name,
+                    GuildIconUrl = guild.IconUrl,
+                    PageTitle = "Reminders",
+                    PageDescription = "View and manage scheduled reminders for this server"
+                },
+                new GuildNavBarViewModel
+                {
+                    GuildId = guild.Id,
+                    ActiveTab = "reminders",
+                    Tabs = GuildNavigationConfig.GetTabs().ToList()
+                });
+
+            // Get reminders with pagination and filtering
+            var (reminders, totalCount) = await reminderRepository.GetByGuildAsync(
+                GuildIdValue, _page, _pageSize, _statusFilter);
+
+            // Get statistics
+            var (totalStats, pendingStats, deliveredTodayStats, failedStats) =
+                await reminderRepository.GetGuildStatsAsync(GuildIdValue);
+
+            var stats = new ReminderStatsViewModel
+            {
+                TotalCount = totalStats,
+                PendingCount = pendingStats,
+                DeliveredTodayCount = deliveredTodayStats,
+                FailedCount = failedStats
+            };
+
+            // Populate user information for each reminder (socket guild lookup with
+            // REST fallback — same as the page model)
+            var reminderItems = new List<ReminderItemViewModel>();
+            var socketGuild = discordClient.GetGuild(GuildIdValue);
+
+            foreach (var reminder in reminders)
+            {
+                var item = ReminderItemViewModel.FromEntity(reminder);
+                string username = $"Unknown ({reminder.UserId})";
+                string? avatarUrl = null;
+
+                if (socketGuild != null)
+                {
+                    var socketUser = socketGuild.GetUser(reminder.UserId);
+                    if (socketUser != null)
+                    {
+                        username = socketUser.GlobalName ?? socketUser.Username;
+                        avatarUrl = socketUser.GetAvatarUrl() ?? socketUser.GetDefaultAvatarUrl();
+                    }
+                    else
+                    {
+                        try
+                        {
+                            var restUser = await discordClient.Rest.GetUserAsync(reminder.UserId);
+                            if (restUser != null)
+                            {
+                                username = restUser.GlobalName ?? restUser.Username;
+                                avatarUrl = restUser.GetAvatarUrl() ?? restUser.GetDefaultAvatarUrl();
+                            }
+                        }
+                        catch
+                        {
+                            // User not found or API error - use default
+                        }
+                    }
+                }
+
+                item = item.WithUserInfo(username, avatarUrl);
+                reminderItems.Add(item);
+            }
+
+            _viewModel = new RemindersIndexViewModel
+            {
+                GuildId = GuildIdValue,
+                GuildName = guild.Name,
+                GuildIconUrl = guild.IconUrl,
+                Reminders = reminderItems,
+                TotalCount = totalCount,
+                Stats = stats,
+                CurrentPage = _page,
+                PageSize = _pageSize,
+                StatusFilter = _statusFilter
+            };
+
+            _needTimeConvert = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        _statusFilter = null;
+        return LoadPageAsync(1);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.convertTimes");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    /// <summary>In-circuit port of OnPostCancelAsync, behind the shared ConfirmModal.</summary>
+    private async Task CancelAsync(ReminderItemViewModel item)
+    {
+        var confirmed = await _confirmModal.ShowAsync(new ConfirmModal.ConfirmRequest
+        {
+            Title = "Cancel Reminder",
+            Message = $"Are you sure you want to cancel the reminder for {item.Username}? This action cannot be undone.",
+            Variant = ConfirmationVariant.Warning,
+            ConfirmText = "Cancel Reminder",
+            CancelText = "Keep Reminder"
+        });
+        if (!confirmed)
+        {
+            return;
+        }
+
+        // Re-check resource-based GuildAccess inside the circuit before mutating.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        _actionBusy = true;
+        try
+        {
+            Logger.LogInformation("User attempting to cancel reminder {ReminderId} for guild {GuildId}",
+                item.Id, GuildIdValue);
+
+            using var scope = ScopeFactory.CreateScope();
+            var reminderRepository = scope.ServiceProvider.GetRequiredService<IReminderRepository>();
+
+            var reminder = await reminderRepository.GetByIdAsync(item.Id);
+            if (reminder == null || reminder.GuildId != GuildIdValue)
+            {
+                Logger.LogWarning("Reminder {ReminderId} not found or doesn't belong to guild {GuildId}",
+                    item.Id, GuildIdValue);
+                _errorMessage = "Reminder not found.";
+            }
+            else if (reminder.Status != ReminderStatus.Pending)
+            {
+                Logger.LogWarning("Cannot cancel reminder {ReminderId} - status is {Status}, not Pending",
+                    item.Id, reminder.Status);
+                _errorMessage = "Only pending reminders can be cancelled.";
+            }
+            else
+            {
+                reminder.Status = ReminderStatus.Cancelled;
+                await reminderRepository.UpdateAsync(reminder);
+
+                Logger.LogInformation("Successfully cancelled reminder {ReminderId}", item.Id);
+                _successMessage = "Reminder cancelled successfully.";
+            }
+        }
+        finally
+        {
+            _actionBusy = false;
+        }
+
+        await LoadPageAsync(_page);
+    }
+}

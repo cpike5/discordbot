@@ -1,0 +1,169 @@
+@page "/Admin/Logs"
+@namespace DiscordBot.Bot.Blazor.Pages.Admin
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+@using DiscordBot.Bot.ViewModels.Components
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@inject NavigationManager Navigation
+
+@*
+    Routed-Blazor replacement for Pages/Admin/Logs/Index.cshtml(.cs) — Phase F of
+    docs/architecture/blazor-completion-plan.md. The old page rendered both tab
+    bodies inline via partials (Tabs/_AuditTab, Tabs/_MessagesTab) and delegated
+    switching to tab-panel.js + hash-sync inline scripts; here the shared Blazor
+    TabPanel owns the tab state natively and the ?tab= query parameter is kept in
+    sync via NavigationManager (replace-history, no reload). Tab bodies are the
+    MessageLogsTab / AuditLogsTab components, mounted lazily on first activation
+    (the page model likewise only loaded data for the active tab).
+*@
+
+<PageTitle>Logs - Discord Bot Admin</PageTitle>
+
+<!-- Breadcrumb -->
+<nav aria-label="Breadcrumb" class="mb-6">
+    <ol class="flex items-center gap-2 text-sm">
+        <li>
+            <a href="/" class="text-text-secondary hover:text-accent-blue transition-colors">Dashboard</a>
+        </li>
+        <li class="text-text-tertiary">/</li>
+        <li class="text-text-primary font-medium">Logs</li>
+    </ol>
+</nav>
+
+<!-- Page Header -->
+<div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+    <div>
+        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Logs</h1>
+        <p class="text-text-secondary mt-1">View message logs, audit logs, and application logs</p>
+    </div>
+</div>
+
+<!-- Tab Navigation + Panels -->
+<div class="mb-6">
+    <TabPanel Model="_tabModel" ActiveTabChanged="OnTabChangedAsync">
+        <TabContent Context="tabId">
+            @if (tabId == "messages")
+            {
+                @if (_activatedTabs.Contains("messages"))
+                {
+                    <MessageLogsTab InitialAuthorId="@AuthorId"
+                                    InitialGuildId="@MessageGuildId"
+                                    InitialChannelId="@ChannelId"
+                                    InitialSource="@MessageSource"
+                                    InitialStartDate="MessageStartDate"
+                                    InitialEndDate="MessageEndDate"
+                                    InitialSearchTerm="@MessageSearchTerm" />
+                }
+            }
+            else if (tabId == "audit")
+            {
+                @if (_activatedTabs.Contains("audit"))
+                {
+                    <AuditLogsTab InitialCategory="@Category"
+                                  InitialAction="@Action"
+                                  InitialActorId="@ActorId"
+                                  InitialTargetType="@TargetType"
+                                  InitialGuildId="@AuditGuildId"
+                                  InitialStartDate="AuditStartDate"
+                                  InitialEndDate="AuditEndDate"
+                                  InitialSearchTerm="@AuditSearchTerm" />
+                }
+            }
+            else if (tabId == "application")
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                    <EmptyState Model="_applicationEmptyState" />
+                </div>
+            }
+        </TabContent>
+    </TabPanel>
+</div>
+
+@code {
+    [SupplyParameterFromQuery(Name = "tab")]
+    public string? Tab { get; set; }
+
+    // Message Logs deep-link filters (query-string parity with the Razor page).
+    [SupplyParameterFromQuery] public string? AuthorId { get; set; }
+    [SupplyParameterFromQuery] public string? MessageGuildId { get; set; }
+    [SupplyParameterFromQuery] public string? ChannelId { get; set; }
+    [SupplyParameterFromQuery] public string? MessageSource { get; set; }
+    [SupplyParameterFromQuery] public DateTime? MessageStartDate { get; set; }
+    [SupplyParameterFromQuery] public DateTime? MessageEndDate { get; set; }
+    [SupplyParameterFromQuery] public string? MessageSearchTerm { get; set; }
+
+    // Audit Logs deep-link filters.
+    [SupplyParameterFromQuery] public string? Category { get; set; }
+    [SupplyParameterFromQuery] public string? Action { get; set; }
+    [SupplyParameterFromQuery] public string? ActorId { get; set; }
+    [SupplyParameterFromQuery] public string? TargetType { get; set; }
+    [SupplyParameterFromQuery] public string? AuditGuildId { get; set; }
+    [SupplyParameterFromQuery] public DateTime? AuditStartDate { get; set; }
+    [SupplyParameterFromQuery] public DateTime? AuditEndDate { get; set; }
+    [SupplyParameterFromQuery] public string? AuditSearchTerm { get; set; }
+
+    private static readonly string[] KnownTabs = { "messages", "audit", "application" };
+
+    private TabPanelViewModel _tabModel = new();
+    private readonly HashSet<string> _activatedTabs = new();
+
+    private readonly EmptyStateViewModel _applicationEmptyState = new()
+    {
+        Type = EmptyStateType.NoResults,
+        Title = "Application Logs Coming Soon",
+        Description = "Application-level logging and diagnostics will be available in a future update."
+    };
+
+    protected override void OnInitialized()
+    {
+        var initialTab = Tab?.ToLowerInvariant();
+        if (string.IsNullOrWhiteSpace(initialTab) || !KnownTabs.Contains(initialTab) || initialTab == "application")
+        {
+            initialTab = "messages";
+        }
+
+        _activatedTabs.Add(initialTab);
+
+        _tabModel = new TabPanelViewModel
+        {
+            Id = "logs-tabs",
+            AriaLabel = "Log types",
+            NavigationMode = TabNavigationMode.InPage,
+            ActiveTabId = initialTab,
+            Tabs = new List<TabItemViewModel>
+            {
+                new TabItemViewModel
+                {
+                    Id = "messages",
+                    Label = "Messages",
+                    IconPathOutline = "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z",
+                },
+                new TabItemViewModel
+                {
+                    Id = "audit",
+                    Label = "Audit",
+                    IconPathOutline = "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+                },
+                new TabItemViewModel
+                {
+                    Id = "application",
+                    Label = "Application",
+                    ShortLabel = "App",
+                    IconPathOutline = "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+                    Disabled = true
+                }
+            }
+        };
+    }
+
+    private void OnTabChangedAsync(string tabId)
+    {
+        // Mount the newly activated tab (once activated it stays mounted so its
+        // filter state survives switching back and forth).
+        _activatedTabs.Add(tabId);
+
+        // Keep ?tab= in sync for deep links / refresh (replaces the page's
+        // hash-sync inline script). replace: true avoids history spam.
+        Navigation.NavigateTo(Navigation.GetUriWithQueryParameter("tab", tabId), forceLoad: false, replace: true);
+    }
+}

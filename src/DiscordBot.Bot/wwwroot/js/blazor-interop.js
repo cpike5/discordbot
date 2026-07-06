@@ -55,6 +55,26 @@
             }
         },
 
+        // Downloads in-memory text content as a named file (Blob + object URL) — the
+        // Blazor equivalent of the legacy inline export scripts that built a Blob and
+        // clicked a transient anchor (e.g. the audit-entry JSON export).
+        downloadData: function (filename, mimeType, content) {
+            try {
+                var blob = new Blob([content], { type: mimeType || "application/octet-stream" });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement("a");
+                a.href = url;
+                a.download = filename || "download";
+                a.rel = "noopener";
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            } catch (e) {
+                console.error("blazorInterop.downloadData failed", e);
+            }
+        },
+
         // Copies text to the clipboard; returns true on success so the caller can
         // raise the matching toast from .NET. Mirrors the legacy copyUserId helper.
         copyText: async function (text) {
@@ -76,6 +96,28 @@
                 }
             } catch (e) {
                 console.error("blazorInterop.convertTimes failed", e);
+            }
+        },
+
+        // Inserts text at the caret position of a textarea/input (by element id),
+        // restores focus/caret, and returns the new value so the Blazor circuit
+        // can sync its bound model — used by GuildWelcome's token toolbar (the
+        // Blazor twin of the legacy inline insertToken helper).
+        insertAtCursor: function (elementId, text) {
+            try {
+                var el = document.getElementById(elementId);
+                if (!el) {
+                    return null;
+                }
+                var start = el.selectionStart != null ? el.selectionStart : el.value.length;
+                var end = el.selectionEnd != null ? el.selectionEnd : start;
+                el.value = el.value.substring(0, start) + text + el.value.substring(end);
+                el.focus();
+                el.setSelectionRange(start + text.length, start + text.length);
+                return el.value;
+            } catch (e) {
+                console.error("blazorInterop.insertAtCursor failed", e);
+                return null;
             }
         },
 

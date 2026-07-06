@@ -1,0 +1,156 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_EnhancedCard.cshtml.
+    Same Tailwind classes / accent variants so it is visually identical to the partial.
+    Body content can be supplied either as ChildContent (preferred in Blazor)
+    or via Model.BodyContent (raw HTML, as the partial consumed it).
+    The collapsible toggle is server-side state instead of inline JS, and
+    OnClick is an EventCallback instead of a JS string.
+*@
+
+<div class="@CardClasses" id="@(string.IsNullOrEmpty(Model.Id) ? null : Model.Id)" @onclick="HandleRootClickAsync">
+
+    @if (HasHeader)
+    {
+        @if (Model.IsCollapsible)
+        {
+            <button
+                type="button"
+                class="w-full flex items-center justify-between px-6 py-4 @(HasFooter || HasBody ? "border-b border-border-primary" : "") hover:bg-bg-hover transition-colors"
+                @onclick="ToggleExpanded"
+                aria-expanded="@(_expanded ? "true" : "false")"
+            >
+                <div class="text-left">
+                    @if (!string.IsNullOrEmpty(Model.HeaderContent))
+                    {
+                        @((MarkupString)Model.HeaderContent)
+                    }
+                    else if (!string.IsNullOrEmpty(Model.Title))
+                    {
+                        <h3 class="text-lg font-semibold text-text-primary">@Model.Title</h3>
+                        @if (!string.IsNullOrEmpty(Model.Subtitle))
+                        {
+                            <p class="text-sm text-text-secondary mt-1">@Model.Subtitle</p>
+                        }
+                    }
+                </div>
+                <svg class="w-5 h-5 text-text-secondary transition-transform @(_expanded ? "" : "rotate-180")"
+                     fill="none"
+                     viewBox="0 0 24 24"
+                     stroke="currentColor"
+                     aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                </svg>
+            </button>
+        }
+        else
+        {
+            <div class="flex items-center justify-between px-6 py-4 @(HasFooter || HasBody ? "border-b border-border-primary" : "")">
+                <div>
+                    @if (!string.IsNullOrEmpty(Model.HeaderContent))
+                    {
+                        @((MarkupString)Model.HeaderContent)
+                    }
+                    else if (!string.IsNullOrEmpty(Model.Title))
+                    {
+                        <h3 class="text-lg font-semibold text-text-primary">@Model.Title</h3>
+                        @if (!string.IsNullOrEmpty(Model.Subtitle))
+                        {
+                            <p class="text-sm text-text-secondary mt-1">@Model.Subtitle</p>
+                        }
+                    }
+                </div>
+                @if (!string.IsNullOrEmpty(Model.HeaderActions))
+                {
+                    <div>
+                        @((MarkupString)Model.HeaderActions)
+                    </div>
+                }
+            </div>
+        }
+    }
+
+    @if (HasBody)
+    {
+        <div class="@(BodyOnly ? BodyPaddingClass : Model.IsCollapsible && !_expanded ? $"{BodyPaddingClass} hidden" : BodyPaddingClass)">
+            @if (ChildContent is not null)
+            {
+                @ChildContent
+            }
+            else
+            {
+                @((MarkupString)Model.BodyContent!)
+            }
+        </div>
+    }
+
+    @if (HasFooter)
+    {
+        <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+            @((MarkupString)Model.FooterContent!)
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public EnhancedCardViewModel Model { get; set; } = new();
+
+    /// <summary>Body slot. Takes precedence over <see cref="EnhancedCardViewModel.BodyContent"/>.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Server-side replacement for the partial's Model.OnClick JS string.</summary>
+    [Parameter] public EventCallback OnClick { get; set; }
+
+    private bool _expanded;
+
+    protected override void OnInitialized()
+    {
+        _expanded = Model.IsExpanded;
+    }
+
+    private bool HasHeader =>
+        !string.IsNullOrEmpty(Model.Title) || !string.IsNullOrEmpty(Model.HeaderContent) || !string.IsNullOrEmpty(Model.HeaderActions);
+
+    private bool HasFooter => !string.IsNullOrEmpty(Model.FooterContent);
+
+    private bool HasBody => ChildContent is not null || !string.IsNullOrEmpty(Model.BodyContent);
+
+    private bool BodyOnly => !HasHeader && !HasFooter;
+
+    private string BodyPaddingClass => Model.CompactPadding ? "p-4" : "p-6";
+
+    private string CardClasses
+    {
+        get
+        {
+            var accentClass = Model.AccentColor switch
+            {
+                CardAccent.Blue => "accent-blue",
+                CardAccent.Orange => "accent-orange",
+                CardAccent.Success => "accent-success",
+                CardAccent.Info => "accent-info",
+                _ => ""
+            };
+
+            var hoverClass = Model.HoverLift ? "hover:transform hover:-translate-y-0.5" : "";
+            var interactiveClass = Model.IsInteractive ? "cursor-pointer" : "";
+
+            return $"card-enhanced {accentClass} {hoverClass} {interactiveClass} {Model.CssClass ?? ""}".Trim();
+        }
+    }
+
+    private void ToggleExpanded()
+    {
+        _expanded = !_expanded;
+    }
+
+    private async Task HandleRootClickAsync()
+    {
+        if (OnClick.HasDelegate)
+        {
+            await OnClick.InvokeAsync();
+        }
+    }
+}

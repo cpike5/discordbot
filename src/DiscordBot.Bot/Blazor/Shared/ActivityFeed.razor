@@ -1,0 +1,104 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_ActivityFeed.cshtml.
+    Render-only: the partial's JS-inserted items (activity-item-template) are
+    rendered natively from the Items parameter instead. Real-time updates are
+    the consuming page's responsibility (push new items in via Items).
+    The pause toggle is native state surfaced through IsPausedChanged.
+*@
+
+<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" id="activity-feed-card">
+    <!-- Header -->
+    <div class="px-4 py-3 border-b border-border-primary bg-bg-primary flex items-center justify-between">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5 text-accent-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <h2 class="text-lg font-semibold text-text-primary">Live Activity</h2>
+        </div>
+        <button type="button"
+                class="btn-toggle"
+                aria-label="@(IsPaused ? "Resume activity feed" : "Pause activity feed")"
+                aria-pressed="@IsPaused.ToString().ToLowerInvariant()"
+                @onclick="TogglePauseAsync">
+            <svg class="w-4 h-4 @(IsPaused ? "hidden" : "")" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6" />
+            </svg>
+            <svg class="w-4 h-4 @(IsPaused ? "" : "hidden")" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+            </svg>
+            <span>@(IsPaused ? "Resume" : "Pause")</span>
+        </button>
+    </div>
+
+    <!-- Paused Indicator -->
+    @if (IsPaused)
+    {
+        <div class="px-4 py-2 bg-warning/10 border-b border-warning/20 text-warning text-sm flex items-center gap-2"
+             role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+        </svg>
+            <span>Activity feed is paused. Updates will resume when you unpause.</span>
+        </div>
+    }
+
+    <!-- Activity Feed Container -->
+    <div class="px-4 py-3 max-h-80 overflow-y-auto">
+        <div class="space-y-2" role="log" aria-live="polite" aria-atomic="false">
+            @if (Items.Count == 0)
+            {
+                <div class="text-center py-8 text-text-tertiary text-sm">
+                    @EmptyMessage
+                </div>
+            }
+            else
+            {
+                @foreach (var item in Items.Take(MaxItems))
+                {
+                    <div class="activity-item flex items-start gap-3 p-3 bg-bg-primary border border-border-primary rounded-md transition-all duration-150">
+                        <div class="flex-shrink-0 w-8 h-8 flex items-center justify-center bg-bg-tertiary rounded-full text-lg">
+                            <span class="activity-icon" aria-hidden="true">📢</span>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm text-text-primary activity-description">@item.Message</p>
+                            <div class="mt-1 flex items-center gap-2 text-xs text-text-tertiary">
+                                <span class="activity-guild">@item.Source</span>
+                                <span aria-hidden="true">•</span>
+                                <time class="activity-timestamp">@item.RelativeTime</time>
+                            </div>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Whether the activity feed is currently paused.</summary>
+    [Parameter] public bool IsPaused { get; set; }
+
+    /// <summary>Two-way binding companion so consuming pages can stop pushing items while paused.</summary>
+    [Parameter] public EventCallback<bool> IsPausedChanged { get; set; }
+
+    /// <summary>Maximum number of activity items to display.</summary>
+    [Parameter] public int MaxItems { get; set; } = 15;
+
+    /// <summary>Message shown when there are no activities.</summary>
+    [Parameter] public string EmptyMessage { get; set; } = "No recent activity";
+
+    /// <summary>Activity items to render, newest first (the consuming page owns real-time updates).</summary>
+    [Parameter] public IReadOnlyList<ActivityFeedItemViewModel> Items { get; set; } = [];
+
+    private async Task TogglePauseAsync()
+    {
+        IsPaused = !IsPaused;
+        if (IsPausedChanged.HasDelegate)
+        {
+            await IsPausedChanged.InvokeAsync(IsPaused);
+        }
+    }
+}

@@ -1,0 +1,1098 @@
+@page "/Guilds/Details/{GuildId:long}"
+@namespace DiscordBot.Bot.Blazor.Pages.Guilds
+@attribute [Authorize(Policy = "RequireModerator")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@layout DiscordBot.Bot.Blazor.Layout.GuildLayout
+@using System.Security.Claims
+@using DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.Configuration
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using Microsoft.AspNetCore.Authorization
+@using Microsoft.Extensions.DependencyInjection
+@using Microsoft.Extensions.Options
+@inject IServiceScopeFactory ScopeFactory
+@inject IAuthorizationService AuthService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@inject ILogger<GuildDetails> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Guilds/Details.cshtml(.cs) — Phase E of
+    docs/architecture/blazor-completion-plan.md. Same route (/Guilds/Details/{guildId}),
+    same RequireModerator + GuildAccess policies; GuildAccess is additionally
+    re-checked in code (resource-based AuthorizeAsync) because the handler's
+    route-value fallback may not fire inside circuits.
+
+    Markup verbatim: the widget bodies the page model assembled as raw HTML strings
+    for _DashboardWidget's BodyContent are expressed as DashboardWidget ChildContent
+    (auto-encoded, so the manual WebUtility.HtmlEncode calls disappear). Guild chrome
+    (breadcrumb/header/nav, incl. the Sync/Edit header actions and status badge the
+    page model built) flows through the cascaded GuildPageContext. Data access is a
+    DI scope per operation; not-found redirects to /Error/404 (mirrors NotFound()).
+
+    The TempData success alert becomes a ?successMessage query alert (Guilds/Edit
+    redirects here with it after a save).
+
+    Not ported (dead code in the .cshtml): the OnPostSyncAsync handler (no markup
+    or script on the page ever invoked it — the header's Sync action was an inert
+    "#" link, mirrored as-is), the copyToClipboard/moreActions/.local-time inline
+    scripts (their target elements do not exist in this page's markup), and the
+    toast.js/guild-sync.js script tags (toast.js is loaded by MainLayout;
+    guild-sync.js was only consumed by Guilds/Index).
+*@
+
+<PageTitle>@_guildName - Discord Bot Admin</PageTitle>
+
+@if (_viewModel is not null)
+{
+    var guild = _viewModel;
+
+    <!-- Success Message (e.g. after Guilds/Edit redirects back here) -->
+    @if (!string.IsNullOrEmpty(_successMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Message="@_successMessage" IsDismissible="true" OnDismiss="() => _successMessage = null" />
+        </div>
+    }
+
+    <!-- Guild Information Card (Always visible, not in tabs) -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Information</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+            <!-- Members -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Members</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary">@guild.MemberCount.ToString("N0")</p>
+            </div>
+            <!-- Bot Joined -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Bot Joined</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary" data-utc="@guild.JoinedAtUtcIso" data-format="date">
+                </p>
+            </div>
+            <!-- Prefix -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Prefix</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary font-mono">
+                    @if (!string.IsNullOrEmpty(guild.Prefix))
+                    {
+                        @guild.Prefix
+                    }
+                    else
+                    {
+                        <span class="text-text-secondary text-base">Default (/)</span>
+                    }
+                </p>
+            </div>
+            <!-- Status -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Status</span>
+                </div>
+                <p class="text-xl font-bold text-text-primary">
+                    @if (guild.IsActive)
+                    {
+                        <span class="text-success">Active</span>
+                    }
+                    else
+                    {
+                        <span class="text-error">Inactive</span>
+                    }
+                </p>
+            </div>
+            <!-- Welcome Messages -->
+            <div>
+                <div class="flex items-center gap-2 mb-1">
+                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                    </svg>
+                    <span class="text-sm text-text-tertiary font-medium">Welcome</span>
+                </div>
+                <p class="text-xl font-bold">
+                    @if (_welcomeEnabled)
+                    {
+                        <span class="text-success">Enabled</span>
+                    }
+                    else
+                    {
+                        <span class="text-text-secondary">Disabled</span>
+                    }
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Dashboard Widgets Grid -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
+        <!-- Scheduled Messages Widget -->
+        @if (_scheduledMessagesTotal > 0)
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Scheduled Messages",
+                DetailUrl = $"/Guilds/ScheduledMessages/{guild.Id}",
+                ColSpan = 1
+            }'>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                    <!-- Total -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@_scheduledMessagesTotal</p>
+                    </div>
+
+                    <!-- Active -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Active</span>
+                        </div>
+                        <p class="text-2xl font-bold text-success">@_scheduledMessagesActive</p>
+                    </div>
+
+                    <!-- Paused -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Paused</span>
+                        </div>
+                        <p class="text-2xl font-bold text-warning">@_scheduledMessagesPaused</p>
+                    </div>
+
+                    <!-- Next Run -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Next Run</span>
+                        </div>
+                        @if (_nextScheduledExecution.HasValue)
+                        {
+                            <span class="text-sm font-bold text-text-primary" data-utc="@NextScheduledExecutionUtcIso" data-format="datetime-short">Loading...</span>
+                            <p class="text-xs text-text-tertiary line-clamp-2 sm:truncate mt-1" title="@_nextScheduledMessageTitle">@_nextScheduledMessageTitle</p>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-text-tertiary">--</p>
+                        }
+                    </div>
+                </div>
+            </DashboardWidget>
+        }
+        else
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Scheduled Messages",
+                DetailUrl = $"/Guilds/ScheduledMessages/{guild.Id}",
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = "No scheduled messages yet",
+                    Description = "",
+                    IconSvgPath = "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+                    PrimaryActionText = "Create Scheduled Message",
+                    PrimaryActionUrl = $"/Guilds/ScheduledMessages/Create/{guild.Id}"
+                },
+                ColSpan = 1
+            }' />
+        }
+
+        <!-- Rat Watch Widget -->
+        @{
+            var ratWatchModel = new DashboardWidgetViewModel
+            {
+                Title = "Rat Watch",
+                IsEnabled = _ratWatchEnabled,
+                DetailUrl = $"/Guilds/RatWatch/Incidents/{guild.Id}",
+                DetailLinkText = "Incidents →",
+                HeaderActions = new List<WidgetHeaderAction>
+                {
+                    new WidgetHeaderAction { Text = "Settings", Url = $"/Guilds/RatWatch/{guild.Id}" },
+                    new WidgetHeaderAction { Text = "Analytics", Url = $"/Guilds/RatWatch/Analytics/{guild.Id}" }
+                },
+                ColSpan = 1
+            };
+        }
+        @if (_ratWatchTotal > 0)
+        {
+            <DashboardWidget Model="ratWatchModel">
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                    <!-- Total -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total Watches</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@_ratWatchTotal</p>
+                    </div>
+
+                    <!-- Pending -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Pending/Voting</span>
+                        </div>
+                        <p class="text-2xl font-bold text-warning">@_ratWatchPending</p>
+                    </div>
+
+                    <!-- Completed -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Completed</span>
+                        </div>
+                        <p class="text-2xl font-bold text-success">@_ratWatchCompleted</p>
+                    </div>
+                </div>
+                @if (_topRatLeaderboard.Any())
+                {
+                    <div class="space-y-2 mt-4">
+                        <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-3">Top Rats</h3>
+                        @foreach (var entry in _topRatLeaderboard)
+                        {
+                            var medalEmoji = entry.Rank switch
+                            {
+                                1 => "🥇",
+                                2 => "🥈",
+                                3 => "🥉",
+                                _ => $"#{entry.Rank}"
+                            };
+
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-bg-primary hover:bg-bg-tertiary transition-colors">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <span class="text-sm font-bold text-text-tertiary flex-shrink-0 w-6">@medalEmoji</span>
+                                    <span class="text-sm font-medium text-text-primary truncate" title="@entry.Username">@entry.Username</span>
+                                </div>
+                                <span class="text-sm font-bold text-error ml-2 flex-shrink-0">@entry.GuiltyCount guilty</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </DashboardWidget>
+        }
+        else
+        {
+            <DashboardWidget Model='ratWatchModel with
+            {
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = _ratWatchEnabled ? "No watches yet" : "Ratwatch is disabled",
+                    Description = _ratWatchEnabled ? "Use the \"Rat Watch\" context menu on messages in Discord to start accountability tracking." : "Enable Ratwatch in settings to start tracking.",
+                    IconSvgPath = "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                }
+            }' />
+        }
+
+        <!-- Reminders Widget -->
+        @if (_remindersTotal > 0)
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Reminders",
+                DetailUrl = $"/Guilds/Reminders/{guild.Id}",
+                ColSpan = 1
+            }'>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
+                    <!-- Total -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@_remindersTotal</p>
+                    </div>
+
+                    <!-- Pending -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Pending</span>
+                        </div>
+                        <p class="text-2xl font-bold text-accent-blue">@_remindersPending</p>
+                    </div>
+
+                    <!-- Delivered Today -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Delivered Today</span>
+                        </div>
+                        <p class="text-2xl font-bold text-success">@_remindersDeliveredToday</p>
+                    </div>
+
+                    <!-- Failed -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 @(_remindersFailed > 0 ? "text-error" : "text-text-tertiary")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Failed</span>
+                        </div>
+                        <p class="text-2xl font-bold @(_remindersFailed > 0 ? "text-error" : "text-text-primary")">@_remindersFailed</p>
+                    </div>
+                </div>
+                @if (_upcomingReminders.Any())
+                {
+                    <div class="space-y-2 mt-6">
+                        <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-4">Upcoming</h3>
+                        @foreach (var reminder in _upcomingReminders)
+                        {
+                            <div class="flex items-start gap-3 p-2 rounded-lg hover:bg-bg-tertiary transition-colors">
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@reminder.UserId" data-context-guild-id="@guild.Id">@reminder.Username</p>
+                                    <p class="text-xs text-text-secondary truncate mt-0.5">@reminder.MessagePreview</p>
+                                    <p class="text-xs text-text-tertiary mt-1" data-utc="@reminder.TriggerAtUtcIso" data-format="datetime-relative"></p>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                }
+            </DashboardWidget>
+        }
+        else
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Reminders",
+                DetailUrl = $"/Guilds/Reminders/{guild.Id}",
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = "No reminders yet",
+                    Description = "Users can create reminders using the /remind command in Discord.",
+                    IconSvgPath = "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
+                },
+                ColSpan = 1
+            }' />
+        }
+
+        <!-- Audio Widget -->
+        @if (_audioEnabled && (_totalSoundCount > 0 || _topSounds.Any() || !string.IsNullOrEmpty(_mostUsedTtsVoice)))
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Audio",
+                IsEnabled = _audioEnabled,
+                DetailUrl = $"/Guilds/AudioSettings/{guild.Id}",
+                ColSpan = 1
+            }'>
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+                    <!-- Total Sounds -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total Sounds</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@_totalSoundCount</p>
+                    </div>
+
+                    <!-- Most Used TTS Voice -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Top TTS Voice</span>
+                        </div>
+                        @if (!string.IsNullOrEmpty(_mostUsedTtsVoice))
+                        {
+                            <p class="text-sm font-bold text-text-primary truncate" title="@_mostUsedTtsVoice">@_mostUsedTtsVoice</p>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-text-tertiary">No TTS usage</p>
+                        }
+                    </div>
+                </div>
+                @if (_topSounds.Any())
+                {
+                    <div class="space-y-2">
+                        <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-3">Top Sounds This Week</h3>
+                        @foreach (var sound in _topSounds)
+                        {
+                            <div class="flex items-center justify-between p-2 rounded-lg bg-bg-primary hover:bg-bg-tertiary transition-colors">
+                                <div class="flex items-center gap-2 min-w-0 flex-1">
+                                    <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
+                                    </svg>
+                                    <span class="text-sm font-medium text-text-primary truncate" title="@sound.Name">@sound.Name</span>
+                                </div>
+                                <span class="text-sm font-bold text-accent-blue ml-2 flex-shrink-0">@sound.PlayCount plays</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </DashboardWidget>
+        }
+        else
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Audio",
+                IsEnabled = _audioEnabled,
+                DetailUrl = $"/Guilds/AudioSettings/{guild.Id}",
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = _audioEnabled ? "No audio activity yet" : "Audio is disabled",
+                    Description = _audioEnabled ? "Upload sounds and use TTS to see stats here." : "Enable audio features in Audio settings.",
+                    IconSvgPath = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3",
+                    PrimaryActionText = _audioEnabled ? null : "Configure Audio",
+                    PrimaryActionUrl = _audioEnabled ? null : $"/Guilds/AudioSettings/{guild.Id}"
+                },
+                ColSpan = 1
+            }' />
+        }
+
+        <!-- Assistant Widget -->
+        @if (_assistantGloballyEnabled && _assistantLocallyEnabled)
+        {
+            var channelCoverage = _assistantChannelCount == 0 ? "All" : _assistantChannelCount.ToString();
+            var rateLimitDisplay = _assistantIsRateLimitOverride
+                ? $"{_assistantRateLimit} req/{_assistantRateLimitWindowMinutes}min"
+                : "Default";
+
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Assistant",
+                IsEnabled = _assistantLocallyEnabled,
+                DetailUrl = $"/Guilds/AssistantSettings/{guild.Id}",
+                ColSpan = 1
+            }'>
+                <div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                    <!-- Global Status -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Global Status</span>
+                        </div>
+                        <p class="text-sm font-bold text-success">Enabled</p>
+                    </div>
+
+                    <!-- Channel Coverage -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Channel Coverage</span>
+                        </div>
+                        <p class="text-sm font-bold text-text-primary">@channelCoverage</p>
+                    </div>
+
+                    <!-- Rate Limit -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Rate Limit</span>
+                        </div>
+                        <p class="text-sm font-bold text-text-primary">@rateLimitDisplay</p>
+                    </div>
+                </div>
+            </DashboardWidget>
+        }
+        else if (!_assistantGloballyEnabled)
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Assistant",
+                IsEnabled = _assistantLocallyEnabled,
+                DetailUrl = $"/Guilds/AssistantSettings/{guild.Id}",
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.Error,
+                    Title = "Service unavailable",
+                    Description = "The Assistant feature is globally disabled. Contact your administrator to enable it.",
+                    IconSvgPath = "M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                },
+                ColSpan = 1
+            }' />
+        }
+        else
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Assistant",
+                IsEnabled = _assistantLocallyEnabled,
+                DetailUrl = $"/Guilds/AssistantSettings/{guild.Id}",
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = "Assistant is disabled",
+                    Description = "Enable the Assistant to allow users to ask questions about bot features.",
+                    IconSvgPath = "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z",
+                    PrimaryActionText = "Configure Assistant",
+                    PrimaryActionUrl = $"/Guilds/AssistantSettings/{guild.Id}"
+                },
+                ColSpan = 1
+            }' />
+        }
+
+        <!-- Members Widget -->
+        @if (_membersTotalCount > 0)
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Members",
+                DetailUrl = $"/Guilds/{guild.Id}/Members",
+                ColSpan = 1
+            }'>
+                <div class="grid grid-cols-2 gap-3 sm:gap-4 mb-4">
+                    <!-- Total Members -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Total Members</span>
+                        </div>
+                        <p class="text-2xl font-bold text-text-primary">@_membersTotalCount.ToString("N0")</p>
+                    </div>
+
+                    <!-- Active Today -->
+                    <div class="bg-bg-primary rounded-lg p-3 sm:p-4">
+                        <div class="flex items-center gap-2 mb-1">
+                            <svg class="w-4 h-4 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span class="text-xs text-text-tertiary font-medium">Active Today</span>
+                        </div>
+                        <p class="text-2xl font-bold text-success">@_membersActiveToday.ToString("N0")</p>
+                    </div>
+                </div>
+                @if (_newestMembers.Any())
+                {
+                    <div class="space-y-2">
+                        <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-4">Newest Members</h3>
+                        @foreach (var member in _newestMembers)
+                        {
+                            string? avatarUrl = null;
+                            if (!string.IsNullOrEmpty(member.AvatarHash))
+                            {
+                                var extension = member.AvatarHash.StartsWith("a_") ? "gif" : "png";
+                                avatarUrl = $"https://cdn.discordapp.com/avatars/{member.UserId}/{member.AvatarHash}.{extension}?size=80";
+                            }
+
+                            var joinedDateUtcIso = DateTime.SpecifyKind(member.JoinedAt, DateTimeKind.Utc).ToString("o");
+                            var memberUrl = $"/Guilds/{guild.Id}/Members?searchTerm={member.UserId}";
+
+                            <a href="@memberUrl"
+                               class="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-tertiary transition-colors">
+                                @if (!string.IsNullOrEmpty(avatarUrl))
+                                {
+                                    <img src="@avatarUrl" alt="@member.DisplayName" class="w-10 h-10 rounded-full" />
+                                }
+                                else
+                                {
+                                    <div class="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center">
+                                        <svg class="w-6 h-6 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                    </div>
+                                }
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-sm font-medium text-text-primary truncate preview-trigger" data-preview-type="user" data-user-id="@member.UserId" data-context-guild-id="@guild.Id">@member.DisplayName</p>
+                                    <p class="text-xs text-text-tertiary" data-utc="@joinedDateUtcIso" data-format="date"></p>
+                                </div>
+                            </a>
+                        }
+                    </div>
+                }
+            </DashboardWidget>
+        }
+        else
+        {
+            <DashboardWidget Model='new DashboardWidgetViewModel
+            {
+                Title = "Members",
+                DetailUrl = $"/Guilds/{guild.Id}/Members",
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = "No members found",
+                    Description = "Member data will appear here after synchronization.",
+                    IconSvgPath = "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                },
+                ColSpan = 1
+            }' />
+        }
+    </div>
+
+    <!-- Full-width Activity Section -->
+    <div class="w-full">
+        @{
+            var activityModel = new DashboardWidgetViewModel
+            {
+                Title = "Activity",
+                Subtitle = "Recent command activity",
+                IconSvgPath = "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
+                DetailUrl = $"/Commands?tab=logs&GuildId={guild.Id}",
+                ColSpan = 2
+            };
+        }
+        @if (guild.RecentCommandLogs.Any())
+        {
+            <DashboardWidget Model="activityModel">
+                <div class="overflow-x-auto hidden md:block">
+                    <table class="min-w-full divide-y divide-border-primary">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Command</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Response</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            @foreach (var cmd in guild.RecentCommandLogs)
+                            {
+                                <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                        <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                        <span data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">@GetRelativeTime(cmd.ExecutedAt)</span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                        @cmd.ResponseTimeMs ms
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        @if (cmd.Success)
+                                        {
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-success/20 text-success">Success</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-error/20 text-error">Failed</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Mobile Card Layout -->
+                <div class="md:hidden divide-y divide-border-primary">
+                    @foreach (var cmd in guild.RecentCommandLogs)
+                    {
+                        <div class="p-3 sm:p-4 hover:bg-bg-tertiary/50 transition-colors">
+                            <div class="flex items-center justify-between mb-2">
+                                <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
+                                @if (cmd.Success)
+                                {
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-success/20 text-success">Success</span>
+                                }
+                                else
+                                {
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-semibold bg-error/20 text-error">Failed</span>
+                                }
+                            </div>
+                            <div class="space-y-1 text-sm">
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">User:</span>
+                                    <span class="text-text-secondary preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guild.Id">@cmd.Username</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Time:</span>
+                                    <span class="text-text-secondary" data-utc="@cmd.ExecutedAtUtcIso" data-format="datetime-short">@GetRelativeTime(cmd.ExecutedAt)</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-text-tertiary">Response:</span>
+                                    <span class="text-text-secondary">@cmd.ResponseTimeMs ms</span>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </DashboardWidget>
+        }
+        else
+        {
+            <DashboardWidget Model='activityModel with
+            {
+                EmptyState = new EmptyStateViewModel
+                {
+                    Type = EmptyStateType.NoData,
+                    Title = "No command activity yet",
+                    Description = "No commands have been executed in this server"
+                }
+            }' />
+        }
+    </div>
+}
+
+@code {
+    /// <summary>Guild ID route value (long route constraint mirrors the .cshtml; cast to ulong for services).</summary>
+    [Parameter] public long GuildId { get; set; }
+
+    [CascadingParameter] private GuildPageContext? GuildContext { get; set; }
+
+    /// <summary>Success message from a redirecting page (replaces the old TempData round-trip, e.g. Guilds/Edit).</summary>
+    [SupplyParameterFromQuery(Name = "successMessage")] public string? SuccessMessageQuery { get; set; }
+
+    private ulong GuildIdValue => (ulong)GuildId;
+
+    private const int RecentCommandsLimit = 10;
+
+    private GuildDetailViewModel? _viewModel;
+    private string _guildName = string.Empty;
+    private string? _successMessage;
+    private bool _needTimeConvert;
+
+    private bool _welcomeEnabled;
+
+    private int _scheduledMessagesTotal;
+    private int _scheduledMessagesActive;
+    private int _scheduledMessagesPaused;
+    private DateTime? _nextScheduledExecution;
+    private string? _nextScheduledMessageTitle;
+
+    private string? NextScheduledExecutionUtcIso => _nextScheduledExecution.HasValue
+        ? DateTime.SpecifyKind(_nextScheduledExecution.Value, DateTimeKind.Utc).ToString("o")
+        : null;
+
+    private bool _ratWatchEnabled;
+    private int _ratWatchTotal;
+    private int _ratWatchPending;
+    private int _ratWatchCompleted;
+    private List<RatLeaderboardEntryDto> _topRatLeaderboard = new();
+
+    private int _remindersTotal;
+    private int _remindersPending;
+    private int _remindersDeliveredToday;
+    private int _remindersFailed;
+    private List<UpcomingReminderDto> _upcomingReminders = new();
+
+    private int _membersTotalCount;
+    private int _membersActiveToday;
+    private List<GuildMemberDto> _newestMembers = new();
+
+    private bool _audioEnabled;
+    private int _totalSoundCount;
+    private List<(string Name, int PlayCount)> _topSounds = new();
+    private string? _mostUsedTtsVoice;
+
+    private bool _assistantGloballyEnabled;
+    private bool _assistantLocallyEnabled;
+    private int _assistantChannelCount;
+    private int _assistantRateLimit;
+    private bool _assistantIsRateLimitOverride;
+    private int _assistantRateLimitWindowMinutes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        // Resource-based guild authorization: the GuildAccess policy's route-value
+        // fallback may not fire inside circuits, so authorize explicitly here.
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        var authResult = await AuthService.AuthorizeAsync(authState.User, GuildIdValue, "GuildAccess");
+        if (!authResult.Succeeded)
+        {
+            Navigation.NavigateTo("/Error/403");
+            return;
+        }
+
+        Logger.LogInformation("User accessing guild details page for guild {GuildId}", GuildIdValue);
+
+        _successMessage = SuccessMessageQuery;
+
+        var guildId = GuildIdValue;
+
+        using var scope = ScopeFactory.CreateScope();
+        var services = scope.ServiceProvider;
+        var guildService = services.GetRequiredService<IGuildService>();
+
+        // Fetch guild data
+        var guild = await guildService.GetGuildByIdAsync(guildId);
+        if (guild == null)
+        {
+            Logger.LogWarning("Guild {GuildId} not found", guildId);
+            Navigation.NavigateTo("/Error/404");
+            return;
+        }
+
+        _guildName = guild.Name;
+
+        // Fetch recent command activity for this guild
+        var commandQuery = new CommandLogQueryDto
+        {
+            GuildId = guildId,
+            Page = 1,
+            PageSize = RecentCommandsLimit
+        };
+        var recentCommandsResponse = await services.GetRequiredService<ICommandLogService>()
+            .GetLogsAsync(commandQuery);
+
+        // Fetch welcome configuration status
+        var welcomeConfig = await services.GetRequiredService<IWelcomeService>()
+            .GetConfigurationAsync(guildId);
+        _welcomeEnabled = welcomeConfig?.IsEnabled ?? false;
+
+        // Fetch scheduled messages summary
+        var (scheduledMessages, totalCount) = await services.GetRequiredService<IScheduledMessageService>()
+            .GetByGuildIdAsync(guildId, 1, 100);
+        var messagesList = scheduledMessages.ToList();
+
+        _scheduledMessagesTotal = totalCount;
+        _scheduledMessagesActive = messagesList.Count(m => m.IsEnabled);
+        _scheduledMessagesPaused = messagesList.Count(m => !m.IsEnabled);
+
+        // Find the next scheduled execution
+        var nextMessage = messagesList
+            .Where(m => m.IsEnabled && m.NextExecutionAt.HasValue && m.NextExecutionAt.Value > DateTime.UtcNow)
+            .OrderBy(m => m.NextExecutionAt)
+            .FirstOrDefault();
+
+        if (nextMessage != null)
+        {
+            _nextScheduledExecution = nextMessage.NextExecutionAt;
+            _nextScheduledMessageTitle = nextMessage.Title;
+        }
+
+        // Fetch Rat Watch summary
+        var ratWatchService = services.GetRequiredService<IRatWatchService>();
+        var ratWatchSettings = await ratWatchService.GetGuildSettingsAsync(guildId);
+        _ratWatchEnabled = ratWatchSettings.IsEnabled;
+
+        var (ratWatches, ratWatchTotalCount) = await ratWatchService.GetByGuildAsync(guildId, 1, 100);
+        var ratWatchList = ratWatches.ToList();
+
+        _ratWatchTotal = ratWatchTotalCount;
+        _ratWatchPending = ratWatchList.Count(w => w.Status == RatWatchStatus.Pending || w.Status == RatWatchStatus.Voting);
+        _ratWatchCompleted = ratWatchList.Count(w => w.Status == RatWatchStatus.Guilty || w.Status == RatWatchStatus.NotGuilty);
+
+        // Get leaderboard for top rats
+        var leaderboard = await ratWatchService.GetLeaderboardAsync(guildId, 5);
+        _topRatLeaderboard = leaderboard.ToList();
+
+        // Fetch reminder stats
+        var reminderRepository = services.GetRequiredService<IReminderRepository>();
+        var (remindersTotal, remindersPending, remindersDeliveredToday, remindersFailed) =
+            await reminderRepository.GetGuildStatsAsync(guildId);
+        _remindersTotal = remindersTotal;
+        _remindersPending = remindersPending;
+        _remindersDeliveredToday = remindersDeliveredToday;
+        _remindersFailed = remindersFailed;
+
+        // Fetch upcoming reminders
+        _upcomingReminders = (await reminderRepository.GetUpcomingAsync(guildId, 5)).ToList();
+
+        // Fetch member stats
+        var guildMemberService = services.GetRequiredService<IGuildMemberService>();
+        var memberCountQuery = new GuildMemberQueryDto { IsActive = true };
+        _membersTotalCount = await guildMemberService.GetMemberCountAsync(guildId, memberCountQuery);
+
+        // Fetch members active today
+        var activeTodayQuery = new GuildMemberQueryDto
+        {
+            IsActive = true,
+            LastActiveAtStart = DateTime.UtcNow.Date
+        };
+        _membersActiveToday = await guildMemberService.GetMemberCountAsync(guildId, activeTodayQuery);
+
+        // Fetch newest 5 members
+        var newestMembersQuery = new GuildMemberQueryDto
+        {
+            IsActive = true,
+            SortBy = "JoinedAt",
+            SortDescending = true,
+            Page = 1,
+            PageSize = 5
+        };
+        var newestMembersResponse = await guildMemberService.GetMembersAsync(guildId, newestMembersQuery);
+        _newestMembers = newestMembersResponse.Items.ToList();
+
+        // Fetch audio widget data
+        var audioSettings = await services.GetRequiredService<IGuildAudioSettingsService>()
+            .GetSettingsAsync(guildId);
+        _audioEnabled = audioSettings?.AudioEnabled ?? false;
+
+        // Fetch total sound count + top sounds this week
+        var soundRepository = services.GetRequiredService<ISoundRepository>();
+        _totalSoundCount = await soundRepository.GetSoundCountAsync(guildId);
+
+        var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
+        _topSounds = (await soundRepository.GetTopSoundsByPlayCountAsync(guildId, 3, oneWeekAgo)).ToList();
+
+        // Fetch most used TTS voice this week
+        _mostUsedTtsVoice = await services.GetRequiredService<ITtsMessageRepository>()
+            .GetMostUsedVoiceAsync(guildId, oneWeekAgo);
+
+        // Fetch assistant widget data
+        var assistantOptions = services.GetRequiredService<IOptions<AssistantOptions>>().Value;
+        _assistantGloballyEnabled = assistantOptions.GloballyEnabled;
+        var assistantSettings = await services.GetRequiredService<IAssistantGuildSettingsService>()
+            .GetOrCreateSettingsAsync(guildId);
+        _assistantLocallyEnabled = assistantSettings.IsEnabled;
+        _assistantChannelCount = assistantSettings.GetAllowedChannelIdsList().Count;
+        _assistantIsRateLimitOverride = assistantSettings.RateLimitOverride.HasValue;
+        _assistantRateLimit = assistantSettings.RateLimitOverride ?? assistantOptions.DefaultRateLimit;
+        _assistantRateLimitWindowMinutes = assistantOptions.RateLimitWindowMinutes;
+
+        Logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}, AudioEnabled={AudioEnabled}, Sounds={SoundCount}, AssistantEnabled={AssistantEnabled}",
+            guildId, recentCommandsResponse.Items.Count, _welcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, _membersTotalCount, _audioEnabled, _totalSoundCount, _assistantLocallyEnabled);
+
+        // Build view model
+        var viewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
+
+        // Set CanEdit based on user's actual guild and application permissions
+        var currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (!string.IsNullOrEmpty(currentUserId))
+        {
+            var isGuildAdmin = await services.GetRequiredService<IGuildMembershipService>()
+                .IsGuildAdminAsync(currentUserId, guildId);
+            var isAppAdmin = authState.User.IsInRole("Admin") || authState.User.IsInRole("SuperAdmin");
+            viewModel.CanEdit = isGuildAdmin || isAppAdmin;
+        }
+
+        _viewModel = viewModel;
+
+        // Populate guild layout chrome (same viewmodels the page model built)
+        var header = new GuildHeaderViewModel
+        {
+            GuildId = guild.Id,
+            GuildName = guild.Name,
+            GuildIconUrl = guild.IconUrl,
+            PageTitle = guild.Name,
+            PageDescription = $"ID: {guild.Id}"
+        };
+        header.StatusBadge = new BadgeViewModel
+        {
+            Text = guild.IsActive ? "Active" : "Inactive",
+            Variant = guild.IsActive ? BadgeVariant.Success : BadgeVariant.Error,
+            Style = BadgeStyle.Subtle,
+            IconLeft = "M10 18a8 8 0 100-16 8 8 0 000 16z"
+        };
+        header.Actions = viewModel.CanEdit ? new List<HeaderAction>
+        {
+            new()
+            {
+                Label = "Sync",
+                Url = "#",
+                Icon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
+                Style = HeaderActionStyle.Secondary
+            },
+            new()
+            {
+                Label = "Edit Settings",
+                Url = $"/Guilds/Edit/{guild.Id}",
+                Icon = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
+                Style = HeaderActionStyle.Primary
+            }
+        } : null;
+
+        GuildContext?.Set(
+            new GuildBreadcrumbViewModel
+            {
+                Items = new List<BreadcrumbItem>
+                {
+                    new() { Label = "Home", Url = "/" },
+                    new() { Label = "Servers", Url = "/Guilds" },
+                    new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}", IsCurrent = true }
+                }
+            },
+            header,
+            new GuildNavBarViewModel
+            {
+                GuildId = guild.Id,
+                ActiveTab = "overview",
+                Tabs = GuildNavigationConfig.GetTabs().ToList()
+            });
+
+        _needTimeConvert = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            try
+            {
+                await JS.InvokeVoidAsync("blazorInterop.convertTimes");
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+    }
+
+    private static string GetRelativeTime(DateTime timestamp)
+    {
+        var now = DateTime.UtcNow;
+        var diff = now - timestamp;
+
+        if (diff.TotalMinutes < 1)
+            return "Just now";
+        if (diff.TotalMinutes < 60)
+            return $"{(int)diff.TotalMinutes}m ago";
+        if (diff.TotalHours < 24)
+            return $"{(int)diff.TotalHours}h ago";
+        if (diff.TotalDays < 7)
+            return $"{(int)diff.TotalDays}d ago";
+
+        return timestamp.ToString("MMM d, yyyy");
+    }
+}

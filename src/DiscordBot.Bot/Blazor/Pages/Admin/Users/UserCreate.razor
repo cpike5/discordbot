@@ -1,0 +1,290 @@
+@page "/Admin/Users/Create"
+@namespace DiscordBot.Bot.Blazor.Pages.Admin.Users
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode Microsoft.AspNetCore.Components.Web.RenderMode.InteractiveServer
+@using System.ComponentModel.DataAnnotations
+@using System.Security.Claims
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject ToastInterop Toast
+@inject CircuitClientInfoService ClientInfo
+@inject ILogger<UserCreate> Logger
+
+@*
+    Routed-Blazor replacement for Pages/Admin/Users/Create.cshtml(.cs) — Phase F of
+    docs/architecture/blazor-completion-plan.md. Same route, same RequireAdmin
+    policy, markup verbatim with the _FormInput/_FormSelect/_Alert partials swapped
+    for their Blazor twins inside an EditForm + DataAnnotationsValidator (same
+    InputModel annotations as the page model). OnPostAsync is ported as an
+    in-circuit submit handler: audit parity is unchanged because
+    IUserManagementService.CreateUserAsync receives the same actorUserId + client
+    IP (via CircuitClientInfoService) and performs the audit logging itself. On
+    success it navigates to /Admin/Users with a toast (twin of the TempData
+    SuccessMessage + RedirectToPage). Data access is a DI scope per operation.
+*@
+
+<PageTitle>Create User - Discord Bot Admin</PageTitle>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Header -->
+    <div class="mb-6">
+        <div class="flex items-center gap-2 text-sm text-text-secondary mb-2">
+            <a href="/Admin/Users" class="hover:text-text-primary">Users</a>
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+            </svg>
+            <span class="text-text-primary">Create</span>
+        </div>
+        <h1 class="text-2xl font-bold text-text-primary">Create New User</h1>
+        <p class="mt-1 text-sm text-text-secondary">Add a new user to the system</p>
+    </div>
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(_errorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@_errorMessage" IsDismissible="true" OnDismiss="() => _errorMessage = null" />
+        </div>
+    }
+
+    <!-- Form -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg">
+        <EditForm EditContext="_editContext" OnValidSubmit="CreateAsync" class="p-6 space-y-6">
+            <DataAnnotationsValidator />
+            <ValidationSummary Model="Input" class="text-error text-sm" />
+
+            <!-- Email -->
+            <div>
+                <FormInput Id="Input_Email"
+                           Name="Input.Email"
+                           Label="Email Address"
+                           Type="email"
+                           @bind-Value="Input.Email"
+                           Placeholder="user@example.com"
+                           IsRequired="true"
+                           HelpText="This will be the user's login email"
+                           ValidationState="FieldState(nameof(Input.Email))"
+                           ValidationMessage="@FieldError(nameof(Input.Email))" />
+            </div>
+
+            <!-- Display Name -->
+            <div>
+                <FormInput Id="Input_DisplayName"
+                           Name="Input.DisplayName"
+                           Label="Display Name"
+                           Type="text"
+                           @bind-Value="Input.DisplayName"
+                           Placeholder="John Doe"
+                           IsRequired="false"
+                           HelpText="Optional friendly name for display in the UI" />
+            </div>
+
+            <!-- Password -->
+            <div>
+                <FormInput Id="Input_Password"
+                           Name="Input.Password"
+                           Label="Password"
+                           Type="password"
+                           @bind-Value="Input.Password"
+                           Placeholder="Enter a secure password"
+                           IsRequired="true"
+                           HelpText="Must be at least 8 characters with uppercase, lowercase, number, and special character"
+                           ValidationState="FieldState(nameof(Input.Password))"
+                           ValidationMessage="@FieldError(nameof(Input.Password))" />
+            </div>
+
+            <!-- Confirm Password -->
+            <div>
+                <FormInput Id="Input_ConfirmPassword"
+                           Name="Input.ConfirmPassword"
+                           Label="Confirm Password"
+                           Type="password"
+                           @bind-Value="Input.ConfirmPassword"
+                           Placeholder="Re-enter password"
+                           IsRequired="true"
+                           ValidationState="FieldState(nameof(Input.ConfirmPassword))"
+                           ValidationMessage="@FieldError(nameof(Input.ConfirmPassword))" />
+            </div>
+
+            <!-- Role -->
+            <div>
+                <FormSelect Id="Input_Role"
+                            Name="Input.Role"
+                            Label="Role"
+                            Options="_roleOptions"
+                            @bind-Value="Input.Role"
+                            IsRequired="true"
+                            HelpText="The role determines what permissions the user has" />
+            </div>
+
+            <!-- Send Welcome Email -->
+            <div class="flex items-center">
+                <InputCheckbox id="Input_SendWelcomeEmail"
+                               name="Input.SendWelcomeEmail"
+                               @bind-Value="Input.SendWelcomeEmail"
+                               class="h-4 w-4 text-accent-blue focus:ring-border-focus border-border-primary rounded" />
+                <label for="Input_SendWelcomeEmail" class="ml-2 block text-sm text-text-primary">
+                    Send welcome email to new user
+                </label>
+            </div>
+
+            <!-- Divider -->
+            <div class="border-t border-border-primary pt-6">
+                <!-- Action Buttons -->
+                <div class="flex justify-end gap-3">
+                    <a href="/Admin/Users" class="btn btn-secondary">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn btn-primary" disabled="@_saving">
+                        <svg class="w-5 h-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                        </svg>
+                        @(_saving ? "Creating…" : "Create User")
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <!-- Info Box -->
+    <div class="mt-6">
+        <div class="bg-info/10 border border-info/20 rounded-lg p-4">
+            <div class="flex">
+                <svg class="w-5 h-5 text-info flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <div class="ml-3">
+                    <h3 class="text-sm font-medium text-info">About User Creation</h3>
+                    <div class="mt-2 text-sm text-text-secondary space-y-1">
+                        <p>- The user's email will be automatically confirmed</p>
+                        <p>- Users will be able to log in immediately after creation</p>
+                        <p>- The password must meet complexity requirements</p>
+                        <p>- You can only assign roles that you have permission to manage</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary>Form model — same fields and DataAnnotations as the page model's InputModel.</summary>
+    public class InputModel
+    {
+        [Required(ErrorMessage = "Email is required")]
+        [EmailAddress(ErrorMessage = "Invalid email address")]
+        public string Email { get; set; } = string.Empty;
+
+        public string? DisplayName { get; set; }
+
+        [Required(ErrorMessage = "Password is required")]
+        [StringLength(100, MinimumLength = 8, ErrorMessage = "Password must be at least 8 characters")]
+        [DataType(DataType.Password)]
+        public string Password { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Password confirmation is required")]
+        [DataType(DataType.Password)]
+        [Compare(nameof(Password), ErrorMessage = "Passwords do not match")]
+        public string ConfirmPassword { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Role is required")]
+        public string Role { get; set; } = "Viewer";
+
+        public bool SendWelcomeEmail { get; set; } = true;
+    }
+
+    private InputModel Input { get; } = new();
+
+    private EditContext _editContext = default!;
+    private List<SelectOption> _roleOptions = new();
+    private string? _errorMessage;
+    private string? _currentUserId;
+    private bool _saving;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _editContext = new EditContext(Input);
+
+        var authState = await AuthProvider.GetAuthenticationStateAsync();
+        _currentUserId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (string.IsNullOrEmpty(_currentUserId))
+        {
+            Navigation.NavigateTo("/Account/AccessDenied");
+            return;
+        }
+
+        // Same role source the page model's LoadViewModelAsync used.
+        using var scope = ScopeFactory.CreateScope();
+        var userManagementService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
+        var availableRoles = await userManagementService.GetAvailableRolesAsync(_currentUserId);
+        _roleOptions = availableRoles.Select(r => new SelectOption { Value = r, Text = r }).ToList();
+    }
+
+    /// <summary>In-circuit port of OnPostAsync (runs only when DataAnnotations validation passes).</summary>
+    private async Task CreateAsync()
+    {
+        if (_saving || string.IsNullOrEmpty(_currentUserId))
+        {
+            return;
+        }
+
+        _saving = true;
+        try
+        {
+            Logger.LogInformation("Creating new user with email: {Email} by user: {UserId}",
+                Input.Email, _currentUserId);
+
+            var createDto = new UserCreateDto
+            {
+                Email = Input.Email,
+                DisplayName = Input.DisplayName,
+                Password = Input.Password,
+                ConfirmPassword = Input.ConfirmPassword,
+                Role = Input.Role,
+                SendWelcomeEmail = Input.SendWelcomeEmail
+            };
+
+            using var scope = ScopeFactory.CreateScope();
+            var userManagementService = scope.ServiceProvider.GetRequiredService<IUserManagementService>();
+
+            // Audit parity: same actorUserId + client IP arguments as the page model;
+            // the service performs the authorization checks and activity logging.
+            var result = await userManagementService.CreateUserAsync(createDto, _currentUserId, ClientInfo.IpAddress);
+
+            if (result.Succeeded)
+            {
+                Logger.LogInformation("Successfully created user: {Email}", Input.Email);
+                await Toast.SuccessAsync($"User {Input.Email} created successfully");
+                Navigation.NavigateTo("/Admin/Users");
+                return;
+            }
+
+            Logger.LogWarning("Failed to create user {Email}: {Error}", Input.Email, result.ErrorMessage);
+            _errorMessage = result.ErrorMessage ?? "Failed to create user";
+            await Toast.ErrorAsync(_errorMessage);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Error creating user {Email}", Input.Email);
+            _errorMessage = "Failed to create user";
+            await Toast.ErrorAsync(_errorMessage);
+        }
+        finally
+        {
+            _saving = false;
+        }
+    }
+
+    private ValidationState FieldState(string fieldName) =>
+        _editContext.GetValidationMessages(_editContext.Field(fieldName)).Any()
+            ? ValidationState.Error
+            : ValidationState.None;
+
+    private string? FieldError(string fieldName) =>
+        _editContext.GetValidationMessages(_editContext.Field(fieldName)).FirstOrDefault();
+}

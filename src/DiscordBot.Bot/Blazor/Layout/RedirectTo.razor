@@ -1,0 +1,16 @@
+@namespace DiscordBot.Bot.Blazor.Layout
+@inject NavigationManager Navigation
+
+@*
+    Issues a redirect to a non-Blazor URL (e.g. the Razor Pages login form).
+    forceLoad is required because the target is outside the Blazor router; during
+    static SSR the NavigationManager converts this into an HTTP redirect response.
+*@
+
+@code {
+    /// <summary>Absolute-path URL to redirect to.</summary>
+    [Parameter, EditorRequired] public string Href { get; set; } = "/";
+
+    protected override void OnInitialized()
+        => Navigation.NavigateTo(Href, forceLoad: true);
+}

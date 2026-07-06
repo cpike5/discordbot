@@ -122,7 +122,12 @@
         Blazor.start({
             configureSignalR: function (builder) {
                 builder.withUrl('@Url.Content("~/_blazor")');
-            }
+            },
+            // Supplying initializers skips blazor.server.js's fetch of
+            // "_blazor/initializers", which resolves relative to the page path
+            // and 404s on nested routes (/Admin/..., /Guilds/...) — killing the
+            // circuit. We have no JS initializers, so an empty set is correct.
+            initializers: { beforeStart: [], afterStarted: [] }
         });
     </script>
 </body>

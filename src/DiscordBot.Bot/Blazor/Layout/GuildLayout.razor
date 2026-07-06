@@ -1,0 +1,108 @@
+@namespace DiscordBot.Bot.Blazor.Layout
+@inherits LayoutComponentBase
+@layout MainLayout
+@using DiscordBot.Bot.ViewModels.Components
+@implements IDisposable
+
+@*
+    Routed-Blazor twin of Pages/Shared/_GuildLayout.cshtml (which nested inside
+    _Layout.cshtml, mirrored here via @layout MainLayout). Tailwind markup is
+    copied verbatim.
+
+    _GuildLayout consumed per-page ViewModel data (Model.Breadcrumb /
+    Model.Header / Model.Navigation: page title, description, header actions,
+    active tab) that cannot be derived from the route alone, so this layout
+    uses the cascaded GuildPageContext: the layout owns the instance, cascades
+    it to the page, and the page populates it once its guild data is loaded
+    (see GuildPageContext docs). Until the page calls Set(), only @Body renders.
+
+    The desktop tab row uses the Blazor TabPanel twin (PageNavigation mode —
+    plain links, no tab-panel.js needed). The mobile dropdown keeps the same
+    ids/classes as the partial; guild-nav.js (loaded below, matching the
+    partial's Scripts section) drives its toggle behaviour.
+*@
+
+<CascadingValue Value="_context" IsFixed="true">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- Breadcrumb Navigation -->
+        @if (_context.Breadcrumb is not null)
+        {
+            <GuildBreadcrumb Items="_context.Breadcrumb.Items" />
+        }
+
+        <!-- Guild Header -->
+        @if (_context.Header is not null)
+        {
+            <GuildHeader Model="_context.Header" />
+        }
+
+        <!-- Guild Navigation Bar -->
+        @if (_context.Navigation is { } nav)
+        {
+            var orderedTabs = nav.Tabs.OrderBy(t => t.Order).ToList();
+            var activeTab = orderedTabs.FirstOrDefault(t => t.Id == nav.ActiveTab);
+
+            <div class="guild-nav-container mb-6" id="guildNavContainer">
+                <!-- Desktop: Horizontal tabs using TabPanel -->
+                <div class="hidden sm:block">
+                    <TabPanel Model="GuildNavBarHelper.CreateGuildNavBar(nav.GuildId, nav.ActiveTab, nav.Tabs)" />
+                </div>
+
+                <!-- Mobile: Dropdown -->
+                <div class="guild-nav-dropdown sm:hidden">
+                    <button type="button"
+                            id="guildNavDropdownToggle"
+                            class="guild-nav-dropdown-button"
+                            aria-haspopup="true"
+                            aria-expanded="false">
+                        <span id="guildNavSelectedText">@(activeTab?.Label ?? "Navigation")</span>
+                        <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                        </svg>
+                    </button>
+                    <div id="guildNavDropdownMenu"
+                         class="hidden guild-nav-dropdown-menu"
+                         role="region"
+                         aria-label="Guild navigation menu">
+                        @foreach (var tab in orderedTabs)
+                        {
+                            var isActive = nav.ActiveTab == tab.Id;
+
+                            <a href="@tab.GetUrl(nav.GuildId)"
+                               class="guild-nav-dropdown-item @(isActive ? "active" : "")">
+                                @tab.Label
+                            </a>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Page Content -->
+        <div class="guild-page-content">
+            @Body
+        </div>
+    </div>
+</CascadingValue>
+
+<!-- Mobile dropdown toggle behaviour (same script the cshtml layout loaded) -->
+<script src="js/guild-nav.js"></script>
+
+@code {
+    private readonly GuildPageContext _context = new();
+
+    protected override void OnInitialized()
+    {
+        _context.Changed += OnContextChanged;
+    }
+
+    private void OnContextChanged()
+    {
+        _ = InvokeAsync(StateHasChanged);
+    }
+
+    public void Dispose()
+    {
+        _context.Changed -= OnContextChanged;
+    }
+}

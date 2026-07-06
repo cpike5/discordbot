@@ -1,0 +1,111 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Blazor twin of Pages/Shared/Components/_QuickActionsCard.cshtml.
+    Same Tailwind classes so it is visually identical to the partial.
+    The window.quickActions JS onclick handlers are replaced by EventCallbacks:
+    OnShowConfirmation for actions that require confirmation, OnSubmitAction for
+    plain POST actions.
+*@
+
+<!-- Quick Actions Panel -->
+<div class="bg-bg-secondary border border-border-primary rounded-xl p-6">
+    <h2 class="text-lg font-semibold text-text-primary mb-4">@Model.Title</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-4">
+        @foreach (var action in VisibleActions)
+        {
+            @if (action.ActionType == QuickActionType.Link)
+            {
+                <a href="@action.Href" class="quick-action-card">
+                    <div class="quick-action-icon bg-@GetColorClass(action.Color)/10">
+                        <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
+                        </svg>
+                    </div>
+                    <span class="text-sm font-medium text-text-primary">@action.Label</span>
+                </a>
+            }
+            else
+            {
+                @if (action.RequiresConfirmation)
+                {
+                    <button type="button"
+                            @onclick="() => ShowConfirmationAsync(action)"
+                            class="quick-action-card">
+                        <div class="quick-action-icon bg-@GetColorClass(action.Color)/10">
+                            <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
+                            </svg>
+                        </div>
+                        <span class="text-sm font-medium text-text-primary">@action.Label</span>
+                    </button>
+                }
+                else
+                {
+                    <button type="button"
+                            data-handler="@action.Handler"
+                            @onclick="() => SubmitActionAsync(action)"
+                            class="quick-action-card">
+                        <div class="quick-action-icon bg-@GetColorClass(action.Color)/10">
+                            <svg class="w-6 h-6 text-@GetColorClass(action.Color)" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@action.IconPath" />
+                            </svg>
+                        </div>
+                        <span class="text-sm font-medium text-text-primary">@action.Label</span>
+                    </button>
+                }
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public QuickActionsCardViewModel Model { get; set; } = new();
+
+    /// <summary>
+    /// Raised for actions with RequiresConfirmation (the partial called
+    /// window.quickActions.showConfirmationModal(action.ConfirmationModalId)).
+    /// </summary>
+    [Parameter] public EventCallback<QuickActionItemViewModel> OnShowConfirmation { get; set; }
+
+    /// <summary>
+    /// Raised for plain POST actions (the partial called
+    /// window.quickActions.submitQuickAction(action.Handler, this)).
+    /// </summary>
+    [Parameter] public EventCallback<QuickActionItemViewModel> OnSubmitAction { get; set; }
+
+    private List<QuickActionItemViewModel> VisibleActions =>
+        Model.Actions.Where(a => !a.IsAdminOnly || Model.UserIsAdmin).ToList();
+
+    private static string GetColorClass(QuickActionColor color)
+    {
+        return color switch
+        {
+            QuickActionColor.Orange => "accent-orange",
+            QuickActionColor.Blue => "accent-blue",
+            QuickActionColor.Success => "success",
+            QuickActionColor.Warning => "warning",
+            QuickActionColor.Info => "info",
+            QuickActionColor.Error => "error",
+            QuickActionColor.Gray => "text-tertiary",
+            _ => "accent-blue"
+        };
+    }
+
+    private async Task ShowConfirmationAsync(QuickActionItemViewModel action)
+    {
+        if (OnShowConfirmation.HasDelegate)
+        {
+            await OnShowConfirmation.InvokeAsync(action);
+        }
+    }
+
+    private async Task SubmitActionAsync(QuickActionItemViewModel action)
+    {
+        if (OnSubmitAction.HasDelegate)
+        {
+            await OnSubmitAction.InvokeAsync(action);
+        }
+    }
+}

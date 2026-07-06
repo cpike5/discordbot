@@ -1,0 +1,29 @@
+@page "/Admin/AuditLogs"
+@namespace DiscordBot.Bot.Blazor.Pages.Admin
+@attribute [Authorize(Policy = "RequireAdmin")]
+@inject NavigationManager Navigation
+
+@*
+    Routed-Blazor replacement for Pages/Admin/AuditLogs/Index.cshtml(.cs) — Phase F.
+    The Razor page had already been reduced to a redirect to the unified Logs page
+    (?tab=audit); this preserves that behavior. Global-search links pass ?search=,
+    which is forwarded as the audit search term.
+*@
+
+<p class="text-text-secondary">Redirecting to the unified Logs page…</p>
+
+@code {
+    [SupplyParameterFromQuery(Name = "search")]
+    public string? Search { get; set; }
+
+    protected override void OnInitialized()
+    {
+        var target = "/Admin/Logs?tab=audit";
+        if (!string.IsNullOrWhiteSpace(Search))
+        {
+            target += $"&AuditSearchTerm={Uri.EscapeDataString(Search)}";
+        }
+
+        Navigation.NavigateTo(target, forceLoad: true);
+    }
+}

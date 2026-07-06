@@ -9,6 +9,10 @@
 > the *maximalist* end-state (full conversion, .NET 9, 51–75 days). Treat that as the
 > long-term north star. **This document is what we actually do first**, and every step here
 > is a valid prefix of that larger plan — nothing here has to be undone to continue.
+>
+> **Status (2026-07): complete** (Slices 1–6 shipped; Slice 7 shipped its foundation).
+> The follow-on plan to reach the full Blazor end-state is
+> [`blazor-completion-plan.md`](./blazor-completion-plan.md).
 
 ---
 

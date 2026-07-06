@@ -1,0 +1,806 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Admin
+@using System.Globalization
+@using System.Text
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Core.Interfaces
+@using DiscordBot.Core.Utilities
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+@inject ToastInterop Toast
+@inject IJSRuntime JS
+@implements IDisposable
+
+@*
+    Audit tab of the unified /Admin/Logs page (Phase F). Replaces
+    Pages/Admin/Logs/Tabs/_AuditTab.cshtml + the page's inline scripts (filter
+    toggle, expandable rows, JSON expand/collapse) with server-held Blazor state
+    (MemberDirectoryIsland list pattern: debounced search, CTS cancellation,
+    scope-per-op data access, data-utc + blazorInterop.convertTimes after render).
+    CSV export is generated in-component (ported from the page model's
+    OnGetExportAsync) and delivered via blazorInterop.downloadData.
+*@
+
+<div class="max-w-7xl mx-auto">
+    <!-- Header -->
+    <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+        <div>
+            <h2 class="text-xl font-semibold text-text-primary">Audit Logs</h2>
+            <p class="mt-1 text-sm text-text-secondary">Track administrative actions and changes across your bot</p>
+        </div>
+        <button type="button"
+                @onclick="ExportCsvAsync"
+                disabled="@_exporting"
+                class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Export audit logs to CSV">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            @(_exporting ? "Exporting…" : "Export CSV")
+        </button>
+    </div>
+
+    <FilterableTable TItem="AuditLogListItem"
+                     Items="_logs"
+                     Loading="_loading"
+                     CurrentPage="_page"
+                     TotalPages="_totalPages"
+                     TotalCount="_totalCount"
+                     PageSize="_pageSize"
+                     OnPageChange="LoadPageAsync"
+                     ItemNoun="entries"
+                     EmptyTitle="@(HasActiveFilters ? "No audit logs found" : "No audit logs yet")"
+                     EmptyDescription="@(HasActiveFilters ? "Try adjusting your filters or check back later" : "Audit logs will appear here as actions are performed")">
+        <Filters>
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                        <svg class="w-4 h-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                        </svg>
+                        Filters
+                    </h3>
+                    <button type="button"
+                            class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1"
+                            aria-expanded="@(_filtersExpanded ? "true" : "false")"
+                            @onclick="() => _filtersExpanded = !_filtersExpanded">
+                        <span>@(_filtersExpanded ? "Hide Filters" : "Show Filters")</span>
+                        <svg class="w-4 h-4 transition-transform @(_filtersExpanded ? "" : "rotate-180")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7" />
+                        </svg>
+                    </button>
+                </div>
+
+                @if (_filtersExpanded)
+                {
+                    <div class="space-y-4">
+                        <!-- Row 1: Date Range -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="auditStartDate" class="block text-sm font-medium text-text-primary mb-1">From Date</label>
+                                <input type="date" id="auditStartDate" @bind="_startDate" @bind:after="ApplyFiltersAsync" class="@FieldClass" />
+                            </div>
+                            <div>
+                                <label for="auditEndDate" class="block text-sm font-medium text-text-primary mb-1">To Date</label>
+                                <input type="date" id="auditEndDate" @bind="_endDate" @bind:after="ApplyFiltersAsync" class="@FieldClass" />
+                            </div>
+                        </div>
+
+                        <!-- Row 2: Category and Action -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="auditCategory" class="block text-sm font-medium text-text-primary mb-1">Category</label>
+                                <select id="auditCategory" @bind="_category" @bind:after="ApplyFiltersAsync" class="@FieldClass">
+                                    <option value="">All Categories</option>
+                                    @foreach (var category in Enum.GetValues<AuditLogCategory>())
+                                    {
+                                        <option value="@category">@category</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label for="auditAction" class="block text-sm font-medium text-text-primary mb-1">Action</label>
+                                <select id="auditAction" @bind="_action" @bind:after="ApplyFiltersAsync" class="@FieldClass">
+                                    <option value="">All Actions</option>
+                                    @foreach (var action in Enum.GetValues<AuditLogAction>())
+                                    {
+                                        <option value="@action">@action</option>
+                                    }
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Actor and Target Type -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div @key="_autocompleteResetToken">
+                                <AutocompleteInput TItem="AutocompleteSuggestionDto"
+                                                   Id="ActorId"
+                                                   Name="ActorId"
+                                                   Label="Actor"
+                                                   Placeholder="Search by username..."
+                                                   NoResultsMessage="No users found"
+                                                   InitialValue="@_actorId"
+                                                   InitialDisplayText="@_actorDisplayName"
+                                                   SearchFunc="SearchUsersAsync"
+                                                   DisplayTextSelector="@(s => s.DisplayText)"
+                                                   ValueSelector="@(s => s.Id)"
+                                                   OnSelect="OnActorSelected" />
+                            </div>
+                            <div>
+                                <label for="auditTargetType" class="block text-sm font-medium text-text-primary mb-1">Target Type</label>
+                                <select id="auditTargetType" @bind="_targetType" @bind:after="ApplyFiltersAsync" class="@FieldClass">
+                                    <option value="">All Types</option>
+                                    <option value="User">User</option>
+                                    <option value="Guild">Guild</option>
+                                    <option value="Settings">Settings</option>
+                                    <option value="Message">Message</option>
+                                    <option value="ScheduledMessage">Scheduled Message</option>
+                                    <option value="Verification">Verification Rule</option>
+                                    <option value="BotConfig">Bot Configuration</option>
+                                    <option value="AuditLog">Audit Logs</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Row 4: Guild and Search -->
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="auditGuildId" class="block text-sm font-medium text-text-primary mb-1">Guild</label>
+                                <select id="auditGuildId" @bind="_guildId" @bind:after="ApplyFiltersAsync" class="@FieldClass">
+                                    <option value="">All Guilds</option>
+                                    @foreach (var guild in _guilds)
+                                    {
+                                        <option value="@guild.Id">@guild.Name</option>
+                                    }
+                                </select>
+                            </div>
+                            <div>
+                                <label for="auditSearchTerm" class="block text-sm font-medium text-text-primary mb-1">Search</label>
+                                <input type="text" id="auditSearchTerm"
+                                       @bind="_search" @bind:event="oninput" @bind:after="OnSearchInput"
+                                       placeholder="Search in details..."
+                                       class="@FieldClass placeholder-text-tertiary" />
+                            </div>
+                        </div>
+
+                        <!-- Actions -->
+                        <div class="flex flex-col sm:flex-row justify-end gap-2 pt-2">
+                            <button type="button" @onclick="ClearFiltersAsync" class="px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors text-center">
+                                Clear Filters
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (HasActiveFilters)
+            {
+                <div role="alert" aria-live="polite" class="mb-4">
+                    <div class="flex items-center gap-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md px-3 py-2">
+                        <svg class="w-4 h-4 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <span>Active filters applied</span>
+                    </div>
+                </div>
+            }
+        </Filters>
+
+        <HeaderTemplate>
+            <tr>
+                <th scope="col" class="w-12 px-2 py-3"></th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Target</th>
+                <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider hidden lg:table-cell">Guild</th>
+            </tr>
+        </HeaderTemplate>
+
+        <RowTemplate Context="log">
+            @{
+                var isExpanded = _expandedRows.Contains(log.Id);
+                var isJsonExpanded = _expandedJson.Contains(log.Id);
+            }
+            <!-- Main Row -->
+            <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                <td class="px-2 py-4">
+                    <button type="button"
+                            class="w-11 h-11 flex items-center justify-center hover:bg-bg-hover rounded transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus"
+                            aria-label="Expand audit log details for @log.Action at @log.Timestamp.ToString("g")"
+                            aria-expanded="@(isExpanded ? "true" : "false")"
+                            aria-controls="details-@log.Id"
+                            @onclick="() => ToggleRow(log.Id)">
+                        <svg class="w-5 h-5 text-text-secondary transition-transform @(isExpanded ? "rotate-90" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </button>
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap text-sm text-text-secondary" data-utc="@log.TimestampUtcIso" data-format="datetime-seconds">
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap">
+                    <span id="action-@log.Id" class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">
+                        @log.Action
+                    </span>
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap">
+                    @ActorBlock(log)
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap text-sm text-text-primary">
+                    @log.TargetType
+                </td>
+                <td class="px-4 py-4 whitespace-nowrap text-sm hidden lg:table-cell">
+                    @GuildBlock(log)
+                </td>
+            </tr>
+            @if (isExpanded)
+            {
+                <!-- Expandable content row -->
+                <tr id="details-@log.Id" role="region" aria-labelledby="action-@log.Id">
+                    <td colspan="6" class="px-4 py-0">
+                        <div class="bg-bg-primary border-l-2 @log.ActionBorderClass pl-4 py-3 my-2 rounded-r-md">
+                            <!-- Metadata Grid -->
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm mb-4">
+                                <div>
+                                    <span class="text-text-tertiary">Entry ID:</span>
+                                    <span class="ml-2 font-mono text-text-secondary">@log.Id</span>
+                                </div>
+                                @if (!string.IsNullOrEmpty(log.IpAddress))
+                                {
+                                    <div>
+                                        <span class="text-text-tertiary">IP Address:</span>
+                                        <span class="ml-2 font-mono text-text-secondary">@log.IpAddress</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(log.CorrelationId))
+                                {
+                                    <div>
+                                        <span class="text-text-tertiary">Correlation ID:</span>
+                                        <span class="ml-2 font-mono text-text-secondary">@log.CorrelationId</span>
+                                    </div>
+                                }
+                                @if (!string.IsNullOrEmpty(log.TargetId))
+                                {
+                                    <div>
+                                        <span class="text-text-tertiary">Target ID:</span>
+                                        <span class="ml-2 font-mono text-text-secondary">@log.TargetId</span>
+                                    </div>
+                                }
+                            </div>
+                            <!-- JSON Details Section -->
+                            @if (log.HasDetails)
+                            {
+                                <div class="border-t border-border-secondary pt-3">
+                                    <div class="flex items-center justify-between mb-2">
+                                        <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Details</span>
+                                        <button type="button"
+                                                class="text-xs text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1"
+                                                aria-expanded="@(isJsonExpanded ? "true" : "false")"
+                                                @onclick="() => ToggleJson(log.Id)">
+                                            <span>@(isJsonExpanded ? "Collapse" : "Expand")</span>
+                                            <svg class="w-3 h-3 transition-transform" style="@(isJsonExpanded ? "transform: rotate(180deg)" : "")" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                    <pre class="bg-bg-tertiary rounded-md p-3 text-xs font-mono text-text-secondary overflow-x-auto overflow-y-auto"
+                                         style="@(isJsonExpanded ? "" : "max-height: 200px")">@log.FormattedDetails</pre>
+                                </div>
+                            }
+                            <!-- View Details Link -->
+                            <div class="flex justify-end mt-3 pt-3 border-t border-border-secondary">
+                                <a href="/Admin/AuditLogs/Details/@log.Id" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors flex items-center gap-1">
+                                    View full details
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </td>
+                </tr>
+            }
+        </RowTemplate>
+
+        <MobileTemplate Context="log">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                <!-- Header: Action Badge + Timestamp -->
+                <div class="flex items-start justify-between mb-3">
+                    <div>
+                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @log.ActionBadgeClass">
+                            @log.Action
+                        </span>
+                        <p class="text-xs text-text-tertiary mt-1" data-utc="@log.TimestampUtcIso" data-format="datetime-seconds">
+                        </p>
+                    </div>
+                </div>
+
+                <!-- Actor (prominent) -->
+                <div class="mb-3">
+                    <span class="text-xs text-text-tertiary">Actor:</span>
+                    <div class="mt-1">
+                        @ActorBlock(log)
+                    </div>
+                </div>
+
+                <!-- Metadata Grid -->
+                <div class="grid grid-cols-2 gap-3 text-sm">
+                    <div>
+                        <span class="text-text-tertiary">Target:</span>
+                        <span class="text-text-primary ml-1">@log.TargetType</span>
+                    </div>
+                    <div>
+                        <span class="text-text-tertiary">Guild:</span>
+                        <span class="ml-1">@GuildBlock(log)</span>
+                    </div>
+                </div>
+
+                <!-- Details Summary (if available) -->
+                @if (log.HasDetails)
+                {
+                    <div class="mt-3 pt-3 border-t border-border-secondary">
+                        <p class="text-xs text-text-tertiary mb-1">Details:</p>
+                        <p class="text-xs text-text-secondary line-clamp-2">@log.DetailsSummary</p>
+                    </div>
+                }
+
+                <!-- View Details Link -->
+                <div class="mt-3 pt-3 border-t border-border-secondary">
+                    <a href="/Admin/AuditLogs/Details/@log.Id"
+                       class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors inline-flex items-center gap-1 min-h-[44px]">
+                        View Details
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+                        </svg>
+                    </a>
+                </div>
+            </div>
+        </MobileTemplate>
+    </FilterableTable>
+</div>
+
+@code {
+    /// <summary>Initial filter state forwarded from the host query string (deep-link parity with the Razor page).</summary>
+    [Parameter] public string? InitialCategory { get; set; }
+    [Parameter] public string? InitialAction { get; set; }
+    [Parameter] public string? InitialActorId { get; set; }
+    [Parameter] public string? InitialTargetType { get; set; }
+    [Parameter] public string? InitialGuildId { get; set; }
+    [Parameter] public DateTime? InitialStartDate { get; set; }
+    [Parameter] public DateTime? InitialEndDate { get; set; }
+    [Parameter] public string? InitialSearchTerm { get; set; }
+
+    private const string FieldClass = "w-full py-2 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-border-focus focus:border-transparent";
+
+    private List<AuditLogListItem> _logs = new();
+    private IReadOnlyList<GuildDto> _guilds = Array.Empty<GuildDto>();
+    private int _page = 1;
+    private int _pageSize = 25;
+    private int _totalPages = 1;
+    private int _totalCount;
+    private bool _loading = true;
+    private bool _exporting;
+    private bool _filtersExpanded = true;
+
+    // Filters
+    private AuditLogCategory? _category;
+    private AuditLogAction? _action;
+    private string? _actorId;
+    private string? _actorDisplayName;
+    private string _targetType = string.Empty;
+    private ulong? _guildId;
+    private DateTime? _startDate;
+    private DateTime? _endDate;
+    private string? _search;
+    private int _autocompleteResetToken;
+
+    // Expandable row state (replaces the page's expand-btn / toggle-json-btn scripts)
+    private readonly HashSet<long> _expandedRows = new();
+    private readonly HashSet<long> _expandedJson = new();
+
+    private readonly Debouncer _searchDebouncer = new(300);
+    private CancellationTokenSource? _cts;
+    private string? _userTimezone;
+    private bool _initialized;
+    private bool _needTimeConvert;
+
+    private bool HasActiveFilters =>
+        _category.HasValue ||
+        _action.HasValue ||
+        !string.IsNullOrWhiteSpace(_actorId) ||
+        !string.IsNullOrWhiteSpace(_targetType) ||
+        _guildId.HasValue ||
+        _startDate.HasValue ||
+        _endDate.HasValue ||
+        !string.IsNullOrWhiteSpace(_search);
+
+    protected override void OnInitialized()
+    {
+        if (Enum.TryParse<AuditLogCategory>(InitialCategory, true, out var category))
+        {
+            _category = category;
+        }
+
+        if (Enum.TryParse<AuditLogAction>(InitialAction, true, out var action))
+        {
+            _action = action;
+        }
+
+        _actorId = InitialActorId;
+        _targetType = InitialTargetType ?? string.Empty;
+
+        if (ulong.TryParse(InitialGuildId, NumberStyles.Integer, CultureInfo.InvariantCulture, out var guildId))
+        {
+            _guildId = guildId;
+        }
+
+        _startDate = InitialStartDate;
+        _endDate = InitialEndDate;
+        _search = InitialSearchTerm;
+
+        // Default to last 30 days when no date filters specified (page-model parity).
+        if (!_startDate.HasValue && !_endDate.HasValue)
+        {
+            _startDate = DateTime.UtcNow.Date.AddDays(-30);
+            _endDate = DateTime.UtcNow.Date.AddDays(1);
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            _initialized = true;
+
+            // Browser timezone drives the local-date → UTC conversion of the date
+            // filters (replaces the hidden UserTimezone form field the page posted).
+            try
+            {
+                _userTimezone = await JS.InvokeAsync<string>("timezoneUtils.getTimezone");
+            }
+            catch (Exception)
+            {
+                _userTimezone = null;
+            }
+
+            await LoadLookupsAsync();
+            await LoadPageAsync(1);
+        }
+
+        if (_needTimeConvert)
+        {
+            _needTimeConvert = false;
+            await SafeInvokeAsync("blazorInterop.convertTimes");
+        }
+    }
+
+    private async Task LoadLookupsAsync()
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var guildService = scope.ServiceProvider.GetRequiredService<IGuildService>();
+            _guilds = await guildService.GetAllGuildsAsync();
+
+            // Populate actor display name for the autocomplete initial text.
+            if (!string.IsNullOrEmpty(_actorId) && ulong.TryParse(_actorId, out var actorUserId))
+            {
+                var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+                var userMessages = await messageLogRepository.GetUserMessagesAsync(actorUserId, limit: 1);
+                _actorDisplayName = userMessages.FirstOrDefault()?.User?.Username;
+                if (_actorDisplayName is not null)
+                {
+                    _autocompleteResetToken++;
+                }
+            }
+        }
+        catch (Exception)
+        {
+            _guilds = Array.Empty<GuildDto>();
+        }
+    }
+
+    private AuditLogQueryDto BuildQuery(int page, int pageSize)
+    {
+        // Convert date filters from the user's timezone to UTC (page-model parity).
+        DateTime? queryStartDate = null;
+        DateTime? queryEndDate = null;
+
+        if (_startDate.HasValue)
+        {
+            queryStartDate = TimezoneHelper.ConvertToUtc(_startDate.Value.Date, _userTimezone);
+        }
+
+        if (_endDate.HasValue)
+        {
+            queryEndDate = TimezoneHelper.ConvertToUtc(_endDate.Value.Date.AddDays(1).AddTicks(-1), _userTimezone);
+        }
+
+        return new AuditLogQueryDto
+        {
+            Category = _category,
+            Action = _action,
+            ActorId = string.IsNullOrWhiteSpace(_actorId) ? null : _actorId,
+            TargetType = string.IsNullOrWhiteSpace(_targetType) ? null : _targetType,
+            GuildId = _guildId,
+            StartDate = queryStartDate,
+            EndDate = queryEndDate,
+            SearchTerm = string.IsNullOrWhiteSpace(_search) ? null : _search,
+            Page = page,
+            PageSize = pageSize
+        };
+    }
+
+    private async Task LoadPageAsync(int page)
+    {
+        _cts?.Cancel();
+        _cts?.Dispose();
+        _cts = new CancellationTokenSource();
+        var ct = _cts.Token;
+
+        _loading = true;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var auditLogService = scope.ServiceProvider.GetRequiredService<IAuditLogService>();
+
+            var query = BuildQuery(page < 1 ? 1 : page, _pageSize);
+            var (items, totalCount) = await auditLogService.GetLogsAsync(query, ct);
+
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _logs = items.Select(AuditLogListItem.FromDto).ToList();
+            _page = query.Page;
+            _totalCount = totalCount;
+            _totalPages = Math.Max(1, (int)Math.Ceiling((double)totalCount / _pageSize));
+            _expandedRows.Clear();
+            _expandedJson.Clear();
+            _needTimeConvert = true;
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("Failed to load audit logs.");
+        }
+        finally
+        {
+            if (!ct.IsCancellationRequested)
+            {
+                _loading = false;
+                StateHasChanged();
+            }
+        }
+    }
+
+    private Task ApplyFiltersAsync() => LoadPageAsync(1);
+
+    private async Task OnSearchInput()
+    {
+        await _searchDebouncer.DebounceAsync(async _ =>
+            await InvokeAsync(ApplyFiltersAsync));
+    }
+
+    private Task OnActorSelected(AutocompleteSuggestionDto suggestion)
+    {
+        _actorId = suggestion.Id;
+        _actorDisplayName = suggestion.DisplayText;
+        return ApplyFiltersAsync();
+    }
+
+    private Task ClearFiltersAsync()
+    {
+        _category = null;
+        _action = null;
+        _actorId = null;
+        _actorDisplayName = null;
+        _targetType = string.Empty;
+        _guildId = null;
+        _startDate = DateTime.UtcNow.Date.AddDays(-30);
+        _endDate = DateTime.UtcNow.Date.AddDays(1);
+        _search = null;
+        _autocompleteResetToken++;
+        return ApplyFiltersAsync();
+    }
+
+    private void ToggleRow(long id)
+    {
+        if (!_expandedRows.Remove(id))
+        {
+            _expandedRows.Add(id);
+        }
+    }
+
+    private void ToggleJson(long id)
+    {
+        if (!_expandedJson.Remove(id))
+        {
+            _expandedJson.Add(id);
+        }
+    }
+
+    private async Task<IReadOnlyList<AutocompleteSuggestionDto>> SearchUsersAsync(string term)
+    {
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var messageLogRepository = scope.ServiceProvider.GetRequiredService<IMessageLogRepository>();
+            var authors = await messageLogRepository.SearchAuthorsAsync(term, guildId: null, limit: 25);
+            return authors
+                .Select(a => new AutocompleteSuggestionDto { Id = a.UserId.ToString(), DisplayText = a.Username })
+                .ToList();
+        }
+        catch (Exception)
+        {
+            return Array.Empty<AutocompleteSuggestionDto>();
+        }
+    }
+
+    /// <summary>
+    /// Exports all audit logs matching the current filters to CSV
+    /// (ported from the Razor page model's OnGetExportAsync handler).
+    /// </summary>
+    private async Task ExportCsvAsync()
+    {
+        _exporting = true;
+        StateHasChanged();
+
+        try
+        {
+            using var scope = ScopeFactory.CreateScope();
+            var auditLogService = scope.ServiceProvider.GetRequiredService<IAuditLogService>();
+
+            var query = BuildQuery(1, int.MaxValue);
+            var (items, _) = await auditLogService.GetLogsAsync(query);
+
+            var csv = new StringBuilder();
+            csv.AppendLine("Timestamp,Category,Action,Actor,Target Type,Target ID,Guild,Details,IP Address,Correlation ID");
+
+            foreach (var log in items)
+            {
+                csv.AppendLine($"\"{log.Timestamp:yyyy-MM-dd HH:mm:ss}\"," +
+                    $"\"{EscapeCsv(log.CategoryName)}\"," +
+                    $"\"{EscapeCsv(log.ActionName)}\"," +
+                    $"\"{EscapeCsv(log.ActorDisplayName ?? log.ActorId ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.TargetType ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.TargetId ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.GuildName ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.Details ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.IpAddress ?? string.Empty)}\"," +
+                    $"\"{EscapeCsv(log.CorrelationId ?? string.Empty)}\"");
+            }
+
+            var fileName = $"audit-logs-{DateTime.UtcNow:yyyyMMdd-HHmmss}.csv";
+            await SafeInvokeAsync("blazorInterop.downloadData", fileName, "text/csv", csv.ToString());
+        }
+        catch (Exception)
+        {
+            await Toast.ErrorAsync("An error occurred while exporting audit logs. Please try again.");
+        }
+        finally
+        {
+            _exporting = false;
+        }
+    }
+
+    private static string EscapeCsv(string value)
+    {
+        if (string.IsNullOrEmpty(value))
+            return string.Empty;
+
+        return value.Replace("\"", "\"\"");
+    }
+
+    private async Task SafeInvokeAsync(string identifier, params object?[] args)
+    {
+        try
+        {
+            await JS.InvokeVoidAsync(identifier, args);
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (InvalidOperationException)
+        {
+            // Static prerender pass — no JS runtime yet.
+        }
+    }
+
+    public void Dispose()
+    {
+        _searchDebouncer.Dispose();
+        _cts?.Cancel();
+        _cts?.Dispose();
+    }
+
+    // ----- Render helpers (actor display patterns 1-5 from _AuditTab.cshtml) -----
+
+    private RenderFragment ActorBlock(AuditLogListItem log) => @<text>
+        @if (log.IsSystemActor)
+        {
+            <div class="flex items-center gap-2">
+                <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                    </svg>
+                </div>
+                <span class="text-sm text-text-secondary">System</span>
+            </div>
+        }
+        else if (log.IsBotActor)
+        {
+            <div class="flex items-center gap-2">
+                <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-secondary flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                    </svg>
+                </div>
+                <span class="text-sm text-text-secondary">Bot</span>
+            </div>
+        }
+        else if (log.IsUserActor && log.HasActorDisplayName)
+        {
+            <div class="flex items-center gap-2">
+                <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
+                    <span class="font-medium text-xs">@log.ActorInitials</span>
+                </div>
+                @if (!string.IsNullOrEmpty(log.ActorId) && ulong.TryParse(log.ActorId, out var actorUserId))
+                {
+                    <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@actorUserId" data-context-guild-id="@(log.GuildId?.ToString())">@log.ActorDisplayName</span>
+                }
+                else
+                {
+                    <span class="text-sm text-text-primary">@log.ActorDisplayName</span>
+                }
+            </div>
+        }
+        else if (log.IsUserActor && log.HasActorGuid)
+        {
+            <div class="flex items-center gap-2">
+                <div class="h-8 w-8 rounded-full bg-accent-blue text-white flex items-center justify-center">
+                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                </div>
+                <div class="flex flex-col">
+                    <a href="@log.ActorLinkUrl" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
+                        User
+                    </a>
+                    <span class="text-xs font-mono text-text-tertiary">@log.TruncatedActorId...</span>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="flex items-center gap-2">
+                <div class="h-8 w-8 rounded-full bg-bg-tertiary text-text-tertiary flex items-center justify-center">
+                    <span class="font-medium text-xs">?</span>
+                </div>
+                <span class="text-sm text-text-tertiary">Unknown</span>
+            </div>
+        }
+    </text>;
+
+    private RenderFragment GuildBlock(AuditLogListItem log) => @<text>
+        @if (!string.IsNullOrEmpty(log.GuildName) && log.GuildId.HasValue)
+        {
+            <span class="text-text-primary preview-trigger" data-preview-type="guild" data-guild-id="@log.GuildId">@log.GuildName</span>
+        }
+        else if (!string.IsNullOrEmpty(log.GuildName))
+        {
+            <span class="text-text-primary">@log.GuildName</span>
+        }
+        else
+        {
+            <span class="text-text-secondary italic">@log.GetGuildDisplay()</span>
+        }
+    </text>;
+}
