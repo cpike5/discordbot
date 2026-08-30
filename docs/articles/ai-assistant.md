@@ -1,18 +1,18 @@
 ---
 uid: ai-assistant
 title: AI Assistant
-description: Claude-powered conversational assistant that responds to mentions with helpful information about bot features
+description: LLM-powered conversational assistant that responds to mentions with helpful information about bot features
 ---
 
 # AI Assistant
 
-This document describes the AI Assistant feature, which provides Claude-powered conversational responses to user questions about bot features, commands, and usage. Users can mention the bot in Discord with a question and receive helpful answers directly in the channel.
+This document describes the AI Assistant feature, which provides LLM-powered conversational responses to user questions about bot features, commands, and usage. Users can mention the bot in Discord with a question and receive helpful answers directly in the channel. Models are reached through [OpenRouter](https://openrouter.ai), which exposes an OpenAI-compatible chat-completions API in front of many providers; the default model is `anthropic/claude-sonnet-4`.
 
 ## Overview
 
 The AI Assistant feature provides:
 - **Natural language questions** - Users mention the bot with any question about features or commands
-- **Intelligent responses** - Claude API processes questions with context about available features
+- **Intelligent responses** - The model processes questions with context about available features
 - **Tool-based documentation access** - Dynamic access to feature docs, command information, and guild context
 - **Cost-aware operation** - Prompt caching (50% cost reduction), rate limiting, and cost tracking
 - **Privacy and consent** - Explicit user consent required, interaction logging with retention policies
@@ -25,14 +25,16 @@ The assistant is **disabled by default** and requires explicit enablement per gu
 
 ## Prerequisites
 
-The AI Assistant requires configuration of the Claude API key:
+The AI Assistant requires configuration of the OpenRouter API key:
 
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Claude:ApiKey" "sk-ant-your-api-key-here"
+dotnet user-secrets set "OpenRouter:ApiKey" "sk-or-v1-your-api-key-here"
 ```
 
-See [Identity Configuration](identity-configuration.md) section "Claude API Configuration" for detailed setup instructions.
+Without `OpenRouter:ApiKey` the assistant services are not registered at all (the rest of the bot, including migrations, still runs).
+
+See [Environment Configuration](environment-configuration.md) section "OpenRouterOptions" for the full option list.
 
 ---
 
@@ -59,7 +61,7 @@ Before you can use the assistant, you must:
 
 ### Consent and Privacy
 
-The AI Assistant sends your questions to Anthropic's Claude API for processing. Questions and responses are logged by the bot for debugging and cost monitoring (retained for 90 days by default).
+The AI Assistant sends your questions to OpenRouter, which routes them to the configured model's provider for processing. Questions and responses are logged by the bot for debugging and cost monitoring (retained for 90 days by default).
 
 **To opt-in to the assistant:**
 ```
@@ -197,7 +199,7 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 |---------|---------|-------------|
 | `GloballyEnabled` | `false` | Master switch to enable/disable assistant globally |
 | `EnabledByDefaultForNewGuilds` | `false` | Whether newly joined guilds have assistant enabled by default |
-| `ShowTypingIndicator` | `true` | Show typing indicator while Claude responds |
+| `ShowTypingIndicator` | `true` | Show typing indicator while the model responds |
 | `IncludeGuildContext` | `true` | Include guild ID for URL generation (keep true) |
 
 #### Rate Limiting
@@ -216,25 +218,26 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 | `MaxResponseLength` | `1800` | Max response length (Discord limit is 2000) |
 | `TruncationSuffix` | `"\n\n... *(response truncated)*"` | Suffix appended to truncated responses |
 
-#### Claude API Configuration
+#### Model Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `Model` | `"claude-3-5-sonnet-20241022"` | Claude model to use (Sonnet recommended for balance) |
+| `Model` | `"anthropic/claude-sonnet-4"` | OpenRouter model slug (blank falls back to `OpenRouter:DefaultModel`) |
 | `ApiTimeoutMs` | `30000` | API call timeout in milliseconds |
-| `MaxTokens` | `512` | Maximum tokens in Claude response (~375 words) |
+| `MaxTokens` | `512` | Maximum tokens in the model's response (~375 words) |
 | `Temperature` | `0.7` | Response creativity (0.0=deterministic, 1.0=random) |
 
-**Available models:**
-- `claude-3-5-sonnet-20241022` - **Recommended** - Best balance of speed, quality, and cost
-- `claude-3-opus-20240229` - Highest quality but slower and more expensive
-- `claude-3-haiku-20240307` - Fastest and cheapest but lower quality
+**Model slugs** are OpenRouter identifiers, not vendor model IDs — `anthropic/claude-sonnet-4`, not `claude-sonnet-4-20250514`. Any slug from https://openrouter.ai/models works. Common choices:
+- `anthropic/claude-sonnet-4` - **Recommended** - Best balance of speed, quality, and cost
+- `anthropic/claude-opus-4` - Highest quality, slower and more expensive
+- `anthropic/claude-haiku-4.5` - Fastest and cheapest, lower quality
+- `openai/gpt-4o` - Non-Claude alternative (no prompt caching; see below)
 
 #### Tool Configuration
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `EnableDocumentationTools` | `true` | Whether Claude can call documentation tools |
+| `EnableDocumentationTools` | `true` | Whether the model can call documentation tools |
 | `MaxToolCallsPerQuestion` | `5` | Max tool calls per question (prevents loops) |
 | `ToolExecutionTimeoutMs` | `5000` | Tool execution timeout in milliseconds |
 
@@ -250,18 +253,20 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `EnableCostTracking` | `true` | Track token usage and estimate costs |
+| `EnableCostTracking` | `true` | Track token usage and record costs |
 | `DailyCostThresholdUsd` | `5.00` | Daily cost alert threshold (creates alert incident if exceeded) |
-| `CostPerMillionInputTokens` | `3.00` | Cost per million input tokens (Claude 3.5 Sonnet pricing) |
-| `CostPerMillionOutputTokens` | `15.00` | Cost per million output tokens (Claude 3.5 Sonnet pricing) |
+| `CostPerMillionInputTokens` | `3.00` | Fallback cost per million input tokens |
+| `CostPerMillionOutputTokens` | `15.00` | Fallback cost per million output tokens |
+
+**OpenRouter reports the real billed cost** (`usage.cost`) on every response, and that figure is what gets recorded. The `CostPerMillion*` rates are a *fallback only*, used when a response carries no cost — and because they are fixed, they are wrong for any model whose pricing differs from Claude Sonnet. Change the model, and the recorded cost stays accurate; only the fallback estimate drifts.
 
 #### Prompt Caching (Cost Optimization)
 
-Prompt caching reduces API costs by ~50% by caching the agent prompt and common documentation files for 5 minutes.
+Prompt caching reduces API costs by ~50% by caching the agent prompt and common documentation files for 5 minutes. OpenRouter passes cache breakpoints through to **Claude-family models only** — other models ignore them and report zero cached tokens, so caching is safe to leave on for any slug but only pays off on Claude.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `EnablePromptCaching` | `true` | Enable Claude prompt caching feature |
+| `EnablePromptCaching` | `true` | Enable prompt caching (honoured by Claude-family models) |
 | `CacheCommonDocumentation` | `true` | Include common docs in cached system prompt |
 | `CachedDocumentationFiles` | `["commands-page.md", "soundboard.md", "rat-watch.md", "tts-support.md"]` | Docs to include in cache |
 | `CostPerMillionCachedTokens` | `0.30` | Cost for cached tokens (90% discount) |
@@ -305,7 +310,7 @@ At 100 questions/day:
     "MaxQuestionLength": 500,
     "MaxResponseLength": 1800,
     "TruncationSuffix": "\n\n... *(response truncated)*",
-    "Model": "claude-3-5-sonnet-20241022",
+    "Model": "anthropic/claude-sonnet-4",
     "ApiTimeoutMs": 30000,
     "MaxTokens": 512,
     "Temperature": 0.7,
@@ -342,21 +347,51 @@ At 100 questions/day:
 }
 ```
 
+### OpenRouter Options
+
+The transport-level settings live in their own `OpenRouter` section, separate from the `Assistant` feature settings above.
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `ApiKey` | *(none)* | OpenRouter API key (**secret** - user secrets or environment only) |
+| `BaseUrl` | `"https://openrouter.ai/api/v1/"` | API base address (trailing slash matters - request paths are relative to it) |
+| `DefaultModel` | `"anthropic/claude-sonnet-4"` | Model slug used when a request does not name one |
+| `MaxRetries` | `3` | Retry attempts for transient failures (HTTP 408/429/5xx, timeouts, network errors) |
+| `TimeoutSeconds` | `300` | Per-attempt request timeout |
+| `RetryBaseDelayMs` | `1000` | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
+| `EnablePromptCachingByDefault` | `true` | Add a cache breakpoint to the system prompt unless a request overrides it |
+| `AppUrl` | *(none)* | Site URL sent as `HTTP-Referer` (attribution on openrouter.ai rankings) |
+| `AppTitle` | `"DiscordBot"` | Application name sent as `X-Title` |
+
+```json
+{
+  "OpenRouter": {
+    "BaseUrl": "https://openrouter.ai/api/v1/",
+    "DefaultModel": "anthropic/claude-sonnet-4",
+    "MaxRetries": 3,
+    "TimeoutSeconds": 300,
+    "RetryBaseDelayMs": 1000,
+    "EnablePromptCachingByDefault": true,
+    "AppTitle": "DiscordBot"
+  }
+}
+```
+
 ### User Secrets Configuration
 
-Claude API key must be configured via User Secrets (never commit to version control):
+The OpenRouter API key must be configured via User Secrets (never commit to version control):
 
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Claude:ApiKey" "sk-ant-your-api-key-here"
+dotnet user-secrets set "OpenRouter:ApiKey" "sk-or-v1-your-api-key-here"
 ```
 
 To obtain an API key:
-1. Go to https://console.anthropic.com
-2. Create or select an organization
-3. Navigate to API Keys
-4. Create a new API key
-5. Copy the key to user secrets as shown above
+1. Go to https://openrouter.ai/keys
+2. Sign in and create a new key
+3. Copy the key to user secrets as shown above
+
+In containers and other hosted environments, use the environment-variable form `OpenRouter__ApiKey`.
 
 ---
 
@@ -374,12 +409,22 @@ The assistant uses a provider-agnostic LLM abstraction layer that supports multi
 - `IPromptTemplate` - Loads and renders prompt templates with variable substitution
 
 **Current Provider:**
-- `AnthropicLlmClient` - Claude API integration with Anthropic.SDK
+- `OpenRouterLlmClient` (`DiscordBot.Infrastructure.Services.LLM.OpenRouter`) - OpenAI-compatible chat completions against OpenRouter, via an **owned typed `HttpClient`** and owned wire records (`ChatCompletionRequest.cs`, `ChatCompletionResponse.cs`). There is no LLM SDK dependency.
+- `OpenRouterMessageMapper` - translates between the neutral `LlmRequest`/`LlmResponse` DTOs and the wire records.
+
+Because OpenRouter fronts many providers, switching models is a configuration change (a different slug), not a code change.
+
+**Wire-shape notes** (these differ from a native Anthropic Messages API and are handled inside the mapper):
+- The system prompt is the **first message** in `messages`, not a top-level parameter.
+- Tool results are `role: "tool"` messages carrying a `tool_call_id`, not content blocks appended to a user turn.
+- Tool arguments arrive as a **JSON string**, which the mapper parses.
+- `finish_reason` replaces `stop_reason`.
+- Usage is reported as `prompt_tokens` / `completion_tokens`, with cached reads under `prompt_tokens_details.cached_tokens`, plus a real billed `cost` field.
+- Every request that carries tools also sends `provider.require_parameters: true`, so routing cannot select a provider that lacks function-calling support.
 
 **Future Providers:**
-- OpenAI (GPT-4 compatible interface)
 - Local models via Ollama
-- Other providers following `ILlmClient` interface
+- Other providers following the `ILlmClient` interface
 
 ### Tool System
 
@@ -402,16 +447,16 @@ The assistant uses a provider-agnostic LLM abstraction layer that supports multi
 
 ### Agentic Loop
 
-The `AgentRunner` orchestrates Claude's responses with tool use:
+The `AgentRunner` orchestrates the model's responses with tool use:
 
-1. Send user question to Claude with available tools
-2. Claude responds with either:
-   - Text answer (end-turn) → Return response
-   - Tool calls → Execute tools and provide results to Claude
+1. Send user question to the model with available tools
+2. The model responds with either:
+   - Text answer (`finish_reason: stop`) → Return response
+   - Tool calls (`finish_reason: tool_calls`) → Execute tools and send results back as `role: "tool"` messages
    - Loop back to step 1 if more tool calls needed (max 5 calls)
 3. Extract final text answer and return
 
-This allows Claude to dynamically fetch documentation as needed rather than including everything in the prompt.
+This allows the model to dynamically fetch documentation as needed rather than including everything in the prompt.
 
 ### Services
 
@@ -486,7 +531,7 @@ Detailed logs of individual interactions for audit and debugging.
 - `ChannelId` - Discord channel ID
 - `MessageId` - Original Discord message ID
 - `Question` - User's question (max 500 chars)
-- `Response` - Claude's response (max 2000 chars)
+- `Response` - The model's response (max 2000 chars)
 - `InputTokens` / `OutputTokens` / `CachedTokens` / `CacheCreationTokens` - Token counts
 - `CacheHit` - Whether cache was used
 - `ToolCalls` - Number of tool calls executed
@@ -511,11 +556,13 @@ Each interaction uses tokens as follows:
 **Agent System Prompt:** ~1500 tokens (cached if enabled)
 **User Question:** ~50-100 tokens (varies by question length)
 **Tool Responses:** ~100-500 tokens (depends on docs fetched)
-**Claude Response:** ~100-200 tokens (depends on answer length)
+**Model Response:** ~100-200 tokens (depends on answer length)
 
 **Total per interaction:** ~250-1000 tokens
 
-### Pricing (Claude 3.5 Sonnet)
+### Pricing (anthropic/claude-sonnet-4)
+
+OpenRouter bills per model at that model's published rate and reports the billed `cost` on each response, so these figures are the shape of the default model's pricing rather than a fixed constant. Check https://openrouter.ai/models for current per-model rates.
 
 **Without Caching:**
 - Input: $3.00 per million tokens
@@ -546,12 +593,12 @@ Each interaction uses tokens as follows:
 
 ### Response Time Targets
 
-- **Initial response:** < 10 seconds (depends on Claude API latency)
+- **Initial response:** < 10 seconds (depends on OpenRouter/model latency)
 - **Tool execution:** < 5 seconds per tool call
 - **Total latency with tools:** < 15 seconds
 
 Actual times depend on:
-- Claude API response latency (usually 1-3 seconds)
+- OpenRouter/model response latency (usually 1-3 seconds)
 - Number of tool calls (max 5)
 - Network conditions
 
@@ -603,7 +650,7 @@ Actual times depend on:
 #### Slow responses or timeouts
 
 **Check:**
-1. Is Claude API responding? (Check public status page)
+1. Is OpenRouter responding? (Check https://status.openrouter.ai)
 2. Are tool calls timing out? (Check Serilog logs for timeout errors)
 3. Try asking a simpler question without requesting tool-heavy features
 4. Check network connectivity
@@ -635,7 +682,7 @@ Enable verbose logging to troubleshoot:
 Look for logs containing:
 - `AssistantService.AskQuestionAsync`
 - `AgentRunner.RunAsync`
-- `AnthropicLlmClient.CompleteAsync`
+- `OpenRouterLlmClient.CompleteAsync`
 - Tool execution logs
 
 ---
@@ -651,13 +698,13 @@ The agent prompt includes extensive guidelines to prevent:
 - Executing commands on behalf of users
 - Jailbreak attempts
 
-Users cannot break out of the assistant context - Claude is constrained to answering questions about bot features.
+Users cannot break out of the assistant context - the model is constrained to answering questions about bot features.
 
 ### Data Privacy
 
-- User IDs are never sent to Claude (only guild ID for URL generation)
+- User IDs are never sent to the model (only guild ID for URL generation)
 - Questions and responses are logged locally only
-- Anthropic receives only questions/responses in API calls (see Anthropic's privacy policy)
+- OpenRouter and the routed model provider receive only questions/responses in API calls (see OpenRouter's privacy policy)
 - Rate limit tracking is local in-memory cache
 
 ### Consent and Audit
@@ -693,10 +740,11 @@ See **[Adding Features to Assistant Knowledge](assistant-feature-updates.md)** f
 
 ## References
 
-- **Configuration Guide:** See [Claude API Configuration](identity-configuration.md) in Identity Configuration
+- **Configuration Guide:** See [Environment Configuration](environment-configuration.md) and [Configuration Guide](configuration-guide.md)
 - **Privacy Policies:** [Consent and Privacy](consent-privacy.md)
 - **Feature Specs:** [Assistant Requirements](../requirements/assistant-requirements.md)
 - **Implementation Plan:** [Assistant Implementation Plan](../requirements/assistant-implementation-plan.md)
 - **Agent Prompt:** `docs/agents/assistant-agent.md`
-- **Claude Documentation:** https://docs.anthropic.com
-- **Anthropic Privacy:** https://www.anthropic.com/privacy
+- **OpenRouter Documentation:** https://openrouter.ai/docs
+- **OpenRouter Model List:** https://openrouter.ai/models
+- **OpenRouter Privacy:** https://openrouter.ai/privacy

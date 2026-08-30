@@ -90,7 +90,7 @@ POSTGRES_PASSWORD=YourStrongPassword123!
 # OPTIONAL — carry over from your existing config if used
 # =============================================================================
 # Discord__TestGuildId=123456789012345678
-# Anthropic__ApiKey=YOUR_KEY
+# OpenRouter__ApiKey=YOUR_KEY
 # AzureSpeech__SubscriptionKey=YOUR_KEY
 # AzureSpeech__Region=eastus
 ```

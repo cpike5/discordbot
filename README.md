@@ -53,7 +53,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 
 ### Bot Features
 - **Rat Watch** - Accountability system for tracking commitments with community voting and leaderboards ([docs](docs/articles/rat-watch.md))
-- **AI Assistant** - Claude-powered conversational assistant with tool usage, conversation history, and cost tracking ([docs](docs/articles/ai-assistant.md))
+- **AI Assistant** - OpenRouter-powered conversational assistant (Claude Sonnet by default, any model slug supported) with tool usage, conversation history, and cost tracking ([docs](docs/articles/ai-assistant.md))
 - **Mogwai** - Claude Code CLI integration for coding tasks via DM — delegates to Claude Code running in Docker for file editing, debugging, and project analysis. Owner-only, runs as a separate bot instance ([docs](docs/articles/mogwai.md))
 - **Auto-Moderation** - Configurable content filtering with spam detection, flagged event management, and automated actions
 - **Scheduled Messages** - Automated announcements with flexible scheduling (one-time, recurring, cron expressions) ([docs](docs/articles/scheduled-messages.md))
@@ -144,9 +144,9 @@ dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
 
 **AI Assistant** ([Setup guide](docs/articles/ai-assistant.md))
 ```bash
-dotnet user-secrets set "Anthropic:ApiKey" "your-anthropic-api-key"
+dotnet user-secrets set "OpenRouter:ApiKey" "your-openrouter-api-key"
 ```
-- Get API key from [Anthropic Console](https://console.anthropic.com)
+- Get API key from [OpenRouter](https://openrouter.ai/keys)
 - Requires user consent via `/consent grant type:assistant`
 
 **Text-to-Speech** ([Setup guide](docs/articles/tts-support.md))
@@ -214,7 +214,7 @@ The admin UI will be available at `http://localhost:5000`. Optional profiles add
 
 ```bash
 cp .env.mogwai.example .env.mogwai
-# Edit .env.mogwai — set Discord__Token (separate bot token), Anthropic__ApiKey, ANTHROPIC_API_KEY
+# Edit .env.mogwai — set Discord__Token (separate bot token), OpenRouter__ApiKey, ANTHROPIC_API_KEY
 docker compose -f docker-compose.mogwai.yml up -d
 ```
 
@@ -290,7 +290,7 @@ See [rat-watch.md](docs/articles/rat-watch.md) for voting workflow and analytics
 The AI assistant responds to:
 - Direct mentions of the bot (@BotName)
 - Contextual conversation in configured channels
-- Requires Anthropic API key configuration
+- Requires OpenRouter API key configuration
 
 Features tool usage, conversation history, and cost tracking. See [ai-assistant.md](docs/articles/ai-assistant.md).
 
@@ -551,13 +551,25 @@ dotnet user-secrets set "Identity:DefaultAdmin:Password" "InitialPassword123!"
 
 See [identity-configuration.md](docs/articles/identity-configuration.md) for detailed authentication setup.
 
-#### AI Assistant (Claude API)
+#### AI Assistant (OpenRouter)
 ```bash
-dotnet user-secrets set "Anthropic:ApiKey" "your-anthropic-api-key"
-dotnet user-secrets set "Anthropic:DefaultModel" "claude-sonnet-4-20250514"  # Optional
+dotnet user-secrets set "OpenRouter:ApiKey" "your-openrouter-api-key"
+dotnet user-secrets set "OpenRouter:DefaultModel" "anthropic/claude-sonnet-4"  # Optional
 ```
 
-**Configuration:** `appsettings.json` → `Assistant` section
+Get an API key from [openrouter.ai/keys](https://openrouter.ai/keys). Model names are OpenRouter
+slugs (e.g. `anthropic/claude-sonnet-4`, `openai/gpt-4o`), not vendor model IDs — browse the full
+list at [openrouter.ai/models](https://openrouter.ai/models).
+
+**Client configuration:** `appsettings.json` → `OpenRouter` section
+- `OpenRouter:BaseUrl` — API base address (default `https://openrouter.ai/api/v1/`)
+- `OpenRouter:DefaultModel` — model slug used when a request doesn't name one (default `anthropic/claude-sonnet-4`)
+- `OpenRouter:MaxRetries` / `OpenRouter:RetryBaseDelayMs` — exponential backoff for transient failures
+- `OpenRouter:TimeoutSeconds` — request timeout
+- `OpenRouter:EnablePromptCachingByDefault` — adds a system-prompt cache breakpoint
+- `OpenRouter:AppUrl` / `OpenRouter:AppTitle` — attribution headers sent to OpenRouter
+
+**Assistant configuration:** `appsettings.json` → `Assistant` section
 - Rate limiting, token limits, cost tracking
 - Requires user consent: `/consent grant type:assistant`
 - See [ai-assistant.md](docs/articles/ai-assistant.md)
@@ -566,15 +578,18 @@ dotnet user-secrets set "Anthropic:DefaultModel" "claude-sonnet-4-20250514"  # O
 ```env
 # In .env.mogwai (Docker only — never use with the main bot)
 Discord__Token=your-mogwai-bot-token
-Anthropic__ApiKey=your-anthropic-api-key
+OpenRouter__ApiKey=your-openrouter-api-key
 ANTHROPIC_API_KEY=your-anthropic-api-key
 ```
+
+> The DM assistant loop runs through OpenRouter (`OpenRouter__ApiKey`), while the Claude Code CLI it
+> shells out to talks to Anthropic directly and still needs its own `ANTHROPIC_API_KEY`.
 
 **Configuration:** `appsettings.json` → `Mogwai` section (set via Docker environment overrides)
 - `Mogwai__Enabled=true` — master toggle (disabled by default)
 - `Mogwai__WorkingDirectory=/workspace` — project directory inside container
 - `Mogwai__SkipPermissions=true` — enables `--dangerously-skip-permissions` (safe inside Docker)
-- `DmAssistant__Model=claude-haiku-4-5-20251001` — Haiku for fast/cheap triage
+- `DmAssistant__Model=anthropic/claude-haiku-4.5` — Haiku for fast/cheap triage (OpenRouter slug)
 - See [mogwai.md](docs/articles/mogwai.md)
 
 #### Text-to-Speech (Azure Cognitive Services)
@@ -642,11 +657,14 @@ See [CLAUDE.md](CLAUDE.md) for the complete configuration options reference tabl
 - **Serilog.AspNetCore** (8.0.0): Structured logging framework
 - **Elastic.Serilog.Sinks** (8.11.0): Elasticsearch log sink for Serilog
 - **Elastic.Apm.NetCoreAll** (1.29.0): Elastic APM distributed tracing
-- **Anthropic.SDK** (5.8.0): Claude API client for AI assistant
 - **Microsoft.CognitiveServices.Speech** (1.41.0): Azure Text-to-Speech
 - **OpenTelemetry** (1.14.0): Metrics and tracing instrumentation
 - **Cronos** (0.11.1): Cron expression parsing for scheduled messages
 - **Swashbuckle.AspNetCore** (6.5.0): Swagger/OpenAPI documentation
+
+There is no LLM SDK dependency — the assistant talks to OpenRouter's OpenAI-compatible chat
+completions API through an owned typed `HttpClient` in
+`src/DiscordBot.Infrastructure/Services/LLM/OpenRouter/`.
 
 ### Audio Libraries
 - **libsodium** (1.0.20.1): Voice encryption
@@ -683,8 +701,9 @@ ConnectionStrings__DefaultConnection="Host=localhost;Database=discordbot;Usernam
 Discord__OAuth__ClientId="your-client-id"
 Discord__OAuth__ClientSecret="your-client-secret"
 
-# AI Assistant
-Anthropic__ApiKey="your-anthropic-api-key"
+# AI Assistant (OpenRouter)
+OpenRouter__ApiKey="your-openrouter-api-key"
+OpenRouter__DefaultModel="anthropic/claude-sonnet-4"
 
 # Azure TTS
 AzureSpeech__SubscriptionKey="your-azure-key"
@@ -782,14 +801,15 @@ See [audio-dependencies.md](docs/articles/audio-dependencies.md) for platform-sp
 
 ### AI Assistant not responding
 
-1. Verify Anthropic API key is configured:
+1. Verify the OpenRouter API key is configured:
    ```bash
    dotnet user-secrets list
    ```
 2. Check user has granted consent: `/consent status`
 3. Ensure user has granted consent: `/consent grant type:assistant`
 4. Check logs for API errors or rate limiting
-5. Verify API key has sufficient credits in [Anthropic Console](https://console.anthropic.com)
+5. Verify the key has sufficient credits at [OpenRouter](https://openrouter.ai/credits)
+6. Verify the configured model slug exists in the [OpenRouter model list](https://openrouter.ai/models)
 
 ### Text-to-Speech fails
 

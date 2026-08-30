@@ -302,13 +302,12 @@
 
 ### Recommended minimum cases
 
-#### AnthropicLlmClient (ILlmClient) — CRITICAL
-- `CompleteAsync_ValidRequest_ReturnsResponse`
-- `CompleteAsync_ApiError_ThrowsOrReturnsError`
-- `CompleteAsync_Timeout_HandlesGracefully`
-- `CompleteAsync_RetryOnTransientFailure`
-- `CompleteAsync_InvalidApiKey_ThrowsConfigException`
-- `SupportsToolUse_ReturnsTrue`
+#### ~~OpenRouterLlmClient (ILlmClient) — CRITICAL~~ — COVERED
+Closed by the OpenRouter migration. `OpenRouterLlmClientTests` covers request construction, retry
+on transient statuses, no-retry on permanent ones, per-status error messages, error objects
+returned on a 200, empty choices, unparseable bodies, cancellation, and the capability flags.
+`OpenRouterMessageMapperTests` and `OpenRouterWireTests` cover the DTO mapping and the wire
+contract. (The predecessor `AnthropicLlmClient` never had a test.)
 
 #### ConversationToolProvider (IDmToolProvider)
 - `GetTools_ReturnsExpectedToolDefinitions`
@@ -430,7 +429,7 @@ Each untested precondition needs:
 **Low priority** unless options classes contain validation logic or computed properties.
 
 ### Recommended: test only options with custom validation
-- `AnthropicOptions` — ApiKey required validation
+- `OpenRouterOptions` — ApiKey required validation
 - `AzureSpeechOptions` — SubscriptionKey/Region validation
 - `DiscordOAuthOptions` — ClientId/ClientSecret validation
 - `AutoModerationOptions` — threshold range validation

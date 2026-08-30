@@ -20,7 +20,7 @@ C4Context
     }
 
     System_Ext(discord, "Discord API", "Gateway WebSocket and REST API")
-    System_Ext(anthropic, "Anthropic API", "Claude LLM for AI assistant feature")
+    System_Ext(openrouter, "OpenRouter API", "OpenAI-compatible chat completions; routes to Claude/GPT/etc. for the AI assistant feature")
     System_Ext(azure, "Azure Cognitive Services", "Text-to-Speech synthesis")
     System_Ext(seq, "Seq", "Structured log aggregation")
     System_Ext(elastic, "Elastic APM / Elasticsearch", "Distributed tracing and log shipping")
@@ -30,7 +30,7 @@ C4Context
     Rel(discord, bot, "Delivers events via", "WebSocket Gateway")
     Rel(bot, discord, "Sends responses via", "REST API")
     Rel(admin, bot, "Manages via", "HTTPS / Browser")
-    Rel(bot, anthropic, "AI assistant queries", "HTTPS")
+    Rel(bot, openrouter, "AI assistant queries", "HTTPS")
     Rel(bot, azure, "TTS synthesis", "HTTPS")
     Rel(bot, seq, "Ships logs to", "HTTP")
     Rel(bot, elastic, "Traces and logs", "HTTP")
@@ -61,7 +61,7 @@ C4Container
     }
 
     System_Ext(discord, "Discord API", "")
-    System_Ext(anthropic, "Anthropic API", "")
+    System_Ext(openrouter, "OpenRouter API", "")
     System_Ext(azureTts, "Azure Speech", "")
 
     Rel(user, discord, "Uses Discord")
@@ -75,7 +75,7 @@ C4Container
     Rel(bgServices, services, "Invokes")
     Rel(bgServices, db, "Reads/Writes", "EF Core")
     Rel(signalr, admin, "Pushes updates", "WebSocket")
-    Rel(services, anthropic, "AI queries", "HTTPS")
+    Rel(services, openrouter, "AI queries", "HTTPS")
     Rel(services, azureTts, "TTS synthesis", "HTTPS")
     Rel(services, signalr, "Broadcasts events")
 ```
@@ -101,7 +101,7 @@ flowchart TB
         dbctx["BotDbContext\nSqlite + PostgreSQL variants"]
         repos["37 Repositories\nBase Repository with tracing"]
         configs["EF Configurations\nFluent API entity configs"]
-        llm["LLM Infrastructure\nAnthropicLlmClient, AgentRunner, ToolRegistry"]
+        llm["LLM Infrastructure\nOpenRouterLlmClient, AgentRunner, ToolRegistry"]
         voxLib["VoxClipLibrary\nAudio clip scanning and concatenation"]
     end
 
@@ -254,9 +254,9 @@ sequenceDiagram
     participant Handler as AssistantMessageHandler
     participant Svc as AssistantService
     participant Agent as AgentRunner
-    participant LLM as AnthropicLlmClient
+    participant LLM as OpenRouterLlmClient
     participant Tools as ToolRegistry
-    participant API as Anthropic API
+    participant API as OpenRouter API
 
     User ->> Discord: @bot question
     Discord ->> Handler: MessageReceived event
@@ -267,14 +267,14 @@ sequenceDiagram
 
     loop Agentic Tool-Use Loop
         Agent ->> LLM: SendMessageAsync(messages)
-        LLM ->> API: POST /messages
-        API -->> LLM: Response (text or tool_use)
+        LLM ->> API: POST /chat/completions
+        API -->> LLM: Response (finish_reason: stop or tool_calls)
         LLM -->> Agent: LlmResponse
 
         opt Tool Use Requested
             Agent ->> Tools: ExecuteToolAsync(name, input)
             Tools -->> Agent: Tool result
-            Agent ->> Agent: Append tool_result to conversation
+            Agent ->> Agent: Append role:"tool" message (tool_call_id)
         end
     end
 
@@ -297,7 +297,7 @@ sequenceDiagram
     participant Svc as DmAssistantService
     participant Repo as DmConversationMessageRepository
     participant LLM as ILlmClient
-    participant API as Anthropic API
+    participant API as OpenRouter API
 
     User ->> Discord: DM to bot
     Discord ->> Handler: MessageReceived (DM)
@@ -310,7 +310,7 @@ sequenceDiagram
         Repo -->> Svc: Conversation history
         Svc ->> Svc: Build messages array (history + current)
         Svc ->> LLM: SendMessageAsync(messages)
-        LLM ->> API: POST /messages
+        LLM ->> API: POST /chat/completions
         API -->> LLM: Response
         LLM -->> Svc: LlmResponse
 

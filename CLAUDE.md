@@ -7,7 +7,7 @@ human evaluating the project; this file is for you, today, with no prior context
 
 A Discord bot with an admin web portal, in one .NET 8 process. The bot side is
 Discord.NET slash commands, voice/audio (soundboard, TTS, VOX clips), moderation,
-reminders, scheduled messages, and a Claude-backed assistant. The web side is
+reminders, scheduled messages, and an LLM-backed assistant. The web side is
 ASP.NET Core Razor Pages plus REST controllers, styled with Tailwind, with
 plain per-page JavaScript modules in `wwwroot/js/` and SignalR for live updates. Storage is EF Core
 on SQLite by default or PostgreSQL. Auth is ASP.NET Identity plus Discord OAuth.
@@ -80,7 +80,7 @@ The process exits at startup if `Discord:Token` is not configured, so the web UI
 cannot be exercised without a bot token. Put secrets in User Secrets (ID
 `7b84433c-c2a8-46db-a8bf-58786ea4f28e`), never in `appsettings*.json`:
 `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`,
-`Anthropic:ApiKey`, `AzureSpeech:SubscriptionKey`.
+`OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`.
 
 ```bash
 dotnet run --project src/DiscordBot.Bot     # web UI on http://localhost:5124
@@ -147,6 +147,14 @@ columns throw.
   window.guildId = '@Model.GuildId';   <!-- quoted -->
   ```
 
+- **The assistant talks to OpenRouter, not a vendor SDK.** `ILlmClient` is
+  implemented by `OpenRouterLlmClient` (`Infrastructure/Services/LLM/OpenRouter/`):
+  an owned typed `HttpClient` over OpenRouter's OpenAI-compatible chat completions,
+  plus owned wire records. There is no LLM SDK dependency — build LLM work on
+  `ILlmClient` and those records rather than adding one. Model names are OpenRouter
+  slugs (`anthropic/claude-sonnet-4`, `openai/gpt-4o`), not vendor model IDs.
+  Without `OpenRouter:ApiKey` the assistant services are never registered, which is
+  what lets migrations run without a key.
 - **Discord.NET is the official NuGet package** (`Discord.Net` 3.20.x). An older
   branch carried a local fork for a voice fix; if you see references to
   `local-packages/` or `3.19.0-fork`, they are stale.

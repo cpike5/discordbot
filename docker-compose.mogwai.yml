@@ -18,7 +18,9 @@ services:
       Mogwai__WorkingDirectory: /workspace
       Mogwai__SkipPermissions: "true"
       DmAssistant__Enabled: "true"
-      DmAssistant__Model: "claude-haiku-4-5-20251001"
+      DmAssistant__Model: "anthropic/claude-haiku-4.5"
+      # For the claude CLI process only - the bot's own LLM calls use OpenRouter__ApiKey,
+      # supplied through env_file above.
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
     volumes:
       - mogwai-data:/app/data

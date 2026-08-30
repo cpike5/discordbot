@@ -69,7 +69,7 @@ Same detail level as existing assistant (tokens, cost, latency, interaction logs
 
 **Acceptance Criteria:**
 - All DM interactions are logged with full detail
-- Token usage and cost estimates are tracked
+- Token usage and costs are tracked (OpenRouter reports the billed cost per call; configured rates are a fallback)
 - Latency is measured and recorded
 - Daily aggregated metrics are available
 - Logs are retained per existing retention policies
@@ -122,10 +122,10 @@ Maintain a sliding-window conversation history per user, stored in the database.
 |-----------|----------|
 | Service | `IDmAssistantService` / `DmAssistantService` (separate from guild assistant) |
 | Handler | `DmAssistantMessageHandler` — responds to Discord DM events; handles response chunking (split ≤2000-char chunks or `.md` file attachment for long responses) |
-| LLM | Reuses existing `ILlmClient` / `AnthropicLlmClient` |
+| LLM | Reuses existing `ILlmClient` / `OpenRouterLlmClient` (OpenAI-compatible chat completions via OpenRouter; no LLM SDK). `DmAssistant:Model` is an OpenRouter slug, default `anthropic/claude-sonnet-4`; the Mogwai compose file overrides it to `anthropic/claude-haiku-4.5` |
 | Tool integration | `ClaudeCodeToolProvider` implements `IDmToolProvider`; registered as scoped DI — no changes to `AgentRunner` or `ToolRegistry` |
 | Prompts | `docs/agents/dm-owner-agent.md` — includes guidance on when to use Claude Code vs answer directly |
-| Config | `DmAssistant` section (base DM assistant) + `Mogwai` section (Claude Code extension) in appsettings |
+| Config | `DmAssistant` section (base DM assistant) + `OpenRouter` section (API key, base URL, retries) + `Mogwai` section (Claude Code extension) in appsettings |
 | Storage | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` entities; Claude Code session IDs are in-memory only (no DB entities) |
 
 ### Service Interface
@@ -188,7 +188,7 @@ public class DmAssistantOptions
 | LatencyMs | int | Response latency |
 | Success | bool | Whether request succeeded |
 | ErrorMessage | string? | Error details if failed |
-| EstimatedCostUsd | decimal | Cost estimate |
+| EstimatedCostUsd | decimal | Cost. OpenRouter's billed `usage.cost` is recorded when reported; the configured per-million rates are a fallback |
 
 #### DmAssistantUsageMetrics
 
@@ -223,7 +223,7 @@ Daily aggregated metrics, similar structure to `AssistantUsageMetrics` but for D
 
 ## Dependencies
 
-- Existing `ILlmClient` / `AnthropicLlmClient` infrastructure
+- Existing `ILlmClient` / `OpenRouterLlmClient` infrastructure
 - Existing prompt loading utilities
 - Discord.NET DM message handling
 - EF Core for data storage
@@ -263,3 +263,4 @@ Daily aggregated metrics, similar structure to `AssistantUsageMetrics` but for D
 | 2026-02-03 | 0.1 | Initial draft from requirements gathering |
 | 2026-03-05 | 0.2 | Added conversation history (sliding window) to MVP scope |
 | 2026-03-23 | 0.3 | Updated status to Implemented; reflected Mogwai Claude Code extension (ClaudeCodeToolProvider, response chunking, MogwaiOptions); marked MCP/Claude Code future feature as Done |
+| 2026-08-30 | 0.4 | LLM integration migrated from the Anthropic SDK to OpenRouter (`OpenRouterLlmClient`, `OpenRouter` config section, OpenRouter model slugs). The `claude` CLI used by Mogwai is unaffected and still reads `ANTHROPIC_API_KEY`. |
