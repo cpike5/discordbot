@@ -42,10 +42,10 @@ public class FeatureRequestsOptions
     public int ConversationTimeoutMinutes { get; set; } = 30;
 
     /// <summary>
-    /// Model to use for the AI-powered requirements gathering conversation.
-    /// Default: claude-sonnet-4-20250514
+    /// OpenRouter model slug to use for the AI-powered requirements gathering conversation.
+    /// Default: anthropic/claude-sonnet-4
     /// </summary>
-    public string RequirementsGatheringModel { get; set; } = "claude-sonnet-4-20250514";
+    public string RequirementsGatheringModel { get; set; } = "anthropic/claude-sonnet-4";
 
     /// <summary>
     /// Maximum number of conversation turns (user messages) before forcing the session to end.

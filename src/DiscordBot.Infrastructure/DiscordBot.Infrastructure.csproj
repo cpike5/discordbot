@@ -11,7 +11,6 @@
   <ItemGroup>
     <PackageReference Include="AngleSharp" Version="1.*" />
     <PackageReference Include="Microsoft.Extensions.Http" Version="8.*" />
-    <PackageReference Include="Anthropic" Version="12.2.0" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.*" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.*" />

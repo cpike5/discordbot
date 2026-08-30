@@ -62,8 +62,19 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
         };
     }
 
+    /// <summary>
+    /// Cost of a run in USD. OpenRouter reports what it actually billed, so that figure wins when
+    /// present; the configured per-million rates are the fallback for a response that carried no
+    /// cost (a BYOK call, or a provider that doesn't report one). A null cost means "not reported",
+    /// never zero.
+    /// </summary>
     private static decimal CalculateCost(LlmUsage usage, AssistantCostRates rates)
     {
+        if (usage.EstimatedCost.HasValue)
+        {
+            return usage.EstimatedCost.Value;
+        }
+
         var inputCost = usage.InputTokens * rates.InputPerMillion / 1_000_000m;
         var outputCost = usage.OutputTokens * rates.OutputPerMillion / 1_000_000m;
         var cachedCost = usage.CachedTokens * rates.CachedPerMillion / 1_000_000m;

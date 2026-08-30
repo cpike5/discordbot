@@ -27,13 +27,18 @@ public class AssistantCostOptions
 
     /// <summary>
     /// Gets or sets the cost per million input tokens in USD for cost estimation.
-    /// Default is 3.00 (Claude 3.5 Sonnet pricing).
+    /// Default is 3.00 (Claude Sonnet pricing).
     /// </summary>
+    /// <remarks>
+    /// Fallback only. OpenRouter reports the real billed cost per call, and that figure is used
+    /// whenever it is present; these rates apply only when a response carries no cost, and they are
+    /// wrong for any model whose pricing differs from the configured one.
+    /// </remarks>
     public decimal CostPerMillionInputTokens { get; set; } = 3.00m;
 
     /// <summary>
     /// Gets or sets the cost per million output tokens in USD for cost estimation.
-    /// Default is 15.00 (Claude 3.5 Sonnet pricing).
+    /// Default is 15.00 (Claude Sonnet pricing). Fallback only - see CostPerMillionInputTokens.
     /// </summary>
     public decimal CostPerMillionOutputTokens { get; set; } = 15.00m;
 

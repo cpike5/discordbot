@@ -151,7 +151,7 @@ public class AssistantOptionsBindingTests
             [$"{AssistantOptions.SectionName}:Sampling:MaxTokens"] = "222",
             [$"{AssistantOptions.SectionName}:DefaultRateLimit"] = "7",
             [$"{AssistantOptions.SectionName}:RateLimits:DefaultRateLimit"] = "42",
-            // No Anthropic:ApiKey — keeps the LLM-dependent registrations (which need a live DbContext etc.) out of the container.
+            // No OpenRouter:ApiKey — keeps the LLM-dependent registrations (which need a live DbContext etc.) out of the container.
         };
 
         var configuration = new ConfigurationBuilder()
