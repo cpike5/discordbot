@@ -1,16 +1,15 @@
-using Anthropic;
-using Anthropic.Core;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
-using DiscordBot.Infrastructure.Services.LLM.Anthropic;
+using DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
 using DiscordBot.Bot.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -32,11 +31,11 @@ public static class AssistantServiceExtensions
         // Register configuration
         services.Configure<AssistantOptions>(
             configuration.GetSection(AssistantOptions.SectionName));
-        services.Configure<AnthropicOptions>(
-            configuration.GetSection(AnthropicOptions.SectionName));
+        services.Configure<OpenRouterOptions>(
+            configuration.GetSection(OpenRouterOptions.SectionName));
 
         // Get API key from configuration
-        var apiKey = configuration.GetValue<string>("Anthropic:ApiKey");
+        var apiKey = configuration.GetValue<string>("OpenRouter:ApiKey");
 
         // Register assistant repositories (always needed for settings management)
         services.AddScoped<IAssistantUsageMetricsRepository, AssistantUsageMetricsRepository>();
@@ -51,17 +50,29 @@ public static class AssistantServiceExtensions
         // This prevents DI validation failures when running migrations without API key
         if (!string.IsNullOrEmpty(apiKey))
         {
-            // Register Anthropic client as singleton (thread-safe, expensive to create)
-            // The SDK reads from ANTHROPIC_API_KEY environment variable by default,
-            // but we can pass options to configure it explicitly
-            services.AddSingleton<AnthropicClient>(sp =>
+            // Register the OpenRouter LLM client as a typed HttpClient. The per-attempt timeout is
+            // enforced by the client's own cancellation token, so the handler's timeout is left
+            // infinite - otherwise whichever elapsed first would decide, and only one of them
+            // reports a retryable timeout.
+            services.AddHttpClient<ILlmClient, OpenRouterLlmClient>((sp, http) =>
             {
-                var clientOptions = new ClientOptions { ApiKey = apiKey };
-                return new AnthropicClient(clientOptions);
-            });
+                var options = sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
 
-            // Register LLM client implementation
-            services.AddSingleton<ILlmClient, AnthropicLlmClient>();
+                var baseUrl = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
+                http.BaseAddress = new Uri(baseUrl);
+                http.Timeout = Timeout.InfiniteTimeSpan;
+
+                // Optional attribution headers shown on openrouter.ai activity.
+                if (!string.IsNullOrWhiteSpace(options.AppUrl))
+                {
+                    http.DefaultRequestHeaders.Add("HTTP-Referer", options.AppUrl);
+                }
+
+                if (!string.IsNullOrWhiteSpace(options.AppTitle))
+                {
+                    http.DefaultRequestHeaders.Add("X-Title", options.AppTitle);
+                }
+            });
 
             // Register prompt template service
             services.AddSingleton<IPromptTemplate, PromptTemplate>();
