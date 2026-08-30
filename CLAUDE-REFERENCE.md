@@ -11,7 +11,6 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | Options Class | appsettings Section | Purpose |
 |--------------|---------------------|---------|
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention and aggregation (hourly/daily snapshots) |
-| `AnthropicOptions` | `Anthropic` | Anthropic Claude API configuration (API key, model, retries, timeout, prompt caching) |
 | `ApplicationOptions` | `Application` | App metadata (title, base URL, version, contact email) |
 | `AssistantOptions` | `Assistant` | AI assistant settings (rate limiting, prompts, cost tracking) |
 | `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup policies |
@@ -38,6 +37,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | `NotificationOptions` | `Notification` | Admin notification event filters and deduplication |
 | `NotificationRetentionOptions` | `NotificationRetention` | Notification cleanup by status (dismissed, read, unread retention) |
 | `ObservabilityOptions` | `Observability` | External observability tool URLs (Kibana, Seq) |
+| `OpenRouterOptions` | `OpenRouter` | OpenRouter LLM API configuration (API key, base URL, default model slug, retries, timeout, prompt caching) |
 | `PerformanceAlertOptions` | `PerformanceAlerts` | Alert thresholds, notification settings, retention |
 | `PerformanceBroadcastOptions` | `PerformanceBroadcast` | SignalR broadcast intervals for real-time metrics |
 | `PerformanceMetricsOptions` | `PerformanceMetrics` | Performance metrics collection (latency, queries, cache, CPU) |

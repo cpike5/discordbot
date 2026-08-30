@@ -1,6 +1,6 @@
 # OpenRouter Migration Plan — LLM Integration Overhaul
 
-**Status:** Proposed
+**Status:** Implemented (all three phases)
 **Date:** 2026-08-30
 **Reference implementation:** `pike-assistant` (`src/PikeAssistant.Server/OpenRouter/` + `docs/planning/openrouter-migration.md` there — the migration is shipped and battle-tested; port its patterns, trimmed to this bot's needs)
 
@@ -168,6 +168,41 @@ Verification before cutover merge: `dotnet build` + `dotnet test`; a smoke run a
 | Malformed `arguments` JSON from a provider | Parse failures become a structured tool error result fed back to the model, not an exception |
 | Cost fields drift on non-Anthropic models | Prefer `usage.cost` (billed truth) over computed per-million estimates |
 | Extra network hop / OpenRouter outage | Existing retry loop; status-code-based transient detection |
+
+## What actually shipped
+
+All three phases landed as planned. Deviations and things worth knowing:
+
+- **Cost fallback is per-call, not a mode.** `CalculateCost` in both `AssistantService` and
+  `DmAssistantService` returns OpenRouter's billed `usage.cost` when present and falls back to the
+  configured per-million rates only when it is null. A null cost means "not reported", never zero.
+- **Error codes on a 200 drive retry.** OpenRouter can return an error object on a 200 body; its
+  `code` is treated exactly like an HTTP status, so a provider 502 there gets the same backoff an
+  HTTP 502 would, while a 400 there is permanent. Both cases are covered by tests.
+- **Handler timeout is infinite by design.** The typed `HttpClient` sets
+  `Timeout = Timeout.InfiniteTimeSpan` so the client's own per-attempt cancellation token is the
+  single authority on timeouts — otherwise whichever elapsed first would win, and only one of the
+  two reports a retryable timeout.
+- **Malformed tool arguments degrade rather than throw.** A tool call whose `arguments` string is
+  unparseable yields an empty input object, so the tool runs and returns its own structured
+  validation failure to the model instead of breaking the agent loop.
+- **`AnthropicMessageMapperTests` was deleted, not ported.** It asserted on SDK types.
+  `AgentRunnerTests` was left completely untouched and passes as the loop regression harness.
+
+Known gaps and follow-ups (not blockers):
+
+- **No smoke test against live OpenRouter.** Everything is verified against a stub
+  `HttpMessageHandler`. Before this is trusted in production, run one real tool-calling
+  conversation and confirm `CachedTokens > 0` on the second call — the silent cache regression in
+  the risk table is the thing a stub cannot catch.
+- **Flaky tests, pre-existing and unrelated.** `AuditLogQueueProcessorTests`,
+  `AuditLogRetentionServiceTests` and `MessageLogCleanupServiceTests` fail intermittently under
+  full-suite parallelism (they assert on logger output) and pass in isolation. Observed failing and
+  then passing on the identical tree, and unrelated to the LLM layer. Worth a separate fix.
+- **Consent copy updated, but no re-consent.** `Privacy.cshtml` and `ConsentModule` now name
+  OpenRouter and its routed provider. There is no consent version stamp in this codebase, so
+  existing consents were not invalidated — decide separately whether users should re-consent to the
+  new subprocessor.
 
 ## Decisions taken (flag if you want these changed)
 

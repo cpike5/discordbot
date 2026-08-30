@@ -552,7 +552,7 @@ Services are organized into 21 feature-based extension method files in `src/Disc
 | `NotificationServiceExtensions.cs` | User notifications | Notification service, retention cleanup service |
 | `ScheduledServicesExtensions.cs` | Scheduled operations | Reminders, scheduled messages, time parsing, welcome service |
 | `VoiceServiceExtensions.cs` | Audio & voice | Soundboard, TTS, audio settings, voice notifier |
-| `AssistantServiceExtensions.cs` | AI assistant | Assistant service, Anthropic client, tool registry |
+| `AssistantServiceExtensions.cs` | AI assistant | Assistant service, OpenRouter LLM client (typed `HttpClient`), tool registry |
 | `AnalyticsServiceExtensions.cs` | Analytics | Server analytics, engagement metrics, activity aggregation services |
 | `ModerationServiceExtensions.cs` | Moderation | Moderation operations, mod notes/tags, detection, watchlist |
 | `PerformanceMetricsServiceExtensions.cs` | Performance monitoring | All metrics, health, latency, and CPU services |
