@@ -408,8 +408,8 @@
             const chartData = JSON.parse(chartDataElement.textContent);
 
             // Chart.js default dark theme settings
-            Chart.defaults.color = '#a8a5a3';
-            Chart.defaults.borderColor = '#3f4447';
+            Chart.defaults.color = '#a09c96';
+            Chart.defaults.borderColor = '#2a2f36';
 
             // Activity Over Time Chart (Line)
             const activityCtx = document.getElementById('activityOverTimeChart');
@@ -422,8 +422,8 @@
                             {
                                 label: 'Messages',
                                 data: chartData.activityTimeSeries.map(d => d.messageCount),
-                                borderColor: '#098ecf',
-                                backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                                borderColor: '#3d9ad6',
+                                backgroundColor: 'rgba(61, 154, 214, 0.1)',
                                 fill: true,
                                 tension: 0.4,
                                 yAxisID: 'y',
@@ -433,8 +433,8 @@
                             {
                                 label: 'Active Members',
                                 data: chartData.activityTimeSeries.map(d => d.activeMembers),
-                                borderColor: '#10b981',
-                                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                borderColor: '#2fbf7f',
+                                backgroundColor: 'rgba(47, 191, 127, 0.1)',
                                 fill: true,
                                 tension: 0.4,
                                 yAxisID: 'y1',
@@ -459,10 +459,10 @@
                                 }
                             },
                             tooltip: {
-                                backgroundColor: '#2f3336',
-                                titleColor: '#d7d3d0',
-                                bodyColor: '#a8a5a3',
-                                borderColor: '#3f4447',
+                                backgroundColor: '#1c2025',
+                                titleColor: '#e7e4df',
+                                bodyColor: '#a09c96',
+                                borderColor: '#2a2f36',
                                 borderWidth: 1,
                                 padding: 12
                             }
@@ -477,7 +477,7 @@
                                     text: 'Messages'
                                 },
                                 grid: {
-                                    color: '#2f3336'
+                                    color: '#1c2025'
                                 }
                             },
                             y1: {
@@ -513,11 +513,11 @@
                             label: 'Messages',
                             data: chartData.topChannels.map(c => c.messageCount),
                             backgroundColor: [
-                                '#cb4e1b',
-                                '#098ecf',
-                                '#10b981',
-                                '#f59e0b',
-                                '#06b6d4'
+                                '#e6602b',
+                                '#3d9ad6',
+                                '#2fbf7f',
+                                '#f0a323',
+                                '#2fb3cc'
                             ],
                             borderRadius: 4
                         }]
@@ -531,10 +531,10 @@
                                 display: false
                             },
                             tooltip: {
-                                backgroundColor: '#2f3336',
-                                titleColor: '#d7d3d0',
-                                bodyColor: '#a8a5a3',
-                                borderColor: '#3f4447',
+                                backgroundColor: '#1c2025',
+                                titleColor: '#e7e4df',
+                                bodyColor: '#a09c96',
+                                borderColor: '#2a2f36',
                                 borderWidth: 1,
                                 padding: 12,
                                 callbacks: {
@@ -548,7 +548,7 @@
                             x: {
                                 beginAtZero: true,
                                 grid: {
-                                    color: '#2f3336'
+                                    color: '#1c2025'
                                 },
                                 ticks: {
                                     callback: function(value) {

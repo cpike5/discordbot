@@ -301,10 +301,10 @@
 
         // Map category to color
         const colorMap = {
-            0: '#7a7876', // Default/Neutral
-            1: '#10b981', // Positive/Success
-            2: '#ef4444', // Negative/Danger
-            3: '#06b6d4'  // Neutral/Info
+            0: '#6d6a66', // Default/Neutral
+            1: '#2fbf7f', // Positive/Success
+            2: '#ef4f4f', // Negative/Danger
+            3: '#2fb3cc'  // Neutral/Info
         };
 
         const request = {

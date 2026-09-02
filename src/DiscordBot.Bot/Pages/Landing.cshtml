@@ -25,7 +25,7 @@
             left: 50%;
             width: 0;
             height: 2px;
-            background-color: #cb4e1b;
+            background-color: var(--color-accent-orange);
             transition: width 0.25s ease, left 0.25s ease;
         }
         .nav-link:hover::after,
@@ -34,10 +34,10 @@
             left: 0;
         }
         .nav-link:hover {
-            color: #f0f0f0;
+            color: var(--color-text-primary);
         }
         .nav-link.active {
-            color: #f0f0f0;
+            color: var(--color-text-primary);
         }
 
         /* Login button - subtle but discoverable */
@@ -74,9 +74,9 @@
         }
 
         .feature-card:hover {
-            border-color: #098ecf;
+            border-color: var(--color-accent-blue);
             transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(9, 142, 207, 0.12);
+            box-shadow: 0 8px 24px rgba(var(--color-accent-blue-rgb), 0.12);
         }
 
         .feature-card:hover .icon-wrapper {
@@ -93,8 +93,8 @@
         }
         .tech-icon:hover {
             transform: translateY(-4px);
-            border-color: #098ecf;
-            box-shadow: 0 8px 20px rgba(9, 142, 207, 0.15);
+            border-color: var(--color-accent-blue);
+            box-shadow: 0 8px 20px rgba(var(--color-accent-blue-rgb), 0.15);
         }
 
         /* Coming soon card styling */
@@ -131,14 +131,14 @@
 
         /* Dot pattern background */
         .dot-pattern {
-            background-image: radial-gradient(circle, rgba(203, 78, 27, 0.18) 1px, transparent 1px);
+            background-image: radial-gradient(circle, rgba(var(--color-accent-orange-rgb), 0.18) 1px, transparent 1px);
             background-size: 20px 20px;
         }
 
         /* Section divider */
         .section-divider {
             height: 1px;
-            background-color: #3a3f42;
+            background-color: var(--color-bg-hover);
         }
 
         /* Reduce motion for accessibility */

@@ -36,7 +36,7 @@
     }
 
     .status-badge-voice.disconnected {
-        background-color: rgba(239, 68, 68, 0.1);
+        background-color: rgba(var(--color-error-rgb), 0.1);
         color: var(--color-error);
     }
 
@@ -145,7 +145,7 @@
 
     .dropzone:hover {
         border-color: var(--color-accent-orange);
-        background-color: rgba(203, 78, 27, 0.05);
+        background-color: rgba(var(--color-accent-orange-rgb), 0.05);
     }
 
     .dropzone.drag-over {
@@ -247,7 +247,7 @@
     }
 
     .file-preview-clear:hover {
-        background-color: rgba(239, 68, 68, 0.1);
+        background-color: rgba(var(--color-error-rgb), 0.1);
         color: var(--color-error);
     }
 
@@ -356,9 +356,9 @@
     }
 
     .upload-message.error {
-        background-color: rgba(239, 68, 68, 0.1);
+        background-color: rgba(var(--color-error-rgb), 0.1);
         color: var(--color-error);
-        border: 1px solid rgba(239, 68, 68, 0.3);
+        border: 1px solid rgba(var(--color-error-rgb), 0.3);
     }
 
     .upload-message svg {
@@ -855,7 +855,7 @@
         }
         50% {
             border-color: var(--color-warning);
-            box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+            box-shadow: 0 0 0 3px rgba(var(--color-warning-rgb), 0.3);
         }
     }
 

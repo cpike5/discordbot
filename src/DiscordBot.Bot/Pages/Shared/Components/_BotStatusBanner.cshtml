@@ -19,7 +19,7 @@
         <!-- Status Info Section -->
         <div class="flex items-center gap-4">
             <!-- Icon -->
-            <div class="w-12 h-12 rounded-xl @iconBgColor flex items-center justify-center">
+            <div class="w-11 h-11 rounded-md @iconBgColor flex items-center justify-center">
                 @if (Model.IsOnline)
                 {
                     <!-- Shield Check Icon (Online) -->
@@ -39,9 +39,9 @@
             <!-- Text Content -->
             <div>
                 <div class="flex items-center gap-2">
-                    <h2 class="text-lg font-semibold text-text-primary" data-status-heading>@statusHeading</h2>
+                    <h2 class="text-base font-semibold text-text-primary" data-status-heading>@statusHeading</h2>
                     <!-- Status Badge -->
-                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold @statusBadgeText @statusBadgeBg rounded-full" data-status-badge>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 font-mono text-[0.625rem] font-semibold uppercase tracking-[0.1em] @statusBadgeText @statusBadgeBg rounded-sm" data-status-badge>
                         <span class="w-1.5 h-1.5 @statusDotColor rounded-full @(Model.IsOnline ? "animate-pulse" : "")" data-status-dot></span>
                         <span data-connection-state data-status-text>@Model.StatusText</span>
                     </span>
@@ -60,23 +60,23 @@
         </div>
 
         <!-- Metrics Section (always rendered, visibility controlled by JS) -->
-        <div class="flex items-center gap-6 text-sm @(Model.IsOnline ? "" : "hidden")" data-metrics-section>
+        <div class="flex items-center gap-8 text-sm @(Model.IsOnline ? "" : "hidden")" data-metrics-section>
             <!-- Uptime -->
-            <div class="text-center">
-                <p class="font-semibold text-text-primary" data-uptime>@Model.UptimeDisplay</p>
-                <p class="text-xs text-text-tertiary">Uptime</p>
+            <div class="bot-status-metric">
+                <p class="bot-status-metric-value" data-uptime>@Model.UptimeDisplay</p>
+                <p class="bot-status-metric-label">Uptime</p>
             </div>
 
             <!-- Version -->
-            <div class="text-center">
-                <p class="font-semibold text-text-primary" data-version>@Model.Version</p>
-                <p class="text-xs text-text-tertiary">Version</p>
+            <div class="bot-status-metric">
+                <p class="bot-status-metric-value" data-version>@Model.Version</p>
+                <p class="bot-status-metric-label">Version</p>
             </div>
 
             <!-- Latency -->
-            <div class="text-center">
-                <p class="font-semibold text-text-primary"><span data-latency>@Model.LatencyMs</span><span class="text-text-tertiary">ms</span></p>
-                <p class="text-xs text-text-tertiary">Latency</p>
+            <div class="bot-status-metric">
+                <p class="bot-status-metric-value"><span data-latency>@Model.LatencyMs</span><span class="text-text-tertiary">ms</span></p>
+                <p class="bot-status-metric-label">Latency</p>
             </div>
         </div>
     </div>

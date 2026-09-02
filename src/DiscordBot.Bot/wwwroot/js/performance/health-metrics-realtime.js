@@ -196,9 +196,9 @@ const HealthMetricsRealtime = (function() {
         sparklineChart.data.labels = sparklineData.map((_, i) => i + 1);
         sparklineChart.data.datasets[0].data = sparklineData;
         sparklineChart.data.datasets[0].backgroundColor = sparklineData.map(v => {
-            if (v < 100) return 'rgba(16, 185, 129, 0.8)';
-            if (v < 200) return 'rgba(245, 158, 11, 0.8)';
-            return 'rgba(239, 68, 68, 0.8)';
+            if (v < 100) return 'rgba(47, 191, 127, 0.8)';
+            if (v < 200) return 'rgba(240, 163, 35, 0.8)';
+            return 'rgba(239, 79, 79, 0.8)';
         });
 
         sparklineChart.update('none');

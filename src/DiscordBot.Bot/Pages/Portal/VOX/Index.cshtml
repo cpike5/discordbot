@@ -152,7 +152,7 @@
         .vox-message-input:focus {
             outline: none;
             border-color: var(--color-accent-orange);
-            box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.15);
+            box-shadow: 0 0 0 2px rgba(var(--color-accent-orange-rgb), 0.15);
         }
 
         .vox-message-input::placeholder {
@@ -242,15 +242,15 @@
         }
 
         .vox-token.matched {
-            background-color: rgba(16, 185, 129, 0.15);
-            border-color: rgba(16, 185, 129, 0.4);
-            color: #10b981;
+            background-color: rgba(var(--color-success-rgb), 0.15);
+            border-color: rgba(var(--color-success-rgb), 0.4);
+            color: var(--color-success);
         }
 
         .vox-token.skipped {
-            background-color: rgba(239, 68, 68, 0.15);
-            border-color: rgba(239, 68, 68, 0.4);
-            color: #ef4444;
+            background-color: rgba(var(--color-error-rgb), 0.15);
+            border-color: rgba(var(--color-error-rgb), 0.4);
+            color: var(--color-error);
             text-decoration: line-through;
         }
 
@@ -290,7 +290,7 @@
 
         .vox-play-btn:hover:not(:disabled) {
             background-color: var(--color-accent-orange-hover);
-            box-shadow: 0 4px 12px rgba(203, 78, 27, 0.3);
+            box-shadow: 0 4px 12px rgba(var(--color-accent-orange-rgb), 0.3);
         }
 
         .vox-play-btn:active:not(:disabled) {
@@ -875,7 +875,7 @@
             .vox-mobile-search-input:focus {
                 outline: none;
                 border-color: var(--color-accent-orange);
-                box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.15);
+                box-shadow: 0 0 0 2px rgba(var(--color-accent-orange-rgb), 0.15);
             }
 
             .vox-mobile-search-input::placeholder {
@@ -1150,7 +1150,7 @@
         }
 
         .vox-history-action-btn.delete:hover {
-            color: #ef4444;
+            color: var(--color-error);
         }
 
         .vox-history-empty {
@@ -1177,8 +1177,8 @@
         /* ==========================================
            WCAG 2.1 AA COLOR CONTRAST FIXES
            Scoped to VOX page to avoid affecting shared tokens.
-           Dark theme: bg-primary=#1d2022, bg-secondary=#262a2d, bg-tertiary=#2f3336
-           Original --color-text-tertiary (#7a7876) fails 4.5:1 on most backgrounds.
+           Dark theme: bg-primary=var(--color-bg-primary), bg-secondary=var(--color-bg-secondary), bg-tertiary=var(--color-bg-tertiary)
+           Original --color-text-tertiary (var(--color-text-tertiary)) fails 4.5:1 on most backgrounds.
            These overrides provide >=4.5:1 contrast ratios.
            ========================================== */
 
@@ -1239,13 +1239,13 @@
         .vox-message-input:focus-visible {
             outline: none;
             border-color: var(--color-accent-orange);
-            box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.3);
+            box-shadow: 0 0 0 2px rgba(var(--color-accent-orange-rgb), 0.3);
         }
 
         .vox-clip-search:focus-visible {
             outline: none;
             border-color: var(--color-accent-orange);
-            box-shadow: 0 0 0 2px rgba(203, 78, 27, 0.3);
+            box-shadow: 0 0 0 2px rgba(var(--color-accent-orange-rgb), 0.3);
         }
 
         .vox-history-header:focus-visible {

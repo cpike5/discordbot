@@ -330,12 +330,12 @@
                     </button>
                     <button type="button"
                             onclick="window.quickActions.showConfirmationModal('showcase-warning-modal')"
-                            class="px-4 py-2 bg-warning hover:bg-amber-600 text-white text-sm font-medium rounded-md transition-colors">
+                            class="px-4 py-2 bg-warning hover:bg-warning-hover text-white text-sm font-medium rounded-md transition-colors">
                         Warning Confirmation
                     </button>
                     <button type="button"
                             onclick="window.quickActions.showConfirmationModal('showcase-danger-modal')"
-                            class="px-4 py-2 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors">
+                            class="px-4 py-2 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors">
                         Danger Confirmation
                     </button>
                 </div>
@@ -351,7 +351,7 @@
                 <div>
                     <button type="button"
                             onclick="window.quickActions.showConfirmationModal('showcase-typed-modal')"
-                            class="px-4 py-2 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors">
+                            class="px-4 py-2 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors">
                         Typed Confirmation (type "DELETE")
                     </button>
                 </div>
@@ -406,7 +406,7 @@
                 <div class="flex items-center gap-4">
                     <button type="button"
                             onclick="quickActions.typedConfirm({ title: 'Delete Repository', message: 'This will permanently delete the repository and all its data.', requiredText: 'CONFIRM', inputLabel: 'Type CONFIRM to continue', variant: 'danger', confirmText: 'Delete', cancelText: 'Cancel' }).then(function(result) { document.getElementById('js-typed-confirm-result').textContent = result ? 'Confirmed' : 'Cancelled'; })"
-                            class="px-4 py-2 bg-error hover:bg-red-600 text-white text-sm font-medium rounded-md transition-colors">
+                            class="px-4 py-2 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors">
                         Open JS Typed Confirm
                     </button>
                     <span class="text-sm text-text-secondary">Result: <span id="js-typed-confirm-result" class="font-medium text-text-primary">--</span></span>

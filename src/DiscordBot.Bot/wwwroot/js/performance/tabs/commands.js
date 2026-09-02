@@ -191,7 +191,7 @@
                 label: 'Error Rate',
                 data: errorRateData,
                 borderColor: ChartUtils.colors.error,
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                backgroundColor: 'rgba(239, 79, 79, 0.1)',
                 fill: true,
                 tension: 0.4,
                 pointRadius: 3,

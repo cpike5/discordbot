@@ -1,5 +1,6 @@
 @page
 @model LoginModel
+@inject DiscordBot.Core.Interfaces.IVersionService VersionService
 @{
     ViewData["Title"] = "Sign In";
     Layout = null;
@@ -10,113 +11,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#0f1114">
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
+    <!-- Blocking theme application script - runs before first paint to prevent flash -->
+    <script>
+        (function() {
+            try {
+                var match = document.cookie.match(/theme-preference=([^;]+)/);
+                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
+                if (theme) document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+    <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 </head>
-<body class="bg-bg-secondary">
+<body class="login-page">
 
-    <div class="login-container flex min-h-screen">
+    <div class="login-container">
 
-        <!-- Left Panel: Brand Experience -->
-        <aside class="login-brand-panel relative overflow-hidden w-2/5 min-w-[480px] max-w-[600px] min-h-screen hidden md:block" style="background: linear-gradient(135deg, #1d2022 0%, #2f3336 100%);">
-            <!-- Animated gradient overlay -->
-            <div class="login-gradient-overlay absolute inset-0 z-[1] pointer-events-none"></div>
-
-            <!-- Floating particles -->
-            <div class="login-particles absolute inset-0 z-[1] overflow-hidden pointer-events-none">
-                <div class="particle"></div>
-                <div class="particle"></div>
-                <div class="particle"></div>
-                <div class="particle"></div>
-                <div class="particle"></div>
+        <!-- Left Panel: Brand -->
+        <aside class="login-brand-panel">
+            <div class="login-brand-head">
+                <img src="~/images/logo.svg" alt="" />
+                <div>
+                    <div class="font-display font-bold text-text-primary leading-tight">Bot Admin</div>
+                    <div class="login-brand-sub">Control Console</div>
+                </div>
             </div>
 
-            <div class="relative z-[2] flex flex-col items-center justify-center min-h-screen px-8 py-12 text-center">
+            <div class="login-brand-body">
+                <p class="login-eyebrow">Discord bot administration</p>
+                <h1 class="login-title">Every server,<br />one <em>console</em>.</h1>
+                <p class="login-tagline">Moderation, audio, analytics and automation for your Discord bot, managed from a single place.</p>
 
-                <!-- Logo -->
-                <div class="mb-8">
-                    <img src="~/images/logo.svg" alt="Bot Admin" class="w-[140px] h-[140px]" />
-                </div>
+                <ul class="login-features">
+                    <li>
+                        <span class="idx">01</span>
+                        <span>Live bot status and command telemetry<small>Latency, uptime and execution logs as they happen.</small></span>
+                    </li>
+                    <li>
+                        <span class="idx">02</span>
+                        <span>Per-server moderation and safety tooling<small>Cases, watchlists, auto-moderation and audit trails.</small></span>
+                    </li>
+                    <li>
+                        <span class="idx">03</span>
+                        <span>Secure sign-in with Discord<small>OAuth-backed access with role-based permissions.</small></span>
+                    </li>
+                </ul>
+            </div>
 
-                <div>
-                    <!-- Title & Tagline -->
-                    <h1 class="text-[2.5rem] font-bold leading-tight tracking-tight text-text-primary mb-4" style="background: linear-gradient(135deg, #d7d3d0 0%, #a8a5a3 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;">Discord Bot Admin</h1>
-                    <p class="text-lg text-text-secondary mb-12 max-w-[400px]">
-                        Powerful bot management at your fingertips
-                    </p>
-
-                    <!-- Feature List -->
-                    <ul class="flex flex-col gap-4 items-start max-w-[360px] mx-auto">
-                        <li class="flex items-center gap-3 text-[0.9375rem] text-text-secondary hover:text-text-primary transition-colors duration-200">
-                            <svg class="w-5 h-5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                            </svg>
-                            <span>Powerful bot management</span>
-                        </li>
-                        <li class="flex items-center gap-3 text-[0.9375rem] text-text-secondary hover:text-text-primary transition-colors duration-200">
-                            <svg class="w-5 h-5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                            </svg>
-                            <span>Real-time analytics</span>
-                        </li>
-                        <li class="flex items-center gap-3 text-[0.9375rem] text-text-secondary hover:text-text-primary transition-colors duration-200">
-                            <svg class="w-5 h-5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
-                            </svg>
-                            <span>Secure Discord integration</span>
-                        </li>
-                    </ul>
-                </div>
-
+            <div class="login-brand-foot">
+                <span><span class="led" aria-hidden="true"></span>Secured session</span>
+                <span>@VersionService.GetVersion()</span>
             </div>
         </aside>
 
         <!-- Right Panel: Login Form -->
-        <main class="flex-1 min-h-screen flex items-center justify-center p-8 bg-bg-secondary">
-            <div class="w-full max-w-[440px] mx-auto login-form-animated">
+        <main class="login-form-panel">
+            <div class="login-form-wrap login-form-animated">
+
+                <div class="login-form-mobile-brand">
+                    <img src="~/images/logo.svg" alt="" />
+                    <span>Bot Admin</span>
+                </div>
 
                 <!-- Form Header -->
-                <header class="mb-10 text-center">
-                    <h2 class="text-[1.875rem] font-bold leading-tight text-text-primary mb-2">Welcome back</h2>
-                    <p class="text-[0.9375rem] text-text-secondary">Sign in to access your dashboard</p>
+                <header class="login-form-header">
+                    <h2>Welcome back</h2>
+                    <p>Sign in to open the console.</p>
                 </header>
 
                 <!-- Discord Auth Error Alert -->
                 @if (!string.IsNullOrEmpty(Model.AuthErrorTitle))
                 {
-                    <div class="mb-6 p-5 rounded-lg" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(245, 158, 11, 0.05) 100%); border: 1px solid rgba(245, 158, 11, 0.3); border-left: 4px solid #f59e0b;" role="alert" aria-live="polite">
-                        <div class="flex items-start gap-3 mb-4">
-                            <!-- Discord icon in warning circle -->
-                            <div class="flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center" style="background: rgba(245, 158, 11, 0.15);">
-                                <svg class="w-5 h-5" fill="#f59e0b" viewBox="0 0 24 24">
-                                    <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
-                                </svg>
-                            </div>
-                            <div class="flex-1">
-                                <p class="text-sm font-semibold text-text-primary mb-1">@Model.AuthErrorTitle</p>
-                                <p class="text-sm text-text-secondary">@Model.AuthErrorMessage</p>
-                            </div>
+                    <div class="login-alert login-alert-warning login-error-alert" role="alert" aria-live="polite">
+                        <div class="login-alert-icon">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
+                            </svg>
                         </div>
-                        <div class="flex items-center gap-3">
-                            <form method="post" asp-page-handler="DiscordLogin" class="flex-1">
-                                <input type="hidden" asp-for="ReturnUrl" value="@Model.ReturnUrl" />
-                                <button type="submit" class="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-sm font-semibold text-white bg-discord hover:bg-discord-hover rounded-lg cursor-pointer transition-all duration-200" style="border: 1px solid var(--color-discord);">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                                    </svg>
-                                    Try Again
-                                </button>
-                            </form>
-                            @if (Model.AuthError == "discord_unavailable")
-                            {
-                                <a href="https://discordstatus.com" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium text-text-secondary hover:text-text-primary rounded-lg transition-colors duration-200" style="border: 1px solid var(--color-border-primary);">
-                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                                    </svg>
-                                    Status
-                                </a>
-                            }
+                        <div class="flex-1 min-w-0">
+                            <p class="login-alert-title">@Model.AuthErrorTitle</p>
+                            <p class="login-alert-message">@Model.AuthErrorMessage</p>
+                            <div class="login-alert-actions">
+                                <form method="post" asp-page-handler="DiscordLogin">
+                                    <input type="hidden" asp-for="ReturnUrl" value="@Model.ReturnUrl" />
+                                    <button type="submit" class="btn btn-secondary btn-sm">
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                        </svg>
+                                        Try again
+                                    </button>
+                                </form>
+                                @if (Model.AuthError == "discord_unavailable")
+                                {
+                                    <a href="https://discordstatus.com" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">
+                                        Discord status
+                                        <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                        </svg>
+                                    </a>
+                                }
+                            </div>
                         </div>
                     </div>
                 }
@@ -124,27 +125,29 @@
                 <!-- Error Alert -->
                 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
                 {
-                    <div class="login-error-alert mb-6 p-4 rounded-lg flex items-start gap-3" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-left: 4px solid #ef4444;" role="alert" aria-live="polite">
-                        <svg class="w-5 h-5 text-error flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
-                        </svg>
-                        <div class="flex-1">
-                            <p class="text-sm font-semibold text-error mb-1">Login failed</p>
-                            <p class="text-sm text-error opacity-90">@Model.ErrorMessage</p>
+                    <div class="login-alert login-alert-error login-error-alert" role="alert" aria-live="polite">
+                        <div class="login-alert-icon">
+                            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                            </svg>
+                        </div>
+                        <div class="flex-1 min-w-0">
+                            <p class="login-alert-title">Sign-in failed</p>
+                            <p class="login-alert-message">@Model.ErrorMessage</p>
                         </div>
                     </div>
                 }
 
                 <!-- Validation Summary -->
-                <div asp-validation-summary="ModelOnly" class="login-error-alert mb-6 p-4 rounded-lg validation-summary-errors hidden" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(239, 68, 68, 0.05) 100%); border: 1px solid rgba(239, 68, 68, 0.3); border-left: 4px solid #ef4444;" role="alert"></div>
+                <div asp-validation-summary="ModelOnly" class="login-error-alert" role="alert"></div>
 
                 @if (Model.IsDiscordOAuthConfigured)
                 {
                     <!-- Discord OAuth Button (Primary CTA) -->
                     <form method="post" asp-page-handler="DiscordLogin">
                         <input type="hidden" asp-for="ReturnUrl" value="@Model.ReturnUrl" />
-                        <button type="submit" class="btn-discord-oauth w-full flex items-center justify-center gap-3 px-6 py-4 text-base font-semibold text-white bg-discord hover:bg-discord-hover rounded-lg cursor-pointer relative overflow-hidden transition-all duration-200 ease-out" style="border: 1px solid var(--color-discord); box-shadow: 0 4px 12px rgba(88, 101, 242, 0.3);">
-                            <svg class="w-6 h-6 flex-shrink-0 transition-transform duration-200" fill="currentColor" viewBox="0 0 24 24">
+                        <button type="submit" class="btn-discord-oauth">
+                            <svg fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
                                 <path d="M20.317 4.37a19.791 19.791 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.27 18.27 0 0 0-5.487 0 12.64 12.64 0 0 0-.617-1.25.077.077 0 0 0-.079-.037A19.736 19.736 0 0 0 3.677 4.37a.07.07 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.082.082 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.078.078 0 0 0 .084-.028 14.09 14.09 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13.107 13.107 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10.2 10.2 0 0 0 .372-.292.074.074 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.074.074 0 0 1 .078.01c.12.098.246.198.373.292a.077.077 0 0 1-.006.127 12.299 12.299 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.076.076 0 0 0 .084.028 19.839 19.839 0 0 0 6.002-3.03.077.077 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.061.061 0 0 0-.031-.03zM8.02 15.33c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.956-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.956 2.418-2.157 2.418zm7.975 0c-1.183 0-2.157-1.085-2.157-2.419 0-1.333.955-2.419 2.157-2.419 1.21 0 2.176 1.096 2.157 2.42 0 1.333-.946 2.418-2.157 2.418z" />
                             </svg>
                             <span>Continue with Discord</span>
@@ -152,85 +155,86 @@
                     </form>
 
                     <!-- Divider -->
-                    <div class="login-divider relative my-8 text-center">
-                        <span class="relative inline-block px-4 bg-bg-secondary text-xs font-medium text-text-tertiary uppercase tracking-wider">Or use your email</span>
+                    <div class="login-divider">
+                        <span>Or use your email</span>
                     </div>
                 }
 
                 <!-- Email/Password Form -->
-                <form method="post" id="login-form">
+                <form method="post" id="login-form" novalidate>
                     <input type="hidden" asp-for="ReturnUrl" value="@Model.ReturnUrl" />
 
                     <!-- Email Field (Floating Label) -->
-                    <div class="form-group-floating relative mb-6">
+                    <div class="form-group-floating">
                         <input
                             asp-for="Input.Email"
                             type="email"
                             id="email"
-                            class="form-input-floating w-full pt-5 pb-2 px-4 text-[0.9375rem] text-text-primary bg-bg-primary border border-border-primary rounded-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-200 outline-none appearance-none placeholder:text-transparent hover:border-accent-blue focus:border-accent-blue focus:bg-bg-secondary focus:shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),0_0_0_3px_rgba(9,142,207,0.15)]"
+                            class="form-input-floating"
                             placeholder=" "
                             autocomplete="email"
                             required
                             aria-required="true"
                             aria-describedby="email-error"
                         />
-                        <label for="email" class="form-label-floating absolute top-4 left-4 text-[0.9375rem] font-medium text-text-tertiary bg-transparent pointer-events-none transition-all duration-200 origin-left">Email address</label>
-                        <span id="email-error" class="form-error block mt-2 text-xs text-error opacity-0 -translate-y-1 transition-all duration-200" role="alert" asp-validation-for="Input.Email"></span>
+                        <label for="email" class="form-label-floating">Email address</label>
+                        <span id="email-error" class="form-error" role="alert" asp-validation-for="Input.Email"></span>
                     </div>
 
                     <!-- Password Field (Floating Label) -->
-                    <div class="form-group-floating password-group relative mb-6">
+                    <div class="form-group-floating password-group">
                         <input
                             asp-for="Input.Password"
                             type="password"
                             id="password"
-                            class="form-input-floating w-full pt-5 pb-2 px-4 pr-12 text-[0.9375rem] text-text-primary bg-bg-primary border border-border-primary rounded-lg shadow-[inset_0_1px_2px_rgba(0,0,0,0.1)] transition-all duration-200 outline-none appearance-none placeholder:text-transparent hover:border-accent-blue focus:border-accent-blue focus:bg-bg-secondary focus:shadow-[inset_0_1px_2px_rgba(0,0,0,0.1),0_0_0_3px_rgba(9,142,207,0.15)]"
+                            class="form-input-floating pr-12"
                             placeholder=" "
                             autocomplete="current-password"
                             required
                             aria-required="true"
                             aria-describedby="password-error"
                         />
-                        <label for="password" class="form-label-floating absolute top-4 left-4 text-[0.9375rem] font-medium text-text-tertiary bg-transparent pointer-events-none transition-all duration-200 origin-left">Password</label>
+                        <label for="password" class="form-label-floating">Password</label>
                         <button
                             type="button"
-                            class="password-toggle absolute top-1/2 right-3 -translate-y-1/2 p-2 bg-transparent border-none cursor-pointer text-text-tertiary hover:text-text-secondary hover:bg-text-tertiary/10 rounded transition-colors duration-200 flex items-center justify-center"
+                            class="password-toggle"
                             aria-label="Show password"
                             aria-pressed="false"
                         >
-                            <svg class="password-toggle-icon password-show w-5 h-5 transition-opacity duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="password-toggle-icon password-show" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                             </svg>
-                            <svg class="password-toggle-icon password-hide hidden w-5 h-5 transition-opacity duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="password-toggle-icon password-hide hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
                             </svg>
                         </button>
-                        <span id="password-error" class="form-error block mt-2 text-xs text-error opacity-0 -translate-y-1 transition-all duration-200" role="alert" asp-validation-for="Input.Password"></span>
+                        <span id="password-error" class="form-error" role="alert" asp-validation-for="Input.Password"></span>
                     </div>
 
                     <!-- Remember Me -->
-                    <div class="mb-6 flex items-center gap-2.5">
+                    <div class="remember-me-row">
                         <input
                             asp-for="Input.RememberMe"
                             type="checkbox"
                             id="remember-me"
-                            class="remember-me-checkbox absolute opacity-0 w-0 h-0"
+                            class="remember-me-checkbox"
                         />
-                        <label for="remember-me" class="remember-me-checkbox-custom w-5 h-5 border-2 border-border-primary rounded bg-bg-primary flex items-center justify-center flex-shrink-0 transition-all duration-200 cursor-pointer hover:border-accent-blue">
-                            <svg class="remember-me-checkmark w-3.5 h-3.5 text-white opacity-0 scale-50 transition-all duration-150" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <label for="remember-me" class="remember-me-checkbox-custom" aria-hidden="true">
+                            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
                             </svg>
                         </label>
-                        <label for="remember-me" class="text-sm text-text-secondary cursor-pointer select-none hover:text-text-primary transition-colors duration-200">Remember me</label>
+                        <label for="remember-me" class="remember-me-label">Remember me on this device</label>
                     </div>
 
                     <!-- Submit Button -->
-                    <button type="submit" class="btn-submit-login w-full flex items-center justify-center gap-2 py-3.5 px-6 text-[0.9375rem] font-semibold text-white rounded-lg cursor-pointer relative overflow-hidden transition-all duration-200 ease-out" style="background: linear-gradient(135deg, #cb4e1b 0%, #e5591f 100%); border: 1px solid #cb4e1b; box-shadow: 0 2px 8px rgba(203, 78, 27, 0.3);">
-                        <span class="btn-text">Sign in with Email</span>
+                    <button type="submit" class="btn-submit-login">
+                        <span class="btn-text">Sign in with email</span>
                     </button>
-
                 </form>
+
+                <p class="login-foot">Authorised operators only</p>
 
             </div>
         </main>

@@ -6,8 +6,8 @@
 
 <!-- Page Header -->
 <div class="mb-8">
-    <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Profile</h1>
-    <p class="mt-1 text-text-secondary">Manage your account and preferences</p>
+    <h1 class="page-title">Profile</h1>
+    <p class="page-subtitle">Manage your account and preferences</p>
 </div>
 
 <!-- Status Message -->
@@ -57,7 +57,7 @@
                     }
                     else
                     {
-                        <div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-4" style="background: linear-gradient(135deg, var(--color-accent-orange, #cb4e1b) 0%, var(--color-accent-blue, #098ecf) 100%);">
+                        <div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-4" style="background: linear-gradient(135deg, var(--color-accent-orange, #e6602b) 0%, var(--color-accent-blue, #3d9ad6) 100%);">
                             @(string.Join("", Model.DisplayName.Split(' ').Take(2).Select(w => w.FirstOrDefault())).ToUpper())
                         </div>
                     }

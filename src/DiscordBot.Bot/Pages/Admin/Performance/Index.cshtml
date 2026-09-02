@@ -18,8 +18,8 @@
 <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
     <div class="flex items-center gap-3">
         <div>
-            <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Bot Performance</h1>
-            <p class="text-text-secondary mt-1">Real-time monitoring and performance metrics</p>
+            <h1 class="page-title">Bot Performance</h1>
+            <p class="page-subtitle">Real-time monitoring and performance metrics</p>
         </div>
         <div class="live-indicator" id="liveIndicator">
             <span class="live-dot"></span>
@@ -44,7 +44,7 @@
 </div>
 
 <!-- Navigation Tabs with Time Range Selector -->
-<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
+<div class="flex flex-col md:flex-row md:flex-wrap md:items-center md:justify-between gap-4 mb-6">
     @{
         var performanceTabs = new DiscordBot.Bot.ViewModels.Components.TabPanelViewModel
         {
@@ -79,8 +79,8 @@
     @await Html.PartialAsync("Components/_TabPanel", performanceTabs)
 
     <!-- Time Range Selector -->
-    <div class="flex items-center gap-2">
-        <span class="text-sm text-text-secondary mr-2">Time Range:</span>
+    <div class="flex items-center gap-2 flex-shrink-0">
+        <span class="text-sm text-text-secondary mr-2 whitespace-nowrap">Time Range:</span>
         <button class="time-range-btn active" data-hours="24">24h</button>
         <button class="time-range-btn" data-hours="168">7d</button>
         <button class="time-range-btn" data-hours="720">30d</button>
@@ -116,8 +116,8 @@
 
     <script>
         // Chart.js default dark theme settings
-        Chart.defaults.color = '#a8a5a3';
-        Chart.defaults.borderColor = '#3f4447';
+        Chart.defaults.color = '#a09c96';
+        Chart.defaults.borderColor = '#2a2f36';
 
         // Smart reconnect behavior foundation
         // Will be wired up to SignalR when DashboardHub is extended (issue #624)

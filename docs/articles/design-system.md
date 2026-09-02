@@ -1,22 +1,25 @@
 # Discord Bot Admin UI - Design System
 
-**Version:** 1.4
-**Last Updated:** 2026-01-02
-**Target Framework:** .NET Blazor / HTML/CSS Prototypes
+**Version:** 2.0 ("Graphite")
+**Last Updated:** 2026-09-02
+**Target Framework:** ASP.NET Core Razor Pages + Tailwind CSS 3.4 (Blazor islands share the same tokens)
 
 ---
 
 ## Overview
 
-This design system provides a comprehensive visual language for the Discord bot admin management web UI. The aesthetic is modern, clean, and professional with a Discord-inspired dark theme suitable for extended administrative sessions.
+Version 2.0 is a complete visual overhaul. The admin UI is styled as an **instrument panel**: a cool graphite canvas, hairline rules instead of heavy borders, one ember accent that marks everything *selected* or *primary*, a quieter signal blue reserved for links and information, and monospaced numerals for anything that is measured. The sidebar is a full-height rail; the top bar starts where the rail ends.
+
+Everything is driven by CSS custom properties in `src/DiscordBot.Bot/wwwroot/css/site.css`. Tailwind utilities map onto those properties (`tailwind.config.js`), so a page written with `bg-bg-secondary border-border-primary` and a page written with `.card` render identically and both follow the active theme.
 
 ### Design Principles
 
-- **Clarity First**: Prioritize readability and usability over decorative elements
-- **Consistency**: Maintain uniform patterns across all interfaces
-- **Accessibility**: Ensure WCAG 2.1 AA compliance for all interactive elements
-- **Performance**: Minimize CSS overhead and optimize for fast rendering
-- **Dark-Optimized**: Designed for comfortable extended use in low-light environments
+- **One accent, used with intent**: ember (`--color-accent-orange`) means selected, active, or primary. Blue (`--color-accent-blue`) means link, information, or focus. Nothing else is coloured unless it carries a status.
+- **Hairlines, not boxes**: borders are low-alpha rules (`--color-border-*`) that read the same on every surface. Depth comes from a 1px inner highlight and layered shadows on floating layers only (menus, modals, toasts).
+- **Measured things are monospaced**: IDs, versions, latency, counts, table headers and micro-labels use `--font-mono` with tabular numerals.
+- **Restrained radius**: controls are 6px, panels 10px, pills round. Nothing is rounded by default.
+- **Accessibility**: WCAG 2.1 AA contrast on every theme, visible focus rings, `prefers-reduced-motion` honoured everywhere.
+- **Dark-optimised, theme-capable**: Graphite is the default; Purple Dusk is a warm light theme that remaps the same tokens.
 
 ---
 
@@ -24,92 +27,65 @@ This design system provides a comprehensive visual language for the Discord bot 
 
 ### Base Colors
 
-#### Background Layers
+Every colour token is published twice: as a CSS colour (`--color-x`) and as an RGB triplet (`--color-x-rgb`). Tailwind reads the triplet (`rgb(var(--color-x-rgb) / <alpha-value>)`) so opacity modifiers such as `bg-success/20` work and follow the theme. Use the triplet in hand-written CSS whenever you need alpha: `rgba(var(--color-accent-orange-rgb), 0.12)`.
 
-```css
-/* Primary Background */
---color-bg-primary: #1d2022;      /* Dark charcoal - main background */
---color-bg-secondary: #262a2d;    /* Slightly lighter - cards, panels */
---color-bg-tertiary: #2f3336;     /* Elevated elements - modals, dropdowns */
---color-bg-hover: #363a3e;        /* Interactive hover states */
-```
+#### Surfaces (Graphite)
 
-**Usage Guidelines:**
-- Use `bg-primary` for main page backgrounds
-- Use `bg-secondary` for cards, panels, and content containers
-- Use `bg-tertiary` for modals, popovers, and elevated UI elements
-- Use `bg-hover` for hover states on interactive surfaces
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--color-bg-primary` | `#0f1114` | Page canvas |
+| `--color-bg-secondary` | `#16191d` | Cards, panels, the sidebar rail |
+| `--color-bg-tertiary` | `#1c2025` | Elevated surfaces: menus, modals, active pills |
+| `--color-bg-hover` | `#23282e` | Hover on elevated surfaces |
+| `--color-bg-inset` | `#0b0d0f` | Text inputs and other inset wells |
 
-#### Text Colors
+#### Text
 
-```css
-/* Text Hierarchy */
---color-text-primary: #d7d3d0;    /* Light warm gray - primary text */
---color-text-secondary: #a8a5a3;  /* Dimmed - secondary text, labels */
---color-text-tertiary: #7a7876;   /* Muted - disabled text, placeholders */
---color-text-inverse: #1d2022;    /* Dark text on light backgrounds */
-```
+| Token | Value | Contrast on canvas |
+|-------|-------|--------------------|
+| `--color-text-primary` | `#e7e4df` | 15.1:1 (AAA) |
+| `--color-text-secondary` | `#a09c96` | 7.3:1 (AAA) |
+| `--color-text-tertiary` | `#6d6a66` | 3.7:1 (large text / labels) |
+| `--color-text-placeholder` | `#5d5a56` | placeholders only |
+| `--color-text-inverse` | `#ffffff` | text on filled accents |
 
-**Contrast Ratios:**
-- `text-primary` on `bg-primary`: **10.8:1** (AAA)
-- `text-secondary` on `bg-primary`: **5.9:1** (AA)
-- `text-tertiary` on `bg-primary`: **3.5:1** (AA for large text)
+#### Accents
 
-#### Brand Accent Colors
+| Token | Value | Job |
+|-------|-------|-----|
+| `--color-accent-orange` (+ `-hover`, `-active`, `-muted`) | `#e6602b` | **Ember** — primary buttons, active navigation, selected tabs, toggles on, LEDs |
+| `--color-accent-blue` (+ `-hover`, `-active`, `-muted`) | `#3d9ad6` | **Signal blue** — links, informational accents, focus rings, secondary CTAs |
+| `--color-accent-purple` | `#9b7bea` | Audit / system accents only |
 
-```css
-/* Primary Accent */
---color-accent-orange: #cb4e1b;        /* Burnt orange - primary actions */
---color-accent-orange-hover: #e5591f;  /* Hover state */
---color-accent-orange-active: #b04517; /* Active/pressed state */
---color-accent-orange-muted: #cb4e1b33; /* 20% opacity - subtle backgrounds */
+#### Rules, washes and depth
 
-/* Secondary Accent */
---color-accent-blue: #098ecf;          /* Bright blue - secondary actions */
---color-accent-blue-hover: #0ba3ea;    /* Hover state */
---color-accent-blue-active: #0879b3;   /* Active/pressed state */
---color-accent-blue-muted: #098ecf33;  /* 20% opacity - subtle backgrounds */
-```
-
-**Usage Guidelines:**
-- Use **orange** for primary CTAs, important actions, and active navigation
-- Use **blue** for secondary actions, informational elements, and links
+| Token | Value | Usage |
+|-------|-------|-------|
+| `--color-border-primary` | `rgba(255,255,255,0.08)` | Default hairline |
+| `--color-border-secondary` | `rgba(255,255,255,0.05)` | Dividers inside a panel |
+| `--color-border-strong` | `rgba(255,255,255,0.14)` | Inputs, secondary buttons, menus |
+| `--color-border-hover` | `rgba(255,255,255,0.24)` | Hover on the above |
+| `--color-border-focus` | `#3d9ad6` | Focus outline |
+| `--color-nav-hover` / `--color-nav-active` | white at 4.5% / 7.5% | Sidebar and menu items |
+| `--color-row-hover` | white at 3% | Table rows |
+| `--color-overlay` | `rgba(11,13,15,0.72)` | Modal and loading backdrops |
+| `--surface-highlight` | `inset 0 1px 0 rgba(255,255,255,0.035)` | The 1px top light on every panel |
+| `--glow-canvas` | ember at 5.5% | The single radial light behind the main content |
 
 ### Semantic Colors
 
-#### Success, Warning, Error, Info
+| Token | Value | Also provides |
+|-------|-------|---------------|
+| `--color-success` | `#2fbf7f` | `-hover`, `-active`, `-rgb`, `-bg`, `-border` |
+| `--color-warning` | `#f0a323` | same |
+| `--color-error` | `#ef4f4f` | same |
+| `--color-info` | `#2fb3cc` | same |
 
-```css
-/* Success - Green palette */
---color-success: #10b981;           /* Emerald green */
---color-success-bg: #10b98120;      /* Subtle background */
---color-success-border: #10b98150;  /* Border variant */
-
-/* Warning - Amber palette */
---color-warning: #f59e0b;           /* Amber */
---color-warning-bg: #f59e0b20;      /* Subtle background */
---color-warning-border: #f59e0b50;  /* Border variant */
-
-/* Error - Red palette */
---color-error: #ef4444;             /* Red */
---color-error-bg: #ef444420;        /* Subtle background */
---color-error-border: #ef444450;    /* Border variant */
-
-/* Info - Cyan palette */
---color-info: #06b6d4;              /* Cyan */
---color-info-bg: #06b6d420;         /* Subtle background */
---color-info-border: #06b6d450;     /* Border variant */
-```
-
-**Accessibility Note:** All semantic colors meet WCAG AA standards when used with appropriate text colors (white or primary text).
+Semantic colour is applied as a **soft tint** (12% fill, 32% hairline, coloured text) for badges and alerts; solid fills are reserved for buttons and the `badge-solid` modifier.
 
 ### Border Colors
 
-```css
---color-border-primary: #3f4447;    /* Default borders */
---color-border-secondary: #2f3336;  /* Subtle dividers */
---color-border-focus: #098ecf;      /* Focus rings (blue accent) */
-```
+See *Rules, washes and depth* above — borders are alpha hairlines so they cannot take a Tailwind opacity modifier; use `border-border-primary`, `border-border-strong`, etc.
 
 ### Theme System
 
@@ -294,33 +270,14 @@ Example new theme definition:
 ### Font Stack
 
 ```css
-/* Primary Font Family - System UI Stack */
---font-family-sans:
-  -apple-system,
-  BlinkMacSystemFont,
-  "Segoe UI",
-  Roboto,
-  "Helvetica Neue",
-  Arial,
-  sans-serif,
-  "Apple Color Emoji",
-  "Segoe UI Emoji",
-  "Segoe UI Symbol";
-
-/* Monospace - For code, IDs, tokens */
---font-family-mono:
-  ui-monospace,
-  SFMono-Regular,
-  "SF Mono",
-  Menlo,
-  Monaco,
-  Consolas,
-  "Liberation Mono",
-  "Courier New",
-  monospace;
+--font-display: "Bricolage Grotesque", "Segoe UI Variable Display", "Segoe UI", sans-serif;  /* headings, page titles, big numbers */
+--font-body:    "DM Sans", -apple-system, "Segoe UI", Roboto, sans-serif;                   /* everything else */
+--font-mono:    "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;            /* IDs, versions, metrics, micro-labels */
 ```
 
-**Rationale:** System font stack ensures optimal rendering on all platforms and zero web font load time.
+All three are loaded from Google Fonts in every layout (and in the standalone pages: login, errors, portal, landing, public leaderboard). Tailwind exposes them as `font-display` / `font-heading`, `font-sans`, and `font-mono`; `h1`–`h6` and `.text-h*` pick up the display face automatically.
+
+**Rationale:** Bricolage Grotesque has enough character to make the console recognisable at a glance; DM Sans stays neutral and legible at 13–14px for long sessions; JetBrains Mono gives every measured value the same width so columns of numbers line up.
 
 ### Type Scale
 
@@ -548,6 +505,31 @@ The design system defines a z-index token scale to ensure consistent stacking ac
 ```
 
 ---
+
+### Application Shell
+
+The shell is three fixed regions driven entirely by CSS custom properties (`--navbar-height: 56px`, `--sidebar-width: 260px`, `--sidebar-collapsed-width: 68px`):
+
+| Region | Partial | Class | Notes |
+|--------|---------|-------|-------|
+| Sidebar rail | `_Sidebar.cshtml` | `.sidebar-redesign` | Full viewport height. Brand block (`.sidebar-brand`), grouped nav (`.sidebar-group`, `.sidebar-section-header`, `.sidebar-link-redesign`), status footer (`.sidebar-footer`, `.bot-status-led`). The active link shows a 2px ember LED on the rail's outer edge. |
+| Top bar | `_Navbar.cshtml` | `.topbar` | Starts at `left: var(--sidebar-width)`. Holds the sidebar toggles, the command-palette style search (`.topbar-search-input`, `.search-kbd`), notifications and the user menu (`.topbar-user`, `.user-menu-*`). |
+| Main | `_Layout.cshtml` | `.main-content-redesign` → `.page-container` | Content is capped at `--content-max-width` (1440px) with a faint ember radial light at the top. |
+
+Collapsing is a single class, `html.sidebar-collapsed`, set by `navigation.js` and by the inline FOUC script; all three regions respond to it. Below 1024px the rail becomes an off-canvas drawer with `.mobile-overlay`.
+
+Page headers use the `.page-header` pattern:
+
+```html
+<div class="page-header">
+    <div class="page-header-text">
+        <p class="page-eyebrow">Overview</p>          <!-- optional mono micro-label -->
+        <h1 class="page-title">Dashboard</h1>
+        <p class="page-subtitle">One sentence of context.</p>
+    </div>
+    <div class="page-actions"><button class="btn btn-primary">Action</button></div>
+</div>
+```
 
 ## 4. Component Guidelines
 
@@ -3666,175 +3648,43 @@ Users with `prefers-reduced-motion` preference see static loading states:
 
 ## 7. Shadows & Elevation
 
-```css
-/* Shadow scale */
---shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.3);
---shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.3),
-             0 2px 4px -1px rgba(0, 0, 0, 0.2);
---shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.3),
-             0 4px 6px -2px rgba(0, 0, 0, 0.2);
---shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.3),
-             0 10px 10px -5px rgba(0, 0, 0, 0.2);
+Shadows are layered and only appear on things that float. Panels sit on the canvas with a hairline and `--surface-highlight`; menus, modals and toasts add `--shadow-lg`.
 
-/* Glow effects for interactive elements */
---glow-orange: 0 0 20px rgba(203, 78, 27, 0.4);
---glow-blue: 0 0 20px rgba(9, 142, 207, 0.4);
+```css
+--surface-highlight: inset 0 1px 0 0 rgba(255, 255, 255, 0.035);              /* every panel */
+--shadow-sm: 0 1px 2px rgba(0,0,0,.28), 0 1px 1px rgba(0,0,0,.18);            /* active pill */
+--shadow-md: 0 2px 4px rgba(0,0,0,.24), 0 6px 14px -4px rgba(0,0,0,.38);      /* hovered card */
+--shadow-lg: 0 4px 8px rgba(0,0,0,.24), 0 16px 32px -8px rgba(0,0,0,.48);     /* menus, popovers, toasts */
+--shadow-xl: 0 8px 16px rgba(0,0,0,.28), 0 32px 64px -12px rgba(0,0,0,.58);   /* modals, the mobile drawer */
+--glow-primary / --glow-secondary                                              /* ember / blue glows for focus rings and LEDs */
 ```
 
-**Usage:**
-- `shadow-sm`: Subtle elevation (cards)
-- `shadow-md`: Moderate elevation (dropdowns)
-- `shadow-lg`: High elevation (modals)
-- `shadow-xl`: Maximum elevation (notifications)
-
----
+Tailwind: `shadow-sm`, `shadow-md`, `shadow-lg`, `shadow-xl`, `shadow-highlight`, `shadow-glow-orange`, `shadow-glow-blue`. Purple Dusk swaps in warm, lighter shadows.
 
 ## 8. Border Radius
 
 ```css
---radius-sm: 0.25rem;   /* 4px - small elements */
---radius-md: 0.375rem;  /* 6px - buttons, inputs */
---radius-lg: 0.5rem;    /* 8px - cards, panels */
---radius-xl: 0.75rem;   /* 12px - large containers */
---radius-full: 9999px;  /* Fully rounded - badges, pills */
+--radius-xs: 3px;    /* tags, kbd */
+--radius-sm: 4px;    /* badges, small chips */
+--radius-md: 6px;    /* buttons, inputs, menu items, avatars */
+--radius-lg: 10px;   /* cards, panels, alerts, dropdown surfaces */
+--radius-xl: 14px;   /* hero panels */
+--radius-pill: 999px;
 ```
 
----
+Tailwind's `rounded-sm/md/lg/xl` map onto these tokens, so existing markup follows the scale without edits. Do not round everything: a control is `md`, a surface is `lg`, and status pills are the only fully-round elements.
 
 ## 9. Tailwind CSS Configuration
 
-Add this configuration to your `tailwind.config.js` to extend Tailwind with the custom design tokens:
+The canonical configuration is `src/DiscordBot.Bot/tailwind.config.js`; it is intentionally thin because the values live in `site.css`:
 
-```javascript
-/** @type {import('tailwindcss').Config} */
-module.exports = {
-  content: [
-    "./Pages/**/*.{razor,cshtml}",
-    "./Components/**/*.{razor,cshtml}",
-    "./wwwroot/**/*.html",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        // Background layers
-        bg: {
-          primary: '#1d2022',
-          secondary: '#262a2d',
-          tertiary: '#2f3336',
-          hover: '#363a3e',
-        },
-        // Text colors
-        text: {
-          primary: '#d7d3d0',
-          secondary: '#a8a5a3',
-          tertiary: '#7a7876',
-          inverse: '#1d2022',
-        },
-        // Brand accent colors
-        accent: {
-          orange: {
-            DEFAULT: '#cb4e1b',
-            hover: '#e5591f',
-            active: '#b04517',
-            muted: '#cb4e1b33',
-          },
-          blue: {
-            DEFAULT: '#098ecf',
-            hover: '#0ba3ea',
-            active: '#0879b3',
-            muted: '#098ecf33',
-          },
-        },
-        // Semantic colors
-        success: {
-          DEFAULT: '#10b981',
-          bg: '#10b98120',
-          border: '#10b98150',
-        },
-        warning: {
-          DEFAULT: '#f59e0b',
-          bg: '#f59e0b20',
-          border: '#f59e0b50',
-        },
-        error: {
-          DEFAULT: '#ef4444',
-          bg: '#ef444420',
-          border: '#ef444450',
-        },
-        info: {
-          DEFAULT: '#06b6d4',
-          bg: '#06b6d420',
-          border: '#06b6d450',
-        },
-        // Border colors
-        border: {
-          primary: '#3f4447',
-          secondary: '#2f3336',
-          focus: '#098ecf',
-        },
-      },
-      fontFamily: {
-        sans: [
-          '-apple-system',
-          'BlinkMacSystemFont',
-          '"Segoe UI"',
-          'Roboto',
-          '"Helvetica Neue"',
-          'Arial',
-          'sans-serif',
-          '"Apple Color Emoji"',
-          '"Segoe UI Emoji"',
-          '"Segoe UI Symbol"',
-        ],
-        mono: [
-          'ui-monospace',
-          'SFMono-Regular',
-          '"SF Mono"',
-          'Menlo',
-          'Monaco',
-          'Consolas',
-          '"Liberation Mono"',
-          '"Courier New"',
-          'monospace',
-        ],
-      },
-      fontSize: {
-        'display': ['3rem', { lineHeight: '1.1', letterSpacing: '-0.02em', fontWeight: '700' }],
-        'h1': ['2.25rem', { lineHeight: '1.2', letterSpacing: '-0.01em', fontWeight: '700' }],
-        'h2': ['1.875rem', { lineHeight: '1.3', letterSpacing: '-0.01em', fontWeight: '600' }],
-        'h3': ['1.5rem', { lineHeight: '1.35', fontWeight: '600' }],
-        'h4': ['1.25rem', { lineHeight: '1.4', fontWeight: '600' }],
-        'h5': ['1.125rem', { lineHeight: '1.4', fontWeight: '600' }],
-        'h6': ['1rem', { lineHeight: '1.5', fontWeight: '600' }],
-      },
-      spacing: {
-        // Additional spacing values (Tailwind already includes 0-96)
-        '128': '32rem',
-        '144': '36rem',
-      },
-      boxShadow: {
-        'sm': '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
-        'DEFAULT': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
-        'md': '0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
-        'lg': '0 10px 15px -3px rgba(0, 0, 0, 0.3), 0 4px 6px -2px rgba(0, 0, 0, 0.2)',
-        'xl': '0 20px 25px -5px rgba(0, 0, 0, 0.3), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
-        'glow-orange': '0 0 20px rgba(203, 78, 27, 0.4)',
-        'glow-blue': '0 0 20px rgba(9, 142, 207, 0.4)',
-      },
-      borderRadius: {
-        'sm': '0.25rem',
-        'DEFAULT': '0.375rem',
-        'md': '0.375rem',
-        'lg': '0.5rem',
-        'xl': '0.75rem',
-      },
-    },
-  },
-  plugins: [],
-}
-```
+- **Colours** are `rgb(var(--color-x-rgb) / <alpha-value>)` so opacity modifiers work per theme. Border colours are plain `var()` hairlines.
+- **Fonts** are `var(--font-display|body|mono)`.
+- **Type scale** (`text-display`, `text-h1`…`text-h6`) uses `clamp()` for the two largest sizes.
+- **Radius and shadow** utilities map to the tokens in §7 and §8.
+- A `safelist` keeps component classes composed at runtime (`badge-*`, `btn-*`, `alert-*`, `sidebar-*`, `topbar-*`…) from being purged.
 
----
+`npm run build:css` compiles `wwwroot/css/site.css` to `wwwroot/css/app.css`; `dotnet build` runs it automatically unless `SkipTailwind=true`.
 
 ## 10. Responsive Patterns
 
@@ -4359,6 +4209,15 @@ Start with mobile styles, then enhance for larger screens:
 ---
 
 ## Changelog
+
+### Version 2.0 (2026-09-02) — "Graphite"
+- Complete visual overhaul: graphite canvas, hairline rules, ember as the single selection/primary accent, signal blue demoted to links and information.
+- New typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (measured values).
+- Tokens republished as RGB triplets so Tailwind opacity modifiers follow the theme; new `bg-inset`, `border-strong`, `border-hover`, `nav-hover/active`, `row-hover`, `overlay`, `surface-highlight` and radius tokens.
+- Full-height sidebar rail with brand block, mono section labels and an LED status footer; slimmer top bar with a command-palette search.
+- Components restyled: buttons (`btn-warning`, `btn-ghost`, `btn-block` added), soft-tint badges (`badge-solid`, `badge-outline`, `badge-subtle`), left-rule alerts, inset inputs, tabular tables, LED status banner, page-header pattern.
+- Login page recomposed as a ruled brand panel plus form; ambient gradients and particles removed.
+- Purple Dusk retuned to the same token set.
 
 ### Version 1.5 (2026-01-26)
 - Added Navigation Tabs subsection to Component Guidelines (Section 4)

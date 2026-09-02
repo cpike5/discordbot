@@ -4,7 +4,7 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#1d2022" />
+    <meta name="theme-color" content="#0f1114" />
     <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
     <title>@ViewData["Title"] - Discord Bot Admin</title>
     <!-- Blocking theme application script - runs before first paint to prevent flash -->
@@ -17,10 +17,10 @@
             } catch (e) {}
         })();
     </script>
-    <!-- Heading typeface - Plus Jakarta Sans (600-700 weight only) -->
+    <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
@@ -46,16 +46,15 @@
     <!-- Mobile Search Overlay -->
     @await Html.PartialAsync("_MobileSearchOverlay")
 
-
-    <!-- Top Navigation Bar -->
-    @await Html.PartialAsync("_Navbar")
-
-    <!-- Sidebar Navigation -->
+    <!-- Sidebar Rail (full height) -->
     @await Html.PartialAsync("_Sidebar")
+
+    <!-- Top Bar (offset by the sidebar on desktop) -->
+    @await Html.PartialAsync("_Navbar")
 
     <!-- Main Content Area -->
     <main id="main-content" class="main-content-redesign">
-        <div class="p-4 lg:p-6 max-w-screen-2xl mx-auto">
+        <div class="page-container">
             <!-- Breadcrumb Navigation -->
             @if (ViewData["Breadcrumbs"] != null)
             {

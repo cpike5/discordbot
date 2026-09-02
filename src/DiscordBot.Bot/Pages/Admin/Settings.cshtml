@@ -13,13 +13,13 @@
 <!-- Page Header -->
 <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
     <div>
-        <h1 class="text-2xl lg:text-3xl font-bold text-text-primary">Settings</h1>
-        <p class="text-text-secondary mt-1">Manage your bot configuration and preferences</p>
+        <h1 class="page-title">Settings</h1>
+        <p class="page-subtitle">Manage your bot configuration and preferences</p>
     </div>
     <div class="flex items-center gap-3">
         <button type="button"
                 onclick="window.settingsManager?.showResetAllModal()"
-                class="inline-flex items-center gap-2 px-4 py-2.5 bg-bg-secondary hover:bg-bg-hover border border-border-primary text-text-primary font-semibold text-sm rounded-lg transition-colors">
+                class="btn btn-secondary">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
@@ -27,7 +27,7 @@
         </button>
         <button type="button"
                 onclick="window.settingsManager?.saveAllSettings()"
-                class="inline-flex items-center gap-2 px-4 py-2.5 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
+                class="btn btn-primary">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
             </svg>
@@ -175,7 +175,7 @@
                     </button>
                     <button type="button"
                             onclick="window.settingsManager?.saveCategory('General')"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                            class="btn btn-primary">
                         Save Changes
                     </button>
                 </div>
@@ -240,7 +240,7 @@
                     </button>
                     <button type="button"
                             onclick="window.settingsManager?.saveCategory('Features')"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                            class="btn btn-primary">
                         Save Changes
                     </button>
                 </div>
@@ -375,7 +375,7 @@
                 <div class="flex justify-end gap-3">
                     <button type="button"
                             onclick="window.settingsManager?.saveCommandModules()"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                            class="btn btn-primary">
                         Save Changes
                     </button>
                 </div>
@@ -440,7 +440,7 @@
                     </button>
                     <button type="button"
                             onclick="window.settingsManager?.saveCategory('Advanced')"
-                            class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                            class="btn btn-primary">
                         Save Changes
                     </button>
                 </div>
@@ -543,7 +543,7 @@
                         <!-- Restart Button -->
                         <button type="button"
                                 onclick="window.quickActions?.showConfirmationModal('restartModal')"
-                                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-warning hover:bg-amber-600 active:bg-amber-700 text-text-inverse font-semibold text-sm rounded-lg transition-colors">
+                                class="w-full flex items-center justify-center gap-2 px-4 py-3 bg-warning hover:bg-warning-hover active:bg-warning-active text-text-inverse font-semibold text-sm rounded-lg transition-colors">
                             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                             </svg>
@@ -652,7 +652,7 @@
                     <div class="mt-4">
                         <button type="button"
                                 onclick="window.settingsManager?.showTypedModal('shutdownModal')"
-                                class="flex items-center gap-2 px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-lg transition-colors">
+                                class="btn btn-danger">
                             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
                             </svg>
@@ -705,7 +705,7 @@
                         </button>
                         <button type="button"
                                 onclick="window.settingsManager?.saveAppearance()"
-                                class="inline-flex items-center gap-2 px-4 py-2 bg-accent-orange hover:bg-orange-600 active:bg-orange-700 text-text-inverse font-medium text-sm rounded-lg transition-colors">
+                                class="btn btn-primary">
                             Save Changes
                         </button>
                     </div>
@@ -764,7 +764,7 @@
             <div class="mt-4">
                 <button type="button"
                         onclick="window.settingsManager?.showResetAllModal()"
-                        class="inline-flex items-center gap-2 px-4 py-2.5 bg-error hover:bg-red-600 active:bg-red-700 text-white font-semibold text-sm rounded-lg transition-colors">
+                        class="btn btn-danger">
                     <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                     </svg>
@@ -788,7 +788,7 @@
         padding: 0.75rem 1rem;
         font-size: 0.875rem;
         font-weight: 500;
-        color: #a8a5a3;
+        color: var(--color-text-secondary);
         border-radius: 0.5rem;
         cursor: pointer;
         transition: all 0.15s ease-out;
@@ -797,12 +797,12 @@
     }
 
     .settings-tab:hover {
-        background-color: #2f3336;
-        color: #d7d3d0;
+        background-color: var(--color-bg-tertiary);
+        color: var(--color-text-primary);
     }
 
     .settings-tab.active {
-        background-color: #cb4e1b;
+        background-color: var(--color-accent-orange);
         color: white;
     }
 
@@ -822,17 +822,17 @@
 
     /* Save Button State Styles */
     .btn-save-success {
-        background-color: #10b981 !important;
+        background-color: var(--color-success) !important;
         color: #ffffff !important;
         cursor: default;
     }
 
     .btn-save-success:hover {
-        background-color: #10b981 !important;
+        background-color: var(--color-success) !important;
     }
 
     .btn-save-error {
-        background-color: #ef4444 !important;
+        background-color: var(--color-error) !important;
         color: #ffffff !important;
         cursor: pointer;
     }

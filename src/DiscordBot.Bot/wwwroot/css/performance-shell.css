@@ -87,7 +87,7 @@
 
 .time-range-option.active {
     color: var(--color-accent-blue);
-    background: rgba(9, 142, 207, 0.15);
+    background: rgba(var(--color-accent-blue-rgb), 0.15);
 }
 
 .time-range-option:focus-visible {
@@ -197,7 +197,7 @@
     font-weight: 700;
     line-height: 1;
     color: var(--color-error);
-    background: rgba(239, 68, 68, 0.2);
+    background: rgba(var(--color-error-rgb), 0.2);
     border-radius: 9999px;
 }
 
