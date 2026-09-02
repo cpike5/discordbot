@@ -235,12 +235,12 @@ Traces (`traces-apm-default`):
 
 ## Dashboard 8: AI Assistant Overview
 
-**Purpose**: Cost tracking, usage analytics, and agent performance for the Anthropic-powered assistant.
+**Purpose**: Cost tracking, usage analytics, and agent performance for the OpenRouter-powered assistant.
 **Default time range**: Last 7 days.
 
 ### AI Assistant Logger Inventory
 - ToolRegistry: 545 (tool provider registrations)
-- AnthropicLlmClient: 171 (API completions)
+- OpenRouterLlmClient: 171 (API completions)
 - AgentRunner: 97 (agent loop completions)
 - DmAssistantMessageHandler: 65 (DM message delivery)
 - DmAssistantService: 64 (DM response metrics)
@@ -256,7 +256,7 @@ Traces (`traces-apm-default`):
 
 **DmAssistantService**: `metadata.InputTokens`, `metadata.OutputTokens`, `metadata.CachedTokens`, `metadata.Cost`, `metadata.LatencyMs`, `metadata.ToolCalls`, `metadata.Loops`, `metadata.UserId`
 **AssistantService**: `metadata.TotalTokens`, `metadata.LatencyMs`, `metadata.Cost`
-**AnthropicLlmClient**: `metadata.InputTokens`, `metadata.OutputTokens`, `metadata.CachedTokens`
+**OpenRouterLlmClient**: `metadata.InputTokens`, `metadata.OutputTokens`, `metadata.CachedTokens`
 **AgentRunner**: `metadata.TotalTokens`, `metadata.Iterations`, `metadata.ToolCalls`
 **AssistantUsageMetricsRepository**: `metadata.GuildId`, `metadata.Date`, `metadata.Id`
 
@@ -275,8 +275,8 @@ Traces (`traces-apm-default`):
 | 1 | Conversations Over Time | Line | Logs | DmAssistantService + AssistantService response messages, date_histogram |
 | 2 | Total Cost (period) | Metric (sum) | Logs | `metadata.Cost` from DmAssistantService + AssistantService |
 | 3 | Cost Over Time | Stacked area | Logs | `metadata.Cost` sum per day, stacked: DmAssistantService vs AssistantService |
-| 4 | Token Usage Breakdown | Stacked bar | Logs | AnthropicLlmClient: sum of `metadata.InputTokens`, `metadata.OutputTokens`, `metadata.CachedTokens` per day |
-| 5 | Cache Hit Efficiency | Line | Logs | AnthropicLlmClient: `metadata.CachedTokens / (metadata.InputTokens + metadata.CachedTokens) * 100` |
+| 4 | Token Usage Breakdown | Stacked bar | Logs | OpenRouterLlmClient: sum of `metadata.InputTokens`, `metadata.OutputTokens`, `metadata.CachedTokens` per day |
+| 5 | Cache Hit Efficiency | Line | Logs | OpenRouterLlmClient: `metadata.CachedTokens / (metadata.InputTokens + metadata.CachedTokens) * 100` |
 | 6 | Response Latency (p50/p95) | Line | Logs | DmAssistantService + AssistantService: percentiles of `metadata.LatencyMs` |
 | 7 | Agentic Loops per Request | Bar (histogram) | Logs | AgentRunner: `metadata.Iterations` value distribution |
 | 8 | Tool Calls per Request | Bar | Logs | AgentRunner: `metadata.ToolCalls` value distribution |

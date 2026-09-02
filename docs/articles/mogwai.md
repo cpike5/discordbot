@@ -164,15 +164,17 @@ docker compose -f docker-compose.mogwai.yml logs -f mogwai
 
 ### `.env.mogwai`
 
-Create a `.env.mogwai` file (never commit this) with the Mogwai-specific bot token and API key:
+Create a `.env.mogwai` file (never commit this) with the Mogwai-specific bot token and API keys:
 
 ```env
 Discord__Token=your-mogwai-bot-token-here
-Anthropic__ApiKey=your-anthropic-api-key-here
+OpenRouter__ApiKey=your-openrouter-api-key-here
 ANTHROPIC_API_KEY=your-anthropic-api-key-here
 ```
 
-> Both `Anthropic__ApiKey` (used by the .NET DM assistant) and `ANTHROPIC_API_KEY` (used by the `claude` CLI process inside the container) are required.
+> Both are required, and they are **two different keys for two different services**. The .NET DM
+> assistant makes its LLM calls through OpenRouter and reads `OpenRouter__ApiKey`; the `claude` CLI
+> process inside the container talks to Anthropic directly and reads `ANTHROPIC_API_KEY`.
 
 ### `docker-compose.mogwai.yml` Overview
 
@@ -225,7 +227,7 @@ Mogwai inherits the DM assistant's owner check (`GetApplicationInfoAsync()`). Th
 
 ### API Key Handling
 
-- `Anthropic__ApiKey` is injected via `.env.mogwai` and is never committed to version control.
+- `OpenRouter__ApiKey` is injected via `.env.mogwai` and is never committed to version control.
 - The `claude` CLI reads `ANTHROPIC_API_KEY` from the process environment — no browser-based authentication is needed inside the container.
 
 ---
@@ -253,10 +255,10 @@ The default timeout is 300 seconds. For tasks that need longer, increase `Mogwai
 
 ### `ANTHROPIC_API_KEY` not found
 
-Both the .NET process and the `claude` CLI need the API key. Confirm your `.env.mogwai` contains both variables:
+The .NET process and the `claude` CLI each need their own key. Confirm your `.env.mogwai` contains both variables:
 
 ```env
-Anthropic__ApiKey=sk-ant-...
+OpenRouter__ApiKey=sk-or-v1-...
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 

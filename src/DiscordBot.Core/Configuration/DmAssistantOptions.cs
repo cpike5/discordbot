@@ -39,23 +39,27 @@ public class DmAssistantOptions
 
     #endregion
 
-    #region Claude API Configuration
+    #region LLM Configuration
 
     /// <summary>
-    /// Gets or sets the Claude model identifier to use.
-    /// Default is "claude-sonnet-4-20250514".
+    /// Gets or sets the OpenRouter model slug to use.
+    /// Default is "anthropic/claude-sonnet-4".
     /// </summary>
-    public string Model { get; set; } = "claude-sonnet-4-20250514";
+    /// <remarks>
+    /// Any slug from https://openrouter.ai/models works.
+    /// If null or empty, falls back to OpenRouter:DefaultModel.
+    /// </remarks>
+    public string Model { get; set; } = "anthropic/claude-sonnet-4";
 
     /// <summary>
-    /// Gets or sets the maximum number of tokens for Claude's response.
+    /// Gets or sets the maximum number of tokens for the model's response.
     /// Higher than guild assistant (512) — general-purpose conversation needs longer responses.
     /// Default is 4096 tokens.
     /// </summary>
     public int MaxTokens { get; set; } = 4096;
 
     /// <summary>
-    /// Gets or sets the temperature for Claude's responses (0.0 to 1.0).
+    /// Gets or sets the temperature for the model's responses (0.0 to 1.0).
     /// Default is 0.7 (balanced).
     /// </summary>
     public double Temperature { get; set; } = 0.7;
@@ -98,6 +102,11 @@ public class DmAssistantOptions
     /// <summary>
     /// Gets or sets the cost per million input tokens in USD.
     /// </summary>
+    /// <remarks>
+    /// Fallback only. OpenRouter reports the real billed cost per call, and that figure is used
+    /// whenever it is present; these rates apply only when a response carries no cost, and they are
+    /// wrong for any model whose pricing differs from the configured one.
+    /// </remarks>
     public decimal CostPerMillionInputTokens { get; set; } = 3.00m;
 
     /// <summary>

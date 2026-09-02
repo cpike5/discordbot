@@ -108,7 +108,7 @@ All other Options classes rely on in-class defaults and do not validate at start
 | `Discord:TestGuildId` | Instant command registration to test guild | Commands register globally (up to 1hr delay) |
 | `Identity:DefaultAdmin:Email` | Email for seeded admin account | No admin created on first run |
 | `Identity:DefaultAdmin:Password` | Password for seeded admin account | No admin created on first run |
-| `Anthropic:ApiKey` | Claude API key for AI assistant | Assistant feature disabled |
+| `OpenRouter:ApiKey` | OpenRouter API key for AI assistant (https://openrouter.ai/keys) | Assistant feature disabled |
 | `AzureSpeech:SubscriptionKey` | Azure Speech Services key for TTS | TTS feature disabled |
 | `Elastic:ApiKey` | Elasticsearch ingestion API key | No Elasticsearch log shipping |
 | `ElasticApm:ServerUrl` | Elastic APM server URL | APM disabled |
@@ -157,7 +157,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 
 | Options Class | Section Key | Registered In | Key Properties |
 |--------------|-------------|---------------|----------------|
-| `AnthropicOptions` | `Anthropic` | `AssistantServiceExtensions` | `ApiKey` (secret), `DefaultModel`, `MaxRetries`, `TimeoutSeconds` |
+| `OpenRouterOptions` | `OpenRouter` | `AssistantServiceExtensions` | `ApiKey` (secret), `BaseUrl`, `DefaultModel` (OpenRouter slug), `MaxRetries`, `TimeoutSeconds`, `RetryBaseDelayMs`, `EnablePromptCachingByDefault`, `AppUrl`, `AppTitle` |
 | `AssistantOptions` | `Assistant` | `AssistantServiceExtensions` | 30+ properties: enable/disable, rate limits, model config, prompt paths, tool config, cost tracking |
 
 #### Audio / Voice
@@ -470,7 +470,7 @@ Axis C: (GuildRatWatchSettings.IsEnabled exists but is not currently wired into 
 | `src/DiscordBot.Bot/Extensions/DiscordServiceExtensions.cs` | `BotConfiguration` (validated) |
 | `src/DiscordBot.Bot/Extensions/IdentityServiceExtensions.cs` | `DiscordOAuthOptions`, `IdentityConfigOptions` (validated) |
 | `src/DiscordBot.Bot/Extensions/VoiceServiceExtensions.cs` | All 7 audio/voice Options classes |
-| `src/DiscordBot.Bot/Extensions/AssistantServiceExtensions.cs` | `AnthropicOptions`, `AssistantOptions` |
+| `src/DiscordBot.Bot/Extensions/AssistantServiceExtensions.cs` | `OpenRouterOptions`, `AssistantOptions` |
 | `src/DiscordBot.Bot/Extensions/ScheduledServicesExtensions.cs` | `ScheduledMessagesOptions`, `ReminderOptions` |
 | `src/DiscordBot.Bot/Extensions/NotificationServiceExtensions.cs` | `NotificationOptions`, `NotificationRetentionOptions` |
 | `src/DiscordBot.Bot/Extensions/ModerationServiceExtensions.cs` | `ModerationOptions`, `AutoModerationOptions` |

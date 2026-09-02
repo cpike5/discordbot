@@ -303,7 +303,7 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
             ConsentType.MessageLogging =>
                 "Your messages in DMs with this bot and in mutual servers may now be logged.",
             ConsentType.AssistantUsage =>
-                "You can now mention the bot to ask questions. Your questions and responses will be processed by Claude AI and logged for quality purposes.",
+                "You can now mention the bot to ask questions. Your questions and responses will be processed by OpenRouter and its model provider, and logged for quality purposes.",
             _ => "Your consent has been recorded."
         };
     }

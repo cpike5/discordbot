@@ -31,7 +31,7 @@ This document describes the environment-specific configuration files and their i
 | `Sampling` | `SamplingOptions` | CommandSampleRate, MetricsSampleRate |
 | `Caching` | `CachingOptions` | DefaultExpirationMinutes, SlidingExpiration, MaxCacheSize |
 | `GuildMembershipCache` | `GuildMembershipCacheOptions` | ExpirationMinutes, RefreshThresholdMinutes |
-| `Anthropic` | `AnthropicOptions` | ApiKey, Model, MaxTokens |
+| `OpenRouter` | `OpenRouterOptions` | ApiKey, BaseUrl, DefaultModel, MaxRetries, TimeoutSeconds |
 | `Assistant` | `AssistantOptions` | Enabled, DefaultSystemPrompt, MaxContextMessages |
 | `IdentityConfig` | `IdentityConfigOptions` | RequireEmailConfirmation, LockoutEnabled, MaxFailedAccessAttempts |
 | `Verification` | `VerificationOptions` | CodeLength, ExpirationMinutes, MaxAttempts |
@@ -503,7 +503,7 @@ Store secrets locally using the User Secrets manager:
 dotnet user-secrets set "Discord:Token" "your-bot-token"
 dotnet user-secrets set "Discord:OAuth:ClientId" "your-client-id"
 dotnet user-secrets set "Discord:OAuth:ClientSecret" "your-client-secret"
-dotnet user-secrets set "Anthropic:ApiKey" "your-api-key"
+dotnet user-secrets set "OpenRouter:ApiKey" "your-api-key"
 dotnet user-secrets set "AzureSpeech:SubscriptionKey" "your-subscription-key"
 ```
 
@@ -518,7 +518,7 @@ Use secure environment variable management:
 | OAuth Client Secret | `Discord__OAuth__ClientSecret` | Discord OAuth2 client secret |
 | Database Provider | `Database__Provider` | `Sqlite` or `PostgreSql` (or omit for auto-detect) |
 | Database Connection | `ConnectionStrings__DefaultConnection` | Full connection string for the selected provider |
-| Anthropic API Key | `Anthropic__ApiKey` | Anthropic/Claude API key |
+| OpenRouter API Key | `OpenRouter__ApiKey` | OpenRouter API key for the AI assistant (https://openrouter.ai/keys) |
 | Azure Speech Key | `AzureSpeech__SubscriptionKey` | Azure Speech Services subscription key |
 | Seq API Key | `Serilog__WriteTo__2__Args__apiKey` | Seq log aggregation API key |
 
@@ -1000,27 +1000,46 @@ Guild membership cache settings.
 
 ### AI Assistant Configuration
 
-#### AnthropicOptions
+#### OpenRouterOptions
 
-Anthropic/Claude API configuration.
+OpenRouter API configuration. OpenRouter exposes an OpenAI-compatible chat-completions API in front
+of many model providers, so model names are OpenRouter slugs (`anthropic/claude-sonnet-4`,
+`openai/gpt-4o`) rather than a single vendor's model IDs. The bot talks to it through an owned typed
+`HttpClient` — there is no LLM SDK dependency.
 
 | Property | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ApiKey` | string | - | Anthropic API key (SECRET) |
-| `Model` | string | "claude-3-sonnet-20240229" | Model identifier |
-| `MaxTokens` | int | 4096 | Maximum response tokens |
+| `ApiKey` | string | - | OpenRouter API key (SECRET) |
+| `BaseUrl` | string | "https://openrouter.ai/api/v1/" | API base address (trailing slash required) |
+| `DefaultModel` | string | "anthropic/claude-sonnet-4" | Model slug used when a request does not name one |
+| `MaxRetries` | int | 3 | Retry attempts for transient failures (HTTP 408/429/5xx, timeouts, network errors) |
+| `TimeoutSeconds` | int | 300 | Per-attempt request timeout |
+| `RetryBaseDelayMs` | int | 1000 | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
+| `EnablePromptCachingByDefault` | bool | true | Add a cache breakpoint to the system prompt by default |
+| `AppUrl` | string | - | Site URL sent as `HTTP-Referer` (optional attribution) |
+| `AppTitle` | string | "DiscordBot" | Application name sent as `X-Title` |
 
 ```json
 {
-  "Anthropic": {
+  "OpenRouter": {
     "ApiKey": "(user-secrets)",
-    "Model": "claude-3-sonnet-20240229",
-    "MaxTokens": 4096
+    "BaseUrl": "https://openrouter.ai/api/v1/",
+    "DefaultModel": "anthropic/claude-sonnet-4",
+    "MaxRetries": 3,
+    "TimeoutSeconds": 300,
+    "RetryBaseDelayMs": 1000,
+    "EnablePromptCachingByDefault": true,
+    "AppTitle": "DiscordBot"
   }
 }
 ```
 
-**Note:** Store `ApiKey` in User Secrets or environment variables.
+**Note:** Store `ApiKey` in User Secrets or the `OpenRouter__ApiKey` environment variable. Keys are
+issued at https://openrouter.ai/keys; the full model list is at https://openrouter.ai/models. Without
+an API key the assistant services are not registered at all.
+
+**Prompt caching:** cache breakpoints are passed through to Claude-family slugs only. Other models
+ignore them and report zero cached tokens, so the setting is safe to leave enabled for any slug.
 
 #### AssistantOptions
 

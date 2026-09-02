@@ -35,7 +35,8 @@ window.guildId = '@Model.GuildId';
 
 ### Configuration
 
-- **Never commit tokens** - use User Secrets for `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`, `Anthropic:ApiKey`, `AzureSpeech:SubscriptionKey`
+- **Never commit tokens** - use User Secrets for `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`, `OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`
+- **LLM provider** - the assistant talks to [OpenRouter](https://openrouter.ai) (OpenAI-compatible chat completions) through the owned typed client in `Infrastructure/Services/LLM/OpenRouter/`. No vendor SDK: build LLM work on `ILlmClient` and the owned wire records. Model names are OpenRouter slugs (`anthropic/claude-sonnet-4`, `openai/gpt-4o`). Without `OpenRouter:ApiKey` the assistant services are not registered, so migrations still run.
 - **Command propagation** - Without `Discord:TestGuildId`, global commands take up to 1 hour to appear
 - **Discord terminology** - Use "guild" not "server" in URLs/code (Discord API convention)
 - **Database provider** - Set `Database:Provider` to `Sqlite` or `PostgreSql` to explicitly select a provider; omit for auto-detection from the connection string (`Host=`/`Server=` → PostgreSQL, file-path `Data Source` → SQLite). Default is SQLite at `data/discordbot.db`.

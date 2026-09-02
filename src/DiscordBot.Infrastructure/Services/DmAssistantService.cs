@@ -300,8 +300,18 @@ public class DmAssistantService : IDmAssistantService
         return response[..truncateAt] + _options.TruncationSuffix;
     }
 
+    /// <summary>
+    /// Cost of a run in USD. OpenRouter reports what it actually billed, so that figure wins when
+    /// present; the configured per-million rates are the fallback for a response that carried no
+    /// cost (a BYOK call, or a provider that doesn't report one).
+    /// </summary>
     private decimal CalculateCost(LlmUsage usage)
     {
+        if (usage.EstimatedCost.HasValue)
+        {
+            return usage.EstimatedCost.Value;
+        }
+
         var inputCost = usage.InputTokens * _options.CostPerMillionInputTokens / 1_000_000m;
         var outputCost = usage.OutputTokens * _options.CostPerMillionOutputTokens / 1_000_000m;
         var cachedCost = usage.CachedTokens * _options.CostPerMillionCachedTokens / 1_000_000m;
