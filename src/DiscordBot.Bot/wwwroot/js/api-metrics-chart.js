@@ -67,8 +67,8 @@
                     {
                         label: 'Average Latency',
                         data: avgData,
-                        borderColor: '#098ecf',
-                        backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                        borderColor: '#3d9ad6',
+                        backgroundColor: 'rgba(61, 154, 214, 0.1)',
                         fill: true,
                         tension: 0.4,
                         pointRadius: 2,
@@ -77,7 +77,7 @@
                     {
                         label: 'P95 Latency',
                         data: p95Data,
-                        borderColor: '#f59e0b',
+                        borderColor: '#f0a323',
                         backgroundColor: 'transparent',
                         fill: false,
                         tension: 0.4,
@@ -100,14 +100,14 @@
                         labels: {
                             boxWidth: 12,
                             padding: 20,
-                            color: '#a8a5a3'
+                            color: '#a09c96'
                         }
                     },
                     tooltip: {
-                        backgroundColor: '#2f3336',
-                        titleColor: '#d7d3d0',
-                        bodyColor: '#a8a5a3',
-                        borderColor: '#3f4447',
+                        backgroundColor: '#1c2025',
+                        titleColor: '#e7e4df',
+                        bodyColor: '#a09c96',
+                        borderColor: '#2a2f36',
                         borderWidth: 1,
                         padding: 12,
                         callbacks: {
@@ -121,10 +121,10 @@
                     y: {
                         beginAtZero: true,
                         grid: {
-                            color: '#2f3336'
+                            color: '#1c2025'
                         },
                         ticks: {
-                            color: '#a8a5a3',
+                            color: '#a09c96',
                             callback: function (value) {
                                 return value + ' ms';
                             }
@@ -135,7 +135,7 @@
                             display: false
                         },
                         ticks: {
-                            color: '#a8a5a3',
+                            color: '#a09c96',
                             maxRotation: 45,
                             minRotation: 0
                         }
@@ -186,8 +186,8 @@
         }
 
         // Set Chart.js defaults for dark theme
-        Chart.defaults.color = '#a8a5a3';
-        Chart.defaults.borderColor = '#3f4447';
+        Chart.defaults.color = '#a09c96';
+        Chart.defaults.borderColor = '#2a2f36';
 
         // Load chart data
         loadChartData();

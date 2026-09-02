@@ -20,17 +20,17 @@
                     }
                 },
                 tooltip: {
-                    backgroundColor: '#2f3336',
-                    titleColor: '#d7d3d0',
-                    bodyColor: '#a8a5a3',
-                    borderColor: '#3f4447',
+                    backgroundColor: '#1c2025',
+                    titleColor: '#e7e4df',
+                    bodyColor: '#a09c96',
+                    borderColor: '#2a2f36',
                     borderWidth: 1,
                     padding: 12
                 }
             },
             scales: {
                 y: {
-                    grid: { color: '#2f3336' }
+                    grid: { color: '#1c2025' }
                 },
                 x: {
                     grid: { display: false }
@@ -40,11 +40,11 @@
 
         // Color palette
         colors: {
-            primary: '#098ecf',
-            secondary: '#cb4e1b',
-            success: '#10b981',
-            warning: '#f59e0b',
-            error: '#ef4444',
+            primary: '#3d9ad6',
+            secondary: '#e6602b',
+            success: '#2fbf7f',
+            warning: '#f0a323',
+            error: '#ef4f4f',
             info: '#3b82f6',
             muted: 'rgba(47, 51, 54, 0.8)'
         },
@@ -101,7 +101,7 @@
         createGaugeChart: function(ctx, value, maxValue, thresholds, colorScheme) {
             const percentage = Math.min((value / maxValue) * 100, 100);
             const remaining = 100 - percentage;
-            const colors = colorScheme || ['#10b981', '#f59e0b', '#ef4444'];
+            const colors = colorScheme || ['#2fbf7f', '#f0a323', '#ef4f4f'];
             const gaugeColor = this.getThresholdColor(value, thresholds, colors);
 
             return new Chart(ctx, {

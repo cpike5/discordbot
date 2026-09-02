@@ -19,19 +19,19 @@
      */
     function initColors() {
         return {
-            accentOrange: getDesignToken('accent-orange') || '#cb4e1b',
-            accentBlue: getDesignToken('accent-blue') || '#098ecf',
-            success: getDesignToken('success') || '#10b981',
-            warning: getDesignToken('warning') || '#f59e0b',
-            info: getDesignToken('info') || '#06b6d4',
-            error: getDesignToken('error') || '#ef4444',
-            bgPrimary: getDesignToken('bg-primary') || '#1d2022',
-            bgSecondary: getDesignToken('bg-secondary') || '#262a2d',
-            bgTertiary: getDesignToken('bg-tertiary') || '#2f3336',
-            textPrimary: getDesignToken('text-primary') || '#d7d3d0',
-            textSecondary: getDesignToken('text-secondary') || '#a8a5a3',
-            textTertiary: getDesignToken('text-tertiary') || '#7a7876',
-            borderPrimary: getDesignToken('border-primary') || '#3f4447',
+            accentOrange: getDesignToken('accent-orange') || '#e6602b',
+            accentBlue: getDesignToken('accent-blue') || '#3d9ad6',
+            success: getDesignToken('success') || '#2fbf7f',
+            warning: getDesignToken('warning') || '#f0a323',
+            info: getDesignToken('info') || '#2fb3cc',
+            error: getDesignToken('error') || '#ef4f4f',
+            bgPrimary: getDesignToken('bg-primary') || '#0f1114',
+            bgSecondary: getDesignToken('bg-secondary') || '#16191d',
+            bgTertiary: getDesignToken('bg-tertiary') || '#1c2025',
+            textPrimary: getDesignToken('text-primary') || '#e7e4df',
+            textSecondary: getDesignToken('text-secondary') || '#a09c96',
+            textTertiary: getDesignToken('text-tertiary') || '#6d6a66',
+            borderPrimary: getDesignToken('border-primary') || '#2a2f36',
         };
     }
 
@@ -126,8 +126,8 @@
         const activeMembersData = timeSeriesData.map(item => item.activeMembers);
 
         const messagesGradient = ctx.createLinearGradient(0, 0, 0, 300);
-        messagesGradient.addColorStop(0, 'rgba(9, 142, 207, 0.3)');
-        messagesGradient.addColorStop(1, 'rgba(9, 142, 207, 0.0)');
+        messagesGradient.addColorStop(0, 'rgba(61, 154, 214, 0.3)');
+        messagesGradient.addColorStop(1, 'rgba(61, 154, 214, 0.0)');
 
         activityTimeSeriesChart = new Chart(ctx, {
             type: 'line',
@@ -375,11 +375,11 @@
     }
 
     function getHeatmapColor(intensity) {
-        if (intensity === 0) return '#2f3336';
-        if (intensity < 0.25) return 'rgba(9, 142, 207, 0.2)';
-        if (intensity < 0.5) return 'rgba(9, 142, 207, 0.4)';
-        if (intensity < 0.75) return 'rgba(9, 142, 207, 0.6)';
-        return 'rgba(9, 142, 207, 0.8)';
+        if (intensity === 0) return '#1c2025';
+        if (intensity < 0.25) return 'rgba(61, 154, 214, 0.2)';
+        if (intensity < 0.5) return 'rgba(61, 154, 214, 0.4)';
+        if (intensity < 0.75) return 'rgba(61, 154, 214, 0.6)';
+        return 'rgba(61, 154, 214, 0.8)';
     }
 
     /**

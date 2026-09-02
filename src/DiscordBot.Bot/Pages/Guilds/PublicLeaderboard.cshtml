@@ -40,12 +40,16 @@
     <meta name="twitter:description" content="View the Hall of Shame leaderboard for @Model.GuildName" />
 
     <!-- Compiled Tailwind CSS -->
+    <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
 
     <style>
         /* Public page styling - dark Discord aesthetic */
         body {
-            background: linear-gradient(135deg, #1d2022 0%, #262a2d 100%);
+            background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
             min-height: 100vh;
         }
 
@@ -71,28 +75,28 @@
         }
 
         .rank-1 {
-            background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-            color: #1d2022;
+            background: linear-gradient(135deg, #fbbf24 0%, var(--color-warning) 100%);
+            color: var(--color-bg-primary);
         }
 
         .rank-2 {
             background: linear-gradient(135deg, #9ca3af 0%, #6b7280 100%);
-            color: #1d2022;
+            color: var(--color-bg-primary);
         }
 
         .rank-3 {
-            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
-            color: #1d2022;
+            background: linear-gradient(135deg, var(--color-warning) 0%, #d97706 100%);
+            color: var(--color-bg-primary);
         }
 
         .footer-link {
-            color: #a8a5a3;
+            color: var(--color-text-secondary);
             text-decoration: none;
             transition: color 0.2s ease-in-out;
         }
 
         .footer-link:hover {
-            color: #d7d3d0;
+            color: var(--color-text-primary);
         }
     </style>
 </head>

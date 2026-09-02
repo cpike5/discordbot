@@ -53,32 +53,43 @@ And automatically rebuild `wwwroot/css/app.css` on changes.
 
 ## Design System
 
-The Tailwind configuration includes custom theme extensions from the design system:
+`tailwind.config.js` is deliberately thin: every value is a CSS custom property declared in `wwwroot/css/site.css` (see `docs/articles/design-system.md`, v2.0 "Graphite").
 
 ### Colors
 
-- **Background layers**: `bg-primary`, `bg-secondary`, `bg-tertiary`, `bg-hover`
-- **Text colors**: `text-primary`, `text-secondary`, `text-tertiary`, `text-inverse`
-- **Accent colors**: `accent-orange`, `accent-blue` (with hover/active/muted variants)
-- **Semantic colors**: `success`, `warning`, `error`, `info` (with bg/border variants)
-- **Border colors**: `border-primary`, `border-secondary`, `border-focus`
+Colours are published as RGB triplets (`--color-success-rgb`) and wired as `rgb(var(--…-rgb) / <alpha-value>)`, so opacity modifiers such as `bg-success/20` or `text-accent-orange/60` follow the active theme.
+
+- **Surfaces**: `bg-bg-primary` (canvas), `bg-bg-secondary` (panels), `bg-bg-tertiary` (elevated), `bg-bg-hover`, `bg-bg-inset` (inputs)
+- **Text**: `text-text-primary`, `text-text-secondary`, `text-text-tertiary`, `text-text-placeholder`, `text-text-inverse`
+- **Accents**: `accent-orange` (ember — selected / primary) and `accent-blue` (signal blue — links / info), each with `-hover`, `-active`, `-muted`; `accent-purple`
+- **Semantic**: `success`, `warning`, `error`, `info`, each with `-hover`, `-active`, `-bg`, `-border`
+- **Rules**: `border-border-primary`, `border-border-secondary`, `border-border-strong`, `border-border-hover`, `border-border-focus` (alpha hairlines — no opacity modifier)
 
 ### Typography
 
-- **Headings**: `text-display`, `text-h1`, `text-h2`, `text-h3`, `text-h4`, `text-h5`, `text-h6`
-- **Font families**: `font-sans` (system UI stack), `font-mono`
+- `font-display` / `font-heading` → Bricolage Grotesque, `font-sans` → DM Sans, `font-mono` → JetBrains Mono (all loaded in the layouts from Google Fonts)
+- Headings: `text-display`, `text-h1` … `text-h6` (fluid `clamp()` sizes on the two largest)
 
-### Custom Component Classes
+### Radius & depth
 
-The following component classes are available in `site.css`:
+- `rounded-sm` 4px · `rounded-md` 6px (controls) · `rounded-lg` 10px (panels) · `rounded-xl` 14px
+- `shadow-sm|md|lg|xl` are layered token shadows; `shadow-highlight` is the 1px inner top light every panel carries
 
-- **Buttons**: `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-accent`, `.btn-danger`, `.btn-sm`, `.btn-lg`, `.btn-icon`
-- **Cards**: `.card`, `.card-header`, `.card-title`, `.card-body`, `.card-footer`, `.card-elevated`, `.card-interactive`
-- **Forms**: `.form-group`, `.form-label`, `.form-input`, `.form-select`, `.form-help`, `.form-error`, `.form-success`, `.toggle`, `.toggle-slider`, `.toggle-label`
-- **Navigation**: `.navbar`, `.navbar-brand`, `.navbar-link`, `.sidebar`, `.sidebar-link`, `.breadcrumb`
+### Component Classes
+
+Defined in `site.css` (`@layer components`):
+
+- **Buttons**: `.btn`, `.btn-primary`, `.btn-secondary`, `.btn-accent`, `.btn-danger`, `.btn-warning`, `.btn-ghost`, `.btn-sm`, `.btn-lg`, `.btn-icon`, `.btn-block`
+- **Surfaces**: `.surface`, `.card`, `.card-header`, `.card-title`, `.card-body`, `.card-footer`, `.card-elevated`, `.card-interactive`, `.card-enhanced` (+ `.accent-*`), `.hero-metric-card` (+ `.hero-metric-label|value|icon`)
+- **Page header**: `.page-header`, `.page-header-text`, `.page-eyebrow`, `.page-title`, `.page-subtitle`, `.page-actions`
+- **Forms**: `.form-group`, `.form-label`, `.form-input`, `.form-select`, `.form-textarea`, `.form-help`, `.form-error`, `.form-success`, `.toggle`, `.toggle-slider`, `.toggle-label`
+- **Shell**: `.sidebar-redesign`, `.sidebar-brand`, `.sidebar-group`, `.sidebar-section-header`, `.sidebar-link-redesign`, `.sidebar-footer`, `.bot-status-led`, `.topbar`, `.topbar-icon-btn`, `.topbar-search-input`, `.topbar-user`, `.user-menu-*`, `.main-content-redesign`, `.page-container`
 - **Tables**: `.table-container`, `.table`, `.table-header`, `.table-cell-header`, `.table-body`, `.table-row`, `.table-cell`
-- **Status**: `.badge`, `.status-indicator`
-- **Alerts**: `.alert`, `.alert-info`, `.alert-success`, `.alert-warning`, `.alert-error`
+- **Status**: `.badge` (+ `.badge-orange|blue|purple|success|warning|error|info|gray`, `.badge-solid`, `.badge-outline`, `.badge-subtle`, `.badge-sm|lg`, `.badge-case`), `.status-indicator`, `.status-glass`
+- **Alerts**: `.alert`, `.alert-info|success|warning|error`, `.alert-icon`, `.alert-title`, `.alert-message`
+- **Type helpers**: `.section-label`, `.kbd`, `.num`
+
+Classes rendered by JavaScript (notifications, toasts, search, popups) live outside `@layer` so they are never purged.
 
 ## Usage in Razor Pages
 
@@ -136,5 +147,5 @@ This is expected if you haven't added Razor pages with Tailwind classes yet. The
 ## References
 
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
-- [Design System Documentation](../../docs/design-system.md)
-- [Component Examples](../../docs/design-system.md#4-component-guidelines)
+- [Design System Documentation](../../docs/articles/design-system.md)
+- [Component Examples](../../docs/articles/design-system.md#4-component-guidelines)

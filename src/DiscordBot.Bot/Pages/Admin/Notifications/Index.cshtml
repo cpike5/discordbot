@@ -13,7 +13,7 @@
     <!-- Page Header -->
     <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
         <div class="flex items-center gap-3">
-            <h1 class="text-h1 text-text-primary">Notifications</h1>
+            <h1 class="page-title">Notifications</h1>
             <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = Model.ViewModel.TotalCount.ToString(), Variant = BadgeVariant.Blue, Size = BadgeSize.Medium }" />
         </div>
         <div class="flex items-center gap-3">
@@ -333,7 +333,7 @@
                                     <span data-utc="@notification.CreatedAtUtcIso" data-format="datetime">@notification.TimeAgo</span>
                                 </td>
                                 <!-- Actions -->
-                                <td class="px-4 py-4">
+                                <td class="px-4 py-4 whitespace-nowrap">
                                     <div class="flex items-center gap-2">
                                         <button type="button"
                                                 data-action="toggle-read"

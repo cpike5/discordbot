@@ -459,7 +459,7 @@ else
         display: inline-block;
         width: 2.75rem;
         height: 1.5rem;
-        background-color: #3f4447;
+        background-color: var(--color-border-primary);
         border-radius: 9999px;
         flex-shrink: 0;
         transition: background-color 0.2s ease-in-out;
@@ -471,26 +471,26 @@ else
         left: 0.125rem;
         width: 1.25rem;
         height: 1.25rem;
-        background-color: #d7d3d0;
+        background-color: var(--color-text-primary);
         border-radius: 50%;
         transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
     }
 
     .form-toggle:hover .form-toggle-track {
-        background-color: #4a4f52;
+        background-color: var(--color-bg-hover);
     }
 
     .form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
-        background-color: #e5591f;
+        background-color: var(--color-accent-orange-hover);
     }
 
     .form-toggle-input:focus-visible + .form-toggle-track {
-        outline: 2px solid #098ecf;
+        outline: 2px solid var(--color-accent-blue);
         outline-offset: 2px;
     }
 
     .form-toggle-input:checked + .form-toggle-track {
-        background-color: #cb4e1b;
+        background-color: var(--color-accent-orange);
     }
 
     .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
@@ -511,7 +511,7 @@ else
         top: 2.25rem;
         bottom: -0.5rem;
         width: 2px;
-        background-color: #3f4447;
+        background-color: var(--color-border-primary);
     }
 
     .timeline-item:last-child::before {

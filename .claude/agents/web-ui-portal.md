@@ -40,6 +40,14 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 ### REST API Controllers (30)
 **Location:** `Bot/Controllers/` — JSON API endpoints for Razor Pages frontend and external consumers.
 
+### Design System ("Graphite", v2.0 — `docs/articles/design-system.md`)
+- **Tokens live in `wwwroot/css/site.css`**; `tailwind.config.js` only maps utilities onto them. Every colour has an RGB triplet (`--color-x-rgb`) so `bg-success/20` follows the theme. Never hard-code hex — use `var(--color-…)` in CSS/`<style>` blocks and the token classes in markup.
+- **Accents have jobs**: ember (`accent-orange`) = selected/active/primary; signal blue (`accent-blue`) = links/info/focus. Semantic colours are soft tints (12% fill + hairline) except on buttons.
+- **Fonts**: `font-display` (Bricolage Grotesque) for headings and big numbers, `font-sans` (DM Sans) body, `font-mono` (JetBrains Mono) for IDs, versions, metrics and micro-labels. The Google Fonts `<link>` must be present in any `Layout = null` page.
+- **Shell**: full-height `.sidebar-redesign` rail + `.topbar` offset by `--sidebar-width`; collapse is `html.sidebar-collapsed`. Page content goes inside `.page-container`; page headers use `.page-header` / `.page-eyebrow` / `.page-title` / `.page-subtitle` / `.page-actions`.
+- **Prefer component classes over utility soup**: `.btn btn-*`, `.card`, `.surface`, `.form-input`, `.form-select`, `.badge badge-*`, `.alert alert-*`, `.table-*`. Radius: controls `rounded-md`, panels `rounded-lg`.
+- **Rebuild CSS after touching `site.css` or class names**: `cd src/DiscordBot.Bot && npm run build:css` (also runs on `dotnet build` unless `SkipTailwind=true`). Runtime-composed classes need the `safelist` in `tailwind.config.js`.
+
 ### Client-Side Stack
 - **Tailwind CSS** — Utility-first styling
 - **HTMX** — Server-driven interactivity (partial page updates, lazy loading)

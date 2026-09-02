@@ -550,7 +550,7 @@
         // Color coding
         if (charCounter) {
             if (count >= maxMessageLength) {
-                charCounter.style.color = '#ef4444'; // Red - over limit
+                charCounter.style.color = '#ef4f4f'; // Red - over limit
             } else if (count >= maxMessageLength * CONFIG.CHARACTER_WARNING_THRESHOLD) {
                 charCounter.style.color = '#fbbf24'; // Orange warning
             } else {

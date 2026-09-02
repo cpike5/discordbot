@@ -404,7 +404,7 @@
                 <form id="delete-form" method="post" asp-page-handler="Delete" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-block">
                     <input type="hidden" id="delete-sound-id" name="soundId" value="" />
                     <button type="submit"
-                            class="px-4 py-2 bg-error hover:bg-red-600 active:bg-red-700 text-white font-medium text-sm rounded-md transition-colors">
+                            class="px-4 py-2 bg-error hover:bg-error-hover active:bg-error-active text-white font-medium text-sm rounded-md transition-colors">
                         Delete Sound
                     </button>
                 </form>
@@ -538,7 +538,7 @@
                             <input type="text" id="cat-edit-input-${cat.id}" value="${cat.name}" maxlength="50"
                                    onkeydown="if(event.key==='Enter')saveAdminCategoryEdit(${cat.id});if(event.key==='Escape')cancelAdminCategoryEdit();"
                                    class="flex-1 bg-bg-tertiary border border-accent-orange rounded px-2 py-1 text-sm text-text-primary focus:outline-none" />
-                            <button type="button" onclick="saveAdminCategoryEdit(${cat.id})" class="text-success hover:text-green-400 transition-colors" title="Save">
+                            <button type="button" onclick="saveAdminCategoryEdit(${cat.id})" class="text-success hover:text-success-hover transition-colors" title="Save">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                             </button>
                             <button type="button" onclick="cancelAdminCategoryEdit()" class="text-text-secondary hover:text-text-primary transition-colors" title="Cancel">

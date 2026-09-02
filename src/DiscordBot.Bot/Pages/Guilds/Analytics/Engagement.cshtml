@@ -440,8 +440,8 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // Chart.js default dark theme settings
-            Chart.defaults.color = '#a8a5a3';
-            Chart.defaults.borderColor = '#3f4447';
+            Chart.defaults.color = '#a09c96';
+            Chart.defaults.borderColor = '#2a2f36';
 
             // Load chart data from embedded JSON
             const chartDataElement = document.getElementById('engagementChartData');
@@ -473,8 +473,8 @@
                             {
                                 label: 'Messages',
                                 data: chartData.messageTrends.map(t => t.messageCount),
-                                borderColor: '#098ecf',
-                                backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                                borderColor: '#3d9ad6',
+                                backgroundColor: 'rgba(61, 154, 214, 0.1)',
                                 fill: true,
                                 tension: 0.4,
                                 yAxisID: 'y'
@@ -482,7 +482,7 @@
                             {
                                 label: 'Unique Authors',
                                 data: chartData.messageTrends.map(t => t.uniqueAuthors),
-                                borderColor: '#10b981',
+                                borderColor: '#2fbf7f',
                                 backgroundColor: 'transparent',
                                 borderDash: [5, 5],
                                 tension: 0.4,
@@ -506,10 +506,10 @@
                                 }
                             },
                             tooltip: {
-                                backgroundColor: '#2f3336',
-                                titleColor: '#d7d3d0',
-                                bodyColor: '#a8a5a3',
-                                borderColor: '#3f4447',
+                                backgroundColor: '#1c2025',
+                                titleColor: '#e7e4df',
+                                bodyColor: '#a09c96',
+                                borderColor: '#2a2f36',
                                 borderWidth: 1,
                                 padding: 12
                             }
@@ -521,12 +521,12 @@
                                 position: 'left',
                                 beginAtZero: false,
                                 grid: {
-                                    color: '#2f3336'
+                                    color: '#1c2025'
                                 },
                                 title: {
                                     display: true,
                                     text: 'Messages',
-                                    color: '#098ecf'
+                                    color: '#3d9ad6'
                                 }
                             },
                             y1: {
@@ -540,7 +540,7 @@
                                 title: {
                                     display: true,
                                     text: 'Unique Authors',
-                                    color: '#10b981'
+                                    color: '#2fbf7f'
                                 }
                             },
                             x: {
@@ -565,13 +565,13 @@
                             {
                                 label: 'Messages',
                                 data: chartData.channelEngagement.map(c => c.messageCount),
-                                backgroundColor: '#098ecf',
+                                backgroundColor: '#3d9ad6',
                                 borderRadius: 4
                             },
                             {
                                 label: 'Engagement Rate (%)',
                                 data: chartData.channelEngagement.map(c => c.engagementRate),
-                                backgroundColor: '#cb4e1b',
+                                backgroundColor: '#e6602b',
                                 borderRadius: 4
                             }
                         ]
@@ -589,10 +589,10 @@
                                 }
                             },
                             tooltip: {
-                                backgroundColor: '#2f3336',
-                                titleColor: '#d7d3d0',
-                                bodyColor: '#a8a5a3',
-                                borderColor: '#3f4447',
+                                backgroundColor: '#1c2025',
+                                titleColor: '#e7e4df',
+                                bodyColor: '#a09c96',
+                                borderColor: '#2a2f36',
                                 borderWidth: 1,
                                 padding: 12,
                                 callbacks: {
@@ -610,7 +610,7 @@
                             x: {
                                 beginAtZero: true,
                                 grid: {
-                                    color: '#2f3336'
+                                    color: '#1c2025'
                                 },
                                 ticks: {
                                     callback: function(value) {

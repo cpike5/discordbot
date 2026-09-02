@@ -58,7 +58,7 @@
                             label: 'Average Latency',
                             data: avgData,
                             borderColor: ChartUtils.colors.primary,
-                            backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                            backgroundColor: 'rgba(61, 154, 214, 0.1)',
                             fill: true,
                             tension: 0.4,
                             pointRadius: 2,

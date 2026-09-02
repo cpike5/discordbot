@@ -69,8 +69,8 @@
      @(string.IsNullOrEmpty(Model.Id) ? "" : $"id=\"{Model.Id}\"")>
     <div class="flex items-start justify-between">
         <div>
-            <p class="text-sm font-medium text-text-secondary">@Model.Title</p>
-            <p class="mt-2 text-3xl font-bold text-text-primary" @(string.IsNullOrEmpty(Model.DataAttribute) ? "" : Model.DataAttribute)>@Model.Value</p>
+            <p class="hero-metric-label">@Model.Title</p>
+            <p class="hero-metric-value" @(string.IsNullOrEmpty(Model.DataAttribute) ? "" : Model.DataAttribute)>@Model.Value</p>
 
             @if (!string.IsNullOrEmpty(Model.TrendValue) || !string.IsNullOrEmpty(Model.TrendLabel))
             {
@@ -94,8 +94,8 @@
 
         @if (!string.IsNullOrEmpty(Model.IconSvg))
         {
-            <div class="p-3 @iconBgClass rounded-xl">
-                <svg class="w-6 h-6 @iconTextClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <div class="hero-metric-icon @iconBgClass">
+                <svg class="w-5 h-5 @iconTextClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                     @Html.Raw(Model.IconSvg)
                 </svg>
             </div>

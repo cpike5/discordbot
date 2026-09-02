@@ -24,25 +24,25 @@
 /* Low Severity - Gray */
 .severity-low {
   background-color: rgba(122, 120, 118, 0.15);
-  color: var(--color-text-secondary, #a8a5a3);
+  color: var(--color-text-secondary, var(--color-text-secondary));
 }
 
 /* Medium Severity - Amber/Warning */
 .severity-medium {
-  background-color: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
-  color: var(--color-warning, #f59e0b);
+  background-color: var(--color-warning-bg, rgba(var(--color-warning-rgb), 0.1));
+  color: var(--color-warning, var(--color-warning));
 }
 
 /* High Severity - Red/Error */
 .severity-high {
-  background-color: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-  color: var(--color-error, #ef4444);
+  background-color: var(--color-error-bg, rgba(var(--color-error-rgb), 0.1));
+  color: var(--color-error, var(--color-error));
 }
 
 /* Critical Severity - Red with pulse */
 .severity-critical {
-  background-color: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-  color: var(--color-error, #ef4444);
+  background-color: var(--color-error-bg, rgba(var(--color-error-rgb), 0.1));
+  color: var(--color-error, var(--color-error));
 }
 
 /* Pulsing dot for critical severity */
@@ -51,7 +51,7 @@
   width: 0.5rem;
   height: 0.5rem;
   border-radius: 50%;
-  background-color: var(--color-error, #ef4444);
+  background-color: var(--color-error, var(--color-error));
   animation: pulse-animation 1.5s infinite;
 }
 
@@ -59,17 +59,17 @@
   0% {
     opacity: 1;
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4);
+    box-shadow: 0 0 0 0 rgba(var(--color-error-rgb), 0.4);
   }
   50% {
     opacity: 0.8;
     transform: scale(1.1);
-    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 4px rgba(var(--color-error-rgb), 0);
   }
   100% {
     opacity: 1;
     transform: scale(1);
-    box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    box-shadow: 0 0 0 0 rgba(var(--color-error-rgb), 0);
   }
 }
 
@@ -89,26 +89,26 @@
 
 /* Pending Status - Blue/Info */
 .status-pending {
-  background-color: var(--color-info-bg, rgba(6, 182, 212, 0.1));
-  color: var(--color-info, #06b6d4);
+  background-color: var(--color-info-bg, rgba(var(--color-info-rgb), 0.1));
+  color: var(--color-info, var(--color-info));
 }
 
 /* Dismissed Status - Gray */
 .status-dismissed {
   background-color: rgba(122, 120, 118, 0.15);
-  color: var(--color-text-tertiary, #7a7876);
+  color: var(--color-text-tertiary, var(--color-text-tertiary));
 }
 
 /* Acknowledged Status - Blue/Info */
 .status-acknowledged {
-  background-color: var(--color-info-bg, rgba(6, 182, 212, 0.1));
-  color: var(--color-info, #06b6d4);
+  background-color: var(--color-info-bg, rgba(var(--color-info-rgb), 0.1));
+  color: var(--color-info, var(--color-info));
 }
 
 /* Actioned Status - Green/Success */
 .status-actioned {
-  background-color: var(--color-success-bg, rgba(16, 185, 129, 0.1));
-  color: var(--color-success, #10b981);
+  background-color: var(--color-success-bg, rgba(var(--color-success-rgb), 0.1));
+  color: var(--color-success, var(--color-success));
 }
 
 /* ==========================================
@@ -132,20 +132,20 @@
 
 /* Spam Rule - Orange */
 .rule-spam {
-  background-color: var(--color-accent-orange-muted, rgba(203, 78, 27, 0.2));
-  color: var(--color-accent-orange, #cb4e1b);
+  background-color: var(--color-accent-orange-muted, rgba(var(--color-accent-orange-rgb), 0.2));
+  color: var(--color-accent-orange, var(--color-accent-orange));
 }
 
 /* Content Rule - Error/Red */
 .rule-content {
-  background-color: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-  color: var(--color-error, #ef4444);
+  background-color: var(--color-error-bg, rgba(var(--color-error-rgb), 0.1));
+  color: var(--color-error, var(--color-error));
 }
 
 /* Raid Rule - Info/Cyan */
 .rule-raid {
-  background-color: var(--color-info-bg, rgba(6, 182, 212, 0.1));
-  color: var(--color-info, #06b6d4);
+  background-color: var(--color-info-bg, rgba(var(--color-info-rgb), 0.1));
+  color: var(--color-info, var(--color-info));
 }
 
 /* ==========================================
@@ -153,14 +153,14 @@
    ========================================== */
 
 .evidence-highlight {
-  background-color: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
-  border-left: 3px solid var(--color-warning, #f59e0b);
+  background-color: var(--color-warning-bg, rgba(var(--color-warning-rgb), 0.1));
+  border-left: 3px solid var(--color-warning, var(--color-warning));
   padding: 0.5rem 0.75rem;
   border-radius: 0 0.375rem 0.375rem 0;
 }
 
 .evidence-text-highlight {
-  background-color: rgba(245, 158, 11, 0.3);
+  background-color: rgba(var(--color-warning-rgb), 0.3);
   padding: 0.125rem 0.25rem;
   border-radius: 0.25rem;
 }
@@ -184,34 +184,34 @@
 }
 
 .action-btn-dismiss {
-  background-color: var(--color-bg-tertiary, #2f3336);
-  border-color: var(--color-border-primary, #3f4447);
-  color: var(--color-text-secondary, #a8a5a3);
+  background-color: var(--color-bg-tertiary, var(--color-bg-tertiary));
+  border-color: var(--color-border-primary, var(--color-border-primary));
+  color: var(--color-text-secondary, var(--color-text-secondary));
 }
 
 .action-btn-dismiss:hover {
-  background-color: var(--color-bg-hover, #363a3e);
-  color: var(--color-text-primary, #d7d3d0);
+  background-color: var(--color-bg-hover, var(--color-bg-hover));
+  color: var(--color-text-primary, var(--color-text-primary));
 }
 
 .action-btn-acknowledge {
-  background-color: var(--color-info-bg, rgba(6, 182, 212, 0.1));
-  border-color: var(--color-info-border, rgba(6, 182, 212, 0.3));
-  color: var(--color-info, #06b6d4);
+  background-color: var(--color-info-bg, rgba(var(--color-info-rgb), 0.1));
+  border-color: var(--color-info-border, rgba(var(--color-info-rgb), 0.3));
+  color: var(--color-info, var(--color-info));
 }
 
 .action-btn-acknowledge:hover {
-  background-color: rgba(6, 182, 212, 0.2);
+  background-color: rgba(var(--color-info-rgb), 0.2);
 }
 
 .action-btn-action {
-  background-color: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-  border-color: var(--color-error-border, rgba(239, 68, 68, 0.3));
-  color: var(--color-error, #ef4444);
+  background-color: var(--color-error-bg, rgba(var(--color-error-rgb), 0.1));
+  border-color: var(--color-error-border, rgba(var(--color-error-rgb), 0.3));
+  color: var(--color-error, var(--color-error));
 }
 
 .action-btn-action:hover {
-  background-color: rgba(239, 68, 68, 0.2);
+  background-color: rgba(var(--color-error-rgb), 0.2);
 }
 
 /* ==========================================
@@ -226,9 +226,9 @@
   border-radius: 0.375rem;
   font-size: 0.75rem;
   font-weight: 500;
-  background-color: var(--color-bg-tertiary, #2f3336);
-  color: var(--color-text-secondary, #a8a5a3);
-  border: 1px solid var(--color-border-primary, #3f4447);
+  background-color: var(--color-bg-tertiary, var(--color-bg-tertiary));
+  color: var(--color-text-secondary, var(--color-text-secondary));
+  border: 1px solid var(--color-border-primary, var(--color-border-primary));
 }
 
 .user-tag-removable {
@@ -236,9 +236,9 @@
 }
 
 .user-tag-removable:hover {
-  background-color: var(--color-bg-hover, #363a3e);
-  border-color: var(--color-error, #ef4444);
-  color: var(--color-error, #ef4444);
+  background-color: var(--color-bg-hover, var(--color-bg-hover));
+  border-color: var(--color-error, var(--color-error));
+  color: var(--color-error, var(--color-error));
 }
 
 .user-tag-remove {
@@ -254,7 +254,7 @@
 }
 
 .user-tag-remove:hover {
-  background-color: var(--color-error-bg, rgba(239, 68, 68, 0.1));
+  background-color: var(--color-error-bg, rgba(var(--color-error-rgb), 0.1));
 }
 
 .user-tag-remove svg {
@@ -264,21 +264,21 @@
 
 /* Tag color variants */
 .user-tag-warning {
-  background-color: var(--color-warning-bg, rgba(245, 158, 11, 0.1));
-  border-color: var(--color-warning-border, rgba(245, 158, 11, 0.3));
-  color: var(--color-warning, #f59e0b);
+  background-color: var(--color-warning-bg, rgba(var(--color-warning-rgb), 0.1));
+  border-color: var(--color-warning-border, rgba(var(--color-warning-rgb), 0.3));
+  color: var(--color-warning, var(--color-warning));
 }
 
 .user-tag-danger {
-  background-color: var(--color-error-bg, rgba(239, 68, 68, 0.1));
-  border-color: var(--color-error-border, rgba(239, 68, 68, 0.3));
-  color: var(--color-error, #ef4444);
+  background-color: var(--color-error-bg, rgba(var(--color-error-rgb), 0.1));
+  border-color: var(--color-error-border, rgba(var(--color-error-rgb), 0.3));
+  color: var(--color-error, var(--color-error));
 }
 
 .user-tag-info {
-  background-color: var(--color-info-bg, rgba(6, 182, 212, 0.1));
-  border-color: var(--color-info-border, rgba(6, 182, 212, 0.3));
-  color: var(--color-info, #06b6d4);
+  background-color: var(--color-info-bg, rgba(var(--color-info-rgb), 0.1));
+  border-color: var(--color-info-border, rgba(var(--color-info-rgb), 0.3));
+  color: var(--color-info, var(--color-info));
 }
 
 /* ==========================================
@@ -288,7 +288,7 @@
 .settings-tabs {
   display: flex;
   gap: 0.25rem;
-  border-bottom: 1px solid var(--color-border-primary, #3f4447);
+  border-bottom: 1px solid var(--color-border-primary, var(--color-border-primary));
   padding-bottom: 0;
   overflow-x: auto;
   scrollbar-width: none;
@@ -306,7 +306,7 @@
   padding: 0.75rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text-secondary, #a8a5a3);
+  color: var(--color-text-secondary, var(--color-text-secondary));
   border-bottom: 2px solid transparent;
   margin-bottom: -1px;
   cursor: pointer;
@@ -315,13 +315,13 @@
 }
 
 .settings-tab:hover {
-  color: var(--color-text-primary, #d7d3d0);
-  background-color: var(--color-bg-hover, #363a3e);
+  color: var(--color-text-primary, var(--color-text-primary));
+  background-color: var(--color-bg-hover, var(--color-bg-hover));
 }
 
 .settings-tab-active {
-  color: var(--color-accent-orange, #cb4e1b);
-  border-bottom-color: var(--color-accent-orange, #cb4e1b);
+  color: var(--color-accent-orange, var(--color-accent-orange));
+  border-bottom-color: var(--color-accent-orange, var(--color-accent-orange));
 }
 
 .settings-tab-active:hover {
@@ -352,15 +352,15 @@
 .toggle-switch-track {
   position: absolute;
   inset: 0;
-  background-color: var(--color-bg-tertiary, #2f3336);
-  border: 1px solid var(--color-border-primary, #3f4447);
+  background-color: var(--color-bg-tertiary, var(--color-bg-tertiary));
+  border: 1px solid var(--color-border-primary, var(--color-border-primary));
   border-radius: 9999px;
   transition: background-color 200ms ease-out;
 }
 
 .toggle-switch input:checked + .toggle-switch-track {
-  background-color: var(--color-success, #10b981);
-  border-color: var(--color-success, #10b981);
+  background-color: var(--color-success, var(--color-success));
+  border-color: var(--color-success, var(--color-success));
 }
 
 .toggle-switch-thumb {
@@ -369,7 +369,7 @@
   left: 0.125rem;
   width: 1.25rem;
   height: 1.25rem;
-  background-color: var(--color-text-primary, #d7d3d0);
+  background-color: var(--color-text-primary, var(--color-text-primary));
   border-radius: 9999px;
   transition: transform 200ms ease-out;
   pointer-events: none;
@@ -386,8 +386,8 @@
 .mode-toggle {
   display: inline-flex;
   padding: 0.25rem;
-  background-color: var(--color-bg-tertiary, #2f3336);
-  border: 1px solid var(--color-border-primary, #3f4447);
+  background-color: var(--color-bg-tertiary, var(--color-bg-tertiary));
+  border: 1px solid var(--color-border-primary, var(--color-border-primary));
   border-radius: 0.5rem;
 }
 
@@ -395,7 +395,7 @@
   padding: 0.5rem 1rem;
   font-size: 0.875rem;
   font-weight: 500;
-  color: var(--color-text-secondary, #a8a5a3);
+  color: var(--color-text-secondary, var(--color-text-secondary));
   background-color: transparent;
   border-radius: 0.375rem;
   cursor: pointer;
@@ -403,16 +403,16 @@
 }
 
 .mode-toggle-btn:hover {
-  color: var(--color-text-primary, #d7d3d0);
+  color: var(--color-text-primary, var(--color-text-primary));
 }
 
 .mode-toggle-btn-active {
-  background-color: var(--color-accent-orange, #cb4e1b);
+  background-color: var(--color-accent-orange, var(--color-accent-orange));
   color: white;
 }
 
 .mode-toggle-btn-active:hover {
-  background-color: var(--color-accent-orange-hover, #e5591f);
+  background-color: var(--color-accent-orange-hover, var(--color-accent-orange-hover));
   color: white;
 }
 
@@ -426,13 +426,13 @@
   justify-content: space-between;
   padding: 0.75rem 1rem;
   cursor: pointer;
-  background-color: var(--color-bg-tertiary, #2f3336);
+  background-color: var(--color-bg-tertiary, var(--color-bg-tertiary));
   border-radius: 0.5rem;
   transition: background-color 150ms ease-out;
 }
 
 .collapsible-header:hover {
-  background-color: var(--color-bg-hover, #363a3e);
+  background-color: var(--color-bg-hover, var(--color-bg-hover));
 }
 
 .collapsible-header-open {
@@ -449,8 +449,8 @@
 
 .collapsible-content {
   display: none;
-  background-color: var(--color-bg-secondary, #262a2d);
-  border: 1px solid var(--color-border-primary, #3f4447);
+  background-color: var(--color-bg-secondary, var(--color-bg-secondary));
+  border: 1px solid var(--color-border-primary, var(--color-border-primary));
   border-top: none;
   border-radius: 0 0 0.5rem 0.5rem;
   padding: 1rem;
@@ -466,9 +466,9 @@
 
 .note-item {
   padding: 1rem;
-  background-color: var(--color-bg-tertiary, #2f3336);
+  background-color: var(--color-bg-tertiary, var(--color-bg-tertiary));
   border-radius: 0.5rem;
-  border-left: 3px solid var(--color-accent-blue, #098ecf);
+  border-left: 3px solid var(--color-accent-blue, var(--color-accent-blue));
 }
 
 .note-meta {
@@ -476,13 +476,13 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.75rem;
-  color: var(--color-text-tertiary, #7a7876);
+  color: var(--color-text-tertiary, var(--color-text-tertiary));
   margin-bottom: 0.5rem;
 }
 
 .note-content {
   font-size: 0.875rem;
-  color: var(--color-text-primary, #d7d3d0);
+  color: var(--color-text-primary, var(--color-text-primary));
   line-height: 1.5;
 }
 
@@ -494,20 +494,20 @@
   display: flex;
   flex-direction: column;
   padding: 1rem;
-  background-color: var(--color-bg-tertiary, #2f3336);
-  border: 1px solid var(--color-border-primary, #3f4447);
+  background-color: var(--color-bg-tertiary, var(--color-bg-tertiary));
+  border: 1px solid var(--color-border-primary, var(--color-border-primary));
   border-radius: 0.5rem;
 }
 
 .history-stat-value {
   font-size: 1.5rem;
   font-weight: 700;
-  color: var(--color-text-primary, #d7d3d0);
+  color: var(--color-text-primary, var(--color-text-primary));
 }
 
 .history-stat-label {
   font-size: 0.75rem;
-  color: var(--color-text-tertiary, #7a7876);
+  color: var(--color-text-tertiary, var(--color-text-tertiary));
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
@@ -517,8 +517,8 @@
    ========================================== */
 
 .event-card {
-  background-color: var(--color-bg-secondary, #262a2d);
-  border: 1px solid var(--color-border-primary, #3f4447);
+  background-color: var(--color-bg-secondary, var(--color-bg-secondary));
+  border: 1px solid var(--color-border-primary, var(--color-border-primary));
   border-radius: 0.5rem;
   padding: 1rem;
 }
@@ -538,7 +538,7 @@
 
 .event-card-time {
   font-size: 0.75rem;
-  color: var(--color-text-tertiary, #7a7876);
+  color: var(--color-text-tertiary, var(--color-text-tertiary));
 }
 
 .event-card-user {
@@ -565,7 +565,7 @@
   align-items: center;
   gap: 0.5rem;
   font-size: 0.875rem;
-  color: var(--color-text-secondary, #a8a5a3);
+  color: var(--color-text-secondary, var(--color-text-secondary));
   margin-bottom: 0.75rem;
 }
 
@@ -573,7 +573,7 @@
   display: flex;
   gap: 0.5rem;
   padding-top: 0.75rem;
-  border-top: 1px solid var(--color-border-secondary, #2f3336);
+  border-top: 1px solid var(--color-border-secondary, var(--color-bg-tertiary));
 }
 
 .event-card-actions button {

@@ -9,12 +9,12 @@
 
     // Design system chart colors
     const CHART_COLORS = [
-        '#cb4e1b',  // accent-orange
-        '#098ecf',  // accent-blue
-        '#10b981',  // success
-        '#f59e0b',  // warning
-        '#06b6d4',  // info
-        '#ef4444',  // error
+        '#e6602b',  // accent-orange
+        '#3d9ad6',  // accent-blue
+        '#2fbf7f',  // success
+        '#f0a323',  // warning
+        '#2fb3cc',  // info
+        '#ef4f4f',  // error
         '#8b5cf6',  // purple
         '#ec4899',  // pink
         '#14b8a6',  // teal
@@ -84,10 +84,10 @@
                         display: false
                     },
                     tooltip: {
-                        backgroundColor: '#2f3336',
-                        titleColor: '#d7d3d0',
-                        bodyColor: '#a8a5a3',
-                        borderColor: '#3f4447',
+                        backgroundColor: '#1c2025',
+                        titleColor: '#e7e4df',
+                        bodyColor: '#a09c96',
+                        borderColor: '#2a2f36',
                         borderWidth: 1,
                         padding: 12,
                         cornerRadius: 6,
@@ -109,7 +109,7 @@
                             drawBorder: false
                         },
                         ticks: {
-                            color: '#7a7876',
+                            color: '#6d6a66',
                             font: {
                                 size: 12
                             },
@@ -126,7 +126,7 @@
                             display: false
                         },
                         ticks: {
-                            color: '#d7d3d0',
+                            color: '#e7e4df',
                             font: {
                                 size: 13,
                                 family: 'ui-monospace, SFMono-Regular, "SF Mono", Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'

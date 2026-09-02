@@ -151,8 +151,8 @@
         border-color: var(--color-accent-orange);
         background: var(--color-accent-orange-muted);
         color: var(--color-accent-orange);
-        box-shadow: 0 0 0 3px rgba(203, 78, 27, 0.15),
-                    0 4px 12px rgba(203, 78, 27, 0.2);
+        box-shadow: 0 0 0 3px rgba(var(--color-accent-orange-rgb), 0.15),
+                    0 4px 12px rgba(var(--color-accent-orange-rgb), 0.2);
     }
 
     .preset-button--active:hover {
@@ -191,13 +191,13 @@
     /* Pulse Animation (applied on click) */
     @@keyframes preset-pulse {
         0% {
-            box-shadow: 0 0 0 0 rgba(203, 78, 27, 0.7);
+            box-shadow: 0 0 0 0 rgba(var(--color-accent-orange-rgb), 0.7);
         }
         50% {
-            box-shadow: 0 0 0 10px rgba(203, 78, 27, 0);
+            box-shadow: 0 0 0 10px rgba(var(--color-accent-orange-rgb), 0);
         }
         100% {
-            box-shadow: 0 0 0 0 rgba(203, 78, 27, 0);
+            box-shadow: 0 0 0 0 rgba(var(--color-accent-orange-rgb), 0);
         }
     }
 
@@ -267,8 +267,8 @@
     }
 
     .preset-button--custom .preset-button__delete:hover {
-        background: #ef4444;
-        border-color: #ef4444;
+        background: var(--color-error);
+        border-color: var(--color-error);
         color: white;
     }
 

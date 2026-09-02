@@ -299,10 +299,10 @@ else
         if (container) {
             container.innerHTML = `
                 <div class="flex flex-col items-center justify-center h-full text-center p-4">
-                    <svg class="w-8 h-8 text-red-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-8 h-8 text-error mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    <div class="text-red-400 font-medium">Failed to load chart</div>
+                    <div class="text-error font-medium">Failed to load chart</div>
                     <div class="text-text-secondary text-sm mt-1">${message}</div>
                 </div>`;
         }
@@ -338,8 +338,8 @@ else
                     {
                         label: 'Average Latency',
                         data: avgData,
-                        borderColor: '#098ecf',
-                        backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                        borderColor: '#3d9ad6',
+                        backgroundColor: 'rgba(61, 154, 214, 0.1)',
                         fill: true,
                         tension: 0.4,
                         pointRadius: 2,
@@ -348,7 +348,7 @@ else
                     {
                         label: 'P95 Latency',
                         data: p95Data,
-                        borderColor: '#f59e0b',
+                        borderColor: '#f0a323',
                         backgroundColor: 'transparent',
                         fill: false,
                         tension: 0.4,
@@ -374,10 +374,10 @@ else
                         }
                     },
                     tooltip: {
-                        backgroundColor: '#2f3336',
-                        titleColor: '#d7d3d0',
-                        bodyColor: '#a8a5a3',
-                        borderColor: '#3f4447',
+                        backgroundColor: '#1c2025',
+                        titleColor: '#e7e4df',
+                        bodyColor: '#a09c96',
+                        borderColor: '#2a2f36',
                         borderWidth: 1,
                         padding: 12,
                         callbacks: {
@@ -391,7 +391,7 @@ else
                     y: {
                         beginAtZero: true,
                         grid: {
-                            color: '#2f3336'
+                            color: '#1c2025'
                         },
                         ticks: {
                             callback: function(value) {

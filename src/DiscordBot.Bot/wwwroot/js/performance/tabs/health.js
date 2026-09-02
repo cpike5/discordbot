@@ -48,9 +48,9 @@
                 datasets: [{
                     data: samples,
                     backgroundColor: samples.map(v => {
-                        if (v < 100) return 'rgba(16, 185, 129, 0.8)';
-                        if (v < 200) return 'rgba(245, 158, 11, 0.8)';
-                        return 'rgba(239, 68, 68, 0.8)';
+                        if (v < 100) return 'rgba(47, 191, 127, 0.8)';
+                        if (v < 200) return 'rgba(240, 163, 35, 0.8)';
+                        return 'rgba(239, 79, 79, 0.8)';
                     }),
                     borderRadius: 2
                 }]
@@ -61,10 +61,10 @@
                 plugins: {
                     legend: { display: false },
                     tooltip: {
-                        backgroundColor: '#2f3336',
-                        titleColor: '#d7d3d0',
-                        bodyColor: '#a8a5a3',
-                        borderColor: '#3f4447',
+                        backgroundColor: '#1c2025',
+                        titleColor: '#e7e4df',
+                        bodyColor: '#a09c96',
+                        borderColor: '#2a2f36',
                         borderWidth: 1,
                         callbacks: {
                             title: () => '',
@@ -97,7 +97,7 @@
                 label: 'Latency (ms)',
                 data: latencies,
                 borderColor: ChartUtils.colors.primary,
-                backgroundColor: 'rgba(9, 142, 207, 0.1)',
+                backgroundColor: 'rgba(61, 154, 214, 0.1)',
                 fill: true,
                 tension: 0.4,
                 pointRadius: 2,
