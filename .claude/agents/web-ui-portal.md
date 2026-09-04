@@ -37,8 +37,22 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 ### Error Pages
 - `404.cshtml`, `403.cshtml`, `500.cshtml`
 
-### REST API Controllers (30)
+### REST API Controllers (37)
 **Location:** `Bot/Controllers/` — JSON API endpoints for Razor Pages frontend and external consumers.
+
+**Portal TTS** (was one 1,834-line `PortalTtsController`) is split by sub-resource, sharing `PortalTtsControllerBase` (playback-tracking state, `IsAudioGloballyEnabledAsync`, `SendTtsCoreAsync`, SSML/WAV synthesis helpers):
+- `PortalTtsPlaybackController` — status, send, voice channels, join/leave, stop (`api/portal/tts/{guildId}`)
+- `PortalTtsSynthesisController` — SSML validate/synthesize/build, voice capabilities
+- `PortalTtsPresetsController` — built-in and custom style presets, preview
+- `PortalTtsHistoryController` — message history, replay (via `SendTtsCoreAsync`), favorite, delete
+
+**Portal Soundboard** (was one 1,172-line `PortalSoundboardController`) is split the same way, sharing `PortalSoundboardControllerBase` (`IsAudioGloballyEnabledAsync`):
+- `PortalSoundboardSoundsController` — list/upload/download/delete sounds
+- `PortalSoundboardPlaybackController` — play sound, voice channels, join/leave, stop, status
+- `PortalSoundboardFavoritesController` — list/add/remove favorites
+- `PortalSoundboardCategoriesController` — CRUD categories, assign sound to category
+
+**PerformanceMetricsController** keeps its 9 endpoints as thin pass-throughs to existing metrics services; the historical/statistical calculation logic (time-range bucketing, database/memory history statistics, command error-rate aggregation, overall cache stats) moved to `IPerformanceMetricsQueryService` (`Core/Interfaces`) / `PerformanceMetricsQueryService` (`Bot/Services/Performance`, registered scoped in `PerformanceMetricsServiceExtensions`).
 
 ### Design System ("Graphite", v2.0 — `docs/articles/design-system.md`)
 - **Tokens live in `wwwroot/css/site.css`**; `tailwind.config.js` only maps utilities onto them. Every colour has an RGB triplet (`--color-x-rgb`) so `bg-success/20` follows the theme. Never hard-code hex — use `var(--color-…)` in CSS/`<style>` blocks and the token classes in markup.
@@ -67,7 +81,7 @@ Loaded globally in `_Layout.cshtml`:
 ## Gotchas
 
 - **Discord Snowflake IDs in JavaScript:** Always treat as strings — `'@Model.GuildId'` not `@Model.GuildId`
-- **Large controllers:** PerformanceMetricsController (1,173), PortalTtsController (1,089), AnalyticsController (698) — search specific methods
+- **Large controllers:** AnalyticsController (698) — search specific methods. PortalTts and PortalSoundboard controllers were split by sub-resource (see REST API Controllers above); PerformanceMetricsController's calculation logic moved to `IPerformanceMetricsQueryService`.
 - **Preview popups** loaded globally — use `preview-trigger` classes for user/guild names
 - **Tailwind purge:** Ensure dynamically generated classes are in Tailwind content config
 - **Partial views** (`PartialView(...)` from tab/API controllers, fetched client-side with `fetch()` from JS modules like `command-tab-loader.js`) return HTML fragments, not full pages — don't include layout

@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Reflection;
 using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
@@ -17,21 +16,22 @@ using Microsoft.Extensions.Options;
 namespace DiscordBot.Bot.Handlers;
 
 /// <summary>
-/// Handles Discord interaction events and command discovery/registration.
-/// Discovers command modules from the assembly and registers them with Discord.
-/// Filters modules based on configuration, skipping disabled modules during registration.
+/// Dispatches Discord interaction events (slash commands, components, modals) to the
+/// registered Discord.Interactions command handlers and reports execution results.
+/// Slash-command discovery and registration live in
+/// <see cref="Services.SlashCommandRegistrationService"/> — this class is dispatch/error-handling
+/// only. See the hosted-service ordering block on
+/// <c>DiscordServiceExtensions.AddDiscordBot</c> and CLAUDE-REFERENCE.md.
 /// </summary>
 public class InteractionHandler
 {
     private readonly DiscordSocketClient _client;
     private readonly InteractionService _interactionService;
     private readonly IServiceProvider _serviceProvider;
-    private readonly BotConfiguration _config;
     private readonly ILogger<InteractionHandler> _logger;
     private readonly ICommandExecutionLogger _commandExecutionLogger;
     private readonly IDashboardUpdateService _dashboardUpdateService;
     private readonly BotMetrics _botMetrics;
-    private readonly ICommandModuleConfigurationService _commandModuleConfigService;
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly NotificationOptions _notificationOptions;
 
@@ -42,189 +42,39 @@ public class InteractionHandler
         DiscordSocketClient client,
         InteractionService interactionService,
         IServiceProvider serviceProvider,
-        IOptions<BotConfiguration> config,
         ILogger<InteractionHandler> logger,
         ICommandExecutionLogger commandExecutionLogger,
         IDashboardUpdateService dashboardUpdateService,
         BotMetrics botMetrics,
-        ICommandModuleConfigurationService commandModuleConfigService,
         IServiceScopeFactory scopeFactory,
         IOptions<NotificationOptions> notificationOptions)
     {
         _client = client;
         _interactionService = interactionService;
         _serviceProvider = serviceProvider;
-        _config = config.Value;
         _logger = logger;
         _commandExecutionLogger = commandExecutionLogger;
         _dashboardUpdateService = dashboardUpdateService;
         _botMetrics = botMetrics;
-        _commandModuleConfigService = commandModuleConfigService;
         _scopeFactory = scopeFactory;
         _notificationOptions = notificationOptions.Value;
     }
 
     /// <summary>
-    /// Initializes the interaction handler by discovering command modules and wiring up events.
-    /// Filters out disabled modules based on configuration.
+    /// Wires up interaction dispatch and result-logging event handlers.
+    /// Command modules must already be discovered/loaded by
+    /// <see cref="Services.SlashCommandRegistrationService"/> before this runs.
     /// </summary>
-    public async Task InitializeAsync()
+    public Task InitializeAsync()
     {
         _logger.LogInformation("Initializing interaction handler");
 
-        // Sync module configurations to ensure database has all module definitions
-        await _commandModuleConfigService.SyncModulesAsync();
-
-        // Get all module configurations to determine which are enabled
-        var moduleConfigurations = await _commandModuleConfigService.GetAllModulesAsync();
-        var enabledModuleNames = moduleConfigurations
-            .Where(m => m.IsEnabled)
-            .Select(m => m.ModuleName)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Discover command module types from the executing assembly
-        var assembly = Assembly.GetExecutingAssembly();
-        var allModuleTypes = assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && IsInteractionModule(t))
-            .ToList();
-
-        var loadedModules = new List<string>();
-        var skippedModules = new List<string>();
-
-        // Build a set of disabled module names for component module parent lookups
-        var disabledModuleNames = moduleConfigurations
-            .Where(m => !m.IsEnabled)
-            .Select(m => m.ModuleName)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-        // Register only enabled modules
-        foreach (var moduleType in allModuleTypes)
-        {
-            var moduleName = moduleType.Name;
-
-            // If this is a component module, check if its parent module is disabled
-            if (moduleName.EndsWith("ComponentModule", StringComparison.Ordinal))
-            {
-                var parentModuleName = moduleName.Replace("ComponentModule", "Module");
-                if (disabledModuleNames.Contains(parentModuleName))
-                {
-                    skippedModules.Add(moduleName);
-                    _logger.LogInformation("Skipped component module {ModuleName} because parent {ParentModuleName} is disabled",
-                        moduleName, parentModuleName);
-                    continue;
-                }
-            }
-
-            // If we have no configuration for this module, default to enabled
-            if (!moduleConfigurations.Any(m => m.ModuleName.Equals(moduleName, StringComparison.OrdinalIgnoreCase)))
-            {
-                await _interactionService.AddModuleAsync(moduleType, _serviceProvider);
-                loadedModules.Add(moduleName);
-                _logger.LogDebug("Loaded unconfigured module {ModuleName} (defaulting to enabled)", moduleName);
-                continue;
-            }
-
-            if (enabledModuleNames.Contains(moduleName))
-            {
-                await _interactionService.AddModuleAsync(moduleType, _serviceProvider);
-                loadedModules.Add(moduleName);
-            }
-            else
-            {
-                skippedModules.Add(moduleName);
-            }
-        }
-
-        // Log summary of loaded and skipped modules
-        _logger.LogInformation("Loaded {EnabledCount} command modules: {Modules}",
-            loadedModules.Count,
-            string.Join(", ", loadedModules.OrderBy(n => n)));
-
-        if (skippedModules.Count > 0)
-        {
-            _logger.LogInformation("Skipped {DisabledCount} disabled modules: {Modules}",
-                skippedModules.Count,
-                string.Join(", ", skippedModules.OrderBy(n => n)));
-        }
-
-        // Wire up event handlers
-        _client.Ready += OnReadyAsync;
         _client.InteractionCreated += OnInteractionCreatedAsync;
         _interactionService.SlashCommandExecuted += OnSlashCommandExecutedAsync;
         _interactionService.ComponentCommandExecuted += OnComponentCommandExecutedAsync;
 
-        _logger.LogDebug("Interaction handler initialized with {ModuleCount} modules", _interactionService.Modules.Count());
-    }
-
-    /// <summary>
-    /// Determines if a type is a Discord.NET interaction module.
-    /// Checks if the type inherits from InteractionModuleBase (generic or non-generic).
-    /// </summary>
-    private static bool IsInteractionModule(Type type)
-    {
-        var baseType = type.BaseType;
-        while (baseType != null)
-        {
-            if (baseType.IsGenericType &&
-                baseType.GetGenericTypeDefinition() == typeof(InteractionModuleBase<>))
-            {
-                return true;
-            }
-            baseType = baseType.BaseType;
-        }
-        return false;
-    }
-
-    /// <summary>
-    /// Called when the bot is ready and connected to Discord.
-    /// Registers slash commands either to a test guild or globally.
-    /// </summary>
-    private async Task OnReadyAsync()
-    {
-        _logger.LogInformation("Bot is ready. Connected as {Username}#{Discriminator}", _client.CurrentUser.Username, _client.CurrentUser.Discriminator);
-
-        try
-        {
-            if (_config.TestGuildId.HasValue)
-            {
-                // Register commands to test guild for faster development iteration
-                _logger.LogInformation("Registering commands to test guild {GuildId}", _config.TestGuildId.Value);
-                await _interactionService.RegisterCommandsToGuildAsync(_config.TestGuildId.Value);
-                _logger.LogInformation("Commands registered to test guild successfully");
-            }
-            else
-            {
-                // Register commands globally (takes ~1 hour to propagate)
-                _logger.LogInformation("Registering commands globally");
-                await _interactionService.RegisterCommandsGloballyAsync();
-                _logger.LogInformation("Commands registered globally successfully. Note: Global commands may take up to 1 hour to propagate");
-            }
-        }
-        catch (Discord.Net.HttpException ex) when (ex.DiscordCode == Discord.DiscordErrorCode.MissingPermissions)
-        {
-            _logger.LogWarning(
-                "Missing access to register commands to guild {GuildId}. " +
-                "Ensure the bot was invited with the 'applications.commands' scope. " +
-                "Re-invite the bot using: https://discord.com/oauth2/authorize?client_id={ClientId}&scope=bot%20applications.commands&permissions=0",
-                _config.TestGuildId,
-                _client.CurrentUser.Id);
-
-            // Fall back to global registration
-            _logger.LogInformation("Falling back to global command registration");
-            try
-            {
-                await _interactionService.RegisterCommandsGloballyAsync();
-                _logger.LogInformation("Commands registered globally successfully. Note: Global commands may take up to 1 hour to propagate");
-            }
-            catch (Exception fallbackEx)
-            {
-                _logger.LogError(fallbackEx, "Failed to register commands globally after guild registration failed");
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to register commands");
-        }
+        _logger.LogDebug("Interaction handler initialized");
+        return Task.CompletedTask;
     }
 
     /// <summary>

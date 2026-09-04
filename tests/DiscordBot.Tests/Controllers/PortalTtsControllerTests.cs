@@ -4,6 +4,7 @@ using Discord.Audio;
 using Discord.WebSocket;
 using DiscordBot.Bot.Controllers;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Portal;
@@ -13,6 +14,7 @@ using DiscordBot.Core.Models;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -20,7 +22,8 @@ using Moq;
 namespace DiscordBot.Tests.Controllers;
 
 /// <summary>
-/// Unit tests for <see cref="PortalTtsController"/>.
+/// Unit tests for <see cref="PortalTtsPlaybackController"/> (the connection/playback-control
+/// slice of the former monolithic PortalTtsController: status, send, channels, stop).
 /// </summary>
 public class PortalTtsControllerTests
 {
@@ -39,8 +42,9 @@ public class PortalTtsControllerTests
     private readonly Mock<IUserTtsPresetRepository> _mockUserTtsPresetRepository;
     private readonly Mock<ITtsMessageHistoryRepository> _mockTtsMessageHistoryRepository;
     private readonly Mock<IAudioModerationLogService> _mockAudioModerationLogService;
-    private readonly Mock<ILogger<PortalTtsController>> _mockLogger;
-    private readonly PortalTtsController _controller;
+    private readonly Mock<ILogger<PortalTtsPlaybackController>> _mockLogger;
+    private readonly ITtsSendPipeline _sendPipeline;
+    private readonly PortalTtsPlaybackController _controller;
 
     public PortalTtsControllerTests()
     {
@@ -59,7 +63,7 @@ public class PortalTtsControllerTests
         _mockUserTtsPresetRepository = new Mock<IUserTtsPresetRepository>();
         _mockTtsMessageHistoryRepository = new Mock<ITtsMessageHistoryRepository>();
         _mockAudioModerationLogService = new Mock<IAudioModerationLogService>();
-        _mockLogger = new Mock<ILogger<PortalTtsController>>();
+        _mockLogger = new Mock<ILogger<PortalTtsPlaybackController>>();
 
         // Setup bot-level audio enabled by default
         _mockSettingsService.Setup(s => s.GetSettingValueAsync<bool?>("Features:AudioEnabled", It.IsAny<CancellationToken>()))
@@ -71,23 +75,28 @@ public class PortalTtsControllerTests
             Region = "eastus"
         });
 
-        _controller = new PortalTtsController(
+        // TtsSendPipeline resolves its scoped/transient dependencies via IServiceScopeFactory,
+        // so register the same mocks the tests configure directly.
+        var services = new ServiceCollection();
+        services.AddScoped(_ => _mockTtsSettingsService.Object);
+        services.AddScoped(_ => _mockSsmlBuilder.Object);
+        services.AddScoped(_ => _mockAudioModerationLogService.Object);
+        services.AddScoped(_ => _mockTtsPlaybackService.Object);
+        var scopeFactory = services.BuildServiceProvider().GetRequiredService<IServiceScopeFactory>();
+
+        _sendPipeline = new TtsSendPipeline(
             _mockTtsService.Object,
-            _mockTtsSettingsService.Object,
-            _mockTtsMessageRepository.Object,
+            _mockSettingsService.Object,
+            _mockAudioService.Object,
+            scopeFactory,
+            new Mock<ILogger<TtsSendPipeline>>().Object);
+
+        _controller = new PortalTtsPlaybackController(
+            _sendPipeline,
             _mockAudioService.Object,
             _mockPlaybackService.Object,
-            _mockTtsPlaybackService.Object,
-            _mockSettingsService.Object,
             _mockDiscordClient.Object,
             azureSpeechOptions,
-            _mockVoiceCapabilityProvider.Object,
-            _mockStylePresetProvider.Object,
-            _mockSsmlValidator.Object,
-            _mockSsmlBuilder.Object,
-            _mockUserTtsPresetRepository.Object,
-            _mockTtsMessageHistoryRepository.Object,
-            _mockAudioModerationLogService.Object,
             _mockLogger.Object);
 
         // Setup HttpContext and User claims
@@ -452,7 +461,7 @@ public class PortalTtsControllerTests
         // Arrange
         const ulong guildId = 123456789UL;
         const ulong channelId = 987654321UL;
-        var request = new PortalTtsController.JoinChannelRequest { ChannelId = channelId };
+        var request = new PortalTtsPlaybackController.JoinChannelRequest { ChannelId = channelId };
 
         var settings = new GuildTtsSettings { GuildId = guildId, TtsEnabled = true };
         var mockAudioClient = new Mock<IAudioClient>();
@@ -481,7 +490,7 @@ public class PortalTtsControllerTests
         // Arrange
         const ulong guildId = 123456789UL;
         const ulong channelId = 999999999UL;
-        var request = new PortalTtsController.JoinChannelRequest { ChannelId = channelId };
+        var request = new PortalTtsPlaybackController.JoinChannelRequest { ChannelId = channelId };
 
         var settings = new GuildTtsSettings { GuildId = guildId, TtsEnabled = true };
 

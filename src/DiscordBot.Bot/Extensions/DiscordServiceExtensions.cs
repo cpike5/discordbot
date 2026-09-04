@@ -2,6 +2,7 @@ using Discord;
 using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Bot.Services.DiscordIntegration;
@@ -105,12 +106,43 @@ public static class DiscordServiceExtensions
 
         // Register member sync services
         services.AddSingleton<IMemberSyncQueue, MemberSyncQueue>();
+
+        // Register slash-command registration as its concrete type; the host starts/stops it
+        // as a hosted service (see AddHostedService below). No other consumer exists, so it
+        // is registered concretely rather than behind an interface.
+        services.AddSingleton<SlashCommandRegistrationService>();
+
+        // Register status/presence broadcasting behind its interface.
+        services.AddSingleton<IBotUptimeProvider, BotUptimeProvider>();
+        services.AddSingleton<IBotStatusBroadcaster, BotStatusBroadcaster>();
+
+        // ==========================================================================
+        // Hosted service startup order (Generic Host runs IHostedService.StartAsync
+        // sequentially, in registration order — shutdown runs in reverse). Discord.Net
+        // hosted services below MUST stay in this order:
+        //
+        //   1. MemberSyncService              — background queue processor; no gateway
+        //                                        dependency, order-agnostic relative to login.
+        //   2. SlashCommandRegistrationService — discovers/loads interaction modules and
+        //                                        subscribes to Client.Ready BEFORE the
+        //                                        gateway logs in, so modules are guaranteed
+        //                                        loaded by the time Ready can fire.
+        //   3. BotHostedService                — logs in and starts the gateway. Must run
+        //                                        AFTER SlashCommandRegistrationService (2)
+        //                                        for the reason above, and it is the service
+        //                                        every other Discord-dependent hosted service
+        //                                        (registered by other Add* extension methods
+        //                                        in Program.cs) implicitly depends on being
+        //                                        logged in first.
+        //   4. InteractionStateCleanupService  — periodic cleanup; no ordering constraint,
+        //                                        kept after login for consistency.
+        //
+        // See CLAUDE-REFERENCE.md ("Hosted Service Startup Order") for the full list across
+        // all AddXxx extension methods called from Program.cs.
+        // ==========================================================================
         services.AddHostedService<MemberSyncService>();
-
-        // Register BotHostedService as hosted service
+        services.AddHostedService(sp => sp.GetRequiredService<SlashCommandRegistrationService>());
         services.AddHostedService<BotHostedService>();
-
-        // Register InteractionStateCleanupService as hosted service
         services.AddHostedService<InteractionStateCleanupService>();
 
         return services;

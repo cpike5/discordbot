@@ -73,6 +73,12 @@ public static class ApplicationServiceExtensions
         services.AddScoped<IBulkPurgeService, BulkPurgeService>();
         services.AddScoped<IThemeService, ThemeService>();
         services.AddScoped<ITtsPlaybackService, TtsPlaybackService>();
+
+        // TTS send pipeline: singleton so its playback-tracking state (current message,
+        // playing flag, active playback cancellation) is shared across all PortalTts*
+        // controllers and guilds. It resolves its own scoped/transient dependencies
+        // per-call via IServiceScopeFactory rather than capturing them.
+        services.AddSingleton<ITtsSendPipeline, TtsSendPipeline>();
         services.AddScoped<ISoundboardOrchestrationService, SoundboardOrchestrationService>();
         services.AddScoped<IAudioModerationLogService, AudioModerationLogService>();
 

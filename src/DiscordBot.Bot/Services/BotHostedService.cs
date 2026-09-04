@@ -2,6 +2,7 @@ using System.Text.Json;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Bot.Handlers;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services.FeatureRequests;
 using DiscordBot.Bot.Metrics;
 using DiscordBot.Bot.Tracing;
@@ -15,8 +16,11 @@ using Microsoft.Extensions.Options;
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
-/// Hosted service that manages the Discord bot lifecycle.
-/// Handles bot startup, login, and graceful shutdown.
+/// Hosted service that manages the Discord bot lifecycle: gateway event wiring, login, and
+/// graceful shutdown only. Status/presence broadcasting lives in
+/// <see cref="BotStatusBroadcaster"/>, and slash-command discovery/registration lives in
+/// <see cref="SlashCommandRegistrationService"/> — see the hosted-service ordering block on
+/// <c>DiscordServiceExtensions.AddDiscordBot</c> and CLAUDE-REFERENCE.md.
 /// </summary>
 public class BotHostedService : IHostedService
 {
@@ -34,6 +38,7 @@ public class BotHostedService : IHostedService
     private readonly NotXMessageHandler _notXMessageHandler;
     private readonly BusinessMetrics _businessMetrics;
     private readonly IDashboardUpdateService _dashboardUpdateService;
+    private readonly IBotStatusBroadcaster _botStatusBroadcaster;
     private readonly IAuditLogQueue _auditLogQueue;
     private readonly IMemberSyncQueue _memberSyncQueue;
     private readonly IServiceScopeFactory _scopeFactory;
@@ -42,15 +47,12 @@ public class BotHostedService : IHostedService
     private readonly ILogger<BotHostedService> _logger;
     private readonly IHostApplicationLifetime _lifetime;
     private readonly IHostEnvironment _environment;
-    private readonly ISettingsService _settingsService;
-    private readonly IRatWatchStatusService _ratWatchStatusService;
-    private readonly IBotStatusService _botStatusService;
     private readonly IConnectionStateService? _connectionStateService;
     private readonly ILatencyHistoryService? _latencyHistoryService;
     private readonly IApiRequestTracker? _apiRequestTracker;
     private readonly IBackgroundTaskRunner _backgroundTaskRunner;
     private readonly NotificationOptions _notificationOptions;
-    private static readonly DateTime _startTime = DateTime.UtcNow;
+    private readonly IBotUptimeProvider _uptimeProvider;
     private bool _initialConnectionComplete;
 
     public BotHostedService(
@@ -68,12 +70,10 @@ public class BotHostedService : IHostedService
         NotXMessageHandler notXMessageHandler,
         BusinessMetrics businessMetrics,
         IDashboardUpdateService dashboardUpdateService,
+        IBotStatusBroadcaster botStatusBroadcaster,
         IAuditLogQueue auditLogQueue,
         IMemberSyncQueue memberSyncQueue,
         IServiceScopeFactory scopeFactory,
-        ISettingsService settingsService,
-        IRatWatchStatusService ratWatchStatusService,
-        IBotStatusService botStatusService,
         IOptions<BotConfiguration> config,
         IOptions<ApplicationOptions> applicationOptions,
         ILogger<BotHostedService> logger,
@@ -81,6 +81,7 @@ public class BotHostedService : IHostedService
         IHostEnvironment environment,
         IBackgroundTaskRunner backgroundTaskRunner,
         IOptions<NotificationOptions> notificationOptions,
+        IBotUptimeProvider uptimeProvider,
         IConnectionStateService? connectionStateService = null,
         ILatencyHistoryService? latencyHistoryService = null,
         IApiRequestTracker? apiRequestTracker = null)
@@ -99,12 +100,10 @@ public class BotHostedService : IHostedService
         _notXMessageHandler = notXMessageHandler;
         _businessMetrics = businessMetrics;
         _dashboardUpdateService = dashboardUpdateService;
+        _botStatusBroadcaster = botStatusBroadcaster;
         _auditLogQueue = auditLogQueue;
         _memberSyncQueue = memberSyncQueue;
         _scopeFactory = scopeFactory;
-        _settingsService = settingsService;
-        _ratWatchStatusService = ratWatchStatusService;
-        _botStatusService = botStatusService;
         _config = config.Value;
         _applicationOptions = applicationOptions.Value;
         _logger = logger;
@@ -115,6 +114,7 @@ public class BotHostedService : IHostedService
         _latencyHistoryService = latencyHistoryService;
         _apiRequestTracker = apiRequestTracker;
         _notificationOptions = notificationOptions.Value;
+        _uptimeProvider = uptimeProvider;
     }
 
     /// <summary>
@@ -181,19 +181,10 @@ public class BotHostedService : IHostedService
             // Queue member sync for new guilds
             _client.JoinedGuild += OnBotJoinedGuild;
 
-            // Subscribe to settings changes for real-time updates
-            _settingsService.SettingsChanged += OnSettingsChangedAsync;
+            // Initialize status/presence broadcasting (custom status source, settings/Rat Watch subscriptions)
+            _botStatusBroadcaster.Initialize();
 
-            // Subscribe to Rat Watch status updates
-            _ratWatchStatusService.StatusUpdateRequested += OnRatWatchStatusUpdateRequested;
-
-            // Register custom status source with CustomStatus priority
-            _botStatusService.RegisterStatusSource(
-                "CustomStatus",
-                StatusSourcePriority.CustomStatus,
-                GetCustomStatusAsync);
-
-            // Initialize interaction handler (discovers and registers commands)
+            // Initialize interaction handler (wires interaction dispatch)
             await _interactionHandler.InitializeAsync();
 
             // Validate token
@@ -225,7 +216,7 @@ public class BotHostedService : IHostedService
                 {
                     Version = _applicationOptions.Version,
                     Environment = _environment.EnvironmentName,
-                    StartTime = _startTime
+                    StartTime = _uptimeProvider.StartTime
                 })
             });
 
@@ -251,7 +242,7 @@ public class BotHostedService : IHostedService
         {
             _logger.LogInformation("Stopping Discord bot hosted service");
 
-            var uptime = DateTime.UtcNow - _startTime;
+            var uptime = _uptimeProvider.Uptime;
 
             activity?.SetTag("bot.uptime_seconds", uptime.TotalSeconds);
             activity?.SetTag("bot.shutdown_reason", "ApplicationStopping");
@@ -277,8 +268,7 @@ public class BotHostedService : IHostedService
             _client.UserLeft -= _memberEventHandler.HandleUserLeftAsync;
             _client.GuildMemberUpdated -= _memberEventHandler.HandleGuildMemberUpdatedAsync;
             _client.JoinedGuild -= OnBotJoinedGuild;
-            _settingsService.SettingsChanged -= OnSettingsChangedAsync;
-            _ratWatchStatusService.StatusUpdateRequested -= OnRatWatchStatusUpdateRequested;
+            _botStatusBroadcaster.Shutdown();
 
             // Log bot shutdown to audit log before stopping
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -360,10 +350,10 @@ public class BotHostedService : IHostedService
 
             // Check for active Rat Watches and set appropriate status (fire-and-forget)
             // This prioritizes Rat Watch status over custom status
-            _backgroundTaskRunner.Run(_ => ApplyStartupStatusAsync(), "ApplyStartupStatus");
+            _backgroundTaskRunner.Run(_ => _botStatusBroadcaster.ApplyStartupStatusAsync(), "ApplyStartupStatus");
 
             // Broadcast status update (fire-and-forget, failure tolerant)
-            _backgroundTaskRunner.Run(_ => BroadcastBotStatusAsync(), "BroadcastBotStatus");
+            _backgroundTaskRunner.Run(_ => _botStatusBroadcaster.BroadcastStatusAsync(), "BroadcastBotStatus");
 
             // Log connection event to audit log (fire-and-forget)
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -405,34 +395,6 @@ public class BotHostedService : IHostedService
     }
 
     /// <summary>
-    /// Gets the custom status message from settings if configured.
-    /// Returns null if no custom status is configured (allows other status sources to take priority).
-    /// </summary>
-    private async Task<string?> GetCustomStatusAsync()
-    {
-        try
-        {
-            using var scope = _scopeFactory.CreateScope();
-            var settingsService = scope.ServiceProvider.GetRequiredService<ISettingsService>();
-
-            var statusMessage = await settingsService.GetSettingValueAsync<string>("General:StatusMessage");
-            if (!string.IsNullOrWhiteSpace(statusMessage))
-            {
-                _logger.LogTrace("Custom status provider returning: {StatusMessage}", statusMessage);
-                return statusMessage;
-            }
-
-            _logger.LogTrace("Custom status provider returning null (no configured status)");
-            return null;
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to retrieve custom status message");
-            return null;
-        }
-    }
-
-    /// <summary>
     /// Handles bot disconnected event and broadcasts status update.
     /// </summary>
     private Task OnDisconnectedAsync(Exception exception)
@@ -456,7 +418,7 @@ public class BotHostedService : IHostedService
             _connectionStateService?.RecordDisconnected(exception);
 
             // Broadcast status update (fire-and-forget, failure tolerant)
-            _backgroundTaskRunner.Run(_ => BroadcastBotStatusAsync(), "BroadcastBotStatus");
+            _backgroundTaskRunner.Run(_ => _botStatusBroadcaster.BroadcastStatusAsync(), "BroadcastBotStatus");
 
             // Log disconnection event to audit log (fire-and-forget)
             _auditLogQueue.Enqueue(new AuditLogCreateDto
@@ -499,35 +461,9 @@ public class BotHostedService : IHostedService
         _latencyHistoryService?.RecordSample(newLatency);
 
         // Broadcast status update periodically (fire-and-forget, failure tolerant)
-        _backgroundTaskRunner.Run(_ => BroadcastBotStatusAsync(), "BroadcastBotStatus");
+        _backgroundTaskRunner.Run(_ => _botStatusBroadcaster.BroadcastStatusAsync(), "BroadcastBotStatus");
 
         return Task.CompletedTask;
-    }
-
-    /// <summary>
-    /// Broadcasts current bot status to dashboard clients.
-    /// Fire-and-forget with internal error handling.
-    /// </summary>
-    private async Task BroadcastBotStatusAsync()
-    {
-        try
-        {
-            var status = new BotStatusUpdateDto
-            {
-                ConnectionState = _client.ConnectionState.ToString(),
-                Latency = _client.Latency,
-                GuildCount = _client.Guilds.Count,
-                Uptime = DateTime.UtcNow - _startTime,
-                Timestamp = DateTime.UtcNow
-            };
-
-            await _dashboardUpdateService.BroadcastBotStatusAsync(status);
-        }
-        catch (Exception ex)
-        {
-            // Log but don't throw - this is fire-and-forget
-            _logger.LogWarning(ex, "Failed to broadcast bot status update, but continuing normal operation");
-        }
     }
 
     /// <summary>
@@ -723,50 +659,4 @@ public class BotHostedService : IHostedService
         }
     }
 
-    /// <summary>
-    /// Handles settings changed events to apply real-time updates.
-    /// </summary>
-    private void OnSettingsChangedAsync(object? sender, SettingsChangedEventArgs e)
-    {
-        // Check if bot status message was updated
-        if (e.UpdatedKeys.Contains("General:StatusMessage"))
-        {
-            _logger.LogInformation("Bot status message setting changed, refreshing bot status");
-            // Refresh status to apply the new custom status (respects priority)
-            _backgroundTaskRunner.Run(_ => _botStatusService.RefreshStatusAsync(), "RefreshBotStatus.SettingsChanged");
-        }
-    }
-
-    /// <summary>
-    /// Handles Rat Watch status update requests.
-    /// Called when a Rat Watch state changes (created, voting started, voting ended, cleared early, etc.).
-    /// </summary>
-    private void OnRatWatchStatusUpdateRequested(object? sender, EventArgs e)
-    {
-        _logger.LogDebug("Rat Watch status update event received, refreshing bot status");
-        _backgroundTaskRunner.Run(_ => _botStatusService.RefreshStatusAsync(), "RefreshBotStatus.RatWatchUpdate");
-    }
-
-    /// <summary>
-    /// Applies the appropriate bot status on startup.
-    /// Evaluates all registered status sources and applies the highest priority active status.
-    /// Fire-and-forget with internal error handling.
-    /// </summary>
-    private async Task ApplyStartupStatusAsync()
-    {
-        try
-        {
-            _logger.LogDebug("Applying startup bot status");
-            // Refresh status to evaluate all sources (Rat Watch, custom status, etc.)
-            await _botStatusService.RefreshStatusAsync();
-
-            var (sourceName, message) = _botStatusService.GetCurrentStatus();
-            _logger.LogInformation("Startup bot status applied: Source={Source}, Message={Message}",
-                sourceName, message ?? "(none)");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to apply startup status, but continuing normal operation");
-        }
-    }
 }
