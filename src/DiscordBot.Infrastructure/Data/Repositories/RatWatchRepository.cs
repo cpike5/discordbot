@@ -393,9 +393,6 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
             query = query.Where(r => r.CustomMessage != null && r.CustomMessage.ToLower().Contains(keyword));
         }
 
-        // Get total count before pagination
-        var totalCount = await query.CountAsync(cancellationToken);
-
         // Apply sorting
         query = filter.SortBy.ToLowerInvariant() switch
         {
@@ -419,12 +416,8 @@ public class RatWatchRepository : Repository<RatWatch>, IRatWatchRepository
                 : query.OrderBy(r => r.ScheduledAt)
         };
 
-        // Apply pagination
-        var skip = (filter.Page - 1) * filter.PageSize;
-        var items = await query
-            .Skip(skip)
-            .Take(filter.PageSize)
-            .ToListAsync(cancellationToken);
+        // Apply pagination (count + skip/take)
+        var (items, totalCount) = await GetPagedAsync(query, filter.Page, filter.PageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} filtered Rat Watches for guild {GuildId} out of {TotalCount} total",
