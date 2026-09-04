@@ -57,7 +57,7 @@ public class AssistantAccessGate : IAssistantAccessGate
     /// <inheritdoc />
     public Task<bool> HasConsentAsync(ulong userId, CancellationToken cancellationToken = default)
     {
-        if (!_options.RequireExplicitConsent)
+        if (!_options.Privacy.RequireExplicitConsent)
         {
             return Task.FromResult(true);
         }

@@ -1,22 +1,19 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using DiscordBot.Core.Interfaces;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Pages;
-using System.Diagnostics;
 
 namespace DiscordBot.Bot.Pages.Admin.Performance;
 
 /// <summary>
 /// Page model for the Bot Health Metrics dashboard.
 /// Displays connection status, uptime, latency, and system resource metrics.
+/// All data aggregation is delegated to <see cref="IPerformanceDashboardAggregator"/>.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 public class HealthMetricsModel : PageModel
 {
-    private readonly IConnectionStateService _connectionStateService;
-    private readonly ILatencyHistoryService _latencyHistoryService;
-    private readonly ICpuHistoryService _cpuHistoryService;
-    private readonly IMemoryDiagnosticsService _memoryDiagnosticsService;
+    private readonly IPerformanceDashboardAggregator _aggregator;
     private readonly ILogger<HealthMetricsModel> _logger;
 
     /// <summary>
@@ -27,133 +24,22 @@ public class HealthMetricsModel : PageModel
     /// <summary>
     /// Initializes a new instance of the <see cref="HealthMetricsModel"/> class.
     /// </summary>
-    /// <param name="connectionStateService">The connection state service.</param>
-    /// <param name="latencyHistoryService">The latency history service.</param>
-    /// <param name="cpuHistoryService">The CPU history service.</param>
-    /// <param name="memoryDiagnosticsService">The memory diagnostics service.</param>
+    /// <param name="aggregator">The performance dashboard aggregator.</param>
     /// <param name="logger">The logger.</param>
     public HealthMetricsModel(
-        IConnectionStateService connectionStateService,
-        ILatencyHistoryService latencyHistoryService,
-        ICpuHistoryService cpuHistoryService,
-        IMemoryDiagnosticsService memoryDiagnosticsService,
+        IPerformanceDashboardAggregator aggregator,
         ILogger<HealthMetricsModel> logger)
     {
-        _connectionStateService = connectionStateService;
-        _latencyHistoryService = latencyHistoryService;
-        _cpuHistoryService = cpuHistoryService;
-        _memoryDiagnosticsService = memoryDiagnosticsService;
+        _aggregator = aggregator;
         _logger = logger;
     }
 
     /// <summary>
     /// Handles GET requests for the Health Metrics page.
     /// </summary>
-    public void OnGet()
+    public async Task OnGetAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Health Metrics page accessed by user {UserId}", User.Identity?.Name);
-        LoadViewModel();
-    }
-
-    private void LoadViewModel()
-    {
-        try
-        {
-            // Get connection state and session info
-            var connectionState = _connectionStateService.GetCurrentState();
-            var sessionDuration = _connectionStateService.GetCurrentSessionDuration();
-            var currentLatency = _latencyHistoryService.GetCurrentLatency();
-
-            // Get statistics
-            var latencyStats = _latencyHistoryService.GetStatistics(24);
-            var connectionStats7d = _connectionStateService.GetConnectionStats(7);
-            var connectionEvents = _connectionStateService.GetConnectionEvents(7);
-            var recentLatencySamples = _latencyHistoryService.GetSamples(1).TakeLast(10).ToList();
-
-            // Calculate uptime percentages
-            var uptime24h = _connectionStateService.GetUptimePercentage(TimeSpan.FromHours(24));
-            var uptime7d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(7));
-            var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
-
-            // Get system metrics
-            long workingSetMB;
-            long privateMemoryMB;
-            int threadCount;
-            using (var process = Process.GetCurrentProcess())
-            {
-                workingSetMB = process.WorkingSet64 / 1024 / 1024;
-                privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
-                threadCount = process.Threads.Count;
-            }
-            var maxAllocatedMemoryMB = GC.GetTotalMemory(false) / 1024 / 1024;
-            var memoryUtilizationPercent = maxAllocatedMemoryMB > 0
-                ? (double)workingSetMB / maxAllocatedMemoryMB * 100
-                : 0;
-            var gen2Collections = GC.CollectionCount(2);
-
-            // Get detailed memory diagnostics
-            var memoryDiagnostics = _memoryDiagnosticsService.GetDiagnostics();
-
-            // Format session start time (UTC for client-side conversion)
-            var sessionStart = _connectionStateService.GetLastConnectedTime();
-            var sessionStartFormatted = sessionStart?.ToString("MMM dd, yyyy 'at' HH:mm") + " UTC" ?? "Unknown";
-
-            // Create health DTO
-            var health = new Core.DTOs.PerformanceHealthDto
-            {
-                Status = connectionState == Core.Interfaces.GatewayConnectionState.Connected ? "Healthy" : "Unhealthy",
-                Uptime = sessionDuration,
-                LatencyMs = currentLatency,
-                ConnectionState = connectionState.ToString(),
-                Timestamp = DateTime.UtcNow
-            };
-
-            ViewModel = new HealthMetricsViewModel
-            {
-                Health = health,
-                LatencyStats = latencyStats,
-                ConnectionStats = connectionStats7d,
-                RecentConnectionEvents = connectionEvents,
-                RecentLatencySamples = recentLatencySamples,
-                UptimeFormatted = HealthMetricsViewModel.FormatUptime(sessionDuration),
-                Uptime24HFormatted = $"{uptime24h:F1}%",
-                Uptime7DFormatted = $"{uptime7d:F1}%",
-                Uptime30DFormatted = $"{uptime30d:F1}%",
-                ConnectionStateClass = HealthMetricsViewModel.GetConnectionStateClass(connectionState.ToString()),
-                LatencyHealthClass = HealthMetricsViewModel.GetLatencyHealthClass(currentLatency),
-                SessionStartFormatted = sessionStartFormatted,
-                SessionStartUtc = sessionStart,
-                WorkingSetMB = workingSetMB,
-                PrivateMemoryMB = privateMemoryMB,
-                MaxAllocatedMemoryMB = maxAllocatedMemoryMB,
-                MemoryUtilizationPercent = memoryUtilizationPercent,
-                Gen2Collections = gen2Collections,
-                CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
-                ThreadCount = threadCount,
-                MemoryDiagnostics = memoryDiagnostics
-            };
-
-            _logger.LogDebug(
-                "Health Metrics ViewModel loaded: ConnectionState={ConnectionState}, Uptime={Uptime}, Latency={LatencyMs}ms",
-                connectionState,
-                sessionDuration,
-                currentLatency);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to load Health Metrics ViewModel");
-
-            // Create a default view model in case of error
-            ViewModel = new HealthMetricsViewModel
-            {
-                UptimeFormatted = "0m",
-                Uptime24HFormatted = "0%",
-                Uptime7DFormatted = "0%",
-                Uptime30DFormatted = "0%",
-                ConnectionStateClass = "health-status-error",
-                LatencyHealthClass = "gauge-fill-error",
-                SessionStartFormatted = "Unknown"
-            };
-        }
+        ViewModel = await _aggregator.BuildHealthMetricsAsync(cancellationToken);
     }
 }

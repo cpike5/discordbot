@@ -68,30 +68,30 @@ public class GuildAssistantContext : IAssistantContext
     public string RateLimitCacheKeyPrefix => RateLimitPrefix;
     public string RateLimitScopeKey => $"{_guildId}:{_userId}";
     public int? RateLimit { get; }
-    public int RateLimitWindowMinutes => _options.RateLimitWindowMinutes;
+    public int RateLimitWindowMinutes => _options.RateLimits.RateLimitWindowMinutes;
 
-    public string? Model => _options.Model;
-    public int MaxTokens => _options.MaxTokens;
-    public double Temperature => _options.Temperature;
-    public int MaxToolCallIterations => _options.MaxToolCallsPerQuestion;
+    public string? Model => _options.Sampling.Model;
+    public int MaxTokens => _options.Sampling.MaxTokens;
+    public double Temperature => _options.Sampling.Temperature;
+    public int MaxToolCallIterations => _options.Tools.MaxToolCallsPerQuestion;
 
     public IToolRegistry? ToolRegistry { get; }
     public ToolContext ExecutionContext { get; }
     public List<LlmMessage> ConversationHistory { get; } = new();
 
     public AssistantCostRates CostRates => new(
-        _options.CostPerMillionInputTokens,
-        _options.CostPerMillionOutputTokens,
-        _options.CostPerMillionCachedTokens,
-        _options.CostPerMillionCacheWriteTokens);
+        _options.Cost.CostPerMillionInputTokens,
+        _options.Cost.CostPerMillionOutputTokens,
+        _options.Cost.CostPerMillionCachedTokens,
+        _options.Cost.CostPerMillionCacheWriteTokens);
 
-    public int MaxResponseLength => _options.MaxResponseLength;
-    public string TruncationSuffix => _options.TruncationSuffix;
+    public int MaxResponseLength => _options.Messages.MaxResponseLength;
+    public string TruncationSuffix => _options.Messages.TruncationSuffix;
 
     /// <inheritdoc />
     public async Task<string> BuildSystemPromptAsync(CancellationToken cancellationToken)
     {
-        var template = await _promptTemplate.LoadAsync(_options.AgentPromptPath, cancellationToken);
+        var template = await _promptTemplate.LoadAsync(_options.Tools.AgentPromptPath, cancellationToken);
 
         var variables = new Dictionary<string, string>();
 
@@ -135,7 +135,7 @@ public class GuildAssistantContext : IAssistantContext
     /// <inheritdoc />
     public async Task RecordUsageAsync(string inputMessage, AssistantPipelineResult result, CancellationToken cancellationToken)
     {
-        if (_options.EnableCostTracking)
+        if (_options.Cost.EnableCostTracking)
         {
             try
             {
@@ -158,7 +158,7 @@ public class GuildAssistantContext : IAssistantContext
             }
         }
 
-        if (_options.LogInteractions)
+        if (_options.Privacy.LogInteractions)
         {
             try
             {
@@ -169,11 +169,11 @@ public class GuildAssistantContext : IAssistantContext
                     GuildId = _guildId,
                     ChannelId = _channelId,
                     MessageId = _messageId,
-                    Question = _question.Length > _options.MaxQuestionLength
-                        ? _question[.._options.MaxQuestionLength]
+                    Question = _question.Length > _options.Messages.MaxQuestionLength
+                        ? _question[.._options.Messages.MaxQuestionLength]
                         : _question,
-                    Response = result.Response?.Length > _options.MaxResponseLength
-                        ? result.Response[.._options.MaxResponseLength]
+                    Response = result.Response?.Length > _options.Messages.MaxResponseLength
+                        ? result.Response[.._options.Messages.MaxResponseLength]
                         : result.Response,
                     InputTokens = result.InputTokens,
                     OutputTokens = result.OutputTokens,

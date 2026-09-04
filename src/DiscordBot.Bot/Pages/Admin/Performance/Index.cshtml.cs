@@ -43,10 +43,10 @@ public class IndexModel : PageModel
     /// <summary>
     /// Handles GET requests for the Performance Overview page.
     /// </summary>
-    public async Task OnGetAsync()
+    public async Task OnGetAsync(CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Performance Overview page accessed by user {UserId}", User.Identity?.Name);
-        await LoadViewModelAsync();
+        await LoadViewModelAsync(24, cancellationToken);
     }
 
     /// <summary>
@@ -54,8 +54,9 @@ public class IndexModel : PageModel
     /// </summary>
     /// <param name="tabId">The ID of the tab to load.</param>
     /// <param name="hours">The time range in hours (24, 168, or 720).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The partial view for the requested tab.</returns>
-    public async Task<IActionResult> OnGetPartialAsync(string tabId, int hours = 24)
+    public async Task<IActionResult> OnGetPartialAsync(string tabId, int hours = 24, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Loading partial content for tab {TabId} with hours={Hours}", tabId, hours);
 
@@ -67,31 +68,31 @@ public class IndexModel : PageModel
 
         return tabId?.ToLowerInvariant() switch
         {
-            "overview" => await LoadOverviewTabAsync(),
-            "health" => await LoadHealthTabAsync(),
-            "commands" => await LoadCommandsTabAsync(hours),
+            "overview" => await LoadOverviewTabAsync(hours, cancellationToken),
+            "health" => await LoadHealthTabAsync(cancellationToken),
+            "commands" => await LoadCommandsTabAsync(hours, cancellationToken),
             "api" => LoadApiTab(hours),
             "system" => LoadSystemTab(),
-            "alerts" => await LoadAlertsTabAsync(),
+            "alerts" => await LoadAlertsTabAsync(cancellationToken),
             _ => HandleInvalidTab(tabId)
         };
     }
 
-    private async Task<IActionResult> LoadOverviewTabAsync()
+    private async Task<IActionResult> LoadOverviewTabAsync(int hours, CancellationToken cancellationToken)
     {
-        await LoadViewModelAsync();
+        await LoadViewModelAsync(hours, cancellationToken);
         return Partial("Tabs/_OverviewTab", ViewModel);
     }
 
-    private async Task<IActionResult> LoadHealthTabAsync()
+    private async Task<IActionResult> LoadHealthTabAsync(CancellationToken cancellationToken)
     {
-        var viewModel = await _aggregator.BuildHealthMetricsAsync();
+        var viewModel = await _aggregator.BuildHealthMetricsAsync(cancellationToken);
         return Partial("Tabs/_HealthTab", viewModel);
     }
 
-    private async Task<IActionResult> LoadCommandsTabAsync(int hours)
+    private async Task<IActionResult> LoadCommandsTabAsync(int hours, CancellationToken cancellationToken)
     {
-        var viewModel = await _aggregator.BuildCommandPerformanceAsync(hours);
+        var viewModel = await _aggregator.BuildCommandPerformanceAsync(hours, cancellationToken);
         return Partial("Tabs/_CommandsTab", viewModel);
     }
 
@@ -107,9 +108,9 @@ public class IndexModel : PageModel
         return Partial("Tabs/_SystemTab", viewModel);
     }
 
-    private async Task<IActionResult> LoadAlertsTabAsync()
+    private async Task<IActionResult> LoadAlertsTabAsync(CancellationToken cancellationToken)
     {
-        var viewModel = await _aggregator.BuildAlertsPageAsync(User);
+        var viewModel = await _aggregator.BuildAlertsPageAsync(User, cancellationToken);
         return Partial("Tabs/_AlertsTab", viewModel);
     }
 
@@ -119,9 +120,9 @@ public class IndexModel : PageModel
         return NotFound();
     }
 
-    private async Task LoadViewModelAsync()
+    private async Task LoadViewModelAsync(int hours, CancellationToken cancellationToken)
     {
-        var result = await _aggregator.BuildOverviewAsync();
+        var result = await _aggregator.BuildOverviewAsync(hours, cancellationToken);
         ViewModel = result.Overview;
         ShellViewModel = result.Shell;
     }

@@ -127,6 +127,97 @@ test('tolerates an empty response body (e.g. 204 No Content)', async () => {
     assert.equal(data, null);
 });
 
+test('responseType: "blob" returns a Blob body on a successful response', async () => {
+    global.document = { querySelector: () => null };
+    class FakeBlob {}
+    const blob = new FakeBlob();
+    mockFetch(async () => ({
+        ok: true,
+        status: 200,
+        headers: { get: () => null },
+        blob: async () => blob,
+        text: async () => { throw new Error('should not read text for a blob response'); }
+    }));
+
+    const result = await ApiClient.post('/api/thing/preview', { x: 1 }, { responseType: 'blob' });
+
+    assert.equal(result, blob);
+});
+
+test('responseType: "blob" still parses the error body as JSON on a non-ok response', async () => {
+    global.document = { querySelector: () => null };
+    mockFetch(async () => ({
+        ok: false,
+        status: 400,
+        headers: { get: () => null },
+        text: async () => JSON.stringify({ message: 'Bad request' })
+    }));
+
+    await assert.rejects(
+        () => ApiClient.post('/api/thing/preview', {}, { responseType: 'blob' }),
+        (err) => {
+            assert.ok(err instanceof ApiClient.ApiClientError);
+            assert.equal(err.message, 'Bad request');
+            return true;
+        }
+    );
+});
+
+test('a 429 response surfaces status and a parsed Retry-After header on ApiClientError', async () => {
+    global.document = { querySelector: () => null };
+    mockFetch(async () => ({
+        ok: false,
+        status: 429,
+        headers: { get: (name) => (name === 'Retry-After' ? '30' : null) },
+        text: async () => JSON.stringify({ message: 'Rate limit exceeded' })
+    }));
+
+    await assert.rejects(
+        () => ApiClient.post('/api/thing/send', {}),
+        (err) => {
+            assert.ok(err instanceof ApiClient.ApiClientError);
+            assert.equal(err.status, 429);
+            assert.equal(err.message, 'Rate limit exceeded');
+            assert.deepEqual(err.retryAfter, { raw: '30', seconds: 30 });
+            return true;
+        }
+    );
+});
+
+test('requestRaw exposes the raw Response so callers can read headers on a 429', async () => {
+    global.document = { querySelector: () => null };
+    mockFetch(async () => ({
+        ok: false,
+        status: 429,
+        headers: { get: (name) => (name === 'Retry-After' ? '5' : null) },
+        text: async () => JSON.stringify({ message: 'Slow down' })
+    }));
+
+    const { ok, status, response } = await ApiClient.postRaw('/api/thing/send', {});
+
+    assert.equal(ok, false);
+    assert.equal(status, 429);
+    assert.equal(response.headers.get('Retry-After'), '5');
+});
+
+test('a custom errorMessage option is used as the fallback when the body carries no message', async () => {
+    global.document = { querySelector: () => null };
+    mockFetch(async () => ({
+        ok: false,
+        status: 500,
+        headers: { get: () => null },
+        text: async () => ''
+    }));
+
+    await assert.rejects(
+        () => ApiClient.post('/api/thing/send', {}, { errorMessage: 'Failed to send message' }),
+        (err) => {
+            assert.equal(err.message, 'Failed to send message');
+            return true;
+        }
+    );
+});
+
 test('FormData bodies are sent through untouched, without a Content-Type override', async () => {
     global.document = { querySelector: () => null };
     class FakeFormData {}

@@ -203,6 +203,6 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
     {
         var settings = await _repository.GetByGuildIdAsync(guildId, cancellationToken);
 
-        return settings?.RateLimitOverride ?? _assistantOptions.Value.DefaultRateLimit;
+        return settings?.RateLimitOverride ?? _assistantOptions.Value.RateLimits.DefaultRateLimit;
     }
 }

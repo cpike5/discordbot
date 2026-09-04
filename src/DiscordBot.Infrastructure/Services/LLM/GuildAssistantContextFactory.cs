@@ -51,7 +51,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             messageId,
             rateLimit,
             question,
-            _options.EnableDocumentationTools ? _toolRegistry : null,
+            _options.Tools.EnableDocumentationTools ? _toolRegistry : null,
             _guildService,
             _promptTemplate,
             _metricsRepository,
