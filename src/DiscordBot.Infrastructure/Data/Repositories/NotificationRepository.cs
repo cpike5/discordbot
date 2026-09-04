@@ -375,15 +375,9 @@ public class NotificationRepository : Repository<UserNotification>, INotificatio
                 n.Message.ToLower().Contains(term));
         }
 
-        // Get total count
-        var totalCount = await baseQuery.CountAsync(cancellationToken);
-
-        // Apply pagination
-        var items = await baseQuery
-            .OrderByDescending(n => n.CreatedAt)
-            .Skip((query.Page - 1) * query.PageSize)
-            .Take(query.PageSize)
-            .ToListAsync(cancellationToken);
+        // Apply ordering, then delegate count + skip/take to the shared paging helper
+        var orderedQuery = baseQuery.OrderByDescending(n => n.CreatedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, query.Page, query.PageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} of {Total} notifications for user {UserId}",

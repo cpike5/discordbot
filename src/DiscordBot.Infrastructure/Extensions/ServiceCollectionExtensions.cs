@@ -10,6 +10,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Npgsql;
 using Serilog;
 
+[assembly: System.Runtime.CompilerServices.InternalsVisibleTo("DiscordBot.Tests")]
+
 namespace DiscordBot.Infrastructure.Extensions;
 
 /// <summary>
@@ -17,6 +19,23 @@ namespace DiscordBot.Infrastructure.Extensions;
 /// </summary>
 public static class ServiceCollectionExtensions
 {
+    /// <summary>
+    /// Repository classes in this assembly that must NOT be picked up by the convention-based
+    /// scan in <see cref="AddRepositories"/>, because they are registered elsewhere (feature-module
+    /// extension methods in DiscordBot.Bot) or need non-default handling.
+    /// </summary>
+    internal static readonly IReadOnlyCollection<Type> RepositoryScanExclusions =
+    [
+        typeof(AssistantGuildSettingsRepository),
+        typeof(AssistantInteractionLogRepository),
+        typeof(AssistantUsageMetricsRepository),
+        typeof(DmAssistantInteractionLogRepository),
+        typeof(DmAssistantNoteRepository),
+        typeof(DmAssistantUsageMetricsRepository),
+        typeof(DmConversationMessageRepository),
+        typeof(FeatureRequestRepository),
+    ];
+
     /// <summary>
     /// Adds Infrastructure services including DbContext and repositories.
     /// </summary>
@@ -50,9 +69,7 @@ public static class ServiceCollectionExtensions
                 csBuilder.KeepAlive = 30;
             var npgsqlConnectionString = csBuilder.ToString();
 
-            services.AddDbContext<PostgresBotDbContext>((serviceProvider, options) =>
-            {
-                var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
+            services.AddBotDbContext<PostgresBotDbContext>(options =>
                 options.UseNpgsql(npgsqlConnectionString, npgsql =>
                 {
                     npgsql.MigrationsAssembly("DiscordBot.Infrastructure");
@@ -60,70 +77,20 @@ public static class ServiceCollectionExtensions
                         maxRetryCount: 3,
                         maxRetryDelay: TimeSpan.FromSeconds(5),
                         errorCodesToAdd: null);
-                })
-                    .AddInterceptors(interceptor);
-            });
+                }));
             // Forward BotDbContext to resolve as PostgresBotDbContext
             services.AddScoped<BotDbContext>(sp => sp.GetRequiredService<PostgresBotDbContext>());
         }
         else
         {
-            services.AddDbContext<BotDbContext>((serviceProvider, options) =>
-            {
-                var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
+            services.AddBotDbContext<BotDbContext>(options =>
                 options.UseSqlite(connectionString, sqlite =>
-                    sqlite.MigrationsAssembly("DiscordBot.Infrastructure"))
-                    .AddInterceptors(interceptor);
-            });
+                    sqlite.MigrationsAssembly("DiscordBot.Infrastructure")));
         }
 
-        // Register repositories
+        // Register repositories (generic repository + convention-scanned concrete repositories)
         services.AddScoped(typeof(IRepository<>), typeof(Repository<>));
-        services.AddScoped<IGuildRepository, GuildRepository>();
-        services.AddScoped<IUserRepository, UserRepository>();
-        services.AddScoped<ICommandLogRepository, CommandLogRepository>();
-        services.AddScoped<IMessageLogRepository, MessageLogRepository>();
-        services.AddScoped<ISettingsRepository, SettingsRepository>();
-        services.AddScoped<IUserConsentRepository, UserConsentRepository>();
-        services.AddScoped<IWelcomeConfigurationRepository, WelcomeConfigurationRepository>();
-        services.AddScoped<IScheduledMessageRepository, ScheduledMessageRepository>();
-        services.AddScoped<IAuditLogRepository, AuditLogRepository>();
-        services.AddScoped<IRatWatchRepository, RatWatchRepository>();
-        services.AddScoped<IRatVoteRepository, RatVoteRepository>();
-        services.AddScoped<IRatRecordRepository, RatRecordRepository>();
-        services.AddScoped<IGuildRatWatchSettingsRepository, GuildRatWatchSettingsRepository>();
-        services.AddScoped<IGuildMemberRepository, GuildMemberRepository>();
-        services.AddScoped<IFlaggedEventRepository, FlaggedEventRepository>();
-        services.AddScoped<IGuildModerationConfigRepository, GuildModerationConfigRepository>();
-        services.AddScoped<IModerationCaseRepository, ModerationCaseRepository>();
-        services.AddScoped<IModNoteRepository, ModNoteRepository>();
-        services.AddScoped<IModTagRepository, ModTagRepository>();
-        services.AddScoped<IUserModTagRepository, UserModTagRepository>();
-        services.AddScoped<IWatchlistRepository, WatchlistRepository>();
-        services.AddScoped<IReminderRepository, ReminderRepository>();
-        services.AddScoped<IMemberActivityRepository, MemberActivityRepository>();
-        services.AddScoped<IChannelActivityRepository, ChannelActivityRepository>();
-        services.AddScoped<IGuildMetricsRepository, GuildMetricsRepository>();
-        services.AddScoped<IPerformanceAlertRepository, PerformanceAlertRepository>();
-        services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
-        services.AddScoped<ISoundRepository, SoundRepository>();
-        services.AddScoped<ISoundCategoryRepository, SoundCategoryRepository>();
-        services.AddScoped<ISoundPlayLogRepository, SoundPlayLogRepository>();
-        services.AddScoped<IGuildAudioSettingsRepository, GuildAudioSettingsRepository>();
-        services.AddScoped<IUserSoundFavoriteRepository, UserSoundFavoriteRepository>();
-        services.AddScoped<ITtsMessageRepository, TtsMessageRepository>();
-        services.AddScoped<IGuildTtsSettingsRepository, GuildTtsSettingsRepository>();
-        services.AddScoped<ICommandModuleConfigurationRepository, CommandModuleConfigurationRepository>();
-        services.AddScoped<IUserActivityEventRepository, UserActivityEventRepository>();
-        services.AddScoped<IThemeRepository, ThemeRepository>();
-        services.AddScoped<IConnectionEventRepository, ConnectionEventRepository>();
-        services.AddScoped<INotificationRepository, NotificationRepository>();
-        services.AddScoped<IVoxMessageHistoryRepository, VoxMessageHistoryRepository>();
-        services.AddScoped<ITtsMessageHistoryRepository, TtsMessageHistoryRepository>();
-        services.AddScoped<IUserTtsPresetRepository, UserTtsPresetRepository>();
-        services.AddScoped<IAudioPlaybackLogRepository, AudioPlaybackLogRepository>();
-        services.AddScoped<IUserPreferenceRepository, UserPreferenceRepository>();
-        services.AddScoped<INotXGuildSettingsRepository, NotXGuildSettingsRepository>();
+        services.AddRepositories();
 
         // Register services
         // SettingsService is registered as Singleton to maintain restart pending flag across requests
@@ -134,4 +101,47 @@ public static class ServiceCollectionExtensions
         return services;
     }
 
+    /// <summary>
+    /// Registers a provider-specific <typeparamref name="TContext"/> DbContext with the shared
+    /// options (query performance interceptor) applied on top of the provider configuration
+    /// supplied by <paramref name="configureProvider"/>.
+    /// </summary>
+    private static void AddBotDbContext<TContext>(
+        this IServiceCollection services,
+        Action<DbContextOptionsBuilder> configureProvider)
+        where TContext : DbContext
+    {
+        services.AddDbContext<TContext>((serviceProvider, options) =>
+        {
+            configureProvider(options);
+            var interceptor = serviceProvider.GetRequiredService<QueryPerformanceInterceptor>();
+            options.AddInterceptors(interceptor);
+        });
+    }
+
+    /// <summary>
+    /// Scans the Infrastructure assembly for concrete, non-abstract, non-generic classes whose
+    /// name ends in "Repository" and registers each as Scoped against every interface it
+    /// implements whose name also ends in "Repository". Classes listed in
+    /// <see cref="RepositoryScanExclusions"/> are skipped because they are registered elsewhere.
+    /// </summary>
+    private static void AddRepositories(this IServiceCollection services)
+    {
+        var repositoryTypes = typeof(ServiceCollectionExtensions).Assembly
+            .GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false, IsGenericTypeDefinition: false })
+            .Where(t => t.Name.EndsWith("Repository", StringComparison.Ordinal))
+            .Where(t => !RepositoryScanExclusions.Contains(t));
+
+        foreach (var implementationType in repositoryTypes)
+        {
+            var repositoryInterfaces = implementationType.GetInterfaces()
+                .Where(i => i.Name.EndsWith("Repository", StringComparison.Ordinal));
+
+            foreach (var serviceType in repositoryInterfaces)
+            {
+                services.AddScoped(serviceType, implementationType);
+            }
+        }
+    }
 }
