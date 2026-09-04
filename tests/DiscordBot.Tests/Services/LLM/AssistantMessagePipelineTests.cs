@@ -244,14 +244,29 @@ public class AssistantMessagePipelineTests
 
         var options = new AssistantOptions
         {
-            Model = "claude-sonnet-4-20250514",
-            MaxTokens = 512,
-            Temperature = 0.7,
-            MaxToolCallsPerQuestion = 5,
-            MaxResponseLength = 1800,
-            TruncationSuffix = "\n\n... *(response truncated)*",
-            EnableCostTracking = false,
-            LogInteractions = false
+            Sampling = new()
+            {
+                Model = "claude-sonnet-4-20250514",
+                MaxTokens = 512,
+                Temperature = 0.7
+            },
+            Tools = new()
+            {
+                MaxToolCallsPerQuestion = 5
+            },
+            Messages = new()
+            {
+                MaxResponseLength = 1800,
+                TruncationSuffix = "\n\n... *(response truncated)*"
+            },
+            Cost = new()
+            {
+                EnableCostTracking = false
+            },
+            Privacy = new()
+            {
+                LogInteractions = false
+            }
         };
 
         return new GuildAssistantContext(

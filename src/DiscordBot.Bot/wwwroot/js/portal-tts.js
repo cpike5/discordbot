@@ -396,31 +396,24 @@
 
         try {
             const body = buildTtsRequestBody();
-            const response = await fetch(API.preview(guildId), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+            const blob = await ApiClient.post(API.preview(guildId), body, {
+                responseType: 'blob',
+                errorMessage: 'Failed to generate preview'
             });
 
-            if (response.status === 429) {
-                const data = await response.json().catch(() => ({}));
-                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
-                return;
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to generate preview');
-            }
-
-            const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
             audio.addEventListener('ended', () => URL.revokeObjectURL(url));
             audio.addEventListener('error', () => URL.revokeObjectURL(url));
             audio.play();
         } catch (error) {
-            showToast('error', error.message);
+            if (error instanceof ApiClient.ApiClientError && error.status === 429) {
+                const fallback = (error.data && error.data.message) || 'Rate limit exceeded. Please wait.';
+                const retrySeconds = error.retryAfter?.seconds;
+                showToast('warning', retrySeconds ? `${fallback} Try again in ${retrySeconds}s.` : fallback);
+            } else {
+                showToast('error', error.message);
+            }
         } finally {
             isPreviewing = false;
             previewBtn.innerHTML = originalHtml;
@@ -484,24 +477,7 @@
         `;
 
         try {
-            const response = await fetch(API.send(guildId), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (response.status === 429) {
-                const data = await response.json().catch(() => ({}));
-                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
-                return;
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to send message');
-            }
+            await ApiClient.post(API.send(guildId), body, { errorMessage: 'Failed to send message' });
 
             showToast('success', 'Message sent successfully');
             clearDraft();
@@ -510,7 +486,11 @@
             saveToHistory(body);
         } catch (error) {
             // Send error occurred
-            showToast('error', error.message);
+            if (error instanceof ApiClient.ApiClientError && error.status === 429) {
+                showToast('warning', (error.data && error.data.message) || 'Rate limit exceeded. Please wait.');
+            } else {
+                showToast('error', error.message);
+            }
         } finally {
             isSending = false;
             sendBtn.innerHTML = originalHtml;
@@ -648,14 +628,8 @@
                 }]
             };
 
-            const response = await fetch('/api/portal/tts/build-ssml', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                const data = await response.json();
+            const { ok, data } = await ApiClient.postRaw(API.buildSsml(), payload);
+            if (ok) {
                 currentSsml = data.ssml;
                 if (window.ssmlPreview_update) {
                     window.ssmlPreview_update('portalSsmlPreview', currentSsml, message.length);
@@ -847,10 +821,10 @@
      */
     async function fetchHistory() {
         try {
-            const response = await fetch(API.history(guildId));
-            if (!response.ok) return;
+            const { ok, data } = await ApiClient.getRaw(API.history(guildId));
+            if (!ok) return;
 
-            historyEntries = await response.json();
+            historyEntries = data;
             renderHistory();
         } catch (error) {
             // Non-critical: history load failure should not block TTS usage
@@ -862,21 +836,16 @@
      */
     async function saveToHistory(body) {
         try {
-            const response = await fetch(API.history(guildId), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: body.message,
-                    voiceName: body.voice,
-                    style: body.style || null,
-                    speed: body.speed,
-                    pitch: body.pitch
-                })
+            const { ok, data: entry } = await ApiClient.postRaw(API.history(guildId), {
+                message: body.message,
+                voiceName: body.voice,
+                style: body.style || null,
+                speed: body.speed,
+                pitch: body.pitch
             });
 
-            if (!response.ok) return;
+            if (!ok) return;
 
-            const entry = await response.json();
             // Prepend to list and re-render
             historyEntries.unshift(entry);
             // Keep max 20 entries client-side
@@ -1010,25 +979,15 @@
         btn.innerHTML = `<svg class="inline-block animate-spin" fill="none" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
         try {
-            const response = await fetch(API.historyReplay(guildId, id), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (response.status === 429) {
-                const data = await response.json().catch(() => ({}));
-                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
-                return;
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to replay message');
-            }
+            await ApiClient.post(API.historyReplay(guildId, id), undefined, { errorMessage: 'Failed to replay message' });
 
             showToast('success', 'Message replayed');
         } catch (error) {
-            showToast('error', error.message);
+            if (error instanceof ApiClient.ApiClientError && error.status === 429) {
+                showToast('warning', (error.data && error.data.message) || 'Rate limit exceeded. Please wait.');
+            } else {
+                showToast('error', error.message);
+            }
         } finally {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
@@ -1098,16 +1057,7 @@
      */
     async function toggleHistoryFavorite(id, btn) {
         try {
-            const response = await fetch(API.historyFavorite(guildId, id), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to update favorite');
-            }
-
-            const data = await response.json();
+            const data = await ApiClient.put(API.historyFavorite(guildId, id), undefined, { errorMessage: 'Failed to update favorite' });
 
             // Update local state
             const entry = historyEntries.find(e => e.id === id);
@@ -1126,13 +1076,7 @@
      */
     async function deleteHistoryEntry(id) {
         try {
-            const response = await fetch(API.historyDelete(guildId, id), {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to delete entry');
-            }
+            await ApiClient.del(API.historyDelete(guildId, id), { errorMessage: 'Failed to delete entry' });
 
             // Remove from local state
             historyEntries = historyEntries.filter(e => e.id !== id);

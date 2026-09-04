@@ -34,8 +34,11 @@ public class GuildDetailsAggregatorTests
         var assistantOptions = Options.Create(new AssistantOptions
         {
             GloballyEnabled = true,
-            DefaultRateLimit = 10,
-            RateLimitWindowMinutes = 5
+            RateLimits = new()
+            {
+                DefaultRateLimit = 10,
+                RateLimitWindowMinutes = 5
+            }
         });
 
         _aggregator = new GuildDetailsAggregator(
@@ -237,7 +240,7 @@ public class GuildDetailsAggregatorTests
         // Arrange
         const ulong guildId = 999999999UL;
         var mockLogger = new Mock<ILogger<GuildDetailsAggregator>>();
-        var assistantOptions = Options.Create(new AssistantOptions { GloballyEnabled = true, DefaultRateLimit = 10, RateLimitWindowMinutes = 5 });
+        var assistantOptions = Options.Create(new AssistantOptions { GloballyEnabled = true, RateLimits = new() { DefaultRateLimit = 10, RateLimitWindowMinutes = 5 } });
         var aggregator = new GuildDetailsAggregator(
             _mockGuildService.Object,
             _mockCommandLogService.Object,

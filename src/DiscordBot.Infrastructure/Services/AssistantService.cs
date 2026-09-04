@@ -77,10 +77,10 @@ public class AssistantService : IAssistantService
                 return AssistantResponseResult.ErrorResult("Question cannot be empty.");
             }
 
-            if (question.Length > _options.MaxQuestionLength)
+            if (question.Length > _options.Messages.MaxQuestionLength)
             {
                 return AssistantResponseResult.ErrorResult(
-                    $"Question is too long. Maximum length is {_options.MaxQuestionLength} characters.");
+                    $"Question is too long. Maximum length is {_options.Messages.MaxQuestionLength} characters.");
             }
 
             if (!await IsEnabledForGuildAsync(guildId, cancellationToken))
@@ -167,12 +167,12 @@ public class AssistantService : IAssistantService
                 "Error processing assistant question from user {UserId} in guild {GuildId}",
                 userId, guildId);
 
-            if (_options.EnableCostTracking)
+            if (_options.Cost.EnableCostTracking)
             {
                 await _telemetryReader.IncrementFailedRequestAsync(guildId, cancellationToken);
             }
 
-            return AssistantResponseResult.ErrorResult(_options.ErrorMessage);
+            return AssistantResponseResult.ErrorResult(_options.Messages.ErrorMessage);
         }
     }
 
@@ -205,7 +205,7 @@ public class AssistantService : IAssistantService
             GuildAssistantContext.RateLimitPrefix,
             $"{guildId}:{userId}",
             rateLimit,
-            _options.RateLimitWindowMinutes,
+            _options.RateLimits.RateLimitWindowMinutes,
             cancellationToken);
     }
 

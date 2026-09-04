@@ -68,20 +68,38 @@ public class AssistantServiceTests
         _options = new AssistantOptions
         {
             GloballyEnabled = true,
-            RequireExplicitConsent = true,
-            DefaultRateLimit = 5,
-            RateLimitWindowMinutes = 5,
-            MaxQuestionLength = 500,
-            MaxResponseLength = 1800,
-            MaxTokens = 1024,
-            Temperature = 0.7,
-            MaxToolCallsPerQuestion = 5,
-            EnableDocumentationTools = true,
-            EnableCostTracking = true,
-            LogInteractions = true,
-            AgentPromptPath = "docs/agents/assistant-agent.md",
-            TruncationSuffix = "\n\n... *(response truncated)*",
-            ErrorMessage = "Oops, something went wrong."
+            Privacy = new()
+            {
+                RequireExplicitConsent = true,
+                LogInteractions = true
+            },
+            RateLimits = new()
+            {
+                DefaultRateLimit = 5,
+                RateLimitWindowMinutes = 5
+            },
+            Messages = new()
+            {
+                MaxQuestionLength = 500,
+                MaxResponseLength = 1800,
+                TruncationSuffix = "\n\n... *(response truncated)*",
+                ErrorMessage = "Oops, something went wrong."
+            },
+            Sampling = new()
+            {
+                MaxTokens = 1024,
+                Temperature = 0.7
+            },
+            Tools = new()
+            {
+                MaxToolCallsPerQuestion = 5,
+                EnableDocumentationTools = true,
+                AgentPromptPath = "docs/agents/assistant-agent.md"
+            },
+            Cost = new()
+            {
+                EnableCostTracking = true
+            }
         };
 
         var mockOptions = new Mock<IOptions<AssistantOptions>>();
@@ -182,7 +200,7 @@ public class AssistantServiceTests
     public async Task AskQuestionAsync_ReturnsError_WhenQuestionIsTooLong()
     {
         // Arrange
-        var longQuestion = new string('a', _options.MaxQuestionLength + 1);
+        var longQuestion = new string('a', _options.Messages.MaxQuestionLength + 1);
 
         // Act
         var result = await _service.AskQuestionAsync(
@@ -273,7 +291,7 @@ public class AssistantServiceTests
             });
 
         // Pre-fill the rate limit cache with max requests
-        for (int i = 0; i < _options.DefaultRateLimit; i++)
+        for (int i = 0; i < _options.RateLimits.DefaultRateLimit; i++)
         {
             await _service.AskQuestionAsync(
                 TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
@@ -388,7 +406,7 @@ public class AssistantServiceTests
             .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(100);
 
-        var longResponse = new string('a', _options.MaxResponseLength + 100);
+        var longResponse = new string('a', _options.Messages.MaxResponseLength + 100);
         _mockAgentRunner
             .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
             .ReturnsAsync(new AgentRunResult
@@ -405,8 +423,8 @@ public class AssistantServiceTests
         // Assert
         result.Success.Should().BeTrue();
         result.Response.Should().NotBeNull();
-        result.Response!.Length.Should().BeLessThanOrEqualTo(_options.MaxResponseLength);
-        result.Response.Should().EndWith(_options.TruncationSuffix);
+        result.Response!.Length.Should().BeLessThanOrEqualTo(_options.Messages.MaxResponseLength);
+        result.Response.Should().EndWith(_options.Messages.TruncationSuffix);
     }
 
     [Fact]

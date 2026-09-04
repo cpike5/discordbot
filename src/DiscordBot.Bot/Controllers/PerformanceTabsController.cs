@@ -1,60 +1,30 @@
-using DiscordBot.Bot.Extensions;
-using DiscordBot.Bot.ViewModels.Pages;
-using DiscordBot.Core.DTOs;
-using DiscordBot.Core.Interfaces;
+using DiscordBot.Bot.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
 
 namespace DiscordBot.Bot.Controllers;
 
 /// <summary>
 /// API controller for loading Performance Dashboard tab content via AJAX.
-/// Returns partial view HTML for each tab panel.
+/// Returns partial view HTML for each tab panel. All data aggregation is delegated to
+/// <see cref="IPerformanceDashboardAggregator"/>.
 /// </summary>
 [ApiController]
 [Route("api/performance/tabs")]
 [Authorize(Policy = "RequireViewer")]
 public class PerformanceTabsController : Controller
 {
-    private readonly IConnectionStateService _connectionStateService;
-    private readonly ILatencyHistoryService _latencyHistoryService;
-    private readonly ICommandPerformanceAggregator _commandPerformanceAggregator;
-    private readonly IApiRequestTracker _apiRequestTracker;
-    private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
-    private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
-    private readonly IInstrumentedCache _instrumentedCache;
-    private readonly IPerformanceAlertService _alertService;
-    private readonly IMemoryDiagnosticsService _memoryDiagnosticsService;
-    private readonly ICpuHistoryService _cpuHistoryService;
+    private readonly IPerformanceDashboardAggregator _aggregator;
     private readonly ILogger<PerformanceTabsController> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PerformanceTabsController"/> class.
     /// </summary>
     public PerformanceTabsController(
-        IConnectionStateService connectionStateService,
-        ILatencyHistoryService latencyHistoryService,
-        ICommandPerformanceAggregator commandPerformanceAggregator,
-        IApiRequestTracker apiRequestTracker,
-        IDatabaseMetricsCollector databaseMetricsCollector,
-        IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
-        IInstrumentedCache instrumentedCache,
-        IPerformanceAlertService alertService,
-        IMemoryDiagnosticsService memoryDiagnosticsService,
-        ICpuHistoryService cpuHistoryService,
+        IPerformanceDashboardAggregator aggregator,
         ILogger<PerformanceTabsController> logger)
     {
-        _connectionStateService = connectionStateService;
-        _latencyHistoryService = latencyHistoryService;
-        _commandPerformanceAggregator = commandPerformanceAggregator;
-        _apiRequestTracker = apiRequestTracker;
-        _databaseMetricsCollector = databaseMetricsCollector;
-        _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
-        _instrumentedCache = instrumentedCache;
-        _alertService = alertService;
-        _memoryDiagnosticsService = memoryDiagnosticsService;
-        _cpuHistoryService = cpuHistoryService;
+        _aggregator = aggregator;
         _logger = logger;
     }
 
@@ -62,17 +32,18 @@ public class PerformanceTabsController : Controller
     /// Gets the Overview tab content.
     /// </summary>
     /// <param name="hours">Time range in hours (24, 168, or 720).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Partial view HTML for the overview tab.</returns>
     [HttpGet("overview")]
     [Produces("text/html")]
-    public async Task<IActionResult> GetOverviewTab([FromQuery] int hours = 24)
+    public async Task<IActionResult> GetOverviewTab([FromQuery] int hours = 24, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Loading Overview tab content for {Hours} hours", hours);
 
         try
         {
-            var viewModel = await BuildOverviewViewModelAsync(hours);
-            return PartialView("~/Pages/Admin/Performance/Tabs/_OverviewTab.cshtml", viewModel);
+            var result = await _aggregator.BuildOverviewAsync(hours, cancellationToken);
+            return PartialView("~/Pages/Admin/Performance/Tabs/_OverviewTab.cshtml", result.Overview);
         }
         catch (Exception ex)
         {
@@ -85,16 +56,17 @@ public class PerformanceTabsController : Controller
     /// Gets the Health Metrics tab content.
     /// </summary>
     /// <param name="hours">Time range in hours (24, 168, or 720).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Partial view HTML for the health tab.</returns>
     [HttpGet("health")]
     [Produces("text/html")]
-    public IActionResult GetHealthTab([FromQuery] int hours = 24)
+    public async Task<IActionResult> GetHealthTab([FromQuery] int hours = 24, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Loading Health tab content for {Hours} hours", hours);
 
         try
         {
-            var viewModel = BuildHealthMetricsViewModel();
+            var viewModel = await _aggregator.BuildHealthMetricsAsync(cancellationToken);
             return PartialView("~/Pages/Admin/Performance/Tabs/_HealthTab.cshtml", viewModel);
         }
         catch (Exception ex)
@@ -108,16 +80,17 @@ public class PerformanceTabsController : Controller
     /// Gets the Commands tab content.
     /// </summary>
     /// <param name="hours">Time range in hours (24, 168, or 720).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Partial view HTML for the commands tab.</returns>
     [HttpGet("commands")]
     [Produces("text/html")]
-    public async Task<IActionResult> GetCommandsTab([FromQuery] int hours = 24)
+    public async Task<IActionResult> GetCommandsTab([FromQuery] int hours = 24, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Loading Commands tab content for {Hours} hours", hours);
 
         try
         {
-            var viewModel = await BuildCommandsViewModelAsync(hours);
+            var viewModel = await _aggregator.BuildCommandPerformanceAsync(hours, cancellationToken);
             return PartialView("~/Pages/Admin/Performance/Tabs/_CommandsTab.cshtml", viewModel);
         }
         catch (Exception ex)
@@ -140,7 +113,7 @@ public class PerformanceTabsController : Controller
 
         try
         {
-            var viewModel = BuildApiMetricsViewModel(hours);
+            var viewModel = _aggregator.BuildApiRateLimits(hours);
             return PartialView("~/Pages/Admin/Performance/Tabs/_ApiTab.cshtml", viewModel);
         }
         catch (Exception ex)
@@ -163,7 +136,7 @@ public class PerformanceTabsController : Controller
 
         try
         {
-            var viewModel = BuildSystemHealthViewModel();
+            var viewModel = _aggregator.BuildSystemHealth();
             return PartialView("~/Pages/Admin/Performance/Tabs/_SystemTab.cshtml", viewModel);
         }
         catch (Exception ex)
@@ -181,15 +154,13 @@ public class PerformanceTabsController : Controller
     /// <returns>Partial view HTML for the alerts tab.</returns>
     [HttpGet("alerts")]
     [Produces("text/html")]
-    public async Task<IActionResult> GetAlertsTab(
-        [FromQuery] int hours = 24,
-        CancellationToken cancellationToken = default)
+    public async Task<IActionResult> GetAlertsTab([FromQuery] int hours = 24, CancellationToken cancellationToken = default)
     {
         _logger.LogDebug("Loading Alerts tab content for {Hours} hours", hours);
 
         try
         {
-            var viewModel = await BuildAlertsViewModelAsync(cancellationToken);
+            var viewModel = await _aggregator.BuildAlertsPageAsync(User, cancellationToken);
             return PartialView("~/Pages/Admin/Performance/Tabs/_AlertsTab.cshtml", viewModel);
         }
         catch (Exception ex)
@@ -199,323 +170,7 @@ public class PerformanceTabsController : Controller
         }
     }
 
-    #region ViewModel Builders
-
-    private async Task<PerformanceOverviewViewModel> BuildOverviewViewModelAsync(int hours)
-    {
-        var connectionState = _connectionStateService.GetCurrentState();
-        var sessionDuration = _connectionStateService.GetCurrentSessionDuration();
-        var currentLatency = _latencyHistoryService.GetCurrentLatency();
-        var overallStatus = _backgroundServiceHealthRegistry.GetOverallStatus();
-
-        var botHealth = new PerformanceHealthDto
-        {
-            Status = overallStatus,
-            Uptime = sessionDuration,
-            LatencyMs = currentLatency,
-            ConnectionState = connectionState.ToString(),
-            Timestamp = DateTime.UtcNow
-        };
-
-        var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
-
-        var commandAggregates = await _commandPerformanceAggregator.GetAggregatesAsync(hours);
-        var throughputData = await _commandPerformanceAggregator.GetThroughputAsync(1, "hour");
-        var commandsToday = throughputData.Sum(t => t.Count);
-
-        var totalCommands = commandAggregates.Sum(a => a.ExecutionCount);
-        var totalErrors = commandAggregates.Sum(a => (int)(a.ExecutionCount * (a.ErrorRate / 100.0)));
-        var overallErrorRate = totalCommands > 0 ? (totalErrors * 100.0 / totalCommands) : 0;
-        var avgResponseTime = commandAggregates.Any() ? commandAggregates.Average(a => a.AvgMs) : 0;
-
-        var activeAlerts = await _alertService.GetActiveIncidentsAsync();
-        var recentAlerts = activeAlerts.OrderByDescending(a => a.TriggeredAt).Take(5).ToList();
-
-        long workingSetMB;
-        using (var process = Process.GetCurrentProcess())
-        {
-            workingSetMB = process.WorkingSet64 / 1024 / 1024;
-        }
-        var maxMemoryMB = (long)(GC.GetGCMemoryInfo().TotalAvailableMemoryBytes / 1024 / 1024);
-        var memoryUsagePercent = (workingSetMB * 100.0) / maxMemoryMB;
-
-        var apiUsage = _apiRequestTracker.GetUsageStatistics(1);
-        var totalApiRequests = apiUsage.Sum(u => u.RequestCount);
-        var rateLimitEvents = _apiRequestTracker.GetRateLimitEvents(1);
-        var rateLimitHits = rateLimitEvents.Count;
-
-        var overallHealthStatus = DetermineOverallStatus(overallStatus, activeAlerts.Count);
-
-        return new PerformanceOverviewViewModel
-        {
-            OverallStatus = overallHealthStatus,
-            BotHealth = botHealth,
-            Uptime30DaysPercent = uptime30d,
-            AvgCommandResponseMs = avgResponseTime,
-            CommandsToday = commandsToday,
-            ErrorRate = overallErrorRate,
-            ActiveAlertCount = activeAlerts.Count,
-            RecentAlerts = recentAlerts,
-            MemoryUsageMB = workingSetMB,
-            MemoryUsagePercent = memoryUsagePercent,
-            MemoryUsageFormatted = $"{workingSetMB} MB / {maxMemoryMB} MB",
-            CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
-            ApiRateLimitFormatted = rateLimitHits > 0
-                ? $"{totalApiRequests} requests ({rateLimitHits} rate limited)"
-                : $"{totalApiRequests} requests (last hour)",
-            ApiRateLimitPercent = rateLimitHits > 0 ? Math.Min(rateLimitHits * 10.0, 100) : 0
-        };
-    }
-
-    private HealthMetricsViewModel BuildHealthMetricsViewModel()
-    {
-        var connectionState = _connectionStateService.GetCurrentState();
-        var sessionDuration = _connectionStateService.GetCurrentSessionDuration();
-        var currentLatency = _latencyHistoryService.GetCurrentLatency();
-
-        var latencyStats = _latencyHistoryService.GetStatistics(24);
-        var connectionStats7d = _connectionStateService.GetConnectionStats(7);
-        var connectionEvents = _connectionStateService.GetConnectionEvents(7);
-        var recentLatencySamples = _latencyHistoryService.GetSamples(1).TakeLast(10).ToList();
-
-        var uptime24h = _connectionStateService.GetUptimePercentage(TimeSpan.FromHours(24));
-        var uptime7d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(7));
-        var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
-
-        long workingSetMB2;
-        long privateMemoryMB;
-        int threadCount;
-        using (var process = Process.GetCurrentProcess())
-        {
-            workingSetMB2 = process.WorkingSet64 / 1024 / 1024;
-            privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
-            threadCount = process.Threads.Count;
-        }
-        var maxAllocatedMemoryMB = GC.GetTotalMemory(false) / 1024 / 1024;
-        var memoryUtilizationPercent = maxAllocatedMemoryMB > 0
-            ? (double)workingSetMB2 / maxAllocatedMemoryMB * 100
-            : 0;
-        var gen2Collections = GC.CollectionCount(2);
-
-        var memoryDiagnostics = _memoryDiagnosticsService.GetDiagnostics();
-
-        var sessionStart = _connectionStateService.GetLastConnectedTime();
-        var sessionStartFormatted = sessionStart?.ToString("MMM dd, yyyy 'at' HH:mm") + " UTC" ?? "Unknown";
-
-        var health = new PerformanceHealthDto
-        {
-            Status = connectionState == GatewayConnectionState.Connected ? "Healthy" : "Unhealthy",
-            Uptime = sessionDuration,
-            LatencyMs = currentLatency,
-            ConnectionState = connectionState.ToString(),
-            Timestamp = DateTime.UtcNow
-        };
-
-        return new HealthMetricsViewModel
-        {
-            Health = health,
-            LatencyStats = latencyStats,
-            ConnectionStats = connectionStats7d,
-            RecentConnectionEvents = connectionEvents,
-            RecentLatencySamples = recentLatencySamples,
-            UptimeFormatted = HealthMetricsViewModel.FormatUptime(sessionDuration),
-            Uptime24HFormatted = $"{uptime24h:F1}%",
-            Uptime7DFormatted = $"{uptime7d:F1}%",
-            Uptime30DFormatted = $"{uptime30d:F1}%",
-            ConnectionStateClass = HealthMetricsViewModel.GetConnectionStateClass(connectionState.ToString()),
-            LatencyHealthClass = HealthMetricsViewModel.GetLatencyHealthClass(currentLatency),
-            SessionStartFormatted = sessionStartFormatted,
-            SessionStartUtc = sessionStart,
-            WorkingSetMB = workingSetMB2,
-            PrivateMemoryMB = privateMemoryMB,
-            MaxAllocatedMemoryMB = maxAllocatedMemoryMB,
-            MemoryUtilizationPercent = memoryUtilizationPercent,
-            Gen2Collections = gen2Collections,
-            CpuUsagePercent = _cpuHistoryService.GetCurrentCpu(),
-            ThreadCount = threadCount,
-            MemoryDiagnostics = memoryDiagnostics
-        };
-    }
-
-    private async Task<CommandPerformanceViewModel> BuildCommandsViewModelAsync(int hours)
-    {
-        var aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(hours);
-
-        IReadOnlyList<SlowestCommandDto> slowest = Array.Empty<SlowestCommandDto>();
-        try
-        {
-            slowest = await _commandPerformanceAggregator.GetSlowestCommandsAsync(10, hours);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to fetch slowest commands for {Hours} hours", hours);
-        }
-
-        var totalCommands = aggregates.Sum(a => a.ExecutionCount);
-        var avgResponseTime = aggregates.Any() ? aggregates.Average(a => a.AvgMs) : 0;
-        var errorRate = totalCommands > 0
-            ? aggregates.Sum(a => a.ExecutionCount * a.ErrorRate / 100.0) / totalCommands * 100
-            : 0;
-        var p99 = aggregates.Any() ? aggregates.Max(a => a.P99Ms) : 0;
-        var p95 = aggregates.Any() ? aggregates.Max(a => a.P95Ms) : 0;
-        var p50 = aggregates.Any() ? aggregates.Average(a => a.P50Ms) : 0;
-
-        var timeouts = slowest
-            .Where(s => s.DurationMs > DiscordConstants.InteractionTimeoutMs)
-            .GroupBy(s => s.CommandName)
-            .Select(g => new CommandTimeoutDto
-            {
-                CommandName = g.Key,
-                TimeoutCount = g.Count(),
-                LastTimeout = g.Max(x => x.ExecutedAt),
-                AvgResponseBeforeTimeout = g.Average(x => x.DurationMs),
-                Status = g.Max(x => x.ExecutedAt) > DateTime.UtcNow.AddHours(-2)
-                    ? "Investigating"
-                    : "Resolved"
-            })
-            .ToList();
-
-        return new CommandPerformanceViewModel
-        {
-            TotalCommands = totalCommands,
-            AvgResponseTimeMs = avgResponseTime,
-            ErrorRate = errorRate,
-            P99ResponseTimeMs = p99,
-            P50Ms = p50,
-            P95Ms = p95,
-            SlowestCommands = slowest,
-            TimeoutCount = timeouts.Sum(t => t.TimeoutCount),
-            RecentTimeouts = timeouts,
-            AvgResponseTimeTrend = 0,
-            ErrorRateTrend = 0,
-            P99Trend = 0
-        };
-    }
-
-    private ApiRateLimitsViewModel BuildApiMetricsViewModel(int hours)
-    {
-        var usageByCategory = _apiRequestTracker.GetUsageStatistics(hours);
-        var totalRequests = _apiRequestTracker.GetTotalRequests(hours);
-        var rateLimitEvents = _apiRequestTracker.GetRateLimitEvents(hours);
-        var latencyStats = _apiRequestTracker.GetLatencyStatistics(hours);
-
-        return new ApiRateLimitsViewModel
-        {
-            TotalRequests = totalRequests,
-            RateLimitHits = rateLimitEvents.Count,
-            AvgLatencyMs = latencyStats.AvgLatencyMs,
-            P95LatencyMs = latencyStats.P95LatencyMs,
-            UsageByCategory = usageByCategory,
-            RecentRateLimitEvents = rateLimitEvents.OrderByDescending(e => e.Timestamp).Take(20).ToList(),
-            LatencyStats = latencyStats,
-            Hours = hours
-        };
-    }
-
-    private SystemHealthViewModel BuildSystemHealthViewModel()
-    {
-        var dbMetrics = _databaseMetricsCollector.GetMetrics();
-        var slowQueries = _databaseMetricsCollector.GetSlowQueries(24);
-        var backgroundServices = _backgroundServiceHealthRegistry.GetAllHealth();
-        var cacheByPrefix = _instrumentedCache.GetStatistics();
-
-        var totalHits = cacheByPrefix.Sum(c => c.Hits);
-        var totalMisses = cacheByPrefix.Sum(c => c.Misses);
-        var totalCount = totalHits + totalMisses;
-
-        var overallCacheStats = new CacheStatisticsDto
-        {
-            KeyPrefix = "Overall",
-            Hits = totalHits,
-            Misses = totalMisses,
-            HitRate = totalCount > 0 ? (double)totalHits / totalCount * 100 : 0,
-            Size = cacheByPrefix.Sum(c => c.Size)
-        };
-
-        long workingSetMB;
-        long privateMemoryMB2;
-        using (var process = Process.GetCurrentProcess())
-        {
-            workingSetMB = process.WorkingSet64 / 1024 / 1024;
-            privateMemoryMB2 = process.PrivateMemorySize64 / 1024 / 1024;
-        }
-        var heapSizeMB = GC.GetTotalMemory(false) / 1024 / 1024;
-        var gen0Collections = GC.CollectionCount(0);
-        var gen1Collections = GC.CollectionCount(1);
-        var gen2Collections = GC.CollectionCount(2);
-
-        var queriesPerSecond = dbMetrics.TotalQueries > 0
-            ? dbMetrics.TotalQueries / 60.0
-            : 0;
-
-        var systemStatus = SystemHealthViewModel.GetSystemStatus(
-            backgroundServices,
-            dbMetrics.AvgQueryTimeMs,
-            0);
-
-        var systemStatusClass = SystemHealthViewModel.GetSystemStatusClass(systemStatus);
-
-        return new SystemHealthViewModel
-        {
-            DatabaseMetrics = dbMetrics,
-            SlowQueries = slowQueries,
-            BackgroundServices = backgroundServices,
-            OverallCacheStats = overallCacheStats,
-            CacheStatsByPrefix = cacheByPrefix,
-            WorkingSetMB = workingSetMB,
-            PrivateMemoryMB = privateMemoryMB2,
-            HeapSizeMB = heapSizeMB,
-            Gen0Collections = gen0Collections,
-            Gen1Collections = gen1Collections,
-            Gen2Collections = gen2Collections,
-            SystemStatus = systemStatus,
-            SystemStatusClass = systemStatusClass,
-            QueriesPerSecond = queriesPerSecond,
-            DatabaseErrorCount = 0
-        };
-    }
-
-    private async Task<AlertsPageViewModel> BuildAlertsViewModelAsync(CancellationToken cancellationToken)
-    {
-        // Execute sequentially — DbContext is not thread-safe
-        var activeIncidents = await _alertService.GetActiveIncidentsAsync(cancellationToken);
-        var alertConfigs = await _alertService.GetAllConfigsAsync(cancellationToken);
-        var recentIncidents = await _alertService.GetIncidentHistoryAsync(
-            new IncidentQueryDto { PageNumber = 1, PageSize = 10 },
-            cancellationToken);
-        var autoRecoveryEvents = await _alertService.GetAutoRecoveryEventsAsync(10, cancellationToken);
-        var alertFrequency = await _alertService.GetAlertFrequencyDataAsync(30, cancellationToken);
-        var alertSummary = await _alertService.GetActiveAlertSummaryAsync(cancellationToken);
-
-        return new AlertsPageViewModel
-        {
-            ActiveIncidents = activeIncidents,
-            AlertConfigs = alertConfigs,
-            RecentIncidents = recentIncidents.Items,
-            AutoRecoveryEvents = autoRecoveryEvents,
-            AlertFrequencyData = alertFrequency,
-            AlertSummary = alertSummary
-        };
-    }
-
-    #endregion
-
     #region Helpers
-
-    private static string DetermineOverallStatus(string serviceStatus, int activeAlertCount)
-    {
-        if (serviceStatus.Equals("Critical", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Critical";
-        }
-
-        if (activeAlertCount > 0 || serviceStatus.Equals("Warning", StringComparison.OrdinalIgnoreCase))
-        {
-            return "Warning";
-        }
-
-        return "Healthy";
-    }
 
     private static ContentResult CreateErrorHtml(string message)
     {

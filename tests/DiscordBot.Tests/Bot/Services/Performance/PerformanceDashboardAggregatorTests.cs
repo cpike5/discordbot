@@ -76,6 +76,17 @@ public class PerformanceDashboardAggregatorTests
     }
 
     [Fact]
+    public async Task BuildOverviewAsync_ForwardsHoursToCommandAggregatesAndShellTimeRange()
+    {
+        // Act
+        var result = await _aggregator.BuildOverviewAsync(168);
+
+        // Assert
+        _mockCommandPerformanceAggregator.Verify(a => a.GetAggregatesAsync(168), Times.Once);
+        result.Shell.TimeRangeHours.Should().Be(168);
+    }
+
+    [Fact]
     public async Task BuildOverviewAsync_WhenAnUpstreamCallThrows_ReturnsCriticalFallback()
     {
         // Arrange
@@ -144,6 +155,7 @@ public class PerformanceDashboardAggregatorTests
         // Assert
         result.Should().NotBeNull();
         result.CanEdit.Should().BeFalse();
+        result.LoadFailed.Should().BeTrue("the page model surfaces this as a TempData error banner");
     }
 
     [Fact]

@@ -56,7 +56,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         _logger = logger;
     }
 
-    public async Task<PerformanceDashboardOverview> BuildOverviewAsync()
+    public async Task<PerformanceDashboardOverview> BuildOverviewAsync(int hours = 24, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -79,9 +79,9 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             var uptime30d = _connectionStateService.GetUptimePercentage(TimeSpan.FromDays(30));
 
             // Start async data retrieval in parallel
-            var aggregatesTask = _commandPerformanceAggregator.GetAggregatesAsync(24);
+            var aggregatesTask = _commandPerformanceAggregator.GetAggregatesAsync(hours);
             var throughputTask = _commandPerformanceAggregator.GetThroughputAsync(1, "hour"); // Last hour for "today"
-            var alertsTask = _alertService.GetActiveIncidentsAsync();
+            var alertsTask = _alertService.GetActiveIncidentsAsync(cancellationToken);
 
             await Task.WhenAll(aggregatesTask, throughputTask, alertsTask);
 
@@ -143,7 +143,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
                 OverallStatus = overallHealthStatus,
                 ActiveAlertCount = activeAlerts.Count,
                 ActiveTab = "overview",
-                TimeRangeHours = 24,
+                TimeRangeHours = hours,
                 IsLive = true
             };
 
@@ -172,7 +172,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
                 OverallStatus = "Critical",
                 ActiveAlertCount = 0,
                 ActiveTab = "overview",
-                TimeRangeHours = 24,
+                TimeRangeHours = hours,
                 IsLive = false
             };
 
@@ -197,7 +197,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         return "Healthy";
     }
 
-    public Task<HealthMetricsViewModel> BuildHealthMetricsAsync()
+    public Task<HealthMetricsViewModel> BuildHealthMetricsAsync(CancellationToken cancellationToken = default)
     {
         try
         {
@@ -284,7 +284,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         }
     }
 
-    public async Task<CommandPerformanceViewModel> BuildCommandPerformanceAsync(int hours = 24)
+    public async Task<CommandPerformanceViewModel> BuildCommandPerformanceAsync(int hours = 24, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -480,7 +480,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         }
     }
 
-    public async Task<AlertsPageViewModel> BuildAlertsPageAsync(ClaimsPrincipal user)
+    public async Task<AlertsPageViewModel> BuildAlertsPageAsync(ClaimsPrincipal user, CancellationToken cancellationToken = default)
     {
         try
         {
@@ -488,13 +488,14 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             var canEdit = authResult.Succeeded;
 
             // Execute sequentially — DbContext is not thread-safe
-            var activeIncidents = await _alertService.GetActiveIncidentsAsync();
-            var alertConfigs = await _alertService.GetAllConfigsAsync();
+            var activeIncidents = await _alertService.GetActiveIncidentsAsync(cancellationToken);
+            var alertConfigs = await _alertService.GetAllConfigsAsync(cancellationToken);
             var recentIncidents = await _alertService.GetIncidentHistoryAsync(
-                new IncidentQueryDto { PageNumber = 1, PageSize = 10 });
-            var autoRecoveryEvents = await _alertService.GetAutoRecoveryEventsAsync(10);
-            var alertFrequency = await _alertService.GetAlertFrequencyDataAsync(30);
-            var alertSummary = await _alertService.GetActiveAlertSummaryAsync();
+                new IncidentQueryDto { PageNumber = 1, PageSize = 10 },
+                cancellationToken);
+            var autoRecoveryEvents = await _alertService.GetAutoRecoveryEventsAsync(10, cancellationToken);
+            var alertFrequency = await _alertService.GetAlertFrequencyDataAsync(30, cancellationToken);
+            var alertSummary = await _alertService.GetActiveAlertSummaryAsync(cancellationToken);
 
             return new AlertsPageViewModel
             {
@@ -510,7 +511,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to build AlertsPageViewModel");
-            return new AlertsPageViewModel();
+            return new AlertsPageViewModel { LoadFailed = true };
         }
     }
 }

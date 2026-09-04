@@ -249,13 +249,7 @@
         // Load clips from API
         async function loadClipsForGroup(group) {
             try {
-                const response = await fetch(`/api/portal/vox/${window.guildId}/clips?group=${group}`);
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.message || 'Failed to load clips');
-                }
-
-                const data = await response.json();
+                const data = await ApiClient.get(`/api/portal/vox/${window.guildId}/clips?group=${group}`, { errorMessage: 'Failed to load clips' });
                 voxState.clipCache[group] = data.clips || [];
 
                 renderClipGrid();
@@ -490,20 +484,11 @@
             }
 
             try {
-                const response = await fetch(`/api/portal/vox/${window.guildId}/play`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        message: message,
-                        group: voxState.activeGroup,
-                        wordGapMs: voxState.wordGapMs
-                    })
-                });
-
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.message || 'Failed to play VOX message');
-                }
+                await ApiClient.post(`/api/portal/vox/${window.guildId}/play`, {
+                    message: message,
+                    group: voxState.activeGroup,
+                    wordGapMs: voxState.wordGapMs
+                }, { errorMessage: 'Failed to play VOX message' });
 
                 // Success - clear the message input
                 voxEls.messageInput.value = '';
@@ -946,18 +931,16 @@
 
             try {
                 const [historyRes, favoritesRes] = await Promise.all([
-                    fetch(`/api/portal/vox/${window.guildId}/history?limit=20`),
-                    fetch(`/api/portal/vox/${window.guildId}/favorites`)
+                    ApiClient.getRaw(`/api/portal/vox/${window.guildId}/history?limit=20`),
+                    ApiClient.getRaw(`/api/portal/vox/${window.guildId}/favorites`)
                 ]);
 
                 if (historyRes.ok) {
-                    const history = await historyRes.json();
-                    renderHistoryList(prefix, 'recent', history);
+                    renderHistoryList(prefix, 'recent', historyRes.data);
                 }
 
                 if (favoritesRes.ok) {
-                    const favorites = await favoritesRes.json();
-                    renderHistoryList(prefix, 'favorites', favorites);
+                    renderHistoryList(prefix, 'favorites', favoritesRes.data);
                 }
             } catch (error) {
                 // Silent fail - history is non-critical
@@ -1019,14 +1002,7 @@
 
         async function toggleFavorite(entryId) {
             try {
-                const response = await fetch(`/api/portal/vox/${window.guildId}/history/${entryId}/favorite`, {
-                    method: 'POST'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.message || 'Failed to toggle favorite');
-                }
+                await ApiClient.post(`/api/portal/vox/${window.guildId}/history/${entryId}/favorite`, undefined, { errorMessage: 'Failed to toggle favorite' });
 
                 // Refresh both lists
                 await loadVoxHistory();
@@ -1040,14 +1016,7 @@
 
         async function deleteHistoryEntry(entryId) {
             try {
-                const response = await fetch(`/api/portal/vox/${window.guildId}/history/${entryId}`, {
-                    method: 'DELETE'
-                });
-
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    throw new Error(error.message || 'Failed to delete entry');
-                }
+                await ApiClient.del(`/api/portal/vox/${window.guildId}/history/${entryId}`, { errorMessage: 'Failed to delete entry' });
 
                 // Refresh both lists
                 await loadVoxHistory();

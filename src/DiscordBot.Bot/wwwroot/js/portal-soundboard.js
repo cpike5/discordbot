@@ -479,9 +479,8 @@
     // ========================================
     async function loadFavorites() {
         try {
-            const response = await fetch(API.favorites(guildId));
-            if (response.ok) {
-                const data = await response.json();
+            const { ok, data } = await ApiClient.getRaw(API.favorites(guildId));
+            if (ok) {
                 favorites = data.favorites || [];
             }
         } catch (error) {
@@ -538,9 +537,9 @@
 
         // Persist to server
         const method = adding ? 'POST' : 'DELETE';
-        fetch(API.toggleFavorite(guildId, soundId), { method })
-            .then(response => {
-                if (!response.ok) throw new Error('Failed to update favorite');
+        ApiClient.requestRaw(API.toggleFavorite(guildId, soundId), { method })
+            .then(({ ok }) => {
+                if (!ok) throw new Error('Failed to update favorite');
             })
             .catch(error => {
                 // Revert optimistic update on failure
@@ -913,14 +912,7 @@
             return;
         }
 
-        fetch(API.delete(guildId, soundId), { method: 'DELETE' })
-            .then(async response => {
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.detail || errorData.message || 'Failed to delete sound');
-                }
-                return response.json();
-            })
+        ApiClient.del(API.delete(guildId, soundId), { errorMessage: 'Failed to delete sound' })
             .then(data => {
                 // Clear playing state if this was the playing sound
                 if (currentlyPlaying === soundId) {
@@ -941,7 +933,12 @@
                 ToastManager.show('success', `Sound "${soundName}" deleted`);
             })
             .catch(error => {
-                ToastManager.show('error', error.message || 'Failed to delete sound. Please try again.');
+                // ApiClient's generic extractErrorMessage checks data.message before data.detail;
+                // HEAD's deleteSound checked `errorData.detail || errorData.message` (detail first).
+                // Read the response body directly here so this call site keeps that precedence
+                // rather than picking up the generic helper's order.
+                const detailOrMessage = error.data && (error.data.detail || error.data.message);
+                ToastManager.show('error', detailOrMessage || error.message || 'Failed to delete sound. Please try again.');
             });
     }
 
@@ -957,20 +954,13 @@
             return;
         }
 
-        fetch(API.play(guildId, soundId), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' }
-        })
-        .then(async response => {
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                if (errorData.errorCode === 'not_connected') {
-                    ToastManager.show('warning', 'Please join a voice channel first!');
-                    return Promise.reject('not_connected');
-                }
-                throw new Error(errorData.message || 'Failed to play sound');
+        ApiClient.post(API.play(guildId, soundId), undefined, { errorMessage: 'Failed to play sound' })
+        .catch(error => {
+            if (error instanceof ApiClient.ApiClientError && error.data && error.data.errorCode === 'not_connected') {
+                ToastManager.show('warning', 'Please join a voice channel first!');
+                return Promise.reject('not_connected');
             }
-            return response.json();
+            throw error;
         })
         .then(data => {
             if (!data) return;

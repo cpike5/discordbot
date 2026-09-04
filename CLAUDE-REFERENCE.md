@@ -13,7 +13,7 @@ The application uses `IOptions<T>` pattern for strongly-typed configuration. All
 | `AnalyticsRetentionOptions` | `AnalyticsRetention` | Analytics data retention and aggregation (hourly/daily snapshots) |
 | `AnthropicOptions` | `Anthropic` | Anthropic Claude API configuration (API key, model, retries, timeout, prompt caching) |
 | `ApplicationOptions` | `Application` | App metadata (title, base URL, version, contact email) |
-| `AssistantOptions` | `Assistant` | AI assistant settings (rate limiting, prompts, cost tracking) |
+| `AssistantOptions` | `Assistant` | AI assistant settings, grouped into nested sub-options: `Sampling` (model/tokens/temperature/timeout), `RateLimits` (rate limit + bypass role), `Messages` (question/response length, error text, retry), `Tools` (doc tools, prompt/doc paths), `Cost` (cost tracking, prompt caching), `Privacy` (consent, logging, retention). Historical flat keys (e.g. `Assistant:MaxTokens`) still bind via obsolete forwarding properties and take precedence over the nested key (e.g. `Assistant:Sampling:MaxTokens`) if both are set. |
 | `AuditLogRetentionOptions` | `AuditLogRetention` | Audit log cleanup policies |
 | `AudioCacheOptions` | `AudioCache` | FFmpeg-processed PCM audio cache (size, TTL, cleanup intervals) |
 | `AutoModerationOptions` | `AutoModeration` | Auto-moderation rules, spam/raid detection thresholds |

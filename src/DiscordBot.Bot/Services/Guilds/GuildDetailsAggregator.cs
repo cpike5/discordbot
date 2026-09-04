@@ -166,8 +166,8 @@ public class GuildDetailsAggregator : IGuildDetailsAggregator
             AssistantLocallyEnabled = assistantSettings.IsEnabled,
             AssistantChannelCount = assistantSettings.GetAllowedChannelIdsList().Count,
             AssistantIsRateLimitOverride = assistantSettings.RateLimitOverride.HasValue,
-            AssistantRateLimit = assistantSettings.RateLimitOverride ?? _assistantOptions.DefaultRateLimit,
-            AssistantRateLimitWindowMinutes = _assistantOptions.RateLimitWindowMinutes
+            AssistantRateLimit = assistantSettings.RateLimitOverride ?? _assistantOptions.RateLimits.DefaultRateLimit,
+            AssistantRateLimitWindowMinutes = _assistantOptions.RateLimits.RateLimitWindowMinutes
         };
     }
 }

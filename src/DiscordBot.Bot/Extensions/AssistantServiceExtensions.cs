@@ -11,6 +11,7 @@ using DiscordBot.Infrastructure.Services.LLM.Providers;
 using DiscordBot.Bot.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using System.Reflection;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -30,8 +31,20 @@ public static class AssistantServiceExtensions
         IConfiguration configuration)
     {
         // Register configuration
+        //
+        // CONTRACT: AssistantOptions supports both nested option groups (e.g. "Assistant:Sampling:MaxTokens")
+        // and historical flat legacy keys (e.g. "Assistant:MaxTokens") via [Obsolete] forwarding properties
+        // that read/write the same nested objects. Whichever the ConfigurationBinder happens to bind last
+        // during the plain Configure<T> call above wins by accident of reflection/property-declaration
+        // order — that is NOT a reliable contract. To make "flat key wins when both are present" an explicit,
+        // robust guarantee (not an accident of binding order), a PostConfigure step re-applies any flat
+        // legacy key that is actually present in the "Assistant" configuration section, overwriting whatever
+        // the nested binding produced. See AssistantOptions.cs for the mirrored contract comment, and
+        // AssistantOptionsBindingTests for coverage of both the raw-binder and the real DI registration path.
         services.Configure<AssistantOptions>(
             configuration.GetSection(AssistantOptions.SectionName));
+        services.PostConfigure<AssistantOptions>(options =>
+            ApplyFlatLegacyKeyPrecedence(options, configuration.GetSection(AssistantOptions.SectionName)));
         services.Configure<AnthropicOptions>(
             configuration.GetSection(AnthropicOptions.SectionName));
 
@@ -93,5 +106,34 @@ public static class AssistantServiceExtensions
         }
 
         return services;
+    }
+
+    /// <summary>
+    /// Re-applies any historical flat legacy key (e.g. "Assistant:MaxTokens") that is present in the
+    /// "Assistant" configuration section onto <paramref name="options"/>, overwriting whatever value its
+    /// nested equivalent (e.g. "Assistant:Sampling:MaxTokens") bound to. Only keys that are actually present
+    /// in configuration are touched, so nested-only deployments are unaffected. Applied via
+    /// <c>PostConfigure&lt;AssistantOptions&gt;</c> so it always runs after the plain nested+flat binding,
+    /// making "flat wins when both are set" an explicit guarantee rather than an accident of the order in
+    /// which <see cref="AssistantOptions"/> declares its properties.
+    /// </summary>
+    private static void ApplyFlatLegacyKeyPrecedence(AssistantOptions options, IConfigurationSection assistantSection)
+    {
+        foreach (var property in typeof(AssistantOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        {
+            if (property.GetCustomAttribute<ObsoleteAttribute>() is null)
+            {
+                continue;
+            }
+
+            var flatKeySection = assistantSection.GetSection(property.Name);
+            if (!flatKeySection.Exists())
+            {
+                continue;
+            }
+
+            var value = flatKeySection.Get(property.PropertyType);
+            property.SetValue(options, value);
+        }
     }
 }
