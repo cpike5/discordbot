@@ -47,6 +47,11 @@ public static class AssistantServiceExtensions
         // Register assistant guild settings service (always needed for admin UI)
         services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
 
+        // Shared assistant pipeline pieces (also used by the DM assistant)
+        services.AddSingleton<IAssistantRateLimiter, AssistantRateLimiter>();
+        services.AddScoped<IAssistantAccessGate, AssistantAccessGate>();
+        services.AddScoped<IAssistantTelemetryReader, AssistantTelemetryReader>();
+
         // Only register LLM-dependent services if API key is configured
         // This prevents DI validation failures when running migrations without API key
         if (!string.IsNullOrEmpty(apiKey))
@@ -76,6 +81,12 @@ public static class AssistantServiceExtensions
 
             // Register agent runner (depends on ILlmClient and ILogger)
             services.AddScoped<IAgentRunner, AgentRunner>();
+
+            // Register the shared assistant message pipeline (agent invocation, pricing, truncation)
+            services.AddScoped<IAssistantMessagePipeline, AssistantMessagePipeline>();
+
+            // Register the guild assistant context factory (builds agent context + logs usage)
+            services.AddScoped<IGuildAssistantContextFactory, GuildAssistantContextFactory>();
 
             // Register the main assistant service
             services.AddScoped<IAssistantService, AssistantService>();
