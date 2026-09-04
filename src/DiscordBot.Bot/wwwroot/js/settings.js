@@ -329,19 +329,10 @@
         try {
             const formData = new FormData(form);
             const handler = formData.get('handler');
-            const token = formData.get('__RequestVerificationToken');
 
-            const response = await fetch(`?handler=${handler}`, {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token
-                },
-                body: formData
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=${handler}`, formData);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 window.quickActions?.showToast(data.message, 'success');
                 if (modal) {
                     hideTypedModal(modal.id);
@@ -542,7 +533,6 @@
         if (!form) return;
 
         const formData = buildFormData(form);
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
         // Get the save button from the event
         const saveButton = event?.target;
@@ -554,17 +544,9 @@
         setButtonLoading(saveButton);
 
         try {
-            const response = await fetch(`?handler=SaveCategory&category=${category}`, {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token
-                },
-                body: formData
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=SaveCategory&category=${category}`, formData);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 // Show success button state
                 const willReload = data.restartRequired;
                 setButtonSuccess(saveButton, !willReload);
@@ -581,7 +563,7 @@
                     setTimeout(() => window.location.reload(), 1500);
                 }
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save settings.';
+                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save settings.');
 
                 // Show error button state (allows retry)
                 setButtonError(saveButton);
@@ -637,7 +619,6 @@
      */
     async function saveCommandModules() {
         const formData = buildCommandModulesFormData();
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
         // Get the save button from the event
         const saveButton = event?.target;
@@ -649,17 +630,9 @@
         setButtonLoading(saveButton);
 
         try {
-            const response = await fetch('?handler=SaveCommandModules', {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token
-                },
-                body: formData
-            });
+            const { ok, data } = await window.ApiClient.postRaw('?handler=SaveCommandModules', formData);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 // Show success button state
                 const willReload = data.restartRequired;
                 setButtonSuccess(saveButton, !willReload);
@@ -676,7 +649,7 @@
                     setTimeout(() => window.location.reload(), 1500);
                 }
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save command module settings.';
+                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save command module settings.');
 
                 // Show error button state (allows retry)
                 setButtonError(saveButton);
@@ -710,7 +683,6 @@
         if (!form) return;
 
         const formData = buildFormData(form);
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
 
         // Get the save button from the event
         const saveButton = event?.target;
@@ -722,17 +694,9 @@
         setButtonLoading(saveButton);
 
         try {
-            const response = await fetch('?handler=SaveAll', {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token
-                },
-                body: formData
-            });
+            const { ok, data } = await window.ApiClient.postRaw('?handler=SaveAll', formData);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 // Show success button state
                 const willReload = data.restartRequired;
                 setButtonSuccess(saveButton, !willReload);
@@ -749,7 +713,7 @@
                     setTimeout(() => window.location.reload(), 1500);
                 }
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save all settings.';
+                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save all settings.');
 
                 // Show error button state (allows retry)
                 setButtonError(saveButton);
@@ -802,27 +766,20 @@
      * @param {string} category - The category to reset
      */
     async function resetCategory(category) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-
         try {
-            const response = await fetch(`?handler=ResetCategory&category=${category}`, {
+            const { ok, data } = await window.ApiClient.requestRaw(`?handler=ResetCategory&category=${category}`, {
                 method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
             });
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 window.quickActions?.showToast(data.message, 'success');
                 window.quickActions?.hideConfirmationModal('resetCategoryModal');
 
                 // Reload page to show updated values
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message;
+                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message);
                 window.quickActions?.showToast(errorMsg || 'Failed to reset category.', 'error');
             }
         } catch (error) {
@@ -855,27 +812,20 @@
      * Reset all settings to defaults
      */
     async function resetAll() {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-
         try {
-            const response = await fetch('?handler=ResetAll', {
+            const { ok, data } = await window.ApiClient.requestRaw('?handler=ResetAll', {
                 method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
             });
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 window.quickActions?.showToast(data.message, 'success');
                 window.quickActions?.hideConfirmationModal('resetAllModal');
 
                 // Reload page to show updated values
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message;
+                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message);
                 window.quickActions?.showToast(errorMsg || 'Failed to reset all settings.', 'error');
             }
         } catch (error) {
@@ -913,17 +863,9 @@
         setButtonLoading(saveButton);
 
         try {
-            const response = await fetch('?handler=SaveAppearance', {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token?.value || ''
-                },
-                body: formData
-            });
+            const { ok, data } = await window.ApiClient.postRaw('?handler=SaveAppearance', formData);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 // Show success button state
                 setButtonSuccess(saveButton);
 
@@ -934,7 +876,7 @@
                 window.quickActions?.showToast(data.message, 'success');
                 isDirty = false;
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to save appearance settings.';
+                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to save appearance settings.');
 
                 // Show error button state (allows retry)
                 setButtonError(saveButton);
@@ -964,8 +906,6 @@
      * Reset appearance settings to default
      */
     async function resetAppearance() {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
-
         // Get the reset button from the event
         const resetButton = event?.target;
 
@@ -973,17 +913,12 @@
         hideInlineAlerts('Appearance');
 
         try {
-            const response = await fetch('?handler=ResetAppearance', {
+            const { ok, data } = await window.ApiClient.requestRaw('?handler=ResetAppearance', {
                 method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token,
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                }
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
             });
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 // Show inline success alert
                 showInlineSuccess(data.message, 'Appearance');
 
@@ -993,7 +928,7 @@
                 // Reload page to show updated default theme selection
                 setTimeout(() => window.location.reload(), 1000);
             } else {
-                const errorMsg = data.errors ? data.errors.join(', ') : data.message || 'Failed to reset appearance settings.';
+                const errorMsg = data.errors && data.errors.length ? data.errors.join(', ') : (data.message || 'Failed to reset appearance settings.');
 
                 // Show inline error alert
                 showInlineError(errorMsg, 'Appearance');

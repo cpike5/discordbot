@@ -50,7 +50,7 @@
             class="voice-selector__trigger"
             aria-haspopup="listbox"
             aria-expanded="false"
-            onclick="voiceSelector_toggle('@Model.ContainerId')">
+            onclick="VoiceSelector.toggle('@Model.ContainerId')">
         <span class="voice-selector__trigger-text">@triggerText</span>
         <svg class="voice-selector__trigger-icon"
              fill="none"
@@ -82,7 +82,7 @@
                    class="voice-selector__search"
                    placeholder="@Model.SearchPlaceholder"
                    aria-label="Search voices"
-                   oninput="voiceSelector_search('@Model.ContainerId')" />
+                   oninput="VoiceSelector.search('@Model.ContainerId')" />
         </div>
 
         <!-- Voice Groups -->
@@ -97,7 +97,7 @@
                         <button type="button"
                                 class="voice-selector__group-header"
                                 aria-expanded="true"
-                                onclick="voiceSelector_toggleGroup('@Model.ContainerId', '@group.Key.Locale')">
+                                onclick="VoiceSelector.toggleGroup('@Model.ContainerId', '@group.Key.Locale')">
                             <span class="voice-selector__group-name">@group.Key.LocaleDisplayName</span>
                             <span class="voice-selector__group-count">@voiceCount</span>
                             <svg class="voice-selector__group-chevron"
@@ -127,7 +127,7 @@
                                         data-voice-gender="@voice.Gender"
                                         data-voice-locale="@voice.LocaleDisplayName"
                                         data-search-text="@searchText"
-                                        onclick="voiceSelector_selectFromButton(this)">
+                                        onclick="VoiceSelector.selectFromButton(this)">
                                     <span class="voice-selector__option-name">@voice.DisplayName</span>
                                     <span class="voice-selector__option-gender">(@voice.Gender)</span>
                                     @if (isSelected)

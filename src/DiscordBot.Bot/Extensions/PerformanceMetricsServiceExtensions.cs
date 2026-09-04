@@ -97,6 +97,9 @@ public static class PerformanceMetricsServiceExtensions
         // historical statistics, command error rates, overall cache stats)
         services.AddScoped<IPerformanceMetricsQueryService, PerformanceMetricsQueryService>();
 
+        // Performance Overview dashboard shell aggregator (Pages/Admin/Performance/Index)
+        services.AddScoped<IPerformanceDashboardAggregator, PerformanceDashboardAggregator>();
+
         // Performance subscription tracker (singleton - tracks SignalR group memberships)
         services.AddSingleton<IPerformanceSubscriptionTracker, PerformanceSubscriptionTracker>();
 

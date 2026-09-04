@@ -33,6 +33,15 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 
 ### Portal Pages (Member-Facing, OAuth required)
 - `Portal/Soundboard/Index.cshtml`, `Portal/TTS/Index.cshtml`, `Portal/VOX/Index.cshtml`
+- **Inline scripts externalized (2026-09):** these pages no longer carry large inline `<script>`
+  blocks — logic moved to dedicated files in `wwwroot/js/`: `portal-vox.js` (VOX composer, clip
+  browser, A-Z rail, history/favorites — was ~1,190 lines of inline script across two `<script>`
+  blocks), `portal-tts-inline.js` (mobile voice-settings toggle, SignalR hub connect, keyboard
+  shortcuts), `portal-soundboard-inline.js` (bootstrap + `UserPreferences.init`). Each page keeps
+  one tiny inline `<script>` that only sets a `window.portal<Name>Config = {...}` object (Discord
+  IDs as strings — see CLAUDE.md snowflake gotcha) before loading the external file with the same
+  `asp-append-version="true"` convention as other scripts. `portal-tts.js` and
+  `portal-soundboard.js` (the larger, pre-existing shared modules) were not touched.
 
 ### Error Pages
 - `404.cshtml`, `403.cshtml`, `500.cshtml`
@@ -53,6 +62,13 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - `PortalSoundboardCategoriesController` — CRUD categories, assign sound to category
 
 **PerformanceMetricsController** keeps its 9 endpoints as thin pass-throughs to existing metrics services; the historical/statistical calculation logic (time-range bucketing, database/memory history statistics, command error-rate aggregation, overall cache stats) moved to `IPerformanceMetricsQueryService` (`Core/Interfaces`) / `PerformanceMetricsQueryService` (`Bot/Services/Performance`, registered scoped in `PerformanceMetricsServiceExtensions`).
+
+**Thin page models via aggregators/section services** (`Bot/Interfaces`, implementations under `Bot/Services/<Area>`, registered scoped in `ApplicationServiceExtensions`/`PerformanceMetricsServiceExtensions`): the three heaviest page models were split so the `.cshtml.cs` files stay request routing + view-model assembly only, with data aggregation and audit logging in services.
+- `Pages/Guilds/Details.cshtml.cs` (14 deps → 4) delegates to `IGuildDetailsAggregator` (`Bot/Services/Guilds/GuildDetailsAggregator`), which returns one `GuildDetailsAggregateDto` covering the guild record plus every widget (welcome, scheduled messages, rat watch, reminders, members, audio, assistant). `IGuildService`/`IGuildMembershipService` stay on the page model for `OnPostSyncAsync` and the `CanEdit` check.
+- `Pages/Admin/Settings.cshtml.cs` (7 deps → 4) delegates to `ISettingsSectionService` (General/Features/Advanced/Commands save+reset+audit log), `IAppearanceSettingsService` (Appearance tab: SuperAdmin check, theme list/save/reset, all under `Bot/Services/Settings`), and `IBotControlService` (Bot Control tab: status view model, restart/shutdown + audit log). All handler names (`asp-page-handler` values) and JSON response shapes are unchanged; save/reset operations share a `SettingsSectionResult { Success, Message, Errors, RestartRequired, StatusCode, ThemeName }` return type.
+- `Pages/Admin/Performance/Index.cshtml.cs` (12 deps → 2) delegates every tab builder (`overview`/`health`/`commands`/`api`/`system`/`alerts`) to `IPerformanceDashboardAggregator` (`Bot/Services/Performance/PerformanceDashboardAggregator`), which reuses the same per-tab logic that already lived, independently, in the sibling `CommandsModel`/`HealthMetricsModel`/`ApiMetricsModel`/`SystemHealthModel`/`AlertsModel` page models (those were left as-is — still separately thin — this task only touched the shell page).
+
+When adding a new section/tab to Settings or the Performance dashboard, or a new widget to Guild Details, add the data-fetch to the matching aggregator/section service (with a unit test covering happy path + one failure path) rather than back into the page model.
 
 ### Design System ("Graphite", v2.0 — `docs/articles/design-system.md`)
 - **Tokens live in `wwwroot/css/site.css`**; `tailwind.config.js` only maps utilities onto them. Every colour has an RGB triplet (`--color-x-rgb`) so `bg-success/20` follows the theme. Never hard-code hex — use `var(--color-…)` in CSS/`<style>` blocks and the token classes in markup.
