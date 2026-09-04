@@ -1,18 +1,19 @@
 using System.Security.Claims;
-using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
-using static DiscordBot.Core.Interfaces.GatewayConnectionState;
 
 namespace DiscordBot.Bot.Hubs;
 
 /// <summary>
 /// SignalR hub for real-time dashboard updates.
 /// Provides methods for guild-specific subscriptions, status retrieval, and alert notifications.
+/// Group/connection lifecycle lives here; the actual data for each feature area is delegated to a
+/// per-feature service (<see cref="IDashboardMetricsService"/>, <see cref="IDashboardAudioStatusService"/>,
+/// <see cref="IDashboardNotificationQueryService"/>) so this hub stays a thin transport shim.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 public class DashboardHub : Hub
@@ -69,71 +70,31 @@ public class DashboardHub : Hub
     /// </summary>
     private const string SignalRConnectionIdAttribute = "signalr.connection.id";
 
-    private readonly IBotService _botService;
-    private readonly IConnectionStateService _connectionStateService;
-    private readonly ILatencyHistoryService _latencyHistoryService;
-    private readonly IPerformanceAlertService _alertService;
-    private readonly ICommandPerformanceAggregator _commandPerformanceAggregator;
-    private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
-    private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
-    private readonly IInstrumentedCache _instrumentedCache;
-    private readonly ICpuHistoryService _cpuHistoryService;
+    private readonly IDashboardMetricsService _metricsService;
+    private readonly IDashboardAudioStatusService _audioStatusService;
+    private readonly IDashboardNotificationQueryService _notificationQueryService;
     private readonly IPerformanceSubscriptionTracker _subscriptionTracker;
-    private readonly IAudioService _audioService;
-    private readonly IPlaybackService _playbackService;
-    private readonly DiscordSocketClient _discordClient;
-    private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<DashboardHub> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DashboardHub"/> class.
     /// </summary>
-    /// <param name="botService">The bot service for status retrieval.</param>
-    /// <param name="connectionStateService">The connection state service.</param>
-    /// <param name="latencyHistoryService">The latency history service.</param>
-    /// <param name="alertService">The performance alert service.</param>
-    /// <param name="commandPerformanceAggregator">The command performance aggregator service.</param>
-    /// <param name="databaseMetricsCollector">The database metrics collector service.</param>
-    /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
-    /// <param name="instrumentedCache">The instrumented cache service.</param>
-    /// <param name="cpuHistoryService">The CPU history service for CPU usage metrics.</param>
+    /// <param name="metricsService">The service providing bot status, health, alert, and performance metrics.</param>
+    /// <param name="audioStatusService">The service providing guild audio/voice connection status.</param>
+    /// <param name="notificationQueryService">The service providing per-user notification operations.</param>
     /// <param name="subscriptionTracker">The performance subscription tracker.</param>
-    /// <param name="audioService">The audio service for voice connection status.</param>
-    /// <param name="playbackService">The playback service for audio playback status.</param>
-    /// <param name="discordClient">The Discord client for channel name resolution.</param>
-    /// <param name="serviceProvider">The service provider for creating scopes to resolve scoped services.</param>
     /// <param name="logger">The logger.</param>
     public DashboardHub(
-        IBotService botService,
-        IConnectionStateService connectionStateService,
-        ILatencyHistoryService latencyHistoryService,
-        IPerformanceAlertService alertService,
-        ICommandPerformanceAggregator commandPerformanceAggregator,
-        IDatabaseMetricsCollector databaseMetricsCollector,
-        IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
-        IInstrumentedCache instrumentedCache,
-        ICpuHistoryService cpuHistoryService,
+        IDashboardMetricsService metricsService,
+        IDashboardAudioStatusService audioStatusService,
+        IDashboardNotificationQueryService notificationQueryService,
         IPerformanceSubscriptionTracker subscriptionTracker,
-        IAudioService audioService,
-        IPlaybackService playbackService,
-        DiscordSocketClient discordClient,
-        IServiceProvider serviceProvider,
         ILogger<DashboardHub> logger)
     {
-        _botService = botService;
-        _connectionStateService = connectionStateService;
-        _latencyHistoryService = latencyHistoryService;
-        _alertService = alertService;
-        _commandPerformanceAggregator = commandPerformanceAggregator;
-        _databaseMetricsCollector = databaseMetricsCollector;
-        _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
-        _instrumentedCache = instrumentedCache;
-        _cpuHistoryService = cpuHistoryService;
+        _metricsService = metricsService;
+        _audioStatusService = audioStatusService;
+        _notificationQueryService = notificationQueryService;
         _subscriptionTracker = subscriptionTracker;
-        _audioService = audioService;
-        _playbackService = playbackService;
-        _discordClient = discordClient;
-        _serviceProvider = serviceProvider;
         _logger = logger;
     }
 
@@ -271,97 +232,14 @@ public class DashboardHub : Hub
     /// </summary>
     /// <returns>The current bot status.</returns>
     public BotStatusDto GetCurrentStatus()
-    {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_current_status");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            _logger.LogDebug(
-                "Status requested by client: ConnectionId={ConnectionId}",
-                Context.ConnectionId);
-
-            BotStatusDto result;
-            using (BotActivitySource.StartServiceActivity("bot_service", "get_status"))
-            {
-                result = _botService.GetStatus();
-            }
-
-            BotActivitySource.SetSuccess(activity);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
-    }
+        => _metricsService.GetCurrentStatus(Context.ConnectionId, Context.User?.Identity?.Name);
 
     /// <summary>
     /// Gets the current health metrics including connection state, uptime, and latency.
     /// </summary>
     /// <returns>The current performance health status.</returns>
     public PerformanceHealthDto GetHealthStatus()
-    {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_health_status");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            _logger.LogDebug(
-                "Health status requested by client: ConnectionId={ConnectionId}",
-                Context.ConnectionId);
-
-            GatewayConnectionState connectionState;
-            using (BotActivitySource.StartServiceActivity("connection_state_service", "get_current_state"))
-            {
-                connectionState = _connectionStateService.GetCurrentState();
-            }
-
-            TimeSpan sessionDuration;
-            using (BotActivitySource.StartServiceActivity("connection_state_service", "get_current_session_duration"))
-            {
-                sessionDuration = _connectionStateService.GetCurrentSessionDuration();
-            }
-
-            int currentLatency;
-            using (BotActivitySource.StartServiceActivity("latency_history_service", "get_current_latency"))
-            {
-                currentLatency = _latencyHistoryService.GetCurrentLatency();
-            }
-
-            var health = new PerformanceHealthDto
-            {
-                Status = connectionState == GatewayConnectionState.Connected ? "Healthy" : "Unhealthy",
-                Uptime = sessionDuration,
-                LatencyMs = currentLatency,
-                ConnectionState = connectionState.ToString(),
-                Timestamp = DateTime.UtcNow
-            };
-
-            _logger.LogTrace(
-                "Health status retrieved: Status={Status}, Uptime={Uptime}, Latency={LatencyMs}ms",
-                health.Status,
-                health.Uptime,
-                health.LatencyMs);
-
-            BotActivitySource.SetSuccess(activity);
-            return health;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
-    }
+        => _metricsService.GetHealthStatus(Context.ConnectionId, Context.User?.Identity?.Name);
 
     /// <summary>
     /// Joins the alerts group to receive real-time alert notifications.
@@ -463,34 +341,8 @@ public class DashboardHub : Hub
     /// Gets the current active alert count for dashboard display.
     /// </summary>
     /// <returns>The active alert summary with counts by severity.</returns>
-    public async Task<ActiveAlertSummaryDto> GetActiveAlertCount()
-    {
-        return await ServiceActivityHelper.ExecuteAsync<ActiveAlertSummaryDto>(
-            "dashboard_hub", "get_active_alert_count",
-            async activity =>
-            {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-                _logger.LogDebug(
-                    "Active alert count requested by client: ConnectionId={ConnectionId}",
-                    Context.ConnectionId);
-
-                ActiveAlertSummaryDto summary;
-                using (BotActivitySource.StartServiceActivity("alert_service", "get_active_alert_summary"))
-                {
-                    summary = await _alertService.GetActiveAlertSummaryAsync();
-                }
-
-                _logger.LogTrace(
-                    "Active alert count retrieved: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",
-                    summary.ActiveCount,
-                    summary.CriticalCount,
-                    summary.WarningCount);
-
-                return summary;
-            });
-    }
+    public Task<ActiveAlertSummaryDto> GetActiveAlertCount()
+        => _metricsService.GetActiveAlertCountAsync(Context.ConnectionId, Context.User?.Identity?.Name);
 
     /// <summary>
     /// Joins the performance metrics group to receive real-time performance updates.
@@ -609,223 +461,22 @@ public class DashboardHub : Hub
     /// </summary>
     /// <returns>The current performance health metrics.</returns>
     public HealthMetricsUpdateDto GetCurrentPerformanceMetrics()
-    {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_current_performance_metrics");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            _logger.LogDebug(
-                "Performance metrics requested by client: ConnectionId={ConnectionId}",
-                Context.ConnectionId);
-
-            int currentLatency;
-            using (BotActivitySource.StartServiceActivity("latency_history_service", "get_current_latency"))
-            {
-                currentLatency = _latencyHistoryService.GetCurrentLatency();
-            }
-
-            GatewayConnectionState connectionState;
-            using (BotActivitySource.StartServiceActivity("connection_state_service", "get_current_state"))
-            {
-                connectionState = _connectionStateService.GetCurrentState();
-            }
-
-            // Get current process metrics - dispose immediately to prevent memory leak
-            long workingSetMB;
-            long privateMemoryMB;
-            int threadCount;
-            using (var process = System.Diagnostics.Process.GetCurrentProcess())
-            {
-                workingSetMB = process.WorkingSet64 / 1024 / 1024;
-                privateMemoryMB = process.PrivateMemorySize64 / 1024 / 1024;
-                threadCount = process.Threads.Count;
-            }
-
-            var gen2Collections = GC.CollectionCount(2);
-
-            var cpuUsagePercent = _cpuHistoryService.GetCurrentCpu();
-
-            var metrics = new HealthMetricsUpdateDto
-            {
-                LatencyMs = currentLatency,
-                WorkingSetMB = workingSetMB,
-                PrivateMemoryMB = privateMemoryMB,
-                CpuUsagePercent = cpuUsagePercent,
-                ThreadCount = threadCount,
-                Gen2Collections = gen2Collections,
-                ConnectionState = connectionState.ToString(),
-                Timestamp = DateTime.UtcNow
-            };
-
-            _logger.LogTrace(
-                "Performance metrics retrieved: Latency={LatencyMs}ms, WorkingSet={WorkingSetMB}MB, PrivateMemory={PrivateMemoryMB}MB, Threads={ThreadCount}",
-                metrics.LatencyMs,
-                metrics.WorkingSetMB,
-                metrics.PrivateMemoryMB,
-                metrics.ThreadCount);
-
-            BotActivitySource.SetSuccess(activity);
-            return metrics;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
-    }
+        => _metricsService.GetCurrentPerformanceMetrics(Context.ConnectionId, Context.User?.Identity?.Name);
 
     /// <summary>
     /// Gets the current system health including database, cache, and background service metrics.
     /// </summary>
     /// <returns>The current system health metrics.</returns>
     public SystemMetricsUpdateDto GetCurrentSystemHealth()
-    {
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_current_system_health");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-
-        try
-        {
-            _logger.LogDebug(
-                "System health requested by client: ConnectionId={ConnectionId}",
-                Context.ConnectionId);
-
-            DatabaseMetricsDto dbMetrics;
-            using (BotActivitySource.StartServiceActivity("database_metrics_collector", "get_metrics"))
-            {
-                dbMetrics = _databaseMetricsCollector.GetMetrics();
-            }
-
-            IReadOnlyList<CacheStatisticsDto> cacheStats;
-            using (BotActivitySource.StartServiceActivity("instrumented_cache", "get_statistics"))
-            {
-                cacheStats = _instrumentedCache.GetStatistics();
-            }
-
-            IReadOnlyList<BackgroundServiceHealthDto> serviceHealth;
-            using (BotActivitySource.StartServiceActivity("background_service_health_registry", "get_all_health"))
-            {
-                serviceHealth = _backgroundServiceHealthRegistry.GetAllHealth();
-            }
-
-            // Calculate queries per second (simple approximation based on total queries)
-            var queriesPerSecond = dbMetrics.TotalQueries > 0 ? dbMetrics.AvgQueryTimeMs > 0 ? 1000.0 / dbMetrics.AvgQueryTimeMs : 0 : 0;
-
-            // Map cache statistics to dictionary by key prefix
-            var cacheStatsDict = cacheStats.ToDictionary(
-                c => c.KeyPrefix,
-                c => new CacheStatsDto
-                {
-                    KeyPrefix = c.KeyPrefix,
-                    Hits = c.Hits,
-                    Misses = c.Misses,
-                    HitRate = c.HitRate,
-                    Size = c.Size
-                });
-
-            // Map background service health to simplified DTOs
-            var serviceStatusList = serviceHealth.Select(s => new BackgroundServiceStatusDto
-            {
-                ServiceName = s.ServiceName,
-                Status = s.Status,
-                LastHeartbeat = s.LastHeartbeat,
-                LastError = s.LastError
-            }).ToList();
-
-            var systemMetrics = new SystemMetricsUpdateDto
-            {
-                AvgQueryTimeMs = dbMetrics.AvgQueryTimeMs,
-                TotalQueries = (int)dbMetrics.TotalQueries,
-                QueriesPerSecond = queriesPerSecond,
-                SlowQueryCount = dbMetrics.SlowQueryCount,
-                CacheStats = cacheStatsDict,
-                BackgroundServices = serviceStatusList,
-                Timestamp = DateTime.UtcNow
-            };
-
-            _logger.LogTrace(
-                "System health retrieved: AvgQueryTime={AvgQueryTimeMs}ms, TotalQueries={TotalQueries}, SlowQueries={SlowQueryCount}, CacheCount={CacheCount}, ServicesCount={ServicesCount}",
-                systemMetrics.AvgQueryTimeMs,
-                systemMetrics.TotalQueries,
-                systemMetrics.SlowQueryCount,
-                systemMetrics.CacheStats.Count,
-                systemMetrics.BackgroundServices.Count);
-
-            BotActivitySource.SetSuccess(activity);
-            return systemMetrics;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
-    }
+        => _metricsService.GetCurrentSystemHealth(Context.ConnectionId, Context.User?.Identity?.Name);
 
     /// <summary>
     /// Gets the current command performance metrics over a specified number of hours.
     /// </summary>
     /// <param name="hours">The number of hours of command history to aggregate (default: 24).</param>
     /// <returns>The current command performance metrics.</returns>
-    public async Task<CommandPerformanceUpdateDto> GetCurrentCommandPerformance(int hours = 24)
-    {
-        return await ServiceActivityHelper.ExecuteAsync<CommandPerformanceUpdateDto>(
-            "dashboard_hub", "get_current_command_performance",
-            async activity =>
-            {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-                activity?.SetTag("hours", hours);
-
-                _logger.LogDebug(
-                    "Command performance requested by client: ConnectionId={ConnectionId}, Hours={Hours}",
-                    Context.ConnectionId,
-                    hours);
-
-                IReadOnlyList<CommandPerformanceAggregateDto> aggregates;
-                using (BotActivitySource.StartServiceActivity("command_performance_aggregator", "get_aggregates"))
-                {
-                    aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(hours);
-                }
-
-                // Calculate overall metrics from aggregates
-                var totalCommands = aggregates.Sum(a => a.ExecutionCount);
-                var avgResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.AvgMs) : 0;
-                var p95ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P95Ms) : 0;
-                var p99ResponseTimeMs = aggregates.Any() ? aggregates.Average(a => a.P99Ms) : 0;
-                var errorRate = aggregates.Any() ? aggregates.Average(a => a.ErrorRate) : 0;
-
-                // Calculate commands in the last hour (approximation: total / hours)
-                var commandsLastHour = hours > 0 ? totalCommands / hours : totalCommands;
-
-                var commandMetrics = new CommandPerformanceUpdateDto
-                {
-                    TotalCommands24h = totalCommands,
-                    AvgResponseTimeMs = avgResponseTimeMs,
-                    P95ResponseTimeMs = p95ResponseTimeMs,
-                    P99ResponseTimeMs = p99ResponseTimeMs,
-                    ErrorRate = errorRate,
-                    CommandsLastHour = commandsLastHour,
-                    Timestamp = DateTime.UtcNow
-                };
-
-                _logger.LogTrace(
-                    "Command performance retrieved: TotalCommands={TotalCommands}, AvgResponseTime={AvgResponseTimeMs}ms, P95={P95ResponseTimeMs}ms, ErrorRate={ErrorRate}%",
-                    commandMetrics.TotalCommands24h,
-                    commandMetrics.AvgResponseTimeMs,
-                    commandMetrics.P95ResponseTimeMs,
-                    commandMetrics.ErrorRate);
-
-                return commandMetrics;
-            });
-    }
+    public Task<CommandPerformanceUpdateDto> GetCurrentCommandPerformance(int hours = 24)
+        => _metricsService.GetCurrentCommandPerformanceAsync(Context.ConnectionId, Context.User?.Identity?.Name, hours);
 
     /// <summary>
     /// Joins a guild-specific audio group to receive audio events for that guild.
@@ -908,60 +559,7 @@ public class DashboardHub : Hub
             throw new ArgumentException("Invalid guild ID format", nameof(guildIdString));
         }
 
-        using var activity = BotActivitySource.StartServiceActivity(
-            "dashboard_hub",
-            "get_current_audio_status");
-
-        activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-        activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-        activity?.SetTag(TracingConstants.Attributes.GuildId, guildId.ToString());
-
-        try
-        {
-            _logger.LogDebug(
-                "Audio status requested by client: ConnectionId={ConnectionId}, GuildId={GuildId}",
-                Context.ConnectionId,
-                guildId);
-
-            var isConnected = _audioService.IsConnected(guildId);
-            var channelId = _audioService.GetConnectedChannelId(guildId);
-            var isPlaying = _playbackService.IsPlaying(guildId);
-            var queueLength = _playbackService.GetQueueLength(guildId);
-
-            string? channelName = null;
-            if (channelId.HasValue)
-            {
-                var guild = _discordClient.GetGuild(guildId);
-                var channel = guild?.GetVoiceChannel(channelId.Value);
-                channelName = channel?.Name;
-            }
-
-            var status = new AudioStatusDto
-            {
-                GuildId = guildId,
-                IsConnected = isConnected,
-                ChannelId = channelId,
-                ChannelName = channelName,
-                IsPlaying = isPlaying,
-                QueueLength = queueLength,
-                Timestamp = DateTime.UtcNow
-            };
-
-            _logger.LogTrace(
-                "Audio status retrieved: GuildId={GuildId}, IsConnected={IsConnected}, IsPlaying={IsPlaying}, QueueLength={QueueLength}",
-                guildId,
-                status.IsConnected,
-                status.IsPlaying,
-                status.QueueLength);
-
-            BotActivitySource.SetSuccess(activity);
-            return status;
-        }
-        catch (Exception ex)
-        {
-            BotActivitySource.RecordException(activity, ex);
-            throw;
-        }
+        return _audioStatusService.GetCurrentAudioStatus(guildId, Context.ConnectionId, Context.User?.Identity?.Name);
     }
 
     // ============================================================================
@@ -974,37 +572,14 @@ public class DashboardHub : Hub
     /// <returns>The notification summary for the current user, or an empty summary if user is not authenticated.</returns>
     public async Task<NotificationSummaryDto> GetNotificationSummary()
     {
-        return await ServiceActivityHelper.ExecuteAsync<NotificationSummaryDto>(
-            "dashboard_hub", "get_notification_summary",
-            async activity =>
-            {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+        {
+            _logger.LogDebug("GetNotificationSummary called with no authenticated user");
+            return new NotificationSummaryDto();
+        }
 
-                var userId = GetAuthenticatedUserId();
-                if (userId == null)
-                {
-                    _logger.LogDebug("GetNotificationSummary called with no authenticated user");
-                    return new NotificationSummaryDto();
-                }
-
-                _logger.LogDebug(
-                    "Notification summary requested by client: ConnectionId={ConnectionId}, UserId={UserId}",
-                    Context.ConnectionId,
-                    userId);
-
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-                var summary = await notificationService.GetSummaryAsync(userId);
-
-                _logger.LogTrace(
-                    "Notification summary retrieved: UserId={UserId}, TotalUnread={TotalUnread}",
-                    userId,
-                    summary.TotalUnread);
-
-                return summary;
-            });
+        return await _notificationQueryService.GetNotificationSummaryAsync(userId, Context.ConnectionId);
     }
 
     /// <summary>
@@ -1018,39 +593,14 @@ public class DashboardHub : Hub
         ArgumentOutOfRangeException.ThrowIfNegative(limit);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(limit, 100);
 
-        return await ServiceActivityHelper.ExecuteAsync<IEnumerable<UserNotificationDto>>(
-            "dashboard_hub", "get_notifications",
-            async activity =>
-            {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-                activity?.SetTag("limit", limit);
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+        {
+            _logger.LogDebug("GetNotifications called with no authenticated user");
+            return [];
+        }
 
-                var userId = GetAuthenticatedUserId();
-                if (userId == null)
-                {
-                    _logger.LogDebug("GetNotifications called with no authenticated user");
-                    return [];
-                }
-
-                _logger.LogDebug(
-                    "Notifications requested by client: ConnectionId={ConnectionId}, UserId={UserId}, Limit={Limit}",
-                    Context.ConnectionId,
-                    userId,
-                    limit);
-
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-                var notifications = await notificationService.GetUserNotificationsAsync(userId, limit);
-
-                _logger.LogTrace(
-                    "Notifications retrieved: UserId={UserId}, Count={Count}",
-                    userId,
-                    notifications.Count());
-
-                return notifications;
-            });
+        return await _notificationQueryService.GetNotificationsAsync(userId, Context.ConnectionId, limit);
     }
 
     /// <summary>
@@ -1059,37 +609,14 @@ public class DashboardHub : Hub
     /// <param name="notificationId">The notification ID to mark as read.</param>
     public async Task MarkNotificationRead(Guid notificationId)
     {
-        await ServiceActivityHelper.ExecuteAsync(
-            "dashboard_hub", "mark_notification_read",
-            async activity =>
-            {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-                activity?.SetTag("notification_id", notificationId.ToString());
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+        {
+            _logger.LogDebug("MarkNotificationRead called with no authenticated user");
+            return;
+        }
 
-                var userId = GetAuthenticatedUserId();
-                if (userId == null)
-                {
-                    _logger.LogDebug("MarkNotificationRead called with no authenticated user");
-                    return;
-                }
-
-                _logger.LogDebug(
-                    "Mark notification read requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
-                    Context.ConnectionId,
-                    userId,
-                    notificationId);
-
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-                await notificationService.MarkAsReadAsync(userId, notificationId);
-
-                _logger.LogTrace(
-                    "Notification marked as read: UserId={UserId}, NotificationId={NotificationId}",
-                    userId,
-                    notificationId);
-            });
+        await _notificationQueryService.MarkNotificationReadAsync(userId, Context.ConnectionId, notificationId);
     }
 
     /// <summary>
@@ -1097,32 +624,14 @@ public class DashboardHub : Hub
     /// </summary>
     public async Task MarkAllNotificationsRead()
     {
-        await ServiceActivityHelper.ExecuteAsync(
-            "dashboard_hub", "mark_all_notifications_read",
-            async activity =>
-            {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+        {
+            _logger.LogDebug("MarkAllNotificationsRead called with no authenticated user");
+            return;
+        }
 
-                var userId = GetAuthenticatedUserId();
-                if (userId == null)
-                {
-                    _logger.LogDebug("MarkAllNotificationsRead called with no authenticated user");
-                    return;
-                }
-
-                _logger.LogDebug(
-                    "Mark all notifications read requested: ConnectionId={ConnectionId}, UserId={UserId}",
-                    Context.ConnectionId,
-                    userId);
-
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-                await notificationService.MarkAllAsReadAsync(userId);
-
-                _logger.LogTrace("All notifications marked as read: UserId={UserId}", userId);
-            });
+        await _notificationQueryService.MarkAllNotificationsReadAsync(userId, Context.ConnectionId);
     }
 
     /// <summary>
@@ -1131,37 +640,14 @@ public class DashboardHub : Hub
     /// <param name="notificationId">The notification ID to dismiss.</param>
     public async Task DismissNotification(Guid notificationId)
     {
-        await ServiceActivityHelper.ExecuteAsync(
-            "dashboard_hub", "dismiss_notification",
-            async activity =>
-            {
-                activity?.SetTag(TracingConstants.Attributes.UserId, Context.User?.Identity?.Name);
-                activity?.SetTag(SignalRConnectionIdAttribute, Context.ConnectionId);
-                activity?.SetTag("notification_id", notificationId.ToString());
+        var userId = GetAuthenticatedUserId();
+        if (userId == null)
+        {
+            _logger.LogDebug("DismissNotification called with no authenticated user");
+            return;
+        }
 
-                var userId = GetAuthenticatedUserId();
-                if (userId == null)
-                {
-                    _logger.LogDebug("DismissNotification called with no authenticated user");
-                    return;
-                }
-
-                _logger.LogDebug(
-                    "Dismiss notification requested: ConnectionId={ConnectionId}, UserId={UserId}, NotificationId={NotificationId}",
-                    Context.ConnectionId,
-                    userId,
-                    notificationId);
-
-                await using var scope = _serviceProvider.CreateAsyncScope();
-                var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
-
-                await notificationService.DismissAsync(userId, notificationId);
-
-                _logger.LogTrace(
-                    "Notification dismissed: UserId={UserId}, NotificationId={NotificationId}",
-                    userId,
-                    notificationId);
-            });
+        await _notificationQueryService.DismissNotificationAsync(userId, Context.ConnectionId, notificationId);
     }
 
     // ============================================================================

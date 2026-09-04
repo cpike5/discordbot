@@ -1,5 +1,7 @@
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Dashboard;
 using DiscordBot.Bot.Services.Performance;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
@@ -91,8 +93,17 @@ public static class PerformanceMetricsServiceExtensions
         services.AddScoped<IMetricSnapshotRepository, MetricSnapshotRepository>();
         services.AddHostedService<MetricsCollectionService>();
 
+        // Aggregation/calculation logic for PerformanceMetricsController (bucketing,
+        // historical statistics, command error rates, overall cache stats)
+        services.AddScoped<IPerformanceMetricsQueryService, PerformanceMetricsQueryService>();
+
         // Performance subscription tracker (singleton - tracks SignalR group memberships)
         services.AddSingleton<IPerformanceSubscriptionTracker, PerformanceSubscriptionTracker>();
+
+        // Dashboard hub per-feature services (scoped - keep DashboardHub itself thin)
+        services.AddScoped<IDashboardMetricsService, DashboardMetricsService>();
+        services.AddScoped<IDashboardAudioStatusService, DashboardAudioStatusService>();
+        services.AddScoped<IDashboardNotificationQueryService, DashboardNotificationQueryService>();
 
         // Performance metrics broadcast service
         services.AddHostedService<PerformanceMetricsBroadcastService>();

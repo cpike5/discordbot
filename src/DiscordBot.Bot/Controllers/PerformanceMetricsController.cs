@@ -21,8 +21,7 @@ public class PerformanceMetricsController : ControllerBase
     private readonly IApiRequestTracker _apiRequestTracker;
     private readonly IDatabaseMetricsCollector _databaseMetricsCollector;
     private readonly IBackgroundServiceHealthRegistry _backgroundServiceHealthRegistry;
-    private readonly IInstrumentedCache _instrumentedCache;
-    private readonly IMetricSnapshotRepository _metricSnapshotRepository;
+    private readonly IPerformanceMetricsQueryService _queryService;
     private readonly ILogger<PerformanceMetricsController> _logger;
 
     /// <summary>
@@ -35,8 +34,7 @@ public class PerformanceMetricsController : ControllerBase
     /// <param name="apiRequestTracker">The API request tracker.</param>
     /// <param name="databaseMetricsCollector">The database metrics collector.</param>
     /// <param name="backgroundServiceHealthRegistry">The background service health registry.</param>
-    /// <param name="instrumentedCache">The instrumented cache.</param>
-    /// <param name="metricSnapshotRepository">The metric snapshot repository for historical data.</param>
+    /// <param name="queryService">Aggregation/calculation logic for historical and error metrics.</param>
     /// <param name="logger">The logger.</param>
     public PerformanceMetricsController(
         IConnectionStateService connectionStateService,
@@ -46,8 +44,7 @@ public class PerformanceMetricsController : ControllerBase
         IApiRequestTracker apiRequestTracker,
         IDatabaseMetricsCollector databaseMetricsCollector,
         IBackgroundServiceHealthRegistry backgroundServiceHealthRegistry,
-        IInstrumentedCache instrumentedCache,
-        IMetricSnapshotRepository metricSnapshotRepository,
+        IPerformanceMetricsQueryService queryService,
         ILogger<PerformanceMetricsController> logger)
     {
         _connectionStateService = connectionStateService;
@@ -57,8 +54,7 @@ public class PerformanceMetricsController : ControllerBase
         _apiRequestTracker = apiRequestTracker;
         _databaseMetricsCollector = databaseMetricsCollector;
         _backgroundServiceHealthRegistry = backgroundServiceHealthRegistry;
-        _instrumentedCache = instrumentedCache;
-        _metricSnapshotRepository = metricSnapshotRepository;
+        _queryService = queryService;
         _logger = logger;
     }
 
@@ -515,35 +511,10 @@ public class PerformanceMetricsController : ControllerBase
 
             _logger.LogDebug("Command errors requested: hours={Hours}, limit={Limit}", hours, limit);
 
-            var errorBreakdown = await _commandPerformanceAggregator.GetErrorBreakdownAsync(hours, limit);
-
-            // Calculate overall error rate from aggregates
-            var aggregates = await _commandPerformanceAggregator.GetAggregatesAsync(hours);
-            var totalCommands = aggregates.Sum(a => a.ExecutionCount);
-            var totalErrors = aggregates.Sum(a => (int)(a.ExecutionCount * (a.ErrorRate / 100.0)));
-            var overallErrorRate = totalCommands > 0 ? (totalErrors * 100.0 / totalCommands) : 0;
-
-            // Create recent errors list from error breakdown
-            var recentErrors = errorBreakdown
-                .SelectMany(eb => eb.ErrorMessages.Select(em => new RecentCommandErrorDto
-                {
-                    Timestamp = DateTime.UtcNow, // Note: This is approximate, actual timestamps would need to come from command logs
-                    CommandName = eb.CommandName,
-                    ErrorMessage = em.Key,
-                    GuildId = null
-                }))
-                .Take(limit)
-                .ToList();
-
-            var errors = new CommandErrorsDto
-            {
-                ErrorRate = overallErrorRate,
-                ByType = errorBreakdown,
-                RecentErrors = recentErrors
-            };
+            var errors = await _queryService.GetCommandErrorsAsync(hours, limit);
 
             _logger.LogTrace("Retrieved error data: overall rate {ErrorRate:F2}%, {BreakdownCount} commands with errors",
-                errors.ErrorRate, errorBreakdown.Count);
+                errors.ErrorRate, errors.ByType.Count);
 
             return Ok(errors);
         }
@@ -839,32 +810,10 @@ public class PerformanceMetricsController : ControllerBase
         {
             _logger.LogDebug("Cache statistics requested");
 
-            var statisticsByPrefix = _instrumentedCache.GetStatistics();
-
-            // Calculate overall statistics
-            var totalHits = statisticsByPrefix.Sum(s => s.Hits);
-            var totalMisses = statisticsByPrefix.Sum(s => s.Misses);
-            var totalAccesses = totalHits + totalMisses;
-            var overallHitRate = totalAccesses > 0 ? (totalHits * 100.0 / totalAccesses) : 0;
-            var totalSize = statisticsByPrefix.Sum(s => s.Size);
-
-            var overall = new CacheStatisticsDto
-            {
-                KeyPrefix = "Overall",
-                Hits = totalHits,
-                Misses = totalMisses,
-                HitRate = overallHitRate,
-                Size = totalSize
-            };
-
-            var summary = new CacheSummaryDto
-            {
-                Overall = overall,
-                ByType = statisticsByPrefix
-            };
+            var summary = _queryService.GetCacheSummary();
 
             _logger.LogTrace("Retrieved cache statistics: {HitRate:F2}% hit rate, {PrefixCount} prefixes",
-                overallHitRate, statisticsByPrefix.Count);
+                summary.Overall.HitRate, summary.ByType.Count);
 
             return Ok(summary);
         }
@@ -933,28 +882,10 @@ public class PerformanceMetricsController : ControllerBase
 
             _logger.LogDebug("Historical metrics requested: hours={Hours}, metric={Metric}", hours, metric);
 
-            var endTime = DateTime.UtcNow;
-            var startTime = endTime.AddHours(-hours);
-
-            // Determine aggregation based on time range
-            var (aggregationMinutes, granularityLabel) = GetAggregationForTimeRange(hours);
-
-            var snapshots = await _metricSnapshotRepository.GetRangeAsync(
-                startTime,
-                endTime,
-                aggregationMinutes,
-                cancellationToken);
-
-            var response = new HistoricalMetricsResponseDto
-            {
-                StartTime = startTime,
-                EndTime = endTime,
-                Granularity = granularityLabel,
-                Snapshots = snapshots
-            };
+            var response = await _queryService.GetHistoricalMetricsAsync(hours, metric, cancellationToken);
 
             _logger.LogTrace("Retrieved {SnapshotCount} historical metric snapshots for {Hours} hours",
-                snapshots.Count, hours);
+                response.Snapshots.Count, hours);
 
             return Ok(response);
         }
@@ -1003,50 +934,10 @@ public class PerformanceMetricsController : ControllerBase
 
             _logger.LogDebug("Database history requested for {Hours} hours", hours);
 
-            var endTime = DateTime.UtcNow;
-            var startTime = endTime.AddHours(-hours);
-
-            // Determine aggregation based on time range
-            var (aggregationMinutes, _) = GetAggregationForTimeRange(hours);
-
-            var snapshots = await _metricSnapshotRepository.GetRangeAsync(
-                startTime,
-                endTime,
-                aggregationMinutes,
-                cancellationToken);
-
-            // Transform to database-specific samples
-            var samples = snapshots.Select(s => new DatabaseHistorySampleDto
-            {
-                Timestamp = s.Timestamp,
-                AvgQueryTimeMs = s.DatabaseAvgQueryTimeMs,
-                TotalQueries = s.DatabaseTotalQueries,
-                SlowQueryCount = s.DatabaseSlowQueryCount
-            }).ToList();
-
-            // Calculate statistics
-            var statistics = new DatabaseHistoryStatisticsDto();
-            if (samples.Count > 0)
-            {
-                statistics = new DatabaseHistoryStatisticsDto
-                {
-                    AvgQueryTimeMs = samples.Average(s => s.AvgQueryTimeMs),
-                    MinQueryTimeMs = samples.Min(s => s.AvgQueryTimeMs),
-                    MaxQueryTimeMs = samples.Max(s => s.AvgQueryTimeMs),
-                    TotalSlowQueries = samples.Sum(s => s.SlowQueryCount)
-                };
-            }
-
-            var response = new DatabaseHistoryResponseDto
-            {
-                StartTime = startTime,
-                EndTime = endTime,
-                Samples = samples,
-                Statistics = statistics
-            };
+            var response = await _queryService.GetDatabaseHistoryAsync(hours, cancellationToken);
 
             _logger.LogTrace("Retrieved {SampleCount} database history samples for {Hours} hours",
-                samples.Count, hours);
+                response.Samples.Count, hours);
 
             return Ok(response);
         }
@@ -1095,49 +986,10 @@ public class PerformanceMetricsController : ControllerBase
 
             _logger.LogDebug("Memory history requested for {Hours} hours", hours);
 
-            var endTime = DateTime.UtcNow;
-            var startTime = endTime.AddHours(-hours);
-
-            // Determine aggregation based on time range
-            var (aggregationMinutes, _) = GetAggregationForTimeRange(hours);
-
-            var snapshots = await _metricSnapshotRepository.GetRangeAsync(
-                startTime,
-                endTime,
-                aggregationMinutes,
-                cancellationToken);
-
-            // Transform to memory-specific samples
-            var samples = snapshots.Select(s => new MemoryHistorySampleDto
-            {
-                Timestamp = s.Timestamp,
-                WorkingSetMB = s.WorkingSetMB,
-                HeapSizeMB = s.HeapSizeMB,
-                PrivateMemoryMB = s.PrivateMemoryMB
-            }).ToList();
-
-            // Calculate statistics
-            var statistics = new MemoryHistoryStatisticsDto();
-            if (samples.Count > 0)
-            {
-                statistics = new MemoryHistoryStatisticsDto
-                {
-                    AvgWorkingSetMB = samples.Average(s => s.WorkingSetMB),
-                    MaxWorkingSetMB = samples.Max(s => s.WorkingSetMB),
-                    AvgHeapSizeMB = samples.Average(s => s.HeapSizeMB)
-                };
-            }
-
-            var response = new MemoryHistoryResponseDto
-            {
-                StartTime = startTime,
-                EndTime = endTime,
-                Samples = samples,
-                Statistics = statistics
-            };
+            var response = await _queryService.GetMemoryHistoryAsync(hours, cancellationToken);
 
             _logger.LogTrace("Retrieved {SampleCount} memory history samples for {Hours} hours",
-                samples.Count, hours);
+                response.Samples.Count, hours);
 
             return Ok(response);
         }
@@ -1153,21 +1005,5 @@ public class PerformanceMetricsController : ControllerBase
                 TraceId = HttpContext.GetCorrelationId()
             });
         }
-    }
-
-    /// <summary>
-    /// Determines the aggregation bucket size based on the requested time range.
-    /// </summary>
-    /// <param name="hours">The requested time range in hours.</param>
-    /// <returns>Tuple of (aggregation minutes, granularity label).</returns>
-    private static (int aggregationMinutes, string granularityLabel) GetAggregationForTimeRange(int hours)
-    {
-        return hours switch
-        {
-            <= 6 => (0, "raw"),              // 1-6 hours: raw samples
-            <= 24 => (5, "5m"),              // 7-24 hours: 5-minute buckets
-            <= 168 => (15, "15m"),           // 25-168 hours (7 days): 15-minute buckets
-            _ => (60, "1h")                  // 169-720 hours (30 days): 1-hour buckets
-        };
     }
 }

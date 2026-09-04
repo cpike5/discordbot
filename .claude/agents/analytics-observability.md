@@ -33,7 +33,11 @@ You are a domain expert for the **Analytics & Observability** stream of a Discor
 - **Controller:** `HealthController`
 
 ### Real-Time Broadcasting
-- **SignalR Hub:** `DashboardHub`
+- **SignalR Hub:** `DashboardHub` (Bot/Hubs/) — kept as a single hub/URL so the JS client (`wwwroot/js/dashboard-hub.js` etc.) and all `IHubContext<DashboardHub>` broadcasters keep working unchanged. The hub itself is now thin: it owns only connection/group lifecycle (Join/LeaveGuildGroup, Alerts/Performance/SystemHealth/BulkPurge/GuildAudio groups, OnConnected/OnDisconnected) and the authenticated-user short-circuit for notification methods. Everything else is delegated to per-feature services in `Bot/Services/Dashboard/`:
+  - `IDashboardMetricsService` / `DashboardMetricsService` — bot status, health, active alert count, performance metrics, system health, command performance (GetCurrentStatus, GetHealthStatus, GetActiveAlertCount, GetCurrentPerformanceMetrics, GetCurrentSystemHealth, GetCurrentCommandPerformance)
+  - `IDashboardAudioStatusService` / `DashboardAudioStatusService` — guild voice/audio status (GetCurrentAudioStatus)
+  - `IDashboardNotificationQueryService` / `DashboardNotificationQueryService` — per-user notification summary/list/mark-read/dismiss, resolving the scoped `INotificationService` from a fresh DI scope per call
+  Registered as scoped services in `PerformanceMetricsServiceExtensions.AddPerformanceMetrics`. Tests split accordingly: `Hubs/DashboardHubTests.cs` (connection/group lifecycle + auth short-circuit) plus `Services/Dashboard/DashboardMetricsServiceTests.cs` and `Services/Dashboard/DashboardNotificationQueryServiceTests.cs`.
 - **Services:** `DashboardUpdateService`, `PerformanceMetricsBroadcastService`
 
 ### Observability Infrastructure

@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Controllers;
+using DiscordBot.Bot.Services.Performance;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
@@ -41,6 +42,11 @@ public class PerformanceMetricsControllerTests
         _mockMetricSnapshotRepository = new Mock<IMetricSnapshotRepository>();
         _mockLogger = new Mock<ILogger<PerformanceMetricsController>>();
 
+        var queryService = new PerformanceMetricsQueryService(
+            _mockCommandPerformanceAggregator.Object,
+            _mockMetricSnapshotRepository.Object,
+            _mockInstrumentedCache.Object);
+
         _controller = new PerformanceMetricsController(
             _mockConnectionStateService.Object,
             _mockLatencyHistoryService.Object,
@@ -49,8 +55,7 @@ public class PerformanceMetricsControllerTests
             _mockApiRequestTracker.Object,
             _mockDatabaseMetricsCollector.Object,
             _mockBackgroundServiceHealthRegistry.Object,
-            _mockInstrumentedCache.Object,
-            _mockMetricSnapshotRepository.Object,
+            queryService,
             _mockLogger.Object);
 
         // Setup HttpContext for TraceIdentifier and correlation ID

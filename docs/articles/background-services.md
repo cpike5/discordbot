@@ -28,6 +28,61 @@ The system uses ASP.NET Core's `IHostedService` and `BackgroundService` patterns
 
 ## Bot Lifecycle
 
+### Hosted Service Startup Order
+
+The Generic Host runs every registered `IHostedService.StartAsync` **sequentially, in
+registration order** (shutdown runs in reverse). Program.cs builds up services through a
+chain of `AddXxx(configuration)` extension methods; each one may itself register hosted
+services, so the effective order is the order those `AddXxx` calls appear in `Program.cs`,
+and — within `DiscordServiceExtensions.AddDiscordBot` — the order of the `AddHostedService`
+calls there.
+
+Only a handful of these ~28 hosted services have a real ordering constraint; everything
+else is order-agnostic background work (retention/cleanup jobs, metrics aggregators, queue
+processors). The constrained ones, in the order they must run:
+
+| # | Hosted service | Registered in | Constraint |
+|---|---|---|---|
+| 1 | `MemberSyncService` | `DiscordServiceExtensions.AddDiscordBot` | None — queue processor, listed first only by convention. |
+| 2 | `SlashCommandRegistrationService` | `DiscordServiceExtensions.AddDiscordBot` | **Must start before `BotHostedService`.** Discovers/loads interaction modules and subscribes to `DiscordSocketClient.Ready` before the gateway logs in, so modules are guaranteed loaded by the time Ready can fire. |
+| 3 | `BotHostedService` | `DiscordServiceExtensions.AddDiscordBot` | **Must start after `SlashCommandRegistrationService` (2).** Logs in and starts the gateway (`LoginAsync`/`StartAsync`). Every other Discord-dependent hosted service registered later in `Program.cs` implicitly depends on the client being logged in by the time it runs. |
+| 4 | `InteractionStateCleanupService` | `DiscordServiceExtensions.AddDiscordBot` | None — periodic cleanup, kept after login for consistency. |
+
+All other hosted services (`MetricsUpdateService`, `BusinessMetricsUpdateService`,
+`AuditLogQueueProcessor`, `AuditLogRetentionService`, `MessageLogCleanupService`,
+`NotificationRetentionService`, `RatWatchExecutionService`, `ScheduledMessageExecutionService`,
+`ReminderExecutionService`, `VerificationCleanupService`, `VoiceAutoLeaveService`,
+`SoundPlayLogRetentionService`, `AudioCacheCleanupService`, `VoxClipLibraryInitializer`,
+`AnalyticsRetentionService`, the analytics aggregation services, the performance-metrics
+services, `DiscordTokenRefreshService`, `ElasticApmFilterRegistrationService`) run after the
+Discord services above (their `Add*` extension methods are called later in `Program.cs`) but
+have no ordering requirement among themselves — they only need the client to exist as a
+singleton, not to have already logged in.
+
+The ordering constraint and its reasoning is also documented as a comment block at the
+registration site: `DiscordServiceExtensions.AddDiscordBot` in
+`src/DiscordBot.Bot/Extensions/DiscordServiceExtensions.cs`.
+
+#### Lifecycle split: BotHostedService / SlashCommandRegistrationService / BotStatusBroadcaster / InteractionHandler
+
+These four classes used to be two (`BotHostedService`, `InteractionHandler`); each now owns
+one lifecycle concern:
+
+- **`BotHostedService`** — gateway login/logout only: wires gateway/message event handlers,
+  validates the token, calls `LoginAsync`/`StartAsync`, and reverses that in `StopAsync`.
+- **`SlashCommandRegistrationService`** (`ICommandRegistrar`) — discovers command modules
+  from the assembly, filters them by `ICommandModuleConfigurationService` configuration, adds
+  them to `InteractionService`, and registers commands with Discord (test guild if
+  `Discord:TestGuildId` is set, otherwise globally) once `Ready` fires.
+- **`BotStatusBroadcaster`** (`IBotStatusBroadcaster`) — publishes `BotStatusUpdateDto` to
+  dashboard clients on connect/disconnect/latency-update, and drives Discord presence
+  (registers the `CustomStatus` source with `IBotStatusService`, refreshes it on settings
+  changes and Rat Watch events).
+- **`InteractionHandler`** — interaction dispatch and error handling only: routes
+  `InteractionCreated` to the right command, and reports results
+  (`SlashCommandExecuted`/`ComponentCommandExecuted`) to logging, metrics, and the dashboard.
+
+
 Services managing Discord bot connection, initialization, and lifecycle events.
 
 ### BotHostedService
