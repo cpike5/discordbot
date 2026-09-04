@@ -1,6 +1,8 @@
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
+using DiscordBot.Bot.Services.Guilds;
+using DiscordBot.Bot.Services.Settings;
 using DiscordBot.Bot.Services.Search;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
@@ -81,6 +83,13 @@ public static class ApplicationServiceExtensions
         services.AddSingleton<ITtsSendPipeline, TtsSendPipeline>();
         services.AddScoped<ISoundboardOrchestrationService, SoundboardOrchestrationService>();
         services.AddScoped<IAudioModerationLogService, AudioModerationLogService>();
+
+        // Page-model aggregators — pull together many independent data sources into
+        // a single call so the corresponding Razor Page model stays thin.
+        services.AddScoped<IGuildDetailsAggregator, GuildDetailsAggregator>();
+        services.AddScoped<ISettingsSectionService, SettingsSectionService>();
+        services.AddScoped<IAppearanceSettingsService, AppearanceSettingsService>();
+        services.AddScoped<IBotControlService, BotControlService>();
 
         // Metrics update background services
         services.AddHostedService<MetricsUpdateService>();

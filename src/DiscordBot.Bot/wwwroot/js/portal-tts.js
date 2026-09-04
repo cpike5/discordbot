@@ -162,8 +162,8 @@
             var savedVoice = window.UserPreferences
                 ? window.UserPreferences.get(CONFIG.STORAGE_KEY_VOICE)
                 : localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
-            if (savedVoice && window.voiceSelector_setValue) {
-                window.voiceSelector_setValue('portalVoiceSelector', savedVoice, true);
+            if (savedVoice && window.VoiceSelector?.setValue) {
+                window.VoiceSelector.setValue('portalVoiceSelector', savedVoice, true);
             }
         } catch (error) {
             // Failed to load saved voice
@@ -217,7 +217,7 @@
         if (isInitializing) return;
         try {
             const messageInput = document.getElementById('ttsMessage');
-            const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+            const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
             const draft = {
                 message: messageInput?.value || '',
                 voice: voice || '',
@@ -255,8 +255,8 @@
             }
 
             // Restore voice (if saved and different from current)
-            if (draft.voice && window.voiceSelector_setValue) {
-                window.voiceSelector_setValue('portalVoiceSelector', draft.voice, true);
+            if (draft.voice && window.VoiceSelector?.setValue) {
+                window.VoiceSelector.setValue('portalVoiceSelector', draft.voice, true);
             }
 
             // Restore mode (if saved)
@@ -342,7 +342,7 @@
     function buildTtsRequestBody() {
         const messageInput = document.getElementById('ttsMessage');
         const message = messageInput?.value?.trim() || '';
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
         const speed = parseFloat(document.getElementById('speedSlider').value) || CONFIG.SPEED_DEFAULT;
         const pitch = parseFloat(document.getElementById('pitchSlider').value) || CONFIG.PITCH_DEFAULT;
 
@@ -374,7 +374,7 @@
             return;
         }
 
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
         if (!voice) {
             showToast('warning', 'Please select a voice first!');
             return;
@@ -454,7 +454,7 @@
             return;
         }
 
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
         if (!voice) {
             showToast('warning', 'Please select a voice first!');
             return;
@@ -619,7 +619,7 @@
         const pitchSlider = document.getElementById('pitchSlider');
 
         const message = messageInput?.value?.trim() || '';
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : '';
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : '';
         const speed = parseFloat(speedSlider?.value || '1.0');
         const pitch = parseFloat(pitchSlider?.value || '1.0');
 
@@ -741,8 +741,8 @@
      * Handle preset application from PresetBar component
      */
     window.portalHandlePresetApply = function(presetData) {
-        if (presetData.voice && window.voiceSelector_setValue) {
-            window.voiceSelector_setValue('portalVoiceSelector', presetData.voice, true);
+        if (presetData.voice && window.VoiceSelector?.setValue) {
+            window.VoiceSelector.setValue('portalVoiceSelector', presetData.voice, true);
         }
 
         const speedSlider = document.getElementById('speedSlider');
@@ -1050,8 +1050,8 @@
         }
 
         // Load voice
-        if (entry.voiceName && window.voiceSelector_setValue) {
-            window.voiceSelector_setValue('portalVoiceSelector', entry.voiceName, true);
+        if (entry.voiceName && window.VoiceSelector?.setValue) {
+            window.VoiceSelector.setValue('portalVoiceSelector', entry.voiceName, true);
         }
 
         // Load speed

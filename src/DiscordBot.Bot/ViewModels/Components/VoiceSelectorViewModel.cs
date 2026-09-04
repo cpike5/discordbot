@@ -31,19 +31,24 @@ namespace DiscordBot.Bot.ViewModels.Components;
 /// </para>
 /// <para>
 /// <strong>JavaScript Integration:</strong>
-/// The component provides two JavaScript API methods:
+/// The component exposes its API on the <c>window.VoiceSelector</c> namespace:
 /// <list type="bullet">
-/// <item><c>voiceSelector_getValue(containerId)</c> - Returns the currently selected voice short name</item>
-/// <item><c>voiceSelector_setValue(containerId, voiceName)</c> - Sets the selected voice programmatically</item>
+/// <item><c>VoiceSelector.getValue(containerId)</c> - Returns the currently selected voice short name</item>
+/// <item><c>VoiceSelector.setValue(containerId, voiceName, suppressCallback)</c> - Sets the selected voice programmatically</item>
 /// </list>
+/// The legacy <c>voiceSelector_getValue</c> / <c>voiceSelector_setValue</c> globals still exist as
+/// deprecated shims that forward to <c>window.VoiceSelector</c>; new code should call
+/// <c>window.VoiceSelector.getValue</c> / <c>window.VoiceSelector.setValue</c> directly (guarded with
+/// optional chaining, e.g. <c>window.VoiceSelector?.getValue?.(containerId)</c>, since the script may
+/// not have loaded yet).
 /// Example usage:
 /// <code>
 /// // Get current selection
-/// const currentVoice = voiceSelector_getValue('voiceSelector');
+/// const currentVoice = window.VoiceSelector.getValue('voiceSelector');
 /// console.log('Current voice:', currentVoice);
 ///
 /// // Set voice programmatically
-/// voiceSelector_setValue('voiceSelector', 'en-US-GuyNeural');
+/// window.VoiceSelector.setValue('voiceSelector', 'en-US-GuyNeural');
 ///
 /// // Custom callback when user changes selection
 /// function handleVoiceChange(voiceName) {
@@ -99,7 +104,8 @@ public record VoiceSelectorViewModel
     /// This ID is used to:
     /// - Generate unique element IDs: {ContainerId}-select, {ContainerId}-search
     /// - Generate the container div ID: {ContainerId}
-    /// - Scope the JavaScript functions: voiceSelector_getValue(containerId), voiceSelector_setValue(containerId, voiceName)
+    /// - Scope the JavaScript functions: VoiceSelector.getValue(containerId), VoiceSelector.setValue(containerId, voiceName)
+    ///   (the older voiceSelector_getValue / voiceSelector_setValue globals are deprecated shims for these)
     /// </para>
     /// <para>
     /// When using multiple voice selectors on the same page, ensure each has a unique ContainerId.

@@ -33,6 +33,12 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Commands:** `VoxModule` (/vox, /fvox, /hgrunt)
 - **Controllers:** `PortalVoxController` (522 lines)
 - **Pages:** `Guilds/VOX/Index.cshtml`, `Portal/VOX/Index.cshtml`
+- **Client script:** `Portal/VOX/Index.cshtml`'s composer/clip-browser/A-Z-rail/history logic lives
+  in `wwwroot/js/portal-vox.js` (not inline) — the page only sets `window.portalVoxConfig =
+  { guildId }` before loading it. Same pattern applies to `Portal/TTS/Index.cshtml` (small bits in
+  `wwwroot/js/portal-tts-inline.js`, alongside the larger pre-existing `portal-tts.js`) and
+  `Portal/Soundboard/Index.cshtml` (`wwwroot/js/portal-soundboard-inline.js`, alongside
+  `portal-soundboard.js`).
 - **Config:** `VoxOptions`; **Metrics:** `VoxMetrics`
 - **Flow:** Tokenization → clip lookup (IVoxClipLibrary) → concatenation (IVoxConcatenationService) → playback
 

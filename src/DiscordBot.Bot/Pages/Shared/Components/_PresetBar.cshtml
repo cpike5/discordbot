@@ -442,8 +442,8 @@
             const trimmedName = name.trim().substring(0, 50);
 
             // Gather current settings from the form
-            const voice = window.voiceSelector_getValue
-                ? window.voiceSelector_getValue('portalVoiceSelector')
+            const voice = window.VoiceSelector && window.VoiceSelector.getValue
+                ? window.VoiceSelector.getValue('portalVoiceSelector')
                 : null;
             if (!voice) {
                 if (window.PortalTTS && window.PortalTTS.showToast) {

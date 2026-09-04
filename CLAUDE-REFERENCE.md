@@ -473,3 +473,21 @@ Located in `src/DiscordBot.Bot/Pages/`:
 2. Use `[Authorize(Policy = "RequireAdmin")]` or appropriate policy
 3. Inject services via constructor in PageModel
 4. Use shared components via `@Html.Partial("Components/_ComponentName", viewModel)`
+
+### Blazor (`src/DiscordBot.Bot/Blazor/`)
+
+An early/experimental interactive-component track, **not** the primary UI pattern and **not** a
+migration target for existing Razor Pages — those stay plain Razor Pages + vanilla JS.
+
+- **Wired in for real:** `WebServiceExtensions.cs` calls `services.AddServerSideBlazor()`, and
+  `Program.cs` calls `app.MapBlazorHub()` (`/_blazor` circuit hub, coexists with the SignalR
+  dashboard hub). `Pages/Components.cshtml` (the shared-component showcase page) renders
+  `Blazor/Pages/FoundationProbe.razor` via `<component type="typeof(...FoundationProbe)"
+  render-mode="ServerPrerendered" />` — that is currently the only place a Blazor component is
+  hosted.
+- **Contents:** `Blazor/Pages/FoundationProbe.razor` (probe/demo page), `Blazor/Shared/UiButton.razor`
+  and `UiToggle.razor` (component prototypes), `Blazor/Interop/ToastInterop.cs` /
+  `ThemeInterop.cs` (JS interop for toasts/theme), `Blazor/Common/Debouncer.cs`,
+  `Blazor/_Imports.razor`. `wwwroot/js/blazor-interop.js` backs the interop calls.
+- **Do not delete** — it is a live, low-traffic experiment used to evaluate the pattern, kept
+  isolated to `Pages/Components.cshtml` so it can't affect the rest of the site.
