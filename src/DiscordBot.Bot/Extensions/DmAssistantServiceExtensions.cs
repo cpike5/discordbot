@@ -5,9 +5,11 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
+using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection.Extensions;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -66,6 +68,11 @@ public static class DmAssistantServiceExtensions
         var apiKey = configuration.GetValue<string>("Anthropic:ApiKey");
         if (!string.IsNullOrEmpty(apiKey))
         {
+            // Shared with the guild assistant; registered here too (TryAdd) so this extension
+            // does not depend on AddAssistant() having run first.
+            services.TryAddScoped<IAssistantMessagePipeline, AssistantMessagePipeline>();
+
+            services.AddScoped<IDmAssistantContextFactory, DmAssistantContextFactory>();
             services.AddScoped<IDmAssistantService, DmAssistantService>();
         }
 

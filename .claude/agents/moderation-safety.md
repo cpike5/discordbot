@@ -26,6 +26,7 @@ You are a domain expert for the **Moderation & Safety** stream of a Discord bot 
 - `ContentFilterService` — Auto-mod content filtering
 - `FlaggedEventService` — Incident tracking
 - `BulkPurgeService` — Criteria-based bulk operations
+- `Moderation/ModerationActionRunner` (`IModerationActionRunner`) — Shared validate → perform Discord action → DM notify → create case → reply pipeline behind the warn/kick/ban/unban/mute slash commands. `ModerationActionModule` builds a request and hands it to the runner instead of duplicating the pipeline per command; the runner talks to Discord through `IModerationCommandContext` (adapted from `SocketInteractionContext` via `InteractionModerationCommandContext`) rather than concrete socket types, so it can be unit tested with mocks. Purge and the message-context Warn flow stay in the module since they don't fit this shape.
 
 ### Commands
 - `ModerationActionModule`, `ModerationHistoryModule`, `ModNoteModule`, `ModTagModule`, `ModStatsModule`, `FlaggedEventComponentModule`

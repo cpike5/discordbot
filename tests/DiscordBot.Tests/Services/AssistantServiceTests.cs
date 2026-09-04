@@ -6,6 +6,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Services;
+using DiscordBot.Infrastructure.Services.LLM;
 using FluentAssertions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,15 @@ namespace DiscordBot.Tests.Services;
 /// Unit tests for <see cref="AssistantService"/>.
 /// Tests cover question processing, rate limiting, consent checking, and metrics logging.
 /// </summary>
+/// <remarks>
+/// The shared rate-limiting and agent-invocation logic now lives in
+/// <see cref="AssistantRateLimiter"/> and <see cref="AssistantMessagePipeline"/> (used by both
+/// the guild and DM assistants) and is exercised directly in
+/// <c>Services/LLM/AssistantMessagePipelineTests.cs</c>. These tests use the real
+/// implementations of those two plus <see cref="GuildAssistantContextFactory"/> so the
+/// end-to-end guild flow (checks -> rate limit -> agent run -> metrics/logging) stays covered,
+/// while still mocking the underlying repositories/services.
+/// </remarks>
 public class AssistantServiceTests
 {
     private readonly Mock<ILogger<AssistantService>> _mockLogger;
@@ -84,19 +94,7 @@ public class AssistantServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((bool?)null);
 
-        _service = new AssistantService(
-            _mockLogger.Object,
-            _mockAgentRunner.Object,
-            _mockToolRegistry.Object,
-            _mockPromptTemplate.Object,
-            _mockConsentService.Object,
-            _mockGuildService.Object,
-            _mockGuildSettingsService.Object,
-            _mockMetricsRepository.Object,
-            _mockInteractionLogRepository.Object,
-            _cache,
-            _mockSettingsService.Object,
-            mockOptions.Object);
+        _service = BuildService(mockOptions.Object);
 
         // Default setup for guild service - returns a test guild
         _mockGuildService
@@ -111,6 +109,42 @@ public class AssistantServiceTests
         _mockPromptTemplate
             .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
             .Returns("You are a helpful assistant.");
+    }
+
+    /// <summary>
+    /// Wires the real pipeline/rate-limiter/access-gate/context-factory pieces (which are thin
+    /// and side-effect-free on their own) around the mocked repos/services, matching how DI
+    /// composes <see cref="AssistantService"/> in production.
+    /// </summary>
+    private AssistantService BuildService(IOptions<AssistantOptions> options, Mock<ISettingsService>? settingsService = null)
+    {
+        var pipeline = new AssistantMessagePipeline(_mockAgentRunner.Object);
+        var rateLimiter = new AssistantRateLimiter(_cache);
+        var accessGate = new AssistantAccessGate(
+            (settingsService ?? _mockSettingsService).Object,
+            _mockGuildSettingsService.Object,
+            _mockConsentService.Object,
+            options);
+        var contextFactory = new GuildAssistantContextFactory(
+            _mockGuildService.Object,
+            _mockPromptTemplate.Object,
+            _mockToolRegistry.Object,
+            _mockMetricsRepository.Object,
+            _mockInteractionLogRepository.Object,
+            Mock.Of<ILogger<GuildAssistantContext>>(),
+            options);
+        var telemetryReader = new AssistantTelemetryReader(
+            _mockMetricsRepository.Object,
+            _mockInteractionLogRepository.Object);
+
+        return new AssistantService(
+            _mockLogger.Object,
+            pipeline,
+            rateLimiter,
+            accessGate,
+            contextFactory,
+            telemetryReader,
+            options);
     }
 
     #region AskQuestionAsync Tests
@@ -422,19 +456,7 @@ public class AssistantServiceTests
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync((bool?)null);
 
-        var service = new AssistantService(
-            _mockLogger.Object,
-            _mockAgentRunner.Object,
-            _mockToolRegistry.Object,
-            _mockPromptTemplate.Object,
-            _mockConsentService.Object,
-            _mockGuildService.Object,
-            _mockGuildSettingsService.Object,
-            _mockMetricsRepository.Object,
-            _mockInteractionLogRepository.Object,
-            _cache,
-            mockSettingsService.Object,
-            mockOptions.Object);
+        var service = BuildService(mockOptions.Object, mockSettingsService);
 
         // Act
         var result = await service.IsEnabledForGuildAsync(TestGuildId);
