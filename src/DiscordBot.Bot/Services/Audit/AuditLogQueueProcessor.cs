@@ -13,9 +13,23 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly IAuditLogQueue _queue;
+    private readonly TimeProvider _timeProvider;
 
     private const int BatchSize = 10;
     private const int BatchTimeoutMilliseconds = 1000;
+
+    /// <summary>
+    /// Timeout used to collect additional batch items after the first item is dequeued.
+    /// Defaults to <see cref="BatchTimeoutMilliseconds"/>; settable internally so tests can
+    /// shrink it and avoid multi-second real-time waits.
+    /// </summary>
+    internal TimeSpan BatchTimeout { get; set; } = TimeSpan.FromMilliseconds(BatchTimeoutMilliseconds);
+
+    /// <summary>
+    /// Delay applied before retrying after an unexpected error in the processing loop.
+    /// Defaults to 5 seconds; settable internally so tests can shrink it.
+    /// </summary>
+    internal TimeSpan ErrorRetryDelay { get; set; } = TimeSpan.FromSeconds(5);
 
     public override string ServiceName => "Audit Log Queue Processor";
 
@@ -35,11 +49,13 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
         IServiceProvider serviceProvider,
         IServiceScopeFactory scopeFactory,
         IAuditLogQueue queue,
-        ILogger<AuditLogQueueProcessor> logger)
+        ILogger<AuditLogQueueProcessor> logger,
+        TimeProvider? timeProvider = null)
         : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
         _queue = queue;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc/>
@@ -84,7 +100,7 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
                 _logger.LogError(ex, "Error processing audit log batch");
                 RecordError(ex);
                 // Wait a bit before retrying to avoid tight error loops
-                await Task.Delay(TimeSpan.FromSeconds(5), stoppingToken);
+                await Task.Delay(ErrorRetryDelay, _timeProvider, stoppingToken);
             }
         }
 
@@ -97,7 +113,7 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
     /// </summary>
     /// <param name="stoppingToken">Cancellation token to respect during processing.</param>
     /// <returns>The number of records processed.</returns>
-    private async Task<int> ProcessBatchAsync(CancellationToken stoppingToken)
+    internal async Task<int> ProcessBatchAsync(CancellationToken stoppingToken)
     {
         var batch = new List<AuditLogCreateDto>(BatchSize);
         var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
@@ -109,7 +125,7 @@ public class AuditLogQueueProcessor : MonitoredBackgroundService
             batch.Add(firstItem);
 
             // Collect additional items up to batch size with timeout
-            timeoutCts.CancelAfter(BatchTimeoutMilliseconds);
+            timeoutCts.CancelAfter(BatchTimeout);
 
             while (batch.Count < BatchSize && !timeoutCts.Token.IsCancellationRequested)
             {

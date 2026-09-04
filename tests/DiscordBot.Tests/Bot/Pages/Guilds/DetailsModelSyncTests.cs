@@ -1,7 +1,6 @@
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Pages.Guilds;
-using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -12,7 +11,6 @@ using Microsoft.AspNetCore.Mvc.Routing;
 using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Pages.Guilds;
@@ -22,100 +20,23 @@ namespace DiscordBot.Tests.Bot.Pages.Guilds;
 /// </summary>
 public class DetailsModelSyncTests
 {
+    private readonly Mock<IGuildDetailsAggregator> _mockAggregator;
     private readonly Mock<IGuildService> _mockGuildService;
-    private readonly Mock<ICommandLogService> _mockCommandLogService;
-    private readonly Mock<IWelcomeService> _mockWelcomeService;
-    private readonly Mock<IScheduledMessageService> _mockScheduledMessageService;
-    private readonly Mock<IRatWatchService> _mockRatWatchService;
-    private readonly Mock<IReminderRepository> _mockReminderRepository;
-    private readonly Mock<IGuildMemberService> _mockGuildMemberService;
-    private readonly Mock<IGuildAudioSettingsService> _mockGuildAudioSettingsService;
-    private readonly Mock<ISoundRepository> _mockSoundRepository;
-    private readonly Mock<ITtsMessageRepository> _mockTtsMessageRepository;
-    private readonly Mock<IAssistantGuildSettingsService> _mockAssistantGuildSettingsService;
     private readonly Mock<IGuildMembershipService> _mockGuildMembershipService;
     private readonly Mock<ILogger<DetailsModel>> _mockLogger;
     private readonly DetailsModel _detailsModel;
 
     public DetailsModelSyncTests()
     {
+        _mockAggregator = new Mock<IGuildDetailsAggregator>();
         _mockGuildService = new Mock<IGuildService>();
-        _mockCommandLogService = new Mock<ICommandLogService>();
-        _mockWelcomeService = new Mock<IWelcomeService>();
-        _mockScheduledMessageService = new Mock<IScheduledMessageService>();
-        _mockRatWatchService = new Mock<IRatWatchService>();
-        _mockReminderRepository = new Mock<IReminderRepository>();
-        _mockGuildMemberService = new Mock<IGuildMemberService>();
-        _mockGuildAudioSettingsService = new Mock<IGuildAudioSettingsService>();
-        _mockSoundRepository = new Mock<ISoundRepository>();
-        _mockTtsMessageRepository = new Mock<ITtsMessageRepository>();
-        _mockAssistantGuildSettingsService = new Mock<IAssistantGuildSettingsService>();
         _mockGuildMembershipService = new Mock<IGuildMembershipService>();
         _mockLogger = new Mock<ILogger<DetailsModel>>();
 
-        // Setup default scheduled message service behavior
-        _mockScheduledMessageService.Setup(s => s.GetByGuildIdAsync(
-            It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Enumerable.Empty<ScheduledMessageDto>(), 0));
-
-        // Setup default Rat Watch service behavior
-        _mockRatWatchService.Setup(s => s.GetGuildSettingsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new GuildRatWatchSettings { IsEnabled = true, Timezone = "Eastern Standard Time" });
-        _mockRatWatchService.Setup(s => s.GetByGuildAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Enumerable.Empty<RatWatchDto>(), 0));
-        _mockRatWatchService.Setup(s => s.GetLeaderboardAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Array.Empty<RatLeaderboardEntryDto>());
-
-        // Setup default Reminder repository behavior
-        _mockReminderRepository.Setup(r => r.GetGuildStatsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((0, 0, 0, 0));
-        _mockReminderRepository.Setup(r => r.GetUpcomingAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(Enumerable.Empty<UpcomingReminderDto>());
-
-        // Setup default GuildMemberService behavior
-        _mockGuildMemberService.Setup(s => s.GetMemberCountAsync(It.IsAny<ulong>(), It.IsAny<GuildMemberQueryDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0);
-        _mockGuildMemberService.Setup(s => s.GetMembersAsync(It.IsAny<ulong>(), It.IsAny<GuildMemberQueryDto>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new PaginatedResponseDto<GuildMemberDto> { Items = new List<GuildMemberDto>(), Page = 1, PageSize = 5, TotalCount = 0 });
-
-        // Setup default GuildAudioSettingsService behavior
-        _mockGuildAudioSettingsService.Setup(s => s.GetSettingsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((GuildAudioSettings?)null);
-
-        // Setup default SoundRepository behavior
-        _mockSoundRepository.Setup(s => s.GetSoundCountAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(0);
-        _mockSoundRepository.Setup(s => s.GetTopSoundsByPlayCountAsync(It.IsAny<ulong>(), It.IsAny<int>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<(string Name, int PlayCount)>());
-
-        // Setup default TtsMessageRepository behavior
-        _mockTtsMessageRepository.Setup(s => s.GetMostUsedVoiceAsync(It.IsAny<ulong>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
-
-        // Setup default AssistantGuildSettingsService behavior
-        _mockAssistantGuildSettingsService.Setup(s => s.GetOrCreateSettingsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new AssistantGuildSettings());
-
-        // Setup default WelcomeService behavior
-        _mockWelcomeService.Setup(s => s.GetConfigurationAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((WelcomeConfigurationDto?)null);
-
-        var assistantOptions = Options.Create(new AssistantOptions());
-
         _detailsModel = new DetailsModel(
+            _mockAggregator.Object,
             _mockGuildService.Object,
-            _mockCommandLogService.Object,
-            _mockWelcomeService.Object,
-            _mockScheduledMessageService.Object,
-            _mockRatWatchService.Object,
-            _mockReminderRepository.Object,
-            _mockGuildMemberService.Object,
-            _mockGuildAudioSettingsService.Object,
-            _mockSoundRepository.Object,
-            _mockTtsMessageRepository.Object,
-            _mockAssistantGuildSettingsService.Object,
             _mockGuildMembershipService.Object,
-            assistantOptions,
             _mockLogger.Object);
 
         SetupPageContext(isAjax: false);

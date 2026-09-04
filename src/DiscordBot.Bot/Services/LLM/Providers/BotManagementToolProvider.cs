@@ -7,6 +7,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Services;
+using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Implementations;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
@@ -153,7 +154,7 @@ public class BotManagementToolProvider : IDmToolProvider
         }
 
         // Write to cache with 24h TTL
-        var cacheKey = DmAssistantService.ActiveGuildCacheKeyPrefix + context.UserId;
+        var cacheKey = DmAssistantContextFactory.ActiveGuildCacheKeyPrefix + context.UserId;
         _memoryCache.Set(cacheKey, (ulong?)matchedGuild.Id, ActiveGuildTtl);
 
         _logger.LogInformation("User {UserId} set active guild to {GuildId} ({GuildName})",

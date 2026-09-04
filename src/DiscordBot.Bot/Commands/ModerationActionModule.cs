@@ -3,7 +3,7 @@ using Discord.Interactions;
 using Discord.WebSocket;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Preconditions;
-using DiscordBot.Bot.Utilities;
+using DiscordBot.Bot.Services.Moderation;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -12,6 +12,8 @@ namespace DiscordBot.Bot.Commands;
 
 /// <summary>
 /// Slash commands for direct moderation actions (warn, kick, ban, unban, mute, purge).
+/// The warn/kick/ban/unban/mute commands delegate their shared validate/act/notify/case pipeline
+/// to <see cref="IModerationActionRunner"/>; this module builds the request and renders the reply.
 /// </summary>
 [RequireGuildActive]
 [RequireModerationEnabled]
@@ -19,6 +21,7 @@ namespace DiscordBot.Bot.Commands;
 public class ModerationActionModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly IModerationService _moderationService;
+    private readonly IModerationActionRunner _actionRunner;
     private readonly ILogger<ModerationActionModule> _logger;
 
     /// <summary>
@@ -26,10 +29,32 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
     /// </summary>
     public ModerationActionModule(
         IModerationService moderationService,
+        IModerationActionRunner actionRunner,
         ILogger<ModerationActionModule> logger)
     {
         _moderationService = moderationService;
+        _actionRunner = actionRunner;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Wraps <see cref="InteractionModuleBase{TInteractionContext}.Context"/> for the shared moderation pipeline.
+    /// </summary>
+    private IModerationCommandContext ActionContext => new InteractionModerationCommandContext(Context, _logger);
+
+    /// <summary>
+    /// Sends a <see cref="ModerationActionResult"/> as the initial interaction response.
+    /// </summary>
+    private async Task RespondWithResultAsync(ModerationActionResult result)
+    {
+        if (result.PlainText != null)
+        {
+            await RespondAsync(result.PlainText, ephemeral: result.Ephemeral);
+        }
+        else
+        {
+            await RespondAsync(embed: result.Embed, ephemeral: result.Ephemeral);
+        }
     }
 
     /// <summary>
@@ -250,91 +275,8 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         [Summary("user", "The user to warn")] IUser user,
         [Summary("reason", "Reason for the warning")] string? reason = null)
     {
-        _logger.LogInformation(
-            "Warn command executed by {ModeratorUsername} (ID: {ModeratorId}) for user {TargetUsername} (ID: {TargetId}) in guild {GuildName} (ID: {GuildId})",
-            Context.User.Username,
-            Context.User.Id,
-            user.Username,
-            user.Id,
-            Context.Guild.Name,
-            Context.Guild.Id);
-
-        // Prevent self-warning
-        if (user.Id == Context.User.Id)
-        {
-            await RespondAsync("You cannot warn yourself.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to warn themselves", Context.User.Id);
-            return;
-        }
-
-        // Prevent warning the bot
-        if (user.IsBot && user.Id == Context.Client.CurrentUser.Id)
-        {
-            await RespondAsync("I cannot be warned.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to warn the bot", Context.User.Id);
-            return;
-        }
-
-        try
-        {
-            // Create moderation case
-            var createDto = new ModerationCaseCreateDto
-            {
-                GuildId = Context.Guild.Id,
-                TargetUserId = user.Id,
-                ModeratorUserId = Context.User.Id,
-                Type = CaseType.Warn,
-                Reason = reason
-            };
-
-            var caseDto = await _moderationService.CreateCaseAsync(createDto);
-
-            _logger.LogInformation(
-                "Warning issued: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}",
-                caseDto.CaseNumber,
-                user.Id,
-                Context.User.Id);
-
-            // Try to DM the user about the warning
-            try
-            {
-                var dmEmbed = new EmbedBuilder()
-                    .WithTitle($"⚠️ Warning in {Context.Guild.Name}")
-                    .WithDescription(string.IsNullOrWhiteSpace(reason)
-                        ? "You have received a formal warning."
-                        : $"**Reason:** {reason}")
-                    .AddField("Case Number", $"#{caseDto.CaseNumber}", inline: true)
-                    .AddField("Moderator", Context.User.Username, inline: true)
-                    .WithColor(Color.Gold)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await user.SendMessageAsync(embed: dmEmbed);
-                _logger.LogDebug("Warning DM sent successfully to user {UserId}", user.Id);
-            }
-            catch (Exception dmEx)
-            {
-                _logger.LogWarning(dmEx, "Failed to send warning DM to user {UserId}", user.Id);
-            }
-
-            // Send confirmation embed
-            var confirmEmbed = BuildActionEmbed(
-                "⚠️ Warning Issued",
-                user,
-                CaseType.Warn,
-                caseDto.CaseNumber,
-                reason);
-
-            await RespondAsync(embed: confirmEmbed);
-
-            _logger.LogDebug("Warn command completed successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to warn user {UserId}", user.Id);
-
-            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to issue warning: {ex.Message}"), ephemeral: true);
-        }
+        var result = await _actionRunner.WarnAsync(ActionContext, user, reason);
+        await RespondWithResultAsync(result);
     }
 
     /// <summary>
@@ -347,126 +289,8 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         [Summary("user", "The user to kick")] IUser user,
         [Summary("reason", "Reason for the kick")] string? reason = null)
     {
-        _logger.LogInformation(
-            "Kick command executed by {ModeratorUsername} (ID: {ModeratorId}) for user {TargetUsername} (ID: {TargetId}) in guild {GuildName} (ID: {GuildId})",
-            Context.User.Username,
-            Context.User.Id,
-            user.Username,
-            user.Id,
-            Context.Guild.Name,
-            Context.Guild.Id);
-
-        // Resolve the guild user with proper error handling
-        // First check cache, then try to download if not found
-        var guildUser = user as IGuildUser ?? Context.Guild.GetUser(user.Id);
-        if (guildUser == null)
-        {
-            // User not in cache, try to download
-            guildUser = await Context.Client.Rest.GetGuildUserAsync(Context.Guild.Id, user.Id);
-        }
-
-        if (guildUser == null)
-        {
-            _logger.LogWarning(
-                "Could not resolve guild user {UserId} ({Username}) in guild {GuildId}. User may not be a member of this server.",
-                user.Id,
-                user.Username,
-                Context.Guild.Id);
-            await RespondAsync("Could not find that user in this server. They may have left or were never a member.", ephemeral: true);
-            return;
-        }
-
-        // Prevent self-kick
-        if (guildUser.Id == Context.User.Id)
-        {
-            await RespondAsync("You cannot kick yourself.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to kick themselves", Context.User.Id);
-            return;
-        }
-
-        // Prevent kicking the bot
-        if (guildUser.IsBot && guildUser.Id == Context.Client.CurrentUser.Id)
-        {
-            await RespondAsync("I cannot kick myself.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to kick the bot", Context.User.Id);
-            return;
-        }
-
-        // Check role hierarchy
-        if (Context.User is SocketGuildUser moderator && guildUser.Hierarchy >= moderator.Hierarchy)
-        {
-            await RespondAsync("You cannot kick a user with an equal or higher role than yours.", ephemeral: true);
-            _logger.LogDebug(
-                "User {ModeratorId} attempted to kick user {TargetId} with equal/higher role hierarchy",
-                Context.User.Id,
-                guildUser.Id);
-            return;
-        }
-
-        try
-        {
-            // Create moderation case
-            var createDto = new ModerationCaseCreateDto
-            {
-                GuildId = Context.Guild.Id,
-                TargetUserId = guildUser.Id,
-                ModeratorUserId = Context.User.Id,
-                Type = CaseType.Kick,
-                Reason = reason
-            };
-
-            var caseDto = await _moderationService.CreateCaseAsync(createDto);
-
-            _logger.LogInformation(
-                "Kick case created: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}",
-                caseDto.CaseNumber,
-                guildUser.Id,
-                Context.User.Id);
-
-            // Try to DM the user before kicking
-            try
-            {
-                var dmEmbed = new EmbedBuilder()
-                    .WithTitle($"🥾 Kicked from {Context.Guild.Name}")
-                    .WithDescription(string.IsNullOrWhiteSpace(reason)
-                        ? "You have been kicked from the server."
-                        : $"**Reason:** {reason}")
-                    .AddField("Case Number", $"#{caseDto.CaseNumber}", inline: true)
-                    .AddField("Moderator", Context.User.Username, inline: true)
-                    .WithColor(Color.Orange)
-                    .WithCurrentTimestamp()
-                    .Build();
-
-                await guildUser.SendMessageAsync(embed: dmEmbed);
-                _logger.LogDebug("Kick DM sent successfully to user {UserId}", guildUser.Id);
-            }
-            catch (Exception dmEx)
-            {
-                _logger.LogWarning(dmEx, "Failed to send kick DM to user {UserId}", guildUser.Id);
-            }
-
-            // Kick the user using Discord API
-            await guildUser.KickAsync(reason);
-            _logger.LogInformation("User {UserId} kicked from guild {GuildId}", guildUser.Id, Context.Guild.Id);
-
-            // Send confirmation embed
-            var confirmEmbed = BuildActionEmbed(
-                "🥾 User Kicked",
-                guildUser,
-                CaseType.Kick,
-                caseDto.CaseNumber,
-                reason);
-
-            await RespondAsync(embed: confirmEmbed);
-
-            _logger.LogDebug("Kick command completed successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to kick user {UserId}", guildUser.Id);
-
-            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to kick user: {ex.Message}"), ephemeral: true);
-        }
+        var result = await _actionRunner.KickAsync(ActionContext, user, reason);
+        await RespondWithResultAsync(result);
     }
 
     /// <summary>
@@ -482,156 +306,8 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         [Summary("delete_messages", "Days of messages to delete (0-7)")]
         [MinValue(0), MaxValue(7)] int deleteMessageDays = 0)
     {
-        _logger.LogInformation(
-            "Ban command executed by {ModeratorUsername} (ID: {ModeratorId}) for user {TargetUsername} (ID: {TargetId}) in guild {GuildName} (ID: {GuildId}), duration: {Duration}",
-            Context.User.Username,
-            Context.User.Id,
-            user.Username,
-            user.Id,
-            Context.Guild.Name,
-            Context.Guild.Id,
-            duration ?? "permanent");
-
-        // Prevent self-ban
-        if (user.Id == Context.User.Id)
-        {
-            await RespondAsync("You cannot ban yourself.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to ban themselves", Context.User.Id);
-            return;
-        }
-
-        // Prevent banning the bot
-        if (user.IsBot && user.Id == Context.Client.CurrentUser.Id)
-        {
-            await RespondAsync("I cannot ban myself.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to ban the bot", Context.User.Id);
-            return;
-        }
-
-        // Check role hierarchy if user is in guild
-        if (user is IGuildUser guildUser && Context.User is SocketGuildUser moderator)
-        {
-            if (guildUser.Hierarchy >= moderator.Hierarchy)
-            {
-                await RespondAsync("You cannot ban a user with an equal or higher role than yours.", ephemeral: true);
-                _logger.LogDebug(
-                    "User {ModeratorId} attempted to ban user {TargetId} with equal/higher role hierarchy",
-                    Context.User.Id,
-                    user.Id);
-                return;
-            }
-        }
-
-        try
-        {
-            // Parse duration if provided
-            TimeSpan? parsedDuration = null;
-            if (!string.IsNullOrWhiteSpace(duration))
-            {
-                parsedDuration = DurationParser.Parse(duration);
-                if (!parsedDuration.HasValue)
-                {
-                    await RespondAsync(embed: EmbedHelper.Error("Invalid Duration Format", "Could not parse the duration you provided. Use formats like:\n• `7d` - 7 days\n• `24h` - 24 hours\n• `1h30m` - 1 hour 30 minutes"), ephemeral: true);
-                    _logger.LogDebug("Failed to parse ban duration input: {DurationInput}", duration);
-                    return;
-                }
-
-                _logger.LogDebug("Parsed ban duration: {Duration}", parsedDuration.Value);
-            }
-
-            // Create moderation case
-            var createDto = new ModerationCaseCreateDto
-            {
-                GuildId = Context.Guild.Id,
-                TargetUserId = user.Id,
-                ModeratorUserId = Context.User.Id,
-                Type = CaseType.Ban,
-                Reason = reason,
-                Duration = parsedDuration
-            };
-
-            var caseDto = await _moderationService.CreateCaseAsync(createDto);
-
-            _logger.LogInformation(
-                "Ban case created: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}, expires: {ExpiresAt}",
-                caseDto.CaseNumber,
-                user.Id,
-                Context.User.Id,
-                caseDto.ExpiresAt?.ToString() ?? "never");
-
-            // Try to DM the user before banning
-            try
-            {
-                var dmDescription = parsedDuration.HasValue
-                    ? $"You have been temporarily banned for {DurationParser.Format(parsedDuration.Value)}."
-                    : "You have been permanently banned from the server.";
-
-                if (!string.IsNullOrWhiteSpace(reason))
-                {
-                    dmDescription += $"\n\n**Reason:** {reason}";
-                }
-
-                var dmEmbedBuilder = new EmbedBuilder()
-                    .WithTitle($"🔨 Banned from {Context.Guild.Name}")
-                    .WithDescription(dmDescription)
-                    .AddField("Case Number", $"#{caseDto.CaseNumber}", inline: true)
-                    .AddField("Moderator", Context.User.Username, inline: true)
-                    .WithColor(Color.Red)
-                    .WithCurrentTimestamp();
-
-                if (caseDto.ExpiresAt.HasValue)
-                {
-                    var expiresTimestamp = new DateTimeOffset(caseDto.ExpiresAt.Value).ToUnixTimeSeconds();
-                    dmEmbedBuilder.AddField("Expires", $"<t:{expiresTimestamp}:F> (<t:{expiresTimestamp}:R>)", inline: false);
-                }
-
-                await user.SendMessageAsync(embed: dmEmbedBuilder.Build());
-                _logger.LogDebug("Ban DM sent successfully to user {UserId}", user.Id);
-            }
-            catch (Exception dmEx)
-            {
-                _logger.LogWarning(dmEx, "Failed to send ban DM to user {UserId}", user.Id);
-            }
-
-            // Ban the user using Discord API
-            await Context.Guild.AddBanAsync(user, deleteMessageDays, reason);
-            _logger.LogInformation("User {UserId} banned from guild {GuildId}", user.Id, Context.Guild.Id);
-
-            // Send confirmation embed
-            var confirmEmbedBuilder = new EmbedBuilder()
-                .WithTitle(parsedDuration.HasValue ? "🔨 User Temporarily Banned" : "🔨 User Permanently Banned")
-                .WithColor(GetTypeColor(CaseType.Ban))
-                .AddField("User", $"{user.Mention} ({user.Id})", inline: true)
-                .AddField("Case", $"#{caseDto.CaseNumber}", inline: true)
-                .AddField("Moderator", Context.User.Mention, inline: true)
-                .WithCurrentTimestamp();
-
-            if (!string.IsNullOrEmpty(reason))
-            {
-                confirmEmbedBuilder.AddField("Reason", reason);
-            }
-
-            if (parsedDuration.HasValue)
-            {
-                confirmEmbedBuilder.AddField("Duration", DurationParser.Format(parsedDuration.Value), inline: true);
-            }
-
-            if (caseDto.ExpiresAt.HasValue)
-            {
-                var expiresTimestamp = new DateTimeOffset(caseDto.ExpiresAt.Value).ToUnixTimeSeconds();
-                confirmEmbedBuilder.AddField("Expires", $"<t:{expiresTimestamp}:F> (<t:{expiresTimestamp}:R>)", inline: false);
-            }
-
-            await RespondAsync(embed: confirmEmbedBuilder.Build());
-
-            _logger.LogDebug("Ban command completed successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to ban user {UserId}", user.Id);
-
-            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to ban user: {ex.Message}"), ephemeral: true);
-        }
+        var result = await _actionRunner.BanAsync(ActionContext, user, duration, reason, deleteMessageDays);
+        await RespondWithResultAsync(result);
     }
 
     /// <summary>
@@ -644,84 +320,8 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         [Summary("user_id", "The ID of the banned user")] string userId,
         [Summary("reason", "Reason for the unban")] string? reason = null)
     {
-        _logger.LogInformation(
-            "Unban command executed by {ModeratorUsername} (ID: {ModeratorId}) for user ID {TargetId} in guild {GuildName} (ID: {GuildId})",
-            Context.User.Username,
-            Context.User.Id,
-            userId,
-            Context.Guild.Name,
-            Context.Guild.Id);
-
-        // Parse the user ID
-        if (!ulong.TryParse(userId, out var targetUserId))
-        {
-            await RespondAsync("Invalid user ID format. Please provide a valid Discord user ID.", ephemeral: true);
-            _logger.LogDebug("Invalid user ID format provided: {UserId}", userId);
-            return;
-        }
-
-        try
-        {
-            // Check if the user is actually banned
-            var ban = await Context.Guild.GetBanAsync(targetUserId);
-            if (ban == null)
-            {
-                await RespondAsync("That user is not banned from this server.", ephemeral: true);
-                _logger.LogDebug("User {UserId} is not banned in guild {GuildId}", targetUserId, Context.Guild.Id);
-                return;
-            }
-
-            // Create moderation case for audit trail
-            var createDto = new ModerationCaseCreateDto
-            {
-                GuildId = Context.Guild.Id,
-                TargetUserId = targetUserId,
-                ModeratorUserId = Context.User.Id,
-                Type = CaseType.Unban,
-                Reason = reason
-            };
-
-            var caseDto = await _moderationService.CreateCaseAsync(createDto);
-
-            _logger.LogInformation(
-                "Unban case created: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}",
-                caseDto.CaseNumber,
-                targetUserId,
-                Context.User.Id);
-
-            // Remove the ban using Discord API
-            await Context.Guild.RemoveBanAsync(targetUserId, new RequestOptions { AuditLogReason = reason });
-            _logger.LogInformation("User {UserId} unbanned from guild {GuildId}", targetUserId, Context.Guild.Id);
-
-            // Send confirmation embed
-            var confirmEmbedBuilder = new EmbedBuilder()
-                .WithTitle("✅ User Unbanned")
-                .WithColor(GetTypeColor(CaseType.Unban))
-                .AddField("User", $"{ban.User.Username} ({ban.User.Id})", inline: true)
-                .AddField("Case", $"#{caseDto.CaseNumber}", inline: true)
-                .AddField("Moderator", Context.User.Mention, inline: true)
-                .WithCurrentTimestamp();
-
-            if (!string.IsNullOrEmpty(reason))
-            {
-                confirmEmbedBuilder.AddField("Reason", reason);
-            }
-
-            if (!string.IsNullOrEmpty(ban.Reason))
-            {
-                confirmEmbedBuilder.AddField("Original Ban Reason", ban.Reason);
-            }
-
-            await RespondAsync(embed: confirmEmbedBuilder.Build());
-
-            _logger.LogDebug("Unban command completed successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to unban user {UserId}", targetUserId);
-
-            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to unban user: {ex.Message}"), ephemeral: true);
-        }
+        var result = await _actionRunner.UnbanAsync(ActionContext, userId, reason);
+        await RespondWithResultAsync(result);
     }
 
     /// <summary>
@@ -735,138 +335,8 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         [Summary("duration", "Mute duration (e.g., '10m', '1h', '1d')")] string duration,
         [Summary("reason", "Reason for the mute")] string? reason = null)
     {
-        _logger.LogInformation(
-            "Mute command executed by {ModeratorUsername} (ID: {ModeratorId}) for user {TargetUsername} (ID: {TargetId}) in guild {GuildName} (ID: {GuildId}), duration: {Duration}",
-            Context.User.Username,
-            Context.User.Id,
-            user.Username,
-            user.Id,
-            Context.Guild.Name,
-            Context.Guild.Id,
-            duration);
-
-        // Resolve the guild user with proper error handling
-        // First check cache, then try to download if not found
-        var guildUser = user as IGuildUser ?? Context.Guild.GetUser(user.Id);
-        if (guildUser == null)
-        {
-            // User not in cache, try to download
-            guildUser = await Context.Client.Rest.GetGuildUserAsync(Context.Guild.Id, user.Id);
-        }
-
-        if (guildUser == null)
-        {
-            _logger.LogWarning(
-                "Could not resolve guild user {UserId} ({Username}) in guild {GuildId}. User may not be a member of this server.",
-                user.Id,
-                user.Username,
-                Context.Guild.Id);
-            await RespondAsync("Could not find that user in this server. They may have left or were never a member.", ephemeral: true);
-            return;
-        }
-
-        // Prevent self-mute
-        if (guildUser.Id == Context.User.Id)
-        {
-            await RespondAsync("You cannot mute yourself.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to mute themselves", Context.User.Id);
-            return;
-        }
-
-        // Prevent muting the bot
-        if (guildUser.IsBot && guildUser.Id == Context.Client.CurrentUser.Id)
-        {
-            await RespondAsync("I cannot mute myself.", ephemeral: true);
-            _logger.LogDebug("User {UserId} attempted to mute the bot", Context.User.Id);
-            return;
-        }
-
-        // Check role hierarchy
-        if (Context.User is SocketGuildUser moderator && guildUser.Hierarchy >= moderator.Hierarchy)
-        {
-            await RespondAsync("You cannot mute a user with an equal or higher role than yours.", ephemeral: true);
-            _logger.LogDebug(
-                "User {ModeratorId} attempted to mute user {TargetId} with equal/higher role hierarchy",
-                Context.User.Id,
-                guildUser.Id);
-            return;
-        }
-
-        try
-        {
-            // Parse duration - required
-            var parsedDuration = DurationParser.Parse(duration);
-            if (!parsedDuration.HasValue)
-            {
-                await RespondAsync(embed: EmbedHelper.Error("Invalid Duration Format", "Could not parse the duration you provided. Use formats like:\n• `10m` - 10 minutes\n• `1h` - 1 hour\n• `1h30m` - 1 hour 30 minutes\n• `1d` - 1 day"), ephemeral: true);
-                _logger.LogDebug("Failed to parse mute duration input: {DurationInput}", duration);
-                return;
-            }
-
-            // Validate duration (Discord timeout max is 28 days)
-            if (parsedDuration.Value.TotalDays > 28)
-            {
-                await RespondAsync(embed: EmbedHelper.Error("Duration Too Long", "Discord timeouts can only be applied for a maximum of 28 days."), ephemeral: true);
-                _logger.LogDebug("Mute duration {Duration} exceeds 28 day limit", parsedDuration.Value);
-                return;
-            }
-
-            _logger.LogDebug("Parsed mute duration: {Duration}", parsedDuration.Value);
-
-            // Create moderation case
-            var createDto = new ModerationCaseCreateDto
-            {
-                GuildId = Context.Guild.Id,
-                TargetUserId = guildUser.Id,
-                ModeratorUserId = Context.User.Id,
-                Type = CaseType.Mute,
-                Reason = reason,
-                Duration = parsedDuration.Value
-            };
-
-            var caseDto = await _moderationService.CreateCaseAsync(createDto);
-
-            _logger.LogInformation(
-                "Mute case created: Case #{CaseNumber} for user {TargetId} by moderator {ModeratorId}, expires: {ExpiresAt}",
-                caseDto.CaseNumber,
-                guildUser.Id,
-                Context.User.Id,
-                caseDto.ExpiresAt);
-
-            // Apply timeout using Discord API
-            await guildUser.SetTimeOutAsync(parsedDuration.Value, new RequestOptions { AuditLogReason = reason });
-            _logger.LogInformation("User {UserId} muted in guild {GuildId} for {Duration}", guildUser.Id, Context.Guild.Id, parsedDuration.Value);
-
-            // Send confirmation embed
-            var expiresAt = DateTime.UtcNow.Add(parsedDuration.Value);
-            var expiresTimestamp = new DateTimeOffset(expiresAt).ToUnixTimeSeconds();
-
-            var confirmEmbedBuilder = new EmbedBuilder()
-                .WithTitle("🔇 User Muted")
-                .WithColor(GetTypeColor(CaseType.Mute))
-                .AddField("User", $"{guildUser.Mention} ({guildUser.Id})", inline: true)
-                .AddField("Case", $"#{caseDto.CaseNumber}", inline: true)
-                .AddField("Moderator", Context.User.Mention, inline: true)
-                .WithCurrentTimestamp();
-
-            if (!string.IsNullOrEmpty(reason))
-            {
-                confirmEmbedBuilder.AddField("Reason", reason);
-            }
-
-            confirmEmbedBuilder.AddField("Duration", DurationParser.Format(parsedDuration.Value), inline: true);
-            confirmEmbedBuilder.AddField("Expires", $"<t:{expiresTimestamp}:F> (<t:{expiresTimestamp}:R>)", inline: false);
-
-            await RespondAsync(embed: confirmEmbedBuilder.Build());
-
-            _logger.LogDebug("Mute command completed successfully");
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex, "Failed to mute user {UserId}", guildUser.Id);
-
-            await RespondAsync(embed: EmbedHelper.Error("Error", $"Failed to mute user: {ex.Message}"), ephemeral: true);
-        }
+        var result = await _actionRunner.MuteAsync(ActionContext, user, duration, reason);
+        await RespondWithResultAsync(result);
     }
 
     /// <summary>
@@ -948,44 +418,6 @@ public class ModerationActionModule : InteractionModuleBase<SocketInteractionCon
         }
     }
 
-    /// <summary>
-    /// Builds a confirmation embed for moderation actions.
-    /// </summary>
-    private Embed BuildActionEmbed(string title, IUser target, CaseType type, int caseNumber, string? reason, TimeSpan? duration = null)
-    {
-        var embed = new EmbedBuilder()
-            .WithTitle(title)
-            .WithColor(GetTypeColor(type))
-            .AddField("User", $"{target.Mention} ({target.Id})", inline: true)
-            .AddField("Case", $"#{caseNumber}", inline: true)
-            .AddField("Moderator", Context.User.Mention, inline: true)
-            .WithCurrentTimestamp();
-
-        if (!string.IsNullOrEmpty(reason))
-        {
-            embed.AddField("Reason", reason);
-        }
-
-        if (duration.HasValue)
-        {
-            embed.AddField("Duration", DurationParser.Format(duration.Value), inline: true);
-        }
-
-        return embed.Build();
-    }
-
-    /// <summary>
-    /// Gets the embed color for a case type.
-    /// </summary>
-    private Color GetTypeColor(CaseType type) => type switch
-    {
-        CaseType.Warn => Color.Gold,
-        CaseType.Kick => Color.Orange,
-        CaseType.Ban => Color.Red,
-        CaseType.Mute => Color.LightOrange,
-        CaseType.Unban => Color.Green,
-        _ => Color.Blue
-    };
 }
 
 /// <summary>

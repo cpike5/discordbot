@@ -31,11 +31,27 @@ You are a domain expert for the **AI Assistant & LLM** stream of a Discord bot m
 - Implementations in `Implementations/DocumentationTools`, `RatWatchTools`, `UserGuildInfoTools`
 
 ### Bot Layer
-- `Services/AssistantService` — High-level orchestration
-- `Handlers/AssistantMessageHandler` — Discord message handler
+- `Services/AssistantService` — High-level orchestration (guild)
+- `Services/DmAssistantService` — High-level orchestration (owner DM)
+- `Handlers/AssistantMessageHandler` — Discord message handler (guild)
+- `Handlers/DmAssistantMessageHandler` — Discord message handler (DM)
 - `Pages/Guilds/AssistantSettings.cshtml` — Per-guild config
 - `Pages/Guilds/AssistantMetrics.cshtml` — Usage metrics dashboard
 - **Repos:** `AssistantGuildSettingsRepository`, `AssistantInteractionLogRepository`, `AssistantUsageMetricsRepository`
+
+### Assistant Message Pipeline (`Infrastructure/Services/LLM/`)
+`AssistantService` (guild) and `DmAssistantService` (DM) share one message-handling
+pipeline instead of duplicating it. `IAssistantContext` (implemented by `GuildAssistantContext`
+and `DmAssistantContext`) carries the scope-specific bits — cache-key prefix, rate limit,
+tool registry, conversation history, prompt loading, and usage/interaction logging — while
+`AssistantMessagePipeline` runs the shared flow (build `AgentContext`, invoke `IAgentRunner`,
+price the usage, truncate the response) identically for both. `AssistantRateLimiter` is the
+shared cache-backed rate limiter (namespaced by prefix so guild and DM windows never collide);
+`IAssistantAccessGate` bundles the guild's enable/consent/channel checks; `IGuildAssistantContextFactory`
+and `IDmAssistantContextFactory` build each scope's context so the services themselves stay
+thin (7 and 5 constructor dependencies respectively). When changing rate limiting, cost
+calculation, response truncation, or the agentic-loop invocation, change it once in
+`AssistantRateLimiter`/`AssistantMessagePipeline` — not in both services.
 
 ## Adding a New Tool Provider
 

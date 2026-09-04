@@ -14,6 +14,7 @@ public class CpuSamplingService : MonitoredBackgroundService
 {
     private readonly ICpuHistoryService _cpuHistoryService;
     private readonly PerformanceMetricsOptions _options;
+    private readonly TimeProvider _timeProvider;
 
     private DateTime _lastSampleTime;
     private TimeSpan _lastProcessorTime;
@@ -33,15 +34,21 @@ public class CpuSamplingService : MonitoredBackgroundService
     /// <param name="cpuHistoryService">The CPU history service to record samples to.</param>
     /// <param name="options">The performance metrics configuration options.</param>
     /// <param name="logger">The logger instance.</param>
+    /// <param name="timeProvider">
+    /// The time provider used for sampling delays/timers. Defaults to <see cref="TimeProvider.System"/>;
+    /// tests may inject a fake provider to drive sampling deterministically.
+    /// </param>
     public CpuSamplingService(
         IServiceProvider serviceProvider,
         ICpuHistoryService cpuHistoryService,
         IOptions<PerformanceMetricsOptions> options,
-        ILogger<CpuSamplingService> logger)
+        ILogger<CpuSamplingService> logger,
+        TimeProvider? timeProvider = null)
         : base(serviceProvider, logger)
     {
         _cpuHistoryService = cpuHistoryService;
         _options = options.Value;
+        _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
     /// <inheritdoc/>
@@ -57,7 +64,7 @@ public class CpuSamplingService : MonitoredBackgroundService
         InitializeBaseline();
 
         // Wait a brief moment then take initial sample so we have data immediately
-        await Task.Delay(100, stoppingToken);
+        await Task.Delay(TimeSpan.FromMilliseconds(100), _timeProvider, stoppingToken);
         try
         {
             var initialCpu = SampleCpuUsage();
@@ -70,13 +77,24 @@ public class CpuSamplingService : MonitoredBackgroundService
             RecordError(ex);
         }
 
-        using var timer = new PeriodicTimer(sampleInterval);
         var executionCycle = 0;
 
         try
         {
-            while (await timer.WaitForNextTickAsync(stoppingToken))
+            // A manual TimeProvider-driven delay loop is used instead of PeriodicTimer because
+            // .NET 8's TimeProvider does not expose CreatePeriodicTimer; this still lets tests
+            // drive sampling deterministically via a FakeTimeProvider instead of real wall time.
+            //
+            // NOTE: this is a delay-after-work loop, not a fixed-rate scheduler — each iteration
+            // waits the full sampleInterval measured from when the previous iteration's work
+            // finished, not from when it started. So the actual sampling cadence drifts by
+            // however long the sampling/recording work below takes each cycle. That drift is
+            // acceptable here: CPU sampling only needs an approximate, regular cadence, not
+            // wall-clock-precise ticks.
+            while (true)
             {
+                await Task.Delay(sampleInterval, _timeProvider, stoppingToken);
+
                 executionCycle++;
                 var correlationId = Guid.NewGuid().ToString("N")[..16];
 

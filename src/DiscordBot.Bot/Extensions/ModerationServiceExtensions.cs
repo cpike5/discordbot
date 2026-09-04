@@ -33,6 +33,7 @@ public static class ModerationServiceExtensions
         services.AddScoped<IFlaggedEventService, FlaggedEventService>();
         services.AddScoped<IGuildModerationConfigService, GuildModerationConfigService>();
         services.AddScoped<IInvestigationService, InvestigationService>();
+        services.AddScoped<IModerationActionRunner, ModerationActionRunner>();
 
         // Detection services (singleton for in-memory caching)
         // Register concrete types first, then add interface mappings (including IMemoryReportable)

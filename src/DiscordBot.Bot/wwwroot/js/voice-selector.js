@@ -3,13 +3,13 @@
 
     console.log('[VoiceSelector] Module loading...');
 
-    window.voiceSelector_getValue = function(containerId) {
+    const getValue = function(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return '';
         return container.dataset.selectedVoice || '';
     };
 
-    window.voiceSelector_setValue = function(containerId, voiceName, suppressCallback) {
+    const setValue = function(containerId, voiceName, suppressCallback) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -20,10 +20,10 @@
         const gender = option.querySelector('.voice-selector__option-gender')?.textContent?.replace(/[()]/g, '') || '';
         const localeDisplayName = option.closest('.voice-selector__group')?.querySelector('.voice-selector__group-name')?.textContent || '';
 
-        voiceSelector_updateSelection(containerId, voiceName, displayName, gender, localeDisplayName, suppressCallback);
+        updateSelection(containerId, voiceName, displayName, gender, localeDisplayName, suppressCallback);
     };
 
-    window.voiceSelector_toggle = function(containerId) {
+    const toggle = function(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -34,13 +34,13 @@
         const isExpanded = trigger.getAttribute('aria-expanded') === 'true';
 
         if (isExpanded) {
-            voiceSelector_close(containerId);
+            close(containerId);
         } else {
-            voiceSelector_open(containerId);
+            open(containerId);
         }
     };
 
-    window.voiceSelector_open = function(containerId) {
+    const open = function(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -53,7 +53,7 @@
             if (otherTrigger !== trigger) {
                 const otherContainer = otherTrigger.closest('.voice-selector');
                 if (otherContainer) {
-                    voiceSelector_close(otherContainer.id);
+                    close(otherContainer.id);
                 }
             }
         });
@@ -66,16 +66,16 @@
         }
 
         setTimeout(function() {
-            document.addEventListener('click', voiceSelector_handleClickOutside);
+            document.addEventListener('click', handleClickOutside);
         }, 0);
 
         if (!dropdown._keydownListenerAttached) {
-            dropdown.addEventListener('keydown', voiceSelector_handleKeyDown);
+            dropdown.addEventListener('keydown', handleKeyDown);
             dropdown._keydownListenerAttached = true;
         }
     };
 
-    window.voiceSelector_close = function(containerId) {
+    const close = function(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -89,16 +89,16 @@
 
         if (searchInput) {
             searchInput.value = '';
-            voiceSelector_search(containerId);
+            search(containerId);
         }
 
         trigger.focus();
-        document.removeEventListener('click', voiceSelector_handleClickOutside);
-        dropdown.removeEventListener('keydown', voiceSelector_handleKeyDown);
+        document.removeEventListener('click', handleClickOutside);
+        dropdown.removeEventListener('keydown', handleKeyDown);
         dropdown._keydownListenerAttached = false;
     };
 
-    window.voiceSelector_handleClickOutside = function(event) {
+    const handleClickOutside = function(event) {
         const openTrigger = document.querySelector('.voice-selector__trigger[aria-expanded="true"]');
         if (!openTrigger) return;
 
@@ -106,11 +106,11 @@
         if (!container) return;
 
         if (!container.contains(event.target)) {
-            voiceSelector_close(container.id);
+            close(container.id);
         }
     };
 
-    window.voiceSelector_handleKeyDown = function(event) {
+    const handleKeyDown = function(event) {
         const dropdown = event.currentTarget;
         const container = dropdown.closest('.voice-selector');
         if (!container) return;
@@ -120,7 +120,7 @@
 
         if (event.key === 'Escape') {
             event.preventDefault();
-            voiceSelector_close(container.id);
+            close(container.id);
         } else if (event.key === 'ArrowDown') {
             event.preventDefault();
             const currentIndex = visibleOptions.findIndex(function(opt) { return opt === document.activeElement; });
@@ -157,10 +157,10 @@
         }
     };
 
-    window.voiceSelector_select = function(containerId, voiceValue, displayName, gender, localeDisplayName) {
+    const select = function(containerId, voiceValue, displayName, gender, localeDisplayName) {
         console.log('[VoiceSelector] select called:', { containerId, voiceValue, displayName, gender, localeDisplayName });
-        voiceSelector_updateSelection(containerId, voiceValue, displayName, gender, localeDisplayName, false);
-        voiceSelector_close(containerId);
+        updateSelection(containerId, voiceValue, displayName, gender, localeDisplayName, false);
+        close(containerId);
         console.log('[VoiceSelector] select completed');
     };
 
@@ -168,7 +168,7 @@
      * Selects a voice from a button element's data attributes.
      * This is safer than inline onclick with interpolated values since data attributes are HTML-escaped.
      */
-    window.voiceSelector_selectFromButton = function(button) {
+    const selectFromButton = function(button) {
         if (!button) return;
 
         // Find container by traversing DOM instead of relying on data attribute
@@ -187,11 +187,11 @@
         console.log('[VoiceSelector] selectFromButton:', { containerId, voiceValue, displayName, gender, localeDisplayName });
 
         if (voiceValue) {
-            voiceSelector_select(containerId, voiceValue, displayName, gender, localeDisplayName);
+            select(containerId, voiceValue, displayName, gender, localeDisplayName);
         }
     };
 
-    window.voiceSelector_updateSelection = function(containerId, voiceValue, displayName, gender, localeDisplayName, suppressCallback) {
+    const updateSelection = function(containerId, voiceValue, displayName, gender, localeDisplayName, suppressCallback) {
         console.log('[VoiceSelector] updateSelection called:', { containerId, voiceValue });
         const container = document.getElementById(containerId);
         if (!container) {
@@ -249,7 +249,7 @@
         }
     };
 
-    window.voiceSelector_search = function(containerId) {
+    const search = function(containerId) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -303,7 +303,7 @@
         }
     };
 
-    window.voiceSelector_toggleGroup = function(containerId, locale) {
+    const toggleGroup = function(containerId, locale) {
         const container = document.getElementById(containerId);
         if (!container) return;
 
@@ -335,7 +335,7 @@
                 const localeDisplayName = this.dataset.voiceLocale;
 
                 if (voiceValue) {
-                    voiceSelector_select(container.id, voiceValue, displayName, gender, localeDisplayName);
+                    select(container.id, voiceValue, displayName, gender, localeDisplayName);
                 }
             });
         });
@@ -346,6 +346,28 @@
     } else {
         initVoiceSelectors();
     }
+
+    // Single namespaced global replacing the old voiceSelector_* globals.
+    window.VoiceSelector = {
+        getValue,
+        setValue,
+        toggle,
+        open,
+        close,
+        handleClickOutside,
+        handleKeyDown,
+        select,
+        selectFromButton,
+        updateSelection,
+        search,
+        toggleGroup
+    };
+
+    // Backwards-compatible aliases for any remaining callers (inline onclick=""
+    // handlers in .cshtml views, or scripts owned by other in-flight work).
+    Object.keys(window.VoiceSelector).forEach(function(name) {
+        window['voiceSelector_' + name] = window.VoiceSelector[name];
+    });
 
     console.log('[VoiceSelector] Module loaded');
 })();

@@ -1244,16 +1244,14 @@ else
     })))</script>
 
     <script>
-        // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
-        window.guildId = '@Model.GuildId';
-        window.currentUserId = '@Model.CurrentUserId';
-
-        // Initialize unified preferences with background server sync
-        if (window.UserPreferences) {
-            window.UserPreferences.init(window.guildId);
-        }
-
+        // Server-rendered configuration for portal-soundboard-inline.js. Discord snowflake IDs
+        // are 64-bit and exceed JS safe-integer precision, so IDs are always passed as strings.
+        window.portalSoundboardInlineConfig = {
+            guildId: '@Model.GuildId',
+            currentUserId: '@Model.CurrentUserId'
+        };
     </script>
+    <script src="~/js/portal-soundboard-inline.js" asp-append-version="true"></script>
     <script src="~/js/portal-soundboard.js" asp-append-version="true"></script>
 }
 }

@@ -1,13 +1,10 @@
-using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
-using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 using System.Security.Claims;
 
 // ReSharper disable MemberCanBePrivate.Global
@@ -21,52 +18,22 @@ namespace DiscordBot.Bot.Pages.Guilds;
 [Authorize(Policy = "GuildAccess")]
 public class DetailsModel : GuildPageModelBase
 {
+    private readonly IGuildDetailsAggregator _guildDetailsAggregator;
     private readonly IGuildService _guildService;
-    private readonly ICommandLogService _commandLogService;
-    private readonly IWelcomeService _welcomeService;
-    private readonly IScheduledMessageService _scheduledMessageService;
-    private readonly IRatWatchService _ratWatchService;
-    private readonly IReminderRepository _reminderRepository;
-    private readonly IGuildMemberService _guildMemberService;
-    private readonly IGuildAudioSettingsService _guildAudioSettingsService;
-    private readonly ISoundRepository _soundRepository;
-    private readonly ITtsMessageRepository _ttsMessageRepository;
-    private readonly IAssistantGuildSettingsService _assistantGuildSettingsService;
     private readonly IGuildMembershipService _guildMembershipService;
-    private readonly AssistantOptions _assistantOptions;
     private readonly ILogger<DetailsModel> _logger;
 
     private const int RecentCommandsLimit = 10;
 
     public DetailsModel(
+        IGuildDetailsAggregator guildDetailsAggregator,
         IGuildService guildService,
-        ICommandLogService commandLogService,
-        IWelcomeService welcomeService,
-        IScheduledMessageService scheduledMessageService,
-        IRatWatchService ratWatchService,
-        IReminderRepository reminderRepository,
-        IGuildMemberService guildMemberService,
-        IGuildAudioSettingsService guildAudioSettingsService,
-        ISoundRepository soundRepository,
-        ITtsMessageRepository ttsMessageRepository,
-        IAssistantGuildSettingsService assistantGuildSettingsService,
         IGuildMembershipService guildMembershipService,
-        IOptions<AssistantOptions> assistantOptions,
         ILogger<DetailsModel> logger)
     {
+        _guildDetailsAggregator = guildDetailsAggregator;
         _guildService = guildService;
-        _commandLogService = commandLogService;
-        _welcomeService = welcomeService;
-        _scheduledMessageService = scheduledMessageService;
-        _ratWatchService = ratWatchService;
-        _reminderRepository = reminderRepository;
-        _guildMemberService = guildMemberService;
-        _guildAudioSettingsService = guildAudioSettingsService;
-        _soundRepository = soundRepository;
-        _ttsMessageRepository = ttsMessageRepository;
-        _assistantGuildSettingsService = assistantGuildSettingsService;
         _guildMembershipService = guildMembershipService;
-        _assistantOptions = assistantOptions.Value;
         _logger = logger;
     }
 
@@ -236,125 +203,51 @@ public class DetailsModel : GuildPageModelBase
     {
         _logger.LogInformation("User accessing guild details page for guild {GuildId}", guildId);
 
-        // Fetch guild data
-        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-        if (guild == null)
+        var aggregate = await _guildDetailsAggregator.BuildAsync(guildId, RecentCommandsLimit, cancellationToken);
+        if (aggregate == null)
         {
-            _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound();
         }
 
-        // Fetch recent command activity for this guild
-        var commandQuery = new CommandLogQueryDto
-        {
-            GuildId = guildId,
-            Page = 1,
-            PageSize = RecentCommandsLimit
-        };
-        var recentCommandsResponse = await _commandLogService.GetLogsAsync(commandQuery, cancellationToken);
+        var guild = aggregate.Guild;
 
-        // Fetch welcome configuration status
-        var welcomeConfig = await _welcomeService.GetConfigurationAsync(guildId, cancellationToken);
-        WelcomeEnabled = welcomeConfig?.IsEnabled ?? false;
+        WelcomeEnabled = aggregate.WelcomeEnabled;
+        ScheduledMessagesTotal = aggregate.ScheduledMessagesTotal;
+        ScheduledMessagesActive = aggregate.ScheduledMessagesActive;
+        ScheduledMessagesPaused = aggregate.ScheduledMessagesPaused;
+        NextScheduledExecution = aggregate.NextScheduledExecution;
+        NextScheduledMessageTitle = aggregate.NextScheduledMessageTitle;
 
-        // Fetch scheduled messages summary
-        var (scheduledMessages, totalCount) = await _scheduledMessageService.GetByGuildIdAsync(guildId, 1, 100, cancellationToken);
-        var messagesList = scheduledMessages.ToList();
+        RatWatchEnabled = aggregate.RatWatchEnabled;
+        RatWatchTotal = aggregate.RatWatchTotal;
+        RatWatchPending = aggregate.RatWatchPending;
+        RatWatchCompleted = aggregate.RatWatchCompleted;
+        TopRatLeaderboard = aggregate.TopRatLeaderboard.ToList();
 
-        ScheduledMessagesTotal = totalCount;
-        ScheduledMessagesActive = messagesList.Count(m => m.IsEnabled);
-        ScheduledMessagesPaused = messagesList.Count(m => !m.IsEnabled);
+        RemindersTotal = aggregate.RemindersTotal;
+        RemindersPending = aggregate.RemindersPending;
+        RemindersDeliveredToday = aggregate.RemindersDeliveredToday;
+        RemindersFailed = aggregate.RemindersFailed;
+        UpcomingReminders = aggregate.UpcomingReminders.ToList();
 
-        // Find the next scheduled execution
-        var nextMessage = messagesList
-            .Where(m => m.IsEnabled && m.NextExecutionAt.HasValue && m.NextExecutionAt.Value > DateTime.UtcNow)
-            .OrderBy(m => m.NextExecutionAt)
-            .FirstOrDefault();
+        MembersTotalCount = aggregate.MembersTotalCount;
+        MembersActiveToday = aggregate.MembersActiveToday;
+        NewestMembers = aggregate.NewestMembers.ToList();
 
-        if (nextMessage != null)
-        {
-            NextScheduledExecution = nextMessage.NextExecutionAt;
-            NextScheduledMessageTitle = nextMessage.Title;
-        }
+        AudioEnabled = aggregate.AudioEnabled;
+        TotalSoundCount = aggregate.TotalSoundCount;
+        TopSounds = aggregate.TopSounds.ToList();
+        MostUsedTtsVoice = aggregate.MostUsedTtsVoice;
 
-        // Fetch Rat Watch summary
-        var ratWatchSettings = await _ratWatchService.GetGuildSettingsAsync(guildId, cancellationToken);
-        RatWatchEnabled = ratWatchSettings.IsEnabled;
-
-        var (ratWatches, ratWatchTotalCount) = await _ratWatchService.GetByGuildAsync(guildId, 1, 100, cancellationToken);
-        var ratWatchList = ratWatches.ToList();
-
-        RatWatchTotal = ratWatchTotalCount;
-        RatWatchPending = ratWatchList.Count(w => w.Status == RatWatchStatus.Pending || w.Status == RatWatchStatus.Voting);
-        RatWatchCompleted = ratWatchList.Count(w => w.Status == RatWatchStatus.Guilty || w.Status == RatWatchStatus.NotGuilty);
-
-        // Get leaderboard for top rats
-        var leaderboard = await _ratWatchService.GetLeaderboardAsync(guildId, 5, cancellationToken);
-        TopRatLeaderboard = leaderboard.ToList();
-
-        // Fetch reminder stats
-        var (remindersTotal, remindersPending, remindersDeliveredToday, remindersFailed) =
-            await _reminderRepository.GetGuildStatsAsync(guildId, cancellationToken);
-        RemindersTotal = remindersTotal;
-        RemindersPending = remindersPending;
-        RemindersDeliveredToday = remindersDeliveredToday;
-        RemindersFailed = remindersFailed;
-
-        // Fetch upcoming reminders
-        UpcomingReminders = (await _reminderRepository.GetUpcomingAsync(guildId, 5, cancellationToken)).ToList();
-
-        // Fetch member stats
-        var memberCountQuery = new GuildMemberQueryDto { IsActive = true };
-        MembersTotalCount = await _guildMemberService.GetMemberCountAsync(guildId, memberCountQuery, cancellationToken);
-
-        // Fetch members active today
-        var activeTodayQuery = new GuildMemberQueryDto
-        {
-            IsActive = true,
-            LastActiveAtStart = DateTime.UtcNow.Date
-        };
-        MembersActiveToday = await _guildMemberService.GetMemberCountAsync(guildId, activeTodayQuery, cancellationToken);
-
-        // Fetch newest 5 members
-        var newestMembersQuery = new GuildMemberQueryDto
-        {
-            IsActive = true,
-            SortBy = "JoinedAt",
-            SortDescending = true,
-            Page = 1,
-            PageSize = 5
-        };
-        var newestMembersResponse = await _guildMemberService.GetMembersAsync(guildId, newestMembersQuery, cancellationToken);
-        NewestMembers = newestMembersResponse.Items.ToList();
-
-        // Fetch audio widget data
-        var audioSettings = await _guildAudioSettingsService.GetSettingsAsync(guildId, cancellationToken);
-        AudioEnabled = audioSettings?.AudioEnabled ?? false;
-
-        // Fetch total sound count
-        TotalSoundCount = await _soundRepository.GetSoundCountAsync(guildId, cancellationToken);
-
-        // Fetch top sounds this week
-        var oneWeekAgo = DateTime.UtcNow.AddDays(-7);
-        TopSounds = (await _soundRepository.GetTopSoundsByPlayCountAsync(guildId, 3, oneWeekAgo, cancellationToken)).ToList();
-
-        // Fetch most used TTS voice this week
-        MostUsedTtsVoice = await _ttsMessageRepository.GetMostUsedVoiceAsync(guildId, oneWeekAgo, cancellationToken);
-
-        // Fetch assistant widget data
-        AssistantGloballyEnabled = _assistantOptions.GloballyEnabled;
-        var assistantSettings = await _assistantGuildSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
-        AssistantLocallyEnabled = assistantSettings.IsEnabled;
-        AssistantChannelCount = assistantSettings.GetAllowedChannelIdsList().Count;
-        AssistantIsRateLimitOverride = assistantSettings.RateLimitOverride.HasValue;
-        AssistantRateLimit = assistantSettings.RateLimitOverride ?? _assistantOptions.DefaultRateLimit;
-        AssistantRateLimitWindowMinutes = _assistantOptions.RateLimitWindowMinutes;
-
-        _logger.LogDebug("Retrieved guild {GuildId} with {CommandCount} recent commands, WelcomeEnabled={WelcomeEnabled}, ScheduledMessages={ScheduledCount}, RatWatches={RatWatchCount}, Reminders={ReminderCount}, Members={MemberCount}, AudioEnabled={AudioEnabled}, Sounds={SoundCount}, AssistantEnabled={AssistantEnabled}",
-            guildId, recentCommandsResponse.Items.Count, WelcomeEnabled, totalCount, ratWatchTotalCount, remindersTotal, MembersTotalCount, AudioEnabled, TotalSoundCount, AssistantLocallyEnabled);
+        AssistantGloballyEnabled = aggregate.AssistantGloballyEnabled;
+        AssistantLocallyEnabled = aggregate.AssistantLocallyEnabled;
+        AssistantChannelCount = aggregate.AssistantChannelCount;
+        AssistantIsRateLimitOverride = aggregate.AssistantIsRateLimitOverride;
+        AssistantRateLimit = aggregate.AssistantRateLimit;
+        AssistantRateLimitWindowMinutes = aggregate.AssistantRateLimitWindowMinutes;
 
         // Build view model
-        ViewModel = GuildDetailViewModel.FromDto(guild, recentCommandsResponse.Items);
+        ViewModel = GuildDetailViewModel.FromDto(guild, aggregate.RecentCommandLogs);
 
         // Set CanEdit based on user's actual guild and application permissions
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);

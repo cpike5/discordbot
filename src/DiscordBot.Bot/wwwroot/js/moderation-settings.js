@@ -77,7 +77,6 @@
      * Save overview settings (mode and preset)
      */
     async function saveOverviewSettings() {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         // Determine the active mode button
@@ -93,18 +92,9 @@
         };
 
         try {
-            const response = await fetch(`?handler=SaveOverview&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(request)
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=SaveOverview&guildId=${guildId}`, request);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
@@ -129,22 +119,12 @@
      * @param {string} presetName - The preset name to apply
      */
     async function applyPreset(presetName) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         try {
-            const response = await fetch(`?handler=ApplyPreset&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify({ presetName })
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=ApplyPreset&guildId=${guildId}`, { presetName });
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
                 isDirty = false;
 
@@ -163,7 +143,6 @@
      * Save spam detection settings
      */
     async function saveSpamSettings() {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         const config = {
@@ -176,18 +155,9 @@
         };
 
         try {
-            const response = await fetch(`?handler=SaveSpam&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(config)
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=SaveSpam&guildId=${guildId}`, config);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
@@ -203,7 +173,6 @@
      * Save content filter settings
      */
     async function saveContentSettings() {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         const prohibitedWordsText = document.getElementById('content-prohibited-words').value;
@@ -222,18 +191,9 @@
         };
 
         try {
-            const response = await fetch(`?handler=SaveContent&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(config)
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=SaveContent&guildId=${guildId}`, config);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
@@ -249,7 +209,6 @@
      * Save raid protection settings
      */
     async function saveRaidSettings() {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         const config = {
@@ -261,18 +220,9 @@
         };
 
         try {
-            const response = await fetch(`?handler=SaveRaid&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(config)
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=SaveRaid&guildId=${guildId}`, config);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
                 isDirty = false;
             } else {
@@ -288,7 +238,6 @@
      * Create a new mod tag
      */
     async function createTag() {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         const tagName = document.getElementById('new-tag-name').value.trim();
@@ -316,18 +265,9 @@
         };
 
         try {
-            const response = await fetch(`?handler=CreateTag&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(request)
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=CreateTag&guildId=${guildId}`, request);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
 
                 // Add new tag to the DOM
@@ -384,20 +324,12 @@
             return;
         }
 
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         try {
-            const response = await fetch(`?handler=DeleteTag&guildId=${guildId}&tagName=${encodeURIComponent(tagName)}`, {
-                method: 'POST',
-                headers: {
-                    'RequestVerificationToken': token
-                }
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=DeleteTag&guildId=${guildId}&tagName=${encodeURIComponent(tagName)}`);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
 
                 // Remove the tag from the list
@@ -431,22 +363,12 @@
      * @param {string[]} templateNames - Array of template names to import
      */
     async function importTemplates(templateNames) {
-        const token = document.querySelector('input[name="__RequestVerificationToken"]').value;
         const guildId = window.moderationData.guildId;
 
         try {
-            const response = await fetch(`?handler=ImportTemplates&guildId=${guildId}`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': token
-                },
-                body: JSON.stringify(templateNames)
-            });
+            const { ok, data } = await window.ApiClient.postRaw(`?handler=ImportTemplates&guildId=${guildId}`, templateNames);
 
-            const data = await response.json();
-
-            if (response.ok && data.success) {
+            if (ok && data.success) {
                 quickActions.showToast(data.message, 'success');
 
                 // Reload page to show imported tags (import can add multiple tags with complex logic)

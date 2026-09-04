@@ -45,6 +45,12 @@ public record AlertsPageViewModel
     public bool CanEdit { get; init; }
 
     /// <summary>
+    /// Gets a value indicating whether the underlying data failed to load, so the page
+    /// can surface an error banner instead of silently showing an empty view model.
+    /// </summary>
+    public bool LoadFailed { get; init; }
+
+    /// <summary>
     /// Gets the CSS class for an alert severity level.
     /// </summary>
     /// <param name="severity">The alert severity level.</param>

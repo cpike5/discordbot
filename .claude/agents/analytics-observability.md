@@ -33,7 +33,11 @@ You are a domain expert for the **Analytics & Observability** stream of a Discor
 - **Controller:** `HealthController`
 
 ### Real-Time Broadcasting
-- **SignalR Hub:** `DashboardHub`
+- **SignalR Hub:** `DashboardHub` (Bot/Hubs/) — kept as a single hub/URL so the JS client (`wwwroot/js/dashboard-hub.js` etc.) and all `IHubContext<DashboardHub>` broadcasters keep working unchanged. The hub itself is now thin: it owns only connection/group lifecycle (Join/LeaveGuildGroup, Alerts/Performance/SystemHealth/BulkPurge/GuildAudio groups, OnConnected/OnDisconnected) and the authenticated-user short-circuit for notification methods. Everything else is delegated to per-feature services in `Bot/Services/Dashboard/`:
+  - `IDashboardMetricsService` / `DashboardMetricsService` — bot status, health, active alert count, performance metrics, system health, command performance (GetCurrentStatus, GetHealthStatus, GetActiveAlertCount, GetCurrentPerformanceMetrics, GetCurrentSystemHealth, GetCurrentCommandPerformance)
+  - `IDashboardAudioStatusService` / `DashboardAudioStatusService` — guild voice/audio status (GetCurrentAudioStatus)
+  - `IDashboardNotificationQueryService` / `DashboardNotificationQueryService` — per-user notification summary/list/mark-read/dismiss, resolving the scoped `INotificationService` from a fresh DI scope per call
+  Registered as scoped services in `PerformanceMetricsServiceExtensions.AddPerformanceMetrics`. Tests split accordingly: `Hubs/DashboardHubTests.cs` (connection/group lifecycle + auth short-circuit) plus `Services/Dashboard/DashboardMetricsServiceTests.cs` and `Services/Dashboard/DashboardNotificationQueryServiceTests.cs`.
 - **Services:** `DashboardUpdateService`, `PerformanceMetricsBroadcastService`
 
 ### Observability Infrastructure
@@ -43,9 +47,10 @@ You are a domain expert for the **Analytics & Observability** stream of a Discor
 - **API Tracing:** `DiscordApiTracingHandler`, `ApiRequestTracker` (584 lines)
 
 ### Controllers & Pages
-- `PerformanceMetricsController` (1,173 lines), `AnalyticsController` (698), `PerformanceTabsController` (553), `AlertsController` (560), `CommandsApiController`
+- `PerformanceMetricsController` (1,173 lines), `AnalyticsController` (698), `PerformanceTabsController` (199), `AlertsController` (560), `CommandsApiController`
 - Performance pages: `Admin/Performance/` (Index + 5 sub-pages + 8 tab partials)
 - Guild analytics: `Guilds/Analytics/` (Index, Engagement, Moderation)
+- **Single source of truth for the Performance dashboard's view-model building is `IPerformanceDashboardAggregator` / `PerformanceDashboardAggregator`** (`Bot/Interfaces/IPerformanceDashboardAggregator.cs`, `Bot/Services/Performance/PerformanceDashboardAggregator.cs`). It owns every builder (`BuildOverviewAsync`, `BuildHealthMetricsAsync`, `BuildCommandPerformanceAsync`, `BuildApiRateLimits`, `BuildSystemHealth`, `BuildAlertsPageAsync`) including the `Process.GetCurrentProcess()` working-set/GC reads and the "Critical"/`IsLive=false` failure fallbacks. Three call sites route through it and hold no view-model-building logic of their own: `Pages/Admin/Performance/IndexModel` (AJAX partial-tab handler) and the five sibling tab page models (`HealthMetricsModel`, `SystemHealthModel`, `ApiMetricsModel`, `AlertsModel`, `CommandsModel`, each a thin `OnGet(Async)` that calls the matching builder and assigns `ViewModel`), plus `PerformanceTabsController` (the HTMX/AJAX partial-view loader under `api/performance/tabs`). When a tab needs new data, add it to the aggregator — never rebuild it a second time in a page model or the controller.
 
 ## Gotchas
 

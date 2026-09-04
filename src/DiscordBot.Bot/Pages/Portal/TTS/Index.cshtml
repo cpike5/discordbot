@@ -862,61 +862,14 @@ else
     <script src="~/js/voice-selector.js" asp-append-version="true"></script>
 
     <script>
-        // Pass guild ID to JavaScript as a string (critical for Discord snowflake IDs)
-        window.guildId = '@Model.GuildId';
-
-        // Collapsible voice settings toggle (mobile only)
-        function toggleVoiceSettings() {
-            const header = document.querySelector('.voice-controls-collapsible-header');
-            const content = document.getElementById('voiceSettingsContent');
-            const chevron = document.getElementById('voiceSettingsChevron');
-            const isExpanded = content.classList.contains('expanded');
-
-            if (isExpanded) {
-                content.classList.remove('expanded');
-                chevron.classList.remove('expanded');
-                header.setAttribute('aria-expanded', 'false');
-            } else {
-                content.classList.add('expanded');
-                chevron.classList.add('expanded');
-                header.setAttribute('aria-expanded', 'true');
-            }
-        }
-
-        // Connect to SignalR hub
-        document.addEventListener('DOMContentLoaded', async function() {
-            if (typeof DashboardHub !== 'undefined') {
-                await DashboardHub.connect();
-            }
-        });
+        // Server-rendered configuration for portal-tts-inline.js. Discord snowflake IDs are
+        // 64-bit and exceed JS safe-integer precision, so guildId is always passed as a string.
+        window.portalTtsInlineConfig = {
+            guildId: '@Model.GuildId'
+        };
     </script>
+    <script src="~/js/portal-tts-inline.js" asp-append-version="true"></script>
     <script src="~/js/ssml-markers.js" asp-append-version="true"></script>
     <script src="~/js/portal-tts.js" asp-append-version="true"></script>
-    <script>
-        // ========================================
-        // Keyboard Shortcuts (TTS)
-        // ========================================
-        (function () {
-            if (typeof KeyboardShortcuts === 'undefined') return;
-
-            // Ctrl+Enter: Send TTS message
-            KeyboardShortcuts.register('Enter', 'Send TTS message', function () {
-                var sendBtn = document.getElementById('sendBtn');
-                if (sendBtn && !sendBtn.disabled) {
-                    sendBtn.click();
-                }
-            }, { ctrlKey: true, category: 'Text-to-Speech' });
-
-            // /: Focus message input
-            KeyboardShortcuts.register('/', 'Focus message input', function () {
-                var input = document.getElementById('ttsMessage');
-                if (input) {
-                    input.focus();
-                }
-            }, { category: 'Text-to-Speech' });
-
-            KeyboardShortcuts.init();
-        })();
-    </script>
 }
 }

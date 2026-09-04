@@ -189,8 +189,8 @@ public class AssistantSettingsModel : PageModel
         AvailableChannels = GetTextChannels(guildId, allowedChannels);
 
         // Load configuration defaults
-        DefaultRateLimit = _assistantOptions.Value.DefaultRateLimit;
-        RateLimitWindowMinutes = _assistantOptions.Value.RateLimitWindowMinutes;
+        DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
+        RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;
 
         // Read GloballyEnabled from settings service (respects runtime changes from Settings page)
         GloballyEnabled = await _globalSettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
@@ -287,8 +287,8 @@ public class AssistantSettingsModel : PageModel
         var allowedChannels = settings.GetAllowedChannelIdsList();
         AvailableChannels = GetTextChannels(guildId, allowedChannels);
 
-        DefaultRateLimit = _assistantOptions.Value.DefaultRateLimit;
-        RateLimitWindowMinutes = _assistantOptions.Value.RateLimitWindowMinutes;
+        DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
+        RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;
 
         // Read GloballyEnabled from settings service (respects runtime changes from Settings page)
         GloballyEnabled = await _globalSettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
