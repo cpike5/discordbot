@@ -50,8 +50,7 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 
 ### Client-Side Stack
 - **Tailwind CSS** — Utility-first styling
-- **HTMX** — Server-driven interactivity (partial page updates, lazy loading)
-- **Alpine.js** — Lightweight client-side reactivity
+- **Vanilla JS modules** in `wwwroot/js/` — one file per page or widget; partial views are fetched with `fetch()` for tab loading and AJAX sorting
 - **SignalR** — Real-time dashboard updates
 
 ### User/Guild Preview Popups
