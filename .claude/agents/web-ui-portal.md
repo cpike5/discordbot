@@ -68,6 +68,6 @@ Loaded globally in `_Layout.cshtml`:
 - **Large controllers:** PerformanceMetricsController (1,173), PortalTtsController (1,089), AnalyticsController (698) — search specific methods
 - **Preview popups** loaded globally — use `preview-trigger` classes for user/guild names
 - **Tailwind purge:** Ensure dynamically generated classes are in Tailwind content config
-- **HTMX partial views** return HTML fragments, not full pages — don't include layout
+- **Partial-view endpoints** (fetched by page JS) return HTML fragments, not full pages — don't include layout
 - **Portal pages** use `_PortalLayout` — don't mix admin and portal layouts
 - **Form patterns:** Follow conventions in `form-implementation-standards.md` — validation, error display, CSRF tokens
