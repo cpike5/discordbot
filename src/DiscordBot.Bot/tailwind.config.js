@@ -9,7 +9,6 @@ module.exports = {
   content: [
     "./Pages/**/*.{razor,cshtml}",
     "./Components/**/*.{razor,cshtml}",
-    "./Blazor/**/*.razor",
     "./wwwroot/**/*.html",
     "./wwwroot/**/*.js",
   ],
