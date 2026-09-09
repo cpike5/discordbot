@@ -356,5 +356,5 @@ Three tables support correlation IDs for distributed tracing:
 ## Related Documentation
 
 - **[database-schema.md](../articles/database-schema.md)** - Detailed column specifications, constraints, default values, and full schema documentation
-- **[CLAUDE-REFERENCE.md](../../CLAUDE-REFERENCE.md)** - Lookup tables for configuration options, API routes, command modules
+- **[Configuration Guide](../articles/configuration-guide.md)** - Options classes and appsettings sections
 

@@ -1,7 +1,7 @@
 ---
 name: web-ui-portal
 description: |
-  Use this agent when working on Razor Pages, the shared component library, layouts, CSS/Tailwind styling, HTMX/Alpine.js interactions, portal pages, the design system, error pages, or REST API controllers.
+  Use this agent when working on Razor Pages, the shared component library, layouts, CSS/Tailwind styling, page-level JavaScript interactions, portal pages, the design system, error pages, or REST API controllers.
 model: inherit
 color: cyan
 ---
