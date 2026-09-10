@@ -8,6 +8,7 @@ using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Bot.Services.DiscordIntegration;
 using DiscordBot.Bot.Services.Moderation;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -25,10 +26,12 @@ public static class DiscordServiceExtensions
     /// <returns>The service collection for chaining.</returns>
     public static IServiceCollection AddDiscordBot(this IServiceCollection services, IConfiguration configuration)
     {
-        // Bind BotConfiguration from configuration with validation
+        // Bind BotConfiguration from configuration with validation. Token is required only when
+        // Discord:Enabled is true (BotConfigurationValidator) so the web portal can run without
+        // a bot token in web-only mode.
+        services.AddSingleton<IValidateOptions<BotConfiguration>, BotConfigurationValidator>();
         services.AddOptions<BotConfiguration>()
             .Bind(configuration.GetSection(BotConfiguration.SectionName))
-            .ValidateDataAnnotations()
             .ValidateOnStart();
 
         // Register DiscordSocketClient as singleton with configuration

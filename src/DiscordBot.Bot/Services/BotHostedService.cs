@@ -129,6 +129,13 @@ public class BotHostedService : IHostedService
         {
             _logger.LogInformation("Starting Discord bot hosted service");
 
+            if (!_config.Enabled)
+            {
+                _logger.LogInformation("Discord bot disabled by configuration; running web-only");
+                BotActivitySource.SetSuccess(activity);
+                return;
+            }
+
             // Wire Discord.NET logging to ILogger
             _client.Log += LogDiscordMessageAsync;
 
@@ -242,6 +249,13 @@ public class BotHostedService : IHostedService
         try
         {
             _logger.LogInformation("Stopping Discord bot hosted service");
+
+            if (!_config.Enabled)
+            {
+                _logger.LogInformation("Discord bot was disabled by configuration; nothing to stop");
+                BotActivitySource.SetSuccess(activity);
+                return;
+            }
 
             var uptime = _uptimeProvider.Uptime;
 

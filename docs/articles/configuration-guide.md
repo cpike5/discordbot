@@ -81,13 +81,48 @@ All Options classes are consumed via `IOptions<T>` (not `IOptionsMonitor<T>` or 
 
 ### Validation Strategy
 
-Three security-critical classes use `ValidateDataAnnotations().ValidateOnStart()` — the app will fail to start if required values are missing:
+Two security-critical classes validate on start — the app will fail to start if required values
+are missing:
 
-- `BotConfiguration` (`Discord:Token` is `[Required]`)
-- `DiscordOAuthOptions` (`Discord:OAuth:ClientId` and `ClientSecret` are `[Required]`)
-- `IdentityConfigOptions`
+- `BotConfiguration` — `.ValidateOnStart()` with `BotConfigurationValidator`
+  (`IValidateOptions<BotConfiguration>`), which requires `Token` only when `Enabled` is true. See
+  **Discord:Enabled (web-only mode)** below.
+- `IdentityConfigOptions` — `ValidateDataAnnotations().ValidateOnStart()`.
+
+`DiscordOAuthOptions` (`Discord:OAuth:ClientId`/`ClientSecret`) is **not** validated at startup and
+has no `[Required]` fields: they are optional, and `IdentityServiceExtensions.AddDiscordOAuth`
+skips registering the Discord authentication scheme entirely when either is blank. This matters
+beyond convenience — the underlying OAuth handler validates `ClientId`/`ClientSecret` on *every*
+request (not just Discord sign-in requests), so registering the scheme with blank credentials
+would 500 every page load, not just Discord login. `DiscordOAuthSettings.IsConfigured` (a
+singleton) reflects whether both are actually set; `Login`/`LinkDiscord` use it to hide or disable
+the Discord option.
 
 All other Options classes rely on in-class defaults and do not validate at startup.
+
+#### Discord:Enabled (web-only mode)
+
+`Discord:Enabled` (bool, default `true`) controls whether the process logs in to Discord at all.
+Set it to `false` to run the web portal — Razor Pages, REST controllers, SignalR, Identity,
+migrations — without a bot token or gateway connection. Used for browser/UI testing (Playwright)
+and for running the admin portal without a bot. When `false`:
+
+- `Discord:Token` is not required (`BotConfigurationValidator` skips the check).
+- `BotHostedService` logs one Information line ("Discord bot disabled by configuration; running
+  web-only") and returns without wiring gateway events, initializing the interaction handler, or
+  calling `LoginAsync`/`StartAsync` on the client.
+- `SlashCommandRegistrationService` logs and returns without discovering/registering commands.
+- `DiscordSocketClient` is still registered in DI (many page models and services inject it) — it
+  simply never connects, so `ConnectionState` stays `Disconnected` and `/health`'s `discord` check
+  reports `Degraded` (still HTTP 200; only `Unhealthy` returns 503).
+- Background services that read the gateway (`ReminderExecutionService`,
+  `VoiceAutoLeaveService`) poll `ConnectionState` every 5s and simply wait forever rather than
+  erroring; others (`MemberSyncService`, `MetricsUpdateService`, `RatWatchExecutionService`) treat
+  an empty/never-populated client cache as "nothing to do".
+
+```bash
+Discord__Enabled=false dotnet run --project src/DiscordBot.Bot
+```
 
 ### Secrets Management
 
@@ -97,14 +132,14 @@ All other Options classes rely on in-class defaults and do not validate at start
 
 | Secret Key | Purpose |
 |------------|---------|
-| `Discord:Token` | Bot authentication token |
-| `Discord:OAuth:ClientId` | OAuth2 client ID for admin UI login |
-| `Discord:OAuth:ClientSecret` | OAuth2 client secret |
+| `Discord:Token` | Bot authentication token — required only when `Discord:Enabled` is `true` (the default); see **Discord:Enabled (web-only mode)** above |
 
 #### Optional Secrets
 
 | Secret Key | Purpose | Behavior if Absent |
 |------------|---------|-------------------|
+| `Discord:Enabled` | Whether the bot logs in to Discord | Defaults to `true`; set `false` to run web-only without a token |
+| `Discord:OAuth:ClientId` / `Discord:OAuth:ClientSecret` | OAuth2 credentials for admin UI Discord login | Discord login option hidden/disabled; other auth (local accounts) unaffected |
 | `Discord:TestGuildId` | Instant command registration to test guild | Commands register globally (up to 1hr delay) |
 | `Identity:DefaultAdmin:Email` | Email for seeded admin account | No admin created on first run |
 | `Identity:DefaultAdmin:Password` | Password for seeded admin account | No admin created on first run |
@@ -147,11 +182,12 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 
 | Options Class | Section Key | Registered In | Key Properties |
 |--------------|-------------|---------------|----------------|
-| `BotConfiguration`* | `Discord` | `DiscordServiceExtensions` | `Token` [Required], `TestGuildId`, rate limit defaults, `AdditionalOwnerIds` |
-| `DiscordOAuthOptions`* | `Discord:OAuth` | `IdentityServiceExtensions` | `ClientId` [Required], `ClientSecret` [Required], `Scopes` |
+| `BotConfiguration`* | `Discord` | `DiscordServiceExtensions` | `Enabled` (default `true`), `Token` [required only when `Enabled`], `TestGuildId`, rate limit defaults, `AdditionalOwnerIds` |
+| `DiscordOAuthOptions` | `Discord:OAuth` | `IdentityServiceExtensions` | `ClientId`, `ClientSecret` (both optional — scheme is skipped when either is blank), `Scopes` |
 | `IdentityConfigOptions`* | `Identity` | `IdentityServiceExtensions` | Password rules, lockout settings, cookie settings, `DefaultAdmin` sub-object |
 
-\* Uses `ValidateDataAnnotations().ValidateOnStart()` — fail-fast on missing required values.
+\* Uses `.ValidateOnStart()` — fail-fast on missing required values (see Validation Strategy above
+for `BotConfiguration`'s conditional check).
 
 #### AI Assistant
 

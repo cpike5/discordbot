@@ -106,6 +106,12 @@ Services managing Discord bot connection, initialization, and lifecycle events.
 - Sync slash commands to Discord
 - Handle graceful bot disconnection
 
+**Web-only mode:** when `Discord:Enabled` is `false`, `StartAsync`/`StopAsync` log one
+Information line and return immediately — no event wiring, no `InteractionHandler`
+initialization, no `LoginAsync`/`StartAsync` call. `SlashCommandRegistrationService` does the
+same (skips module discovery). See `docs/articles/configuration-guide.md` ("Discord:Enabled
+(web-only mode)").
+
 **Startup Sequence:**
 ```
 Application Start
