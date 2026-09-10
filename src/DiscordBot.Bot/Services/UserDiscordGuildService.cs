@@ -316,6 +316,62 @@ public class UserDiscordGuildService : IUserDiscordGuildService
     }
 
     /// <inheritdoc />
+    public async Task UpsertGuildMembershipAsync(
+        string applicationUserId,
+        DiscordGuildDto guild,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Upserting guild membership for user {UserId}, guild {GuildId}",
+            applicationUserId, guild.Id);
+
+        try
+        {
+            var existing = await _context.UserDiscordGuilds
+                .FirstOrDefaultAsync(
+                    g => g.ApplicationUserId == applicationUserId && g.GuildId == guild.Id,
+                    cancellationToken);
+
+            if (existing != null)
+            {
+                existing.GuildName = guild.Name;
+                existing.GuildIconHash = guild.Icon;
+                existing.IsOwner = guild.Owner;
+                existing.Permissions = guild.Permissions;
+                existing.LastUpdatedAt = DateTime.UtcNow;
+            }
+            else
+            {
+                _context.UserDiscordGuilds.Add(new UserDiscordGuild
+                {
+                    Id = Guid.NewGuid(),
+                    ApplicationUserId = applicationUserId,
+                    GuildId = guild.Id,
+                    GuildName = guild.Name,
+                    GuildIconHash = guild.Icon,
+                    IsOwner = guild.Owner,
+                    Permissions = guild.Permissions,
+                    CapturedAt = DateTime.UtcNow,
+                    LastUpdatedAt = DateTime.UtcNow
+                });
+            }
+
+            await _context.SaveChangesAsync(cancellationToken);
+
+            // Invalidate cache after updating database so the next read picks up the refresh
+            InvalidateCache(applicationUserId);
+
+            _logger.LogDebug("Upserted guild membership for user {UserId}, guild {GuildId}",
+                applicationUserId, guild.Id);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to upsert guild membership for user {UserId}, guild {GuildId}",
+                applicationUserId, guild.Id);
+            throw;
+        }
+    }
+
+    /// <inheritdoc />
     public void InvalidateCache(string applicationUserId)
     {
         var cacheKey = $"{CacheKeyPrefix}{applicationUserId}";
