@@ -26,6 +26,7 @@ public class GuildDetailsAggregator : IGuildDetailsAggregator
     private readonly ISoundRepository _soundRepository;
     private readonly ITtsMessageRepository _ttsMessageRepository;
     private readonly IAssistantGuildSettingsService _assistantGuildSettingsService;
+    private readonly ISettingsService _settingsService;
     private readonly AssistantOptions _assistantOptions;
     private readonly ILogger<GuildDetailsAggregator> _logger;
 
@@ -41,6 +42,7 @@ public class GuildDetailsAggregator : IGuildDetailsAggregator
         ISoundRepository soundRepository,
         ITtsMessageRepository ttsMessageRepository,
         IAssistantGuildSettingsService assistantGuildSettingsService,
+        ISettingsService settingsService,
         IOptions<AssistantOptions> assistantOptions,
         ILogger<GuildDetailsAggregator> logger)
     {
@@ -55,6 +57,7 @@ public class GuildDetailsAggregator : IGuildDetailsAggregator
         _soundRepository = soundRepository;
         _ttsMessageRepository = ttsMessageRepository;
         _assistantGuildSettingsService = assistantGuildSettingsService;
+        _settingsService = settingsService;
         _assistantOptions = assistantOptions.Value;
         _logger = logger;
     }
@@ -128,7 +131,9 @@ public class GuildDetailsAggregator : IGuildDetailsAggregator
         var topSounds = (await _soundRepository.GetTopSoundsByPlayCountAsync(guildId, 3, oneWeekAgo, cancellationToken)).ToList();
         var mostUsedTtsVoice = await _ttsMessageRepository.GetMostUsedVoiceAsync(guildId, oneWeekAgo, cancellationToken);
 
-        var assistantGloballyEnabled = _assistantOptions.GloballyEnabled;
+        // Read from the settings service rather than the bound options so runtime changes made on the
+        // admin Settings page are respected (same source as the Assistant Settings page).
+        var assistantGloballyEnabled = await _settingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
         var assistantSettings = await _assistantGuildSettingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
 
         _logger.LogDebug(
