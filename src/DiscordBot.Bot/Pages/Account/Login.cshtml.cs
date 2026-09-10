@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -103,7 +104,7 @@ public class LoginModel : PageModel
         if (User.Identity?.IsAuthenticated == true)
         {
             _logger.LogDebug("Authenticated user redirected from login page");
-            return LocalRedirect(returnUrl ?? Url.Content("~/"));
+            return LocalRedirect(ReturnUrlHelper.Sanitize(returnUrl, Url.Content("~/")));
         }
 
         if (!string.IsNullOrEmpty(ErrorMessage))
@@ -128,13 +129,8 @@ public class LoginModel : PageModel
             };
         }
 
-        returnUrl ??= Url.Content("~/");
-
         // Sanitize ReturnUrl - if it points to the login page, redirect to home instead
-        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase))
-        {
-            returnUrl = Url.Content("~/");
-        }
+        returnUrl = ReturnUrlHelper.Sanitize(returnUrl, Url.Content("~/"));
 
         ReturnUrl = returnUrl;
 
@@ -147,7 +143,8 @@ public class LoginModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)
     {
-        returnUrl ??= Url.Content("~/");
+        // Sanitize ReturnUrl - if it points to the login page, redirect to home instead
+        returnUrl = ReturnUrlHelper.Sanitize(returnUrl, Url.Content("~/"));
         ReturnUrl = returnUrl;
 
         if (!ModelState.IsValid)
@@ -256,13 +253,8 @@ public class LoginModel : PageModel
             return Page();
         }
 
-        returnUrl ??= Url.Content("~/");
-
         // Sanitize ReturnUrl - if it points to the login page, redirect to home instead
-        if (!string.IsNullOrEmpty(returnUrl) && returnUrl.Contains("/Account/Login", StringComparison.OrdinalIgnoreCase))
-        {
-            returnUrl = Url.Content("~/");
-        }
+        returnUrl = ReturnUrlHelper.Sanitize(returnUrl, Url.Content("~/"));
 
         _logger.LogInformation("Discord OAuth login initiated");
 

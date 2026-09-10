@@ -171,6 +171,45 @@ public class LoginModelTests
         redirectResult.Url.Should().Be("/dashboard");
     }
 
+    [Theory]
+    [InlineData("/login")]
+    [InlineData("/Account/Login")]
+    [InlineData("/Account/Login?ReturnUrl=%2Flogin")]
+    public void OnGet_WhenAuthenticated_WithLoginReturnUrl_RedirectsToHome(string returnUrl)
+    {
+        // Arrange
+        var claims = new List<Claim> { new Claim(ClaimTypes.Name, "testuser") };
+        var identity = new ClaimsIdentity(claims, "TestAuth");
+        var principal = new ClaimsPrincipal(identity);
+
+        var httpContext = new DefaultHttpContext
+        {
+            RequestServices = _mockServiceProvider.Object,
+            User = principal
+        };
+        _loginModel.PageContext = new PageContext { HttpContext = httpContext };
+
+        // Act
+        var result = _loginModel.OnGet(returnUrl);
+
+        // Assert
+        result.Should().BeOfType<LocalRedirectResult>()
+            .Which.Url.Should().Be("~/");
+    }
+
+    [Theory]
+    [InlineData("/login")]
+    [InlineData("/Account/Login")]
+    public void OnGet_WithLoginReturnUrl_DefaultsReturnUrlToHome(string returnUrl)
+    {
+        // Act
+        var result = _loginModel.OnGet(returnUrl);
+
+        // Assert
+        result.Should().BeOfType<PageResult>();
+        _loginModel.ReturnUrl.Should().Be("~/");
+    }
+
     [Fact]
     public async Task OnPostAsync_WithInvalidModelState_ReturnsPageResult()
     {
