@@ -44,12 +44,10 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/admin/users/create` | `Pages/Admin/Users/Create.cshtml` | Create new user |
 | `/admin/users/edit/{id}` | `Pages/Admin/Users/Edit.cshtml` | Edit user details |
 | `/admin/users/{id}` | `Pages/Admin/Users/Details.cshtml` | User details view |
-| `/admin/audit-logs` | `Pages/Admin/AuditLogs/Index.cshtml` | Audit log viewer |
 | `/admin/audit-logs/{id}` | `Pages/Admin/AuditLogs/Details.cshtml` | Audit log entry details |
-| `/admin/message-logs` | `Pages/Admin/MessageLogs/Index.cshtml` | Message log viewer |
 | `/admin/message-logs/{id}` | `Pages/Admin/MessageLogs/Details.cshtml` | Message details |
 | `/admin/performance` | `Pages/Admin/Performance/Index.cshtml` | Performance metrics dashboard (tabbed) |
-| `/admin/logs` | `Pages/Admin/Logs/Index.cshtml` | System logs viewer |
+| `/admin/logs` | `Pages/Admin/Logs/Index.cshtml` | System logs viewer (Audit Logs and Message Logs tabs; `/admin/audit-logs` and `/admin/message-logs` permanently redirect here) |
 | `/admin/notifications` | `Pages/Admin/Notifications/Index.cshtml` | Notification center |
 | `/admin/bulk-purge` | `Pages/Admin/BulkPurge.cshtml` | Bulk user/data purge tool |
 | `/admin/user-purge` | `Pages/Admin/UserPurge.cshtml` | User purge utility |
@@ -319,9 +317,8 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 ### Logging & Analytics
 
 **Pages:**
-- `/admin/audit-logs` - Audit log viewer
+- `/admin/logs` - Unified log viewer (Audit Logs and Message Logs tabs; replaces the old `/admin/audit-logs` and `/admin/message-logs` list pages, which now redirect here)
 - `/admin/audit-logs/{id}` - Audit log details
-- `/admin/message-logs` - Message logs
 - `/admin/message-logs/{id}` - Message details
 - `/commands` - Command documentation
 - `/command-logs` - Command execution logs
@@ -369,11 +366,9 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 │   │   ├── Edit
 │   │   └── Details
 │   ├── AuditLogs
-│   │   ├── Index
-│   │   └── Details
+│   │   └── Details (Index redirects to Admin/Logs)
 │   ├── MessageLogs
-│   │   ├── Index
-│   │   └── Details
+│   │   └── Details (Index redirects to Admin/Logs)
 │   ├── Performance (tabbed)
 │   │   ├── Overview
 │   │   ├── Health
@@ -519,7 +514,7 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 When working on features, use these pages as entry points:
 
 - **Need to add a form?** Look at `/admin/users/create` or `/guild/{guildId}/edit`
-- **Need to display a list?** Look at `/admin/users` or `/admin/audit-logs`
+- **Need to display a list?** Look at `/admin/users` or `/admin/logs`
 - **Need tabbed navigation?** See `/admin/performance` or `/guild/{guildId}/analytics`
 - **Need modals/popups?** See `_MemberDetailModal.cshtml` or `_ConfirmationModal.cshtml`
 - **Need real-time status?** See `_StatusIndicator` and `_BotStatusCard`

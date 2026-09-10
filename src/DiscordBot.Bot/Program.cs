@@ -291,6 +291,7 @@ try
     app.MapControllers();
     app.MapDiscordBotHealthChecks();
     app.MapRazorPages();
+    app.MapLegacyRouteRedirects();
 
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");

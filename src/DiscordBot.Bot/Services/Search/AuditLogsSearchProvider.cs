@@ -84,7 +84,7 @@ public class AuditLogsSearchProvider : ISearchProvider
             Items = items,
             TotalCount = totalCount,
             HasMore = totalCount > maxResults,
-            ViewAllUrl = $"/Admin/AuditLogs?search={Uri.EscapeDataString(searchTerm)}"
+            ViewAllUrl = $"/Admin/Logs?tab=audit&AuditSearchTerm={Uri.EscapeDataString(searchTerm)}"
         };
     }
 }
