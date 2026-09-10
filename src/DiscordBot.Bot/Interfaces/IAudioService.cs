@@ -68,4 +68,21 @@ public interface IAudioService
     /// <param name="guildId">The Discord guild snowflake ID.</param>
     /// <returns>The PCM audio stream if connected, null otherwise.</returns>
     AudioOutStream? GetOrCreatePcmStream(ulong guildId);
+
+    /// <summary>
+    /// Reconciles the tracked voice connection for a guild with the voice state Discord reports for the bot.
+    /// Clears tracking when Discord shows the bot has left, retargets it when the bot was moved, and leaves
+    /// the channel when Discord shows the bot in voice with no tracked connection.
+    /// Called when the bot's own voice state changes and after the gateway reconnects.
+    /// </summary>
+    /// <param name="guildId">The Discord guild snowflake ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ReconcileBotVoiceStateAsync(ulong guildId, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Runs <see cref="ReconcileBotVoiceStateAsync"/> for every guild with a tracked connection
+    /// or where Discord shows the bot in a voice channel.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task ReconcileAllBotVoiceStatesAsync(CancellationToken cancellationToken = default);
 }

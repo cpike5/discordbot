@@ -155,6 +155,56 @@ public class AudioServiceTests : IAsyncDisposable
 
     #endregion
 
+    #region Reconcile Tests
+
+    [Fact]
+    public async Task ReconcileBotVoiceStateAsync_WhenGuildNotCached_DoesNothing()
+    {
+        // Arrange
+        ulong guildId = 987654321UL;
+
+        // Act
+        var act = () => _service.ReconcileBotVoiceStateAsync(guildId);
+
+        // Assert
+        await act.Should().NotThrowAsync("an unknown guild means the state cannot be reconciled");
+        _service.IsConnected(guildId).Should().BeFalse();
+        _mockAudioNotifier.Verify(
+            n => n.NotifyAudioDisconnectedAsync(It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ReconcileAllBotVoiceStatesAsync_WhenNoConnectionsAndNoGuilds_CompletesSuccessfully()
+    {
+        // Act
+        var act = () => _service.ReconcileAllBotVoiceStatesAsync();
+
+        // Assert
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
+    public async Task ReconcileBotVoiceStateAsync_ConcurrentWithLeave_DoNotThrow()
+    {
+        // Arrange
+        ulong guildId = 987654321UL;
+
+        // Act
+        var tasks = new[]
+        {
+            _service.ReconcileBotVoiceStateAsync(guildId),
+            _service.LeaveChannelAsync(guildId).ContinueWith(_ => { }),
+            _service.ReconcileBotVoiceStateAsync(guildId),
+        };
+        var act = () => Task.WhenAll(tasks);
+
+        // Assert
+        await act.Should().NotThrowAsync("reconcile and leave share the per-guild lock");
+    }
+
+    #endregion
+
     #region DisconnectAllAsync Tests
 
     [Fact]
