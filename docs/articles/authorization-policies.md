@@ -779,12 +779,25 @@ else
 
 Guild-specific authorization allows fine-grained access control per Discord server. This enables scenarios where different users have different permission levels for different guilds.
 
+`GuildAccessHandler` is the single handler registered for the `GuildAccess` policy
+(`services.AddScoped<IAuthorizationHandler, GuildAccessHandler>()` in
+`IdentityServiceExtensions`). An earlier `GuildAccessAuthorizationHandler` existed alongside
+it but was never registered in DI; it has been removed and its logic folded into
+`GuildAccessHandler` below.
+
 ### How It Works
 
-1. **User Authentication**: User logs in via ASP.NET Identity
-2. **Guild Access Linking**: `UserGuildAccess` records are created linking users to guilds
-3. **Authorization Check**: `GuildAccessAuthorizationHandler` verifies user has access to specific guild
-4. **SuperAdmin Bypass**: SuperAdmins automatically have access to all guilds
+1. **User Authentication**: User logs in via ASP.NET Identity.
+2. **SuperAdmin Bypass**: SuperAdmins automatically have access to all guilds.
+3. **Cache-first check**: the handler checks a locally cached `UserDiscordGuild` membership
+   row (captured at Discord OAuth login, or refreshed by a prior live lookup) and any explicit
+   `UserGuildAccess` grant. A cache hit answers the requirement without contacting Discord.
+4. **Live fallback on a cache miss**: only when neither is found does the handler query the
+   live Discord gateway (`DiscordSocketClient`) for membership, and a live hit refreshes the
+   cache for next time.
+
+See [`GuildAccessHandler`](#guildaccesshandler) below for the full flow, including how the
+Admin role's Administrator-permission check is evaluated from each source.
 
 ### UserGuildAccess Entity
 
@@ -888,53 +901,87 @@ public class GuildSettingsModel : PageModel { }
 
 ---
 
-### GuildAccessAuthorizationHandler
+### GuildAccessHandler
 
-Custom authorization handler that enforces guild-specific access control.
+The single authorization handler registered for the `GuildAccess` policy. It is
+cache-first: it checks locally stored data before ever contacting Discord's gateway, and
+only falls back to a live lookup on a genuine cache miss.
 
-**Location:** `DiscordBot.Bot/Authorization/GuildAccessAuthorizationHandler.cs`
+**Location:** `DiscordBot.Bot/Authorization/GuildAccessHandler.cs`
 
 **Authorization Flow:**
 
-1. **Check SuperAdmin**: If user is SuperAdmin → Grant access immediately
-2. **Extract Guild ID**: Read `guildId` from route parameters or query string
-3. **Validate Guild ID**: Ensure valid ulong Discord snowflake
-4. **Query Database**: Look up `UserGuildAccess` for user + guild combination
-5. **Compare Access Levels**: Verify user's access level >= required minimum level
-6. **Grant or Deny**: Succeed or fail the authorization requirement
+1. **Check SuperAdmin**: If the user is SuperAdmin → grant access immediately.
+2. **Resolve Guild ID**, in order:
+   1. `AuthorizationHandlerContext.Resource` as a raw `ulong` - this lets a caller outside an
+      HTTP request (e.g. a future Blazor `GuildLayout`) call
+      `IAuthorizationService.AuthorizeAsync(user, guildId, "GuildAccess")` directly, with no
+      route to read from. (No resource type in the codebase exposes a typed `GuildId`
+      property today; that step of resolution is not implemented and would be a small
+      addition if one is introduced.)
+   2. The `guildId` route value.
+   3. The `guildId` query string.
+3. **Require a linked Discord account**: the user's `ApplicationUser.DiscordUserId` must be set.
+4. **Cache check** - a cached `UserDiscordGuild` row for the guild, or an explicit
+   `UserGuildAccess` grant meeting `GuildAccessRequirement.MinimumLevel`:
+   - **Moderator/Viewer** application role: a cached membership row alone is sufficient.
+   - **Admin** application role: the cached row's `UserDiscordGuild.Permissions` bitfield
+     (captured from Discord OAuth) is checked for the Administrator flag, since the entity
+     records exactly that. If the cached row lacks it, a sufficient explicit
+     `UserGuildAccess` grant can still succeed; otherwise the check **denies without falling
+     back live** - a cache hit is treated as authoritative until it naturally expires.
+5. **Cache miss** (no cached row and no sufficient grant): a live `DiscordSocketClient`
+   lookup. A live hit **refreshes the cache** (best-effort, via
+   `IUserDiscordGuildService.UpsertGuildMembershipAsync`) before the requirement is
+   evaluated, so a transient refresh failure never blocks authorization; the Admin role then
+   requires the live guild user's `GuildPermissions.Administrator` flag, same as before.
+   A live miss (guild or membership not found) denies.
 
-**Code Example:**
+**Code Example (abridged):**
 ```csharp
 protected override async Task HandleRequirementAsync(
     AuthorizationHandlerContext context,
     GuildAccessRequirement requirement)
 {
-    // SuperAdmins bypass guild-specific checks
     if (context.User.IsInRole(Roles.SuperAdmin))
     {
         context.Succeed(requirement);
         return;
     }
 
-    // Extract guildId from route: /Guilds/{guildId}/Settings
-    var guildIdString = _httpContext.Request.RouteValues["guildId"]?.ToString();
-    if (!ulong.TryParse(guildIdString, out var guildId))
+    var guildId = ResolveGuildId(context, requirement); // resource -> route -> query
+    // ... resolve user, require DiscordUserId ...
+
+    var cachedGuilds = await _userDiscordGuildService.GetUserGuildsAsync(user.Id);
+    var cachedMembership = cachedGuilds.FirstOrDefault(g => g.GuildId == guildId);
+    var explicitGrant = await _dbContext.UserGuildAccess
+        .FirstOrDefaultAsync(a => a.ApplicationUserId == user.Id && a.GuildId == guildId);
+
+    if (cachedMembership != null)
     {
-        return; // Fail silently - no valid guild ID
+        // Moderator/Viewer succeed here; Admin checks cachedMembership.Permissions,
+        // then falls back to explicitGrant, otherwise denies (no live lookup).
+        return;
     }
 
-    // Check database for access grant
-    var access = await _dbContext.Set<UserGuildAccess>()
-        .FirstOrDefaultAsync(a =>
-            a.ApplicationUserId == userId &&
-            a.GuildId == guildId);
-
-    if (access?.AccessLevel >= requirement.MinimumLevel)
+    if (explicitGrant?.AccessLevel >= requirement.MinimumLevel)
     {
         context.Succeed(requirement);
+        return;
     }
+
+    // Cache miss -> live gateway lookup, refresh cache on a hit.
+    var live = await GetLiveGuildMembershipAsync(guildId, user.DiscordUserId.Value);
+    if (live is null) return; // deny
+    await _userDiscordGuildService.UpsertGuildMembershipAsync(user.Id, /* ... */);
+    if (!isAdminRole || live.IsAdministrator) context.Succeed(requirement);
 }
 ```
+
+The live Discord lookup sits behind a small `protected virtual GetLiveGuildMembershipAsync`
+seam rather than being inlined, because Discord.Net's `SocketGuild`/`SocketGuildUser` are
+sealed types that cannot be mocked directly - tests override the seam with a canned result
+instead (see `GuildAccessHandlerTests`).
 
 ---
 
@@ -990,10 +1037,11 @@ public async Task<IActionResult> OnPostGrantAccessAsync(
 
 ### Route Parameter Detection
 
-The `GuildAccessAuthorizationHandler` automatically detects guild IDs from:
+`GuildAccessHandler` automatically detects guild IDs from (in order):
 
-1. **Route parameters**: `/Guilds/{guildId}/Settings`
-2. **Query strings**: `/Guilds/Settings?guildId=123456789`
+1. **Resource**: `AuthorizationHandlerContext.Resource` as a raw `ulong`, for non-HTTP callers.
+2. **Route parameters**: `/Guilds/{guildId}/Settings`
+3. **Query strings**: `/Guilds/Settings?guildId=123456789`
 
 **Recommended Pattern:** Use route parameters for cleaner URLs and better SEO.
 
@@ -1383,7 +1431,7 @@ public class DebugAuthModel : PageModel
 
 **Unit Testing Authorization Handlers:**
 ```csharp
-public class GuildAccessAuthorizationHandlerTests
+public class GuildAccessHandlerTests
 {
     [Fact]
     public async Task HandleRequirementAsync_SuperAdmin_GrantsAccess()
@@ -1428,7 +1476,7 @@ public class GuildAccessAuthorizationHandlerTests
 | Role constants | `src/DiscordBot.Core/Authorization/Roles.cs` | Role name definitions |
 | UserGuildAccess entity | `src/DiscordBot.Core/Entities/UserGuildAccess.cs` | Guild access linking table |
 | GuildAccessRequirement | `src/DiscordBot.Bot/Authorization/GuildAccessRequirement.cs` | Authorization requirement |
-| GuildAccessHandler | `src/DiscordBot.Bot/Authorization/GuildAccessAuthorizationHandler.cs` | Authorization handler |
+| GuildAccessHandler | `src/DiscordBot.Bot/Authorization/GuildAccessHandler.cs` | Authorization handler (cache-first, live fallback on miss) |
 | DiscordClaimsTransformation | `src/DiscordBot.Bot/Authorization/DiscordClaimsTransformation.cs` | Claims enrichment |
 | AuthorizeViewTagHelper | `src/DiscordBot.Bot/TagHelpers/AuthorizeTagHelper.cs` | Tag helpers |
 | PortalPageModelBase | `src/DiscordBot.Bot/Pages/Portal/PortalPageModelBase.cs` | Portal authorization base class |

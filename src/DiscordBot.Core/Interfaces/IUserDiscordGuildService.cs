@@ -70,4 +70,17 @@ public interface IUserDiscordGuildService
     /// </summary>
     /// <param name="applicationUserId">The ApplicationUser ID.</param>
     void InvalidateCache(string applicationUserId);
+
+    /// <summary>
+    /// Adds or updates the stored membership record for a single guild, without touching
+    /// the user's other stored memberships. Used to refresh the cache from a one-off live
+    /// lookup (e.g. a guild-access authorization check) rather than a full OAuth guild sync.
+    /// </summary>
+    /// <param name="applicationUserId">The ApplicationUser ID.</param>
+    /// <param name="guild">The guild membership data to store.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    Task UpsertGuildMembershipAsync(
+        string applicationUserId,
+        DiscordGuildDto guild,
+        CancellationToken cancellationToken = default);
 }
