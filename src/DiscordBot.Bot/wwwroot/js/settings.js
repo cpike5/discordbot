@@ -8,10 +8,9 @@
     let currentCategory = window.initialActiveCategory || 'General';
     let isDirty = false;
 
-    // Bot Control polling configuration
-    const STATUS_POLL_INTERVAL_MS = 5000; // 5 seconds for control panel
-    const API_ENDPOINT = '/api/bot/status';
-    let statusPollInterval = null;
+    // Bot Control status is driven by the DashboardHub SignalR push (BotStatusUpdated)
+    // instead of polling /api/bot/status. See handleBotStatusPush/startStatusUpdates.
+    let statusUpdatesActive = false;
 
     // Icon SVG templates for button states
     const icons = {
@@ -355,28 +354,53 @@
     }
 
     /**
-     * Refresh bot status via API
+     * Apply a bot status payload (from either the DashboardHub 'BotStatusUpdated'
+     * push or a 'GetCurrentStatus' invoke) to the Bot Control status elements.
+     * The two sources use slightly different field names for latency
+     * (BotStatusDto.latencyMs vs BotStatusUpdateDto.latency), so both are checked.
+     * @param {object} data - Bot status payload.
      */
-    async function refreshStatus() {
-        const statusContainer = document.querySelector('[data-bot-control-status]');
-        if (!statusContainer) return;
+    function applyBotStatus(data) {
+        if (!data) return;
 
-        try {
-            const response = await fetch(API_ENDPOINT);
-            if (!response.ok) throw new Error('Status fetch failed');
+        const latencyMs = data.latencyMs ?? data.latency ?? 0;
 
-            const data = await response.json();
+        updateStatusElement('[data-connection-state]', data.connectionState);
+        updateStatusElement('[data-latency]', latencyMs + ' ms');
+        updateStatusElement('[data-guild-count]', data.guildCount);
+        updateStatusElement('[data-uptime]', formatUptime(data.uptime));
+        updateStatusElement('[data-last-updated]', new Date().toLocaleTimeString());
+        updateStatusIndicator(data.connectionState);
+    }
 
-            // Update status elements
-            updateStatusElement('[data-connection-state]', data.connectionState);
-            updateStatusElement('[data-latency]', data.latencyMs + ' ms');
-            updateStatusElement('[data-guild-count]', data.guildCount);
-            updateStatusElement('[data-uptime]', formatUptime(data.uptime));
-            updateStatusElement('[data-last-updated]', new Date().toLocaleTimeString());
-            updateStatusIndicator(data.connectionState);
+    /**
+     * Handler for the DashboardHub 'BotStatusUpdated' push event.
+     * @param {object} data - BotStatusUpdateDto payload.
+     */
+    function handleBotStatusPush(data) {
+        applyBotStatus(data);
+    }
 
-        } catch (error) {
-            console.error('Status refresh failed:', error);
+    /**
+     * Fetches the current bot status once via the hub (used to seed the panel
+     * on activation and after the hub connects) and applies it.
+     */
+    async function seedBotStatus() {
+        if (typeof DashboardHub === 'undefined' || !DashboardHub.isConnected()) return;
+
+        const data = await DashboardHub.invoke('GetCurrentStatus');
+        applyBotStatus(data);
+    }
+
+    /**
+     * Seeds the panel once the hub reaches the 'connected' state, then stops
+     * listening for further state changes.
+     * @param {{state: string}} evt - DashboardHub state-change event.
+     */
+    function handleHubStateChangeForSeed(evt) {
+        if (evt.state === 'connected') {
+            DashboardHub.offStateChange(handleHubStateChangeForSeed);
+            seedBotStatus();
         }
     }
 
@@ -450,27 +474,37 @@
     }
 
     /**
-     * Start status polling
+     * Start receiving bot status updates for the Bot Control panel: subscribes
+     * to the DashboardHub 'BotStatusUpdated' push and seeds the panel with one
+     * 'GetCurrentStatus' invoke (immediately if already connected, otherwise as
+     * soon as the hub connects - it auto-connects globally from _Layout.cshtml).
+     * Note: the server only broadcasts BotStatusUpdated on connect/disconnect,
+     * not on a timer, so latency/uptime update on those events (or when this
+     * panel is reactivated) rather than ticking continuously.
      */
-    function startPolling() {
+    function startStatusUpdates() {
         const statusContainer = document.querySelector('[data-bot-control-status]');
-        if (!statusContainer) return;
+        if (!statusContainer || statusUpdatesActive || typeof DashboardHub === 'undefined') return;
 
-        // Initial refresh
-        refreshStatus();
+        statusUpdatesActive = true;
+        DashboardHub.on('BotStatusUpdated', handleBotStatusPush);
 
-        // Start interval polling
-        statusPollInterval = setInterval(refreshStatus, STATUS_POLL_INTERVAL_MS);
+        if (DashboardHub.isConnected()) {
+            seedBotStatus();
+        } else {
+            DashboardHub.onStateChange(handleHubStateChangeForSeed);
+        }
     }
 
     /**
-     * Stop status polling
+     * Stop receiving bot status updates for the Bot Control panel.
      */
-    function stopPolling() {
-        if (statusPollInterval) {
-            clearInterval(statusPollInterval);
-            statusPollInterval = null;
-        }
+    function stopStatusUpdates() {
+        if (!statusUpdatesActive || typeof DashboardHub === 'undefined') return;
+
+        statusUpdatesActive = false;
+        DashboardHub.off('BotStatusUpdated', handleBotStatusPush);
+        DashboardHub.offStateChange(handleHubStateChangeForSeed);
     }
 
     /**
@@ -513,11 +547,11 @@
             }
         });
 
-        // Manage Bot Control status polling based on tab visibility
+        // Manage Bot Control status updates based on tab visibility
         if (category === 'BotControl') {
-            startPolling();
+            startStatusUpdates();
         } else {
-            stopPolling();
+            stopStatusUpdates();
         }
 
         // Reset dirty flag when switching tabs
@@ -984,9 +1018,9 @@
         trackFormChanges();
         setupUnloadWarning();
 
-        // Start polling if Bot Control tab is active on page load
+        // Start receiving status updates if Bot Control tab is active on page load
         if (currentCategory === 'BotControl') {
-            startPolling();
+            startStatusUpdates();
         }
 
         // Handle escape key to close modals
@@ -1004,8 +1038,8 @@
             }
         });
 
-        // Clean up polling on page unload
-        window.addEventListener('beforeunload', stopPolling);
+        // Clean up hub subscriptions on page unload
+        window.addEventListener('beforeunload', stopStatusUpdates);
     }
 
     // Expose public API
@@ -1022,9 +1056,8 @@
         showTypedModal,
         hideTypedModal,
         validateTypedInput,
-        refreshStatus,
-        startPolling,
-        stopPolling
+        startStatusUpdates,
+        stopStatusUpdates
     };
 
     // Initialize on DOM ready
