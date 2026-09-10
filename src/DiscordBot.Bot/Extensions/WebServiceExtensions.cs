@@ -29,6 +29,12 @@ public static class WebServiceExtensions
         services.AddRazorPages();
         services.AddEndpointsApiExplorer();
 
+        // [ValidateAntiForgeryToken] on JSON API actions (e.g. LlmModelsController) checks the request
+        // header, not a form field - api-client.js sends the token as the "RequestVerificationToken"
+        // header (see wwwroot/js/api-client.js). Without HeaderName set here, IAntiforgery only knows
+        // to look for a form field, so those endpoints would reject every request.
+        services.AddAntiforgery(options => options.HeaderName = "RequestVerificationToken");
+
         return services;
     }
 }

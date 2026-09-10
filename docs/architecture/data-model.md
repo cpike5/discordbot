@@ -51,6 +51,9 @@ erDiagram
     APPLICATION_USER ||--o{ VERIFICATION_CODE : initiates
 
     USER_GUILD_ACCESS ||--|| GUILD : references
+
+    LLM_MODEL {
+    }
 ```
 
 ## Core Entity Groups
@@ -256,7 +259,20 @@ erDiagram
 - `ConnectionEvent` is standalone (no FK to Guild); persisted across restarts to compute cumulative uptime.
 - `ConnectionEvent.Reason` / `Details` capture exception messages and types on disconnect.
 
-### 16. UI Themes & Tags
+### 16. LLM Model Catalog (LlmModel)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **LlmModel** | Local cache of OpenRouter's model catalog, plus the admin allowlist | `Id` (string PK, the OpenRouter slug), `Name`, `Description` (max 1,000 chars), `Vendor` (slug prefix before `/`), `ContextLength`, `PromptPricePerMillion`/`CompletionPricePerMillion`/`CacheReadPricePerMillion`/`CacheWritePricePerMillion` (decimal?, per-million-token USD, null when the catalog reports unknown), `SupportsTools`, `SupportsImages`, `ReleasedAt` (nullable), `FirstSeenAt`, `LastSeenAt`, `IsAvailable` (bool), `IsEnabled` (bool, default false), `EnabledAt` (nullable), `EnabledBy` (nullable) | Standalone |
+
+**Notes:**
+- Populated and refreshed by `ILlmModelCatalogService.RefreshAsync`, which upserts by slug from `IOpenRouterModelCatalogClient.GetModelsAsync` (OpenRouter `GET /models`). Alias entries (slug starting with `~`) are skipped on import.
+- A refresh never deletes a row: a slug OpenRouter no longer returns is marked `IsAvailable = false` and kept, so a disabled admin choice is never silently lost.
+- `IsEnabled` is the admin allowlist flag - a catalog refresh never changes it, with one exception: the very first refresh ever (table empty beforehand) bootstrap-enables the slugs then configured for the guild assistant, DM assistant, and feature-request modes, so upgrades keep working.
+- Indexed on `Vendor` (grouping/filtering) and `IsEnabled` (the enabled-only picker and catalog queries).
+- Refresh interval is `Llm:CatalogRefreshHours` (`LlmOptions`, default 24; `0` disables the background `LlmCatalogRefreshService`).
+
+### 17. UI Themes & Tags
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|

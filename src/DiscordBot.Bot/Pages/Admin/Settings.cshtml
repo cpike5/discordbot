@@ -130,6 +130,17 @@
             </svg>
             Bot Control
         </button>
+        <button class="settings-tab @(Model.ViewModel.ActiveCategory == "AiModels" ? "active" : "")"
+                role="tab"
+                aria-selected="@(Model.ViewModel.ActiveCategory == "AiModels" ? "true" : "false")"
+                aria-controls="ai-models-settings"
+                data-tab="AiModels"
+                onclick="window.settingsManager?.switchTab('AiModels')">
+            <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 3.104v5.714a2.25 2.25 0 01-.659 1.591L5 14.5M9.75 3.104c-.251.023-.501.05-.75.082m.75-.082a24.301 24.301 0 014.5 0m0 0v5.714c0 .597.237 1.17.659 1.591L19.8 15.3M14.25 3.104c.251.023.501.05.75.082M19.8 15.3l-1.57.393A9.065 9.065 0 0112 15a9.065 9.065 0 00-6.23-.693L5 14.5m14.8.8l1.402 1.402c1.232 1.232.65 3.318-1.067 3.611A48.309 48.309 0 0112 20.25a48.25 48.25 0 01-8.135-.693c-1.718-.293-2.3-2.379-1.067-3.61L5 14.5" />
+            </svg>
+            AI Models
+        </button>
         @if (Model.IsSuperAdmin)
         {
             <button class="settings-tab @(Model.ViewModel.ActiveCategory == "Appearance" ? "active" : "")"
@@ -748,6 +759,122 @@
     }
 </form>
 
+<!-- AI Models Settings (outside #settingsForm: settings.js marks the form dirty on any input/change
+     inside it, and this section's controls are saved instantly via ApiClient, not the form's Save All.
+     ApiClient still finds the antiforgery token because it queries the whole document for
+     input[name="__RequestVerificationToken"], not just #settingsForm - see wwwroot/js/api-client.js.
+     switchTab() toggles .settings-section.active by id with document.querySelectorAll, so this
+     section's location in the DOM doesn't affect tab show/hide. -->
+<section id="ai-models-settings" class="settings-section @(Model.ViewModel.ActiveCategory == "AiModels" ? "active" : "")" role="tabpanel" aria-labelledby="ai-models-tab">
+
+    <!-- Per-mode defaults (read-only in this phase) -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Per-Mode Defaults</h2>
+            <p class="text-sm text-text-secondary mt-1">
+                The model each mode currently uses. Read-only for now — editable defaults ship in a follow-up.
+            </p>
+        </div>
+        <div class="p-6">
+            <div id="aiModelsDefaults" class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <p class="text-sm text-text-secondary">Loading…</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Catalog -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">Model Catalog</h2>
+            <p class="text-sm text-text-secondary mt-1">Choose which OpenRouter models the bot is allowed to use. Nothing is enabled by default.</p>
+        </div>
+
+        <!-- Toolbar -->
+        <div class="p-6 border-b border-border-primary">
+            <div class="flex flex-col lg:flex-row lg:items-end gap-4">
+                <div class="flex-1 min-w-0">
+                    <label for="aiModelsSearch" class="block text-xs font-medium text-text-secondary mb-1.5">Search</label>
+                    <input type="text" id="aiModelsSearch" placeholder="Search name or slug…" class="form-input w-full" />
+                </div>
+                <div class="w-full lg:w-56">
+                    <label for="aiModelsVendor" class="block text-xs font-medium text-text-secondary mb-1.5">Vendor</label>
+                    <select id="aiModelsVendor" class="form-select w-full">
+                        <option value="">All vendors</option>
+                    </select>
+                </div>
+                <div class="flex flex-wrap items-center gap-4">
+                    <label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+                        <input type="checkbox" id="aiModelsEnabledOnly" class="rounded border-border-primary" />
+                        Enabled only
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+                        <input type="checkbox" id="aiModelsAvailableOnly" class="rounded border-border-primary" />
+                        Available only
+                    </label>
+                    <label class="flex items-center gap-2 text-sm text-text-secondary cursor-pointer">
+                        <input type="checkbox" id="aiModelsToolsOnly" class="rounded border-border-primary" />
+                        Tool-capable only
+                    </label>
+                </div>
+                <div class="flex items-center gap-3 lg:ml-auto">
+                    <span id="aiModelsLastRefresh" class="text-xs text-text-tertiary whitespace-nowrap">Never refreshed</span>
+                    <button type="button" id="aiModelsRefreshBtn" class="btn btn-secondary whitespace-nowrap">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                        Refresh from OpenRouter
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Empty state (catalog never refreshed / no API key) -->
+        <div id="aiModelsEmptyState" class="hidden p-6">
+            <partial name="Components/_EmptyState" model='new DiscordBot.Bot.ViewModels.Components.EmptyStateViewModel
+            {
+                Type = DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoData,
+                Title = "No models in the catalog yet",
+                Description = "Refresh from OpenRouter to pull in the current model list, then choose which ones the bot may use."
+            }' />
+        </div>
+
+        <!-- No-matches state (catalog has rows, but the current filters exclude all of them) -->
+        <div id="aiModelsNoMatchesState" class="hidden p-6 text-center">
+            <p class="text-sm text-text-secondary mb-3">No models match the current filters.</p>
+            <button type="button" id="aiModelsClearFiltersBtn" class="btn btn-secondary">Clear filters</button>
+        </div>
+
+        <!-- Inline error (catalog fetch failed) -->
+        <div id="aiModelsErrorState" class="hidden p-6">
+            <p class="text-sm text-error"></p>
+        </div>
+
+        <!-- Table -->
+        <div id="aiModelsTableWrapper" class="table-container overflow-x-auto">
+            <table class="w-full min-w-[820px]">
+                <thead class="bg-bg-tertiary border-b border-border-primary">
+                    <tr>
+                        <th class="table-cell-header text-left cursor-pointer select-none" data-sort-key="Name" tabindex="0" aria-sort="none">Model</th>
+                        <th class="table-cell-header text-left cursor-pointer select-none" data-sort-key="Vendor" tabindex="0" aria-sort="none">Vendor</th>
+                        <th class="table-cell-header text-right cursor-pointer select-none" data-sort-key="PromptPrice" tabindex="0" aria-sort="none">Prompt $/M</th>
+                        <th class="table-cell-header text-right cursor-pointer select-none" data-sort-key="CompletionPrice" tabindex="0" aria-sort="none">Completion $/M</th>
+                        <th class="table-cell-header text-right cursor-pointer select-none" data-sort-key="ContextLength" tabindex="0" aria-sort="none">Context</th>
+                        <th class="table-cell-header text-left cursor-pointer select-none" data-sort-key="ReleasedAt" tabindex="0" aria-sort="none">Released</th>
+                        <th class="table-cell-header text-center">Tools</th>
+                        <th class="table-cell-header text-center">Enabled</th>
+                    </tr>
+                </thead>
+                <tbody id="aiModelsTableBody" class="table-body">
+                    <tr><td colspan="8" class="table-cell text-sm text-text-secondary">Loading…</td></tr>
+                </tbody>
+            </table>
+        </div>
+        <div class="px-6 py-3 border-t border-border-primary">
+            <p id="aiModelsCount" class="text-xs text-text-tertiary"></p>
+        </div>
+    </div>
+</section>
+
 <!-- Danger Zone -->
 <div class="border-2 border-error rounded-lg p-6 bg-error/5">
     <div class="flex items-start gap-4">
@@ -858,4 +985,5 @@
         window.initialActiveCategory = '@Model.ViewModel.ActiveCategory';
     </script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
+    <script src="~/js/llm-models.js" asp-append-version="true"></script>
 }

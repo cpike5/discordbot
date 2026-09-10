@@ -15,7 +15,7 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.25");
+            modelBuilder.HasAnnotation("ProductVersion", "8.0.31");
 
             modelBuilder.Entity("DiscordBot.Core.Entities.ApplicationSetting", b =>
                 {
@@ -1452,6 +1452,90 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.HasKey("GuildId");
 
                     b.ToTable("GuildTtsSettings", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.LlmModel", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("CacheReadPricePerMillion")
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<decimal?>("CacheWritePricePerMillion")
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<decimal?>("CompletionPricePerMillion")
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<int>("ContextLength")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<string>("Description")
+                        .HasMaxLength(1000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("EnabledAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("EnabledBy")
+                        .HasMaxLength(450)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("FirstSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsAvailable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("LastSeenAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<decimal?>("PromptPricePerMillion")
+                        .HasColumnType("decimal(18,8)");
+
+                    b.Property<DateTime?>("ReleasedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("SupportsImages")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("SupportsTools")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<string>("Vendor")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IsEnabled")
+                        .HasDatabaseName("IX_LlmModels_IsEnabled");
+
+                    b.HasIndex("Vendor")
+                        .HasDatabaseName("IX_LlmModels_Vendor");
+
+                    b.ToTable("LlmModels", (string)null);
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.MemberActivitySnapshot", b =>
@@ -3603,8 +3687,8 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
             modelBuilder.Entity("DiscordBot.Core.Entities.NotXGuildSettings", b =>
                 {
                     b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
-                        .WithOne()
-                        .HasForeignKey("DiscordBot.Core.Entities.NotXGuildSettings", "GuildId")
+                        .WithMany()
+                        .HasForeignKey("GuildId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 

@@ -40,6 +40,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 
 | Route | File | Purpose |
 |-------|------|---------|
+| `/admin/settings` | `Pages/Admin/Settings.cshtml` | Tabbed application settings (General, Features, Commands, Advanced, Bot Control, AI Models, Appearance for SuperAdmins). The **AI Models** tab (`ai-models-settings`, rendered by `wwwroot/js/llm-models.js`) lists the local OpenRouter model catalog with search/vendor/enabled/available/tools filters and sortable columns, a per-model enable switch, a "Refresh from OpenRouter" button, and a read-only per-mode defaults panel (guild assistant, DM assistant, feature requests) showing each mode's effective model and whether it came from a DB override or configuration. Backed by `LlmModelsController` (`api/admin/llm-models`), not `SettingsSectionService` — it is a custom panel like Bot Control/Appearance, not a `SettingCategory`. |
 | `/admin/users` | `Pages/Admin/Users/Index.cshtml` | User management list |
 | `/admin/users/create` | `Pages/Admin/Users/Create.cshtml` | Create new user |
 | `/admin/users/edit/{id}` | `Pages/Admin/Users/Edit.cshtml` | Edit user details |

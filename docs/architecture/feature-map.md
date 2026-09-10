@@ -608,6 +608,26 @@ Owner DMs bot →
 
 ---
 
+### LLM Model Catalog & Allowlist
+
+Admin-facing local mirror of OpenRouter's model directory, plus the enable/disable allowlist that
+gates which models the assistant, DM assistant, and feature-request modes may use. See
+`docs/plans/llm-model-management-plan.md` for the full design and delivery phases.
+
+| Aspect | Components |
+|--------|------------|
+| **Web Page** | `/admin/settings` "AI Models" tab (`Pages/Admin/Settings.cshtml`, `ai-models-settings` panel), rendered by `wwwroot/js/llm-models.js` |
+| **Controller** | `LlmModelsController` (`api/admin/llm-models`, `RequireAdmin`) — list/filter, refresh, enable/disable, per-mode defaults |
+| **Services** | `ILlmModelCatalogService` / `LlmModelCatalogService` (refresh, filtered listing, allowlist), `IOpenRouterModelCatalogClient` / `OpenRouterModelCatalogClient` (second typed `HttpClient` against OpenRouter `GET /models`) |
+| **Repository** | `ILlmModelRepository` / `LlmModelRepository` |
+| **Database Entity** | `LlmModel` (table `LlmModels`, PK = OpenRouter slug) |
+| **Background Service** | `LlmCatalogRefreshService` (`Llm:CatalogRefreshHours`, default 24, `0` disables; registered only when `OpenRouter:ApiKey` is present) |
+| **Configuration** | `LlmOptions` (`Llm` section) |
+| **Key Rule** | A catalog refresh never enables a model — `IsEnabled` is only ever set by an explicit admin action, with one exception: the very first refresh ever bootstraps-enables the slugs currently configured for the three modes so upgrades keep working. |
+| **Key Features** | Server-side search/vendor/enabled/available/tools filtering and sort, enable/disable with a refusal when the slug is a mode's current default, last-refresh timestamp, read-only per-mode defaults panel (editable defaults ship in a later phase per the plan) |
+
+---
+
 ### Background Services
 
 Long-running background tasks for maintenance and scheduled operations.

@@ -592,6 +592,57 @@ public class SettingsServiceTests
 
     #endregion
 
+    #region GetStoredValueAsync Tests
+
+    [Fact]
+    public async Task GetStoredValueAsync_ReturnsDatabaseValue_WhenExists()
+    {
+        // Arrange
+        const string key = "Assistant:Sampling:Model";
+        var dbSetting = new ApplicationSetting
+        {
+            Key = key,
+            Value = "openai/gpt-5",
+            Category = SettingCategory.General,
+            DataType = SettingDataType.String
+        };
+
+        _mockRepository
+            .Setup(r => r.GetByKeyAsync(key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(dbSetting);
+
+        // Act
+        var result = await _service.GetStoredValueAsync(key);
+
+        // Assert
+        result.Should().Be("openai/gpt-5");
+    }
+
+    [Fact]
+    public async Task GetStoredValueAsync_ReturnsNull_WhenNoDbRow_EvenWithConfigurationValuePresent()
+    {
+        // Arrange - unlike GetSettingValueAsync, this must NOT fall back to configuration or the
+        // setting definition default: it answers "is there a DB override?", not "what's the effective value?".
+        const string key = "Assistant:Sampling:Model";
+
+        _mockRepository
+            .Setup(r => r.GetByKeyAsync(key, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((ApplicationSetting?)null);
+
+        _mockConfiguration
+            .Setup(c => c[key])
+            .Returns("anthropic/claude-sonnet-4.6");
+
+        // Act
+        var result = await _service.GetStoredValueAsync(key);
+
+        // Assert
+        result.Should().BeNull("no database row exists, so the configuration fallback must not apply here");
+        _mockConfiguration.Verify(c => c[key], Times.Never);
+    }
+
+    #endregion
+
     #region UpdateSettingsAsync Tests
 
     [Fact]

@@ -395,6 +395,14 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `RatWatchToolProvider` | Bot/Services/LLM | RatWatch-specific tool provider for assistant |
 | `RatWatchTools` | Infrastructure/Services/LLM | Tool implementations for RatWatch queries |
 | `UserGuildInfoToolProvider` | Bot/Services/LLM | Tool provider exposing get_user_profile, get_guild_info, and get_user_roles tools; resolves data from Discord client and database |
+| `ILlmModelCatalogService` | Core Interfaces/LLM | Local OpenRouter model catalog: refresh, filtered/sorted listing, and the enable/disable allowlist. A refresh never touches `IsEnabled` except the one-time first-ever-refresh bootstrap. |
+| `LlmModelCatalogService` | Infrastructure/Services/LLM | Implementation — audits refreshes and enable/disable changes |
+| `IOpenRouterModelCatalogClient` | Core Interfaces/LLM | Fetches OpenRouter's `GET /models` directory |
+| `OpenRouterModelCatalogClient` | Infrastructure/Services/LLM/OpenRouter | Second typed `HttpClient` against OpenRouter (separate from `OpenRouterLlmClient`), same auth/attribution headers, no retry loop |
+| `ILlmModelRepository` | Core Interfaces | `LlmModel` persistence — filtered query, enabled list, last-refresh timestamp, mark-unavailable |
+| `LlmModelRepository` | Infrastructure/Data/Repositories | EF Core implementation |
+| `LlmCatalogRefreshService` | Bot/Services/LLM | `MonitoredBackgroundService`; periodic catalog refresh on `Llm:CatalogRefreshHours` (default 24, `0` disables), registered only when `OpenRouter:ApiKey` is present |
+| `LlmModelsController` | Bot/Controllers | `api/admin/llm-models` — list/filter, refresh, enable/disable, per-mode defaults (`RequireAdmin`) |
 
 ---
 

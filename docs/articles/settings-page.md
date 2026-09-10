@@ -118,6 +118,28 @@ This allows:
 - **MessageLogRetentionDays**: Min: 1, Max: 365
 - **AuditLogRetentionDays**: Min: 1, Max: 365
 
+### AI Models Tab (not a `SettingCategory`)
+
+Unlike the categories above, the **AI Models** tab (`ai-models-settings`) does not go through
+`SettingsSectionService` or the `FormSettings`/`SaveCategory` handler — it is a custom panel, the
+same pattern as Bot Control and Appearance. It is entirely client-rendered by
+`wwwroot/js/llm-models.js` against `LlmModelsController` (`api/admin/llm-models`), not the
+Settings page's POST handlers. See `docs/architecture/feature-map.md` ("LLM Model Catalog &
+Allowlist") and `docs/plans/llm-model-management-plan.md` for the full design.
+
+It has two parts:
+
+- **Per-mode defaults** (read-only in this phase): the effective model slug for the guild
+  assistant, DM assistant, and feature-request modes, and whether it came from a DB setting
+  override or the bound configuration value. Editable defaults, saved through the normal settings
+  save path, ship in a later phase.
+- **Model catalog**: search, vendor filter, enabled/available/tool-capable toggles, sortable
+  columns (name, vendor, prompt price, completion price, context length, released date), a
+  per-model enable switch, and a "Refresh from OpenRouter" button showing the last refresh time.
+  Rows that are enabled but no longer available are highlighted. Refreshing never enables a model
+  on its own — that is only ever an explicit admin action (or the one-time bootstrap on the very
+  first refresh ever, which enables the slugs the three modes were already configured to use).
+
 ---
 
 ## UI Components

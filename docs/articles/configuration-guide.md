@@ -159,6 +159,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 |--------------|-------------|---------------|----------------|
 | `OpenRouterOptions` | `OpenRouter` | `AssistantServiceExtensions` | `ApiKey` (secret), `BaseUrl`, `DefaultModel` (OpenRouter slug), `MaxRetries`, `TimeoutSeconds`, `RetryBaseDelayMs`, `EnablePromptCachingByDefault`, `AppUrl`, `AppTitle` |
 | `AssistantOptions` | `Assistant` | `AssistantServiceExtensions` | Grouped into nested sub-options: `Sampling` (model/tokens/temperature/timeout), `RateLimits` (rate limit + bypass role), `Messages` (question/response length, error text, retry), `Tools` (doc tools, prompt/doc paths), `Cost` (cost tracking, prompt caching), `Privacy` (consent, logging, retention). Historical flat keys (e.g. `Assistant:MaxTokens`) still bind via obsolete forwarding properties and take precedence over the nested key (e.g. `Assistant:Sampling:MaxTokens`) if both are set. |
+| `LlmOptions` | `Llm` | `AssistantServiceExtensions` | `CatalogRefreshHours` (default 24; `0` disables the periodic refresh) — interval for `LlmCatalogRefreshService`, the background job that pulls OpenRouter's model directory into the local `LlmModels` table for the admin "AI Models" tab. `CatalogRefreshInitialDelayMinutes` (default 5) — how long the service waits after startup before its first refresh attempt, mirroring the other background services' startup stagger. Registered only when `OpenRouter:ApiKey` is present, matching the rest of the assistant stack. |
 
 #### Audio / Voice
 
@@ -268,6 +269,7 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | — | Commands | Admin+ | Command module enable/disable (separate system) |
 | Advanced | Advanced | Admin+ | Data retention policies |
 | — | Bot Control | Admin+ | Bot restart/shutdown, live status |
+| — | AI Models | Admin+ | OpenRouter model catalog and allowlist (separate system — `LlmModelsController`, not `SettingsSectionService`); read-only per-mode defaults panel |
 | Appearance | Appearance | SuperAdmin only | Theme selection |
 
 ### Real-Time Updates

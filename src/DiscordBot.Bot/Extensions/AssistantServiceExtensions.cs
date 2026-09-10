@@ -6,6 +6,7 @@ using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
+using DiscordBot.Bot.Services.LLM;
 using DiscordBot.Bot.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -46,6 +47,8 @@ public static class AssistantServiceExtensions
             ApplyFlatLegacyKeyPrecedence(options, configuration.GetSection(AssistantOptions.SectionName)));
         services.Configure<OpenRouterOptions>(
             configuration.GetSection(OpenRouterOptions.SectionName));
+        services.Configure<LlmOptions>(
+            configuration.GetSection(LlmOptions.SectionName));
 
         // Get API key from configuration
         var apiKey = configuration.GetValue<string>("OpenRouter:ApiKey");
@@ -58,6 +61,39 @@ public static class AssistantServiceExtensions
 
         // Register assistant guild settings service (always needed for admin UI)
         services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
+
+        // Register the LLM model catalog repository, service, and its OpenRouter client ungated (no
+        // API key needed to read the already-fetched catalog), so the "AI Models" admin page - and
+        // migrations, which must run without a key - work before one is set. This is safe with no
+        // key configured: the client degrades to a 401 OpenRouterException from OpenRouter itself
+        // rather than failing at DI resolve time, so constructing it costs nothing until a refresh
+        // is actually attempted. Only the *background* scheduled refresh stays gated below, since
+        // running it with no key would just be a recurring failure.
+        services.AddScoped<ILlmModelRepository, LlmModelRepository>();
+        services.AddScoped<ILlmModelCatalogService, LlmModelCatalogService>();
+        services.AddHttpClient<IOpenRouterModelCatalogClient, OpenRouterModelCatalogClient>((sp, http) =>
+        {
+            var options = sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
+
+            var baseUrl = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
+            http.BaseAddress = new Uri(baseUrl);
+
+            if (!string.IsNullOrWhiteSpace(options.ApiKey))
+            {
+                http.DefaultRequestHeaders.Authorization =
+                    new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.AppUrl))
+            {
+                http.DefaultRequestHeaders.Add("HTTP-Referer", options.AppUrl);
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.AppTitle))
+            {
+                http.DefaultRequestHeaders.Add("X-Title", options.AppTitle);
+            }
+        });
 
         // Shared assistant pipeline pieces (also used by the DM assistant)
         services.AddSingleton<IAssistantRateLimiter, AssistantRateLimiter>();
@@ -91,6 +127,11 @@ public static class AssistantServiceExtensions
                     http.DefaultRequestHeaders.Add("X-Title", options.AppTitle);
                 }
             });
+
+            // Register the scheduled catalog refresh (Llm:CatalogRefreshHours, 0 disables). The
+            // client it depends on is registered above (ungated); only this recurring background
+            // job needs an API key to be worth running.
+            services.AddHostedService<LlmCatalogRefreshService>();
 
             // Register prompt template service
             services.AddSingleton<IPromptTemplate, PromptTemplate>();

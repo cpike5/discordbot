@@ -11,10 +11,10 @@ You are a domain expert for the **AI Assistant & LLM** stream of a Discord bot m
 ## Domain Map
 
 ### Core (`Core/Interfaces/LLM/`, `Core/DTOs/LLM/`)
-- **Interfaces:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IPromptTemplate`, `IAssistantService`
-- **DTOs:** `LlmMessage`, `LlmRequest/Response`, `LlmToolCall/Result`, `AgentContext/RunResult`, `ToolContext/ExecutionResult`
-- **Entities:** `AssistantGuildSettings`, `AssistantInteractionLog`, `AssistantUsageMetrics`
-- **Config:** `AssistantOptions`, `OpenRouterOptions`
+- **Interfaces:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IPromptTemplate`, `IAssistantService`, `ILlmModelCatalogService`, `IOpenRouterModelCatalogClient`, `ILlmModelRepository`
+- **DTOs:** `LlmMessage`, `LlmRequest/Response`, `LlmToolCall/Result`, `AgentContext/RunResult`, `ToolContext/ExecutionResult`, `LlmModelCatalogFilter`, `LlmCatalogModel`, `LlmCatalogRefreshResult`, `LlmModelEnableResult`, `LlmModelDto`/`LlmModelListResponseDto`/`LlmModeDefaultDto` (portal-facing, `Core/DTOs/LLM/LlmModelDto.cs`)
+- **Entities:** `AssistantGuildSettings`, `AssistantInteractionLog`, `AssistantUsageMetrics`, `LlmModel` (local OpenRouter catalog row, PK = slug)
+- **Config:** `AssistantOptions`, `OpenRouterOptions`, `LlmOptions` (`Llm:CatalogRefreshHours`, `Llm:CatalogRefreshInitialDelayMinutes`)
 - **Enums:** `LlmRole`, `LlmStopReason`
 
 ### Infrastructure (`Infrastructure/Services/LLM/`)
@@ -24,6 +24,9 @@ You are a domain expert for the **AI Assistant & LLM** stream of a Discord bot m
 - `OpenRouter/OpenRouterLlmClient` — OpenRouter API client (owned typed `HttpClient`, no SDK)
 - `OpenRouter/OpenRouterMessageMapper` — Internal DTOs ↔ OpenRouter (OpenAI-compatible) format
 - `OpenRouter/ChatCompletionRequest`, `OpenRouter/ChatCompletionResponse` — Owned wire records
+- `LlmModelCatalogService` — Local model catalog: refresh (upsert by slug), filtered/sorted listing, enable/disable allowlist. Audited (`AuditLogCategory.Configuration`).
+- `OpenRouter/OpenRouterModelCatalogClient` — **Second, separate** typed `HttpClient` against OpenRouter's `GET /models` (not `OpenRouterLlmClient`, which only does chat completions); same auth/attribution headers, no retry loop
+- `Data/Repositories/LlmModelRepository` — `LlmModel` persistence (filtered query, enabled list, last-refresh, mark-unavailable)
 
 ### Tool Providers
 - `Providers/DocumentationToolProvider` — Maps 13 features to doc files
@@ -39,6 +42,9 @@ You are a domain expert for the **AI Assistant & LLM** stream of a Discord bot m
 - `Pages/Guilds/AssistantSettings.cshtml` — Per-guild config
 - `Pages/Guilds/AssistantMetrics.cshtml` — Usage metrics dashboard
 - **Repos:** `AssistantGuildSettingsRepository`, `AssistantInteractionLogRepository`, `AssistantUsageMetricsRepository`
+- `Controllers/LlmModelsController` — `api/admin/llm-models` (`RequireAdmin`): catalog list/filter, refresh, enable/disable (slug in the request body — OpenRouter slugs contain `/`), per-mode default resolution
+- `Services/LLM/LlmCatalogRefreshService` — `MonitoredBackgroundService`; periodic catalog refresh on `Llm:CatalogRefreshHours` (default 24h, `0` disables), first attempt delayed `Llm:CatalogRefreshInitialDelayMinutes` (default 5) after startup; registered only when `OpenRouter:ApiKey` is present
+- `Pages/Admin/Settings.cshtml` "AI Models" tab (`ai-models-settings`) — model catalog table + read-only per-mode defaults panel, rendered client-side by `wwwroot/js/llm-models.js` against `LlmModelsController`. It is a **custom panel**, not a `SettingCategory` — it does not go through `SettingsSectionService`/`FormSettings`
 
 ### Assistant Message Pipeline (`Infrastructure/Services/LLM/`)
 `AssistantService` (guild) and `DmAssistantService` (DM) share one message-handling
@@ -73,3 +79,5 @@ calculation, response truncation, or the agentic-loop invocation, change it once
 - **`provider.require_parameters` is sent whenever tools are present** — without it a slug can route to a provider with no native function calling, and the model then emits a tool-call-shaped string into the user-visible reply.
 - **Prompt caching is pass-through:** honoured for Claude-family slugs, silently ignored elsewhere (cached tokens read 0). A broken cache prefix still answers correctly, just at roughly 10x the input price — watch `CachedTokens` on the metrics page after changing prompt construction.
 - **Cost:** OpenRouter reports real billed `usage.cost`, which wins over the configured per-million rates; those rates are only a fallback for responses that report no cost.
+- **A catalog refresh never enables a model.** `LlmModelCatalogService.RefreshAsync` upserts descriptive fields and marks missing slugs `IsAvailable = false`, but `IsEnabled` (the admin allowlist) is only ever changed by an explicit `SetEnabledAsync` call — with exactly one exception: the very first refresh ever, on an empty table, bootstrap-enables the slugs the three modes (`Assistant:Sampling:Model`, `DmAssistant:Model`, `FeatureRequests:RequirementsGatheringModel`) were already configured to use, so upgrades keep working. Do not "helpfully" enable models on refresh when touching this service.
+- **Two separate OpenRouter HTTP clients.** `OpenRouterLlmClient` (chat completions) and `OpenRouterModelCatalogClient` (`GET /models`, the catalog) are independent owned typed `HttpClient`s with their own wire records — do not route catalog fetches through the chat client or vice versa.
