@@ -237,6 +237,10 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Property<long>("MessageId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<string>("Model")
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("OutputTokens")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("INTEGER")
@@ -771,6 +775,10 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Property<string>("Message")
                         .IsRequired()
                         .HasMaxLength(2000)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Model")
+                        .HasMaxLength(200)
                         .HasColumnType("TEXT");
 
                     b.Property<int>("OutputTokens")
@@ -1536,6 +1544,97 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasDatabaseName("IX_LlmModels_Vendor");
 
                     b.ToTable("LlmModels", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.LlmUsageRecord", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("CacheWriteTokens")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("CachedTokens")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("CostSource")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<decimal>("CostUsd")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("decimal(18,8)")
+                        .HasDefaultValue(0m);
+
+                    b.Property<long?>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("InputTokens")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<long?>("InteractionLogId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("LatencyMs")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("LlmCalls")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("Mode")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Model")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("OutputTokens")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<bool>("Success")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("ToolCalls")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0);
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId", "Timestamp")
+                        .HasDatabaseName("IX_LlmUsageRecords_GuildId_Timestamp");
+
+                    b.HasIndex("Mode", "Timestamp")
+                        .HasDatabaseName("IX_LlmUsageRecords_Mode_Timestamp");
+
+                    b.HasIndex("Model", "Timestamp")
+                        .HasDatabaseName("IX_LlmUsageRecords_Model_Timestamp");
+
+                    b.HasIndex("UserId", "Timestamp")
+                        .HasDatabaseName("IX_LlmUsageRecords_UserId_Timestamp");
+
+                    b.ToTable("LlmUsageRecords", (string)null);
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.MemberActivitySnapshot", b =>

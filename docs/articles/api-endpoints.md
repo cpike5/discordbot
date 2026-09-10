@@ -113,6 +113,8 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/admin/llm-models/refresh` | POST | Refresh the catalog from OpenRouter |
 | `/api/admin/llm-models/enabled` | PUT | Enable/disable one model (slug in the body) |
 | `/api/admin/llm-models/defaults` | GET | Effective per-mode default model and its source |
+| `/api/admin/llm-usage/summary` | GET | LLM usage totals + by-user/model/mode/day breakdowns over a date range |
+| `/api/admin/llm-usage/records` | GET | Paged raw LLM usage ledger rows (per-user drill-down) |
 | `/api/autocomplete/users` | GET | Search users by username |
 | `/api/autocomplete/guilds` | GET | Search guilds by name |
 | `/api/autocomplete/channels` | GET | Search channels by name within a guild |
@@ -5873,6 +5875,116 @@ whether that slug is known to the catalog and currently enabled/available.
 
 `source` is `"Db"` when a settings-page override is present, `"Config"` when the bound options value
 is used as-is.
+
+---
+
+### LLM Usage Ledger Endpoints
+
+Admin-only endpoints (`LlmUsageController`) over the `LlmUsageRecord` ledger — one row per user
+message across every `LlmMode` (guild assistant, DM assistant, feature requests). Backed by
+`ILlmUsageRepository`; powers `/Admin/LlmUsage` and the "Cost by User" table on
+`/guild/{guildId}/assistant-metrics`. Discord IDs are emitted as strings. Cost is a decimal USD
+amount.
+
+**Authorization:** `RequireAdmin` policy on every endpoint below.
+
+#### GET /api/admin/llm-usage/summary
+
+Totals plus by-user (top 25 by cost), by-model, by-mode and by-day breakdowns over a date range.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from` | datetime | Range start (inclusive). Defaults to `to` minus 30 days. |
+| `to` | datetime | Range end (inclusive). Defaults to now (UTC). |
+| `guildId` | ulong | Restrict to one guild; omitted = portal-wide |
+| `mode` | string | `GuildAssistant`, `DmAssistant`, or `FeatureRequests` |
+
+The range is rejected with **400 Bad Request** when `to` is earlier than `from`, or the span exceeds
+366 days.
+
+**Response: 200 OK**
+
+```json
+{
+  "totals": {
+    "messageCount": 512,
+    "inputTokens": 812000,
+    "outputTokens": 96000,
+    "cachedTokens": 340000,
+    "cacheWriteTokens": 12000,
+    "costUsd": 4.8231,
+    "billedCostShare": 0.94,
+    "failedCount": 3,
+    "averageLatencyMs": 1180.4
+  },
+  "byUser": [
+    { "userId": "123456789012345678", "displayName": "SomeUser", "avatarUrl": "https://...", "messageCount": 40, "inputTokens": 60000, "outputTokens": 8000, "cachedTokens": 25000, "costUsd": 0.42, "costShare": 0.09 }
+  ],
+  "byModel": [
+    { "model": "anthropic/claude-sonnet-4.6", "messageCount": 480, "inputTokens": 790000, "outputTokens": 90000, "costUsd": 4.5 }
+  ],
+  "byMode": [
+    { "mode": "GuildAssistant", "messageCount": 400, "inputTokens": 700000, "outputTokens": 80000, "costUsd": 4.0 }
+  ],
+  "byDay": [
+    { "day": "2026-09-01T00:00:00Z", "messageCount": 20, "inputTokens": 30000, "outputTokens": 3500, "costUsd": 0.18 }
+  ],
+  "from": "2026-08-11T00:00:00Z",
+  "to": "2026-09-10T00:00:00Z"
+}
+```
+
+`byUser[].displayName` is resolved via `IDiscordUserResolver`; a user the resolver cannot find falls
+back to `"Unknown#{id}"`.
+
+---
+
+#### GET /api/admin/llm-usage/records
+
+Paged raw ledger rows, newest first — backs the per-user drill-down panel on `/Admin/LlmUsage`.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from`, `to`, `guildId`, `mode` | | Same as the summary endpoint above |
+| `userId` | ulong | Restrict to one user |
+| `page` | int | 1-based page number (default 1) |
+| `pageSize` | int | Rows per page (default 50, capped at 200) |
+
+**Response: 200 OK**
+
+```json
+{
+  "records": [
+    {
+      "id": 42,
+      "timestamp": "2026-09-05T14:03:11Z",
+      "mode": "GuildAssistant",
+      "userId": "123456789012345678",
+      "displayName": "SomeUser",
+      "guildId": "998877665544332211",
+      "model": "anthropic/claude-sonnet-4.6",
+      "inputTokens": 1500,
+      "outputTokens": 220,
+      "cachedTokens": 800,
+      "cacheWriteTokens": 0,
+      "llmCalls": 1,
+      "toolCalls": 0,
+      "costUsd": 0.021,
+      "costSource": "Billed",
+      "latencyMs": 1420,
+      "success": true,
+      "interactionLogId": 9001
+    }
+  ],
+  "totalCount": 137,
+  "page": 1,
+  "pageSize": 50
+}
+```
 
 ---
 

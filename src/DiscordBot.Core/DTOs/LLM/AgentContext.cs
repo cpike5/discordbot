@@ -1,3 +1,4 @@
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
 
 namespace DiscordBot.Core.DTOs.LLM;
@@ -51,4 +52,11 @@ public class AgentContext
     /// Null = default behavior (guild assistant unaffected).
     /// </summary>
     public List<LlmMessage>? ConversationHistory { get; set; }
+
+    /// <summary>
+    /// Which of the three model-resolution modes this run belongs to. Used by the usage ledger
+    /// (<c>LlmUsageRecord.Mode</c>) to attribute the run. Defaults to <see cref="LlmMode.GuildAssistant"/>
+    /// so existing direct-construction call sites keep compiling unchanged.
+    /// </summary>
+    public LlmMode Mode { get; set; } = LlmMode.GuildAssistant;
 }

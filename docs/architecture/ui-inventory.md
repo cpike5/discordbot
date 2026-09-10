@@ -55,6 +55,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/admin/bulk-purge` | `Pages/Admin/BulkPurge.cshtml` | Bulk user/data purge tool |
 | `/admin/user-purge` | `Pages/Admin/UserPurge.cshtml` | User purge utility |
 | `/admin/ratwatch-analytics` | `Pages/Admin/RatWatchAnalytics.cshtml` | RatWatch analytics dashboard |
+| `/admin/llm-usage` | `Pages/Admin/LlmUsage.cshtml` | Portal-wide LLM token/cost usage dashboard — date-range/guild/mode filters, hero totals, breakdowns by user/model/mode/day (rendered server-side from `ILlmUsageRepository`), and a per-user drill-down of raw ledger rows fetched client-side (`wwwroot/js/llm-usage.js`) from `LlmUsageController` (`api/admin/llm-usage/records`). Sidebar entry "LLM Usage" in the Administration group. |
 
 ### Guild Pages (Per-Server Management)
 
@@ -78,7 +79,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/guild/{guildId}/flagged-events/{id}` | `Pages/Guilds/FlaggedEvents/Details.cshtml` | Flagged event details |
 | `/guild/{guildId}/ratwatch` | `Pages/Guilds/RatWatch/Index.cshtml` | RatWatch monitoring |
 | `/guild/{guildId}/assistant-settings` | `Pages/Guilds/AssistantSettings.cshtml` | AI assistant configuration |
-| `/guild/{guildId}/assistant-metrics` | `Pages/Guilds/AssistantMetrics.cshtml` | Assistant usage metrics |
+| `/guild/{guildId}/assistant-metrics` | `Pages/Guilds/AssistantMetrics.cshtml` | Assistant usage metrics (daily `AssistantUsageMetrics` aggregates) plus a **Cost by User** table sourced from the `LlmUsageRecord` ledger via `ILlmUsageRepository` (injected directly into `AssistantMetricsModel`, top 20 spenders over the same 30-day window, filtered by guild). The page lists no recent-interaction rows, so there is no `Model` column to add here. |
 | `/guild/{guildId}/soundboard` | `Pages/Guilds/Soundboard/Index.cshtml` | Soundboard management |
 | `/guild/{guildId}/audio-settings` | `Pages/Guilds/AudioSettings/Index.cshtml` | Audio feature settings |
 | `/guild/{guildId}/text-to-speech` | `Pages/Guilds/TextToSpeech/Index.cshtml` | TTS configuration |
@@ -386,7 +387,8 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 │   ├── Notifications
 │   ├── BulkPurge
 │   ├── UserPurge
-│   └── RatWatchAnalytics
+│   ├── RatWatchAnalytics
+│   └── LlmUsage
 │
 ├── Guild/{guildId} (per-server pages)
 │   ├── Index

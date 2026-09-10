@@ -85,6 +85,8 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
     public DbSet<NotXGuildSettings> NotXGuildSettings => Set<NotXGuildSettings>();
     public DbSet<LlmModel> LlmModels => Set<LlmModel>();
 
+    public DbSet<LlmUsageRecord> LlmUsageRecords => Set<LlmUsageRecord>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // IMPORTANT: Call base first to configure Identity tables

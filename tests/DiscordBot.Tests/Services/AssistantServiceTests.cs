@@ -41,6 +41,7 @@ public class AssistantServiceTests
     private readonly Mock<IAssistantInteractionLogRepository> _mockInteractionLogRepository;
     private readonly Mock<ISettingsService> _mockSettingsService;
     private readonly Mock<ILlmModelResolver> _mockModelResolver;
+    private readonly Mock<ILlmUsageRecorder> _mockUsageRecorder;
     private readonly IMemoryCache _cache;
     private readonly AssistantOptions _options;
     private readonly AssistantService _service;
@@ -73,6 +74,7 @@ public class AssistantServiceTests
                 Source = LlmModelResolutionSource.Configuration,
                 ConfiguredSlug = "anthropic/claude-sonnet-4"
             });
+        _mockUsageRecorder = new Mock<ILlmUsageRecorder>();
         _cache = new MemoryCache(new MemoryCacheOptions());
 
         _options = new AssistantOptions
@@ -161,7 +163,8 @@ public class AssistantServiceTests
             _mockInteractionLogRepository.Object,
             _mockModelResolver.Object,
             Mock.Of<ILogger<GuildAssistantContext>>(),
-            options);
+            options,
+            Mock.Of<ILlmUsageRecorder>());
         var telemetryReader = new AssistantTelemetryReader(
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object);
@@ -173,7 +176,8 @@ public class AssistantServiceTests
             accessGate,
             contextFactory,
             telemetryReader,
-            options);
+            options,
+            _mockUsageRecorder.Object);
     }
 
     #region AskQuestionAsync Tests
@@ -463,6 +467,59 @@ public class AssistantServiceTests
         // Assert
         result.Success.Should().BeFalse();
         result.ErrorMessage.Should().Be("LLM API error");
+    }
+
+    [Fact]
+    public async Task AskQuestionAsync_WhenAgentRunnerThrows_RecordsFailedUsageLedgerRow()
+    {
+        // Arrange
+        SetupAllChecksPass();
+        _mockGuildSettingsService
+            .Setup(s => s.GetRateLimitAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(100);
+
+        _mockAgentRunner
+            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("provider unavailable"));
+
+        // Act
+        var result = await _service.AskQuestionAsync(
+            TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
+
+        // Assert
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Be(_options.Messages.ErrorMessage);
+
+        _mockUsageRecorder.Verify(r => r.Record(It.Is<LlmUsageRecord>(u =>
+            u.Mode == LlmMode.GuildAssistant &&
+            u.UserId == TestUserId &&
+            u.GuildId == TestGuildId &&
+            u.Model == "anthropic/claude-sonnet-4" &&
+            u.Success == false &&
+            u.CostSource == LlmCostSource.Estimated &&
+            u.CostUsd == 0m)), Times.Once);
+    }
+
+    [Fact]
+    public async Task AskQuestionAsync_WhenExceptionHappensBeforeContextExists_RecordsFailedUsageLedgerRow_WithUnknownModel()
+    {
+        // The exception must be raised before GuildAssistantContextFactory.CreateAsync runs, so the
+        // catch block has no context to read Model/Mode from and must fall back safely.
+        _mockGuildSettingsService
+            .Setup(s => s.IsEnabledAsync(TestGuildId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("settings lookup failed"));
+
+        var result = await _service.AskQuestionAsync(
+            TestGuildId, TestChannelId, TestUserId, TestMessageId, TestQuestion);
+
+        result.Success.Should().BeFalse();
+
+        _mockUsageRecorder.Verify(r => r.Record(It.Is<LlmUsageRecord>(u =>
+            u.Mode == LlmMode.GuildAssistant &&
+            u.UserId == TestUserId &&
+            u.GuildId == TestGuildId &&
+            u.Model == "unknown" &&
+            u.Success == false)), Times.Once);
     }
 
     #endregion

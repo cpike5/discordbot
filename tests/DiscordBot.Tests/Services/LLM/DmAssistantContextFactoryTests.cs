@@ -38,7 +38,8 @@ public class DmAssistantContextFactoryTests
             Mock.Of<IDmAssistantUsageMetricsRepository>(),
             new MemoryCache(new MemoryCacheOptions()),
             modelResolver,
-            Options.Create(options ?? new DmAssistantOptions()));
+            Options.Create(options ?? new DmAssistantOptions()),
+            Mock.Of<ILlmUsageRecorder>());
     }
 
     [Fact]

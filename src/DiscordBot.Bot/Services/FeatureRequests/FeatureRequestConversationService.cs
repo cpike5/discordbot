@@ -1,9 +1,12 @@
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Configuration.Assistant;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.DTOs.LLM.Enums;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
@@ -198,64 +201,175 @@ public class FeatureRequestConversationService
         FeatureRequestConversationState state)
     {
         using var scope = _scopeFactory.CreateScope();
+        var usageRecorder = scope.ServiceProvider.GetRequiredService<ILlmUsageRecorder>();
+        var stopwatch = Stopwatch.StartNew();
+        var requestedModel = "unknown";
 
-        var agentRunner = scope.ServiceProvider.GetRequiredService<IAgentRunner>();
-        var toolProvider = scope.ServiceProvider.GetRequiredService<FeatureRequestToolProvider>();
-        var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
-        var modelResolver = scope.ServiceProvider.GetRequiredService<ILlmModelResolver>();
-
-        var resolvedModel = await modelResolver.ResolveAsync(LlmMode.FeatureRequests);
-
-        // Build a local ToolRegistry with just the feature request tool
-        var registry = new ToolRegistry(
-            loggerFactory.CreateLogger<ToolRegistry>(),
-            new IToolProvider[] { toolProvider });
-
-        var context = new AgentContext
+        try
         {
-            SystemPrompt = _systemPrompt,
-            ToolRegistry = registry,
-            ExecutionContext = new ToolContext
+            var agentRunner = scope.ServiceProvider.GetRequiredService<IAgentRunner>();
+            var toolProvider = scope.ServiceProvider.GetRequiredService<FeatureRequestToolProvider>();
+            var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+            var modelResolver = scope.ServiceProvider.GetRequiredService<ILlmModelResolver>();
+            var assistantOptions = scope.ServiceProvider.GetRequiredService<IOptions<AssistantOptions>>().Value;
+
+            var resolvedModel = await modelResolver.ResolveAsync(LlmMode.FeatureRequests);
+            requestedModel = resolvedModel.Slug;
+
+            // Build a local ToolRegistry with just the feature request tool
+            var registry = new ToolRegistry(
+                loggerFactory.CreateLogger<ToolRegistry>(),
+                new IToolProvider[] { toolProvider });
+
+            var context = new AgentContext
             {
+                SystemPrompt = _systemPrompt,
+                ToolRegistry = registry,
+                ExecutionContext = new ToolContext
+                {
+                    UserId = userId,
+                    GuildId = guildId
+                },
+                ConversationHistory = state.ConversationHistory.Count > 0
+                    ? new List<LlmMessage>(state.ConversationHistory)
+                    : null,
+                Model = resolvedModel.Slug,
+                MaxTokens = 1024,
+                Temperature = 0.7,
+                MaxToolCallIterations = 2,
+                Mode = LlmMode.FeatureRequests
+            };
+
+            var result = await agentRunner.RunAsync(userMessage, context);
+            stopwatch.Stop();
+
+            RecordUsage(result, userId, guildId, resolvedModel, assistantOptions.Cost, (int)stopwatch.ElapsedMilliseconds, usageRecorder);
+
+            // Check if the submit tool was called by looking for it in the result
+            var wasSubmitted = result.TotalToolCalls > 0;
+
+            var response = !string.IsNullOrWhiteSpace(result.Response)
+                ? result.Response
+                : wasSubmitted
+                    ? "Your feature request has been submitted! An admin will review it soon."
+                    : "Could you tell me more about that?";
+
+            // Update conversation history in state
+            state.ConversationHistory.Add(new LlmMessage
+            {
+                Role = LlmRole.User,
+                Content = userMessage
+            });
+            state.ConversationHistory.Add(new LlmMessage
+            {
+                Role = LlmRole.Assistant,
+                Content = response
+            });
+
+            if (wasSubmitted)
+                state.IsComplete = true;
+
+            return (response, wasSubmitted);
+        }
+        catch (Exception)
+        {
+            // A provider error inside agentRunner.RunAsync itself is already caught by AgentRunner
+            // and comes back as a normal Success=false AgentRunResult (recorded above via
+            // RecordUsage) - this catches everything else that can fail before that point (model
+            // resolution, tool registry construction, scope resolution), which would otherwise leave
+            // this turn with no ledger row at all. Rethrown so the caller's own handling (the
+            // user-facing "something went wrong" message) is unchanged.
+            stopwatch.Stop();
+            RecordFailedUsage(usageRecorder, userId, guildId, requestedModel, (int)stopwatch.ElapsedMilliseconds);
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Best-effort ledger row for a feature-request turn that failed before <see cref="RecordUsage"/>
+    /// could run. Never throws - a telemetry failure must not mask the original error.
+    /// </summary>
+    private void RecordFailedUsage(ILlmUsageRecorder usageRecorder, ulong userId, ulong guildId, string model, int latencyMs)
+    {
+        try
+        {
+            usageRecorder.Record(new LlmUsageRecord
+            {
+                Timestamp = DateTime.UtcNow,
+                Mode = LlmMode.FeatureRequests,
                 UserId = userId,
-                GuildId = guildId
-            },
-            ConversationHistory = state.ConversationHistory.Count > 0
-                ? new List<LlmMessage>(state.ConversationHistory)
-                : null,
-            Model = resolvedModel.Slug,
-            MaxTokens = 1024,
-            Temperature = 0.7,
-            MaxToolCallIterations = 2
-        };
-
-        var result = await agentRunner.RunAsync(userMessage, context);
-
-        // Check if the submit tool was called by looking for it in the result
-        var wasSubmitted = result.TotalToolCalls > 0;
-
-        var response = !string.IsNullOrWhiteSpace(result.Response)
-            ? result.Response
-            : wasSubmitted
-                ? "Your feature request has been submitted! An admin will review it soon."
-                : "Could you tell me more about that?";
-
-        // Update conversation history in state
-        state.ConversationHistory.Add(new LlmMessage
+                GuildId = guildId,
+                Model = model,
+                CostUsd = 0m,
+                CostSource = LlmCostSource.Estimated,
+                LatencyMs = latencyMs,
+                Success = false,
+                InteractionLogId = null
+            });
+        }
+        catch (Exception ex)
         {
-            Role = LlmRole.User,
-            Content = userMessage
-        });
-        state.ConversationHistory.Add(new LlmMessage
+            _logger.LogError(ex, "Failed to record failed-usage ledger row for user {UserId} in guild {GuildId}", userId, guildId);
+        }
+    }
+
+    /// <summary>
+    /// Builds and enqueues the ledger row for one feature-request agent turn. Cost follows the same
+    /// billed-else-estimated rule as the guild/DM assistants: <c>TotalUsage.EstimatedCost</c> (what
+    /// OpenRouter actually billed) wins when present; otherwise the resolved model's catalog
+    /// pricing is used per-field, falling back to the guild assistant's configured per-million
+    /// rates (<see cref="AssistantCostOptions"/>) for any price the catalog didn't report. Feature
+    /// requests have no cost options of their own, and the guild assistant's rates are the closest
+    /// existing fallback.
+    /// </summary>
+    private void RecordUsage(
+        AgentRunResult result,
+        ulong userId,
+        ulong guildId,
+        LlmResolvedModel resolvedModel,
+        AssistantCostOptions costRates,
+        int latencyMs,
+        ILlmUsageRecorder usageRecorder)
+    {
+        var usage = result.TotalUsage;
+        LlmCostSource costSource;
+        decimal cost;
+
+        if (usage.EstimatedCost.HasValue)
         {
-            Role = LlmRole.Assistant,
-            Content = response
+            costSource = LlmCostSource.Billed;
+            cost = usage.EstimatedCost.Value;
+        }
+        else
+        {
+            costSource = LlmCostSource.Estimated;
+            var pricing = resolvedModel.Pricing;
+            cost =
+                usage.InputTokens * (pricing?.PromptPricePerMillion ?? costRates.CostPerMillionInputTokens) / 1_000_000m +
+                usage.OutputTokens * (pricing?.CompletionPricePerMillion ?? costRates.CostPerMillionOutputTokens) / 1_000_000m +
+                usage.CachedTokens * (pricing?.CacheReadPricePerMillion ?? costRates.CostPerMillionCachedTokens) / 1_000_000m +
+                usage.CacheWriteTokens * (pricing?.CacheWritePricePerMillion ?? costRates.CostPerMillionCacheWriteTokens) / 1_000_000m;
+        }
+
+        usageRecorder.Record(new LlmUsageRecord
+        {
+            Timestamp = DateTime.UtcNow,
+            Mode = LlmMode.FeatureRequests,
+            UserId = userId,
+            GuildId = guildId,
+            Model = result.Model ?? resolvedModel.Slug,
+            InputTokens = usage.InputTokens,
+            OutputTokens = usage.OutputTokens,
+            CachedTokens = usage.CachedTokens,
+            CacheWriteTokens = usage.CacheWriteTokens,
+            LlmCalls = result.LoopCount,
+            ToolCalls = result.TotalToolCalls,
+            CostUsd = cost,
+            CostSource = costSource,
+            LatencyMs = latencyMs,
+            Success = result.Success,
+            InteractionLogId = null
         });
-
-        if (wasSubmitted)
-            state.IsComplete = true;
-
-        return (response, wasSubmitted);
     }
 
     private void CleanupSession(ulong userId)

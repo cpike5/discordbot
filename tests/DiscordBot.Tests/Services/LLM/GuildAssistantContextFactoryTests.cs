@@ -34,7 +34,8 @@ public class GuildAssistantContextFactoryTests
             Mock.Of<IAssistantInteractionLogRepository>(),
             modelResolver,
             Mock.Of<ILogger<GuildAssistantContext>>(),
-            Options.Create(options ?? new AssistantOptions()));
+            Options.Create(options ?? new AssistantOptions()),
+            Mock.Of<ILlmUsageRecorder>());
     }
 
     [Fact]

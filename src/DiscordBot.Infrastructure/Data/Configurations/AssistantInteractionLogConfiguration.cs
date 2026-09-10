@@ -51,6 +51,9 @@ public class AssistantInteractionLogConfiguration : IEntityTypeConfiguration<Ass
         builder.Property(l => l.ErrorMessage)
             .HasMaxLength(1000);
 
+        builder.Property(l => l.Model)
+            .HasMaxLength(200);
+
         // Integer properties with defaults
         builder.Property(l => l.InputTokens)
             .IsRequired()

@@ -193,6 +193,7 @@ public static class OpenRouterMessageMapper
                 // OpenRouter reports what it actually billed; null means "not reported", never free.
                 EstimatedCost = usage?.Cost,
             },
+            Model = response.Model,
         };
     }
 

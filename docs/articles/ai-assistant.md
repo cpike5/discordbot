@@ -178,12 +178,50 @@ If you ask about private data, the assistant will politely decline and suggest c
   - Success/failure rate
 
 - **Chart (Optional):** Visualization of costs over time
+- **Cost by User:** Top 20 spenders in this guild over the same 30-day window, sourced from the LLM
+  usage ledger (see below) rather than the daily aggregates above, since those carry no per-user
+  breakdown
 
 **Use Cases:**
 - Monitor usage trends
 - Track API costs against budget
 - Identify peak usage periods
 - Optimize caching strategy based on cache hit rates
+
+### LLM Usage and Cost Ledger
+
+Every user message sent through the guild assistant, the DM (owner) assistant, or a feature-request
+conversation writes one row to the `LlmUsageRecord` ledger — tokens, cost, latency, success, and
+which model actually answered. No message text is stored there; the existing per-mode interaction
+logs keep that.
+
+**Billed vs. estimated.** `CostSource` on each row is `Billed` when OpenRouter reported a real cost
+(`usage.cost`) for that call, or `Estimated` when the fallback per-million rates were used instead
+(see [Cost Monitoring](#cost-monitoring) above). The usage dashboard's "Billed Share" figure is the
+fraction of total cost that came from billed rows — a low share means most of what you're seeing is
+an estimate, not OpenRouter's own number.
+
+**Where to look:**
+
+- **`/Admin/LlmUsage`** (`RequireAdmin`) — the portal-wide dashboard: a date-range filter (default
+  last 30 days, max 366) with optional guild and mode filters, hero totals (messages, tokens, cost,
+  billed share, failed count, average latency), and tables broken down by user, model, mode, and
+  day. Clicking a row in the "Cost by User" table opens a drill-down panel of that user's individual
+  messages (model, mode, tokens, cost with its source badge, latency, success), paged via
+  `GET api/admin/llm-usage/records`.
+- **`/guild/{guildId}/assistant-metrics`** — the same ledger, filtered to one guild, as the "Cost by
+  User" table described above.
+- **`GET api/admin/llm-usage/summary`** / **`GET api/admin/llm-usage/records`** (`LlmUsageController`,
+  `RequireAdmin`) — the API behind both pages; see `docs/articles/api-endpoints.md` for the full
+  request/response shape.
+
+**Retention and GDPR.** `AssistantInteractionLogRetentionService` sweeps daily
+(`Llm:RetentionSweepIntervalHours`, default 24h) and deletes ledger rows on the same
+`Assistant:Privacy:InteractionLogRetentionDays` window (default 90 days) as the guild interaction
+logs — no separate retention setting for the ledger. DM interaction logs are swept too, on
+`DmAssistant:InteractionLogRetentionDays`. Before this service existed, none of these tables had
+any cleanup at all. A user purge or data export includes their `LlmUsageRecords`, guild
+`AssistantInteractionLogs`, and DM `DmAssistantInteractionLogs` alongside the rest of their data.
 
 ---
 

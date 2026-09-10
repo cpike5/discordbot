@@ -1,4 +1,5 @@
 using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Core.Interfaces.LLM;
 
@@ -34,6 +35,10 @@ public interface IAssistantContext
     int RateLimitWindowMinutes { get; }
 
     string? Model { get; }
+
+    /// <summary>Which <see cref="LlmMode"/> this context belongs to, for the usage ledger.</summary>
+    LlmMode Mode { get; }
+
     int MaxTokens { get; }
     double Temperature { get; }
     int MaxToolCallIterations { get; }

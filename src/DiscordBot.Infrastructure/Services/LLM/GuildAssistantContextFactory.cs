@@ -18,6 +18,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
     private readonly ILlmModelResolver _modelResolver;
     private readonly ILogger<GuildAssistantContext> _logger;
     private readonly AssistantOptions _options;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
     public GuildAssistantContextFactory(
         IGuildService guildService,
@@ -27,7 +28,8 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         IAssistantInteractionLogRepository interactionLogRepository,
         ILlmModelResolver modelResolver,
         ILogger<GuildAssistantContext> logger,
-        IOptions<AssistantOptions> options)
+        IOptions<AssistantOptions> options,
+        ILlmUsageRecorder usageRecorder)
     {
         _guildService = guildService ?? throw new ArgumentNullException(nameof(guildService));
         _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
@@ -37,6 +39,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
     }
 
     /// <inheritdoc />
@@ -66,6 +69,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             _options,
             _logger,
             resolved.Slug,
-            resolved.Pricing);
+            resolved.Pricing,
+            _usageRecorder);
     }
 }

@@ -102,6 +102,8 @@ public class UserDataExportService : IUserDataExportService
                 await ExportWatchlistsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportSoundPlayLogsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportTtsMessagesAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportLlmUsageRecordsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportAssistantInteractionsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportGuildMembersAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportUserConsentsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportUserProfileAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
@@ -524,6 +526,104 @@ public class UserDataExportService : IUserDataExportService
         }
     }
 
+    private async Task ExportLlmUsageRecordsAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        var data = await _dbContext.LlmUsageRecords
+            .Where(r => r.UserId == userId)
+            .Select(r => new
+            {
+                r.Id,
+                r.Timestamp,
+                Mode = r.Mode.ToString(),
+                r.UserId,
+                r.GuildId,
+                r.Model,
+                r.InputTokens,
+                r.OutputTokens,
+                r.CachedTokens,
+                r.CacheWriteTokens,
+                r.LlmCalls,
+                r.ToolCalls,
+                r.CostUsd,
+                CostSource = r.CostSource.ToString(),
+                r.LatencyMs,
+                r.Success
+            })
+            .ToListAsync(ct);
+
+        counts["LlmUsageRecords"] = data.Count;
+        if (data.Count > 0)
+        {
+            await WriteJsonFileAsync(exportPath, "llm_usage_records.json", data);
+        }
+    }
+
+    private async Task ExportAssistantInteractionsAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        // Guild assistant interaction logs. Question/response text is included - it is the
+        // user's own data, and GDPR Article 15 covers it.
+        var guildData = await _dbContext.AssistantInteractionLogs
+            .Where(l => l.UserId == userId)
+            .Select(l => new
+            {
+                l.Id,
+                l.Timestamp,
+                l.GuildId,
+                l.ChannelId,
+                l.MessageId,
+                l.Question,
+                l.Response,
+                l.InputTokens,
+                l.OutputTokens,
+                l.CachedTokens,
+                l.CacheCreationTokens,
+                l.CacheHit,
+                l.ToolCalls,
+                l.LatencyMs,
+                l.Success,
+                l.ErrorMessage,
+                l.EstimatedCostUsd,
+                l.Model
+            })
+            .ToListAsync(ct);
+
+        counts["AssistantInteractionLogs"] = guildData.Count;
+        if (guildData.Count > 0)
+        {
+            await WriteJsonFileAsync(exportPath, "assistant_interaction_logs.json", guildData);
+        }
+
+        // DM assistant interaction logs.
+        var dmData = await _dbContext.DmAssistantInteractionLogs
+            .Where(l => l.UserId == userId)
+            .Select(l => new
+            {
+                l.Id,
+                l.Timestamp,
+                l.IsOwner,
+                l.Message,
+                l.Response,
+                l.InputTokens,
+                l.OutputTokens,
+                l.CachedTokens,
+                l.ToolCalls,
+                l.ToolNames,
+                l.LoopCount,
+                l.LatencyMs,
+                l.Success,
+                l.ErrorMessage,
+                l.EstimatedCostUsd,
+                l.Model
+            })
+            .ToListAsync(ct);
+
+        counts["DmAssistantInteractionLogs"] = dmData.Count;
+        if (dmData.Count > 0)
+        {
+            await WriteJsonFileAsync(exportPath, "dm_assistant_interaction_logs.json", dmData);
+        }
+    }
+
     private async Task ExportGuildMembersAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
     {
         var data = await _dbContext.GuildMembers
@@ -595,8 +695,12 @@ public class UserDataExportService : IUserDataExportService
 
     private async Task ExportApplicationUserAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
     {
-        var applicationUser = await _dbContext.Users
-            .OfType<Core.Entities.ApplicationUser>()
+        // Not _dbContext.Users.OfType<ApplicationUser>(): BotDbContext.Users is `new DbSet<User>`
+        // (the bot's own User entity, unrelated to ApplicationUser/IdentityUser), so OfType<> here
+        // filtered an unrelated hierarchy and could never translate on the relational SQLite
+        // provider (always threw). Set<ApplicationUser>() - the same pattern UserPurgeService
+        // already uses - queries the actual Identity table.
+        var applicationUser = await _dbContext.Set<Core.Entities.ApplicationUser>()
             .Where(u => u.DiscordUserId == userId)
             .Select(u => new
             {
@@ -716,6 +820,9 @@ public class UserDataExportService : IUserDataExportService
         sb.AppendLine("- `watchlists.json` - Watchlist entries for you (if any)");
         sb.AppendLine("- `sound_play_logs.json` - Soundboard usage history (if any)");
         sb.AppendLine("- `tts_messages.json` - Text-to-speech messages (if any)");
+        sb.AppendLine("- `llm_usage_records.json` - AI assistant usage ledger: tokens, cost, and model per message (if any)");
+        sb.AppendLine("- `assistant_interaction_logs.json` - Your guild AI assistant questions and responses (if any)");
+        sb.AppendLine("- `dm_assistant_interaction_logs.json` - Your DM AI assistant messages and responses (if any)");
         sb.AppendLine("- `guild_members.json` - Your guild membership information (if any)");
         sb.AppendLine("- `consents.json` - Your consent preferences (if any)");
         sb.AppendLine("- `application_user.json` - Your admin account data (if linked)");
@@ -750,6 +857,9 @@ public class UserDataExportService : IUserDataExportService
             "Watchlists" => "Watchlist Entries",
             "SoundPlayLogs" => "Soundboard History",
             "TtsMessages" => "TTS Messages",
+            "LlmUsageRecords" => "AI Assistant Usage Ledger",
+            "AssistantInteractionLogs" => "AI Assistant Interactions (Guild)",
+            "DmAssistantInteractionLogs" => "AI Assistant Interactions (DM)",
             "GuildMembers" => "Guild Memberships",
             "UserConsents" => "Consent Records",
             "Users" => "User Profile",

@@ -1,5 +1,7 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Services;
@@ -24,6 +26,7 @@ public class DmAssistantServiceTests
     private readonly Mock<IBotOwnerResolver> _mockOwnerResolver;
     private readonly Mock<IDmAssistantContextFactory> _mockContextFactory;
     private readonly Mock<IAssistantContext> _mockContext;
+    private readonly Mock<ILlmUsageRecorder> _mockUsageRecorder;
     private readonly DmAssistantOptions _options;
     private readonly DmAssistantService _service;
 
@@ -34,6 +37,7 @@ public class DmAssistantServiceTests
         _mockOwnerResolver = new Mock<IBotOwnerResolver>();
         _mockContextFactory = new Mock<IDmAssistantContextFactory>();
         _mockContext = new Mock<IAssistantContext>();
+        _mockUsageRecorder = new Mock<ILlmUsageRecorder>();
 
         _options = new DmAssistantOptions
         {
@@ -59,7 +63,8 @@ public class DmAssistantServiceTests
             _mockPipeline.Object,
             _mockOwnerResolver.Object,
             _mockContextFactory.Object,
-            mockOptions.Object);
+            mockOptions.Object,
+            _mockUsageRecorder.Object);
     }
 
     [Fact]
@@ -159,6 +164,49 @@ public class DmAssistantServiceTests
         response.Success.Should().BeTrue();
         response.Response.Should().Be("Here is the answer.");
         recordedResult!.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task ProcessMessageAsync_WhenPipelineThrows_RecordsFailedUsageLedgerRow()
+    {
+        _mockContext.Setup(c => c.Mode).Returns(LlmMode.DmAssistant);
+        _mockContext.Setup(c => c.Model).Returns("anthropic/claude-sonnet-4");
+        _mockPipeline
+            .Setup(p => p.RunAsync(It.IsAny<string>(), _mockContext.Object, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("provider unavailable"));
+
+        var response = await _service.ProcessMessageAsync(OwnerId, "Hello?");
+
+        response.Success.Should().BeFalse();
+
+        _mockUsageRecorder.Verify(r => r.Record(It.Is<LlmUsageRecord>(u =>
+            u.Mode == LlmMode.DmAssistant &&
+            u.UserId == OwnerId &&
+            u.GuildId == null &&
+            u.Model == "anthropic/claude-sonnet-4" &&
+            u.Success == false &&
+            u.CostSource == LlmCostSource.Estimated &&
+            u.CostUsd == 0m)), Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessMessageAsync_WhenContextFactoryThrows_RecordsFailedUsageLedgerRow_WithUnknownModel()
+    {
+        // The exception happens before a context exists at all, so the fallback Mode/Model must be
+        // used rather than throwing a NullReferenceException from the catch block itself.
+        _mockContextFactory
+            .Setup(f => f.CreateAsync(OwnerId, null, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("failed to build context"));
+
+        var response = await _service.ProcessMessageAsync(OwnerId, "Hello?");
+
+        response.Success.Should().BeFalse();
+
+        _mockUsageRecorder.Verify(r => r.Record(It.Is<LlmUsageRecord>(u =>
+            u.Mode == LlmMode.DmAssistant &&
+            u.UserId == OwnerId &&
+            u.Model == "unknown" &&
+            u.Success == false)), Times.Once);
     }
 
     [Fact]

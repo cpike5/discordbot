@@ -1,3 +1,5 @@
+using DiscordBot.Core.Entities;
+
 namespace DiscordBot.Core.DTOs.LLM;
 
 /// <summary>
@@ -24,6 +26,17 @@ public class AssistantPipelineResult
 
     public int LatencyMs { get; set; }
     public decimal EstimatedCostUsd { get; set; }
+
+    /// <summary>The model that answered — <c>AgentRunResult.Model</c> when reported, else the requested slug.</summary>
+    public string? Model { get; set; }
+
+    /// <summary>
+    /// The ledger row built for this exchange, or null on an error path that never reached the
+    /// agent runner. <c>InteractionLogId</c> is unset here — the caller (<c>GuildAssistantContext</c>/
+    /// <c>DmAssistantContext</c>) fills it in after its own <c>AddAsync</c> and then hands the
+    /// record to <see cref="Interfaces.LLM.ILlmUsageRecorder"/>.
+    /// </summary>
+    public LlmUsageRecord? UsageRecord { get; set; }
 
     public static AssistantPipelineResult FromError(string errorMessage, int latencyMs = 0)
     {

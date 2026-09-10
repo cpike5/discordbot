@@ -78,6 +78,25 @@ public static class AssistantServiceExtensions
         // OpenRouter. Registered as a singleton (cheap, holds only a small per-mode cache) so it can
         // subscribe once to ISettingsService.SettingsChanged for cache invalidation.
         services.AddSingleton<ILlmModelResolver, LlmModelResolver>();
+
+        // Usage ledger: registered ungated (no API key needed to construct) so recording works
+        // whenever any assistant mode runs, and so the two context factories - registered below,
+        // inside the gated block - can always resolve ILlmUsageRecorder. LlmUsageRecorder is
+        // registered under its concrete type too because LlmUsageRecordProcessor needs the
+        // internal DequeueAsync/Count members the interface does not expose (same pattern would
+        // apply if AuditLogQueue's processor needed anything beyond IAuditLogQueue).
+        services.AddScoped<ILlmUsageRepository, LlmUsageRepository>();
+        services.AddSingleton<LlmUsageRecorder>();
+        services.AddSingleton<ILlmUsageRecorder>(sp => sp.GetRequiredService<LlmUsageRecorder>());
+        services.AddHostedService<LlmUsageRecordProcessor>();
+
+        // Retention sweep for guild/DM assistant interaction logs and the usage ledger - none of
+        // these were ever cleaned up before. Registered ungated: it only needs the repositories
+        // above and DmAssistantServiceExtensions' repository (resolved at runtime, not at
+        // registration time, so registration order here doesn't matter), no API key.
+        services.AddHostedService<DiscordBot.Bot.Services.LLM.AssistantInteractionLogRetentionService>();
+
+
         services.AddHttpClient<IOpenRouterModelCatalogClient, OpenRouterModelCatalogClient>((sp, http) =>
         {
             var options = sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value;

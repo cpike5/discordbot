@@ -51,9 +51,12 @@ public class UserPurgeServiceTests : IDisposable
         _userManagerMock = new Mock<UserManager<ApplicationUser>>(
             userStoreMock.Object, null!, null!, null!, null!, null!, null!, null!, null!);
 
-        // Set up Users property to return empty list (no linked ApplicationUser accounts)
+        // Set up Users property against the real (empty) DbContext set, not an in-memory
+        // List<T>.AsQueryable(): PurgeUserDataAsync calls FirstOrDefaultAsync on it, which needs a
+        // provider implementing IAsyncQueryProvider. The EF Core queryable satisfies that while
+        // still returning no rows, i.e. no linked ApplicationUser account.
         _userManagerMock.Setup(m => m.Users)
-            .Returns(new List<ApplicationUser>().AsQueryable());
+            .Returns(_context.Set<ApplicationUser>());
 
         // Set up GetRolesAsync to return empty list (no roles)
         _userManagerMock.Setup(m => m.GetRolesAsync(It.IsAny<ApplicationUser>()))
@@ -399,6 +402,195 @@ public class UserPurgeServiceTests : IDisposable
         // Assert
         result.Success.Should().BeTrue();
         result.DeletedCounts["MessageLogs"].Should().Be(1, "should only count target user's messages");
+    }
+
+    [Fact]
+    public async Task PreviewPurgeAsync_CountsLlmUsageRecords_Correctly()
+    {
+        // Arrange
+        var discordUserId = 678901234UL;
+        var user = new User { Id = discordUserId };
+        _context.Users.Add(user);
+
+        for (int i = 0; i < 4; i++)
+        {
+            _context.LlmUsageRecords.Add(new LlmUsageRecord
+            {
+                Timestamp = DateTime.UtcNow,
+                Mode = LlmMode.GuildAssistant,
+                UserId = discordUserId,
+                Model = "anthropic/claude-sonnet-4",
+                CostUsd = 0.01m,
+                CostSource = LlmCostSource.Billed
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.PreviewPurgeAsync(discordUserId);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.DeletedCounts.Should().ContainKey("LlmUsageRecords");
+        result.DeletedCounts["LlmUsageRecords"].Should().Be(4);
+    }
+
+    [Fact]
+    public async Task PreviewPurgeAsync_CountsAssistantInteractionLogs_Correctly()
+    {
+        // Arrange
+        var discordUserId = 789012345UL;
+        var guildId = 111111111UL;
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
+
+        var user = new User { Id = discordUserId };
+        _context.Users.Add(user);
+
+        for (int i = 0; i < 3; i++)
+        {
+            _context.AssistantInteractionLogs.Add(new AssistantInteractionLog
+            {
+                Timestamp = DateTime.UtcNow,
+                UserId = discordUserId,
+                GuildId = guildId,
+                ChannelId = 222222222UL,
+                MessageId = (ulong)(300000000 + i),
+                Question = $"Question {i}",
+                Response = $"Response {i}"
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.PreviewPurgeAsync(discordUserId);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.DeletedCounts.Should().ContainKey("AssistantInteractionLogs");
+        result.DeletedCounts["AssistantInteractionLogs"].Should().Be(3);
+    }
+
+    [Fact]
+    public async Task PreviewPurgeAsync_CountsDmAssistantInteractionLogs_Correctly()
+    {
+        // Arrange
+        var discordUserId = 890123456UL;
+        var user = new User { Id = discordUserId };
+        _context.Users.Add(user);
+
+        for (int i = 0; i < 2; i++)
+        {
+            _context.DmAssistantInteractionLogs.Add(new DmAssistantInteractionLog
+            {
+                Timestamp = DateTime.UtcNow,
+                UserId = discordUserId,
+                Message = $"Message {i}",
+                Response = $"Response {i}"
+            });
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.PreviewPurgeAsync(discordUserId);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.DeletedCounts.Should().ContainKey("DmAssistantInteractionLogs");
+        result.DeletedCounts["DmAssistantInteractionLogs"].Should().Be(2);
+    }
+
+    [Fact]
+    public async Task PreviewPurgeAsync_CountsDmAssistantUsageMetrics_Correctly()
+    {
+        // Arrange
+        var discordUserId = 901234567UL;
+        var user = new User { Id = discordUserId };
+        _context.Users.Add(user);
+
+        _context.DmAssistantUsageMetrics.Add(new DmAssistantUsageMetrics
+        {
+            UserId = discordUserId,
+            Date = DateTime.UtcNow.Date
+        });
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.PreviewPurgeAsync(discordUserId);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.DeletedCounts.Should().ContainKey("DmAssistantUsageMetrics");
+        result.DeletedCounts["DmAssistantUsageMetrics"].Should().Be(1);
+    }
+
+    [Fact]
+    public async Task PurgeUserDataAsync_DeletesAssistantData_Correctly()
+    {
+        // Arrange
+        var discordUserId = 912345678UL;
+        var guildId = 111111111UL;
+        var guild = new Guild { Id = guildId, Name = "Test Guild", JoinedAt = DateTime.UtcNow };
+        _context.Guilds.Add(guild);
+
+        var user = new User { Id = discordUserId };
+        _context.Users.Add(user);
+
+        _context.LlmUsageRecords.Add(new LlmUsageRecord
+        {
+            Timestamp = DateTime.UtcNow,
+            Mode = LlmMode.GuildAssistant,
+            UserId = discordUserId,
+            Model = "anthropic/claude-sonnet-4",
+            CostUsd = 0.01m,
+            CostSource = LlmCostSource.Billed
+        });
+
+        _context.AssistantInteractionLogs.Add(new AssistantInteractionLog
+        {
+            Timestamp = DateTime.UtcNow,
+            UserId = discordUserId,
+            GuildId = guildId,
+            ChannelId = 222222222UL,
+            MessageId = 300000000UL,
+            Question = "Question",
+            Response = "Response"
+        });
+
+        _context.DmAssistantInteractionLogs.Add(new DmAssistantInteractionLog
+        {
+            Timestamp = DateTime.UtcNow,
+            UserId = discordUserId,
+            Message = "Message",
+            Response = "Response"
+        });
+
+        _context.DmAssistantUsageMetrics.Add(new DmAssistantUsageMetrics
+        {
+            UserId = discordUserId,
+            Date = DateTime.UtcNow.Date
+        });
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.PurgeUserDataAsync(discordUserId, PurgeInitiator.User);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.DeletedCounts["LlmUsageRecords"].Should().Be(1);
+        result.DeletedCounts["AssistantInteractionLogs"].Should().Be(1);
+        result.DeletedCounts["DmAssistantInteractionLogs"].Should().Be(1);
+        result.DeletedCounts["DmAssistantUsageMetrics"].Should().Be(1);
+
+        (await _context.LlmUsageRecords.CountAsync(r => r.UserId == discordUserId)).Should().Be(0);
+        (await _context.AssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId)).Should().Be(0);
+        (await _context.DmAssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId)).Should().Be(0);
+        (await _context.DmAssistantUsageMetrics.CountAsync(m => m.UserId == discordUserId)).Should().Be(0);
     }
 
     #endregion

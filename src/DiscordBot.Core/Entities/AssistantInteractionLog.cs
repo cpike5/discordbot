@@ -98,6 +98,12 @@ public class AssistantInteractionLog
     public decimal EstimatedCostUsd { get; set; } = 0m;
 
     /// <summary>
+    /// OpenRouter slug that answered this interaction. Null for rows logged before this column
+    /// existed.
+    /// </summary>
+    public string? Model { get; set; }
+
+    /// <summary>
     /// Navigation property for the user.
     /// </summary>
     public User? User { get; set; }

@@ -2,6 +2,7 @@ using System.Diagnostics;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Services.LLM;
@@ -35,6 +36,7 @@ public class AssistantService : IAssistantService
     private readonly IAssistantAccessGate _accessGate;
     private readonly IGuildAssistantContextFactory _contextFactory;
     private readonly IAssistantTelemetryReader _telemetryReader;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly AssistantOptions _options;
 
     public AssistantService(
@@ -44,7 +46,8 @@ public class AssistantService : IAssistantService
         IAssistantAccessGate accessGate,
         IGuildAssistantContextFactory contextFactory,
         IAssistantTelemetryReader telemetryReader,
-        IOptions<AssistantOptions> options)
+        IOptions<AssistantOptions> options,
+        ILlmUsageRecorder? usageRecorder = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
@@ -53,6 +56,10 @@ public class AssistantService : IAssistantService
         _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         _telemetryReader = telemetryReader ?? throw new ArgumentNullException(nameof(telemetryReader));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        // Optional trailing parameter (default NoOpUsageRecorder), matching GuildAssistantContext's
+        // pattern, so tests constructing this service directly keep compiling unchanged. Production
+        // DI always supplies the real recorder - ILlmUsageRecorder is registered ungated.
+        _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
     }
 
     /// <inheritdoc />
@@ -65,6 +72,7 @@ public class AssistantService : IAssistantService
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
+        IAssistantContext? context = null;
 
         _logger.LogDebug(
             "Processing assistant question from user {UserId} in guild {GuildId}, channel {ChannelId}",
@@ -102,7 +110,7 @@ public class AssistantService : IAssistantService
             }
 
             var rateLimit = await _accessGate.GetRateLimitAsync(guildId, cancellationToken);
-            var context = await _contextFactory.CreateAsync(
+            context = await _contextFactory.CreateAsync(
                 guildId, channelId, userId, messageId, rateLimit, question, cancellationToken);
 
             var rateLimitResult = await _rateLimiter.CheckAsync(
@@ -173,7 +181,41 @@ public class AssistantService : IAssistantService
                 await _telemetryReader.IncrementFailedRequestAsync(guildId, cancellationToken);
             }
 
+            // An exception here (a provider error the agent loop didn't already turn into a
+            // Success=false AgentRunResult, or a failure before the pipeline even ran) would
+            // otherwise leave this exchange with no ledger row at all. Record what we know - zero
+            // tokens/cost if the pipeline never ran, the resolved model if context was built.
+            RecordFailedUsage(context, userId, guildId, (int)stopwatch.ElapsedMilliseconds);
+
             return AssistantResponseResult.ErrorResult(_options.Messages.ErrorMessage);
+        }
+    }
+
+    /// <summary>
+    /// Best-effort ledger row for an exchange that failed outside the normal pipeline path (see the
+    /// top-level catch in <see cref="AskQuestionAsync"/>). Never throws - a telemetry failure must
+    /// not mask the original error.
+    /// </summary>
+    private void RecordFailedUsage(IAssistantContext? context, ulong userId, ulong guildId, int latencyMs)
+    {
+        try
+        {
+            _usageRecorder.Record(new LlmUsageRecord
+            {
+                Timestamp = DateTime.UtcNow,
+                Mode = context?.Mode ?? LlmMode.GuildAssistant,
+                UserId = userId,
+                GuildId = guildId,
+                Model = context?.Model ?? "unknown",
+                CostUsd = 0m,
+                CostSource = LlmCostSource.Estimated,
+                LatencyMs = latencyMs,
+                Success = false
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to record failed-usage ledger row for user {UserId} in guild {GuildId}", userId, guildId);
         }
     }
 

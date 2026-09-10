@@ -648,6 +648,25 @@ restart.
 
 ---
 
+### LLM Usage Ledger
+
+Per-message token/cost tracking across every `LlmMode`, with portal-wide and per-guild cost
+breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-plan.md` ("Design >
+3", "Delivery > PR 3") for the full design.
+
+| Aspect | Components |
+|--------|------------|
+| **Database Entity** | `LlmUsageRecord` (table `LlmUsageRecords`) — one row per user message: `Timestamp`, `Mode`, `UserId`, `GuildId?`, `Model`, `InputTokens`/`OutputTokens`/`CachedTokens`/`CacheWriteTokens`, `LlmCalls`, `ToolCalls`, `CostUsd`, `CostSource` (`Billed`/`Estimated`), `LatencyMs`, `Success`, `InteractionLogId?`. No message text is stored — the per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`, both now carrying a nullable `Model` column) keep that. |
+| **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` and `FeatureRequestConversationService` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
+| **Repository** | `ILlmUsageRepository` / `LlmUsageRepository` (`Infrastructure/Data/Repositories`) — `GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync` (all grouped over `LlmUsageQuery`: date range + optional guild/mode/user), `GetRecordsAsync` (paged raw rows), plus `AddRangeAsync`/`DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` for the write, retention, and GDPR paths. Grouped queries sum `CostUsd` as `double` and cast back to `decimal` — SQLite's EF provider cannot translate `Sum(decimal)` — so the same query shape works on both providers. |
+| **Controller** | `LlmUsageController` (`api/admin/llm-usage`, `RequireAdmin`) — `GET summary` (totals + by-user/model/mode/day over a validated range, default last 30 days, max 366 days), `GET records` (paged rows, `pageSize` capped at 200). Resolves Discord display names via `IDiscordUserResolver` and emits every ID as a string. |
+| **Web Pages** | `/admin/llm-usage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/guild/{guildId}/assistant-metrics` (`Pages/Guilds/AssistantMetrics.cshtml`) gains a "Cost by User" table sourced from the same repository, injected directly into `AssistantMetricsModel` and filtered by guild. |
+| **Retention** | `AssistantInteractionLogRetentionService` sweeps `LlmUsageRecords` (via `DeleteOlderThanAsync`) on the same `Assistant:Privacy:InteractionLogRetentionDays` cadence as the interaction logs — no new retention option. |
+| **GDPR** | `UserPurgeService` and `UserDataExportService` include `LlmUsageRecords` (`DeleteByUserAsync` / `CountByUserAsync` + export) alongside the interaction logs. |
+| **Key Rule** | Granularity is one row per user message (`LlmCalls` counts calls across the agentic loop), not one row per LLM call — keeps the table small and matches what the breakdowns need. |
+
+---
+
 ### Background Services
 
 Long-running background tasks for maintenance and scheduled operations.

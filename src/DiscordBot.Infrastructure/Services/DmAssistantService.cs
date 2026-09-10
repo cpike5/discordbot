@@ -1,8 +1,11 @@
 using System.Diagnostics;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Infrastructure.Services.LLM;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -30,6 +33,7 @@ public class DmAssistantService : IDmAssistantService
     private readonly IAssistantMessagePipeline _pipeline;
     private readonly IBotOwnerResolver _ownerResolver;
     private readonly IDmAssistantContextFactory _contextFactory;
+    private readonly ILlmUsageRecorder _usageRecorder;
     private readonly DmAssistantOptions _options;
 
     public DmAssistantService(
@@ -37,13 +41,17 @@ public class DmAssistantService : IDmAssistantService
         IAssistantMessagePipeline pipeline,
         IBotOwnerResolver ownerResolver,
         IDmAssistantContextFactory contextFactory,
-        IOptions<DmAssistantOptions> options)
+        IOptions<DmAssistantOptions> options,
+        ILlmUsageRecorder? usageRecorder = null)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _pipeline = pipeline ?? throw new ArgumentNullException(nameof(pipeline));
         _ownerResolver = ownerResolver ?? throw new ArgumentNullException(nameof(ownerResolver));
         _contextFactory = contextFactory ?? throw new ArgumentNullException(nameof(contextFactory));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        // Optional trailing parameter (default NoOpUsageRecorder) - see AssistantService's
+        // constructor comment. Production DI always supplies the real recorder.
+        _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
     }
 
     /// <inheritdoc />
@@ -51,6 +59,7 @@ public class DmAssistantService : IDmAssistantService
         ulong userId, string message, CancellationToken ct = default)
     {
         var stopwatch = Stopwatch.StartNew();
+        IAssistantContext? context = null;
 
         _logger.LogDebug("Processing DM assistant message from user {UserId}", userId);
 
@@ -83,7 +92,7 @@ public class DmAssistantService : IDmAssistantService
                 return placeholderResponse;
             }
 
-            var context = await _contextFactory.CreateAsync(userId, activeGuildId: null, ct);
+            context = await _contextFactory.CreateAsync(userId, activeGuildId: null, ct);
             var formattedMessage = await context.FormatUserMessageAsync(message, ct);
 
             var pipelineResult = await _pipeline.RunAsync(formattedMessage, context, ct);
@@ -144,7 +153,40 @@ public class DmAssistantService : IDmAssistantService
         {
             stopwatch.Stop();
             _logger.LogError(ex, "Error processing DM assistant message from user {UserId}", userId);
+
+            // Same rationale as AssistantService's top-level catch: without this, an exception
+            // escaping the pipeline (rather than coming back as a Success=false AgentRunResult)
+            // leaves the exchange with no ledger row at all.
+            RecordFailedUsage(context, userId, (int)stopwatch.ElapsedMilliseconds);
+
             return DmAssistantResponse.ErrorResult(_options.ErrorMessage);
+        }
+    }
+
+    /// <summary>
+    /// Best-effort ledger row for an exchange that failed outside the normal pipeline path. Never
+    /// throws - a telemetry failure must not mask the original error.
+    /// </summary>
+    private void RecordFailedUsage(IAssistantContext? context, ulong userId, int latencyMs)
+    {
+        try
+        {
+            _usageRecorder.Record(new LlmUsageRecord
+            {
+                Timestamp = DateTime.UtcNow,
+                Mode = context?.Mode ?? LlmMode.DmAssistant,
+                UserId = userId,
+                GuildId = null,
+                Model = context?.Model ?? "unknown",
+                CostUsd = 0m,
+                CostSource = LlmCostSource.Estimated,
+                LatencyMs = latencyMs,
+                Success = false
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to record failed-usage ledger row for user {UserId}", userId);
         }
     }
 

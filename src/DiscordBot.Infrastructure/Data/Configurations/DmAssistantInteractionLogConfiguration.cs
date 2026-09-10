@@ -29,6 +29,9 @@ public class DmAssistantInteractionLogConfiguration : IEntityTypeConfiguration<D
         builder.Property(l => l.ErrorMessage)
             .HasMaxLength(1000);
 
+        builder.Property(l => l.Model)
+            .HasMaxLength(200);
+
         builder.Property(l => l.InputTokens).IsRequired().HasDefaultValue(0);
         builder.Property(l => l.OutputTokens).IsRequired().HasDefaultValue(0);
         builder.Property(l => l.CachedTokens).IsRequired().HasDefaultValue(0);

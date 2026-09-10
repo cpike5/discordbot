@@ -1,6 +1,7 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Logging;
@@ -25,6 +26,7 @@ public class DmAssistantContext : IAssistantContext
     private readonly ILogger _logger;
     private readonly string _resolvedModel;
     private readonly LlmCatalogPricing? _resolvedPricing;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
     public DmAssistantContext(
         ulong userId,
@@ -38,7 +40,8 @@ public class DmAssistantContext : IAssistantContext
         DmAssistantOptions options,
         ILogger logger,
         string resolvedModel,
-        LlmCatalogPricing? resolvedPricing = null)
+        LlmCatalogPricing? resolvedPricing = null,
+        ILlmUsageRecorder? usageRecorder = null)
     {
         _userId = userId;
         ToolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
@@ -51,6 +54,7 @@ public class DmAssistantContext : IAssistantContext
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _resolvedModel = resolvedModel ?? throw new ArgumentNullException(nameof(resolvedModel));
         _resolvedPricing = resolvedPricing;
+        _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
 
         ExecutionContext = new ToolContext
         {
@@ -67,6 +71,7 @@ public class DmAssistantContext : IAssistantContext
     public int RateLimitWindowMinutes => 0;
 
     public string? Model => _resolvedModel;
+    public LlmMode Mode => LlmMode.DmAssistant;
     public int MaxTokens => _options.MaxTokens;
     public double Temperature => _options.Temperature;
     public int MaxToolCallIterations => 10;
@@ -163,10 +168,16 @@ public class DmAssistantContext : IAssistantContext
                     LatencyMs = result.LatencyMs,
                     Success = result.Success,
                     ErrorMessage = result.ErrorMessage,
-                    EstimatedCostUsd = result.EstimatedCostUsd
+                    EstimatedCostUsd = result.EstimatedCostUsd,
+                    Model = result.Model
                 };
 
                 await _interactionLogRepo.AddAsync(log, cancellationToken);
+
+                if (result.UsageRecord != null)
+                {
+                    result.UsageRecord.InteractionLogId = log.Id;
+                }
             }
             catch (Exception ex)
             {
@@ -177,6 +188,12 @@ public class DmAssistantContext : IAssistantContext
         if (result.Success && _options.EnableCostTracking)
         {
             await UpdateDailyMetricsAsync(result, cancellationToken);
+        }
+
+        if (result.UsageRecord != null)
+        {
+            result.UsageRecord.LatencyMs = result.LatencyMs;
+            _usageRecorder.Record(result.UsageRecord);
         }
     }
 

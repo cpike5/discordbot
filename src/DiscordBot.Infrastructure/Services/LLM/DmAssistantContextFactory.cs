@@ -25,6 +25,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     private readonly IMemoryCache _memoryCache;
     private readonly ILlmModelResolver _modelResolver;
     private readonly DmAssistantOptions _options;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
     public DmAssistantContextFactory(
         IEnumerable<IDmToolProvider> dmToolProviders,
@@ -35,7 +36,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         IDmAssistantUsageMetricsRepository metricsRepo,
         IMemoryCache memoryCache,
         ILlmModelResolver modelResolver,
-        IOptions<DmAssistantOptions> options)
+        IOptions<DmAssistantOptions> options,
+        ILlmUsageRecorder usageRecorder)
     {
         _dmToolProviders = dmToolProviders ?? throw new ArgumentNullException(nameof(dmToolProviders));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
@@ -46,6 +48,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
         _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
     }
 
     /// <inheritdoc />
@@ -80,7 +83,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             _options,
             _loggerFactory.CreateLogger<DmAssistantContext>(),
             resolved.Slug,
-            resolved.Pricing);
+            resolved.Pricing,
+            _usageRecorder);
     }
 
     /// <inheritdoc />

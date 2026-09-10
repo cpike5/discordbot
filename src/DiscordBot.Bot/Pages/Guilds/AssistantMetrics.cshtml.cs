@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -14,17 +15,26 @@ namespace DiscordBot.Bot.Pages.Guilds;
 [Authorize(Policy = "GuildAccess")]
 public class AssistantMetricsModel : GuildPageModelBase
 {
+    /// <summary>How many top-cost users the "Cost by User" table shows.</summary>
+    private const int CostByUserTake = 20;
+
     private readonly IAssistantService _assistantService;
     private readonly IGuildService _guildService;
+    private readonly ILlmUsageRepository _usageRepository;
+    private readonly IDiscordUserResolver _userResolver;
     private readonly ILogger<AssistantMetricsModel> _logger;
 
     public AssistantMetricsModel(
         IAssistantService assistantService,
         IGuildService guildService,
+        ILlmUsageRepository usageRepository,
+        IDiscordUserResolver userResolver,
         ILogger<AssistantMetricsModel> logger)
     {
         _assistantService = assistantService;
         _guildService = guildService;
+        _usageRepository = usageRepository;
+        _userResolver = userResolver;
         _logger = logger;
     }
 
@@ -90,6 +100,13 @@ public class AssistantMetricsModel : GuildPageModelBase
     public int TotalToolCalls { get; set; }
 
     /// <summary>
+    /// Top spenders in this guild over the same 30-day window, from the LLM usage ledger
+    /// (<see cref="ILlmUsageRepository"/>), newest ledger data source - not the daily
+    /// <see cref="AssistantUsageMetrics"/> aggregates above, which carry no per-user breakdown.
+    /// </summary>
+    public IReadOnlyList<LlmUsageByUserDto> CostByUser { get; set; } = Array.Empty<LlmUsageByUserDto>();
+
+    /// <summary>
     /// View model for guild display.
     /// </summary>
     public class GuildViewModel
@@ -124,6 +141,31 @@ public class AssistantMetricsModel : GuildPageModelBase
 
         Metrics = (await _assistantService.GetUsageMetricsRangeAsync(
             GuildId, startDate, endDate, cancellationToken)).ToList();
+
+        var usageQuery = new LlmUsageQuery
+        {
+            From = startDate,
+            To = endDate.AddDays(1).AddTicks(-1),
+            GuildId = GuildId
+        };
+        var costByUser = await _usageRepository.GetByUserAsync(usageQuery, CostByUserTake, cancellationToken);
+        var names = await _userResolver.ResolveUsersAsync(costByUser.Select(u => u.UserId));
+        CostByUser = costByUser.Select(u =>
+        {
+            var (username, avatarUrl) = names.TryGetValue(u.UserId, out var resolved) ? resolved : ($"Unknown#{u.UserId}", null);
+            return new LlmUsageByUserDto
+            {
+                UserId = u.UserId.ToString(),
+                DisplayName = username,
+                AvatarUrl = avatarUrl,
+                MessageCount = u.MessageCount,
+                InputTokens = u.InputTokens,
+                OutputTokens = u.OutputTokens,
+                CachedTokens = u.CachedTokens,
+                CostUsd = u.CostUsd,
+                CostShare = u.CostShare
+            };
+        }).ToList();
 
         // Calculate summary statistics
         if (Metrics.Any())

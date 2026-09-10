@@ -36,4 +36,11 @@ public class LlmResponse
     /// Error message if Success is false.
     /// </summary>
     public string? ErrorMessage { get; set; }
+
+    /// <summary>
+    /// The model that actually served this response, from the wire response's <c>model</c> field
+    /// (OpenRouter can route a request to a different concrete model than the one requested, e.g.
+    /// for an alias slug). Null when the provider did not report one.
+    /// </summary>
+    public string? Model { get; set; }
 }
