@@ -35,7 +35,7 @@ public class AssistantOptionsBindingTests
         var options = Bind(new Dictionary<string, string?>());
 
         options.GloballyEnabled.Should().BeFalse();
-        options.Sampling.Model.Should().Be("claude-sonnet-4-20250514");
+        options.Sampling.Model.Should().Be("anthropic/claude-sonnet-4");
         options.Sampling.MaxTokens.Should().Be(512);
         options.Sampling.Temperature.Should().Be(0.7);
         options.RateLimits.DefaultRateLimit.Should().Be(5);
@@ -57,7 +57,7 @@ public class AssistantOptionsBindingTests
         var data = new Dictionary<string, string?>
         {
             [$"{AssistantOptions.SectionName}:GloballyEnabled"] = "true",
-            [$"{AssistantOptions.SectionName}:Model"] = "claude-opus-4-20250514",
+            [$"{AssistantOptions.SectionName}:Model"] = "anthropic/claude-opus-4",
             [$"{AssistantOptions.SectionName}:MaxTokens"] = "1024",
             [$"{AssistantOptions.SectionName}:Temperature"] = "0.2",
             [$"{AssistantOptions.SectionName}:DefaultRateLimit"] = "10",
@@ -71,7 +71,7 @@ public class AssistantOptionsBindingTests
         var options = Bind(data);
 
         options.GloballyEnabled.Should().BeTrue();
-        options.Sampling.Model.Should().Be("claude-opus-4-20250514");
+        options.Sampling.Model.Should().Be("anthropic/claude-opus-4");
         options.Sampling.MaxTokens.Should().Be(1024);
         options.Sampling.Temperature.Should().Be(0.2);
         options.RateLimits.DefaultRateLimit.Should().Be(10);
@@ -88,7 +88,7 @@ public class AssistantOptionsBindingTests
         var data = new Dictionary<string, string?>
         {
             [$"{AssistantOptions.SectionName}:GloballyEnabled"] = "true",
-            [$"{AssistantOptions.SectionName}:Sampling:Model"] = "claude-opus-4-20250514",
+            [$"{AssistantOptions.SectionName}:Sampling:Model"] = "anthropic/claude-opus-4",
             [$"{AssistantOptions.SectionName}:Sampling:MaxTokens"] = "1024",
             [$"{AssistantOptions.SectionName}:Sampling:Temperature"] = "0.2",
             [$"{AssistantOptions.SectionName}:RateLimits:DefaultRateLimit"] = "10",
@@ -102,7 +102,7 @@ public class AssistantOptionsBindingTests
         var options = Bind(data);
 
         options.GloballyEnabled.Should().BeTrue();
-        options.Sampling.Model.Should().Be("claude-opus-4-20250514");
+        options.Sampling.Model.Should().Be("anthropic/claude-opus-4");
         options.Sampling.MaxTokens.Should().Be(1024);
         options.Sampling.Temperature.Should().Be(0.2);
         options.RateLimits.DefaultRateLimit.Should().Be(10);
@@ -113,7 +113,7 @@ public class AssistantOptionsBindingTests
         options.Privacy.RequireExplicitConsent.Should().BeFalse();
 
         // Legacy forwarding properties read through to the same nested values.
-        options.Model.Should().Be("claude-opus-4-20250514");
+        options.Model.Should().Be("anthropic/claude-opus-4");
         options.MaxTokens.Should().Be(1024);
         options.DefaultRateLimit.Should().Be(10);
     }
@@ -151,7 +151,7 @@ public class AssistantOptionsBindingTests
             [$"{AssistantOptions.SectionName}:Sampling:MaxTokens"] = "222",
             [$"{AssistantOptions.SectionName}:DefaultRateLimit"] = "7",
             [$"{AssistantOptions.SectionName}:RateLimits:DefaultRateLimit"] = "42",
-            // No Anthropic:ApiKey — keeps the LLM-dependent registrations (which need a live DbContext etc.) out of the container.
+            // No OpenRouter:ApiKey — keeps the LLM-dependent registrations (which need a live DbContext etc.) out of the container.
         };
 
         var configuration = new ConfigurationBuilder()

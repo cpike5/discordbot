@@ -2,7 +2,7 @@
 
 ## Overview
 
-This specification defines the LLM-agnostic abstraction layer for the Discord bot's AI assistant feature. The architecture enables swapping LLM providers (Anthropic Claude, OpenAI, local models, etc.) without changing application code.
+This specification defines the LLM-agnostic abstraction layer for the Discord bot's AI assistant feature. The architecture enables swapping LLM providers without changing application code. The live implementation targets OpenRouter, which itself fronts many model providers behind one OpenAI-compatible API.
 
 **Key Benefits:**
 
@@ -34,7 +34,7 @@ This specification defines the LLM-agnostic abstraction layer for the Discord bo
 ┌─────────┐  ┌──────────────┐  ┌──────────────┐
 │IToolRegistry│  │IPromptTemplate│  │ILlmClient    │
 │             │  │               │  │              │
-│ - Manage    │  │ - Load/subs   │  │ - Anthropic  │
+│ - Manage    │  │ - Load/subs   │  │ - OpenRouter │
 │   tools     │  │   prompts     │  │ - OpenAI     │
 │ - Execute   │  │               │  │ - Local      │
 │   tools     │  │               │  │ - Custom     │
@@ -44,7 +44,7 @@ This specification defines the LLM-agnostic abstraction layer for the Discord bo
                         │
               ┌─────────▼──────────┐
               │  LLM Provider      │
-              │  (Anthropic/OAI)   │
+              │  (OpenRouter)      │
               └────────────────────┘
 ```
 
@@ -74,7 +74,7 @@ public interface ILlmClient
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Gets the name of the LLM provider (e.g., "Anthropic", "OpenAI")
+    /// Gets the name of the LLM provider (e.g., "OpenRouter", "OpenAI")
     /// </summary>
     string ProviderName { get; }
 
@@ -555,35 +555,65 @@ public class AgentRunResult
 }
 ```
 
-## Anthropic Implementation
+## OpenRouter Implementation
 
-### AnthropicLlmClient
+### OpenRouterLlmClient
 
-Implements `ILlmClient` using the Anthropic SDK. Handles mapping between LLM DTOs and Anthropic API format.
+Implements `ILlmClient` against [OpenRouter](https://openrouter.ai)'s OpenAI-compatible
+`POST /chat/completions` endpoint. There is **no LLM SDK dependency**: the client is a typed
+`HttpClient` over owned wire records, which keeps the request shape (including OpenRouter's own
+extensions) fully under this repo's control.
 
-**File Location:** `src/DiscordBot.Infrastructure/Services/LLM/Anthropic/AnthropicLlmClient.cs`
+**File Location:** `src/DiscordBot.Infrastructure/Services/LLM/OpenRouter/OpenRouterLlmClient.cs`
+
+**Supporting files:**
+
+| File | Role |
+| --- | --- |
+| `ChatCompletionRequest.cs` | Request-side wire records + the single `OpenRouterJson.Options` serializer config (snake_case, omit nulls) |
+| `ChatCompletionResponse.cs` | Response-side wire records (choices, tool calls, usage, error body) |
+| `OpenRouterMessageMapper.cs` | `Llm*` DTOs ↔ wire records |
 
 **Key Responsibilities:**
 
-- Maps `LlmRequest` → `MessageCreateParams`
-- Maps `MessageResponse` → `LlmResponse`
-- Handles message/tool block structures from Anthropic API
-- Enables prompt caching via `cache_control` when requested
-- Implements retry logic with exponential backoff
-- Tracks token usage and costs
-- Handles streaming responses (if implemented)
+- Maps `LlmRequest` → `ChatCompletionRequest`, and the reply → `LlmResponse`
+- Enables prompt caching via `cache_control` on the system message when requested
+- Sends `provider.require_parameters` on every request carrying tools
+- Retry with exponential backoff, keyed on HTTP status (408/429/5xx and network errors)
+- Tracks token usage and OpenRouter's reported billed cost
 
-**Configuration via AnthropicOptions:**
+**Wire-shape differences from a native Anthropic integration.** These are the mapping decisions
+that carry risk, and the reason the mapper exists at all:
+
+| Concern | Anthropic Messages API | OpenRouter (OpenAI-compatible) |
+| --- | --- | --- |
+| System prompt | Top-level `system` parameter | First message, `role: "system"` |
+| Tool schema | `input_schema` with properties/required | `tools[].function.parameters`, JSON Schema verbatim |
+| Tool call | `tool_use` content block, input is an object | `message.tool_calls[]`, `arguments` is a **JSON string** |
+| Tool result | `tool_result` block on a **user** turn, has `is_error` | Its own `role: "tool"` message with `tool_call_id`; **no error flag** (errors are text) |
+| Stop reason | `stop_reason` | `finish_reason` (`stop` / `tool_calls` / `length`) |
+| Usage | `input_tokens`, `cache_read_input_tokens` | `prompt_tokens`, `prompt_tokens_details.cached_tokens`, plus a real billed `cost` |
+
+**Configuration via OpenRouterOptions:**
 
 ```csharp
-public class AnthropicOptions
+public class OpenRouterOptions
 {
-    public string ApiKey { get; set; }
-    public string DefaultModel { get; set; } = "claude-3-5-sonnet-20241022";
+    public string? ApiKey { get; set; }
+    public string BaseUrl { get; set; } = "https://openrouter.ai/api/v1/";
+    public string DefaultModel { get; set; } = "anthropic/claude-sonnet-4";
     public int MaxRetries { get; set; } = 3;
     public int TimeoutSeconds { get; set; } = 300;
+    public int RetryBaseDelayMs { get; set; } = 1000;
+    public bool EnablePromptCachingByDefault { get; set; } = true;
+    public string? AppUrl { get; set; }
+    public string? AppTitle { get; set; } = "DiscordBot";
 }
 ```
+
+Model names are OpenRouter **slugs** (`anthropic/claude-sonnet-4`, `openai/gpt-4o`), not vendor
+model IDs. Prompt caching is passed through to Claude-family models and silently ignored by other
+providers, which report zero cached tokens rather than failing.
 
 ## Agentic Loop Flow
 
@@ -828,12 +858,12 @@ services.AddSingleton<OpenAIClient>(sp =>
 // Register provider
 services.AddSingleton<ILlmClient>(sp =>
 {
-    var provider = configuration.GetValue<string>("Assistant:LlmProvider", "Anthropic");
+    var provider = configuration.GetValue<string>("Assistant:LlmProvider", "OpenRouter");
 
     return provider switch
     {
         "OpenAI" => sp.GetRequiredService<OpenAILlmClient>(),
-        "Anthropic" => sp.GetRequiredService<AnthropicLlmClient>(),
+        "OpenRouter" => sp.GetRequiredService<OpenRouterLlmClient>(),
         _ => throw new InvalidOperationException($"Unknown LLM provider: {provider}")
     };
 });
@@ -847,7 +877,7 @@ services.AddScoped<IAgentRunner, AgentRunner>();
 ```json
 {
   "Assistant": {
-    "LlmProvider": "OpenAI",  // Switch between "Anthropic" and "OpenAI"
+    "LlmProvider": "OpenAI",  // Switch between "OpenRouter" and "OpenAI"
     "MaxTokens": 2048,
     "Temperature": 0.7
   },
@@ -867,14 +897,14 @@ Add to `appsettings.json`:
 ```json
 {
   "Assistant": {
-    "LlmProvider": "Anthropic",
     "MaxTokens": 2048,
     "Temperature": 0.7,
     "EnablePromptCaching": true
   },
-  "Anthropic": {
-    "ApiKey": "sk-ant-...",
-    "DefaultModel": "claude-3-5-sonnet-20241022",
+  "OpenRouter": {
+    "ApiKey": "sk-or-...",
+    "BaseUrl": "https://openrouter.ai/api/v1/",
+    "DefaultModel": "anthropic/claude-sonnet-4",
     "MaxRetries": 3,
     "TimeoutSeconds": 300
   },
@@ -892,16 +922,16 @@ namespace DiscordBot.Core.Configuration;
 
 public class AssistantOptions
 {
-    public string LlmProvider { get; set; } = "Anthropic";
     public int MaxTokens { get; set; } = 2048;
     public double Temperature { get; set; } = 0.7;
     public bool EnablePromptCaching { get; set; } = true;
 }
 
-public class AnthropicOptions
+public class OpenRouterOptions
 {
-    public string ApiKey { get; set; }
-    public string DefaultModel { get; set; } = "claude-3-5-sonnet-20241022";
+    public string? ApiKey { get; set; }
+    public string BaseUrl { get; set; } = "https://openrouter.ai/api/v1/";
+    public string DefaultModel { get; set; } = "anthropic/claude-sonnet-4";
     public int MaxRetries { get; set; } = 3;
     public int TimeoutSeconds { get; set; } = 300;
 }
@@ -952,20 +982,18 @@ src/DiscordBot.Core/
 │       └── LlmStopReason.cs
 └── Configuration/
     ├── AssistantOptions.cs
-    ├── AnthropicOptions.cs
-    └── OpenAIOptions.cs
+    └── OpenRouterOptions.cs
 
 src/DiscordBot.Infrastructure/
 ├── Services/LLM/
 │   ├── AgentRunner.cs
 │   ├── ToolRegistry.cs
 │   ├── PromptTemplate.cs
-│   ├── Anthropic/
-│   │   ├── AnthropicLlmClient.cs
-│   │   └── AnthropicMessageMapper.cs
-│   └── OpenAI/  (Future)
-│       ├── OpenAILlmClient.cs
-│       └── OpenAIMessageMapper.cs
+│   └── OpenRouter/
+│       ├── OpenRouterLlmClient.cs
+│       ├── OpenRouterMessageMapper.cs
+│       ├── ChatCompletionRequest.cs
+│       └── ChatCompletionResponse.cs
 ```
 
 ## Testing Strategy

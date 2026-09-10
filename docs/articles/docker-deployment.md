@@ -129,10 +129,10 @@ docker compose -f docker-compose.mogwai.yml up -d
 | Variable | Description |
 |----------|-------------|
 | `Discord__Token` | A **separate** Discord bot token for Mogwai (must not share with the main bot) |
-| `Anthropic__ApiKey` | Anthropic API key for the .NET DM assistant (Haiku model) |
-| `ANTHROPIC_API_KEY` | Same key, exposed to the `claude` CLI process inside the container |
+| `OpenRouter__ApiKey` | OpenRouter API key for the .NET DM assistant (`anthropic/claude-haiku-4.5` by default) |
+| `ANTHROPIC_API_KEY` | Anthropic API key, exposed to the `claude` CLI process inside the container |
 
-Both `Anthropic__ApiKey` and `ANTHROPIC_API_KEY` are required. The .NET runtime reads the double-underscore form; the `claude` binary reads the conventional environment variable name.
+Both are required, and they are **two different keys for two different things**. The .NET bot's own LLM calls go through OpenRouter and read `OpenRouter__ApiKey`; the bundled `claude` CLI binary talks to Anthropic directly and reads `ANTHROPIC_API_KEY`. If only one is set, one of the two will fail.
 
 **Volume mounts:**
 
@@ -151,7 +151,8 @@ environment:
   Mogwai__WorkingDirectory: /workspace
   Mogwai__SkipPermissions: "true"
   DmAssistant__Enabled: "true"
-  DmAssistant__Model: "claude-haiku-4-5-20251001"
+  DmAssistant__Model: "anthropic/claude-haiku-4.5"
+  # For the claude CLI process only - the bot's own LLM calls use OpenRouter__ApiKey
   ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
 ```
 
@@ -182,7 +183,7 @@ Configure the bot by editing `.env`. See `.env.example` for all available settin
 | `Identity__DefaultAdmin__Password` | `ChangeThisPassword123!` | Default admin password (change immediately!) |
 | `DATABASE_PROVIDER` | *(auto-detect)* | Database provider: `Sqlite`, `PostgreSql`, or omit for auto-detection |
 | `CONNECTION_STRING` | SQLite at `/app/data/discordbot.db` | Database connection string (overrides default) |
-| `Anthropic__ApiKey` | *(none)* | API key for AI assistant feature |
+| `OpenRouter__ApiKey` | *(none)* | OpenRouter API key for AI assistant feature (https://openrouter.ai/keys) |
 | `AzureSpeech__SubscriptionKey` | *(none)* | Azure Speech Services key for TTS |
 | `AzureSpeech__Region` | *(none)* | Azure region (e.g., `eastus`) |
 
@@ -419,7 +420,7 @@ docker compose -f docker-compose.mogwai.yml exec mogwai claude --version
 
 **`ANTHROPIC_API_KEY` errors from the `claude` CLI:**
 
-Both `Anthropic__ApiKey` (for .NET) and `ANTHROPIC_API_KEY` (for the `claude` process) must be set in `.env.mogwai`. If only one is set, one of the two will fail.
+Both `OpenRouter__ApiKey` (for the .NET bot's LLM calls) and `ANTHROPIC_API_KEY` (for the `claude` CLI process) must be set in `.env.mogwai`. They are separate keys for separate services — if only one is set, one of the two will fail.
 
 ### Container health check failing
 

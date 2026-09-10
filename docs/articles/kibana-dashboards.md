@@ -10,7 +10,7 @@
 
 ## Overview
 
-Comprehensive Kibana dashboards and visualizations for monitoring the Discord bot application. The monitoring strategy provides visibility into operational health, performance metrics, command analytics, audio features, and external service integrations (Discord API, Azure Services, Anthropic AI).
+Comprehensive Kibana dashboards and visualizations for monitoring the Discord bot application. The monitoring strategy provides visibility into operational health, performance metrics, command analytics, audio features, and external service integrations (Discord API, Azure Services, OpenRouter).
 
 ### Key Monitoring Areas
 
@@ -252,7 +252,7 @@ Database query metrics from APM span data.
 ### 10. Discord Bot - External HTTP
 **ID:** `discord-apm-http` | **Time Range:** Last 24 hours | **Refresh:** 30s
 
-External HTTP call monitoring including Discord API, Azure Services, and Anthropic AI latency.
+External HTTP call monitoring including Discord API, Azure Services, and OpenRouter latency.
 
 #### Panels (5)
 | Panel | Visualization | Metric | Purpose |
@@ -270,7 +270,7 @@ External HTTP call monitoring including Discord API, Azure Services, and Anthrop
 ### 11. Discord Bot - AI Assistant
 **ID:** `discord-apm-ai` | **Time Range:** Last 7 days | **Refresh:** 30s
 
-AI Assistant feature monitoring including Anthropic API costs, latency, and token usage.
+AI Assistant feature monitoring including OpenRouter costs, latency, and token usage.
 
 #### Panels (5)
 | Panel | Visualization | Metric | Purpose |
@@ -554,6 +554,12 @@ message:"VOX_COMMAND_STARTED" AND labels.Source:"Portal"
 
 ### External Service Monitoring
 
+> **Migration note:** the LLM client class was renamed `AnthropicLlmClient` → `OpenRouterLlmClient`
+> when the assistant moved to OpenRouter. Any saved search or dashboard filtering on
+> `SourceContext:*Anthropic*` matches nothing after that change and needs re-pointing at
+> `*OpenRouter*`. Logs written before the cutover keep the old `SourceContext`, so a query spanning
+> both periods needs `SourceContext:(*Anthropic* OR *OpenRouter*)`.
+
 ```kql
 # Discord API calls
 SourceContext:*DiscordClient*
@@ -561,8 +567,8 @@ SourceContext:*DiscordClient*
 # Azure Speech Service
 SourceContext:*AzureSpeech* OR message:*azure*
 
-# Anthropic AI Service
-SourceContext:*Anthropic* OR message:*claude*
+# OpenRouter LLM Service
+SourceContext:*OpenRouter* OR message:*OpenRouter*
 
 # Rate limiting
 message:*rate limit* OR discord.api.rate_limit.remaining:0

@@ -1,20 +1,22 @@
 # AI Assistant Agent - Implementation Plan
 
-**Document Version**: 1.0
-**Last Updated**: 2026-01-12
-**Status**: Ready for Implementation
+**Document Version**: 1.1
+**Last Updated**: 2026-08-30
+**Status**: Implemented
+
+> **Note (2026-08):** the LLM integration described below was originally built on the Anthropic .NET SDK. It has since been migrated to **OpenRouter** (OpenAI-compatible chat completions) via an owned typed `HttpClient`, and the `Anthropic.SDK` package has been removed. This plan has been updated to describe the current implementation; the phase structure and sequencing are kept as the historical record of how the feature was built.
 
 ---
 
 ## 1. Overview
 
 ### Feature Summary
-Implement an AI-powered assistant feature that responds to bot mentions in Discord with helpful information about bot features, commands, and usage. The assistant uses Claude API with tool-based documentation access to provide accurate, conversational help directly in Discord channels.
+Implement an AI-powered assistant feature that responds to bot mentions in Discord with helpful information about bot features, commands, and usage. The assistant uses an LLM (reached through OpenRouter) with tool-based documentation access to provide accurate, conversational help directly in Discord channels.
 
 ### Scope
 This implementation adds:
 - Message detection and response system for bot mentions
-- Claude API integration with tool-based documentation access
+- LLM integration (OpenRouter) with tool-based documentation access
 - Rate limiting with per-user and per-guild controls
 - Guild configuration for channel restrictions and rate limits
 - Consent-based privacy protection
@@ -41,7 +43,7 @@ Three-layer clean architecture:
 
 #### Configuration
 - Options pattern: `IOptions<AssistantOptions>` (already created at `src/DiscordBot.Core/Configuration/AssistantOptions.cs`)
-- User Secrets for API keys: `dotnet user-secrets set "Claude:ApiKey" "sk-ant-..."`
+- User Secrets for API keys: `dotnet user-secrets set "OpenRouter:ApiKey" "sk-or-v1-..."`
 - appsettings.json for non-sensitive defaults
 
 #### Entities
@@ -69,8 +71,8 @@ Three-layer clean architecture:
 ### LLM Abstraction Layer
 The assistant uses an abstracted LLM layer to support multiple providers:
 - **Abstraction Pattern**: `ILlmClient`, `IAgentRunner`, `IToolProvider`, `IToolRegistry` (see `docs/specs/llm-abstraction-architecture.md`)
-- **Initial Provider**: Anthropic Claude via Anthropic.SDK (implements `ILlmClient`)
-- **Future Providers**: OpenAI, local models (architecture ready, implementation deferred)
+- **Current Provider**: OpenRouter via `OpenRouterLlmClient` (implements `ILlmClient`), speaking OpenAI-compatible chat completions through an owned typed `HttpClient` — no LLM SDK. Model names are OpenRouter slugs (`anthropic/claude-sonnet-4`, `openai/gpt-4o`), so swapping models is a config change
+- **Future Providers**: local models (architecture ready, implementation deferred)
 - **Tool System**: Provider pattern for grouping related tools with enable/disable capability
 - **Agentic Loop**: Handled by `IAgentRunner` (orchestrates tool use cycles)
 - **Tool Registry**: Centralized tool management with runtime enable/disable
@@ -485,7 +487,7 @@ public enum ConsentType
 
 ### 4.0 LLM Abstraction Interfaces
 
-These interfaces provide provider-agnostic LLM functionality, supporting multiple backends (Anthropic, OpenAI, local models) with a unified interface.
+These interfaces provide provider-agnostic LLM functionality, supporting multiple backends (OpenRouter, local models) with a unified interface.
 
 #### ILlmClient
 ```csharp
@@ -493,7 +495,7 @@ namespace DiscordBot.Core.Interfaces.LLM;
 
 /// <summary>
 /// Provider-agnostic interface for LLM completion calls.
-/// Abstracts differences between Anthropic, OpenAI, and other providers.
+/// Abstracts differences between OpenRouter, local models, and other providers.
 /// </summary>
 public interface ILlmClient
 {
@@ -508,7 +510,7 @@ public interface ILlmClient
         CancellationToken cancellationToken = default);
 
     /// <summary>
-    /// Provider name (e.g., "Anthropic", "OpenAI", "Local").
+    /// Provider name (e.g., "OpenRouter", "Local").
     /// </summary>
     string ProviderName { get; }
 
@@ -684,7 +686,7 @@ namespace DiscordBot.Core.Interfaces;
 
 /// <summary>
 /// Service interface for AI assistant operations.
-/// Handles Claude API interactions, tool execution, and response generation.
+/// Handles LLM API interactions, tool execution, and response generation.
 /// </summary>
 public interface IAssistantService
 {
@@ -1162,13 +1164,14 @@ Enums/
 - `src/DiscordBot.Core/Interfaces/IAssistantUsageMetricsRepository.cs`
 - `src/DiscordBot.Core/Interfaces/IAssistantInteractionLogRepository.cs`
 
-#### 1.5 Add NuGet Package
-```bash
-cd src/DiscordBot.Bot
-dotnet add package Anthropic.SDK
-```
+#### 1.5 NuGet Packages
 
-**Version**: Latest stable (verify supports prompt caching and tool use)
+No LLM SDK package is required. The OpenRouter client is an owned typed `HttpClient` (registered via
+`services.AddHttpClient<ILlmClient, OpenRouterLlmClient>(...)`) plus owned wire records, using only
+`System.Net.Http.Json` / `System.Text.Json` from the framework.
+
+> Historically this step added the `Anthropic.SDK` package. That dependency was removed with the
+> OpenRouter migration.
 
 #### 1.6 Create EF Core Configuration
 **Files to create:**
@@ -1343,37 +1346,52 @@ Each tool has corresponding execution method (e.g., `ExecuteGetFeatureDocumentat
 
 ### Phase 3: LLM Integration (5-6 hours)
 
-#### 3.1 Implement AnthropicLlmClient
-**File**: `src/DiscordBot.Infrastructure/Services/LLM/AnthropicLlmClient.cs`
+#### 3.1 Implement OpenRouterLlmClient
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/OpenRouter/OpenRouterLlmClient.cs`
 
 **Implements**: `ILlmClient` interface
 
 **Dependencies**:
-- `AnthropicClient` from Anthropic.SDK
-- `ILogger<AnthropicLlmClient>`
+- `HttpClient` (typed client, registered with `AddHttpClient<ILlmClient, OpenRouterLlmClient>`)
+- `IOptions<OpenRouterOptions>`
+- `ILogger<OpenRouterLlmClient>`
 
 **Properties**:
-- `ProviderName` = "Anthropic"
+- `ProviderName` = "OpenRouter"
 - `SupportsToolUse` = true
-- `SupportsPromptCaching` = true
+- `SupportsPromptCaching` = true (honoured by Claude-family slugs; other models report zero cached tokens)
 
 **Implementation**:
-- `CompleteAsync()` - translates `LlmRequest` to Anthropic `MessageCreateParams`
-- Call `_client.Messages.Create()`
-- Translate response to `LlmResponse`
-- Handle provider-specific token usage including cache metrics
-- Map Anthropic `StopReason` to `LlmStopReason` enum
+- `CompleteAsync()` - builds a `ChatCompletionRequest` from `LlmRequest` and `POST`s it to `chat/completions`
+- Sends `Authorization: Bearer <ApiKey>`, plus `HTTP-Referer` (`AppUrl`) and `X-Title` (`AppTitle`) headers
+- Sends `provider.require_parameters: true` on every request that carries tools, so routing cannot pick a
+  provider without function-calling support
+- Sends `Temperature` when set (an early bug silently dropped it)
+- Retries transient failures with exponential backoff, keyed on **HTTP status codes** (408/429/5xx, timeouts,
+  network errors) rather than exception message text
+- Translates the response to `LlmResponse`, including usage and cached-token metrics
+- Maps `finish_reason` to the `LlmStopReason` enum
 
-#### 3.2 Implement AnthropicMessageMapper
-**File**: `src/DiscordBot.Infrastructure/Services/LLM/Anthropic/AnthropicMessageMapper.cs`
+#### 3.2 Implement OpenRouterMessageMapper
+**File**: `src/DiscordBot.Infrastructure/Services/LLM/OpenRouter/OpenRouterMessageMapper.cs`
 
 **Static Mapper Class**:
-- `MapToLlmRequest(LlmRequest)` → `MessageCreateParams`
-- `MapFromAnthropicResponse(MessageCreateResponse)` → `LlmResponse`
-- Handle message role/content translation
-- Handle tool definitions and tool call mapping
-- Handle cache control headers
-- Handle usage information (including cached tokens)
+- `ToOpenRouterMessages(LlmRequest, bool enablePromptCaching)` → `List<ChatMessage>`
+- `ToOpenRouterTools(List<LlmToolDefinition>)` → `List<ToolDefinition>`
+- `ToLlmResponse(ChatCompletionResponse)` → `LlmResponse`
+- Handle message role/content translation. Note the OpenAI-compatible wire shape:
+  - The **system prompt is the first message** in `messages`, not a top-level parameter
+  - **Tool results are `role: "tool"` messages** carrying a `tool_call_id`, not content blocks on a user turn
+  - **Tool arguments arrive as a JSON string** and must be parsed
+  - `finish_reason` replaces `stop_reason`
+  - Usage is `prompt_tokens` / `completion_tokens`, with cache reads under
+    `prompt_tokens_details.cached_tokens`, plus a real billed `cost` field
+- Handle tool definitions (`{"type": "function", "function": {…}}` with a `parameters` schema) and tool call mapping
+- Handle `cache_control` breakpoints on the system prompt
+- Handle usage information (including cached tokens and billed cost)
+
+**Wire records**: `ChatCompletionRequest.cs` and `ChatCompletionResponse.cs` in the same folder are owned
+types; there is no SDK to keep in sync.
 
 #### 3.3 Implement AgentRunner
 **File**: `src/DiscordBot.Infrastructure/Services/LLM/AgentRunner.cs`
@@ -1449,7 +1467,7 @@ Each tool has corresponding execution method (e.g., `ExecuteGetFeatureDocumentat
    - If error: Log and return error result
    - If success: Extract response text
 10. Truncate response if > `MaxResponseLength`
-11. Calculate cost using token usage and pricing from options
+11. Record cost: prefer OpenRouter's reported billed `usage.cost`; fall back to the configured per-million rates only when the response carries no cost
 12. Log interaction via `IAssistantInteractionLogRepository`
 13. Update metrics via `IAssistantUsageMetricsRepository`
 14. Return `AssistantResponseResult`
@@ -1467,7 +1485,7 @@ Each tool has corresponding execution method (e.g., `ExecuteGetFeatureDocumentat
   - Mark system prompt with cache control (provider-specific)
   - Include cached documentation files in system prompt
   - Cache hits reuse cached tokens at reduced cost
-  - Cache valid for provider-specific duration (5 min for Anthropic)
+  - Cache valid for provider-specific duration (5 min for Claude-family models via OpenRouter; other models ignore the breakpoint and report zero cached tokens)
 - If caching disabled:
   - Send system prompt normally without cache control
   - All docs fetched via tools on demand
@@ -1482,16 +1500,19 @@ Each tool has corresponding execution method (e.g., `ExecuteGetFeatureDocumentat
 
 #### 3.6 Unit Tests for LLM Components
 **Files to create:**
-- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/AnthropicLlmClientTests.cs`
-- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/AnthropicMessageMapperTests.cs`
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/OpenRouterLlmClientTests.cs`
+- `tests/DiscordBot.Infrastructure.Tests/Services/LLM/OpenRouterMessageMapperTests.cs`
 - `tests/DiscordBot.Infrastructure.Tests/Services/LLM/AgentRunnerTests.cs`
 - `tests/DiscordBot.Infrastructure.Tests/Services/AssistantServiceTests.cs`
 
-**Test cases for AnthropicLlmClient**:
-- Maps LlmRequest to MessageCreateParams correctly
-- Maps response back to LlmResponse with token usage
-- Handles tool use responses properly
-- Handles end-turn responses
+**Test cases for OpenRouterLlmClient**:
+- Maps LlmRequest to ChatCompletionRequest correctly (system prompt as first message, tools wrapped as functions)
+- Maps response back to LlmResponse with token usage and billed cost
+- Handles tool call responses properly (`finish_reason: tool_calls`, JSON-string arguments)
+- Handles end-turn responses (`finish_reason: stop`)
+- Sends Temperature when set
+- Sends `provider.require_parameters` whenever tools are present
+- Retries on retryable HTTP status codes and gives up on non-retryable ones
 - Includes cache metrics when available
 
 **Test cases for AgentRunner**:
@@ -1522,9 +1543,9 @@ Each tool has corresponding execution method (e.g., `ExecuteGetFeatureDocumentat
 - [ ] Assistant service delegates to agent runner
 - [ ] Rate limiting enforced and logged
 - [ ] Consent checks block non-consented users
-- [ ] Cost calculation uses actual token counts
+- [ ] Cost recording prefers OpenRouter's billed cost, falling back to configured rates
 - [ ] Unit tests pass with >80% coverage
-- [ ] No direct Anthropic SDK calls outside AnthropicLlmClient
+- [ ] No direct HTTP or wire-record use outside `OpenRouterLlmClient` / `OpenRouterMessageMapper`
 
 ---
 
@@ -1849,15 +1870,15 @@ public class AssistantMetricsModel : PageModel
 ```html
 <h3>AI Assistant</h3>
 <p>
-    When you mention the bot with a question, your question is sent to Anthropic's Claude API
-    for processing. Questions and responses are logged for debugging and cost monitoring.
-    Logs are retained for 90 days.
+    When you mention the bot with a question, your question is sent to OpenRouter and routed to
+    the configured model's provider for processing. Questions and responses are logged for
+    debugging and cost monitoring. Logs are retained for 90 days.
 </p>
 <p>
     You must explicitly opt-in via <code>/consent</code> before using the assistant.
 </p>
 <p>
-    Anthropic's privacy policy: <a href="https://www.anthropic.com/privacy">https://www.anthropic.com/privacy</a>
+    OpenRouter's privacy policy: <a href="https://openrouter.ai/privacy">https://openrouter.ai/privacy</a>
 </p>
 ```
 
@@ -1889,8 +1910,8 @@ public class AssistantMetricsModel : PageModel
 - Entities: 100%
 
 #### 6.2 Integration Tests
-**Optional** (requires real Claude API key):
-- Test end-to-end question flow with real Claude API
+**Optional** (requires a real OpenRouter API key):
+- Test end-to-end question flow against the live OpenRouter API
 - Verify prompt caching works
 - Verify tool execution works
 - Verify cost calculations are accurate
@@ -1925,7 +1946,7 @@ public class AssistantMetricsModel : PageModel
     "MaxQuestionLength": 500,
     "MaxResponseLength": 1800,
     "TruncationSuffix": "\n\n... *(response truncated)*",
-    "Model": "claude-3-5-sonnet-20241022",
+    "Model": "anthropic/claude-sonnet-4",
     "ApiTimeoutMs": 30000,
     "MaxTokens": 1024,
     "Temperature": 0.7,
@@ -1965,11 +1986,11 @@ public class AssistantMetricsModel : PageModel
 **User Secrets** (development):
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Claude:ApiKey" "sk-ant-api-key-here"
+dotnet user-secrets set "OpenRouter:ApiKey" "sk-or-v1-api-key-here"
 ```
 
 **Production**:
-- Set `Claude:ApiKey` via environment variable or Azure Key Vault
+- Set `OpenRouter:ApiKey` via environment variable (`OpenRouter__ApiKey`) or Azure Key Vault
 - Set `Assistant:GloballyEnabled` to `false` initially
 - Enable for test guild only via admin UI
 
@@ -1985,7 +2006,7 @@ dotnet ef database update --project ../DiscordBot.Infrastructure --startup-proje
    - [ ] Run all tests (`dotnet test`)
    - [ ] Review migration SQL
    - [ ] Backup production database
-   - [ ] Set Claude API key in production secrets
+   - [ ] Set the OpenRouter API key in production secrets
 
 2. **Deployment**:
    - [ ] Deploy code to production
@@ -2099,9 +2120,11 @@ Services/LLM/Providers/
   DocumentationToolProvider.cs
   UserGuildInfoToolProvider.cs
 
-Services/LLM/Anthropic/
-  AnthropicLlmClient.cs
-  AnthropicMessageMapper.cs
+Services/LLM/OpenRouter/
+  OpenRouterLlmClient.cs
+  OpenRouterMessageMapper.cs
+  ChatCompletionRequest.cs
+  ChatCompletionResponse.cs
 ```
 
 **Assistant Service & Repositories**:
@@ -2194,7 +2217,7 @@ Add complete `Assistant` section (see Phase 6.4 Configuration above)
 
 ### 7.2 User Secrets
 ```bash
-dotnet user-secrets set "Claude:ApiKey" "sk-ant-..."
+dotnet user-secrets set "OpenRouter:ApiKey" "sk-or-v1-..."
 ```
 
 ### 7.3 CLAUDE.md
@@ -2202,11 +2225,11 @@ Add section:
 ```markdown
 ### AI Assistant Configuration
 
-Claude API key must be configured via User Secrets:
+The OpenRouter API key must be configured via User Secrets:
 
 ```bash
 cd src/DiscordBot.Bot
-dotnet user-secrets set "Claude:ApiKey" "your-api-key-here"
+dotnet user-secrets set "OpenRouter:ApiKey" "your-api-key-here"
 ```
 
 See [assistant-requirements.md](docs/requirements/assistant-requirements.md) for feature documentation.
@@ -2263,10 +2286,10 @@ Add to commands list:
 - Retention cleanup
 
 ### 8.2 Integration Test Scenarios
-1. **End-to-end question flow** (with mock Claude API):
-   - User mentions bot → Consent checked → Rate limit checked → Claude called → Response posted
-2. **Tool execution** (with mock Claude API):
-   - Claude requests tool → Tool executed → Data returned → Claude generates response
+1. **End-to-end question flow** (with a mocked OpenRouter API):
+   - User mentions bot → Consent checked → Rate limit checked → model called → Response posted
+2. **Tool execution** (with a mocked OpenRouter API):
+   - Model requests tool → Tool executed → Data returned → model generates response
 3. **Rate limiting across multiple requests**:
    - User asks 5 questions → 6th question blocked
 4. **Metrics aggregation**:
@@ -2284,7 +2307,7 @@ See Phase 6.3 Manual Testing Checklist
 - [ ] Code review completed
 - [ ] Migration SQL reviewed
 - [ ] Production database backed up
-- [ ] Claude API key configured in production secrets
+- [ ] OpenRouter API key configured in production secrets
 - [ ] Documentation updated (CLAUDE.md, README.md)
 
 ### Deployment
@@ -2320,21 +2343,21 @@ See Phase 6.3 Manual Testing Checklist
 
 ### Technical Risks
 
-#### Risk: Claude API Costs Exceed Budget
+#### Risk: LLM API Costs Exceed Budget
 **Likelihood**: Medium
 **Impact**: High
 **Mitigation**:
 - Default disabled (`GloballyEnabled: false`)
 - Strict rate limiting (5 questions per 5 minutes)
 - Daily cost threshold alert ($5/day)
-- Monitor metrics daily during first week
+- Monitor metrics daily during first week (OpenRouter reports the real billed cost per call, so recorded figures are exact rather than estimated)
 - Disable globally if costs spike
 
-#### Risk: Claude API Downtime/Errors
+#### Risk: OpenRouter/Model Downtime/Errors
 **Likelihood**: Low
 **Impact**: Medium
 **Mitigation**:
-- Retry logic with exponential backoff
+- Retry logic with exponential backoff, keyed on HTTP status codes (408/429/5xx)
 - Friendly error messages to users
 - Fallback to disabled state if error rate > 25%
 - Log all errors for investigation
@@ -2377,14 +2400,14 @@ See Phase 6.3 Manual Testing Checklist
 - Review migration SQL before applying
 - Rollback plan: Restore database backup
 
-#### Risk: Anthropic.SDK Breaking Changes
+#### Risk: OpenRouter API or Model Availability Changes
 **Likelihood**: Low
 **Impact**: Medium
 **Mitigation**:
-- Pin SDK version in project file
-- Review release notes before upgrading
-- Test with new SDK version before deploying
-- Maintain compatibility with current SDK features (prompt caching, tool use)
+- No SDK to break — the wire records are owned, so only OpenRouter's own contract matters
+- `provider.require_parameters: true` on tool-carrying requests prevents routing to a provider without function calling
+- Retry with exponential backoff on transient HTTP failures (408/429/5xx)
+- Model slugs are configuration, so a deprecated model is a config change, not a code change
 
 #### Risk: Consent System Not Updated
 **Likelihood**: Low
@@ -2412,7 +2435,7 @@ See Phase 6.3 Manual Testing Checklist
 - `ILlmClient` exposes capability flags: `SupportsToolUse`, `SupportsPromptCaching`
 - Provider-specific optimizations check capabilities at runtime
 - Fallback behaviors for missing features (e.g., no caching if provider doesn't support)
-- Anthropic-specific features use `AnthropicLlmClient` directly for advanced needs
+- Provider-specific features use `OpenRouterLlmClient` directly for advanced needs (e.g. cache breakpoints, provider routing hints)
 - Future provider implementations can selectively support subsets of features
 
 #### Risk: DTOs Mismatch Between Providers
@@ -2420,7 +2443,7 @@ See Phase 6.3 Manual Testing Checklist
 **Impact**: Medium
 **Mitigation**:
 - Define LLM DTOs as provider-agnostic baseline
-- Provider mappers (AnthropicMessageMapper) handle translation
+- Provider mappers (`OpenRouterMessageMapper`) handle translation
 - Unit tests verify bidirectional mapping correctness
 - Document mapping assumptions and edge cases
 - Use discriminated unions or factory methods for provider-specific response variants

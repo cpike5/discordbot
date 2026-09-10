@@ -587,10 +587,10 @@ Owner-only DM assistant with multi-turn conversation history and optional Claude
 | Aspect | Components |
 |--------|------------|
 | **Discord Entry Point** | `DmAssistantMessageHandler` — handles incoming DM messages, routes to `IDmAssistantService` |
-| **Services** | `IDmAssistantService`, `IAgentRunner`, `ILlmClient` (AnthropicLlmClient), `IToolRegistry` |
+| **Services** | `IDmAssistantService`, `IAgentRunner`, `ILlmClient` (`OpenRouterLlmClient` — OpenAI-compatible chat completions via an owned typed `HttpClient`, no LLM SDK), `IToolRegistry` |
 | **Tool Providers** | `ClaudeCodeToolProvider` (Mogwai only — `IDmToolProvider`) |
 | **Database Entities** | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` |
-| **Configuration** | `DmAssistantOptions` (`DmAssistant` section), `MogwaiOptions` (`Mogwai` section) |
+| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `anthropic/claude-sonnet-4`; the Mogwai compose file overrides it to `anthropic/claude-haiku-4.5`), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries), `MogwaiOptions` (`Mogwai` section) |
 | **Docker** | `Dockerfile.mogwai`, `docker-compose.mogwai.yml`, `.env.mogwai` |
 | **Agent Prompt** | `docs/agents/dm-owner-agent.md` |
 | **Key Features** | Owner-only access (Discord API check), sliding-window conversation history, response chunking (split / `.md` attachment), Claude Code subprocess spawning, per-user session continuity, concurrency guard |
@@ -603,7 +603,7 @@ Owner DMs Mogwai bot →
   DmAssistantMessageHandler →
   DmAssistantService (history load + LLM call) →
   AgentRunner (agentic loop) →
-  Haiku decides: answer directly OR call run_claude_code tool →
+  Model (Haiku via OpenRouter) decides: answer directly OR call run_claude_code tool →
   ClaudeCodeToolProvider.ExecuteAsync() →
   claude CLI subprocess (--output-format json) →
   JSON response parsed, session ID stored →
@@ -634,7 +634,7 @@ Application settings management with environment-based configuration.
 |--------|------------|
 | **Configuration** | `appsettings.json`, `appsettings.{Environment}.json`, User Secrets |
 | **Options Pattern** | `IOptions<T>` dependency injection |
-| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `MogwaiOptions`, `DmAssistantOptions` |
+| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `MogwaiOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
 | **Key Features** | Environment-specific settings, feature flags, service configuration |
 
 ---

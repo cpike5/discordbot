@@ -65,7 +65,7 @@ public static class DmAssistantServiceExtensions
 
         // Only register LLM-dependent service if API key is configured
         // This prevents DI validation failures when running migrations without API key
-        var apiKey = configuration.GetValue<string>("Anthropic:ApiKey");
+        var apiKey = configuration.GetValue<string>("OpenRouter:ApiKey");
         if (!string.IsNullOrEmpty(apiKey))
         {
             // Shared with the guild assistant; registered here too (TryAdd) so this extension

@@ -67,7 +67,7 @@ This is separate from `MessageLogging` (1) and `AssistantUsage` (2). Granting me
 | `ExpertiseAreas` | string (JSON array) | Technical domains, skills, knowledge areas demonstrated |
 | `ActivityPatterns` | string | Engagement summary — active periods, participation level |
 | `Summary` | string | Concise natural-language profile used for system prompt injection (max 500 chars) |
-| `ExtractionModel` | string | Model ID used for extraction (e.g., `claude-sonnet-4-20250514`) |
+| `ExtractionModel` | string | OpenRouter model slug used for extraction (e.g., `anthropic/claude-sonnet-4`) |
 | `MessagesSampled` | int | Number of messages analyzed in last extraction |
 | `MessageWindowStart` | DateTime | Oldest message in the sample |
 | `MessageWindowEnd` | DateTime | Newest message in the sample |
@@ -131,7 +131,7 @@ The sampled messages are sent to the Anthropic API with a structured extraction 
 - Explicit instruction to focus on publicly expressed interests and demonstrated knowledge only
 
 **Model and parameters:**
-- Model: configurable (default: same as assistant, currently `claude-sonnet-4-20250514`)
+- Model: configurable (default: same as assistant, currently `anthropic/claude-sonnet-4`)
 - Max output tokens: 1024 (configurable)
 - Temperature: 0.3 (low creativity, high consistency)
 
