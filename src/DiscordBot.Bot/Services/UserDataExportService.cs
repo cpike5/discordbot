@@ -104,6 +104,7 @@ public class UserDataExportService : IUserDataExportService
                 await ExportTtsMessagesAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportLlmUsageRecordsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportAssistantInteractionsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
+                await ExportDmAssistantUsageMetricsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportGuildMembersAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportUserConsentsAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
                 await ExportUserProfileAsync(discordUserId, tempExportPath, exportedCounts, cancellationToken);
@@ -624,6 +625,35 @@ public class UserDataExportService : IUserDataExportService
         }
     }
 
+    private async Task ExportDmAssistantUsageMetricsAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
+    {
+        // UserPurgeService deletes this table on purge (11d), so the export should include it too -
+        // otherwise a purge preview/export pair would disagree about what data exists for the user.
+        var data = await _dbContext.DmAssistantUsageMetrics
+            .Where(m => m.UserId == userId)
+            .Select(m => new
+            {
+                m.Id,
+                m.UserId,
+                m.Date,
+                m.TotalMessages,
+                m.TotalInputTokens,
+                m.TotalOutputTokens,
+                m.TotalCachedTokens,
+                m.EstimatedCostUsd,
+                m.FailedRequests,
+                m.AverageLatencyMs,
+                m.UpdatedAt
+            })
+            .ToListAsync(ct);
+
+        counts["DmAssistantUsageMetrics"] = data.Count;
+        if (data.Count > 0)
+        {
+            await WriteJsonFileAsync(exportPath, "dm_assistant_usage_metrics.json", data);
+        }
+    }
+
     private async Task ExportGuildMembersAsync(ulong userId, string exportPath, Dictionary<string, int> counts, CancellationToken ct)
     {
         var data = await _dbContext.GuildMembers
@@ -823,6 +853,7 @@ public class UserDataExportService : IUserDataExportService
         sb.AppendLine("- `llm_usage_records.json` - AI assistant usage ledger: tokens, cost, and model per message (if any)");
         sb.AppendLine("- `assistant_interaction_logs.json` - Your guild AI assistant questions and responses (if any)");
         sb.AppendLine("- `dm_assistant_interaction_logs.json` - Your DM AI assistant messages and responses (if any)");
+        sb.AppendLine("- `dm_assistant_usage_metrics.json` - Your daily DM AI assistant usage totals (if any)");
         sb.AppendLine("- `guild_members.json` - Your guild membership information (if any)");
         sb.AppendLine("- `consents.json` - Your consent preferences (if any)");
         sb.AppendLine("- `application_user.json` - Your admin account data (if linked)");
@@ -860,6 +891,7 @@ public class UserDataExportService : IUserDataExportService
             "LlmUsageRecords" => "AI Assistant Usage Ledger",
             "AssistantInteractionLogs" => "AI Assistant Interactions (Guild)",
             "DmAssistantInteractionLogs" => "AI Assistant Interactions (DM)",
+            "DmAssistantUsageMetrics" => "AI Assistant Usage Metrics (DM)",
             "GuildMembers" => "Guild Memberships",
             "UserConsents" => "Consent Records",
             "Users" => "User Profile",

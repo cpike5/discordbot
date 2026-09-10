@@ -40,8 +40,19 @@ public class LlmOptions
 
     /// <summary>
     /// Gets or sets the batch size <c>AssistantInteractionLogRetentionService</c> uses when
-    /// deleting expired <c>LlmUsageRecord</c> rows. Default is 1000, matching the other
-    /// retention services' batch sizes.
+    /// deleting expired <c>LlmUsageRecord</c> rows, and when batching the guild/DM assistant
+    /// interaction log sweeps. Default is 1000, matching the other retention services' batch
+    /// sizes; capped at 1000 regardless of what is configured here (see the repositories'
+    /// <c>DeleteOlderThanAsync</c> batch overloads).
     /// </summary>
     public int RetentionBatchSize { get; set; } = 1000;
+
+    /// <summary>
+    /// Gets or sets how long <c>AssistantInteractionLogRetentionService</c> waits after startup
+    /// before its first retention sweep, in minutes. Default is 5 - mirrors
+    /// <see cref="CatalogRefreshInitialDelayMinutes"/> and the other background services' startup
+    /// stagger (see <c>BackgroundServicesOptions</c>) so every scheduled job doesn't hit the
+    /// database in the same instant.
+    /// </summary>
+    public int RetentionSweepInitialDelayMinutes { get; set; } = 5;
 }

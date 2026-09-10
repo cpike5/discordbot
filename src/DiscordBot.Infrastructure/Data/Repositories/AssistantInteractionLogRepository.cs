@@ -92,6 +92,40 @@ public class AssistantInteractionLogRepository : Repository<AssistantInteraction
         return deletedCount;
     }
 
+    /// <inheritdoc />
+    public async Task<int> DeleteOlderThanAsync(
+        DateTime cutoffDate,
+        int batchSize,
+        CancellationToken cancellationToken = default)
+    {
+        // Clamped to 1000: SQLite's default compiled-in limit on bound parameters/expression-tree
+        // terms makes a huge IN (...) list of ids - built below from idsToDelete - unreliable well
+        // before batchSize reaches five figures. See LlmUsageRepository.DeleteOlderThanAsync.
+        batchSize = Math.Clamp(batchSize, 1, 1000);
+
+        var idsToDelete = await DbSet
+            .Where(l => l.Timestamp < cutoffDate)
+            .OrderBy(l => l.Id)
+            .Select(l => l.Id)
+            .Take(batchSize)
+            .ToListAsync(cancellationToken);
+
+        if (idsToDelete.Count == 0)
+        {
+            return 0;
+        }
+
+        var deletedCount = await DbSet
+            .Where(l => idsToDelete.Contains(l.Id))
+            .ExecuteDeleteAsync(cancellationToken);
+
+        _logger.LogInformation(
+            "Deleted {Count} assistant interaction logs (batch) older than {CutoffDate}",
+            deletedCount, cutoffDate);
+
+        return deletedCount;
+    }
+
     /// <summary>
     /// Logs a new interaction.
     /// </summary>

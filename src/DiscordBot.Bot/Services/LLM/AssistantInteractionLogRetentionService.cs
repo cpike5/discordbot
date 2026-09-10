@@ -13,12 +13,18 @@ namespace DiscordBot.Bot.Services.LLM;
 /// for guild interaction logs and the ledger, <see cref="DmAssistantOptions.InteractionLogRetentionDays"/>
 /// for DM interaction logs) so this service does not introduce yet another retention-days knob.
 /// A retention window of zero or less disables that table's sweep without disabling the others.
+/// Each table is deleted in batches of <see cref="LlmOptions.RetentionBatchSize"/> rows, with a
+/// brief inter-batch delay (see <see cref="SoundPlayLogRetentionService"/>), so a large backlog
+/// never deletes in one unbounded transaction. The startup delay and inter-batch delay are both
+/// driven by an injected <see cref="TimeProvider"/> so tests can exercise the sweep without
+/// waiting on the real clock.
 /// </summary>
 public class AssistantInteractionLogRetentionService : MonitoredBackgroundService
 {
-    private static readonly TimeSpan InitialDelay = TimeSpan.FromMinutes(5);
+    private static readonly TimeSpan InterBatchDelay = TimeSpan.FromMilliseconds(100);
 
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly TimeProvider _timeProvider;
     private readonly IOptions<LlmOptions> _llmOptions;
     private readonly IOptions<AssistantOptions> _assistantOptions;
     private readonly IOptions<DmAssistantOptions> _dmAssistantOptions;
@@ -36,10 +42,12 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
         IOptions<LlmOptions> llmOptions,
         IOptions<AssistantOptions> assistantOptions,
         IOptions<DmAssistantOptions> dmAssistantOptions,
-        ILogger<AssistantInteractionLogRetentionService> logger)
+        ILogger<AssistantInteractionLogRetentionService> logger,
+        TimeProvider? timeProvider = null)
         : base(serviceProvider, logger)
     {
         _scopeFactory = scopeFactory;
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _llmOptions = llmOptions;
         _assistantOptions = assistantOptions;
         _dmAssistantOptions = dmAssistantOptions;
@@ -60,7 +68,8 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
             _llmOptions.Value.RetentionSweepIntervalHours,
             _llmOptions.Value.RetentionBatchSize);
 
-        await Task.Delay(InitialDelay, stoppingToken);
+        var initialDelay = TimeSpan.FromMinutes(_llmOptions.Value.RetentionSweepInitialDelayMinutes);
+        await Task.Delay(initialDelay, _timeProvider, stoppingToken);
 
         var executionCycle = 0;
 
@@ -96,7 +105,7 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
             }
 
             var interval = TimeSpan.FromHours(_llmOptions.Value.RetentionSweepIntervalHours);
-            await Task.Delay(interval, stoppingToken);
+            await Task.Delay(interval, _timeProvider, stoppingToken);
         }
 
         _logger.LogInformation("Assistant interaction log retention service stopping");
@@ -104,7 +113,9 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
 
     /// <summary>
     /// Sweeps each of the three tables in turn, skipping any whose configured retention window
-    /// is zero or negative.
+    /// is zero or negative. Each table deletes in batches of <see cref="LlmOptions.RetentionBatchSize"/>
+    /// rows until nothing more is deleted, with a brief inter-batch delay so a large backlog
+    /// doesn't hold a long-running transaction.
     /// </summary>
     private async Task<int> PerformCleanupAsync(CancellationToken stoppingToken)
     {
@@ -117,21 +128,21 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
         var dmRetentionDays = _dmAssistantOptions.Value.InteractionLogRetentionDays;
         var batchSize = _llmOptions.Value.RetentionBatchSize;
 
-        var sweeps = new (string Name, int RetentionDays, Func<DateTime, CancellationToken, Task<int>> DeleteAsync)[]
+        var sweeps = new (string Name, int RetentionDays, Func<DateTime, int, CancellationToken, Task<int>> DeleteBatchAsync)[]
         {
             ("guild assistant interaction logs", guildRetentionDays,
-                (cutoff, ct) => assistantInteractionLogRepo.DeleteOlderThanAsync(cutoff, ct)),
+                (cutoff, batch, ct) => assistantInteractionLogRepo.DeleteOlderThanAsync(cutoff, batch, ct)),
             ("DM assistant interaction logs", dmRetentionDays,
-                (cutoff, ct) => dmAssistantInteractionLogRepo.DeleteOlderThanAsync(cutoff, ct)),
+                (cutoff, batch, ct) => dmAssistantInteractionLogRepo.DeleteOlderThanAsync(cutoff, batch, ct)),
             // Per the plan (Design > 3 > Retention and purge): the usage ledger follows the guild
             // assistant's interaction-log retention window rather than a new option.
             ("LLM usage records", guildRetentionDays,
-                (cutoff, ct) => llmUsageRepo.DeleteOlderThanAsync(cutoff, batchSize, ct))
+                (cutoff, batch, ct) => llmUsageRepo.DeleteOlderThanAsync(cutoff, batch, ct))
         };
 
         var totalDeleted = 0;
 
-        foreach (var (name, retentionDays, deleteAsync) in sweeps)
+        foreach (var (name, retentionDays, deleteBatchAsync) in sweeps)
         {
             if (retentionDays <= 0)
             {
@@ -147,17 +158,17 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
 
             try
             {
-                var deleted = await deleteAsync(cutoff, stoppingToken);
-                totalDeleted += deleted;
+                var tableDeleted = await DeleteInBatchesAsync(deleteBatchAsync, cutoff, batchSize, stoppingToken);
+                totalDeleted += tableDeleted;
 
-                if (deleted > 0)
+                if (tableDeleted > 0)
                 {
                     _logger.LogInformation(
                         "Deleted {Count} {Table} older than {RetentionDays} days",
-                        deleted, name, retentionDays);
+                        tableDeleted, name, retentionDays);
                 }
 
-                BotActivitySource.SetRecordsDeleted(cleanupActivity, deleted);
+                BotActivitySource.SetRecordsDeleted(cleanupActivity, tableDeleted);
                 BotActivitySource.SetSuccess(cleanupActivity);
             }
             catch (Exception ex)
@@ -165,6 +176,41 @@ public class AssistantInteractionLogRetentionService : MonitoredBackgroundServic
                 BotActivitySource.RecordException(cleanupActivity, ex);
                 throw;
             }
+        }
+
+        return totalDeleted;
+    }
+
+    /// <summary>
+    /// Repeatedly invokes <paramref name="deleteBatchAsync"/> until a batch deletes fewer rows
+    /// than <paramref name="batchSize"/> (i.e. nothing remains), pausing <see cref="InterBatchDelay"/>
+    /// between batches. Mirrors <c>SoundPlayLogRetentionService.CleanupPlayLogsAsync</c>.
+    /// </summary>
+    private async Task<int> DeleteInBatchesAsync(
+        Func<DateTime, int, CancellationToken, Task<int>> deleteBatchAsync,
+        DateTime cutoff,
+        int batchSize,
+        CancellationToken stoppingToken)
+    {
+        var totalDeleted = 0;
+
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            var deleted = await deleteBatchAsync(cutoff, batchSize, stoppingToken);
+
+            if (deleted == 0)
+            {
+                break;
+            }
+
+            totalDeleted += deleted;
+
+            if (deleted < batchSize)
+            {
+                break;
+            }
+
+            await Task.Delay(InterBatchDelay, _timeProvider, stoppingToken);
         }
 
         return totalDeleted;

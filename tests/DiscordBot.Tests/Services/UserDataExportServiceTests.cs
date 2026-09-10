@@ -6,8 +6,10 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -25,6 +27,7 @@ namespace DiscordBot.Tests.Services;
 public class UserDataExportServiceTests : IDisposable
 {
     private readonly BotDbContext _context;
+    private readonly SqliteConnection _connection;
     private readonly UserDataExportService _service;
     private readonly Mock<IAuditLogService> _auditLogServiceMock;
     private readonly Mock<IAuditLogBuilder> _auditLogBuilderMock;
@@ -33,17 +36,7 @@ public class UserDataExportServiceTests : IDisposable
 
     public UserDataExportServiceTests()
     {
-        // EF's InMemory provider, not SQLite: ExportApplicationUserAsync's
-        // Users.OfType<ApplicationUser>() query (pre-existing, unrelated to this change) does not
-        // translate against the relational SQLite provider used elsewhere in this test project -
-        // InMemory evaluates it client-side instead. No ExecuteDeleteAsync is exercised here (that
-        // is UserPurgeServiceTests' concern, which does use SQLite), so InMemory's other
-        // limitations don't apply to these tests.
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseInMemoryDatabase(Guid.NewGuid().ToString())
-            .Options;
-
-        _context = new BotDbContext(options);
+        (_context, _connection) = TestDbContextFactory.CreateContext();
 
         _auditLogServiceMock = new Mock<IAuditLogService>();
         _auditLogBuilderMock = new Mock<IAuditLogBuilder>();
@@ -74,6 +67,7 @@ public class UserDataExportServiceTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
+        _connection.Dispose();
 
         if (Directory.Exists(_webRootPath))
         {
@@ -126,6 +120,17 @@ public class UserDataExportServiceTests : IDisposable
             Success = true
         });
 
+        _context.DmAssistantUsageMetrics.Add(new DmAssistantUsageMetrics
+        {
+            UserId = discordUserId,
+            Date = DateTime.UtcNow.Date,
+            TotalMessages = 3,
+            TotalInputTokens = 300,
+            TotalOutputTokens = 150,
+            EstimatedCostUsd = 0.05m,
+            UpdatedAt = DateTime.UtcNow
+        });
+
         await _context.SaveChangesAsync();
 
         // Act
@@ -139,6 +144,8 @@ public class UserDataExportServiceTests : IDisposable
         result.ExportedCounts["AssistantInteractionLogs"].Should().Be(1);
         result.ExportedCounts.Should().ContainKey("DmAssistantInteractionLogs");
         result.ExportedCounts["DmAssistantInteractionLogs"].Should().Be(1);
+        result.ExportedCounts.Should().ContainKey("DmAssistantUsageMetrics");
+        result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(1);
 
         // The zip should contain the new export files.
         var zipPath = Path.Combine(_webRootPath, "exports", discordUserId.ToString(), $"{result.ExportId}.zip");
@@ -146,7 +153,11 @@ public class UserDataExportServiceTests : IDisposable
 
         using var archive = ZipFile.OpenRead(zipPath);
         archive.Entries.Select(e => e.Name).Should().Contain(
-            new[] { "llm_usage_records.json", "assistant_interaction_logs.json", "dm_assistant_interaction_logs.json" });
+            new[]
+            {
+                "llm_usage_records.json", "assistant_interaction_logs.json",
+                "dm_assistant_interaction_logs.json", "dm_assistant_usage_metrics.json"
+            });
 
         var llmUsageEntry = archive.GetEntry("llm_usage_records.json")!;
         using var reader = new StreamReader(llmUsageEntry.Open());
@@ -172,6 +183,7 @@ public class UserDataExportServiceTests : IDisposable
         result.ExportedCounts["LlmUsageRecords"].Should().Be(0);
         result.ExportedCounts["AssistantInteractionLogs"].Should().Be(0);
         result.ExportedCounts["DmAssistantInteractionLogs"].Should().Be(0);
+        result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(0);
 
         var zipPath = Path.Combine(_webRootPath, "exports", discordUserId.ToString(), $"{result.ExportId}.zip");
         using var archive = ZipFile.OpenRead(zipPath);
@@ -206,5 +218,33 @@ public class UserDataExportServiceTests : IDisposable
         // Assert
         result.Success.Should().BeTrue();
         result.ExportedCounts["LlmUsageRecords"].Should().Be(0, "should not include other users' ledger rows");
+    }
+
+    [Fact]
+    public async Task ExportUserDataAsync_DoesNotIncludeOtherUsersDmAssistantUsageMetrics()
+    {
+        // Arrange
+        var targetUserId = 555666777UL;
+        var otherUserId = 888999000UL;
+
+        _context.Users.Add(new User { Id = targetUserId });
+        _context.Users.Add(new User { Id = otherUserId });
+
+        _context.DmAssistantUsageMetrics.Add(new DmAssistantUsageMetrics
+        {
+            UserId = otherUserId,
+            Date = DateTime.UtcNow.Date,
+            TotalMessages = 5,
+            UpdatedAt = DateTime.UtcNow
+        });
+
+        await _context.SaveChangesAsync();
+
+        // Act
+        var result = await _service.ExportUserDataAsync(targetUserId);
+
+        // Assert
+        result.Success.Should().BeTrue();
+        result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(0, "should not include other users' DM usage metrics");
     }
 }

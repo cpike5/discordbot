@@ -94,8 +94,7 @@ public static class AssistantServiceExtensions
         // these were ever cleaned up before. Registered ungated: it only needs the repositories
         // above and DmAssistantServiceExtensions' repository (resolved at runtime, not at
         // registration time, so registration order here doesn't matter), no API key.
-        services.AddHostedService<DiscordBot.Bot.Services.LLM.AssistantInteractionLogRetentionService>();
-
+        services.AddHostedService<AssistantInteractionLogRetentionService>();
 
         services.AddHttpClient<IOpenRouterModelCatalogClient, OpenRouterModelCatalogClient>((sp, http) =>
         {

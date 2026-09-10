@@ -46,4 +46,34 @@ public class DmAssistantInteractionLogRepository : Repository<DmAssistantInterac
 
         return deletedCount;
     }
+
+    /// <inheritdoc />
+    public async Task<int> DeleteOlderThanAsync(
+        DateTime cutoffDate, int batchSize, CancellationToken ct = default)
+    {
+        // Clamped to 1000 - see LlmUsageRepository.DeleteOlderThanAsync / AssistantInteractionLogRepository.
+        batchSize = Math.Clamp(batchSize, 1, 1000);
+
+        var idsToDelete = await DbSet
+            .Where(l => l.Timestamp < cutoffDate)
+            .OrderBy(l => l.Id)
+            .Select(l => l.Id)
+            .Take(batchSize)
+            .ToListAsync(ct);
+
+        if (idsToDelete.Count == 0)
+        {
+            return 0;
+        }
+
+        var deletedCount = await DbSet
+            .Where(l => idsToDelete.Contains(l.Id))
+            .ExecuteDeleteAsync(ct);
+
+        _logger.LogInformation(
+            "Deleted {Count} DM assistant interaction logs (batch) older than {CutoffDate}",
+            deletedCount, cutoffDate);
+
+        return deletedCount;
+    }
 }
