@@ -1,6 +1,6 @@
 # Blazor Port — High-Level Plan
 
-> **Status:** Draft for review
+> **Status:** Approved for planning; decisions in §8 settled 2026-09-10
 > **Date:** 2026-09-10
 > **Scope:** Port the whole web UI (admin portal, guild pages, public audio portal, account pages) from Razor Pages + per-page JavaScript to Blazor. Implement the design system as Blazor components. Remove the legacy Razor Pages, their JavaScript, and the controllers that only exist to serve that JavaScript.
 > **Companion:** [`blazor-port-inventory.md`](blazor-port-inventory.md) — the page, component, JavaScript, controller and hosting survey this plan is built on.
@@ -56,9 +56,9 @@ Four remote branches carry an earlier migration (`claude/bot-ui-blazor-plan-slot
 
 - Only the Phase 0 foundation (two components, interop shim, service registration) ever reached `main`, via PR #1927. It was removed on 2026-09-09 in `dbd59ce` with the note "will be rescoped from scratch".
 - The seven "island" slices in PR #1931 and everything after (an 8→10 framework upgrade, routed `App.razor`/layouts, ~33 shared components, 27 routed pages, 183 bUnit tests) live only on `rhesdp`. **They never merged.** The branch is 36 commits behind `main`.
-- The Graphite v2 visual overhaul (`9df4fef`, 2026-09-02) landed after that branch point and restyled every component. All markup on the old branch was copied verbatim from pre-Graphite partials and is now visually stale.
+- The Graphite v2 visual overhaul (`9df4fef`, 2026-09-02) landed after that branch point and restyled every component. All markup on the old branch was copied verbatim from pre-Graphite partials and is now visually stale. Graphite v2 is the design standard this port reproduces.
 
-The old plan itself is not reused: it was islands-first, written against a different framework target, and its phase structure and estimates did not hold. This plan is built from a fresh survey of `main`. The old branch is only worth opening for a handful of concrete mechanisms and recorded gotchas, each of which should be re-derived critically against current code rather than cherry-picked (all paths on `rhesdp`):
+The old plan itself is not reused: it was poorly planned, islands-first, written against a different framework target, and its phase structure and estimates did not hold. This plan is built from a fresh survey of `main`. The old branch is only worth opening for a handful of concrete mechanisms and recorded gotchas, each of which should be re-derived critically against current code rather than cherry-picked (all paths on `rhesdp`):
 
 | Asset | Why |
 | --- | --- |
@@ -71,7 +71,7 @@ The old plan itself is not reused: it was islands-first, written against a diffe
 | `tests/DiscordBot.ComponentTests/*` | bUnit project layout and the modal-await deadlock workaround. |
 | Commit messages `f0fedc9..rhesdp` | Record of real bugs found: .NET 10 `blazor.server.js` initializer 404 on nested routes, the `discord:user_id` claim name, dead `OnPostSyncAsync`. |
 
-Lessons carried into this plan (the full list is in the inventory): keep design-system changes and page migration from running concurrently; delete the `.cshtml` in the same commit as its replacement; add component tests with the first component, not as catch-up; keep charts, audio bytes and multi-MB uploads out of the circuit; snowflakes cross every boundary as strings; set an explicit trigger for removing any parity gate.
+Lessons carried into this plan (the full list is in the inventory): delete the `.cshtml` in the same commit as its replacement; add component tests with the first component, not as catch-up; keep charts, audio bytes and multi-MB uploads out of the circuit; snowflakes cross every boundary as strings; set an explicit trigger for removing any parity gate.
 
 ---
 
@@ -94,7 +94,7 @@ Lessons carried into this plan (the full list is in the inventory): keep design-
 - **Account pages become static SSR Razor components**, following the .NET Blazor Identity template: `Login`, `Lockout`, `AccessDenied`, `Privacy`, `Profile`, `LinkDiscord`, `ExternalLogin` as static `.razor` with `[CascadingParameter] HttpContext`, plus minimal-API endpoints for `PerformExternalLogin` (the Discord `ChallengeResult`) and `Logout`. The Discord OAuth middleware callback, `SignInManager` cookie writes, the `?authError=discord_unavailable|discord_expired|discord_error` contract, `returnUrl` sanitising and the cookie paths in `IdentityConfigOptions` are preserved exactly. jQuery unobtrusive validation and `_ValidationScriptsPartial` go away; `EditForm` + `DataAnnotationsValidator` replace them.
 - **Auth state in circuits:** register a `RevalidatingServerAuthenticationStateProvider` that re-checks user existence, lockout and security stamp every 30 minutes, because a circuit outlives the cookie and today's per-request `DiscordClaimsTransformation` no longer runs per interaction.
 - **Role policies** (`RequireSuperAdmin/Admin/Moderator/Viewer`) stay; pages carry `[Authorize(Policy = ...)]` and `Routes.razor` uses `AuthorizeRouteView`. `<AuthorizeView Policy/Roles>` replaces the `<authorize>` and `<require-role>` tag helpers one for one.
-- **Guild access** becomes resource-based: one `GuildAccess` handler evaluating `context.Resource is ulong guildId`, called from a single `GuildContextProvider` in `GuildLayout` (replacing 27 per-page loaders). Consolidate the two existing handlers first (Phase 0). Recommend the DB-backed one with a live-gateway fallback only for SuperAdmin permission elevation checks; that decision belongs to the user.
+- **Guild access** becomes resource-based: one `GuildAccess` handler evaluating `context.Resource is ulong guildId`, called from a single `GuildContextProvider` in `GuildLayout` (replacing 27 per-page loaders). Consolidate the two existing handlers first (Phase 0): **cached membership (`UserDiscordGuild` / `UserGuildAccess`) is checked first; on a cache miss the handler falls back to a live `DiscordSocketClient` lookup and refreshes the cache.** Discord Administrator permission for the Admin role is read from the live guild user when available, from the cached record otherwise.
 - **Portal three-state UX** (anonymous → landing view, authenticated non-member → forbidden view, member → portal) is reproduced inside `PortalLayout` as explicit state branching, not `[Authorize]` redirects.
 - **Antiforgery:** `UseAntiforgery()` after `UseAuthorization()`; static SSR `EditForm` gets tokens automatically. Interactive pages call services, not endpoints, so the fetch-with-token pattern disappears. The few endpoints that remain reachable from the browser (upload, downloads, streams) are GET or carry `[ValidateAntiForgeryToken]` with the token supplied via the interop upload module.
 
@@ -117,7 +117,7 @@ Plus `ssml-markers.js` (83 lines, pure functions) kept client-side for per-keyst
 ### 4.5 Controllers and endpoints
 
 - **Retire** the 18 P-class controllers as their consuming pages migrate: `AnalyticsController`, `AudioController`, `BulkPurgeController`, `CommandsApiController` (HTML partials), `ModTagsController`, `NotificationsController`, `PerformanceTabsController` (HTML partials), `PreviewController`, `SoundsController` (except download/export), `UserPreferencesController`, and the eight Portal soundboard/TTS controllers except the endpoints listed next.
-- **Keep** endpoints a browser needs a URL for: `GET .../sounds/{id}/audio` (preview stream), `POST .../sounds` (upload, used by `audio.js`), `POST /api/portal/tts/{g}/preview` (blob), `GET .../members/export`, `GET /Admin/Logs?handler=Export` equivalents as minimal-API file endpoints, `GET /api/guilds/{g}/sounds/{id}/download` and `export`.
+- **Keep** endpoints a browser needs a URL for: `GET .../sounds/{id}/audio` (preview stream), `POST .../sounds` (upload, used by `audio.js`), `POST /api/portal/tts/{g}/preview` (blob), `GET .../members/export`, `GET /Admin/Logs?handler=Export` equivalents as minimal-API file endpoints, `GET /api/guilds/{g}/sounds/{id}/download` and `export`, plus a new `GET /api/portal/vox/{g}/clips/{id}/audio` clip stream for the VOX preview (decision 6).
 - **Keep** the X-class REST resources that are documented as an API (`GuildsController`, `MessagesController`, `ScheduledMessagesController`, `WelcomeController`) and the B-class ones with real resource shape (`AuditLogs`, `FlaggedEvents`, `ModerationCases`, `ModerationConfig`, `Watchlist`, `UserModeration`, `GuildMembers`, `CommandLogs`, `PerformanceMetrics`, `Alerts`, `Bot`, `Theme`, `Autocomplete`, `PortalVox` for the endpoints the VOX page needs). Whether these stay long-term is a product question (nothing external consumes them today; all ride the Identity cookie). The port does not depend on removing them.
 - Update `docs/articles/api-endpoints.md` (its "Authentication: None" statement is already stale).
 
@@ -168,11 +168,11 @@ Independent clean-ups that shrink the port and remove ambiguity. Each is its own
 
 1. **.NET 10 LTS upgrade.** All four projects, package majors, `global.json`, CI `setup-dotnet`, Dockerfile base images, session-start hook (`dotnet-sdk-10.0` is in the Ubuntu archive). Verify both migration sets still apply. Flag that the test suite says nothing about Postgres.
 2. **Delete the 9 orphaned JS files** (4,284 lines): `server-analytics.js`, `engagement-analytics.js`, `moderation-analytics.js`, `command-analytics.js`, `api-metrics-chart.js`, `command-error-handler.js`, `command-loading-states.js`, `performance-shell.js`, top-level `performance-tabs.js`.
-3. **Authorization fixes.** Add role policies to `AlertsController` and `BotController`. Consolidate `GuildAccessHandler` / `GuildAccessAuthorizationHandler` into one registered, tested handler that also accepts `context.Resource is ulong`. Update `authorization-policies.md`.
+3. **Authorization fixes.** Add role policies to `AlertsController` and `BotController`. Consolidate `GuildAccessHandler` / `GuildAccessAuthorizationHandler` into one registered, tested handler: cache first, live gateway lookup on miss, and accepting `context.Resource is ulong`. Update `authorization-policies.md`.
 4. **Web-only startup mode** (for example `Discord:Enabled=false` or a `--web-only` switch) so the host can run without a bot token against a seeded SQLite database. Prerequisite for Playwright.
-5. **Retire the five legacy Performance pages** (`SystemHealth`, `HealthMetrics`, `Commands`, `ApiMetrics`, `Alerts` as standalone routes) in favour of the unified `Index` with redirects, and turn the two `AuditLogs/MessageLogs` index redirect stubs into route redirects. Removes five L-rated pages and ~1,900 lines of realtime JS from the port. Product decision; recommend yes.
+5. **Retire the five legacy Performance pages** (`SystemHealth`, `HealthMetrics`, `Commands`, `ApiMetrics`, `Alerts` as standalone routes) in favour of the unified `Index` with redirects, and turn the two `AuditLogs/MessageLogs` index redirect stubs into route redirects. Removes five L-rated pages and ~1,900 lines of realtime JS from the port.
 6. **Collapse bot-status pollers** onto the SignalR push (deletes `bot-status-refresh.js` and the 5-second poll in `settings.js`).
-7. **Design-system freeze.** Agree that visual changes during the port go through `site.css` tokens only. Refresh the stale theme section of `design-system.md` to match `site.css` ("Graphite", not "Discord Dark").
+7. **Design-system baseline.** Graphite v2 is the standard and no major design changes are planned until the port completes; any visual change in the meantime goes through `site.css` tokens only. Refresh the stale theme section of `design-system.md` to match `site.css` ("Graphite", not "Discord Dark").
 
 ### Phase 1 — Foundation · 5–8 days · 2–3 PRs
 
@@ -205,7 +205,7 @@ Order is by rising complexity so the component library hardens on easy pages fir
 | 4c Account | `Login`, `ExternalLogin`, `LinkDiscord`, `Logout`, `Privacy` + minimal-API endpoints | Static SSR. Preserve the `?authError` contract, `returnUrl` sanitising and `OnRemoteFailure` redirect. Verify with Playwright against a stubbed OAuth provider or a manual checklist. Remove jQuery and `_ValidationScriptsPartial`. Fix the dead `LoginWith2fa` branch (either remove or leave a documented no-op). |
 | 4d Lists and settings | `Guilds/Index`, `Guilds/Details`, `Members/Index` (+ detail modal), `Members/Moderation`, `FlaggedEvents` ×2, `ModerationSettings`, `AudioSettings`, `Admin/Logs` (unified; stubs become redirects), `Admin/Notifications`, `Admin/BulkPurge` (wire real progress from the event bus), `Admin/UserPurge`, `Admin/Settings`, `RatWatch/Incidents` | Three save patterns collapse to component methods calling services. `Admin/Settings` and `ModerationSettings` get `TabGroup` + dirty tracking via `EditContext` + `beforeunload` guard. CSV exports become minimal-API GET endpoints. |
 | 4e Dashboards and charts | `Index` (home), `Commands` (three tabs in one component, filter state in the query string via `NavigationManager`), `Guilds/Analytics` ×3 (custom heatmap becomes a component), `RatWatch/Analytics`, `Admin/RatWatchAnalytics`, `Admin/Performance` (one page, six tabs, event-bus live tiles) | `Chart` component + `charts.js`. Retire `CommandsApiController` and `PerformanceTabsController` HTML endpoints, `AnalyticsController`. |
-| 4f Audio | `Guilds/Soundboard`, `Guilds/TextToSpeech`, `Guilds/VOX`, `Portal/Soundboard`, `Portal/TTS`, `Portal/VOX` | Hardest cluster. `audio.js` for preview and upload; `VoiceChannelPanel` on the event bus; Tier 5 TTS components; `<Virtualize>` for the sound grid. Decide whether VOX preview (a commented-out stub today) is implemented or carried. Portal pages keep the three-state gate and the stream/upload endpoints. |
+| 4f Audio | `Guilds/Soundboard`, `Guilds/TextToSpeech`, `Guilds/VOX`, `Portal/Soundboard`, `Portal/TTS`, `Portal/VOX` | Hardest cluster. `audio.js` for preview and upload; `VoiceChannelPanel` on the event bus; Tier 5 TTS components; `<Virtualize>` for the sound grid. VOX browser preview (a commented-out stub today) is implemented: add the clip stream endpoint and reuse `audio.js`. Portal pages keep the three-state gate and the stream/upload endpoints. |
 | 4g Public | `Guilds/PublicLeaderboard` | `EmptyLayout`, anonymous, its own three-state gate. |
 
 ### Phase 5 — Decommission · 4–6 days · 3–4 PRs
@@ -242,7 +242,7 @@ Background-service tests already have thread-pool starvation rules in CLAUDE.md;
 
 | Risk | Mitigation |
 | --- | --- |
-| Design restyle mid-port invalidates markup (this killed the last attempt) | Phase 0 freeze; components use tokens only; showcase screenshots per tier |
+| Design restyle mid-port invalidates markup | No major design work planned until the port completes; components use tokens only; showcase screenshots per tier |
 | Long-lived branch drifts from `main` | No long-lived branch. Every phase is small PRs to `main`, app shippable after each |
 | Two shells to maintain during Phase 4 | Keep 4a–4d short; any shell change is applied to both layouts in the same PR |
 | Circuit memory: `DiscordSocketClient` and guild caches referenced from many components | Resolve per operation via `IServiceScopeFactory`, subscribe/unsubscribe in `Dispose`, measure in Phase 6 |
@@ -256,16 +256,18 @@ Background-service tests already have thread-pool starvation rules in CLAUDE.md;
 
 ---
 
-## 8. Decisions needed before Phase 0
+## 8. Decisions (settled 2026-09-10)
 
-1. **Upgrade to .NET 10 first?** Recommended yes (EOL pressure, proven path). Alternative: port on .NET 8 with the same per-page model and upgrade later.
-2. **Retire the five legacy Performance pages and the two redirect stubs** rather than port them? Recommended yes.
-3. **Guild access semantics:** DB-backed handler (documented, tested, no gateway call per check) or live gateway lookup (current runtime behaviour)? Recommended DB-backed with live check only where Discord permission elevation matters.
-4. **Chart.js via interop** (keeps the current look, vendored, ~400 lines of JS) vs a native Blazor chart library? Recommended Chart.js.
-5. **Retire `DashboardHub` and the P-class controllers** at the end, keeping only documented REST resources and browser-addressable file endpoints? Recommended yes; nothing external consumes them.
-6. **VOX browser preview:** implement (needs a clip audio endpoint) or carry the stub?
-7. **Design freeze** during Phases 2–4, with visual changes limited to tokens?
-8. **Folder name** `Blazor/` (this plan) vs `Components/` (framework convention; clashes with the Discord `ComponentIdBuilder`).
+| # | Decision | Outcome | Effect on the plan |
+| --- | --- | --- | --- |
+| 1 | Upgrade to .NET 10 first | **Yes** | Phase 0 item 1 is the first PR; everything else targets `net10.0`. |
+| 2 | Retire the five legacy Performance pages and the two redirect stubs | **Yes** | Phase 0 item 5; cluster 4e ports one Performance page, not six. |
+| 3 | Guild-access semantics | **Cache first, live gateway lookup on miss** | Phase 0 item 3 consolidates onto one handler with that order; `GuildContextProvider` uses it. |
+| 4 | Charting | **Chart.js via interop** for now; re-evaluate a native library later if needed | `charts.js` + `Chart` component in Phase 1/2; Chart.js vendored via npm. |
+| 5 | Retire `DashboardHub` and page-backing controllers at the end | **Yes** | Phase 5 step 2 as written. |
+| 6 | VOX browser preview | **Implement** | Cluster 4f adds a clip stream endpoint and wires preview through `audio.js`. |
+| 7 | Design changes during the port | **None planned** until the migration completes; Graphite v2 is the standard | Phase 0 item 7 is a baseline, not a negotiation; components reproduce Graphite v2 exactly. |
+| 8 | Folder | **`Blazor/`** | As written in §4.1. |
 
 ---
 
