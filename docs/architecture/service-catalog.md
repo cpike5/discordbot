@@ -386,6 +386,9 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `IAssistantGuildSettingsService` | Core Interfaces | Guild-specific assistant configuration |
 | `AssistantGuildSettingsService` | Infrastructure/Services | Assistant settings per guild |
 | `IAgentRunner` | Core Interfaces | LLM message routing and tool execution |
+| `ILlmClient` | Core Interfaces | Provider-agnostic LLM completion calls |
+| `OpenRouterLlmClient` | Infrastructure/Services/LLM/OpenRouter | `ILlmClient` over OpenRouter's OpenAI-compatible chat completions — owned typed `HttpClient` and wire records, no LLM SDK; retry, prompt-cache breakpoints, usage and billed cost |
+| `OpenRouterMessageMapper` | Infrastructure/Services/LLM/OpenRouter | Maps `Llm*` DTOs to and from the OpenAI-compatible wire shape |
 | `IToolRegistry` | Core Interfaces | Available tools registry |
 | `IPromptTemplate` | Core Interfaces | System prompt and context template |
 | `IDocumentationToolService` | Core Interfaces | Documentation lookup tool for assistant |
