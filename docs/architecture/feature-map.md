@@ -590,7 +590,7 @@ Owner-only DM assistant with multi-turn conversation history.
 | **Services** | `IDmAssistantService`, `IAgentRunner`, `ILlmClient` (`OpenRouterLlmClient` — OpenAI-compatible chat completions via an owned typed `HttpClient`, no LLM SDK), `IToolRegistry` |
 | **Tool Providers** | `IDmToolProvider` implementations: `DmAnalyticsToolProvider`, `DmModerationToolProvider`, `DmDocumentationToolProvider`, `MemoryToolProvider`, `ConversationToolProvider`, `WebFetchToolProvider`, `CodeExecutionToolProvider` |
 | **Database Entities** | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` |
-| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `anthropic/claude-sonnet-4`), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries) |
+| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `openrouter/auto`), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries) |
 | **Agent Prompt** | `docs/agents/dm-owner-agent.md` |
 | **Key Features** | Owner-only access (Discord API check), sliding-window conversation history, response chunking (split / `.md` attachment) |
 | **Access Control** | Owner identified via `GetApplicationInfoAsync()`. Non-owners receive placeholder response. |

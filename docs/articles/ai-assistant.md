@@ -6,7 +6,7 @@ description: LLM-powered conversational assistant that responds to mentions with
 
 # AI Assistant
 
-This document describes the AI Assistant feature, which provides LLM-powered conversational responses to user questions about bot features, commands, and usage. Users can mention the bot in Discord with a question and receive helpful answers directly in the channel. Models are reached through [OpenRouter](https://openrouter.ai), which exposes an OpenAI-compatible chat-completions API in front of many providers; the default model is `anthropic/claude-sonnet-4`.
+This document describes the AI Assistant feature, which provides LLM-powered conversational responses to user questions about bot features, commands, and usage. Users can mention the bot in Discord with a question and receive helpful answers directly in the channel. Models are reached through [OpenRouter](https://openrouter.ai), which exposes an OpenAI-compatible chat-completions API in front of many providers; the default model is `openrouter/auto`, which lets OpenRouter choose a model per request.
 
 ## Overview
 
@@ -222,15 +222,15 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 
 | Setting | Default | Description |
 |---------|---------|-------------|
-| `Model` | `"anthropic/claude-sonnet-4"` | OpenRouter model slug (blank falls back to `OpenRouter:DefaultModel`) |
+| `Model` | `"openrouter/auto"` | OpenRouter model slug (blank falls back to `OpenRouter:DefaultModel`) |
 | `ApiTimeoutMs` | `30000` | API call timeout in milliseconds |
 | `MaxTokens` | `512` | Maximum tokens in the model's response (~375 words) |
 | `Temperature` | `0.3` | Response creativity (0.0=deterministic, 1.0=random). Low by default because the assistant answers factual command questions |
 
 **Model slugs** are OpenRouter identifiers, not vendor model IDs — `anthropic/claude-sonnet-4`, not `claude-sonnet-4-20250514`. Any slug from https://openrouter.ai/models works. Common choices:
-- `anthropic/claude-sonnet-4` - **Recommended** - Best balance of speed, quality, and cost
-- `anthropic/claude-opus-4` - Highest quality, slower and more expensive
-- `anthropic/claude-haiku-4.5` - Fastest and cheapest, lower quality
+- `openrouter/auto` - **Default** - OpenRouter picks a model per request; no prompt caching
+- `anthropic/claude-sonnet-4.5` - Pinned Claude model with prompt caching; predictable cost and behaviour
+- `anthropic/claude-haiku-4.5` - Fastest and cheapest Claude option
 - `openai/gpt-4o` - Non-Claude alternative (no prompt caching; see below)
 
 #### Tool Configuration
@@ -310,7 +310,7 @@ At 100 questions/day:
     "MaxQuestionLength": 500,
     "MaxResponseLength": 1800,
     "TruncationSuffix": "\n\n... *(response truncated)*",
-    "Model": "anthropic/claude-sonnet-4",
+    "Model": "openrouter/auto",
     "ApiTimeoutMs": 30000,
     "MaxTokens": 512,
     "Temperature": 0.3,
@@ -355,7 +355,7 @@ The transport-level settings live in their own `OpenRouter` section, separate fr
 |---------|---------|-------------|
 | `ApiKey` | *(none)* | OpenRouter API key (**secret** - user secrets or environment only) |
 | `BaseUrl` | `"https://openrouter.ai/api/v1/"` | API base address (trailing slash matters - request paths are relative to it) |
-| `DefaultModel` | `"anthropic/claude-sonnet-4"` | Model slug used when a request does not name one |
+| `DefaultModel` | `"openrouter/auto"` | Model slug used when a request does not name one |
 | `MaxRetries` | `3` | Retry attempts for transient failures (HTTP 408/429/5xx, timeouts, network errors) |
 | `TimeoutSeconds` | `300` | Per-attempt request timeout |
 | `RetryBaseDelayMs` | `1000` | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
@@ -367,7 +367,7 @@ The transport-level settings live in their own `OpenRouter` section, separate fr
 {
   "OpenRouter": {
     "BaseUrl": "https://openrouter.ai/api/v1/",
-    "DefaultModel": "anthropic/claude-sonnet-4",
+    "DefaultModel": "openrouter/auto",
     "MaxRetries": 3,
     "TimeoutSeconds": 300,
     "RetryBaseDelayMs": 1000,
@@ -560,9 +560,9 @@ Each interaction uses tokens as follows:
 
 **Total per interaction:** ~250-1000 tokens
 
-### Pricing (anthropic/claude-sonnet-4)
+### Pricing
 
-OpenRouter bills per model at that model's published rate and reports the billed `cost` on each response, so these figures are the shape of the default model's pricing rather than a fixed constant. Check https://openrouter.ai/models for current per-model rates.
+OpenRouter bills per model at that model's published rate and reports the billed `cost` on each response. With the default `openrouter/auto` slug the model, and therefore the rate, varies per request, so the figures below are illustrative (they are Claude Sonnet's rates, which the `CostPerMillion*` fallback settings also assume). Check https://openrouter.ai/models for current per-model rates.
 
 **Without Caching:**
 - Input: $3.00 per million tokens

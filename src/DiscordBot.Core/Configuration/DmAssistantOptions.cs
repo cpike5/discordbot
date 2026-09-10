@@ -43,13 +43,13 @@ public class DmAssistantOptions
 
     /// <summary>
     /// Gets or sets the OpenRouter model slug to use.
-    /// Default is "anthropic/claude-sonnet-4".
+    /// Default is "openrouter/auto", which lets OpenRouter pick a model per request.
     /// </summary>
     /// <remarks>
-    /// Any slug from https://openrouter.ai/models works.
-    /// If null or empty, falls back to OpenRouter:DefaultModel.
+    /// Any slug from https://openrouter.ai/models works. Pin a Claude-family slug if you want
+    /// prompt caching. If null or empty, falls back to OpenRouter:DefaultModel.
     /// </remarks>
-    public string Model { get; set; } = "anthropic/claude-sonnet-4";
+    public string Model { get; set; } = "openrouter/auto";
 
     /// <summary>
     /// Gets or sets the maximum number of tokens for the model's response.

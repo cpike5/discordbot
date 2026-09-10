@@ -37,13 +37,13 @@ public class OpenRouterOptions
 
     /// <summary>
     /// Gets or sets the default model slug to use when a request does not name one.
-    /// Default is "anthropic/claude-sonnet-4".
+    /// Default is "openrouter/auto", which lets OpenRouter pick a model per request.
     /// </summary>
     /// <remarks>
     /// Any slug from https://openrouter.ai/models works. Prompt caching is only honoured for
     /// Claude-family slugs; other models simply report zero cached tokens.
     /// </remarks>
-    public string DefaultModel { get; set; } = "anthropic/claude-sonnet-4";
+    public string DefaultModel { get; set; } = "openrouter/auto";
 
     /// <summary>
     /// Gets or sets the maximum number of retry attempts for transient failures.

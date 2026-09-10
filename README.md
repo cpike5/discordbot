@@ -545,7 +545,7 @@ See [identity-configuration.md](docs/articles/identity-configuration.md) for det
 #### AI Assistant (OpenRouter)
 ```bash
 dotnet user-secrets set "OpenRouter:ApiKey" "your-openrouter-api-key"
-dotnet user-secrets set "OpenRouter:DefaultModel" "anthropic/claude-sonnet-4"  # Optional
+dotnet user-secrets set "OpenRouter:DefaultModel" "anthropic/claude-sonnet-4.5"  # Optional; default is openrouter/auto
 ```
 
 Get an API key from [openrouter.ai/keys](https://openrouter.ai/keys). Model names are OpenRouter
@@ -554,7 +554,7 @@ list at [openrouter.ai/models](https://openrouter.ai/models).
 
 **Client configuration:** `appsettings.json` → `OpenRouter` section
 - `OpenRouter:BaseUrl` — API base address (default `https://openrouter.ai/api/v1/`)
-- `OpenRouter:DefaultModel` — model slug used when a request doesn't name one (default `anthropic/claude-sonnet-4`)
+- `OpenRouter:DefaultModel` — model slug used when a request doesn't name one (default `openrouter/auto`, which lets OpenRouter pick a model per request)
 - `OpenRouter:MaxRetries` / `OpenRouter:RetryBaseDelayMs` — exponential backoff for transient failures
 - `OpenRouter:TimeoutSeconds` — request timeout
 - `OpenRouter:EnablePromptCachingByDefault` — adds a system-prompt cache breakpoint
@@ -676,7 +676,7 @@ Discord__OAuth__ClientSecret="your-client-secret"
 
 # AI Assistant (OpenRouter)
 OpenRouter__ApiKey="your-openrouter-api-key"
-OpenRouter__DefaultModel="anthropic/claude-sonnet-4"
+OpenRouter__DefaultModel="openrouter/auto"
 
 # Azure TTS
 AzureSpeech__SubscriptionKey="your-azure-key"
