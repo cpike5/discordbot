@@ -5,7 +5,7 @@ human evaluating the project; this file is for you, today, with no prior context
 
 ## What this is
 
-A Discord bot with an admin web portal, in one .NET 8 process. The bot side is
+A Discord bot with an admin web portal, in one .NET 10 process. The bot side is
 Discord.NET slash commands, voice/audio (soundboard, TTS, VOX clips), moderation,
 reminders, scheduled messages, and an LLM-backed assistant. The web side is
 ASP.NET Core Razor Pages plus REST controllers, styled with Tailwind, with

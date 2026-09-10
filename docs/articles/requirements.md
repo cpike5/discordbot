@@ -8,7 +8,7 @@ This document outlines the technical requirements for a Discord bot management s
 
 | Component | Technology |
 |-----------|------------|
-| Runtime | .NET 8 |
+| Runtime | .NET 10 |
 | Bot Framework | Discord.NET |
 | Web API | ASP.NET Core Web API |
 | Client UI | Razor Pages |

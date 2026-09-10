@@ -11,7 +11,7 @@
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
 - [Step 1: Server Preparation](#step-1-server-preparation)
-- [Step 2: Install .NET 8 Runtime](#step-2-install-net-8-runtime)
+- [Step 2: Install .NET 10 Runtime](#step-2-install-net-10-runtime)
 - [Step 3: Build the Application](#step-3-build-the-application)
 - [Step 4: Configure the Application](#step-4-configure-the-application)
 - [Step 5: Create Systemd Service](#step-5-create-systemd-service)
@@ -41,7 +41,7 @@ The application includes native systemd integration via `Microsoft.Extensions.Ho
 ### What This Guide Covers
 
 1. Prerequisites and server preparation
-2. Installing .NET 8 runtime
+2. Installing .NET 10 runtime
 3. Cloning and building the application
 4. Creating application directory structure
 5. Configuring systemd service with secrets
@@ -108,7 +108,7 @@ sudo chown -R discordbot:discordbot /var/lib/discordbot
 
 ---
 
-## Step 2: Install .NET 8 Runtime
+## Step 2: Install .NET 10 Runtime
 
 ### Option A: Microsoft Package Repository (Recommended)
 
@@ -120,14 +120,14 @@ rm packages-microsoft-prod.deb
 
 # Install ASP.NET Core Runtime
 sudo apt update
-sudo apt install -y aspnetcore-runtime-8.0
+sudo apt install -y aspnetcore-runtime-10.0
 ```
 
 ### Option B: Snap (Alternative)
 
 ```bash
-sudo snap install dotnet-runtime-80 --classic
-sudo snap alias dotnet-runtime-80.dotnet dotnet
+sudo snap install dotnet-runtime-100 --classic
+sudo snap alias dotnet-runtime-100.dotnet dotnet
 ```
 
 ### Verify Installation
@@ -136,7 +136,7 @@ sudo snap alias dotnet-runtime-80.dotnet dotnet
 dotnet --info
 ```
 
-You should see ASP.NET Core 8.0.x in the output.
+You should see ASP.NET Core 10.0.x in the output.
 
 ---
 

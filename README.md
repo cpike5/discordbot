@@ -5,7 +5,7 @@
 [![.NET](https://img.shields.io/badge/.NET-8.0-purple)](https://dotnet.microsoft.com/)
 [![Discord.NET](https://img.shields.io/badge/Discord.NET-3.19.0--beta-5865F2)](https://github.com/discord-net/Discord.Net)
 
-A Discord bot built with .NET 8 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
+A Discord bot built with .NET 10 and Discord.NET that provides a foundation for managing Discord servers through slash commands, a REST API, and a Razor Pages admin UI. The system combines a hosted Discord bot service with a Web API and admin dashboard for management and monitoring.
 
 ## Table of Contents
 
@@ -77,7 +77,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 
 ### Prerequisites
 
-- .NET 8 SDK
+- .NET 10 SDK
 - Node.js (for Tailwind CSS build)
 - Discord bot token ([Create a bot](https://discord.com/developers/applications))
 
