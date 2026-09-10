@@ -388,6 +388,7 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `IAgentRunner` | Core Interfaces | LLM message routing and tool execution |
 | `ILlmClient` | Core Interfaces | Provider-agnostic LLM completion calls |
 | `OpenRouterLlmClient` | Infrastructure/Services/LLM/OpenRouter | `ILlmClient` over OpenRouter's OpenAI-compatible chat completions — owned typed `HttpClient` and wire records, no LLM SDK; retry, prompt-cache breakpoints, usage and billed cost |
+| `OpenRouterParameterSupportCache` | Infrastructure/Services/LLM/OpenRouter | Singleton memo of slugs that reject `temperature` (reasoning models); `OpenRouterLlmClient` resends once without it on OpenRouter's "no endpoints for the requested parameters" 404 and records the slug here so later requests omit it up front |
 | `OpenRouterMessageMapper` | Infrastructure/Services/LLM/OpenRouter | Maps `Llm*` DTOs to and from the OpenAI-compatible wire shape |
 | `IToolRegistry` | Core Interfaces | Available tools registry |
 | `IPromptTemplate` | Core Interfaces | System prompt and context template |

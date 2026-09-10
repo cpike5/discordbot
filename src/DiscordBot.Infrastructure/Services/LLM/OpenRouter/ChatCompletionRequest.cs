@@ -96,7 +96,9 @@ public sealed record FunctionDefinition
 /// that carries tools, so a multi-provider slug only routes to a provider that supports the
 /// request's parameters. Without it a provider with no native function-calling support can be
 /// picked, and the model then has nothing but its own text to fake a tool call with — which surfaces
-/// as a raw tool-call-shaped string in the user-visible reply.
+/// as a raw tool-call-shaped string in the user-visible reply. The flip side: a parameter the model
+/// itself does not support (reasoning models and <c>temperature</c>) is refused with a 404 rather
+/// than dropped, which <see cref="OpenRouterLlmClient"/> handles by resending without it.
 /// </summary>
 public sealed record ProviderPreferences
 {

@@ -36,15 +36,18 @@ public class OpenRouterLlmClient : ILlmClient
 {
     private readonly HttpClient _http;
     private readonly IOptions<OpenRouterOptions> _options;
+    private readonly OpenRouterParameterSupportCache _parameterSupport;
     private readonly ILogger<OpenRouterLlmClient> _logger;
 
     public OpenRouterLlmClient(
         HttpClient http,
         IOptions<OpenRouterOptions> options,
+        OpenRouterParameterSupportCache parameterSupport,
         ILogger<OpenRouterLlmClient> logger)
     {
         _http = http ?? throw new ArgumentNullException(nameof(http));
         _options = options ?? throw new ArgumentNullException(nameof(options));
+        _parameterSupport = parameterSupport ?? throw new ArgumentNullException(nameof(parameterSupport));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -91,7 +94,8 @@ public class OpenRouterLlmClient : ILlmClient
                     attempt + 1,
                     options.MaxRetries + 1);
 
-                var response = await SendAsync(wireRequest, options.ApiKey, linkedCts.Token);
+                var response = await SendWithParameterFallbackAsync(
+                    wireRequest, options.ApiKey, linkedCts.Token);
 
                 _logger.LogInformation(
                     "OpenRouter completion successful. Tokens: {InputTokens} in, {OutputTokens} out, {CachedTokens} cached, cost {Cost}",
@@ -152,6 +156,47 @@ public class OpenRouterLlmClient : ILlmClient
         // Unreachable: the loop either returns or throws on its final attempt.
         return Failure("Unknown error occurred");
     }
+
+    /// <summary>
+    /// Sends one chat completion, falling back once without <c>temperature</c> when OpenRouter refuses
+    /// the request because no endpoint accepts every parameter it carries. That refusal is a 404
+    /// ("No endpoints found that can handle the requested parameters") and is what
+    /// <c>provider.require_parameters</c> turns an unsupported <c>temperature</c> into for reasoning
+    /// models such as the GPT-5 family. The slug is remembered so later requests omit it up front.
+    /// </summary>
+    private async Task<ChatCompletionResponse> SendWithParameterFallbackAsync(
+        ChatCompletionRequest request,
+        string apiKey,
+        CancellationToken cancellationToken)
+    {
+        if (request.Temperature is not null && _parameterSupport.IsTemperatureUnsupported(request.Model))
+        {
+            request = request with { Temperature = null };
+        }
+
+        try
+        {
+            return await SendAsync(request, apiKey, cancellationToken);
+        }
+        catch (OpenRouterException ex) when (request.Temperature is not null && IsUnsupportedParameterRejection(ex))
+        {
+            _logger.LogInformation(
+                "OpenRouter has no endpoint for model {Model} that accepts the request's parameters; " +
+                "resending without temperature and remembering that for this model",
+                request.Model);
+
+            _parameterSupport.MarkTemperatureUnsupported(request.Model);
+            return await SendAsync(request with { Temperature = null }, apiKey, cancellationToken);
+        }
+    }
+
+    /// <summary>
+    /// True for OpenRouter's "no endpoint supports every parameter in this request" refusal, as
+    /// opposed to a 404 for a slug that does not exist at all.
+    /// </summary>
+    private static bool IsUnsupportedParameterRejection(OpenRouterException ex) =>
+        ex.StatusCode == 404
+        && ex.Message.Contains("requested parameters", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
     /// Sends one chat completion. Throws <see cref="OpenRouterException"/> for a non-success status,

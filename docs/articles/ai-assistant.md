@@ -471,6 +471,7 @@ Because OpenRouter fronts many providers, switching models is a configuration ch
 - `finish_reason` replaces `stop_reason`.
 - Usage is reported as `prompt_tokens` / `completion_tokens`, with cached reads under `prompt_tokens_details.cached_tokens`, plus a real billed `cost` field.
 - Every request that carries tools also sends `provider.require_parameters: true`, so routing cannot select a provider that lacks function-calling support.
+- The flip side of `require_parameters`: a parameter the model itself does not support is refused (404, "No endpoints found that can handle the requested parameters") rather than dropped. Reasoning models such as the GPT-5 family do not accept `temperature`, so the client resends once without it and remembers the slug (`OpenRouterParameterSupportCache`, process lifetime) so later requests omit it up front. One failed round trip per such model per process.
 
 **Future Providers:**
 - Local models via Ollama
