@@ -1011,7 +1011,7 @@ of many model providers, so model names are OpenRouter slugs (`anthropic/claude-
 |----------|------|---------|-------------|
 | `ApiKey` | string | - | OpenRouter API key (SECRET) |
 | `BaseUrl` | string | "https://openrouter.ai/api/v1/" | API base address (trailing slash required) |
-| `DefaultModel` | string | "anthropic/claude-sonnet-4" | Model slug used when a request does not name one |
+| `DefaultModel` | string | "openrouter/auto" | Model slug used when a request does not name one |
 | `MaxRetries` | int | 3 | Retry attempts for transient failures (HTTP 408/429/5xx, timeouts, network errors) |
 | `TimeoutSeconds` | int | 300 | Per-attempt request timeout |
 | `RetryBaseDelayMs` | int | 1000 | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
@@ -1024,7 +1024,7 @@ of many model providers, so model names are OpenRouter slugs (`anthropic/claude-
   "OpenRouter": {
     "ApiKey": "(user-secrets)",
     "BaseUrl": "https://openrouter.ai/api/v1/",
-    "DefaultModel": "anthropic/claude-sonnet-4",
+    "DefaultModel": "openrouter/auto",
     "MaxRetries": 3,
     "TimeoutSeconds": 300,
     "RetryBaseDelayMs": 1000,

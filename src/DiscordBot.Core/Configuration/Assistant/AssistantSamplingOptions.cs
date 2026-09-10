@@ -8,16 +8,14 @@ public class AssistantSamplingOptions
 {
     /// <summary>
     /// Gets or sets the OpenRouter model slug to use.
-    /// Default is "anthropic/claude-sonnet-4".
+    /// Default is "openrouter/auto", which lets OpenRouter pick a model per request.
     /// </summary>
     /// <remarks>
-    /// Any slug from https://openrouter.ai/models works, for example:
-    /// - anthropic/claude-sonnet-4 (recommended for balance of speed/quality)
-    /// - anthropic/claude-opus-4 (highest quality, slower, more expensive)
-    /// - anthropic/claude-haiku-4 (fastest, cheapest, lower quality)
-    /// If null or empty, falls back to OpenRouter:DefaultModel.
+    /// Any slug from https://openrouter.ai/models works. Pin a specific slug (for example
+    /// "anthropic/claude-sonnet-4.5") for predictable behaviour and prompt caching, which only
+    /// Claude-family models honour. If null or empty, falls back to OpenRouter:DefaultModel.
     /// </remarks>
-    public string Model { get; set; } = "anthropic/claude-sonnet-4";
+    public string Model { get; set; } = "openrouter/auto";
 
     /// <summary>
     /// Gets or sets the timeout for LLM API calls in milliseconds.
@@ -35,7 +33,8 @@ public class AssistantSamplingOptions
     /// <summary>
     /// Gets or sets the temperature for the model's responses (0.0 to 1.0).
     /// Lower values are more focused and deterministic, higher values are more creative.
-    /// Default is 0.7 (balanced).
+    /// Default is 0.3: the guild assistant answers factual questions about commands and
+    /// features, where consistent syntax matters more than variety.
     /// </summary>
-    public double Temperature { get; set; } = 0.7;
+    public double Temperature { get; set; } = 0.3;
 }

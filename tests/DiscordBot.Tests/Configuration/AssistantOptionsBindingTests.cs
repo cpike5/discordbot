@@ -35,9 +35,9 @@ public class AssistantOptionsBindingTests
         var options = Bind(new Dictionary<string, string?>());
 
         options.GloballyEnabled.Should().BeFalse();
-        options.Sampling.Model.Should().Be("anthropic/claude-sonnet-4");
+        options.Sampling.Model.Should().Be("openrouter/auto");
         options.Sampling.MaxTokens.Should().Be(512);
-        options.Sampling.Temperature.Should().Be(0.7);
+        options.Sampling.Temperature.Should().Be(0.3);
         options.RateLimits.DefaultRateLimit.Should().Be(5);
         options.RateLimits.RateLimitWindowMinutes.Should().Be(5);
         options.Messages.MaxQuestionLength.Should().Be(500);

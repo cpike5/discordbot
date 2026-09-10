@@ -43,9 +43,9 @@ public class FeatureRequestsOptions
 
     /// <summary>
     /// OpenRouter model slug to use for the AI-powered requirements gathering conversation.
-    /// Default: anthropic/claude-sonnet-4
+    /// Default: openrouter/auto
     /// </summary>
-    public string RequirementsGatheringModel { get; set; } = "anthropic/claude-sonnet-4";
+    public string RequirementsGatheringModel { get; set; } = "openrouter/auto";
 
     /// <summary>
     /// Maximum number of conversation turns (user messages) before forcing the session to end.
