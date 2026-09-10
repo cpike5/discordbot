@@ -73,7 +73,9 @@ public class OpenRouterLlmClientTests
     }
 
     private static OpenRouterLlmClient CreateClient(
-        StubHandler handler, Action<OpenRouterOptions>? configure = null)
+        StubHandler handler,
+        Action<OpenRouterOptions>? configure = null,
+        OpenRouterParameterSupportCache? parameterSupport = null)
     {
         var options = new OpenRouterOptions
         {
@@ -91,7 +93,10 @@ public class OpenRouterLlmClientTests
         };
 
         return new OpenRouterLlmClient(
-            http, Options.Create(options), NullLogger<OpenRouterLlmClient>.Instance);
+            http,
+            Options.Create(options),
+            parameterSupport ?? new OpenRouterParameterSupportCache(),
+            NullLogger<OpenRouterLlmClient>.Instance);
     }
 
     private static LlmRequest SimpleRequest() => new()
@@ -371,6 +376,129 @@ public class OpenRouterLlmClientTests
         var result = await client.CompleteAsync(SimpleRequest());
 
         result.Success.Should().BeFalse();
+        handler.CallCount.Should().Be(1);
+    }
+
+    #endregion
+
+
+    #region Unsupported-parameter fallback
+
+    private const string UnsupportedParametersBody = """
+        {"error":{"message":"No endpoints found that can handle the requested parameters. To learn more about provider routing, visit: https://openrouter.ai/docs/guides/routing/provider-selection","code":404}}
+        """;
+
+    private static LlmRequest ToolRequest(string model = "openai/gpt-5.6-luna")
+    {
+        var request = SimpleRequest();
+        request.Model = model;
+        request.Tools = new List<LlmToolDefinition>
+        {
+            new()
+            {
+                Name = "get_roles",
+                Description = "Gets roles",
+                InputSchema = JsonDocument.Parse("""{"type":"object"}""").RootElement.Clone()
+            }
+        };
+        return request;
+    }
+
+    /// <summary>
+    /// Reasoning models (GPT-5 family) do not list temperature among their supported parameters, so
+    /// with require_parameters OpenRouter refuses the whole request instead of dropping it. The
+    /// client must resend without temperature rather than surface the 404 to the user.
+    /// </summary>
+    [Fact]
+    public async Task CompleteAsync_WhenNoEndpointAcceptsTemperature_ResendsWithoutIt()
+    {
+        var handler = new StubHandler()
+            .Enqueue(HttpStatusCode.NotFound, UnsupportedParametersBody)
+            .EnqueueSuccess();
+        var client = CreateClient(handler);
+
+        var result = await client.CompleteAsync(ToolRequest());
+
+        result.Success.Should().BeTrue();
+        result.Content.Should().Be("Hello");
+        handler.CallCount.Should().Be(2);
+
+        var first = JsonDocument.Parse(handler.RequestBodies[0]).RootElement;
+        first.GetProperty("temperature").GetDouble().Should().Be(0.4);
+
+        var second = handler.LastRequest();
+        second.TryGetProperty("temperature", out _).Should().BeFalse();
+        // Everything else is unchanged: same model, tools, and provider routing.
+        second.GetProperty("model").GetString().Should().Be("openai/gpt-5.6-luna");
+        second.GetProperty("provider").GetProperty("require_parameters").GetBoolean().Should().BeTrue();
+        second.GetProperty("tools").GetArrayLength().Should().Be(1);
+        second.GetProperty("max_tokens").GetInt32().Should().Be(512);
+    }
+
+    [Fact]
+    public async Task CompleteAsync_AfterTemperatureRejected_LaterRequestsOmitItUpFront()
+    {
+        var cache = new OpenRouterParameterSupportCache();
+        var first = new StubHandler()
+            .Enqueue(HttpStatusCode.NotFound, UnsupportedParametersBody)
+            .EnqueueSuccess();
+        await CreateClient(first, parameterSupport: cache).CompleteAsync(ToolRequest());
+
+        // A fresh client instance (the typed HttpClient is transient) sharing the singleton cache.
+        var second = new StubHandler().EnqueueSuccess();
+        var result = await CreateClient(second, parameterSupport: cache).CompleteAsync(ToolRequest());
+
+        result.Success.Should().BeTrue();
+        second.CallCount.Should().Be(1);
+        second.LastRequest().TryGetProperty("temperature", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CompleteAsync_TemperatureRejection_IsRememberedPerModel()
+    {
+        var cache = new OpenRouterParameterSupportCache();
+        var first = new StubHandler()
+            .Enqueue(HttpStatusCode.NotFound, UnsupportedParametersBody)
+            .EnqueueSuccess();
+        await CreateClient(first, parameterSupport: cache).CompleteAsync(ToolRequest("openai/gpt-5.6-luna"));
+
+        var other = new StubHandler().EnqueueSuccess();
+        await CreateClient(other, parameterSupport: cache).CompleteAsync(ToolRequest("anthropic/claude-sonnet-4"));
+
+        other.LastRequest().GetProperty("temperature").GetDouble().Should().Be(0.4);
+    }
+
+    /// <summary>
+    /// The fallback is one resend, not a loop: if the request still fails without temperature the
+    /// error is surfaced (some other parameter is the problem) and no further request is made.
+    /// </summary>
+    [Fact]
+    public async Task CompleteAsync_WhenResendWithoutTemperatureAlsoFails_SurfacesError()
+    {
+        var handler = new StubHandler()
+            .Enqueue(HttpStatusCode.NotFound, UnsupportedParametersBody)
+            .Enqueue(HttpStatusCode.NotFound, UnsupportedParametersBody);
+        var client = CreateClient(handler);
+
+        var result = await client.CompleteAsync(ToolRequest());
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("requested parameters");
+        handler.CallCount.Should().Be(2);
+    }
+
+    /// <summary>A 404 for a slug that does not exist is not a parameter problem and is not retried.</summary>
+    [Fact]
+    public async Task CompleteAsync_With404ForUnknownModel_DoesNotResend()
+    {
+        var handler = new StubHandler().Enqueue(
+            HttpStatusCode.NotFound, """{"error":{"message":"No endpoints found for openai/gpt-99","code":404}}""");
+        var client = CreateClient(handler);
+
+        var result = await client.CompleteAsync(ToolRequest("openai/gpt-99"));
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("404");
         handler.CallCount.Should().Be(1);
     }
 

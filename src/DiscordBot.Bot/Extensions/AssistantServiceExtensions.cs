@@ -129,6 +129,11 @@ public static class AssistantServiceExtensions
         // This prevents DI validation failures when running migrations without API key
         if (!string.IsNullOrEmpty(apiKey))
         {
+            // Remembers which slugs reject `temperature` (reasoning models) so the client only pays
+            // the failed round trip once per model per process. Singleton because the typed client
+            // below is transient.
+            services.AddSingleton<OpenRouterParameterSupportCache>();
+
             // Register the OpenRouter LLM client as a typed HttpClient. The per-attempt timeout is
             // enforced by the client's own cancellation token, so the handler's timeout is left
             // infinite - otherwise whichever elapsed first would decide, and only one of them

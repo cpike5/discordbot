@@ -579,6 +579,7 @@ extensions) fully under this repo's control.
 - Maps `LlmRequest` → `ChatCompletionRequest`, and the reply → `LlmResponse`
 - Enables prompt caching via `cache_control` on the system message when requested
 - Sends `provider.require_parameters` on every request carrying tools
+- Resends once without `temperature` when OpenRouter answers 404 "No endpoints found that can handle the requested parameters" (reasoning models reject it), remembering the slug in `OpenRouterParameterSupportCache`
 - Retry with exponential backoff, keyed on HTTP status (408/429/5xx and network errors)
 - Tracks token usage and OpenRouter's reported billed cost
 
