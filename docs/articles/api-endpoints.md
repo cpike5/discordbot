@@ -109,6 +109,12 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/moderation-config` | GET | Get moderation config |
 | `/api/guilds/{guildId}/moderation-config` | PUT | Update moderation config |
 | `/api/guilds/{guildId}/moderation-config/preset` | POST | Apply config preset |
+| `/api/admin/llm-models` | GET | List/filter the local OpenRouter model catalog |
+| `/api/admin/llm-models/refresh` | POST | Refresh the catalog from OpenRouter |
+| `/api/admin/llm-models/enabled` | PUT | Enable/disable one model (slug in the body) |
+| `/api/admin/llm-models/defaults` | GET | Effective per-mode default model and its source |
+| `/api/admin/llm-usage/summary` | GET | LLM usage totals + by-user/model/mode/day breakdowns over a date range |
+| `/api/admin/llm-usage/records` | GET | Paged raw LLM usage ledger rows (per-user drill-down) |
 | `/api/autocomplete/users` | GET | Search users by username |
 | `/api/autocomplete/guilds` | GET | Search guilds by name |
 | `/api/autocomplete/channels` | GET | Search channels by name within a guild |
@@ -5735,6 +5741,248 @@ Returns updated GuildModerationConfigDto object with preset applied.
   "detail": "Invalid preset name. Valid options: Relaxed, Moderate, Strict.",
   "statusCode": 400,
   "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+### AI Model Catalog Endpoints
+
+Admin-only endpoints (`LlmModelsController`) for the local OpenRouter model catalog and allowlist,
+and the effective per-mode default model. Backed by `ILlmModelCatalogService`; see
+`docs/plans/llm-model-management-plan.md` for the design.
+
+**Authorization:** `RequireAdmin` policy on every endpoint below.
+
+#### GET /api/admin/llm-models
+
+Lists the local catalog, filtered and sorted server-side.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `search` | string | Case-insensitive substring match against slug and name |
+| `vendor` | string | Exact vendor match (the slug prefix before `/`) |
+| `enabledOnly` | boolean | Only rows with `IsEnabled == true` |
+| `availableOnly` | boolean | Only rows with `IsAvailable == true` |
+| `toolsOnly` | boolean | Only rows with `SupportsTools == true` |
+| `sortBy` | string | `Name` (default), `Vendor`, `PromptPrice`, `CompletionPrice`, `ContextLength`, `ReleasedAt` |
+| `descending` | boolean | Reverse the sort order |
+
+**Response: 200 OK**
+
+```json
+{
+  "models": [
+    {
+      "slug": "anthropic/claude-sonnet-4.6",
+      "name": "Claude Sonnet 4.6",
+      "description": "...",
+      "vendor": "anthropic",
+      "contextLength": 200000,
+      "promptPricePerMillion": 3.00,
+      "completionPricePerMillion": 15.00,
+      "cacheReadPricePerMillion": 0.30,
+      "cacheWritePricePerMillion": 3.75,
+      "supportsTools": true,
+      "supportsImages": true,
+      "releasedAt": "2026-06-01T00:00:00Z",
+      "isAvailable": true,
+      "isEnabled": true,
+      "enabledAt": "2026-09-01T12:00:00Z"
+    }
+  ],
+  "vendors": ["anthropic", "openai"],
+  "lastRefreshAt": "2026-09-10T00:00:00Z"
+}
+```
+
+`vendors` and `lastRefreshAt` reflect the whole catalog, not just the filtered page.
+
+---
+
+#### POST /api/admin/llm-models/refresh
+
+Fetches the current OpenRouter catalog and upserts it by slug. Never changes `IsEnabled` (the
+allowlist), except the one-time bootstrap on the very first refresh ever, which enables the slugs
+currently configured for the three modes so upgrades keep working.
+
+**Response: 200 OK**
+
+```json
+{ "added": 4, "updated": 431, "removed": 1, "fetchedAt": "2026-09-10T00:00:00Z" }
+```
+
+---
+
+#### PUT /api/admin/llm-models/enabled
+
+Enables or disables one model. The slug travels in the **request body**, not the route — OpenRouter
+slugs contain `/` (e.g. `anthropic/claude-sonnet-4.6`), which does not round-trip through a route
+segment, and a `{**slug}` catch-all cannot be followed by another route segment (`/enabled`).
+
+**Request Body:**
+
+```json
+{ "slug": "anthropic/claude-sonnet-4.6", "enabled": true }
+```
+
+**Response: 200 OK**
+
+```json
+{ "success": true, "error": null }
+```
+
+**Response: 400 Bad Request** — the slug is missing, or the catalog service refused the change (e.g.
+disabling a model that is currently the default for a mode):
+
+```json
+{
+  "message": "This model is the current default for Guild Assistant. Change that mode's default first.",
+  "statusCode": 400,
+  "traceId": "00-abc123-def456-00"
+}
+```
+
+---
+
+#### GET /api/admin/llm-models/defaults
+
+Returns the effective slug for each mode (guild assistant, DM assistant, feature requests) and
+where it comes from — a DB setting override (`Assistant:Sampling:Model`, `DmAssistant:Model`,
+`FeatureRequests:RequirementsGatheringModel`) always wins over the bound configuration value — plus
+whether that slug is known to the catalog and currently enabled/available.
+
+**Response: 200 OK**
+
+```json
+{
+  "modes": [
+    {
+      "mode": "GuildAssistant",
+      "label": "Guild Assistant",
+      "settingKey": "Assistant:Sampling:Model",
+      "slug": "anthropic/claude-sonnet-4.6",
+      "source": "Db",
+      "isEnabled": true,
+      "isAvailable": true,
+      "isKnown": true
+    }
+  ]
+}
+```
+
+`source` is `"Db"` when a settings-page override is present, `"Config"` when the bound options value
+is used as-is.
+
+---
+
+### LLM Usage Ledger Endpoints
+
+Admin-only endpoints (`LlmUsageController`) over the `LlmUsageRecord` ledger — one row per user
+message across every `LlmMode` (guild assistant, DM assistant, feature requests). Backed by
+`ILlmUsageRepository`; powers `/Admin/LlmUsage` and the "Cost by User" table on
+`/guild/{guildId}/assistant-metrics`. Discord IDs are emitted as strings. Cost is a decimal USD
+amount.
+
+**Authorization:** `RequireAdmin` policy on every endpoint below.
+
+#### GET /api/admin/llm-usage/summary
+
+Totals plus by-user (top 25 by cost), by-model, by-mode and by-day breakdowns over a date range.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from` | datetime | Range start (inclusive). Defaults to `to` minus 30 days. |
+| `to` | datetime | Range end (inclusive). Defaults to now (UTC). |
+| `guildId` | ulong | Restrict to one guild; omitted = portal-wide |
+| `mode` | string | `GuildAssistant`, `DmAssistant`, or `FeatureRequests` |
+
+The range is rejected with **400 Bad Request** when `to` is earlier than `from`, or the span exceeds
+366 days.
+
+**Response: 200 OK**
+
+```json
+{
+  "totals": {
+    "messageCount": 512,
+    "inputTokens": 812000,
+    "outputTokens": 96000,
+    "cachedTokens": 340000,
+    "cacheWriteTokens": 12000,
+    "costUsd": 4.8231,
+    "billedCostShare": 0.94,
+    "failedCount": 3,
+    "averageLatencyMs": 1180.4
+  },
+  "byUser": [
+    { "userId": "123456789012345678", "displayName": "SomeUser", "avatarUrl": "https://...", "messageCount": 40, "inputTokens": 60000, "outputTokens": 8000, "cachedTokens": 25000, "costUsd": 0.42, "costShare": 0.09 }
+  ],
+  "byModel": [
+    { "model": "anthropic/claude-sonnet-4.6", "messageCount": 480, "inputTokens": 790000, "outputTokens": 90000, "costUsd": 4.5 }
+  ],
+  "byMode": [
+    { "mode": "GuildAssistant", "messageCount": 400, "inputTokens": 700000, "outputTokens": 80000, "costUsd": 4.0 }
+  ],
+  "byDay": [
+    { "day": "2026-09-01T00:00:00Z", "messageCount": 20, "inputTokens": 30000, "outputTokens": 3500, "costUsd": 0.18 }
+  ],
+  "from": "2026-08-11T00:00:00Z",
+  "to": "2026-09-10T00:00:00Z"
+}
+```
+
+`byUser[].displayName` is resolved via `IDiscordUserResolver`; a user the resolver cannot find falls
+back to `"Unknown#{id}"`.
+
+---
+
+#### GET /api/admin/llm-usage/records
+
+Paged raw ledger rows, newest first — backs the per-user drill-down panel on `/Admin/LlmUsage`.
+
+**Query Parameters:**
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `from`, `to`, `guildId`, `mode` | | Same as the summary endpoint above |
+| `userId` | ulong | Restrict to one user |
+| `page` | int | 1-based page number (default 1) |
+| `pageSize` | int | Rows per page (default 50, capped at 200) |
+
+**Response: 200 OK**
+
+```json
+{
+  "records": [
+    {
+      "id": 42,
+      "timestamp": "2026-09-05T14:03:11Z",
+      "mode": "GuildAssistant",
+      "userId": "123456789012345678",
+      "displayName": "SomeUser",
+      "guildId": "998877665544332211",
+      "model": "anthropic/claude-sonnet-4.6",
+      "inputTokens": 1500,
+      "outputTokens": 220,
+      "cachedTokens": 800,
+      "cacheWriteTokens": 0,
+      "llmCalls": 1,
+      "toolCalls": 0,
+      "costUsd": 0.021,
+      "costSource": "Billed",
+      "latencyMs": 1420,
+      "success": true,
+      "interactionLogId": 9001
+    }
+  ],
+  "totalCount": 137,
+  "page": 1,
+  "pageSize": 50
 }
 ```
 

@@ -118,6 +118,87 @@ This allows:
 - **MessageLogRetentionDays**: Min: 1, Max: 365
 - **AuditLogRetentionDays**: Min: 1, Max: 365
 
+### AI Models Tab
+
+The **AI Models** tab (`ai-models-settings`) has two parts that use two different save paths:
+
+- **Per-mode defaults** *is* a `SettingCategory` (`SettingCategory.AiModels`) and goes through the
+  normal settings machinery: `SettingsViewModel.AiModelsSettings` (three `SettingDto`s, one per
+  `LlmMode`, keyed by `LlmModeSettings.KeyFor(mode)`) is saved with
+  `SettingsSectionService.SaveCategoryAsync("AiModels", ...)`, the same handler every other tab
+  uses (`?handler=SaveCategory&category=AiModels`) — audit logging and reset-to-default come for
+  free. The three selects live in their own `<form id="aiModelsDefaultsForm">`, separate from
+  `#settingsForm`, because the catalog toolbar below it must not mark the page dirty; `settings.js`
+  finds the antiforgery token regardless of which form it's in (it queries the whole document), so
+  this needed no new plumbing. `wwwroot/js/llm-models.js` posts the form directly via
+  `ApiClient.postRaw` and implements its own minimal button-loading/success/error states, since
+  `settings.js`'s equivalents are private to that module's closure.
+- **Model catalog** below it does *not* go through `SettingsSectionService` — it is a custom
+  panel, the same pattern as Bot Control and Appearance, entirely client-rendered by
+  `wwwroot/js/llm-models.js` against `LlmModelsController` (`api/admin/llm-models`).
+
+See `docs/architecture/feature-map.md` ("LLM Model Catalog & Allowlist") and
+`docs/plans/llm-model-management-plan.md` for the full design.
+
+**Per-mode defaults panel.** One `<select>` per mode (guild assistant, DM assistant, feature
+requests). The first option is always `""`, meaning **"use the configured value"** - no DB override
+for that mode, so `ILlmModelResolver` falls through to the bound options value (or, if nothing is
+configured, `OpenRouter:DefaultModel`). It is labeled with what that actually resolves to, e.g.
+"Use configured value (anthropic/claude-sonnet-4)" - both server-side (`Settings.cshtml`, from
+`SettingsViewModel.AiModelsConfiguredSlugs`) and client-side (`llm-models.js`, from
+`GET api/admin/llm-models/defaults`'s `configuredSlug`, which `LlmModelsController` gets from
+`LlmResolvedModel.ConfiguredSlug` - populated regardless of whether a DB override is in effect).
+The remaining options are the catalog's currently enabled slugs (plus the mode's current value even
+when it isn't enabled, so the select never silently substitutes a different model). Selecting `""`
+and saving deletes that mode's DB override row, the same as "Reset to defaults" for that field.
+Beside each select:
+
+- A **source badge** — "DB override", "Config default", or "Fallback default" — from
+  `GET api/admin/llm-models/defaults`.
+- A **status badge** — "Enabled & available", "Not enabled", "Unavailable", or "Not in catalog".
+- A **price/context line** (`$X.XX/M prompt · $X.XX/M completion · NNNk context`) read from the
+  already-loaded catalog JSON, not a second fetch.
+- An **empty-state hint** ("No models enabled yet...") when no catalog model is enabled, so the
+  select shows only its current value with an explanation instead of looking broken.
+
+"Save AI Models" submits the dedicated `#aiModelsDefaultsForm` directly to
+`?handler=SaveCategory&category=AiModels` via `ApiClient.postRaw` - it is **not** included in
+`?handler=SaveAll` (that handler only reads `#settingsForm`, and the AI Models selects intentionally
+live outside it so the catalog toolbar doesn't mark the page dirty). Save the AI Models tab from its
+own "Save AI Models" button; "Save All" on another tab does not touch per-mode defaults.
+
+A failed save (the slug isn't enabled, isn't in the
+catalog, or doesn't support tools — see Validation below) shows the server's message as a toast, in
+the tab's inline error alert, and — on a best-effort match of the offending slug against each
+select's current value — under that specific select. "Reset to defaults" reuses the same
+`showResetCategoryModal('AiModels')` / `ResetCategory` handler every other tab uses; it is
+unaffected by which form the selects live in. After a successful save, an enable/disable toggle in
+the catalog table below, or a catalog refresh, `llm-models.js` re-fetches
+`GET api/admin/llm-models/defaults` (badges) and rebuilds each select's option list from the
+current catalog state (so disabled models drop out of the choices — the current value stays
+selectable even if it becomes disabled).
+
+**Validation.** `SettingsSectionService.ValidateAiModelSelectionsAsync` runs before the write and
+rejects (HTTP 400, with a message naming the model) a submitted slug that:
+- isn't in the local catalog,
+- isn't `IsEnabled` (enable it on the catalog table first), or
+- doesn't `SupportsTools` (every mode sends tools; a non-tool model would fail
+  `provider.require_parameters` at send time).
+
+**Takes effect on the next message — no restart.** `ILlmModelResolver` caches the resolved slug
+per mode and invalidates that cache when `ISettingsService.SettingsChanged` reports one of the
+three setting keys among its `UpdatedKeys`. There is no `RequiresRestart` badge on these three
+settings and saving never reloads the page.
+
+**Model catalog.** Search, vendor filter, enabled/available/tool-capable toggles, sortable columns
+(name, vendor, prompt price, completion price, context length, released date), a per-model enable
+switch, and a "Refresh from OpenRouter" button showing the last refresh time. Rows that are enabled
+but no longer available are highlighted. Refreshing never enables a model on its own — that is only
+ever an explicit admin action (or the one-time bootstrap on the very first refresh ever, which
+enables the slugs the three modes were already configured to use). Disabling a model that is
+currently a mode's default is refused by `LlmModelCatalogService.SetEnabledAsync` (change the
+mode's default first); the toggle shows the refusal as a toast and reverts itself.
+
 ---
 
 ## UI Components

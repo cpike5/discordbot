@@ -1,4 +1,6 @@
 using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
@@ -37,12 +39,34 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
             MaxTokens = context.MaxTokens,
             Temperature = context.Temperature,
             MaxToolCallIterations = context.MaxToolCallIterations,
-            ConversationHistory = context.ConversationHistory.Count > 0 ? context.ConversationHistory : null
+            ConversationHistory = context.ConversationHistory.Count > 0 ? context.ConversationHistory : null,
+            Mode = context.Mode
         };
 
         var agentResult = await _agentRunner.RunAsync(userMessage, agentContext, cancellationToken);
 
         var cost = CalculateCost(agentResult.TotalUsage, context.CostRates);
+        var resolvedModel = agentResult.Model ?? context.Model ?? "unknown";
+
+        var usageRecord = new LlmUsageRecord
+        {
+            Timestamp = DateTime.UtcNow,
+            Mode = context.Mode,
+            UserId = context.ExecutionContext.UserId,
+            GuildId = context.ExecutionContext.GuildId,
+            Model = resolvedModel,
+            InputTokens = agentResult.TotalUsage.InputTokens,
+            OutputTokens = agentResult.TotalUsage.OutputTokens,
+            CachedTokens = agentResult.TotalUsage.CachedTokens,
+            CacheWriteTokens = agentResult.TotalUsage.CacheWriteTokens,
+            LlmCalls = agentResult.LoopCount,
+            ToolCalls = agentResult.TotalToolCalls,
+            CostUsd = cost,
+            CostSource = agentResult.TotalUsage.EstimatedCost.HasValue ? LlmCostSource.Billed : LlmCostSource.Estimated,
+            Success = agentResult.Success
+            // LatencyMs is filled in by the caller once the stopwatch stops; InteractionLogId is
+            // filled in by the context after its own AddAsync.
+        };
 
         return new AssistantPipelineResult
         {
@@ -58,7 +82,9 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
             LoopCount = agentResult.LoopCount,
             ToolNames = agentResult.ToolNames,
             ConversationCleared = agentResult.ConversationCleared,
-            EstimatedCostUsd = cost
+            EstimatedCostUsd = cost,
+            Model = resolvedModel,
+            UsageRecord = usageRecord
         };
     }
 

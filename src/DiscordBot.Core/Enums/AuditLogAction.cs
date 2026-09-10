@@ -113,5 +113,20 @@ public enum AuditLogAction
     /// <summary>
     /// User data was exported (GDPR right of access).
     /// </summary>
-    UserDataExported = 22
+    UserDataExported = 22,
+
+    /// <summary>
+    /// The LLM model catalog was refreshed from OpenRouter.
+    /// </summary>
+    LlmCatalogRefreshed = 23,
+
+    /// <summary>
+    /// An LLM model was added to the admin allowlist.
+    /// </summary>
+    LlmModelEnabled = 24,
+
+    /// <summary>
+    /// An LLM model was removed from the admin allowlist.
+    /// </summary>
+    LlmModelDisabled = 25
 }

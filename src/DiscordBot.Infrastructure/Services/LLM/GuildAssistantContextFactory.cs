@@ -1,4 +1,5 @@
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Logging;
@@ -14,8 +15,10 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
     private readonly IToolRegistry _toolRegistry;
     private readonly IAssistantUsageMetricsRepository _metricsRepository;
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
+    private readonly ILlmModelResolver _modelResolver;
     private readonly ILogger<GuildAssistantContext> _logger;
     private readonly AssistantOptions _options;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
     public GuildAssistantContextFactory(
         IGuildService guildService,
@@ -23,27 +26,34 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         IToolRegistry toolRegistry,
         IAssistantUsageMetricsRepository metricsRepository,
         IAssistantInteractionLogRepository interactionLogRepository,
+        ILlmModelResolver modelResolver,
         ILogger<GuildAssistantContext> logger,
-        IOptions<AssistantOptions> options)
+        IOptions<AssistantOptions> options,
+        ILlmUsageRecorder usageRecorder)
     {
         _guildService = guildService ?? throw new ArgumentNullException(nameof(guildService));
         _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
         _toolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
         _metricsRepository = metricsRepository ?? throw new ArgumentNullException(nameof(metricsRepository));
         _interactionLogRepository = interactionLogRepository ?? throw new ArgumentNullException(nameof(interactionLogRepository));
+        _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
     }
 
     /// <inheritdoc />
-    public IAssistantContext Create(
+    public async Task<IAssistantContext> CreateAsync(
         ulong guildId,
         ulong channelId,
         ulong userId,
         ulong messageId,
         int rateLimit,
-        string question)
+        string question,
+        CancellationToken cancellationToken = default)
     {
+        var resolved = await _modelResolver.ResolveAsync(LlmMode.GuildAssistant, cancellationToken);
+
         return new GuildAssistantContext(
             guildId,
             channelId,
@@ -57,6 +67,9 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             _metricsRepository,
             _interactionLogRepository,
             _options,
-            _logger);
+            _logger,
+            resolved.Slug,
+            resolved.Pricing,
+            _usageRecorder);
     }
 }

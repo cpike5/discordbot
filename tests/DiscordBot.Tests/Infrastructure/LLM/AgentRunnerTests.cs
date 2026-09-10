@@ -53,7 +53,8 @@ public class AgentRunnerTests
                 OutputTokens = 20,
                 CachedTokens = 0,
                 CacheWriteTokens = 0
-            }
+            },
+            Model = "anthropic/claude-sonnet-4.6"
         };
 
         _mockLlmClient.Setup(c => c.CompleteAsync(It.IsAny<LlmRequest>(), It.IsAny<CancellationToken>()))
@@ -71,6 +72,7 @@ public class AgentRunnerTests
         result.TotalUsage.InputTokens.Should().Be(50);
         result.TotalUsage.OutputTokens.Should().Be(20);
         result.ErrorMessage.Should().BeNullOrEmpty();
+        result.Model.Should().Be("anthropic/claude-sonnet-4.6");
     }
 
     #endregion
@@ -406,6 +408,74 @@ public class AgentRunnerTests
         result.Success.Should().BeFalse();
         result.ErrorMessage.Should().Be("LLM service unavailable");
         result.LoopCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenLlmClientThrows_ReturnsFailureInsteadOfPropagating()
+    {
+        // A provider-side exception (network failure, HTTP client fault - not a modeled
+        // response.Success == false) must come back as a normal AgentRunResult so the caller's
+        // pipeline can still build and record a usage-ledger row for the attempt.
+        const string userMessage = "Test message";
+        var context = new AgentContext
+        {
+            SystemPrompt = "You are a helpful assistant.",
+            ExecutionContext = new ToolContext { UserId = 123, GuildId = 456 }
+        };
+
+        _mockLlmClient
+            .Setup(c => c.CompleteAsync(It.IsAny<LlmRequest>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new HttpRequestException("connection reset"));
+
+        var result = await _agentRunner.RunAsync(userMessage, context);
+
+        result.Success.Should().BeFalse();
+        result.ErrorMessage.Should().Contain("connection reset");
+        result.LoopCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenLlmClientThrowsOnSecondIteration_PreservesUsageFromFirstIteration()
+    {
+        // Usage already spent on prior successful iterations of the loop must not be discarded just
+        // because a later iteration's HTTP call faults.
+        const string userMessage = "Test message";
+        var toolRegistry = new Mock<IToolRegistry>();
+        toolRegistry.Setup(t => t.GetEnabledTools()).Returns(new List<LlmToolDefinition>());
+        toolRegistry
+            .Setup(t => t.ExecuteToolAsync(It.IsAny<string>(), It.IsAny<JsonElement>(), It.IsAny<ToolContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new ToolExecutionResult { Success = true, Data = JsonDocument.Parse("{}").RootElement });
+
+        var context = new AgentContext
+        {
+            SystemPrompt = "You are a helpful assistant.",
+            ToolRegistry = toolRegistry.Object,
+            ExecutionContext = new ToolContext { UserId = 123, GuildId = 456 }
+        };
+
+        var toolUseResponse = new LlmResponse
+        {
+            Success = true,
+            StopReason = LlmStopReason.ToolUse,
+            ToolCalls = new List<LlmToolCall>
+            {
+                new() { Id = "call-1", Name = "tool", Input = JsonDocument.Parse("{}").RootElement }
+            },
+            Usage = new LlmUsage { InputTokens = 30, OutputTokens = 10 },
+            Model = "anthropic/claude-sonnet-4.6"
+        };
+
+        _mockLlmClient.SetupSequence(c => c.CompleteAsync(It.IsAny<LlmRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(toolUseResponse)
+            .ThrowsAsync(new HttpRequestException("timeout"));
+
+        var result = await _agentRunner.RunAsync(userMessage, context);
+
+        result.Success.Should().BeFalse();
+        result.LoopCount.Should().Be(2);
+        result.TotalUsage.InputTokens.Should().Be(30);
+        result.TotalUsage.OutputTokens.Should().Be(10);
+        result.Model.Should().Be("anthropic/claude-sonnet-4.6");
     }
 
     [Fact]

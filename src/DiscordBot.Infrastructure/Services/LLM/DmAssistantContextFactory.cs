@@ -1,6 +1,7 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.DTOs.LLM.Enums;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Caching.Memory;
@@ -22,7 +23,9 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     private readonly IDmAssistantInteractionLogRepository _interactionLogRepo;
     private readonly IDmAssistantUsageMetricsRepository _metricsRepo;
     private readonly IMemoryCache _memoryCache;
+    private readonly ILlmModelResolver _modelResolver;
     private readonly DmAssistantOptions _options;
+    private readonly ILlmUsageRecorder _usageRecorder;
 
     public DmAssistantContextFactory(
         IEnumerable<IDmToolProvider> dmToolProviders,
@@ -32,7 +35,9 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         IDmAssistantInteractionLogRepository interactionLogRepo,
         IDmAssistantUsageMetricsRepository metricsRepo,
         IMemoryCache memoryCache,
-        IOptions<DmAssistantOptions> options)
+        ILlmModelResolver modelResolver,
+        IOptions<DmAssistantOptions> options,
+        ILlmUsageRecorder usageRecorder)
     {
         _dmToolProviders = dmToolProviders ?? throw new ArgumentNullException(nameof(dmToolProviders));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
@@ -41,7 +46,9 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         _interactionLogRepo = interactionLogRepo ?? throw new ArgumentNullException(nameof(interactionLogRepo));
         _metricsRepo = metricsRepo ?? throw new ArgumentNullException(nameof(metricsRepo));
         _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
+        _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
     }
 
     /// <inheritdoc />
@@ -62,6 +69,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             })
             .ToList();
 
+        var resolved = await _modelResolver.ResolveAsync(LlmMode.DmAssistant, cancellationToken);
+
         return new DmAssistantContext(
             userId,
             activeGuildId,
@@ -72,7 +81,10 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             _interactionLogRepo,
             _metricsRepo,
             _options,
-            _loggerFactory.CreateLogger<DmAssistantContext>());
+            _loggerFactory.CreateLogger<DmAssistantContext>(),
+            resolved.Slug,
+            resolved.Pricing,
+            _usageRecorder);
     }
 
     /// <inheritdoc />

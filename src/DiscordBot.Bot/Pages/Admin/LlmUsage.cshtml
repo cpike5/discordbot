@@ -1,0 +1,371 @@
+@page
+@model DiscordBot.Bot.Pages.Admin.LlmUsageModel
+@using DiscordBot.Core.Enums
+@{
+    ViewData["Title"] = "LLM Usage";
+    var today = DateTime.UtcNow.Date;
+    var is7Days = Model.StartDate == today.AddDays(-7) && Model.EndDate == today;
+    var is30Days = Model.StartDate == today.AddDays(-30) && Model.EndDate == today;
+    var is90Days = Model.StartDate == today.AddDays(-90) && Model.EndDate == today;
+
+    string PresetClass(bool active) => active
+        ? "px-3 py-1.5 text-xs font-medium bg-accent-orange text-white border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors"
+        : "px-3 py-1.5 text-xs font-medium bg-bg-tertiary text-text-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors";
+}
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <h1 class="page-title">LLM Usage</h1>
+        <p class="mt-1 text-sm text-text-secondary">
+            Token usage and cost across every assistant mode, @Model.StartDate?.ToString("MMM d") &ndash; @Model.EndDate?.ToString("MMM d, yyyy")
+        </p>
+    </div>
+
+    <!-- Filters -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+        <button type="button" id="llmUsageFilterToggle" class="w-full flex items-center justify-between px-5 py-4 text-left" aria-expanded="true" aria-controls="llmUsageFilterContent" onclick="toggleLlmUsageFilterPanel()">
+            <div class="flex items-center gap-3">
+                <svg class="w-5 h-5 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                <span class="text-lg font-semibold text-text-primary">Filters</span>
+                @if (Model.GuildId.HasValue || Model.Mode.HasValue)
+                {
+                    <span class="badge badge-orange">Active</span>
+                }
+            </div>
+            <svg id="llmUsageFilterChevron" class="w-5 h-5 text-text-secondary transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+        </button>
+
+        <div id="llmUsageFilterContent" class="overflow-hidden transition-all duration-300 max-h-[1000px]">
+            <div class="border-t border-border-primary p-5">
+                <form method="get" id="llmUsageFilterForm">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="GuildId" class="block text-sm font-medium text-text-primary mb-2">Guild</label>
+                            <select id="GuildId" name="GuildId" class="form-select w-full">
+                                <option value="">All guilds (portal-wide)</option>
+                                @foreach (var guild in Model.Guilds.OrderBy(g => g.Name))
+                                {
+                                    <option value="@guild.Id" selected="@(Model.GuildId == guild.Id)">@guild.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div>
+                            <label for="Mode" class="block text-sm font-medium text-text-primary mb-2">Mode</label>
+                            <select id="Mode" name="Mode" class="form-select w-full">
+                                <option value="">All modes</option>
+                                @foreach (var mode in Enum.GetValues<LlmMode>())
+                                {
+                                    <option value="@mode" selected="@(Model.Mode == mode)">@mode</option>
+                                }
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" onclick="setLlmUsageDatePreset(7)" class="@PresetClass(is7Days)">Last 7 Days</button>
+                            <button type="button" onclick="setLlmUsageDatePreset(30)" class="@PresetClass(is30Days)">Last 30 Days</button>
+                            <button type="button" onclick="setLlmUsageDatePreset(90)" class="@PresetClass(is90Days)">Last 90 Days</button>
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <label for="StartDate" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+                            <input type="date" id="StartDate" name="StartDate" value="@Model.StartDate?.ToString("yyyy-MM-dd")" class="form-input w-full" />
+                        </div>
+                        <div>
+                            <label for="EndDate" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+                            <input type="date" id="EndDate" name="EndDate" value="@Model.EndDate?.ToString("yyyy-MM-dd")" class="form-input w-full" />
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-3 mt-6 pt-4 border-t border-border-secondary">
+                        <button type="submit" class="btn btn-primary">Apply Filters</button>
+                        <a asp-page="LlmUsage" class="btn btn-secondary">Clear Filters</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Hero Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-8">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <p class="text-xs font-medium text-text-tertiary">Messages</p>
+            <p class="mt-1 text-2xl font-bold text-text-primary">@Model.Totals.MessageCount.ToString("N0")</p>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <p class="text-xs font-medium text-text-tertiary">Total Tokens</p>
+            <p class="mt-1 text-2xl font-bold text-text-primary">@((Model.Totals.InputTokens + Model.Totals.OutputTokens).ToString("N0"))</p>
+            <p class="mt-1 text-xs text-text-tertiary">@Model.Totals.CachedTokens.ToString("N0") cached</p>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <p class="text-xs font-medium text-text-tertiary">Cost (USD)</p>
+            <p class="mt-1 text-2xl font-bold text-accent-orange">$@Model.Totals.CostUsd.ToString("F4")</p>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <p class="text-xs font-medium text-text-tertiary">Billed Share</p>
+            <p class="mt-1 text-2xl font-bold text-text-primary">@(Model.Totals.BilledCostShare.HasValue ? (Model.Totals.BilledCostShare.Value * 100).ToString("F0") + "%" : "—")</p>
+            <p class="mt-1 text-xs text-text-tertiary">Rest estimated</p>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <p class="text-xs font-medium text-text-tertiary">Failed</p>
+            <p class="mt-1 text-2xl font-bold @(Model.Totals.FailedCount > 0 ? "text-error" : "text-text-primary")">@Model.Totals.FailedCount.ToString("N0")</p>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+            <p class="text-xs font-medium text-text-tertiary">Avg Latency</p>
+            <p class="mt-1 text-2xl font-bold text-text-primary">@Model.Totals.AverageLatencyMs.ToString("F0")<span class="text-sm font-normal text-text-tertiary">ms</span></p>
+        </div>
+    </div>
+
+    <!-- By User -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Cost by User</h3>
+            <p class="text-sm text-text-secondary mt-1">Top @Model.ByUser.Count by cost &mdash; click a row for that user's messages</p>
+        </div>
+        @if (Model.ByUser.Any())
+        {
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Messages</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Tokens</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Cost</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Share</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var user in Model.ByUser)
+                        {
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer llm-usage-user-row" data-user-id="@user.UserId" data-display-name="@user.DisplayName">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="text-sm font-medium text-text-primary">@user.DisplayName</span>
+                                    <span class="block text-xs text-text-tertiary font-mono">@user.UserId</span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-text-primary">@user.MessageCount.ToString("N0")</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm text-text-secondary">@((user.InputTokens + user.OutputTokens).ToString("N0"))</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium text-text-primary">$@user.CostUsd.ToString("F4")</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-2 w-32">
+                                        <div class="flex-1 h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                                            <div class="h-full bg-accent-orange" style="width: @((user.CostShare * 100).ToString("F1"))%"></div>
+                                        </div>
+                                        <span class="text-xs text-text-tertiary w-10 text-right">@((user.CostShare * 100).ToString("F0"))%</span>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Drill-down panel: populated by llm-usage.js when a user row above is clicked -->
+            <div id="llmUsageDrilldown" class="hidden border-t border-border-primary">
+                <div class="px-6 py-4 flex items-center justify-between">
+                    <div>
+                        <h4 class="text-sm font-semibold text-text-primary" id="llmUsageDrilldownTitle">Messages</h4>
+                        <p class="text-xs text-text-tertiary mt-0.5" id="llmUsageDrilldownSubtitle"></p>
+                    </div>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('llmUsageDrilldown').classList.add('hidden')">Close</button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-border-primary">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th class="px-6 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                                <th class="px-6 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Mode</th>
+                                <th class="px-6 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Model</th>
+                                <th class="px-6 py-2 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Tokens</th>
+                                <th class="px-6 py-2 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Cost</th>
+                                <th class="px-6 py-2 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Latency</th>
+                                <th class="px-6 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="llmUsageDrilldownBody" class="divide-y divide-border-primary"></tbody>
+                    </table>
+                </div>
+                <div class="px-6 py-3 flex items-center justify-between text-sm">
+                    <span id="llmUsageDrilldownPageInfo" class="text-text-tertiary"></span>
+                    <div class="flex gap-2">
+                        <button type="button" id="llmUsageDrilldownPrev" class="btn btn-secondary btn-sm">Previous</button>
+                        <button type="button" id="llmUsageDrilldownNext" class="btn btn-secondary btn-sm">Next</button>
+                    </div>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="p-12 text-center">
+                <p class="text-text-secondary">No usage recorded for this range.</p>
+            </div>
+        }
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        <!-- By Model -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Cost by Model</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Model</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Messages</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var modelRow in Model.ByModel)
+                        {
+                            <tr>
+                                <td class="px-4 py-2 whitespace-nowrap text-sm text-text-primary font-mono">@modelRow.Model</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-right text-sm text-text-secondary">@modelRow.MessageCount.ToString("N0")</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-right text-sm font-medium text-text-primary">$@modelRow.CostUsd.ToString("F4")</td>
+                            </tr>
+                        }
+                        @if (!Model.ByModel.Any())
+                        {
+                            <tr><td colspan="3" class="px-4 py-6 text-center text-sm text-text-tertiary">No data</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- By Mode -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h3 class="text-lg font-semibold text-text-primary">Cost by Mode</h3>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-4 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Mode</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Messages</th>
+                            <th class="px-4 py-2 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var mode in Model.ByMode)
+                        {
+                            <tr>
+                                <td class="px-4 py-2 whitespace-nowrap text-sm text-text-primary">@mode.Mode</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-right text-sm text-text-secondary">@mode.MessageCount.ToString("N0")</td>
+                                <td class="px-4 py-2 whitespace-nowrap text-right text-sm font-medium text-text-primary">$@mode.CostUsd.ToString("F4")</td>
+                            </tr>
+                        }
+                        @if (!Model.ByMode.Any())
+                        {
+                            <tr><td colspan="3" class="px-4 py-6 text-center text-sm text-text-tertiary">No data</td></tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- By Day -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Daily Breakdown</h3>
+        </div>
+        @if (Model.ByDay.Any())
+        {
+            <div class="overflow-x-auto hidden md:block">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Date</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Messages</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Tokens</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Cost</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var day in Model.ByDay.OrderByDescending(d => d.Day))
+                        {
+                            <tr>
+                                <td class="px-6 py-3 whitespace-nowrap text-sm text-text-primary" data-utc="@day.Day.ToString("o")" data-format="date">@day.Day.ToString("MMM d")</td>
+                                <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-secondary">@day.MessageCount.ToString("N0")</td>
+                                <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-secondary">@((day.InputTokens + day.OutputTokens).ToString("N0"))</td>
+                                <td class="px-6 py-3 whitespace-nowrap text-right text-sm font-medium text-text-primary">$@day.CostUsd.ToString("F4")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+            <div class="md:hidden divide-y divide-border-primary">
+                @foreach (var day in Model.ByDay.OrderByDescending(d => d.Day))
+                {
+                    <div class="p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-text-primary">@day.Day.ToString("MMM d, yyyy")</span>
+                            <span class="text-sm font-semibold text-accent-orange">$@day.CostUsd.ToString("F4")</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div><span class="text-text-tertiary block">Messages</span><span class="text-text-primary font-medium">@day.MessageCount</span></div>
+                            <div><span class="text-text-tertiary block">Tokens</span><span class="text-text-primary font-medium">@((day.InputTokens + day.OutputTokens).ToString("N0"))</span></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="p-12 text-center">
+                <p class="text-text-secondary">No usage recorded for this range.</p>
+            </div>
+        }
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        window.llmUsageConfig = {
+            startDate: '@Model.StartDate?.ToString("yyyy-MM-dd")',
+            endDate: '@Model.EndDate?.ToString("yyyy-MM-dd")',
+            guildId: @Html.Raw(Model.GuildId.HasValue ? $"'{Model.GuildId.Value}'" : "null"),
+            mode: @Html.Raw(Model.Mode.HasValue ? $"'{Model.Mode}'" : "null")
+        };
+
+        function toggleLlmUsageFilterPanel() {
+            const content = document.getElementById('llmUsageFilterContent');
+            const chevron = document.getElementById('llmUsageFilterChevron');
+            const button = document.getElementById('llmUsageFilterToggle');
+            const expanded = button.getAttribute('aria-expanded') === 'true';
+            if (expanded) {
+                content.style.maxHeight = '0';
+                chevron.style.transform = 'rotate(-90deg)';
+                button.setAttribute('aria-expanded', 'false');
+            } else {
+                content.style.maxHeight = content.scrollHeight + 'px';
+                chevron.style.transform = 'rotate(0deg)';
+                button.setAttribute('aria-expanded', 'true');
+            }
+        }
+
+        function setLlmUsageDatePreset(days) {
+            const end = new Date();
+            end.setHours(0, 0, 0, 0);
+            const start = new Date(end);
+            start.setDate(start.getDate() - days);
+            const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            document.getElementById('StartDate').value = fmt(start);
+            document.getElementById('EndDate').value = fmt(end);
+            document.getElementById('llmUsageFilterForm').submit();
+        }
+    </script>
+    <script src="~/js/llm-usage.js" asp-append-version="true"></script>
+}

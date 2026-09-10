@@ -178,6 +178,30 @@ public class UserPurgeService : IUserPurgeService
                         .ExecuteDeleteAsync(ct);
                     counts["TtsMessages"] = ttsMessages;
 
+                    // 11a. LlmUsageRecords (UserId = discordUserId)
+                    var llmUsageRecords = await _dbContext.LlmUsageRecords
+                        .Where(r => r.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["LlmUsageRecords"] = llmUsageRecords;
+
+                    // 11b. AssistantInteractionLogs (UserId = discordUserId)
+                    var assistantInteractionLogs = await _dbContext.AssistantInteractionLogs
+                        .Where(l => l.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["AssistantInteractionLogs"] = assistantInteractionLogs;
+
+                    // 11c. DmAssistantInteractionLogs (UserId = discordUserId)
+                    var dmAssistantInteractionLogs = await _dbContext.DmAssistantInteractionLogs
+                        .Where(l => l.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["DmAssistantInteractionLogs"] = dmAssistantInteractionLogs;
+
+                    // 11d. DmAssistantUsageMetrics (UserId = discordUserId)
+                    var dmAssistantUsageMetrics = await _dbContext.DmAssistantUsageMetrics
+                        .Where(m => m.UserId == discordUserId)
+                        .ExecuteDeleteAsync(ct);
+                    counts["DmAssistantUsageMetrics"] = dmAssistantUsageMetrics;
+
                     // 12. GuildMembers (UserId = discordUserId)
                     var guildMembers = await _dbContext.GuildMembers
                         .Where(g => g.UserId == discordUserId)
@@ -346,6 +370,10 @@ public class UserPurgeService : IUserPurgeService
                 ["Watchlists"] = await _dbContext.Watchlists.CountAsync(w => w.UserId == discordUserId, cancellationToken),
                 ["SoundPlayLogs"] = await _dbContext.SoundPlayLogs.CountAsync(s => s.UserId == discordUserId, cancellationToken),
                 ["TtsMessages"] = await _dbContext.TtsMessages.CountAsync(t => t.UserId == discordUserId, cancellationToken),
+                ["LlmUsageRecords"] = await _dbContext.LlmUsageRecords.CountAsync(r => r.UserId == discordUserId, cancellationToken),
+                ["AssistantInteractionLogs"] = await _dbContext.AssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId, cancellationToken),
+                ["DmAssistantInteractionLogs"] = await _dbContext.DmAssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId, cancellationToken),
+                ["DmAssistantUsageMetrics"] = await _dbContext.DmAssistantUsageMetrics.CountAsync(m => m.UserId == discordUserId, cancellationToken),
                 ["GuildMembers"] = await _dbContext.GuildMembers.CountAsync(g => g.UserId == discordUserId, cancellationToken),
                 ["UserConsents"] = await _dbContext.UserConsents.CountAsync(c => c.DiscordUserId == discordUserId, cancellationToken),
                 ["Users"] = await _dbContext.Users.CountAsync(u => u.Id == discordUserId, cancellationToken)

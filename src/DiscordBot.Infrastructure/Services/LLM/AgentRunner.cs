@@ -67,6 +67,7 @@ public class AgentRunner : IAgentRunner
         var totalToolCalls = 0;
         var loopCount = 0;
         var conversationCleared = false;
+        string? lastModel = null;
         var toolNames = new List<string>();
 
         // Build the initial LLM request
@@ -97,8 +98,38 @@ public class AgentRunner : IAgentRunner
                 loopCount,
                 context.MaxToolCallIterations);
 
-            // Call the LLM
-            var response = await _llmClient.CompleteAsync(request, cancellationToken);
+            // Call the LLM. An exception here (the HTTP call itself faulting, not a modeled
+            // response.Success == false) would otherwise propagate out of RunAsync and discard
+            // totalUsage accumulated over any prior iterations of this loop - the caller's pipeline
+            // builds the usage ledger row from the returned AgentRunResult, so a thrown exception
+            // means that row, and the tokens already spent on this run, are silently lost. Catching
+            // it here keeps every exit from this loop going through the normal AgentRunResult path.
+            LlmResponse response;
+            try
+            {
+                response = await _llmClient.CompleteAsync(request, cancellationToken);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "LLM client threw calling CompleteAsync on iteration {Iteration}",
+                    loopCount);
+
+                return new AgentRunResult
+                {
+                    Success = false,
+                    ErrorMessage = $"LLM request failed: {ex.Message}",
+                    LoopCount = loopCount,
+                    TotalToolCalls = totalToolCalls,
+                    ToolNames = toolNames,
+                    TotalUsage = totalUsage,
+                    Model = lastModel
+                };
+            }
 
             // Check for LLM failure
             if (!response.Success)
@@ -115,9 +146,12 @@ public class AgentRunner : IAgentRunner
                     LoopCount = loopCount,
                     TotalToolCalls = totalToolCalls,
                     ToolNames = toolNames,
-                    TotalUsage = totalUsage
+                    TotalUsage = totalUsage,
+                    Model = lastModel
                 };
             }
+
+            lastModel = response.Model ?? lastModel;
 
             // Accumulate token usage
             totalUsage.InputTokens += response.Usage.InputTokens;
@@ -156,7 +190,8 @@ public class AgentRunner : IAgentRunner
                         TotalToolCalls = totalToolCalls,
                         ToolNames = toolNames,
                         TotalUsage = totalUsage,
-                        ConversationCleared = conversationCleared
+                        ConversationCleared = conversationCleared,
+                        Model = lastModel
                     };
 
                 case LlmStopReason.ToolUse:
@@ -172,7 +207,8 @@ public class AgentRunner : IAgentRunner
                             ErrorMessage = "LLM indicated tool use but provided no tool calls",
                             LoopCount = loopCount,
                             TotalToolCalls = totalToolCalls,
-                            TotalUsage = totalUsage
+                            TotalUsage = totalUsage,
+                            Model = lastModel
                         };
                     }
 
@@ -187,7 +223,8 @@ public class AgentRunner : IAgentRunner
                             ErrorMessage = "Tool use requested but no ToolRegistry configured",
                             LoopCount = loopCount,
                             TotalToolCalls = totalToolCalls,
-                            TotalUsage = totalUsage
+                            TotalUsage = totalUsage,
+                            Model = lastModel
                         };
                     }
 
@@ -321,7 +358,8 @@ public class AgentRunner : IAgentRunner
                         TotalToolCalls = totalToolCalls,
                         ToolNames = toolNames,
                         TotalUsage = totalUsage,
-                        ErrorMessage = "Response truncated due to max tokens limit"
+                        ErrorMessage = "Response truncated due to max tokens limit",
+                        Model = lastModel
                     };
 
                 case LlmStopReason.Error:
@@ -335,7 +373,8 @@ public class AgentRunner : IAgentRunner
                         ErrorMessage = response.ErrorMessage ?? "LLM returned error stop reason",
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
-                        TotalUsage = totalUsage
+                        TotalUsage = totalUsage,
+                        Model = lastModel
                     };
 
                 default:
@@ -349,7 +388,8 @@ public class AgentRunner : IAgentRunner
                         ErrorMessage = $"Unexpected stop reason: {response.StopReason}",
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
-                        TotalUsage = totalUsage
+                        TotalUsage = totalUsage,
+                        Model = lastModel
                     };
             }
         }
@@ -366,7 +406,8 @@ public class AgentRunner : IAgentRunner
             LoopCount = loopCount,
             TotalToolCalls = totalToolCalls,
             ToolNames = toolNames,
-            TotalUsage = totalUsage
+            TotalUsage = totalUsage,
+            Model = lastModel
         };
     }
 }

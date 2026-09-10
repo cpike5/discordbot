@@ -132,6 +132,17 @@ public class SettingsService : ISettingsService
         }
     }
 
+    public async Task<string?> GetStoredValueAsync(string key, CancellationToken cancellationToken = default)
+    {
+        _logger.LogTrace("Getting stored (DB-only) value for key {Key}", key);
+
+        using var scope = _scopeFactory.CreateScope();
+        var repository = GetRepository(scope);
+
+        var dbSetting = await repository.GetByKeyAsync(key, cancellationToken);
+        return dbSetting?.Value;
+    }
+
     public async Task<SettingsUpdateResultDto> UpdateSettingsAsync(
         SettingsUpdateDto updates,
         string userId,
@@ -288,11 +299,22 @@ public class SettingsService : ISettingsService
 
             _logger.LogInformation("Successfully reset category {Category} to defaults", category);
 
+            var updatedKeys = definitions.Select(d => d.Key).ToList();
+
+            if (updatedKeys.Count > 0)
+            {
+                OnSettingsChanged(new SettingsChangedEventArgs
+                {
+                    UpdatedKeys = updatedKeys,
+                    UserId = userId
+                });
+            }
+
             return new SettingsUpdateResultDto
             {
                 Success = true,
                 RestartRequired = requiresRestart,
-                UpdatedKeys = definitions.Select(d => d.Key).ToList()
+                UpdatedKeys = updatedKeys
             };
         }
         catch (Exception ex)
@@ -333,11 +355,22 @@ public class SettingsService : ISettingsService
 
             _logger.LogInformation("Successfully reset all settings to defaults");
 
+            var updatedKeys = SettingDefinitions.All.Select(d => d.Key).ToList();
+
+            if (updatedKeys.Count > 0)
+            {
+                OnSettingsChanged(new SettingsChangedEventArgs
+                {
+                    UpdatedKeys = updatedKeys,
+                    UserId = userId
+                });
+            }
+
             return new SettingsUpdateResultDto
             {
                 Success = true,
                 RestartRequired = requiresRestart,
-                UpdatedKeys = SettingDefinitions.All.Select(d => d.Key).ToList()
+                UpdatedKeys = updatedKeys
             };
         }
         catch (Exception ex)

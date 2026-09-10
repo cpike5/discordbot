@@ -408,6 +408,20 @@ public class OpenRouterMessageMapperTests
         };
 
     [Fact]
+    public void ToLlmResponse_MapsModelFromWireResponse()
+    {
+        var response = Response("hi") with { Model = "anthropic/claude-sonnet-4.6" };
+
+        OpenRouterMessageMapper.ToLlmResponse(response).Model.Should().Be("anthropic/claude-sonnet-4.6");
+    }
+
+    [Fact]
+    public void ToLlmResponse_WithNoModelReported_LeavesModelNull()
+    {
+        OpenRouterMessageMapper.ToLlmResponse(Response("hi")).Model.Should().BeNull();
+    }
+
+    [Fact]
     public void ToLlmResponse_WithTextReply_MapsContentAndEndTurn()
     {
         var result = OpenRouterMessageMapper.ToLlmResponse(Response("Hello there"));

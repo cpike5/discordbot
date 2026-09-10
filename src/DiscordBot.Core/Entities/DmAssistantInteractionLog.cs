@@ -23,5 +23,8 @@ public class DmAssistantInteractionLog
     public string? ErrorMessage { get; set; }
     public decimal EstimatedCostUsd { get; set; }
 
+    /// <summary>OpenRouter slug that answered this interaction. Null for rows logged before this column existed.</summary>
+    public string? Model { get; set; }
+
     public User? User { get; set; }
 }

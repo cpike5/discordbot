@@ -16,9 +16,17 @@ public class AgentRunResult
     public string Response { get; set; } = string.Empty;
 
     /// <summary>
-    /// Number of agentic loop iterations executed (tool use cycles).
+    /// Number of agentic loop iterations executed (tool use cycles). Also the number of LLM calls
+    /// made during this run — one <see cref="ILlmClient.CompleteAsync"/> call per iteration.
     /// </summary>
     public int LoopCount { get; set; }
+
+    /// <summary>
+    /// The model that answered, taken from the last <see cref="LlmResponse.Model"/> that was not
+    /// null across the loop's iterations. Null when no response reported one (e.g. every call
+    /// failed before reaching the provider, or the provider never reports it).
+    /// </summary>
+    public string? Model { get; set; }
 
     /// <summary>
     /// Number of tool calls executed across all iterations.

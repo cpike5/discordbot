@@ -27,12 +27,14 @@ erDiagram
     GUILD ||--o| GUILD_RAT_WATCH_SETTINGS : configures
     GUILD ||--o{ ASSISTANT_USAGE_METRICS : tracks
     GUILD ||--o{ ASSISTANT_INTERACTION_LOG : logs
+    GUILD ||--o{ LLM_USAGE_RECORD : logs
 
     USER ||--o{ GUILD_MEMBER : member_of
     USER ||--o{ COMMAND_LOG : executes
     USER ||--o{ MESSAGE_LOG : authors
     USER ||--o{ USER_CONSENT : grants
     USER ||--o{ USER_ACTIVITY_EVENT : generates
+    USER ||--o{ LLM_USAGE_RECORD : incurs
 
     GUILD_MEMBER ||--|| GUILD : references
     GUILD_MEMBER ||--|| USER : references
@@ -51,6 +53,9 @@ erDiagram
     APPLICATION_USER ||--o{ VERIFICATION_CODE : initiates
 
     USER_GUILD_ACCESS ||--|| GUILD : references
+
+    LLM_MODEL {
+    }
 ```
 
 ## Core Entity Groups
@@ -234,7 +239,7 @@ erDiagram
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
 | **AssistantUsageMetrics** | Aggregated daily AI usage per guild | `Id` (long, PK), `GuildId`, `Date` (UTC date), `TotalQuestions`, `TotalInputTokens`, `TotalOutputTokens`, `TotalCachedTokens`, `TotalCacheWriteTokens`, `TotalCacheHits`, `TotalCacheMisses`, `TotalToolCalls`, `EstimatedCostUsd`, `FailedRequests`, `AverageLatencyMs`, `UpdatedAt` | Belongs to Guild |
-| **AssistantInteractionLog** | Per-interaction detail log for debugging and audit | `Id` (long, PK), `Timestamp`, `UserId`, `GuildId`, `ChannelId`, `MessageId`, `Question`, `Response` (nullable), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheCreationTokens`, `CacheHit`, `ToolCalls`, `LatencyMs`, `Success`, `ErrorMessage` (nullable), `EstimatedCostUsd` | References User, Guild |
+| **AssistantInteractionLog** | Per-interaction detail log for debugging and audit | `Id` (long, PK), `Timestamp`, `UserId`, `GuildId`, `ChannelId`, `MessageId`, `Question`, `Response` (nullable), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheCreationTokens`, `CacheHit`, `ToolCalls`, `LatencyMs`, `Success`, `ErrorMessage` (nullable), `EstimatedCostUsd`, `Model` (nullable, OpenRouter slug that answered) | References User, Guild |
 
 **Notes:**
 - `AssistantUsageMetrics` is aggregated per guild per calendar day; updated by the AI assistant service on each interaction.
@@ -256,7 +261,20 @@ erDiagram
 - `ConnectionEvent` is standalone (no FK to Guild); persisted across restarts to compute cumulative uptime.
 - `ConnectionEvent.Reason` / `Details` capture exception messages and types on disconnect.
 
-### 16. UI Themes & Tags
+### 16. LLM Model Catalog (LlmModel)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **LlmModel** | Local cache of OpenRouter's model catalog, plus the admin allowlist | `Id` (string PK, the OpenRouter slug), `Name`, `Description` (max 1,000 chars), `Vendor` (slug prefix before `/`), `ContextLength`, `PromptPricePerMillion`/`CompletionPricePerMillion`/`CacheReadPricePerMillion`/`CacheWritePricePerMillion` (decimal?, per-million-token USD, null when the catalog reports unknown), `SupportsTools`, `SupportsImages`, `ReleasedAt` (nullable), `FirstSeenAt`, `LastSeenAt`, `IsAvailable` (bool), `IsEnabled` (bool, default false), `EnabledAt` (nullable), `EnabledBy` (nullable) | Standalone |
+
+**Notes:**
+- Populated and refreshed by `ILlmModelCatalogService.RefreshAsync`, which upserts by slug from `IOpenRouterModelCatalogClient.GetModelsAsync` (OpenRouter `GET /models`). Alias entries (slug starting with `~`) are skipped on import.
+- A refresh never deletes a row: a slug OpenRouter no longer returns is marked `IsAvailable = false` and kept, so a disabled admin choice is never silently lost.
+- `IsEnabled` is the admin allowlist flag - a catalog refresh never changes it, with one exception: the very first refresh ever (table empty beforehand) bootstrap-enables the slugs then configured for the guild assistant, DM assistant, and feature-request modes, so upgrades keep working.
+- Indexed on `Vendor` (grouping/filtering) and `IsEnabled` (the enabled-only picker and catalog queries).
+- Refresh interval is `Llm:CatalogRefreshHours` (`LlmOptions`, default 24; `0` disables the background `LlmCatalogRefreshService`).
+
+### 17. UI Themes & Tags
 
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
@@ -267,6 +285,21 @@ erDiagram
 **Notes:**
 - `Theme.CssVariables` is JSON object mapping variable names to color/size values.
 - `ModTag` and `UserModTag` enable quick labeling/filtering of users in moderation.
+
+### 18. LLM Usage Ledger (LlmUsageRecord)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **LlmUsageRecord** | One row per user message across every `LlmMode` (guild assistant, DM assistant, feature requests) - tokens, cost, and which model answered, for cross-mode per-user cost breakdowns | `Id` (long, PK), `Timestamp`, `Mode` (enum, stored as int), `UserId`, `GuildId` (nullable - null only for DM assistant messages; feature-request conversations carry the originating guild id here even though they run over DMs, since `/feature-request` is invoked from a guild), `Model` (string, 200, the slug that actually answered), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheWriteTokens`, `LlmCalls`, `ToolCalls`, `CostUsd` (decimal(18,8)), `CostSource` (enum: `Billed`/`Estimated`), `LatencyMs`, `Success`, `InteractionLogId` (nullable, long - the row's id in the mode's own interaction log, when one was logged) | Logical only to User and Guild (Discord id columns, no FK) - see note |
+
+**Notes:**
+- No message text is stored here - the existing per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`) keep that; this table exists purely for cross-mode cost/usage aggregation.
+- **Deliberately has no foreign keys** to `Users` or `Guilds`, unlike `AssistantInteractionLog`/`DmAssistantInteractionLog` (which do cascade-delete off `User`). This is a ledger keyed on Discord snowflakes, not a relational join target: a DM user may have no `Users` row at all, and deleting a `User`/`Guild` row must never cascade-delete cost history out from under retention/reporting. `UserId`/`GuildId` are plain `ulong`/`ulong?` columns with covering indexes - any relationship to `Users`/`Guilds` implied by an ER diagram line is logical (matching id values), not an enforced database relationship.
+- `GuildId` is null only for DM assistant rows. Feature-request rows always carry the guild the `/feature-request` command was run in, even though the conversation itself happens over DM - `FeatureRequestConversationService.RunAgentAsync` passes that guild id through.
+- Written by `ILlmUsageRecorder` (Bot layer) off a bounded background channel, mirroring `IAuditLogQueue`/`AuditLogQueueProcessor` - recording never adds latency to a reply.
+- `AssistantMessagePipeline` builds the record once (shared by the guild and DM assistants); `FeatureRequestConversationService` builds and records its own row per agent turn, since feature requests do not go through the shared pipeline.
+- Indexed on `(UserId, Timestamp)`, `(GuildId, Timestamp)`, `(Mode, Timestamp)`, `(Model, Timestamp)` for the grouped dashboard queries and retention cleanup.
+- Retention/purge/export for this table are owned by a separate work item building on `ILlmUsageRepository.DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` - not yet wired into `Assistant:Privacy:InteractionLogRetentionDays` cleanup, `UserPurgeService`, or `UserDataExportService` as of this entity's introduction.
 
 ## Cascading Behavior & Constraints
 

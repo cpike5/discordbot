@@ -38,6 +38,17 @@ public interface ISettingsService
     Task<T?> GetSettingValueAsync<T>(string key, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Gets the persisted database override for a setting, without falling back to configuration or
+    /// the setting definition default. Use this when the caller needs to know whether a DB row exists
+    /// at all - e.g. to attribute an effective value to "DB override" vs. "configuration" - which
+    /// <see cref="GetSettingValueAsync{T}"/> cannot answer since it already merges the two.
+    /// </summary>
+    /// <param name="key">The setting key.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The raw stored <c>ApplicationSetting.Value</c>, or null when no DB row exists for this key.</returns>
+    Task<string?> GetStoredValueAsync(string key, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Updates multiple settings with validation.
     /// Sets the restart pending flag if any RequiresRestart setting is changed.
     /// </summary>

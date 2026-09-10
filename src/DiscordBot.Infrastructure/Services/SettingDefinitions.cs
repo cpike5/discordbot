@@ -183,6 +183,44 @@ public static class SettingDefinitions
             defaultValue: "",
             requiresRestart: false,
             description: "Default theme for new users and anonymous visitors (leave empty for Discord Dark)"
+        ),
+
+        // AI Models Category - per-mode default OpenRouter model slugs. Keys match the modes'
+        // historical configuration keys (see DiscordBot.Core.Enums.LlmModeSettings) so a DB row
+        // shadows the configured value with no new plumbing. Saving a value here is validated
+        // against the catalog allowlist - see SettingsSectionService.ValidateAiModelSelectionsAsync.
+        // DefaultValue is "" ("use the configuration value") rather than a hard-coded slug: a
+        // catalog refresh can leave that slug disabled or unavailable, so hard-coding one here
+        // could reset a mode to a model the admin can no longer use. An empty value means
+        // ILlmModelResolver falls through to the bound IOptions<T> value (and then
+        // OpenRouterOptions.DefaultModel) instead of a DB override -
+        // ValidateAiModelSelectionsAsync skips blank submissions for exactly this reason.
+        new(
+            key: "Assistant:Sampling:Model",
+            displayName: "Guild assistant model",
+            category: SettingCategory.AiModels,
+            dataType: SettingDataType.String,
+            defaultValue: "",
+            requiresRestart: false,
+            description: "OpenRouter model slug used by the guild assistant (@bot mentions). Leave empty to use the configured value. Must be an enabled, tool-capable catalog model."
+        ),
+        new(
+            key: "DmAssistant:Model",
+            displayName: "DM assistant model",
+            category: SettingCategory.AiModels,
+            dataType: SettingDataType.String,
+            defaultValue: "",
+            requiresRestart: false,
+            description: "OpenRouter model slug used by the DM (owner) assistant. Leave empty to use the configured value. Must be an enabled, tool-capable catalog model."
+        ),
+        new(
+            key: "FeatureRequests:RequirementsGatheringModel",
+            displayName: "Feature request model",
+            category: SettingCategory.AiModels,
+            dataType: SettingDataType.String,
+            defaultValue: "",
+            requiresRestart: false,
+            description: "OpenRouter model slug used for /feature-request requirements gathering. Leave empty to use the configured value. Must be an enabled, tool-capable catalog model."
         )
     };
 

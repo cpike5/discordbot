@@ -608,6 +608,65 @@ Owner DMs bot →
 
 ---
 
+### LLM Model Catalog & Allowlist
+
+Admin-facing local mirror of OpenRouter's model directory, plus the enable/disable allowlist that
+gates which models the assistant, DM assistant, and feature-request modes may use. See
+`docs/plans/llm-model-management-plan.md` for the full design and delivery phases.
+
+| Aspect | Components |
+|--------|------------|
+| **Web Page** | `/admin/settings` "AI Models" tab (`Pages/Admin/Settings.cshtml`, `ai-models-settings` panel), rendered by `wwwroot/js/llm-models.js` |
+| **Controller** | `LlmModelsController` (`api/admin/llm-models`, `RequireAdmin`) — list/filter, refresh, enable/disable, per-mode defaults (`GetDefaults` delegates to `ILlmModelResolver`) |
+| **Services** | `ILlmModelCatalogService` / `LlmModelCatalogService` (refresh, filtered listing, allowlist), `IOpenRouterModelCatalogClient` / `OpenRouterModelCatalogClient` (second typed `HttpClient` against OpenRouter `GET /models`), `ILlmModelResolver` / `LlmModelResolver` (per-mode default resolution, see below) |
+| **Repository** | `ILlmModelRepository` / `LlmModelRepository` |
+| **Database Entity** | `LlmModel` (table `LlmModels`, PK = OpenRouter slug) |
+| **Background Service** | `LlmCatalogRefreshService` (`Llm:CatalogRefreshHours`, default 24, `0` disables; registered only when `OpenRouter:ApiKey` is present) |
+| **Configuration** | `LlmOptions` (`Llm` section) |
+| **Key Rule** | A catalog refresh never enables a model — `IsEnabled` is only ever set by an explicit admin action, with one exception: the very first refresh ever bootstraps-enables the slugs currently configured for the three modes so upgrades keep working. |
+| **Key Features** | Server-side search/vendor/enabled/available/tools filtering and sort, enable/disable with a refusal when the slug is a mode's current default, last-refresh timestamp, **editable** per-mode defaults panel (saves through `SettingsSectionService.SaveCategoryAsync("AiModels", ...)`, validated against the allowlist) |
+
+---
+
+### Per-Mode Default Model Resolution
+
+`LlmMode` (`GuildAssistant`, `DmAssistant`, `FeatureRequests`) and `LlmModeSettings` (Core
+`Enums/LlmMode.cs`) name the three places a model slug is picked and the setting key each maps to.
+`ILlmModelResolver.ResolveAsync(LlmMode)` is the single resolution path: a DB setting row (saved
+through the AI Models tab) wins over the bound `IOptions<T>` value, which wins over
+`OpenRouterOptions.DefaultModel` as the last resort. Results are cached per mode in
+`LlmModelResolver` (singleton) and the cache is cleared when `ISettingsService.SettingsChanged`
+reports one of the three setting keys, so an admin's save takes effect on the next message with no
+restart.
+
+| Aspect | Components |
+|--------|------------|
+| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync`, `FeatureRequestConversationService.RunAgentAsync` (all resolve per call/message), `LlmModelsController.GetDefaults` |
+| **Save-time validation** | `SettingsSectionService.ValidateAiModelSelectionsAsync` rejects a submitted slug that is not in the catalog, not `IsEnabled`, or not `SupportsTools`, before the value ever reaches the DB |
+| **Cost fallback** | `ResolveAsync` also returns `LlmCatalogPricing` when the catalog reports a price for the slug; `GuildAssistantContext`/`DmAssistantContext.CostRates` prefer it over the configured per-million rates (billed `usage.cost` still wins over either) |
+| **AI Models tab** | `SettingsViewModel.AiModelsSettings` (loaded by `SettingsSectionService.LoadViewModelAsync`) carries the three mode `SettingDto`s with `AllowedValues` post-processed to the enabled catalog slugs (plus the current value if not among them), for a `<select>` |
+
+---
+
+### LLM Usage Ledger
+
+Per-message token/cost tracking across every `LlmMode`, with portal-wide and per-guild cost
+breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-plan.md` ("Design >
+3", "Delivery > PR 3") for the full design.
+
+| Aspect | Components |
+|--------|------------|
+| **Database Entity** | `LlmUsageRecord` (table `LlmUsageRecords`) — one row per user message: `Timestamp`, `Mode`, `UserId`, `GuildId?`, `Model`, `InputTokens`/`OutputTokens`/`CachedTokens`/`CacheWriteTokens`, `LlmCalls`, `ToolCalls`, `CostUsd`, `CostSource` (`Billed`/`Estimated`), `LatencyMs`, `Success`, `InteractionLogId?`. No message text is stored — the per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`, both now carrying a nullable `Model` column) keep that. |
+| **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` and `FeatureRequestConversationService` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
+| **Repository** | `ILlmUsageRepository` / `LlmUsageRepository` (`Infrastructure/Data/Repositories`) — `GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync` (all grouped over `LlmUsageQuery`: date range + optional guild/mode/user), `GetRecordsAsync` (paged raw rows), plus `AddRangeAsync`/`DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` for the write, retention, and GDPR paths. Grouped queries sum `CostUsd` as `double` and cast back to `decimal` — SQLite's EF provider cannot translate `Sum(decimal)` — so the same query shape works on both providers. |
+| **Controller** | `LlmUsageController` (`api/admin/llm-usage`, `RequireAdmin`) — `GET summary` (totals + by-user/model/mode/day over a validated range, default last 30 days, max 366 days), `GET records` (paged rows, `pageSize` capped at 200). Resolves Discord display names via `IDiscordUserResolver` and emits every ID as a string. |
+| **Web Pages** | `/admin/llm-usage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/guild/{guildId}/assistant-metrics` (`Pages/Guilds/AssistantMetrics.cshtml`) gains a "Cost by User" table sourced from the same repository, injected directly into `AssistantMetricsModel` and filtered by guild. |
+| **Retention** | `AssistantInteractionLogRetentionService` sweeps `LlmUsageRecords` (via `DeleteOlderThanAsync`) on the same `Assistant:Privacy:InteractionLogRetentionDays` cadence as the interaction logs — no new retention option. |
+| **GDPR** | `UserPurgeService` and `UserDataExportService` include `LlmUsageRecords` (`DeleteByUserAsync` / `CountByUserAsync` + export) alongside the interaction logs. |
+| **Key Rule** | Granularity is one row per user message (`LlmCalls` counts calls across the agentic loop), not one row per LLM call — keeps the table small and matches what the breakdowns need. |
+
+---
+
 ### Background Services
 
 Long-running background tasks for maintenance and scheduled operations.

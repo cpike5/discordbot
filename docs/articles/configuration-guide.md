@@ -159,6 +159,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 |--------------|-------------|---------------|----------------|
 | `OpenRouterOptions` | `OpenRouter` | `AssistantServiceExtensions` | `ApiKey` (secret), `BaseUrl`, `DefaultModel` (OpenRouter slug), `MaxRetries`, `TimeoutSeconds`, `RetryBaseDelayMs`, `EnablePromptCachingByDefault`, `AppUrl`, `AppTitle` |
 | `AssistantOptions` | `Assistant` | `AssistantServiceExtensions` | Grouped into nested sub-options: `Sampling` (model/tokens/temperature/timeout), `RateLimits` (rate limit + bypass role), `Messages` (question/response length, error text, retry), `Tools` (doc tools, prompt/doc paths), `Cost` (cost tracking, prompt caching), `Privacy` (consent, logging, retention). Historical flat keys (e.g. `Assistant:MaxTokens`) still bind via obsolete forwarding properties and take precedence over the nested key (e.g. `Assistant:Sampling:MaxTokens`) if both are set. |
+| `LlmOptions` | `Llm` | `AssistantServiceExtensions` | `CatalogRefreshHours` (default 24; `0` disables the periodic refresh) — interval for `LlmCatalogRefreshService`, the background job that pulls OpenRouter's model directory into the local `LlmModels` table for the admin "AI Models" tab. `CatalogRefreshInitialDelayMinutes` (default 5) — how long the service waits after startup before its first refresh attempt, mirroring the other background services' startup stagger. `UsageQueueCapacity` (default 10,000) — capacity of the bounded channel `LlmUsageRecorder` enqueues onto before `LlmUsageRecordProcessor` drains it into the `LlmUsageRecords` usage ledger; a full queue drops the oldest entry (and logs a warning) rather than blocking the reply. `RetentionSweepIntervalHours` (default 24; `0` disables) — how often `AssistantInteractionLogRetentionService` sweeps guild and DM assistant interaction logs and the `LlmUsageRecords` ledger for retention (each table's own retention-days window comes from `Assistant:Privacy:InteractionLogRetentionDays` and `DmAssistant:InteractionLogRetentionDays`, not a new key here; a table is skipped when its window is `0` or less). `RetentionBatchSize` (default 1000) — batch size the retention sweep uses when deleting expired `LlmUsageRecord`, `AssistantInteractionLog`, and `DmAssistantInteractionLog` rows, capped at 1000 regardless of what is configured (see each repository's `DeleteOlderThanAsync` batch overload). `RetentionSweepInitialDelayMinutes` (default 5) — how long the service waits after startup before its first sweep, mirroring `CatalogRefreshInitialDelayMinutes`. Registered only when `OpenRouter:ApiKey` is present, matching the rest of the assistant stack — except the usage recorder/processor and the retention sweep, which are registered ungated so recording and cleanup work whenever any assistant mode runs. |
 
 #### Audio / Voice
 
@@ -258,6 +259,9 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | `Advanced:MessageLogRetentionDays` | Advanced | Integer | `90` | Message log retention (range: 1-365) |
 | `Advanced:AuditLogRetentionDays` | Advanced | Integer | `90` | Audit log retention (range: 1-365) |
 | `Appearance:DefaultThemeId` | Appearance | Integer | `""` | Default UI theme (SuperAdmin only) |
+| `Assistant:Sampling:Model` | AiModels | String | `""` | Guild assistant's default OpenRouter model slug override. Reuses the guild assistant's historical config key, so a non-empty DB row here shadows `appsettings`/environment the same way as any other setting; `""` means "use the configured value" and is resolved by `ILlmModelResolver`. Save-time validated (when non-empty): the slug must be in the local catalog, `IsEnabled`, and `SupportsTools`. |
+| `DmAssistant:Model` | AiModels | String | `""` | DM (owner) assistant's default model slug override. Same semantics and validation as above. |
+| `FeatureRequests:RequirementsGatheringModel` | AiModels | String | `""` | `/feature-request` requirements-gathering model slug override. Same semantics and validation as above. |
 
 ### Settings Categories and UI Tabs
 
@@ -268,6 +272,7 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | — | Commands | Admin+ | Command module enable/disable (separate system) |
 | Advanced | Advanced | Admin+ | Data retention policies |
 | — | Bot Control | Admin+ | Bot restart/shutdown, live status |
+| AiModels | AI Models | Admin+ | OpenRouter model catalog and allowlist (`LlmModelsController` - list/refresh/enable) plus an **editable** per-mode defaults panel that saves through the normal `SettingsSectionService.SaveCategoryAsync("AiModels", ...)` path (audit and reset-to-default included for free), unlike the read-only catalog table above it. A saved slug is rejected unless it is an enabled, tool-capable catalog row - see `ILlmModelResolver` and `SettingsSectionService.ValidateAiModelSelectionsAsync` in `.claude/agents/ai-assistant.md`. The change takes effect on the next message with no restart (the resolver's cache is invalidated by `ISettingsService.SettingsChanged`). |
 | Appearance | Appearance | SuperAdmin only | Theme selection |
 
 ### Real-Time Updates
