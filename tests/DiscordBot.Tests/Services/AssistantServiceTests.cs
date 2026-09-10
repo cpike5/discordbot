@@ -40,6 +40,7 @@ public class AssistantServiceTests
     private readonly Mock<IAssistantUsageMetricsRepository> _mockMetricsRepository;
     private readonly Mock<IAssistantInteractionLogRepository> _mockInteractionLogRepository;
     private readonly Mock<ISettingsService> _mockSettingsService;
+    private readonly Mock<ILlmModelResolver> _mockModelResolver;
     private readonly IMemoryCache _cache;
     private readonly AssistantOptions _options;
     private readonly AssistantService _service;
@@ -63,6 +64,15 @@ public class AssistantServiceTests
         _mockMetricsRepository = new Mock<IAssistantUsageMetricsRepository>();
         _mockInteractionLogRepository = new Mock<IAssistantInteractionLogRepository>();
         _mockSettingsService = new Mock<ISettingsService>();
+        _mockModelResolver = new Mock<ILlmModelResolver>();
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.GuildAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel
+            {
+                Slug = "anthropic/claude-sonnet-4",
+                Source = LlmModelResolutionSource.Configuration,
+                ConfiguredSlug = "anthropic/claude-sonnet-4"
+            });
         _cache = new MemoryCache(new MemoryCacheOptions());
 
         _options = new AssistantOptions
@@ -149,6 +159,7 @@ public class AssistantServiceTests
             _mockToolRegistry.Object,
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object,
+            _mockModelResolver.Object,
             Mock.Of<ILogger<GuildAssistantContext>>(),
             options);
         var telemetryReader = new AssistantTelemetryReader(

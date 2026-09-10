@@ -1,6 +1,7 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.DTOs.LLM.Enums;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Caching.Memory;
@@ -22,6 +23,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     private readonly IDmAssistantInteractionLogRepository _interactionLogRepo;
     private readonly IDmAssistantUsageMetricsRepository _metricsRepo;
     private readonly IMemoryCache _memoryCache;
+    private readonly ILlmModelResolver _modelResolver;
     private readonly DmAssistantOptions _options;
 
     public DmAssistantContextFactory(
@@ -32,6 +34,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         IDmAssistantInteractionLogRepository interactionLogRepo,
         IDmAssistantUsageMetricsRepository metricsRepo,
         IMemoryCache memoryCache,
+        ILlmModelResolver modelResolver,
         IOptions<DmAssistantOptions> options)
     {
         _dmToolProviders = dmToolProviders ?? throw new ArgumentNullException(nameof(dmToolProviders));
@@ -41,6 +44,7 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         _interactionLogRepo = interactionLogRepo ?? throw new ArgumentNullException(nameof(interactionLogRepo));
         _metricsRepo = metricsRepo ?? throw new ArgumentNullException(nameof(metricsRepo));
         _memoryCache = memoryCache ?? throw new ArgumentNullException(nameof(memoryCache));
+        _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
     }
 
@@ -62,6 +66,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             })
             .ToList();
 
+        var resolved = await _modelResolver.ResolveAsync(LlmMode.DmAssistant, cancellationToken);
+
         return new DmAssistantContext(
             userId,
             activeGuildId,
@@ -72,7 +78,9 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             _interactionLogRepo,
             _metricsRepo,
             _options,
-            _loggerFactory.CreateLogger<DmAssistantContext>());
+            _loggerFactory.CreateLogger<DmAssistantContext>(),
+            resolved.Slug,
+            resolved.Pricing);
     }
 
     /// <inheritdoc />

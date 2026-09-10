@@ -1,50 +1,37 @@
 using System.Security.Claims;
 using DiscordBot.Bot.Extensions;
-using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
-using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Controllers;
 
 /// <summary>
 /// Admin endpoints for the local OpenRouter model catalog and allowlist: list/filter, refresh from
 /// OpenRouter, enable/disable a model, and the effective per-mode default slugs. All catalog work is
-/// delegated to <see cref="ILlmModelCatalogService"/>; this controller only maps to/from DTOs.
+/// delegated to <see cref="ILlmModelCatalogService"/>; per-mode default resolution is delegated to
+/// <see cref="ILlmModelResolver"/> - the same single resolution path the guild/DM assistant context
+/// factories and the feature-request conversation service use. This controller only maps to/from DTOs.
 /// </summary>
 [Route("api/admin/llm-models")]
 [Authorize(Policy = "RequireAdmin")]
 public class LlmModelsController : ApiControllerBase
 {
     private readonly ILlmModelCatalogService _catalogService;
-    private readonly ISettingsService _settingsService;
-    private readonly IOptions<AssistantOptions> _assistantOptions;
-    private readonly IOptions<DmAssistantOptions> _dmAssistantOptions;
-    private readonly IOptions<FeatureRequestsOptions> _featureRequestsOptions;
+    private readonly ILlmModelResolver _modelResolver;
     private readonly ILogger<LlmModelsController> _logger;
-
-    private const string GuildAssistantKey = "Assistant:Sampling:Model";
-    private const string DmAssistantKey = "DmAssistant:Model";
-    private const string FeatureRequestsKey = "FeatureRequests:RequirementsGatheringModel";
 
     public LlmModelsController(
         ILlmModelCatalogService catalogService,
-        ISettingsService settingsService,
-        IOptions<AssistantOptions> assistantOptions,
-        IOptions<DmAssistantOptions> dmAssistantOptions,
-        IOptions<FeatureRequestsOptions> featureRequestsOptions,
+        ILlmModelResolver modelResolver,
         ILogger<LlmModelsController> logger)
     {
         _catalogService = catalogService;
-        _settingsService = settingsService;
-        _assistantOptions = assistantOptions;
-        _dmAssistantOptions = dmAssistantOptions;
-        _featureRequestsOptions = featureRequestsOptions;
+        _modelResolver = modelResolver;
         _logger = logger;
     }
 
@@ -154,60 +141,45 @@ public class LlmModelsController : ApiControllerBase
 
     /// <summary>
     /// Returns the effective slug for each mode (guild assistant, DM assistant, feature requests) and
-    /// where it comes from (a DB override vs. the bound configuration value), plus whether that slug
-    /// is currently known/enabled/available in the catalog.
+    /// where it comes from (a DB override, the bound configuration value, or the last-resort
+    /// <c>OpenRouter:DefaultModel</c> fallback), plus whether that slug is currently known/enabled/
+    /// available in the catalog. Delegates entirely to <see cref="ILlmModelResolver"/> - the same
+    /// resolution path used at message-send time.
     /// </summary>
     [HttpGet("defaults")]
     [ProducesResponseType(typeof(LlmModelDefaultsResponseDto), StatusCodes.Status200OK)]
     public async Task<ActionResult<LlmModelDefaultsResponseDto>> GetDefaults(CancellationToken cancellationToken)
     {
-        var catalog = await _catalogService.GetCatalogAsync(new LlmModelCatalogFilter(), cancellationToken);
-        var bySlug = catalog.ToDictionary(m => m.Id, StringComparer.OrdinalIgnoreCase);
+        var modes = new List<LlmModeDefaultDto>();
 
-        var modes = new List<LlmModeDefaultDto>
+        foreach (var mode in LlmModeSettings.All)
         {
-            await ResolveModeAsync(
-                "GuildAssistant", "Guild Assistant", GuildAssistantKey,
-                _assistantOptions.Value.Sampling.Model, bySlug, cancellationToken),
-            await ResolveModeAsync(
-                "DmAssistant", "DM Assistant", DmAssistantKey,
-                _dmAssistantOptions.Value.Model, bySlug, cancellationToken),
-            await ResolveModeAsync(
-                "FeatureRequests", "Feature Requests", FeatureRequestsKey,
-                _featureRequestsOptions.Value.RequirementsGatheringModel, bySlug, cancellationToken)
-        };
+            var resolved = await _modelResolver.ResolveAsync(mode, cancellationToken);
+
+            modes.Add(new LlmModeDefaultDto
+            {
+                Mode = mode.ToString(),
+                Label = LlmModeSettings.LabelFor(mode),
+                SettingKey = LlmModeSettings.KeyFor(mode),
+                Slug = resolved.Slug,
+                Source = ToDtoSource(resolved.Source),
+                ConfiguredSlug = resolved.ConfiguredSlug,
+                IsKnown = resolved.IsEnabled.HasValue,
+                IsEnabled = resolved.IsEnabled ?? false,
+                IsAvailable = resolved.IsAvailable ?? false
+            });
+        }
 
         return Ok(new LlmModelDefaultsResponseDto { Modes = modes });
     }
 
-    private async Task<LlmModeDefaultDto> ResolveModeAsync(
-        string mode,
-        string label,
-        string settingKey,
-        string configuredSlug,
-        IReadOnlyDictionary<string, LlmModel> bySlug,
-        CancellationToken cancellationToken)
+    private static LlmModelDefaultSource ToDtoSource(LlmModelResolutionSource source) => source switch
     {
-        var storedValue = await _settingsService.GetStoredValueAsync(settingKey, cancellationToken);
-        var hasDbOverride = !string.IsNullOrWhiteSpace(storedValue);
-
-        var slug = hasDbOverride ? storedValue! : configuredSlug;
-        var source = hasDbOverride ? LlmModelDefaultSource.Db : LlmModelDefaultSource.Config;
-
-        var known = bySlug.TryGetValue(slug, out var model);
-
-        return new LlmModeDefaultDto
-        {
-            Mode = mode,
-            Label = label,
-            SettingKey = settingKey,
-            Slug = slug,
-            Source = source,
-            IsKnown = known,
-            IsEnabled = known && model!.IsEnabled,
-            IsAvailable = known && model!.IsAvailable
-        };
-    }
+        LlmModelResolutionSource.Database => LlmModelDefaultSource.Db,
+        LlmModelResolutionSource.Configuration => LlmModelDefaultSource.Config,
+        LlmModelResolutionSource.Fallback => LlmModelDefaultSource.Fallback,
+        _ => throw new ArgumentOutOfRangeException(nameof(source), source, "Unknown resolution source.")
+    };
 
     private static LlmModelDto ToDto(LlmModel model) => new()
     {

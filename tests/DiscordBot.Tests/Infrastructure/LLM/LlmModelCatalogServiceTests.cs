@@ -1,4 +1,3 @@
-using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -11,7 +10,6 @@ using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Infrastructure.LLM;
@@ -28,10 +26,13 @@ public class LlmModelCatalogServiceTests : IDisposable
     private readonly LlmModelRepository _repository;
     private readonly Mock<IOpenRouterModelCatalogClient> _mockCatalogClient;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
-    private readonly Mock<ISettingsService> _mockSettingsService;
-    private readonly IOptions<AssistantOptions> _assistantOptions;
-    private readonly IOptions<DmAssistantOptions> _dmAssistantOptions;
-    private readonly IOptions<FeatureRequestsOptions> _featureRequestsOptions;
+    private readonly Mock<ILlmModelResolver> _mockModelResolver;
+    private readonly Dictionary<LlmMode, string> _modeSlugs = new()
+    {
+        [LlmMode.GuildAssistant] = "anthropic/claude-sonnet-4",
+        [LlmMode.DmAssistant] = "anthropic/claude-haiku-4",
+        [LlmMode.FeatureRequests] = "openai/gpt-4o",
+    };
     private readonly LlmModelCatalogService _service;
 
     public LlmModelCatalogServiceTests()
@@ -53,27 +54,21 @@ public class LlmModelCatalogServiceTests : IDisposable
         mockBuilder.Setup(x => x.LogAsync(It.IsAny<CancellationToken>())).Returns(Task.CompletedTask);
         _mockAuditLogService.Setup(x => x.CreateBuilder()).Returns(mockBuilder.Object);
 
-        _mockSettingsService = new Mock<ISettingsService>();
-        _mockSettingsService
-            .Setup(x => x.GetSettingValueAsync<string>(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
-
-        _assistantOptions = Options.Create(new AssistantOptions
-        {
-            Sampling = { Model = "anthropic/claude-sonnet-4" },
-        });
-        _dmAssistantOptions = Options.Create(new DmAssistantOptions { Model = "anthropic/claude-haiku-4" });
-        _featureRequestsOptions = Options.Create(
-            new FeatureRequestsOptions { RequirementsGatheringModel = "openai/gpt-4o" });
+        _mockModelResolver = new Mock<ILlmModelResolver>();
+        _mockModelResolver
+            .Setup(x => x.ResolveAsync(It.IsAny<LlmMode>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LlmMode mode, CancellationToken _) => new LlmResolvedModel
+            {
+                Slug = _modeSlugs[mode],
+                Source = LlmModelResolutionSource.Configuration,
+                ConfiguredSlug = _modeSlugs[mode],
+            });
 
         _service = new LlmModelCatalogService(
             _repository,
             _mockCatalogClient.Object,
             _mockAuditLogService.Object,
-            _mockSettingsService.Object,
-            _assistantOptions,
-            _dmAssistantOptions,
-            _featureRequestsOptions,
+            _mockModelResolver.Object,
             NullLogger<LlmModelCatalogService>.Instance);
     }
 
@@ -224,10 +219,17 @@ public class LlmModelCatalogServiceTests : IDisposable
         await _service.RefreshAsync(userId: null);
         await _service.SetEnabledAsync("some/db-configured-model", enabled: true, userId: "admin-1");
 
-        // The DB setting for the guild assistant mode overrides the bound options value.
-        _mockSettingsService
-            .Setup(x => x.GetSettingValueAsync<string>("Assistant:Sampling:Model", It.IsAny<CancellationToken>()))
-            .ReturnsAsync("some/db-configured-model");
+        // The DB setting for the guild assistant mode overrides the bound options value - modeled
+        // here as the resolver itself now reporting the DB-overridden slug, since resolution order
+        // is entirely ILlmModelResolver's concern.
+        _mockModelResolver
+            .Setup(x => x.ResolveAsync(LlmMode.GuildAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel
+            {
+                Slug = "some/db-configured-model",
+                Source = LlmModelResolutionSource.Database,
+                ConfiguredSlug = "anthropic/claude-sonnet-4",
+            });
 
         var result = await _service.SetEnabledAsync("some/db-configured-model", enabled: false, userId: "admin-1");
 

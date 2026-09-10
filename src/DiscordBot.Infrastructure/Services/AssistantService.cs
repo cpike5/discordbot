@@ -102,7 +102,8 @@ public class AssistantService : IAssistantService
             }
 
             var rateLimit = await _accessGate.GetRateLimitAsync(guildId, cancellationToken);
-            var context = _contextFactory.Create(guildId, channelId, userId, messageId, rateLimit, question);
+            var context = await _contextFactory.CreateAsync(
+                guildId, channelId, userId, messageId, rateLimit, question, cancellationToken);
 
             var rateLimitResult = await _rateLimiter.CheckAsync(
                 context.RateLimitCacheKeyPrefix,

@@ -7,11 +7,16 @@ namespace DiscordBot.Core.Interfaces.LLM;
 /// </summary>
 public interface IGuildAssistantContextFactory
 {
-    IAssistantContext Create(
+    /// <summary>
+    /// Builds the context, resolving the guild assistant's effective model slug (see
+    /// <see cref="ILlmModelResolver"/>) as part of the build - hence async.
+    /// </summary>
+    Task<IAssistantContext> CreateAsync(
         ulong guildId,
         ulong channelId,
         ulong userId,
         ulong messageId,
         int rateLimit,
-        string question);
+        string question,
+        CancellationToken cancellationToken = default);
 }

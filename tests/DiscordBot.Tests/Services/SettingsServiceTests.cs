@@ -1069,6 +1069,30 @@ public class SettingsServiceTests
             "cancellation token should be passed to repository");
     }
 
+    [Fact]
+    public async Task ResetCategoryAsync_RaisesSettingsChanged_WithResetKeysAndUserId()
+    {
+        // Arrange
+        const string userId = "user123";
+        var category = SettingCategory.General;
+
+        _mockRepository
+            .Setup(r => r.DeleteByCategoryAsync(category, It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SettingsChangedEventArgs? raised = null;
+        _service.SettingsChanged += (_, e) => raised = e;
+
+        // Act
+        var result = await _service.ResetCategoryAsync(category, userId);
+
+        // Assert
+        raised.Should().NotBeNull("ResetCategoryAsync should raise SettingsChanged, same as UpdateSettingsAsync");
+        raised!.UserId.Should().Be(userId);
+        raised.UpdatedKeys.Should().BeEquivalentTo(result.UpdatedKeys);
+        raised.UpdatedKeys.Should().NotBeEmpty();
+    }
+
     #endregion
 
     #region ResetAllAsync Tests
@@ -1169,6 +1193,29 @@ public class SettingsServiceTests
             r => r.DeleteByCategoryAsync(It.IsAny<SettingCategory>(), cancellationToken),
             Times.AtLeastOnce,
             "cancellation token should be passed to repository");
+    }
+
+    [Fact]
+    public async Task ResetAllAsync_RaisesSettingsChanged_WithResetKeysAndUserId()
+    {
+        // Arrange
+        const string userId = "user123";
+
+        _mockRepository
+            .Setup(r => r.DeleteByCategoryAsync(It.IsAny<SettingCategory>(), It.IsAny<CancellationToken>()))
+            .Returns(Task.CompletedTask);
+
+        SettingsChangedEventArgs? raised = null;
+        _service.SettingsChanged += (_, e) => raised = e;
+
+        // Act
+        var result = await _service.ResetAllAsync(userId);
+
+        // Assert
+        raised.Should().NotBeNull("ResetAllAsync should raise SettingsChanged, same as UpdateSettingsAsync");
+        raised!.UserId.Should().Be(userId);
+        raised.UpdatedKeys.Should().BeEquivalentTo(result.UpdatedKeys);
+        raised.UpdatedKeys.Should().NotBeEmpty();
     }
 
     #endregion

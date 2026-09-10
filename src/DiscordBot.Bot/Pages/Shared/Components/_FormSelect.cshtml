@@ -56,7 +56,7 @@
             {
                 foreach (var attr in Model.AdditionalAttributes)
                 {
-                    @($"{attr.Key}=\"{attr.Value}\"")
+                    @Html.Raw($"{attr.Key}=\"{System.Net.WebUtility.HtmlEncode(attr.Value)}\"")
                 }
             }
         >

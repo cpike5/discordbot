@@ -26,6 +26,8 @@ public class GuildAssistantContext : IAssistantContext
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly AssistantOptions _options;
     private readonly ILogger _logger;
+    private readonly string _resolvedModel;
+    private readonly LlmCatalogPricing? _resolvedPricing;
 
     public GuildAssistantContext(
         ulong guildId,
@@ -40,7 +42,9 @@ public class GuildAssistantContext : IAssistantContext
         IAssistantUsageMetricsRepository metricsRepository,
         IAssistantInteractionLogRepository interactionLogRepository,
         AssistantOptions options,
-        ILogger logger)
+        ILogger logger,
+        string resolvedModel,
+        LlmCatalogPricing? resolvedPricing = null)
     {
         _guildId = guildId;
         _channelId = channelId;
@@ -54,6 +58,8 @@ public class GuildAssistantContext : IAssistantContext
         _interactionLogRepository = interactionLogRepository ?? throw new ArgumentNullException(nameof(interactionLogRepository));
         _options = options ?? throw new ArgumentNullException(nameof(options));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+        _resolvedModel = resolvedModel ?? throw new ArgumentNullException(nameof(resolvedModel));
+        _resolvedPricing = resolvedPricing;
         RateLimit = rateLimit;
 
         ExecutionContext = new ToolContext
@@ -70,7 +76,7 @@ public class GuildAssistantContext : IAssistantContext
     public int? RateLimit { get; }
     public int RateLimitWindowMinutes => _options.RateLimits.RateLimitWindowMinutes;
 
-    public string? Model => _options.Sampling.Model;
+    public string? Model => _resolvedModel;
     public int MaxTokens => _options.Sampling.MaxTokens;
     public double Temperature => _options.Sampling.Temperature;
     public int MaxToolCallIterations => _options.Tools.MaxToolCallsPerQuestion;
@@ -79,11 +85,17 @@ public class GuildAssistantContext : IAssistantContext
     public ToolContext ExecutionContext { get; }
     public List<LlmMessage> ConversationHistory { get; } = new();
 
+    /// <summary>
+    /// Per-million-token rates: catalog pricing for the resolved model wins when the catalog
+    /// reports a price, falling back to the configured rate for any price it does not report
+    /// (or when there is no catalog row at all). Billed <c>usage.cost</c> still wins over either
+    /// when OpenRouter reports one - see <c>AssistantMessagePipeline.CalculateCost</c>.
+    /// </summary>
     public AssistantCostRates CostRates => new(
-        _options.Cost.CostPerMillionInputTokens,
-        _options.Cost.CostPerMillionOutputTokens,
-        _options.Cost.CostPerMillionCachedTokens,
-        _options.Cost.CostPerMillionCacheWriteTokens);
+        _resolvedPricing?.PromptPricePerMillion ?? _options.Cost.CostPerMillionInputTokens,
+        _resolvedPricing?.CompletionPricePerMillion ?? _options.Cost.CostPerMillionOutputTokens,
+        _resolvedPricing?.CacheReadPricePerMillion ?? _options.Cost.CostPerMillionCachedTokens,
+        _resolvedPricing?.CacheWritePricePerMillion ?? _options.Cost.CostPerMillionCacheWriteTokens);
 
     public int MaxResponseLength => _options.Messages.MaxResponseLength;
     public string TruncationSuffix => _options.Messages.TruncationSuffix;

@@ -259,6 +259,9 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | `Advanced:MessageLogRetentionDays` | Advanced | Integer | `90` | Message log retention (range: 1-365) |
 | `Advanced:AuditLogRetentionDays` | Advanced | Integer | `90` | Audit log retention (range: 1-365) |
 | `Appearance:DefaultThemeId` | Appearance | Integer | `""` | Default UI theme (SuperAdmin only) |
+| `Assistant:Sampling:Model` | AiModels | String | `""` | Guild assistant's default OpenRouter model slug override. Reuses the guild assistant's historical config key, so a non-empty DB row here shadows `appsettings`/environment the same way as any other setting; `""` means "use the configured value" and is resolved by `ILlmModelResolver`. Save-time validated (when non-empty): the slug must be in the local catalog, `IsEnabled`, and `SupportsTools`. |
+| `DmAssistant:Model` | AiModels | String | `""` | DM (owner) assistant's default model slug override. Same semantics and validation as above. |
+| `FeatureRequests:RequirementsGatheringModel` | AiModels | String | `""` | `/feature-request` requirements-gathering model slug override. Same semantics and validation as above. |
 
 ### Settings Categories and UI Tabs
 
@@ -269,7 +272,7 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | — | Commands | Admin+ | Command module enable/disable (separate system) |
 | Advanced | Advanced | Admin+ | Data retention policies |
 | — | Bot Control | Admin+ | Bot restart/shutdown, live status |
-| — | AI Models | Admin+ | OpenRouter model catalog and allowlist (separate system — `LlmModelsController`, not `SettingsSectionService`); read-only per-mode defaults panel |
+| AiModels | AI Models | Admin+ | OpenRouter model catalog and allowlist (`LlmModelsController` - list/refresh/enable) plus an **editable** per-mode defaults panel that saves through the normal `SettingsSectionService.SaveCategoryAsync("AiModels", ...)` path (audit and reset-to-default included for free), unlike the read-only catalog table above it. A saved slug is rejected unless it is an enabled, tool-capable catalog row - see `ILlmModelResolver` and `SettingsSectionService.ValidateAiModelSelectionsAsync` in `.claude/agents/ai-assistant.md`. The change takes effect on the next message with no restart (the resolver's cache is invalidated by `ISettingsService.SettingsChanged`). |
 | Appearance | Appearance | SuperAdmin only | Theme selection |
 
 ### Real-Time Updates

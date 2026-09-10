@@ -1,11 +1,9 @@
-using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 
@@ -13,46 +11,33 @@ namespace DiscordBot.Infrastructure.Services.LLM;
 /// Owns the local <see cref="LlmModel"/> catalog: refreshing it from OpenRouter, listing/filtering it,
 /// and the admin enable/disable allowlist. See <see cref="ILlmModelCatalogService"/> for the contract.
 /// </summary>
+/// <remarks>
+/// Bootstrap seeding and the "refuse to disable a current mode default" check both need each
+/// mode's currently-configured slug. Both go through <see cref="ILlmModelResolver"/> - the same
+/// single resolution path message-send time uses - rather than reading
+/// <c>ISettingsService</c>/<c>IOptions&lt;T&gt;</c> directly a second time. This is not circular:
+/// <see cref="LlmModelResolver"/> depends only on <see cref="IServiceScopeFactory"/> (to reach
+/// <see cref="ILlmModelRepository"/> per call) and settings/options, never on this service.
+/// </remarks>
 public class LlmModelCatalogService : ILlmModelCatalogService
 {
-    /// <summary>
-    /// The three configuration keys that name a mode's current model, in the order they're checked.
-    /// Kept in sync with <c>docs/plans/llm-model-management-plan.md</c> "Per-mode defaults".
-    /// </summary>
-    private static readonly string[] ModeSettingKeys =
-    {
-        "Assistant:Sampling:Model",
-        "DmAssistant:Model",
-        "FeatureRequests:RequirementsGatheringModel",
-    };
-
     private readonly ILlmModelRepository _repository;
     private readonly IOpenRouterModelCatalogClient _catalogClient;
     private readonly IAuditLogService _auditLogService;
-    private readonly ISettingsService _settingsService;
-    private readonly IOptions<AssistantOptions> _assistantOptions;
-    private readonly IOptions<DmAssistantOptions> _dmAssistantOptions;
-    private readonly IOptions<FeatureRequestsOptions> _featureRequestsOptions;
+    private readonly ILlmModelResolver _modelResolver;
     private readonly ILogger<LlmModelCatalogService> _logger;
 
     public LlmModelCatalogService(
         ILlmModelRepository repository,
         IOpenRouterModelCatalogClient catalogClient,
         IAuditLogService auditLogService,
-        ISettingsService settingsService,
-        IOptions<AssistantOptions> assistantOptions,
-        IOptions<DmAssistantOptions> dmAssistantOptions,
-        IOptions<FeatureRequestsOptions> featureRequestsOptions,
+        ILlmModelResolver modelResolver,
         ILogger<LlmModelCatalogService> logger)
     {
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _catalogClient = catalogClient ?? throw new ArgumentNullException(nameof(catalogClient));
         _auditLogService = auditLogService ?? throw new ArgumentNullException(nameof(auditLogService));
-        _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
-        _assistantOptions = assistantOptions ?? throw new ArgumentNullException(nameof(assistantOptions));
-        _dmAssistantOptions = dmAssistantOptions ?? throw new ArgumentNullException(nameof(dmAssistantOptions));
-        _featureRequestsOptions = featureRequestsOptions
-            ?? throw new ArgumentNullException(nameof(featureRequestsOptions));
+        _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
     }
 
@@ -197,12 +182,12 @@ public class LlmModelCatalogService : ILlmModelCatalogService
     private async Task BootstrapEnableConfiguredModelsAsync(
         HashSet<string> fetchedSlugs, CancellationToken cancellationToken)
     {
-        var configuredSlugs = new[]
+        var configuredSlugs = new List<string>();
+        foreach (var mode in LlmModeSettings.All)
         {
-            _assistantOptions.Value.Sampling.Model,
-            _dmAssistantOptions.Value.Model,
-            _featureRequestsOptions.Value.RequirementsGatheringModel,
-        };
+            var resolved = await _modelResolver.ResolveAsync(mode, cancellationToken);
+            configuredSlugs.Add(resolved.Slug);
+        }
 
         foreach (var slug in configuredSlugs.Distinct())
         {
@@ -227,26 +212,19 @@ public class LlmModelCatalogService : ILlmModelCatalogService
     }
 
     /// <summary>
-    /// Resolves the three modes' current model slugs: a DB setting row wins over the bound options
-    /// value, matching <c>ISettingsService</c>'s own DB-over-config precedence.
+    /// Resolves the three modes' current model slugs via <see cref="ILlmModelResolver"/> - the
+    /// same single resolution path (DB override, then configuration, then fallback) used at
+    /// message-send time.
     /// </summary>
     private async Task<HashSet<string>> GetCurrentModeDefaultsAsync(CancellationToken cancellationToken)
     {
-        var configuredDefaults = new[]
-        {
-            _assistantOptions.Value.Sampling.Model,
-            _dmAssistantOptions.Value.Model,
-            _featureRequestsOptions.Value.RequirementsGatheringModel,
-        };
-
         var results = new HashSet<string>();
-        for (var i = 0; i < ModeSettingKeys.Length; i++)
+        foreach (var mode in LlmModeSettings.All)
         {
-            var dbValue = await _settingsService.GetSettingValueAsync<string>(ModeSettingKeys[i], cancellationToken);
-            var slug = !string.IsNullOrWhiteSpace(dbValue) ? dbValue : configuredDefaults[i];
-            if (!string.IsNullOrWhiteSpace(slug))
+            var resolved = await _modelResolver.ResolveAsync(mode, cancellationToken);
+            if (!string.IsNullOrWhiteSpace(resolved.Slug))
             {
-                results.Add(slug);
+                results.Add(resolved.Slug);
             }
         }
 

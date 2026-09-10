@@ -4,6 +4,7 @@ using Discord.WebSocket;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.DTOs.LLM.Enums;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Core.Models.FeatureRequests;
@@ -201,6 +202,9 @@ public class FeatureRequestConversationService
         var agentRunner = scope.ServiceProvider.GetRequiredService<IAgentRunner>();
         var toolProvider = scope.ServiceProvider.GetRequiredService<FeatureRequestToolProvider>();
         var loggerFactory = scope.ServiceProvider.GetRequiredService<ILoggerFactory>();
+        var modelResolver = scope.ServiceProvider.GetRequiredService<ILlmModelResolver>();
+
+        var resolvedModel = await modelResolver.ResolveAsync(LlmMode.FeatureRequests);
 
         // Build a local ToolRegistry with just the feature request tool
         var registry = new ToolRegistry(
@@ -219,7 +223,7 @@ public class FeatureRequestConversationService
             ConversationHistory = state.ConversationHistory.Count > 0
                 ? new List<LlmMessage>(state.ConversationHistory)
                 : null,
-            Model = _options.RequirementsGatheringModel,
+            Model = resolvedModel.Slug,
             MaxTokens = 1024,
             Temperature = 0.7,
             MaxToolCallIterations = 2

@@ -1,8 +1,10 @@
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Interfaces.LLM;
 using System.Text.Json;
 
 namespace DiscordBot.Bot.Services.Settings;
@@ -17,17 +19,23 @@ public class SettingsSectionService : ISettingsSectionService
     private readonly ISettingsService _settingsService;
     private readonly ICommandModuleConfigurationService _commandModuleConfigurationService;
     private readonly IAuditLogQueue _auditLogQueue;
+    private readonly ILlmModelRepository _llmModelRepository;
+    private readonly ILlmModelResolver _llmModelResolver;
     private readonly ILogger<SettingsSectionService> _logger;
 
     public SettingsSectionService(
         ISettingsService settingsService,
         ICommandModuleConfigurationService commandModuleConfigurationService,
         IAuditLogQueue auditLogQueue,
+        ILlmModelRepository llmModelRepository,
+        ILlmModelResolver llmModelResolver,
         ILogger<SettingsSectionService> logger)
     {
         _settingsService = settingsService;
         _commandModuleConfigurationService = commandModuleConfigurationService;
         _auditLogQueue = auditLogQueue;
+        _llmModelRepository = llmModelRepository;
+        _llmModelResolver = llmModelResolver;
         _logger = logger;
     }
 
@@ -36,6 +44,7 @@ public class SettingsSectionService : ISettingsSectionService
         var generalSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.General, cancellationToken);
         var featuresSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Features, cancellationToken);
         var advancedSettings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.Advanced, cancellationToken);
+        var (aiModelsSettings, aiModelsConfiguredSlugs, aiModelsEnabledSlugCount) = await LoadAiModelsSettingsAsync(cancellationToken);
 
         var allModules = await _commandModuleConfigurationService.GetAllModulesAsync(cancellationToken);
         var modulesByCategory = allModules
@@ -46,8 +55,8 @@ public class SettingsSectionService : ISettingsSectionService
 
         var isRestartPending = _settingsService.IsRestartPending || _commandModuleConfigurationService.IsRestartPending;
 
-        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, CommandModules={ModuleCount}, RestartPending={RestartPending}",
-            generalSettings.Count, featuresSettings.Count, advancedSettings.Count, allModules.Count, isRestartPending);
+        _logger.LogDebug("Settings ViewModel loaded: General={GeneralCount}, Features={FeaturesCount}, Advanced={AdvancedCount}, AiModels={AiModelsCount}, CommandModules={ModuleCount}, RestartPending={RestartPending}",
+            generalSettings.Count, featuresSettings.Count, advancedSettings.Count, aiModelsSettings.Count, allModules.Count, isRestartPending);
 
         return new SettingsViewModel
         {
@@ -55,9 +64,104 @@ public class SettingsSectionService : ISettingsSectionService
             GeneralSettings = generalSettings,
             FeaturesSettings = featuresSettings,
             AdvancedSettings = advancedSettings,
+            AiModelsSettings = aiModelsSettings,
+            AiModelsConfiguredSlugs = aiModelsConfiguredSlugs,
+            AiModelsEnabledSlugCount = aiModelsEnabledSlugCount,
             CommandModulesByCategory = modulesByCategory,
             IsRestartPending = isRestartPending
         };
+    }
+
+    /// <summary>
+    /// Loads the AiModels category and post-processes each of the three mode settings'
+    /// <see cref="SettingDto.AllowedValues"/> to the currently enabled catalog slugs (sorted), so
+    /// <c>_SettingField</c> can render a &lt;select&gt;. The current value is included even when it
+    /// is not enabled (disabled, unavailable, or never seen by a refresh) so the select still shows
+    /// the real current value instead of silently substituting the first option. "" is always the
+    /// first allowed value - it means "use the configured value" (see
+    /// <see cref="DiscordBot.Infrastructure.Services.SettingDefinitions"/>'s AiModels entries) - so
+    /// the web layer can render it as a distinct "Use configured value" option.
+    /// </summary>
+    private async Task<(IReadOnlyList<SettingDto> Settings, IReadOnlyDictionary<string, string> ConfiguredSlugs, int EnabledSlugCount)>
+        LoadAiModelsSettingsAsync(CancellationToken cancellationToken)
+    {
+        var settings = await _settingsService.GetSettingsByCategoryAsync(SettingCategory.AiModels, cancellationToken);
+
+        var enabledSlugs = (await _llmModelRepository.GetEnabledAsync(cancellationToken))
+            .Select(m => m.Id)
+            .OrderBy(slug => slug, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        // The "" option means "use the configured value" - resolve what that actually is per mode
+        // (via ILlmModelResolver, the same resolution path used at message-send time) so the view
+        // can label it e.g. "Use configured value (anthropic/claude-sonnet-4)" instead of a bare "".
+        var configuredSlugs = new Dictionary<string, string>();
+        foreach (var mode in LlmModeSettings.All)
+        {
+            var resolved = await _llmModelResolver.ResolveAsync(mode, cancellationToken);
+            configuredSlugs[LlmModeSettings.KeyFor(mode)] = resolved.ConfiguredSlug;
+        }
+
+        var settingDtos = settings
+            .Select(setting =>
+            {
+                var allowedValues = new List<string> { "" };
+                allowedValues.AddRange(enabledSlugs);
+                if (!string.IsNullOrWhiteSpace(setting.Value)
+                    && !allowedValues.Contains(setting.Value, StringComparer.OrdinalIgnoreCase))
+                {
+                    allowedValues.Add(setting.Value);
+                }
+
+                return setting with { AllowedValues = allowedValues };
+            })
+            .ToList();
+
+        return (settingDtos, configuredSlugs, enabledSlugs.Count);
+    }
+
+    /// <summary>
+    /// Validation hook for the three AiModels mode settings: when <paramref name="formSettings"/>
+    /// contains one of <see cref="LlmModeSettings"/>'s keys, the submitted slug must exist in the
+    /// local catalog, be <see cref="LlmModel.IsEnabled"/>, and <see cref="LlmModel.SupportsTools"/>
+    /// (every mode sends tools, and <c>provider.require_parameters</c> would otherwise fail the
+    /// call at send time). Returns the first failure's message, or null when every submitted mode
+    /// key (if any) is valid. Kept as a single small method - not a generic per-category validator
+    /// interface - so a later phase can extend it without new plumbing; nothing else in this class
+    /// needs to change if another category grows a similar rule.
+    /// </summary>
+    private async Task<string?> ValidateAiModelSelectionsAsync(
+        Dictionary<string, string> formSettings, CancellationToken cancellationToken)
+    {
+        foreach (var mode in LlmModeSettings.All)
+        {
+            var key = LlmModeSettings.KeyFor(mode);
+            if (!formSettings.TryGetValue(key, out var slug) || string.IsNullOrWhiteSpace(slug))
+            {
+                // "" (or missing) means "use the configured value" - SettingDefinitions' AiModels
+                // entries default to it, and it is never a catalog slug, so there is nothing to
+                // validate against the catalog. Skip it rather than rejecting a legitimate reset.
+                continue;
+            }
+
+            var model = await _llmModelRepository.GetByIdAsync(slug, cancellationToken);
+            if (model is null)
+            {
+                return $"'{slug}' is not in the model catalog. Refresh the catalog or pick a different model for {LlmModeSettings.LabelFor(mode)}.";
+            }
+
+            if (!model.IsEnabled)
+            {
+                return $"'{slug}' is not enabled. Enable it on the AI Models tab before setting it as the {LlmModeSettings.LabelFor(mode)} default.";
+            }
+
+            if (!model.SupportsTools)
+            {
+                return $"'{slug}' does not support tool calling, which {LlmModeSettings.LabelFor(mode)} requires. Pick a tool-capable model.";
+            }
+        }
+
+        return null;
     }
 
     public async Task<SettingsSectionResult> SaveCategoryAsync(string category, Dictionary<string, string> formSettings, string userId, CancellationToken cancellationToken = default)
@@ -70,6 +174,21 @@ public class SettingsSectionService : ISettingsSectionService
     {
         try
         {
+            var validationError = await ValidateAiModelSelectionsAsync(formSettings, cancellationToken);
+            if (validationError != null)
+            {
+                _logger.LogWarning("Settings save rejected for category {Category} by user {UserId}: {Error}",
+                    category, userId, validationError);
+
+                return new SettingsSectionResult
+                {
+                    Success = false,
+                    Message = failureMessage,
+                    Errors = new List<string> { validationError },
+                    StatusCode = 400
+                };
+            }
+
             var updateDto = new SettingsUpdateDto { Settings = formSettings };
             var result = await _settingsService.UpdateSettingsAsync(updateDto, userId, cancellationToken);
 

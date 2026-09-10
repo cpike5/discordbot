@@ -299,11 +299,22 @@ public class SettingsService : ISettingsService
 
             _logger.LogInformation("Successfully reset category {Category} to defaults", category);
 
+            var updatedKeys = definitions.Select(d => d.Key).ToList();
+
+            if (updatedKeys.Count > 0)
+            {
+                OnSettingsChanged(new SettingsChangedEventArgs
+                {
+                    UpdatedKeys = updatedKeys,
+                    UserId = userId
+                });
+            }
+
             return new SettingsUpdateResultDto
             {
                 Success = true,
                 RestartRequired = requiresRestart,
-                UpdatedKeys = definitions.Select(d => d.Key).ToList()
+                UpdatedKeys = updatedKeys
             };
         }
         catch (Exception ex)
@@ -344,11 +355,22 @@ public class SettingsService : ISettingsService
 
             _logger.LogInformation("Successfully reset all settings to defaults");
 
+            var updatedKeys = SettingDefinitions.All.Select(d => d.Key).ToList();
+
+            if (updatedKeys.Count > 0)
+            {
+                OnSettingsChanged(new SettingsChangedEventArgs
+                {
+                    UpdatedKeys = updatedKeys,
+                    UserId = userId
+                });
+            }
+
             return new SettingsUpdateResultDto
             {
                 Success = true,
                 RestartRequired = requiresRestart,
-                UpdatedKeys = SettingDefinitions.All.Select(d => d.Key).ToList()
+                UpdatedKeys = updatedKeys
             };
         }
         catch (Exception ex)

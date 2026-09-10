@@ -286,7 +286,8 @@ public class AssistantMessagePipelineTests
             mockInteractionLogRepo.Object,
             mockMetricsRepo.Object,
             options,
-            Mock.Of<ILogger>());
+            Mock.Of<ILogger>(),
+            "test/resolved-model");
 
         var result = await pipeline.RunAsync("What's the bot status?", context);
         result.Success.Should().BeTrue();
@@ -353,7 +354,8 @@ public class AssistantMessagePipelineTests
             Mock.Of<IAssistantUsageMetricsRepository>(),
             Mock.Of<IAssistantInteractionLogRepository>(),
             options,
-            Mock.Of<ILogger>());
+            Mock.Of<ILogger>(),
+            "test/resolved-model");
     }
 
     private static DmAssistantContext BuildDmContext(out Mock<IPromptTemplate> mockPromptTemplate)
@@ -381,7 +383,8 @@ public class AssistantMessagePipelineTests
             Mock.Of<IDmAssistantInteractionLogRepository>(),
             Mock.Of<IDmAssistantUsageMetricsRepository>(),
             options,
-            Mock.Of<ILogger>());
+            Mock.Of<ILogger>(),
+            "test/resolved-model");
     }
 
     #endregion

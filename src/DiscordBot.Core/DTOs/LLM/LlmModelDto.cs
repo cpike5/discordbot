@@ -70,6 +70,9 @@ public enum LlmModelDefaultSource
 
     /// <summary>The bound options value from appsettings/environment - no DB override present.</summary>
     Config,
+
+    /// <summary>Neither a DB row nor a configured value was present; <c>OpenRouter:DefaultModel</c> was used.</summary>
+    Fallback,
 }
 
 /// <summary>One mode's effective default model, for the read-only defaults panel on the AI Models tab.</summary>
@@ -87,6 +90,14 @@ public sealed record LlmModeDefaultDto
     public required string Slug { get; init; }
 
     public required LlmModelDefaultSource Source { get; init; }
+
+    /// <summary>
+    /// The slug that would be used absent any DB override - the bound configuration value, or
+    /// <c>OpenRouter:DefaultModel</c> when nothing is configured. Populated even when
+    /// <see cref="Source"/> is <see cref="LlmModelDefaultSource.Db"/>, so the AI Models tab can
+    /// label its "use configured value" option with what it actually resolves to.
+    /// </summary>
+    public required string ConfiguredSlug { get; init; }
 
     /// <summary>True when the slug is a known catalog row with <c>IsEnabled == true</c>.</summary>
     public bool IsEnabled { get; init; }

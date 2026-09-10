@@ -753,9 +753,12 @@
             const form = modal.querySelector('form');
             if (form && !form.dataset.categoryHandler) {
                 form.dataset.categoryHandler = 'true';
+                // Bound once, but must use the module-level currentCategory (reassigned above on
+                // every call) rather than this closure's `category` - otherwise every reset after
+                // the first always resets whichever category opened the modal first.
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
-                    await resetCategory(category);
+                    await resetCategory(currentCategory);
                 });
             }
         }

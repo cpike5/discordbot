@@ -28,5 +28,12 @@ public enum SettingCategory
     /// <summary>
     /// Appearance settings (themes, UI preferences).
     /// </summary>
-    Appearance
+    Appearance,
+
+    /// <summary>
+    /// Per-mode default OpenRouter model slugs (guild assistant, DM assistant, feature requests).
+    /// Rendered as the "AI Models" tab's defaults panel, not a generic settings form - see
+    /// <c>Pages/Admin/Settings.cshtml</c> and <c>wwwroot/js/llm-models.js</c>.
+    /// </summary>
+    AiModels
 }

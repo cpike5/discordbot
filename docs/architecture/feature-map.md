@@ -617,14 +617,34 @@ gates which models the assistant, DM assistant, and feature-request modes may us
 | Aspect | Components |
 |--------|------------|
 | **Web Page** | `/admin/settings` "AI Models" tab (`Pages/Admin/Settings.cshtml`, `ai-models-settings` panel), rendered by `wwwroot/js/llm-models.js` |
-| **Controller** | `LlmModelsController` (`api/admin/llm-models`, `RequireAdmin`) — list/filter, refresh, enable/disable, per-mode defaults |
-| **Services** | `ILlmModelCatalogService` / `LlmModelCatalogService` (refresh, filtered listing, allowlist), `IOpenRouterModelCatalogClient` / `OpenRouterModelCatalogClient` (second typed `HttpClient` against OpenRouter `GET /models`) |
+| **Controller** | `LlmModelsController` (`api/admin/llm-models`, `RequireAdmin`) — list/filter, refresh, enable/disable, per-mode defaults (`GetDefaults` delegates to `ILlmModelResolver`) |
+| **Services** | `ILlmModelCatalogService` / `LlmModelCatalogService` (refresh, filtered listing, allowlist), `IOpenRouterModelCatalogClient` / `OpenRouterModelCatalogClient` (second typed `HttpClient` against OpenRouter `GET /models`), `ILlmModelResolver` / `LlmModelResolver` (per-mode default resolution, see below) |
 | **Repository** | `ILlmModelRepository` / `LlmModelRepository` |
 | **Database Entity** | `LlmModel` (table `LlmModels`, PK = OpenRouter slug) |
 | **Background Service** | `LlmCatalogRefreshService` (`Llm:CatalogRefreshHours`, default 24, `0` disables; registered only when `OpenRouter:ApiKey` is present) |
 | **Configuration** | `LlmOptions` (`Llm` section) |
 | **Key Rule** | A catalog refresh never enables a model — `IsEnabled` is only ever set by an explicit admin action, with one exception: the very first refresh ever bootstraps-enables the slugs currently configured for the three modes so upgrades keep working. |
-| **Key Features** | Server-side search/vendor/enabled/available/tools filtering and sort, enable/disable with a refusal when the slug is a mode's current default, last-refresh timestamp, read-only per-mode defaults panel (editable defaults ship in a later phase per the plan) |
+| **Key Features** | Server-side search/vendor/enabled/available/tools filtering and sort, enable/disable with a refusal when the slug is a mode's current default, last-refresh timestamp, **editable** per-mode defaults panel (saves through `SettingsSectionService.SaveCategoryAsync("AiModels", ...)`, validated against the allowlist) |
+
+---
+
+### Per-Mode Default Model Resolution
+
+`LlmMode` (`GuildAssistant`, `DmAssistant`, `FeatureRequests`) and `LlmModeSettings` (Core
+`Enums/LlmMode.cs`) name the three places a model slug is picked and the setting key each maps to.
+`ILlmModelResolver.ResolveAsync(LlmMode)` is the single resolution path: a DB setting row (saved
+through the AI Models tab) wins over the bound `IOptions<T>` value, which wins over
+`OpenRouterOptions.DefaultModel` as the last resort. Results are cached per mode in
+`LlmModelResolver` (singleton) and the cache is cleared when `ISettingsService.SettingsChanged`
+reports one of the three setting keys, so an admin's save takes effect on the next message with no
+restart.
+
+| Aspect | Components |
+|--------|------------|
+| **Consumers** | `GuildAssistantContextFactory.CreateAsync`, `DmAssistantContextFactory.CreateAsync`, `FeatureRequestConversationService.RunAgentAsync` (all resolve per call/message), `LlmModelsController.GetDefaults` |
+| **Save-time validation** | `SettingsSectionService.ValidateAiModelSelectionsAsync` rejects a submitted slug that is not in the catalog, not `IsEnabled`, or not `SupportsTools`, before the value ever reaches the DB |
+| **Cost fallback** | `ResolveAsync` also returns `LlmCatalogPricing` when the catalog reports a price for the slug; `GuildAssistantContext`/`DmAssistantContext.CostRates` prefer it over the configured per-million rates (billed `usage.cost` still wins over either) |
+| **AI Models tab** | `SettingsViewModel.AiModelsSettings` (loaded by `SettingsSectionService.LoadViewModelAsync`) carries the three mode `SettingDto`s with `AllowedValues` post-processed to the enabled catalog slugs (plus the current value if not among them), for a `<select>` |
 
 ---
 

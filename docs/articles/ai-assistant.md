@@ -233,6 +233,18 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 - `anthropic/claude-haiku-4.5` - Fastest and cheapest, lower quality
 - `openai/gpt-4o` - Non-Claude alternative (no prompt caching; see below)
 
+**Changing the model without a redeploy.** `Assistant:Sampling:Model` is the config-file default;
+an admin can override it per mode — guild assistant, DM assistant, and feature requests each have
+their own model — from **Admin → Settings → AI Models → Per-Mode Defaults**, without editing
+configuration or restarting the bot. The picker only offers models enabled on that tab's catalog
+table (nothing is enabled by default — pull the OpenRouter catalog with "Refresh from OpenRouter",
+then enable the ones you want to allow), and only tool-capable ones, since every mode sends tools.
+`ILlmModelResolver` resolves DB override → bound configuration value → `OpenRouter:DefaultModel` as
+a last resort, and the change takes effect on the *next* message — no restart, because the
+resolver's per-mode cache is invalidated on save via `ISettingsService.SettingsChanged`. Picking a
+non-Claude model does not break anything, but prompt caching (below) only pays off on Claude-family
+slugs. See `docs/articles/settings-page.md` ("AI Models Tab") for the UI details.
+
 #### Tool Configuration
 
 | Setting | Default | Description |

@@ -1,46 +1,37 @@
 using DiscordBot.Bot.Controllers;
 using DiscordBot.Bot.Middleware;
-using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
-using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Controllers;
 
 /// <summary>
 /// Unit tests for <see cref="LlmModelsController"/>: catalog listing, refresh, enable/disable, and
-/// per-mode default resolution.
+/// per-mode default resolution (delegated to <see cref="ILlmModelResolver"/>).
 /// </summary>
 [Trait("Category", "Unit")]
 public class LlmModelsControllerTests
 {
     private readonly Mock<ILlmModelCatalogService> _mockCatalogService;
-    private readonly Mock<ISettingsService> _mockSettingsService;
+    private readonly Mock<ILlmModelResolver> _mockModelResolver;
     private readonly LlmModelsController _controller;
 
     public LlmModelsControllerTests()
     {
         _mockCatalogService = new Mock<ILlmModelCatalogService>();
-        _mockSettingsService = new Mock<ISettingsService>();
-
-        var assistantOptions = Options.Create(new AssistantOptions());
-        var dmAssistantOptions = Options.Create(new DmAssistantOptions());
-        var featureRequestsOptions = Options.Create(new FeatureRequestsOptions());
+        _mockModelResolver = new Mock<ILlmModelResolver>();
 
         _controller = new LlmModelsController(
             _mockCatalogService.Object,
-            _mockSettingsService.Object,
-            assistantOptions,
-            dmAssistantOptions,
-            featureRequestsOptions,
+            _mockModelResolver.Object,
             Mock.Of<ILogger<LlmModelsController>>());
 
         _controller.ControllerContext = new ControllerContext
@@ -227,18 +218,22 @@ public class LlmModelsControllerTests
     #region GetDefaults
 
     [Fact]
-    public async Task GetDefaults_ShouldUseConfigValue_WhenNoDbOverride()
+    public async Task GetDefaults_ShouldUseConfigValue_WhenResolverReportsConfiguration()
     {
-        _mockCatalogService
-            .Setup(s => s.GetCatalogAsync(It.IsAny<LlmModelCatalogFilter>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<LlmModel>());
-
-        // No stored DB row for any setting key - GetSettingValueAsync is intentionally left
-        // un-stubbed here (and must not be called by GetDefaults) since it would fall back to
-        // IConfiguration and could mask the real DB-vs-config distinction under test.
-        _mockSettingsService
-            .Setup(s => s.GetStoredValueAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.GuildAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel
+            {
+                Slug = "anthropic/claude-sonnet-4",
+                Source = LlmModelResolutionSource.Configuration,
+                ConfiguredSlug = "anthropic/claude-sonnet-4"
+            });
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.DmAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
 
         var result = await _controller.GetDefaults(CancellationToken.None);
 
@@ -248,33 +243,32 @@ public class LlmModelsControllerTests
         response!.Modes.Should().HaveCount(3);
         var guildMode = response.Modes.Single(m => m.Mode == "GuildAssistant");
         guildMode.Source.Should().Be(LlmModelDefaultSource.Config);
-        guildMode.Slug.Should().Be(new AssistantOptions().Sampling.Model);
+        guildMode.Slug.Should().Be("anthropic/claude-sonnet-4");
+        guildMode.SettingKey.Should().Be("Assistant:Sampling:Model");
         guildMode.IsKnown.Should().BeFalse();
-
-        // GetDefaults must determine the DB-override distinction from the raw stored value, not from
-        // GetSettingValueAsync (which folds in the config fallback and so can never report "no DB row").
-        _mockSettingsService.Verify(
-            s => s.GetSettingValueAsync<string>(It.IsAny<string>(), It.IsAny<CancellationToken>()),
-            Times.Never);
     }
 
     [Fact]
-    public async Task GetDefaults_ShouldPreferDbOverride_WhenPresent()
+    public async Task GetDefaults_ShouldMapDatabaseSourceAndCatalogState_WhenResolverReportsDbOverride()
     {
         var dbSlug = "openai/gpt-5";
-        var catalogModel = CreateModel(id: dbSlug, vendor: "openai", enabled: true, available: true);
 
-        _mockCatalogService
-            .Setup(s => s.GetCatalogAsync(It.IsAny<LlmModelCatalogFilter>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new List<LlmModel> { catalogModel });
-
-        _mockSettingsService
-            .Setup(s => s.GetStoredValueAsync("Assistant:Sampling:Model", It.IsAny<CancellationToken>()))
-            .ReturnsAsync(dbSlug);
-        _mockSettingsService
-            .Setup(s => s.GetStoredValueAsync(
-                It.Is<string>(k => k != "Assistant:Sampling:Model"), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((string?)null);
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.GuildAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel
+            {
+                Slug = dbSlug,
+                Source = LlmModelResolutionSource.Database,
+                ConfiguredSlug = "anthropic/claude-sonnet-4",
+                IsEnabled = true,
+                IsAvailable = true
+            });
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.DmAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
 
         var result = await _controller.GetDefaults(CancellationToken.None);
 
@@ -287,6 +281,34 @@ public class LlmModelsControllerTests
         guildMode.IsKnown.Should().BeTrue();
         guildMode.IsEnabled.Should().BeTrue();
         guildMode.IsAvailable.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetDefaults_ShouldMapFallbackSource_WhenResolverReportsFallback()
+    {
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.GuildAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel
+            {
+                Slug = "openrouter/default",
+                Source = LlmModelResolutionSource.Fallback,
+                ConfiguredSlug = "openrouter/default"
+            });
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.DmAssistant, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
+        _mockModelResolver
+            .Setup(r => r.ResolveAsync(LlmMode.FeatureRequests, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new LlmResolvedModel { Slug = "anthropic/claude-sonnet-4", Source = LlmModelResolutionSource.Configuration, ConfiguredSlug = "anthropic/claude-sonnet-4" });
+
+        var result = await _controller.GetDefaults(CancellationToken.None);
+
+        var ok = result.Result as OkObjectResult;
+        var response = ok!.Value as LlmModelDefaultsResponseDto;
+
+        var guildMode = response!.Modes.Single(m => m.Mode == "GuildAssistant");
+        guildMode.Source.Should().Be(LlmModelDefaultSource.Fallback);
+        guildMode.Slug.Should().Be("openrouter/default");
     }
 
     #endregion

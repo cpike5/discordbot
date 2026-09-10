@@ -71,6 +71,13 @@ public static class AssistantServiceExtensions
         // running it with no key would just be a recurring failure.
         services.AddScoped<ILlmModelRepository, LlmModelRepository>();
         services.AddScoped<ILlmModelCatalogService, LlmModelCatalogService>();
+
+        // The per-mode model resolver (DB setting -> bound options -> OpenRouter:DefaultModel) is
+        // needed by the guild/DM assistant context factories and the feature-request conversation
+        // service below, none of which require an API key to construct - only to actually call
+        // OpenRouter. Registered as a singleton (cheap, holds only a small per-mode cache) so it can
+        // subscribe once to ISettingsService.SettingsChanged for cache invalidation.
+        services.AddSingleton<ILlmModelResolver, LlmModelResolver>();
         services.AddHttpClient<IOpenRouterModelCatalogClient, OpenRouterModelCatalogClient>((sp, http) =>
         {
             var options = sp.GetRequiredService<IOptions<OpenRouterOptions>>().Value;
