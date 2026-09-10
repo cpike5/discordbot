@@ -154,6 +154,48 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
     }
 
     [Fact]
+    public void IsNestedSubModule_WithGroupDeclaredInsideModule_ShouldReturnTrue()
+    {
+        // Nested [Group] sub-modules are built by Discord.NET as part of their parent; passing
+        // them to AddModuleAsync on their own throws at startup (regression test).
+        var method = typeof(SlashCommandRegistrationService).GetMethod(
+            "IsNestedSubModule",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
+
+        method.Should().NotBeNull("IsNestedSubModule should exist as a private static helper");
+
+        var channel = (bool)method!.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.NotXCommandModule.ChannelSubModule) })!;
+        var monitor = (bool)method.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.NotXCommandModule.MonitorSubModule) })!;
+        var parent = (bool)method.Invoke(null, new object[] { typeof(DiscordBot.Bot.Commands.NotXCommandModule) })!;
+
+        channel.Should().BeTrue("ChannelSubModule is declared inside NotXCommandModule");
+        monitor.Should().BeTrue("MonitorSubModule is declared inside NotXCommandModule");
+        parent.Should().BeFalse("NotXCommandModule is a top-level module");
+    }
+
+    [Fact]
+    public async Task AddModuleAsync_WithNotXCommandModule_ShouldBuildNestedSubGroupsWithParent()
+    {
+        // Registering only the top-level module must produce the nested channel/monitor groups;
+        // registering the nested type on its own is what Discord.NET rejects.
+        var services = new ServiceCollection()
+            .AddSingleton(Mock.Of<INotXService>())
+            .AddLogging()
+            .BuildServiceProvider();
+
+        var module = await _interactionService.AddModuleAsync(typeof(DiscordBot.Bot.Commands.NotXCommandModule), services);
+
+        module.SlashGroupName.Should().Be("notx");
+        module.SubModules.Select(m => m.SlashGroupName).Should().BeEquivalentTo("channel", "monitor");
+
+        var act = async () => await _interactionService.AddModuleAsync(
+            typeof(DiscordBot.Bot.Commands.NotXCommandModule.ChannelSubModule), services);
+
+        await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Could not build the module*");
+    }
+
+    [Fact]
     public async Task RegisterCommandsAsync_WithUnstartedClient_ShouldLogErrorRatherThanThrow()
     {
         // The client isn't logged in, so RegisterCommandsGloballyAsync/ToGuildAsync will fail;

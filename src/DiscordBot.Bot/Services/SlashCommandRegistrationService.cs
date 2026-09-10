@@ -76,10 +76,13 @@ public class SlashCommandRegistrationService : IHostedService
             .Select(m => m.ModuleName)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
-        // Discover command module types from the executing assembly
+        // Discover command module types from the executing assembly.
+        // Nested sub-group modules (a [Group] class declared inside another module) are built by
+        // Discord.NET as part of their parent, so they must not be passed to AddModuleAsync on
+        // their own; doing so throws "Could not build the module ..." at startup.
         var assembly = Assembly.GetExecutingAssembly();
         var allModuleTypes = assembly.GetTypes()
-            .Where(t => t.IsClass && !t.IsAbstract && IsInteractionModule(t))
+            .Where(t => t.IsClass && !t.IsAbstract && IsInteractionModule(t) && !IsNestedSubModule(t))
             .ToList();
 
         var loadedModules = new List<string>();
@@ -148,6 +151,15 @@ public class SlashCommandRegistrationService : IHostedService
     /// Determines if a type is a Discord.NET interaction module.
     /// Checks if the type inherits from InteractionModuleBase (generic or non-generic).
     /// </summary>
+    /// <summary>
+    /// Returns true when the type is a module declared inside another interaction module.
+    /// Such types are registered by Discord.NET together with their declaring module.
+    /// </summary>
+    private static bool IsNestedSubModule(Type type)
+    {
+        return type.DeclaringType != null && IsInteractionModule(type.DeclaringType);
+    }
+
     private static bool IsInteractionModule(Type type)
     {
         var baseType = type.BaseType;
