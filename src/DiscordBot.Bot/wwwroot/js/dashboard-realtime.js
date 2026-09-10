@@ -55,6 +55,12 @@ const DashboardRealtime = (function() {
     function cacheElements() {
         elements = {
             connectionStatus: document.getElementById('connection-status'),
+            // [data-bot-status-card] also matches the root element of
+            // Pages/Shared/Components/_BotStatusBanner.cshtml (the only one of
+            // the two bot-status partials actually rendered anywhere, on
+            // Pages/Index.cshtml) - this is the sole live-update path for that
+            // banner now that wwwroot/js/bot-status-refresh.js's polling loop
+            // has been removed in favor of the BotStatusUpdated push handled below.
             botStatusCard: document.querySelector('[data-bot-status-card]'),
             activityFeed: document.getElementById('activity-feed'),
             activityItemTemplate: document.getElementById('activity-item-template'),

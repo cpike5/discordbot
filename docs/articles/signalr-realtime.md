@@ -124,15 +124,16 @@ const status = await DashboardHub.getCurrentStatus();
 console.log('Bot state:', status.connectionState);
 console.log('Guild count:', status.guildCount);
 console.log('Uptime:', status.uptime);
-console.log('Latency:', status.latency);
+console.log('Latency:', status.latencyMs);
 ```
 
 **BotStatusDto Properties:**
 - `connectionState` (string): Current Discord connection state (Connected, Connecting, Disconnected, etc.)
 - `guildCount` (int): Number of guilds the bot is currently in
 - `uptime` (TimeSpan): How long the bot has been running
-- `latency` (int?): Gateway latency in milliseconds (null if disconnected)
-- `isReady` (bool): Whether the bot is fully connected and ready
+- `latencyMs` (int): Gateway latency in milliseconds
+- `startTime` (DateTime): When the bot process started
+- `botUsername` (string): The bot's Discord username
 
 **Use Case:** Fetch initial bot status when the dashboard page loads, before real-time updates begin arriving.
 
@@ -146,7 +147,11 @@ Server-to-client events are pushed from the server to listening clients. Clients
 
 Broadcast to all connected clients when the bot's status changes (connection state, latency, guild count, etc.).
 
-**Event Data:** `BotStatusDto` object
+**Event Data:** `BotStatusUpdateDto` object - note this is a different (smaller) shape than
+the `BotStatusDto` returned by `GetCurrentStatus()`: it has `latency` where `GetCurrentStatus()`
+has `latencyMs`, and adds `timestamp`, but omits `startTime`, `botUsername`, and `isReady`.
+Client code that handles both (e.g. to seed from `GetCurrentStatus()` and then apply pushed
+updates with the same function) should read `latencyMs ?? latency`.
 
 **JavaScript Example:**
 
@@ -163,9 +168,18 @@ DashboardHub.on('BotStatusUpdated', (status) => {
 - Bot connects to Discord
 - Bot disconnects from Discord
 - Guild count changes (bot joins/leaves guild)
-- Periodic status broadcasts (future implementation)
+- Periodic status broadcasts (future implementation) - as of this writing the server only
+  broadcasts on connect/disconnect, so consumers only get a fresh latency/uptime reading on
+  those events (plus whatever they fetch once via `GetCurrentStatus()` on load); nothing
+  ticks the display in between.
 
 **Broadcast Scope:** All authenticated dashboard clients
+
+**Current Consumers:**
+- `wwwroot/js/dashboard-realtime.js` - updates the bot status banner on `/` (`Pages/Index.cshtml`)
+- `wwwroot/js/settings.js` - updates the Bot Control panel's status card on `/Admin/Settings`
+  (replaced a 5-second `/api/bot/status` polling loop with this push, seeded by one
+  `GetCurrentStatus()` invoke when the Bot Control tab is activated)
 
 ---
 
