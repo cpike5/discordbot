@@ -31,8 +31,6 @@ public static class DmAssistantServiceExtensions
         // Register configuration
         services.Configure<DmAssistantOptions>(
             configuration.GetSection(DmAssistantOptions.SectionName));
-        services.Configure<MogwaiOptions>(
-            configuration.GetSection(MogwaiOptions.SectionName));
 
         // Register repositories (always needed for admin/cleanup)
         services.AddScoped<IDmConversationMessageRepository, DmConversationMessageRepository>();
@@ -54,7 +52,6 @@ public static class DmAssistantServiceExtensions
         services.AddScoped<DocumentationToolProvider>();
         services.AddScoped<IDmToolProvider, DmDocumentationToolProvider>();
         services.AddScoped<IDmToolProvider, CodeExecutionToolProvider>();
-        services.AddScoped<IDmToolProvider, ClaudeCodeToolProvider>();
         services.AddHttpClient("DmAssistantWebFetch", client =>
         {
             client.Timeout = TimeSpan.FromSeconds(10);

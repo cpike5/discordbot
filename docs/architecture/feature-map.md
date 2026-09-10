@@ -580,37 +580,31 @@ Structured logging with Serilog and optional Seq/Elasticsearch aggregation.
 
 ---
 
-### DM Assistant & Mogwai
+### DM Assistant
 
-Owner-only DM assistant with multi-turn conversation history and optional Claude Code CLI delegation (Mogwai).
+Owner-only DM assistant with multi-turn conversation history.
 
 | Aspect | Components |
 |--------|------------|
 | **Discord Entry Point** | `DmAssistantMessageHandler` — handles incoming DM messages, routes to `IDmAssistantService` |
 | **Services** | `IDmAssistantService`, `IAgentRunner`, `ILlmClient` (`OpenRouterLlmClient` — OpenAI-compatible chat completions via an owned typed `HttpClient`, no LLM SDK), `IToolRegistry` |
-| **Tool Providers** | `ClaudeCodeToolProvider` (Mogwai only — `IDmToolProvider`) |
+| **Tool Providers** | `IDmToolProvider` implementations: `DmAnalyticsToolProvider`, `DmModerationToolProvider`, `DmDocumentationToolProvider`, `MemoryToolProvider`, `ConversationToolProvider`, `WebFetchToolProvider`, `CodeExecutionToolProvider` |
 | **Database Entities** | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` |
-| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `anthropic/claude-sonnet-4`; the Mogwai compose file overrides it to `anthropic/claude-haiku-4.5`), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries), `MogwaiOptions` (`Mogwai` section) |
-| **Docker** | `Dockerfile.mogwai`, `docker-compose.mogwai.yml`, `.env.mogwai` |
+| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `anthropic/claude-sonnet-4`), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries) |
 | **Agent Prompt** | `docs/agents/dm-owner-agent.md` |
-| **Key Features** | Owner-only access (Discord API check), sliding-window conversation history, response chunking (split / `.md` attachment), Claude Code subprocess spawning, per-user session continuity, concurrency guard |
+| **Key Features** | Owner-only access (Discord API check), sliding-window conversation history, response chunking (split / `.md` attachment) |
 | **Access Control** | Owner identified via `GetApplicationInfoAsync()`. Non-owners receive placeholder response. |
-| **Mogwai toggle** | `Mogwai__Enabled=false` by default — zero impact on all other bot instances when unset |
 
-**Architecture Flow (Mogwai path)**:
+**Architecture Flow**:
 ```
-Owner DMs Mogwai bot →
+Owner DMs bot →
   DmAssistantMessageHandler →
   DmAssistantService (history load + LLM call) →
-  AgentRunner (agentic loop) →
-  Model (Haiku via OpenRouter) decides: answer directly OR call run_claude_code tool →
-  ClaudeCodeToolProvider.ExecuteAsync() →
-  claude CLI subprocess (--output-format json) →
-  JSON response parsed, session ID stored →
+  AgentRunner (agentic loop, tool calls via IToolRegistry) →
   Response chunked and sent via DmAssistantMessageHandler
 ```
 
-**Preconditions**: Owner check via Discord API. `DmAssistant__Enabled=true` and `Mogwai__Enabled=true` required in configuration.
+**Preconditions**: Owner check via Discord API. `DmAssistant__Enabled=true` required in configuration.
 
 ---
 
@@ -634,7 +628,7 @@ Application settings management with environment-based configuration.
 |--------|------------|
 | **Configuration** | `appsettings.json`, `appsettings.{Environment}.json`, User Secrets |
 | **Options Pattern** | `IOptions<T>` dependency injection |
-| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `MogwaiOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
+| **Configuration Classes** | `BotConfiguration`, `VoxOptions`, `ReminderOptions`, `DiscordOAuthSettings`, `NotXOptions`, `FeatureRequestsOptions`, `DmAssistantOptions`, `OpenRouterOptions` |
 | **Key Features** | Environment-specific settings, feature flags, service configuration |
 
 ---
