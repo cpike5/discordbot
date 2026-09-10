@@ -11,6 +11,14 @@ namespace DiscordBot.Tests.TestHelpers;
 /// service's continuation before the fixed delay elapses. Polling for the expected invocation (with
 /// a generous upper bound purely to fail fast on a genuine bug, never to assert timing) removes that
 /// race while still failing promptly when the log truly never happens.
+/// <para>
+/// The polls deliberately await with <c>ConfigureAwait(false)</c>. A test's own <c>await</c>s resume
+/// through xUnit's synchronization context, whose handful of worker threads are shared with every
+/// other in-flight test class; during a full run a continuation can sit in that queue for many
+/// seconds, so a wall-clock deadline measured across such resumptions may allow only a few polls.
+/// Resuming on the thread pool keeps the polling cadence (and therefore the deadline) meaningful.
+/// See docs/lessons-learned/flaky-tests-thread-pool-starvation.md.
+/// </para>
 /// </summary>
 internal static class LogTestHelper
 {
@@ -58,7 +66,7 @@ internal static class LogTestHelper
                 return false;
             }
 
-            await Task.Delay(10);
+            await Task.Delay(10).ConfigureAwait(false);
         }
     }
 
@@ -97,7 +105,7 @@ internal static class LogTestHelper
                 return false;
             }
 
-            await Task.Delay(10);
+            await Task.Delay(10).ConfigureAwait(false);
         }
     }
 }

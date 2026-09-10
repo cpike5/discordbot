@@ -83,8 +83,7 @@ public class CpuSamplingServiceTests
         // The ceiling only guards against a genuinely hung/broken service - it never gates
         // correctness on real elapsed time. It is intentionally generous (rather than the 10s
         // used in isolation) because the full test suite runs thousands of tests in parallel,
-        // and thread-pool contention can significantly delay how quickly this loop and the fake
-        // timer's callback actually get scheduled.
+        // and contention can still delay how quickly the service's own continuations get scheduled.
         var deadline = DateTime.UtcNow + (ceiling ?? TimeSpan.FromSeconds(30));
 
         while (!condition())
@@ -97,7 +96,15 @@ public class CpuSamplingServiceTests
             timeProvider.Advance(stepSize);
             // Yield so the service's Task.Delay continuation (scheduled against the fake clock)
             // actually runs before we check the condition again.
-            await Task.Delay(20);
+            //
+            // ConfigureAwait(false) matters: without it this loop resumes through xUnit's
+            // synchronization context, whose few worker threads are shared with every other
+            // in-flight test class and can leave a continuation queued for many seconds during a
+            // full run. The 30s ceiling below is wall-clock, so a loop that only gets three or four
+            // turns in that window fails even though the service recorded its sample almost
+            // immediately. Polling on the thread pool keeps the loop's cadence independent of how
+            // busy the rest of the suite is. See docs/lessons-learned/flaky-tests-thread-pool-starvation.md.
+            await Task.Delay(20).ConfigureAwait(false);
         }
 
         return true;
