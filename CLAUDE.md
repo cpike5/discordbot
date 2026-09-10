@@ -125,7 +125,20 @@ string (`Host=` or `Server=` means Postgres).
 
 Do not remove `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)`
 from startup. Without it, `DateTime` writes to `timestamp with time zone`
-columns throw.
+columns throw. For the same reason, `PostgresBotDbContext` overrides
+`ConfigureConventions` to pin every `DateTime`/`DateTime?` column to
+`timestamp without time zone` — Npgsql 10 otherwise defaults new columns to
+`timestamp with time zone`, which would drift from the existing schema.
+
+EF Core 10 makes `Migrate()`/`MigrateAsync()` throw `PendingModelChangesWarning`
+by default when the model doesn't match the last migration's snapshot, and
+`Program.cs` calls `MigrateAsync` at startup — so an unnoticed drift is a boot
+crash, not a silent mismatch. After any package upgrade that touches EF Core
+or a provider (Npgsql, Sqlite), run `dotnet ef migrations has-pending-model-changes`
+for **both** `SqliteBotDbContext` and `PostgresBotDbContext` before assuming
+the upgrade is done — provider convention changes (e.g. a default column-type
+mapping) can add pending changes to one provider's snapshot without affecting
+the other.
 
 ## Conventions
 
