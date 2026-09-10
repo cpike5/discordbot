@@ -1025,6 +1025,7 @@ public class QueryPerformanceInterceptorTests
                 (Func<EventDefinitionBase, EventData, string>)((_, __) => "Test"),  // messageGenerator
                 null,  // connection
                 command,  // command
+                command.CommandText,  // logCommandText
                 null,  // context
                 DbCommandMethod.ExecuteReader,  // executeMethod
                 Guid.NewGuid(),  // commandId
@@ -1056,6 +1057,7 @@ public class QueryPerformanceInterceptorTests
                 (Func<EventDefinitionBase, EventData, string>)((_, __) => "Test"),  // messageGenerator
                 null,  // connection
                 command,  // command
+                command.CommandText,  // logCommandText
                 null,  // context
                 DbCommandMethod.ExecuteReader,  // executeMethod
                 Guid.NewGuid(),  // commandId

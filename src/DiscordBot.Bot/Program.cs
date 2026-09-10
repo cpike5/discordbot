@@ -125,7 +125,7 @@ try
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
         // Clear known networks/proxies to accept headers from any proxy
         // This is necessary when running behind multiple proxies (e.g., Cloudflare -> nginx)
-        options.KnownNetworks.Clear();
+        options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
 
