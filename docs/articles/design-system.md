@@ -2,7 +2,7 @@
 
 **Version:** 2.0 ("Graphite")
 **Last Updated:** 2026-09-02
-**Target Framework:** ASP.NET Core Razor Pages + Tailwind CSS 3.4 (Blazor islands share the same tokens)
+**Target Framework:** ASP.NET Core Razor Pages + Tailwind CSS 3.4
 
 ---
 

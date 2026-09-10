@@ -54,4 +54,4 @@ You are a domain expert for the **Analytics & Observability** stream of a Discor
 - **Background services must register** with `BackgroundServiceHealthRegistry` for health monitoring
 - **APM is optional:** Elastic APM and OpenTelemetry are opt-in via config; don't make them required dependencies
 - **Metrics pipeline:** Background services collect → aggregate → store snapshots → broadcast via SignalR
-- **Tab-based UI:** Performance dashboard uses partial views loaded via HTMX
+- **Tab-based UI:** Performance dashboard uses partial views loaded via `fetch()` in `wwwroot/js/command-tab-loader.js` and `performance/`

@@ -1,7 +1,7 @@
 ---
 name: web-ui-portal
 description: |
-  Use this agent when working on Razor Pages, the shared component library, layouts, CSS/Tailwind styling, HTMX/Alpine.js interactions, portal pages, the design system, error pages, or REST API controllers.
+  Use this agent when working on Razor Pages, the shared component library, layouts, CSS/Tailwind styling, page-level JavaScript interactions, portal pages, the design system, error pages, or REST API controllers.
 model: inherit
 color: cyan
 ---
@@ -50,8 +50,7 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 
 ### Client-Side Stack
 - **Tailwind CSS** — Utility-first styling
-- **HTMX** — Server-driven interactivity (partial page updates, lazy loading)
-- **Alpine.js** — Lightweight client-side reactivity
+- **Vanilla JS modules** in `wwwroot/js/` — one file per page or widget; partial views are fetched with `fetch()` for tab loading and AJAX sorting
 - **SignalR** — Real-time dashboard updates
 
 ### User/Guild Preview Popups
@@ -69,6 +68,6 @@ Loaded globally in `_Layout.cshtml`:
 - **Large controllers:** PerformanceMetricsController (1,173), PortalTtsController (1,089), AnalyticsController (698) — search specific methods
 - **Preview popups** loaded globally — use `preview-trigger` classes for user/guild names
 - **Tailwind purge:** Ensure dynamically generated classes are in Tailwind content config
-- **HTMX partial views** return HTML fragments, not full pages — don't include layout
+- **Partial-view endpoints** (fetched by page JS) return HTML fragments, not full pages — don't include layout
 - **Portal pages** use `_PortalLayout` — don't mix admin and portal layouts
 - **Form patterns:** Follow conventions in `form-implementation-standards.md` — validation, error display, CSRF tokens
