@@ -253,8 +253,13 @@ const VoiceChannelPanel = (function() {
             if (!response.ok) {
                 const error = await response.json();
                 showToast(error.message || 'Failed to leave channel', 'error');
+            } else {
+                // The server has left the channel. Apply the disconnected state now rather than
+                // relying only on the AudioDisconnected SignalR event, which can be missed (hub
+                // reconnecting, event raced with this response) and would leave the panel showing
+                // the bot as still connected.
+                applyDisconnectedState();
             }
-            // Success will be handled by AudioDisconnected SignalR event
         } catch (error) {
             console.error('[VoiceChannelPanel] Error leaving channel:', error);
             showToast('Failed to leave channel', 'error');
@@ -353,6 +358,14 @@ const VoiceChannelPanel = (function() {
 
         console.log('[VoiceChannelPanel] Audio disconnected:', data);
 
+        applyDisconnectedState();
+    }
+
+    /**
+     * Resets the panel to the disconnected state. Idempotent: called from the
+     * AudioDisconnected SignalR event and directly after a successful leave request.
+     */
+    function applyDisconnectedState() {
         clearConnectingState();
         isConnected = false;
         connectedChannelId = null;

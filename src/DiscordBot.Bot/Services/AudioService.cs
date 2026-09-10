@@ -300,6 +300,15 @@ public class AudioService : IAudioService
 
             if (trackedChannelId == actualChannelId)
             {
+                if (actualChannelId is null)
+                {
+                    // Discord and the tracked state agree the bot is not in voice. Broadcast anyway:
+                    // this runs on the bot's own "left voice" event, and any client that missed the
+                    // AudioDisconnected sent by the leave itself would otherwise keep showing the bot
+                    // as connected until a page refresh. The event is idempotent for the UI.
+                    _ = _audioNotifier.NotifyAudioDisconnectedAsync(guildId, "Bot is not in voice", cancellationToken);
+                }
+
                 return;
             }
 
