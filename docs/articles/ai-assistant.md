@@ -225,7 +225,7 @@ Configuration is managed via `appsettings.json` and User Secrets. The feature is
 | `Model` | `"anthropic/claude-sonnet-4"` | OpenRouter model slug (blank falls back to `OpenRouter:DefaultModel`) |
 | `ApiTimeoutMs` | `30000` | API call timeout in milliseconds |
 | `MaxTokens` | `512` | Maximum tokens in the model's response (~375 words) |
-| `Temperature` | `0.7` | Response creativity (0.0=deterministic, 1.0=random) |
+| `Temperature` | `0.3` | Response creativity (0.0=deterministic, 1.0=random). Low by default because the assistant answers factual command questions |
 
 **Model slugs** are OpenRouter identifiers, not vendor model IDs — `anthropic/claude-sonnet-4`, not `claude-sonnet-4-20250514`. Any slug from https://openrouter.ai/models works. Common choices:
 - `anthropic/claude-sonnet-4` - **Recommended** - Best balance of speed, quality, and cost
@@ -313,7 +313,7 @@ At 100 questions/day:
     "Model": "anthropic/claude-sonnet-4",
     "ApiTimeoutMs": 30000,
     "MaxTokens": 512,
-    "Temperature": 0.7,
+    "Temperature": 0.3,
     "AgentPromptPath": "docs/agents/assistant-agent.md",
     "DocumentationBasePath": "docs/articles",
     "ReadmePath": "README.md",
@@ -553,7 +553,7 @@ Detailed logs of individual interactions for audit and debugging.
 
 Each interaction uses tokens as follows:
 
-**Agent System Prompt:** ~1500 tokens (cached if enabled)
+**Agent System Prompt:** ~1000 tokens (cached if enabled)
 **User Question:** ~50-100 tokens (varies by question length)
 **Tool Responses:** ~100-500 tokens (depends on docs fetched)
 **Model Response:** ~100-200 tokens (depends on answer length)
@@ -691,14 +691,9 @@ Look for logs containing:
 
 ### Prompt Injection Defense
 
-The agent prompt includes extensive guidelines to prevent:
-- Revealing internal bot implementation
-- Exposing API keys or credentials
-- Accessing other users' private data
-- Executing commands on behalf of users
-- Jailbreak attempts
+The agent prompt scopes the assistant to questions about bot features and tells the model to treat the user message as a question, never as instructions. It rules out sharing secrets, configuration, internals, the prompt itself, stored user data, and help with abusing the bot.
 
-Users cannot break out of the assistant context - the model is constrained to answering questions about bot features.
+The prompt deliberately does not quote injection phrases ("ignore previous instructions", persona names, and so on) as examples. OpenRouter's guardrails scan the whole request including the system message, so a prompt that quotes attack strings trips them on every call. Current models do not need the examples; a short statement of scope is enough. Keep it that way when editing the prompt.
 
 ### Data Privacy
 

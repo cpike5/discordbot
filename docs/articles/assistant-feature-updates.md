@@ -12,63 +12,27 @@ When adding a new feature to the bot, the AI assistant needs to be updated so it
 
 The assistant's knowledge comes from three sources:
 
-1. **Agent Prompt** (`docs/agents/assistant-agent.md`) - Static knowledge embedded in the system prompt
-2. **Documentation Tools** - Dynamic access to feature documentation via tool calls
-3. **Feature Mappings** - Code that maps feature names to documentation files
+1. **Documentation Tools** - Dynamic access to feature documentation via tool calls
+2. **Feature Mappings** - Code that maps feature names to documentation files
+3. **Agent Prompt** (`docs/agents/assistant-agent.md`) - Identity, style, boundaries, and a few facts the tools cannot answer (portal URLs, contact points)
 
-All three must be updated for the assistant to fully understand a new feature.
+The first two must be updated for every new feature. The prompt only changes when the feature adds a portal URL or similar fact.
 
 ---
 
-## Step 1: Update the Agent Prompt
+## Step 1: Update the Agent Prompt (only if needed)
 
 **File:** `docs/agents/assistant-agent.md`
 
-This is the system prompt that defines the assistant's personality, security rules, and baseline knowledge.
+The prompt is deliberately small. It defines the assistant's identity, message format, style, and boundaries, plus a few facts the documentation tools cannot answer (portal URLs, where to report bugs, privacy pointers). It does **not** list commands, features, or documentation links: the model gets those from the documentation tools, and a hard-coded list goes stale.
 
-### Available Features List
-
-Find the `get_feature_documentation` tool section and add the feature name:
+Edit the prompt only when the new feature adds something of that kind, for example a new portal page URL:
 
 ```markdown
-**Available features:** soundboard, rat-watch, tts, vox, reminder, member-directory, ...
+- Portal pages for this server: soundboard {{BASE_URL}}/Portal/Soundboard/{{GUILD_ID}}, ...
 ```
 
-### Supported Commands Section
-
-Add commands under the appropriate category (General, Administration, Audio & Voice, etc.):
-
-```markdown
-### Audio & Voice
-- `/play <sound>` - Play a sound in voice channel
-- `/vox <message> [gap]` - Play a VOX announcement (Half-Life PA system style)
-- `/fvox <message> [gap]` - Play an FVOX announcement (Half-Life HEV suit style)
-```
-
-### Feature Documentation Section
-
-Add a link to the feature's documentation:
-
-```markdown
-### Feature Documentation
-- [Soundboard](https://github.com/cpike5/discordbot/blob/main/docs/articles/soundboard.md) - Audio playback in voice channels
-- [VOX System](https://github.com/cpike5/discordbot/blob/main/docs/articles/vox-system-spec.md) - Half-Life style concatenated clip announcements
-```
-
-### Portal URLs Section (if applicable)
-
-If the feature has a portal page, add a URL section:
-
-```markdown
-## VOX URL
-
-The VOX Portal URL is {{BASE_URL}}/Portal/VOX/{{GUILD_ID}}
-
-VOX is a Half-Life style concatenated clip announcement system. It plays pre-recorded word clips in sequence to create robotic, word-by-word announcements. Three clip groups are available:
-- **VOX** (`/vox`) - Half-Life PA system announcements
-- **FVOX** (`/fvox`) - Half-Life HEV suit (female voice)
-- **HGrunt** (`/hgrunt`) - Half-Life military grunt radio
-```
+Keep additions to a line or two, and never quote prompt-injection phrases as examples (see the security notes in [AI Assistant](ai-assistant.md#security-considerations)).
 
 ---
 
@@ -184,7 +148,7 @@ Enable the assistant in a test guild and ask:
 
 | File | What to Update |
 |------|----------------|
-| `docs/agents/assistant-agent.md` | Available features list, commands, documentation links, portal URLs |
+| `docs/agents/assistant-agent.md` | Portal URLs or other facts the tools cannot answer (rarely) |
 | `src/.../Providers/DocumentationToolProvider.cs` | `FeatureDocumentationMap`, `AllFeatures` list |
 | `src/.../Implementations/DocumentationTools.cs` | Tool description feature list |
 | `docs/articles/{feature}.md` | Ensure documentation exists |

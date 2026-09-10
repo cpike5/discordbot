@@ -35,7 +35,8 @@ public class AssistantSamplingOptions
     /// <summary>
     /// Gets or sets the temperature for the model's responses (0.0 to 1.0).
     /// Lower values are more focused and deterministic, higher values are more creative.
-    /// Default is 0.7 (balanced).
+    /// Default is 0.3: the guild assistant answers factual questions about commands and
+    /// features, where consistent syntax matters more than variety.
     /// </summary>
-    public double Temperature { get; set; } = 0.7;
+    public double Temperature { get; set; } = 0.3;
 }
