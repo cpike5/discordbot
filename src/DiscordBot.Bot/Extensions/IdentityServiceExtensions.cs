@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
+using Serilog;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -138,6 +139,13 @@ public static class IdentityServiceExtensions
             // on every request — RemoteAuthenticationHandler participates in request handling for
             // every registered scheme, not just Discord sign-in requests — so registering it with
             // blank credentials would fail every page load, not just Discord login.
+            //
+            // No DI container exists yet at this point in service registration, so this uses
+            // Serilog's static bootstrap logger the same way Program.cs logs before the host is
+            // built, rather than resolving/building a container just for one warning.
+            Log.Warning(
+                "Discord OAuth is not configured (Discord:OAuth:ClientId / Discord:OAuth:ClientSecret " +
+                "missing) — the Discord sign-in button is hidden. Set both to enable Discord login.");
             return services;
         }
 

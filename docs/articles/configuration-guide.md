@@ -96,7 +96,8 @@ beyond convenience — the underlying OAuth handler validates `ClientId`/`Client
 request (not just Discord sign-in requests), so registering the scheme with blank credentials
 would 500 every page load, not just Discord login. `DiscordOAuthSettings.IsConfigured` (a
 singleton) reflects whether both are actually set; `Login`/`LinkDiscord` use it to hide or disable
-the Discord option.
+the Discord option. When either is blank, `AddDiscordOAuth` also logs one startup Warning naming
+the missing keys, so an unconfigured production deployment doesn't lose Discord login silently.
 
 All other Options classes rely on in-class defaults and do not validate at startup.
 
