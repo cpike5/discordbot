@@ -10,7 +10,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 **API Version:** 1.0
 
-**Authentication:** None (MVP - authentication to be added in future releases)
+**Authentication:** ASP.NET Identity cookie auth (plus Discord OAuth for guild-scoped pages). Most endpoints require at least the `RequireViewer` policy; see the **Authorization** line under each endpoint below for its specific policy.
 
 ---
 
@@ -1722,6 +1722,8 @@ GET /api/alerts/stats?days=30
 
 Returns current bot status including uptime, latency, and connection information.
 
+**Authorization:** `RequireViewer` policy
+
 **Response: 200 OK**
 
 ```json
@@ -1758,6 +1760,8 @@ Returns current bot status including uptime, latency, and connection information
 
 Returns list of guilds currently connected to the bot via Discord gateway.
 
+**Authorization:** `RequireViewer` policy
+
 **Response: 200 OK**
 
 ```json
@@ -1792,6 +1796,8 @@ Returns list of guilds currently connected to the bot via Discord gateway.
 
 Restarts the bot. **Note:** Currently not supported and will return 500 error.
 
+**Authorization:** `RequireSuperAdmin` policy
+
 **Response: 202 Accepted**
 
 ```json
@@ -1814,6 +1820,8 @@ Restarts the bot. **Note:** Currently not supported and will return 500 error.
 ### POST /api/bot/shutdown
 
 Initiates graceful shutdown of the bot.
+
+**Authorization:** `RequireSuperAdmin` policy
 
 **Response: 202 Accepted**
 
