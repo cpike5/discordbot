@@ -17,7 +17,7 @@ Before diving into specific sections, run through this quick checklist:
 - [ ] Bot token is configured via user secrets (`dotnet user-secrets list`)
 - [ ] Discord Developer Portal has gateway intents enabled
 - [ ] Database migrations have been applied (`dotnet ef database update`)
-- [ ] .NET 8 SDK is installed (`dotnet --version`)
+- [ ] .NET 10 SDK is installed (`dotnet --version`)
 - [ ] Node.js is installed for Tailwind CSS build (`node --version`)
 - [ ] Application builds successfully (`dotnet build`)
 - [ ] Logs directory exists and is writable

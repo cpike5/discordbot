@@ -2,7 +2,7 @@
 
 **Version:** 1.1
 **Last Updated:** 2025-12-24
-**Target Framework:** .NET 8 with OpenTelemetry SDK
+**Target Framework:** .NET 10 with OpenTelemetry SDK
 
 ---
 

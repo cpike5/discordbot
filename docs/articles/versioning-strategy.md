@@ -217,7 +217,7 @@ Releases are fully automated via GitHub Actions. Pushing a version tag triggers 
 1. **Checkout Code** with full git history for changelog generation
 2. **Extract Version** from tag (removes `v` prefix: `v1.2.3` → `1.2.3`)
 3. **Get Commit SHA** for InformationalVersion metadata
-4. **Setup .NET 8 SDK** and **Node.js 20**
+4. **Setup .NET 10 SDK** and **Node.js 20**
 5. **Restore Dependencies** (NuGet and npm)
 6. **Build Solution** with version and commit hash:
    ```bash

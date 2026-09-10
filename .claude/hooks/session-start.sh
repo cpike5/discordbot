@@ -1,11 +1,11 @@
 #!/bin/bash
-# SessionStart hook — provision the .NET 8 toolchain for Claude Code on the web.
+# SessionStart hook — provision the .NET 10 toolchain for Claude Code on the web.
 #
 # Why this is needed:
 #   The remote web environment ships without the .NET SDK, and the official
 #   dotnet-install CDN (builds.dotnet.microsoft.com) is blocked by the egress
 #   policy (HTTP 403). Ubuntu 24.04's own archive, however, ships
-#   `dotnet-sdk-8.0` and is reachable — so we install from there.
+#   `dotnet-sdk-10.0` and is reachable — so we install from there.
 #
 # Behaviour:
 #   - Runs only in the remote (web) environment.
@@ -26,15 +26,23 @@ log() { echo "[session-start] $*"; }
 
 export DEBIAN_FRONTEND=noninteractive
 
-# --- .NET 8 SDK (required) -------------------------------------------------
-if command -v dotnet >/dev/null 2>&1; then
-  log "dotnet already present ($(dotnet --version))"
+# --- .NET 10 SDK (required) -------------------------------------------------
+# "Already present" must mean a 10.x SDK specifically — an environment that
+# only has the old 8.x SDK (e.g. a stale cached container) still needs the
+# dotnet-sdk-10.0 package installed alongside it.
+HAVE_NET10=false
+if command -v dotnet >/dev/null 2>&1 && dotnet --list-sdks 2>/dev/null | grep -q '^10\.'; then
+  HAVE_NET10=true
+fi
+
+if [ "$HAVE_NET10" = "true" ]; then
+  log "dotnet 10.x SDK already present ($(dotnet --list-sdks | grep '^10\.' | head -1))"
 else
-  log "Installing dotnet-sdk-8.0 from the Ubuntu archive (see $LOG)..."
-  if ! sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0 >>"$LOG" 2>&1; then
+  log "Installing dotnet-sdk-10.0 from the Ubuntu archive (see $LOG)..."
+  if ! sudo apt-get install -y --no-install-recommends dotnet-sdk-10.0 >>"$LOG" 2>&1; then
     log "First attempt failed; refreshing package lists and retrying..."
     sudo apt-get update >>"$LOG" 2>&1
-    sudo apt-get install -y --no-install-recommends dotnet-sdk-8.0 >>"$LOG" 2>&1
+    sudo apt-get install -y --no-install-recommends dotnet-sdk-10.0 >>"$LOG" 2>&1
   fi
   log "Installed dotnet $(dotnet --version)"
 fi

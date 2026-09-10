@@ -2,7 +2,7 @@
 
 **Version:** 2.2
 **Last Updated:** 2026-02-05
-**Target Framework:** .NET 8 Razor Pages with Tailwind CSS
+**Target Framework:** .NET 10 Razor Pages with Tailwind CSS
 **Related Systems:** [Design System](design-system.md) | [Component API](component-api.md) | [VOX System Spec](vox-system-spec.md)
 
 ---
