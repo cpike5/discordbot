@@ -100,7 +100,7 @@ Maintain a sliding-window conversation history per user, stored in the database.
 | Feature | Description | Priority |
 |---------|-------------|----------|
 | Non-owner access | Restricted prompts for non-owner users | Medium |
-| ~~MCP/Claude Code tooling~~ | **Implemented as Mogwai** — see [mogwai.md](../articles/mogwai.md) | Done |
+| MCP/Claude Code tooling | Delegate coding tasks to an external agent | Low |
 | Rate limiting | Per-user rate limits for non-owners | Low |
 | Per-user prompts | Customizable prompts per user | Low |
 
@@ -110,7 +110,7 @@ Maintain a sliding-window conversation history per user, stored in the database.
 
 - **Rate limiting** — Deferred until non-owner access is implemented
 - **Production-to-dev communication** — Separate tooling phase
-- **Tool use** — Deferred from MVP; implemented as part of Mogwai (see [mogwai.md](../articles/mogwai.md))
+- **Tool use** — Deferred from MVP; later added via `IDmToolProvider` implementations
 
 ---
 
@@ -122,11 +122,11 @@ Maintain a sliding-window conversation history per user, stored in the database.
 |-----------|----------|
 | Service | `IDmAssistantService` / `DmAssistantService` (separate from guild assistant) |
 | Handler | `DmAssistantMessageHandler` — responds to Discord DM events; handles response chunking (split ≤2000-char chunks or `.md` file attachment for long responses) |
-| LLM | Reuses existing `ILlmClient` / `OpenRouterLlmClient` (OpenAI-compatible chat completions via OpenRouter; no LLM SDK). `DmAssistant:Model` is an OpenRouter slug, default `anthropic/claude-sonnet-4`; the Mogwai compose file overrides it to `anthropic/claude-haiku-4.5` |
-| Tool integration | `ClaudeCodeToolProvider` implements `IDmToolProvider`; registered as scoped DI — no changes to `AgentRunner` or `ToolRegistry` |
-| Prompts | `docs/agents/dm-owner-agent.md` — includes guidance on when to use Claude Code vs answer directly |
-| Config | `DmAssistant` section (base DM assistant) + `OpenRouter` section (API key, base URL, retries) + `Mogwai` section (Claude Code extension) in appsettings |
-| Storage | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` entities; Claude Code session IDs are in-memory only (no DB entities) |
+| LLM | Reuses existing `ILlmClient` / `OpenRouterLlmClient` (OpenAI-compatible chat completions via OpenRouter; no LLM SDK). `DmAssistant:Model` is an OpenRouter slug, default `anthropic/claude-sonnet-4` |
+| Tool integration | `IDmToolProvider` implementations registered as scoped DI and discovered by `ToolRegistry` |
+| Prompts | `docs/agents/dm-owner-agent.md` |
+| Config | `DmAssistant` section (base DM assistant) + `OpenRouter` section (API key, base URL, retries) in appsettings |
+| Storage | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` entities |
 
 ### Service Interface
 
@@ -262,5 +262,6 @@ Daily aggregated metrics, similar structure to `AssistantUsageMetrics` but for D
 |------|---------|---------|
 | 2026-02-03 | 0.1 | Initial draft from requirements gathering |
 | 2026-03-05 | 0.2 | Added conversation history (sliding window) to MVP scope |
-| 2026-03-23 | 0.3 | Updated status to Implemented; reflected Mogwai Claude Code extension (ClaudeCodeToolProvider, response chunking, MogwaiOptions); marked MCP/Claude Code future feature as Done |
-| 2026-08-30 | 0.4 | LLM integration migrated from the Anthropic SDK to OpenRouter (`OpenRouterLlmClient`, `OpenRouter` config section, OpenRouter model slugs). The `claude` CLI used by Mogwai is unaffected and still reads `ANTHROPIC_API_KEY`. |
+| 2026-03-23 | 0.3 | Updated status to Implemented; reflected response chunking and DM tool providers |
+| 2026-08-30 | 0.4 | LLM integration migrated from the Anthropic SDK to OpenRouter (`OpenRouterLlmClient`, `OpenRouter` config section, OpenRouter model slugs). |
+| 2026-09-10 | 0.5 | Removed the Mogwai Claude Code extension (`ClaudeCodeToolProvider`, `MogwaiOptions`, Mogwai Docker files). |

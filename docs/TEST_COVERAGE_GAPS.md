@@ -346,7 +346,7 @@ contract. (The predecessor `AnthropicLlmClient` never had a test.)
 - `ExecuteToolAsync_InvalidUrl_ReturnsError`
 - `ExecuteToolAsync_Timeout_HandlesGracefully`
 
-#### CodeExecutionToolProvider, ClaudeCodeToolProvider, DmAnalyticsToolProvider, DmDocumentationToolProvider
+#### CodeExecutionToolProvider, DmAnalyticsToolProvider, DmDocumentationToolProvider
 - 2-3 cases each: `GetTools` returns definitions, happy path execution, error handling
 
 ---
