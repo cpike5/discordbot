@@ -139,6 +139,10 @@ public static class DiscordServiceExtensions
         //                                        logged in first.
         //   4. InteractionStateCleanupService  — periodic cleanup; no ordering constraint,
         //                                        kept after login for consistency.
+        //   5. BotStatusBroadcastService        — periodic SignalR re-broadcast of bot status
+        //                                        (fills the gap between the connect/disconnect
+        //                                        events BroadcastStatusAsync is otherwise driven
+        //                                        by); no ordering constraint.
         //
         // See docs/articles/background-services.md ("Hosted Service Startup Order") for the full list across
         // all AddXxx extension methods called from Program.cs.
@@ -147,6 +151,7 @@ public static class DiscordServiceExtensions
         services.AddHostedService(sp => sp.GetRequiredService<SlashCommandRegistrationService>());
         services.AddHostedService<BotHostedService>();
         services.AddHostedService<InteractionStateCleanupService>();
+        services.AddHostedService<BotStatusBroadcastService>();
 
         return services;
     }

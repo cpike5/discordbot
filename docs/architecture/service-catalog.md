@@ -318,6 +318,7 @@ Long-running services that execute periodic or event-driven tasks.
 | `GuildMetricsAggregationService` | Bot/Services | Aggregates daily guild-level metrics into GuildMetricsSnapshot records |
 | `CommandPerformanceAggregator` | Bot/Services | Aggregates command performance metrics from command logs; implements ICommandPerformanceAggregator |
 | `InteractionStateCleanupService` | Bot/Services | Cleanup expired interaction state objects |
+| `BotStatusBroadcastService` | Bot/Services | Re-broadcasts bot status via SignalR every 30s, reusing IBotStatusBroadcaster.BroadcastStatusAsync so it fills the gap between connect/disconnect events |
 | `VerificationCleanupService` | Bot/Services | Cleanup expired verification tokens |
 | `MessageLogCleanupService` | Bot/Services | Purge old message logs |
 | `NotificationRetentionService` | Bot/Services | Purge old user notifications |
@@ -584,6 +585,7 @@ Services publishing real-time updates to connected dashboard clients:
 - `DashboardNotifier` - Central SignalR hub
 - `AudioNotifier` - Audio state changes
 - `PerformanceMetricsBroadcastService` - Performance metrics
+- `BotStatusBroadcastService` - Periodic (30s) bot status re-broadcast, filling the gap between connect/disconnect events
 - `AlertMonitoringService` - Alert notifications
 
 ### Health Registry

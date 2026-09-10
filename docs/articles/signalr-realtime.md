@@ -149,7 +149,7 @@ Broadcast to all connected clients when the bot's status changes (connection sta
 
 **Event Data:** `BotStatusUpdateDto` object - note this is a different (smaller) shape than
 the `BotStatusDto` returned by `GetCurrentStatus()`: it has `latency` where `GetCurrentStatus()`
-has `latencyMs`, and adds `timestamp`, but omits `startTime`, `botUsername`, and `isReady`.
+has `latencyMs`, and adds `timestamp`, but omits `startTime` and `botUsername`.
 Client code that handles both (e.g. to seed from `GetCurrentStatus()` and then apply pushed
 updates with the same function) should read `latencyMs ?? latency`.
 
@@ -168,10 +168,11 @@ DashboardHub.on('BotStatusUpdated', (status) => {
 - Bot connects to Discord
 - Bot disconnects from Discord
 - Guild count changes (bot joins/leaves guild)
-- Periodic status broadcasts (future implementation) - as of this writing the server only
-  broadcasts on connect/disconnect, so consumers only get a fresh latency/uptime reading on
-  those events (plus whatever they fetch once via `GetCurrentStatus()` on load); nothing
-  ticks the display in between.
+- Periodic status broadcasts - `BotStatusBroadcastService` (`src/DiscordBot.Bot/Services/BotStatusBroadcastService.cs`)
+  re-broadcasts every 30 seconds via the same `IBotStatusBroadcaster.BroadcastStatusAsync()`
+  the connect/disconnect path uses, so latency/uptime on consumers now tick roughly every
+  30 seconds rather than only on connect/disconnect (plus whatever they fetch once via
+  `GetCurrentStatus()` on load).
 
 **Broadcast Scope:** All authenticated dashboard clients
 

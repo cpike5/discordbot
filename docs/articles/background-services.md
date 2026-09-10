@@ -37,7 +37,7 @@ services, so the effective order is the order those `AddXxx` calls appear in `Pr
 and — within `DiscordServiceExtensions.AddDiscordBot` — the order of the `AddHostedService`
 calls there.
 
-Only a handful of these ~28 hosted services have a real ordering constraint; everything
+Only a handful of these ~29 hosted services have a real ordering constraint; everything
 else is order-agnostic background work (retention/cleanup jobs, metrics aggregators, queue
 processors). The constrained ones, in the order they must run:
 
@@ -47,6 +47,7 @@ processors). The constrained ones, in the order they must run:
 | 2 | `SlashCommandRegistrationService` | `DiscordServiceExtensions.AddDiscordBot` | **Must start before `BotHostedService`.** Discovers/loads interaction modules and subscribes to `DiscordSocketClient.Ready` before the gateway logs in, so modules are guaranteed loaded by the time Ready can fire. |
 | 3 | `BotHostedService` | `DiscordServiceExtensions.AddDiscordBot` | **Must start after `SlashCommandRegistrationService` (2).** Logs in and starts the gateway (`LoginAsync`/`StartAsync`). Every other Discord-dependent hosted service registered later in `Program.cs` implicitly depends on the client being logged in by the time it runs. |
 | 4 | `InteractionStateCleanupService` | `DiscordServiceExtensions.AddDiscordBot` | None — periodic cleanup, kept after login for consistency. |
+| 5 | `BotStatusBroadcastService` | `DiscordServiceExtensions.AddDiscordBot` | None — periodic SignalR re-broadcast of bot status (`IBotStatusBroadcaster.BroadcastStatusAsync`) every 30s, filling the gap between the connect/disconnect events that method is otherwise driven by. |
 
 All other hosted services (`MetricsUpdateService`, `BusinessMetricsUpdateService`,
 `AuditLogQueueProcessor`, `AuditLogRetentionService`, `MessageLogCleanupService`,
@@ -819,6 +820,7 @@ if (!health.IsHealthy)
 |---------|----------------|--------------|-----------|
 | `BotHostedService` | `Discord` | `Token`, `TestGuildId`, `ClientId` | DiscordServiceExtensions |
 | `InteractionStateCleanupService` | Built-in | (hardcoded 5 min) | DiscordServiceExtensions |
+| `BotStatusBroadcastService` | Built-in | (hardcoded 30s) | DiscordServiceExtensions |
 | `MessageLogCleanupService` | `MessageLogRetention` | `RetentionDays`, `CleanupIntervalMinutes` | LoggingServiceExtensions |
 | `AuditLogQueueProcessor` | Built-in | (async queue) | LoggingServiceExtensions |
 | `AuditLogRetentionService` | `AuditLogRetention` | `RetentionDays`, `CleanupIntervalMinutes` | LoggingServiceExtensions |
