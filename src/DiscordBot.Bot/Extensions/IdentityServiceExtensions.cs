@@ -118,11 +118,28 @@ public static class IdentityServiceExtensions
     /// </summary>
     private static IServiceCollection AddDiscordOAuth(this IServiceCollection services, IConfiguration configuration)
     {
-        // Register DiscordOAuthOptions with validation
+        // Register DiscordOAuthOptions. ClientId/ClientSecret are optional (see
+        // DiscordOAuthOptions) so the app can start without them configured.
         services.AddOptions<DiscordOAuthOptions>()
-            .Bind(configuration.GetSection(DiscordOAuthOptions.SectionName))
-            .ValidateDataAnnotations()
-            .ValidateOnStart();
+            .Bind(configuration.GetSection(DiscordOAuthOptions.SectionName));
+
+        // Register whether Discord OAuth is actually configured, for the UI to consume
+        // (Login/LinkDiscord hide or disable the Discord option when this is false).
+        var boundOAuthOptions = configuration.GetSection(DiscordOAuthOptions.SectionName).Get<DiscordOAuthOptions>()
+            ?? new DiscordOAuthOptions();
+        var isOAuthConfigured = !string.IsNullOrWhiteSpace(boundOAuthOptions.ClientId)
+            && !string.IsNullOrWhiteSpace(boundOAuthOptions.ClientSecret);
+        services.AddSingleton(new DiscordOAuthSettings { IsConfigured = isOAuthConfigured });
+
+        if (!isOAuthConfigured)
+        {
+            // Skip registering the Discord authentication scheme entirely when unconfigured
+            // (e.g. web-only mode). The underlying OAuth handler validates ClientId/ClientSecret
+            // on every request — RemoteAuthenticationHandler participates in request handling for
+            // every registered scheme, not just Discord sign-in requests — so registering it with
+            // blank credentials would fail every page load, not just Discord login.
+            return services;
+        }
 
         // Add Discord OAuth authentication with minimal initial config
         services.AddAuthentication()
@@ -154,9 +171,6 @@ public static class IdentityServiceExtensions
                     return Task.CompletedTask;
                 };
             });
-
-        // Register that Discord OAuth is configured for UI to consume
-        services.AddSingleton(new DiscordOAuthSettings { IsConfigured = true });
 
         return services;
     }

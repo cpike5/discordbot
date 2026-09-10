@@ -82,8 +82,14 @@ has the details.
 
 ## Running it locally
 
-The process exits at startup if `Discord:Token` is not configured, so the web UI
-cannot be exercised without a bot token. Put secrets in User Secrets (ID
+The process exits at startup if `Discord:Token` is not configured. Set
+`Discord:Enabled` to `false` (e.g. `Discord__Enabled=false`) to run the web UI
+web-only, without a bot token or gateway connection — the bot logs a line and
+returns without logging in, slash commands aren't registered, and Discord OAuth
+login is hidden if `Discord:OAuth:ClientId`/`ClientSecret` aren't set too. Used
+for browser/UI (Playwright) testing and for running the admin portal without a
+bot; see `docs/articles/configuration-guide.md` ("Discord:Enabled (web-only
+mode)"). Put secrets in User Secrets (ID
 `7b84433c-c2a8-46db-a8bf-58786ea4f28e`), never in `appsettings*.json`:
 `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`,
 `OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`.

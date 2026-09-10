@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
@@ -13,10 +11,18 @@ public class BotConfiguration
     public const string SectionName = "Discord";
 
     /// <summary>
-    /// Discord bot token for authentication.
+    /// Whether the Discord bot gateway connection is enabled. Defaults to true.
+    /// Set to false to run the web portal without logging in to Discord (no token required,
+    /// no slash-command registration, no interaction handlers) — used for browser/UI testing
+    /// and for running the admin portal without a bot. See <see cref="BotConfigurationValidator"/>
+    /// for how this makes <see cref="Token"/> conditionally required.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
+    /// Discord bot token for authentication. Required when <see cref="Enabled"/> is true.
     /// Should be stored in user secrets for security.
     /// </summary>
-    [Required(ErrorMessage = "Discord:Token is required. Set it via environment variable Discord__Token or user secrets.")]
     public string Token { get; set; } = string.Empty;
 
     /// <summary>
