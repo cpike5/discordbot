@@ -453,7 +453,7 @@ else
 
     /**
      * Initialize charts.
-     * Note: hours parameter is passed by performance-tabs.js when loaded via AJAX
+     * Note: hours parameter is passed by performance/dashboard.js when loaded via AJAX
      */
     async function init(hours) {
         hours = hours || getSelectedHours();
@@ -465,7 +465,7 @@ else
     }
 
     // Expose init and destroy functions for tab system
-    // Note: Named 'initApiTab' to match performance-tabs.js pattern: init{Capitalize(tabId)}Tab
+    // Note: Named 'initApiTab' to match performance/dashboard.js pattern: init{Capitalize(tabId)}Tab
     // where tabId is 'api' -> 'initApiTab'
     window.initApiTab = init;
     window.destroyApiTab = function() {
