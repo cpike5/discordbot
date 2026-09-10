@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Controllers;
 /// </summary>
 [ApiController]
 [Route("api/[controller]")]
+[Authorize(Policy = "RequireViewer")]
 public class BotController : ControllerBase
 {
     private readonly IBotService _botService;
@@ -190,7 +191,7 @@ public class BotController : ControllerBase
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Accepted response.</returns>
     [HttpPost("restart")]
-    [Authorize(Policy = "RequireAdmin")]
+    [Authorize(Policy = "RequireSuperAdmin")]
     [ProducesResponseType(StatusCodes.Status202Accepted)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status500InternalServerError)]
     public async Task<IActionResult> Restart(CancellationToken cancellationToken)
