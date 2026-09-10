@@ -543,6 +543,8 @@ Page headers use the `.page-header` pattern:
 
 ## 4. Component Guidelines
 
+> **Note — these samples predate Graphite v2.** The HTML/CSS code blocks below still use literal hex values from an earlier palette and have not been rewritten for this pass. They are **not** the source of truth for component markup: that's the shipped partials in `src/DiscordBot.Bot/Pages/Shared/Components/` and the `@layer components` classes in `site.css`. The Blazor component library (`docs/plans/blazor-port-plan.md` §4.6) must be derived from those partials, not from the samples in this section.
+
 ### Buttons
 
 #### Primary Button (Orange Accent)
@@ -4226,6 +4228,7 @@ Start with mobile styles, then enhance for larger screens:
 ### Documentation accuracy pass (2026-09-10)
 - No design change. Corrected this document to match the Graphite v2 tokens actually shipped in `site.css`: the default theme is named "Graphite" throughout (was still "Discord Dark" in places), the Purple Dusk colour tables now match `[data-theme="purple-dusk"]` in `site.css`, the heading type scale now matches the `clamp()` values in `tailwind.config.js`, and the Icon Usage section no longer documents `.icon-*` classes that do not exist in any stylesheet — it now points at the raw Tailwind utilities (`w-4 h-4`, `text-accent-orange`, etc.) that the codebase actually uses.
 - Added the "Baseline for the Blazor port" note: Graphite v2 is frozen as the design baseline for `docs/plans/blazor-port-plan.md` until that migration completes.
+- Known gap: the §4 "Component Guidelines" code samples still use pre-v2 literal hex values and were not rewritten in this pass — flagged with an admonition pointing to the shipped partials and `site.css` as the actual source of truth.
 
 ### Version 2.0 (2026-09-02) — "Graphite"
 - Complete visual overhaul: graphite canvas, hairline rules, ember as the single selection/primary accent, signal blue demoted to links and information.
