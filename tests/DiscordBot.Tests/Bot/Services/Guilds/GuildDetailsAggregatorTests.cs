@@ -27,13 +27,14 @@ public class GuildDetailsAggregatorTests
     private readonly Mock<ISoundRepository> _mockSoundRepository = new();
     private readonly Mock<ITtsMessageRepository> _mockTtsMessageRepository = new();
     private readonly Mock<IAssistantGuildSettingsService> _mockAssistantGuildSettingsService = new();
+    private readonly Mock<ISettingsService> _mockSettingsService = new();
     private readonly GuildDetailsAggregator _aggregator;
 
     public GuildDetailsAggregatorTests()
     {
         var assistantOptions = Options.Create(new AssistantOptions
         {
-            GloballyEnabled = true,
+            GloballyEnabled = false, // must be ignored; the settings service is the source of truth
             RateLimits = new()
             {
                 DefaultRateLimit = 10,
@@ -53,8 +54,13 @@ public class GuildDetailsAggregatorTests
             _mockSoundRepository.Object,
             _mockTtsMessageRepository.Object,
             _mockAssistantGuildSettingsService.Object,
+            _mockSettingsService.Object,
             assistantOptions,
             Mock.Of<ILogger<GuildDetailsAggregator>>());
+
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
     }
 
     private void SetupHappyPathDefaults(ulong guildId)
@@ -148,6 +154,30 @@ public class GuildDetailsAggregatorTests
 
         _mockCommandLogService.Verify(
             s => s.GetLogsAsync(It.Is<CommandLogQueryDto>(q => q.GuildId == guildId && q.PageSize == 10), It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task BuildAsync_ReadsAssistantGloballyEnabledFromSettingsService_NotFromOptions()
+    {
+        // Arrange - options say enabled, but the runtime setting (admin Settings page) says disabled
+        const ulong guildId = 123456789UL;
+        SetupHappyPathDefaults(guildId);
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildDto { Id = guildId, Name = "Test Guild" });
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Act
+        var result = await _aggregator.BuildAsync(guildId, 10, CancellationToken.None);
+
+        // Assert
+        result.Should().NotBeNull();
+        result!.AssistantGloballyEnabled.Should().BeFalse();
+        _mockSettingsService.Verify(
+            s => s.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", It.IsAny<CancellationToken>()),
             Times.Once);
     }
 
@@ -253,6 +283,7 @@ public class GuildDetailsAggregatorTests
             _mockSoundRepository.Object,
             _mockTtsMessageRepository.Object,
             _mockAssistantGuildSettingsService.Object,
+            _mockSettingsService.Object,
             assistantOptions,
             mockLogger.Object);
 
