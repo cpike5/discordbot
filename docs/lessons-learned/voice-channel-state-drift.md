@@ -38,3 +38,12 @@ disposed client, so the next `ConnectAsync` first tried to stop a disposed objec
 - These paths cannot be unit tested: `DiscordSocketClient`, `SocketGuild`, and `SocketVoiceChannel`
   are sealed and need a live gateway. Tests cover the no-guild and concurrency paths only; verify the
   rest against a real guild.
+
+**Follow-up (the mirror image).** After the fix, the bot left Discord correctly but the portal's
+voice panel kept showing the Leave button until a refresh: the panel only reset itself on the
+`AudioDisconnected` SignalR event, so a missed or late event left it stale. Two changes close that:
+the panel applies the disconnected state itself when the leave request returns 200 (the SignalR
+handler is now idempotent on top of that), and the reconcile broadcasts `AudioDisconnected` when it
+runs on the bot's own "left voice" event and finds nothing tracked, so clients get a second, truthful
+signal. Rule: never make the UI depend on a single fire-and-forget event for state the HTTP response
+already confirms.
