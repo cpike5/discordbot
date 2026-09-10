@@ -175,8 +175,9 @@ public class BotHostedService : IHostedService
             _client.UserLeft += _memberEventHandler.HandleUserLeftAsync;
             _client.GuildMemberUpdated += _memberEventHandler.HandleGuildMemberUpdatedAsync;
 
-            // Wire voice state handler for real-time member count updates
+            // Wire voice state handler for real-time member count updates and bot voice state reconciliation
             _client.UserVoiceStateUpdated += _voiceStateHandler.HandleUserVoiceStateUpdatedAsync;
+            _client.Ready += _voiceStateHandler.HandleReadyAsync;
 
             // Queue member sync for new guilds
             _client.JoinedGuild += OnBotJoinedGuild;
@@ -267,6 +268,8 @@ public class BotHostedService : IHostedService
             _client.UserJoined -= _memberEventHandler.HandleUserJoinedAsync;
             _client.UserLeft -= _memberEventHandler.HandleUserLeftAsync;
             _client.GuildMemberUpdated -= _memberEventHandler.HandleGuildMemberUpdatedAsync;
+            _client.UserVoiceStateUpdated -= _voiceStateHandler.HandleUserVoiceStateUpdatedAsync;
+            _client.Ready -= _voiceStateHandler.HandleReadyAsync;
             _client.JoinedGuild -= OnBotJoinedGuild;
             _botStatusBroadcaster.Shutdown();
 

@@ -40,7 +40,7 @@ Services handling voice channel connection, audio streaming, and voice state man
 | Service | Location | Purpose |
 |---------|----------|---------|
 | `IAudioService` | Core Interfaces | Voice channel connection and disconnection management with per-guild locking |
-| `AudioService` | Bot/Services | Manages Discord audio connections, maintains thread-safe state using semaphore locks |
+| `AudioService` | Bot/Services | Manages Discord audio connections, maintains thread-safe state using semaphore locks. Leaves via `IVoiceChannel.DisconnectAsync` (never `IAudioClient.StopAsync` alone) and reconciles tracked state against the bot's gateway voice state |
 | `IAudioNotifier` | Core Interfaces | Broadcasts audio state changes via SignalR to connected dashboards |
 | `AudioNotifier` | Bot/Services | SignalR hub adapter for audio event notifications |
 | `VoiceAutoLeaveService` | Bot/Services | Background service that auto-disconnects bot from voice channels after inactivity |

@@ -44,7 +44,7 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 
 ### Shared Voice
 - **Services:** `VoiceAutoLeaveService`, `InteractionStateService`
-- **Handlers:** `VoiceStateHandler`
+- **Handlers:** `VoiceStateHandler` (member-count broadcasts, plus reconciling `AudioService` tracking with the bot's own voice state on `UserVoiceStateUpdated` and `Ready`)
 - **Preconditions:** `RequireVoiceChannelAttribute`, `RequireAudioEnabledAttribute`
 - **DI:** `services.AddVox()` in `VoiceServiceExtensions.cs`
 - **Playback pipeline:** Commands → Service → PlaybackService → AudioService → Discord voice connection
@@ -57,5 +57,6 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **VOX clips are file-based** — scanned from `sounds/` at startup, not stored in database
 - **Azure TTS secrets:** `AzureSpeech:SubscriptionKey` in User Secrets, never commit
 - **Audio settings are per-guild** via `GuildAudioSettings`
+- **Leaving voice must go through `IVoiceChannel.DisconnectAsync()`** (→ `SocketGuild.DisconnectAudioAsync`). Calling `IAudioClient.StopAsync()`/`Dispose()` directly only closes the voice websocket; the gateway voice state is never cleared, so Discord keeps showing the bot in the channel while `AudioService.IsConnected` says false, and Discord.NET's `SocketGuild._audioClient` is left pointing at a disposed client. See `docs/lessons-learned/voice-channel-state-drift.md`.
 - **Portal pages** use separate controllers (PortalSoundboardController, PortalTtsController, PortalVoxController)
 - **Rate limiting:** VOX commands: 5 per 10 seconds

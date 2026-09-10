@@ -7,22 +7,48 @@ namespace DiscordBot.Bot.Handlers;
 
 /// <summary>
 /// Handles Discord voice state events (UserVoiceStateUpdated) to broadcast
-/// real-time member count updates to connected portal clients via SignalR.
+/// real-time member count updates to connected portal clients via SignalR,
+/// and keeps <see cref="IAudioService"/>'s tracked connections in step with the
+/// voice state Discord reports for the bot itself.
 /// </summary>
 public class VoiceStateHandler
 {
+    private readonly DiscordSocketClient _client;
     private readonly IAudioService _audioService;
     private readonly IAudioNotifier _audioNotifier;
     private readonly ILogger<VoiceStateHandler> _logger;
 
     public VoiceStateHandler(
+        DiscordSocketClient client,
         IAudioService audioService,
         IAudioNotifier audioNotifier,
         ILogger<VoiceStateHandler> logger)
     {
+        _client = client;
         _audioService = audioService;
         _audioNotifier = audioNotifier;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Handles the Ready event. After a (re)connect the gateway may no longer hold the voice state the
+    /// bot had before, so every tracked connection is reconciled against what Discord now reports.
+    /// </summary>
+    public Task HandleReadyAsync()
+    {
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await _audioService.ReconcileAllBotVoiceStatesAsync();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to reconcile bot voice states after Ready");
+            }
+        });
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
@@ -37,7 +63,22 @@ public class VoiceStateHandler
         SocketVoiceState before,
         SocketVoiceState after)
     {
-        // Skip if user is a bot (including our own state changes)
+        // Our own voice state changed (joined, left, kicked, moved): reconcile tracked state.
+        // Run off the gateway thread and never block it: Discord.NET's ConnectAsync waits for
+        // gateway events that are dispatched on this same thread, and the reconcile takes the
+        // guild lock that the join holds.
+        if (user.Id == _client.CurrentUser?.Id)
+        {
+            var guildId = (before.VoiceChannel ?? after.VoiceChannel)?.Guild.Id;
+            if (guildId.HasValue)
+            {
+                _ = Task.Run(() => _audioService.ReconcileBotVoiceStateAsync(guildId.Value));
+            }
+
+            return;
+        }
+
+        // Skip other bots
         if (user.IsBot)
         {
             return;
