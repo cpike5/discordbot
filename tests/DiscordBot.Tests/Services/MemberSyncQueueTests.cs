@@ -182,8 +182,11 @@ public class MemberSyncQueueTests
     [Fact]
     public async Task DequeueAsync_WaitsForItem_WhenQueueEmpty()
     {
-        // Arrange - Use longer timeout for CI environments which can be slow
-        using var cts = new CancellationTokenSource(2000); // 2 second timeout
+        // Arrange - the timeout is only a hang guard; the test cancels explicitly below. It must be
+        // far longer than the delay that follows, because that await can resume many seconds late
+        // in a full parallel run (see docs/lessons-learned/flaky-tests-thread-pool-starvation.md),
+        // and a token that has already fired would complete the task the assertion expects pending.
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
         var queueTask = _queue.DequeueAsync(cts.Token);
 
         // Wait a bit to ensure DequeueAsync is waiting

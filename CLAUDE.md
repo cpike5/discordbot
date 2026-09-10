@@ -70,9 +70,15 @@ PostgreSQL test path, so a green test run says nothing about the Postgres
 provider or its migrations. Say so when you report on a change that touches
 them.
 
-**Two tests are order-dependent** in `MessageLogCleanupServiceTests` and
-occasionally fail in a full run while passing alone. Re-run the class in
-isolation before treating a failure there as yours.
+**Background-service tests fail in a full run but pass alone** when something
+starves them. Two rules keep them green: never block a thread-pool thread on
+other pool threads (a `Barrier` inside `Parallel.For`, a `Thread.Sleep` loop in
+`Task.Run`); use `TestHelpers/ConcurrencyTestHelper` to run that work on
+dedicated threads. And any wait with a wall-clock deadline must poll with
+`ConfigureAwait(false)`, as `LogTestHelper` does, because a plain `await`
+resumes through xUnit's worker queue and can sit there for seconds behind
+other test classes. `docs/lessons-learned/flaky-tests-thread-pool-starvation.md`
+has the details.
 
 ## Running it locally
 

@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Collections;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace DiscordBot.Tests.Bot.Collections;
@@ -510,13 +511,10 @@ public class BoundedTimestampQueueTests
         var baseTime = DateTime.UtcNow;
         const int threadCount = 10;
         const int itemsPerThread = 100;
-        var barrier = new System.Threading.Barrier(threadCount);
 
-        // Act - Multiple threads enqueuing concurrently
-        Parallel.For(0, threadCount, threadIndex =>
+        // Act - Multiple threads enqueuing concurrently (released together, off the thread pool)
+        ConcurrencyTestHelper.RunOnDedicatedThreads(threadCount, threadIndex =>
         {
-            barrier.SignalAndWait(); // Ensure all threads start at roughly the same time
-
             for (int i = 0; i < itemsPerThread; i++)
             {
                 var timestamp = baseTime.AddMilliseconds(threadIndex * itemsPerThread + i);
@@ -541,8 +539,9 @@ public class BoundedTimestampQueueTests
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var testDuration = TimeSpan.FromMilliseconds(500);
 
-        // Act - Concurrent writes and reads
-        var writeTask = Task.Run(() =>
+        // Act - Concurrent writes and reads on dedicated threads (these loops sleep, so they must
+        // not occupy thread-pool workers for the whole test duration)
+        void Write()
         {
             int counter = 0;
             while (stopwatch.Elapsed < testDuration)
@@ -551,9 +550,9 @@ public class BoundedTimestampQueueTests
                 counter++;
                 Thread.Sleep(1); // Small delay to allow interleaving
             }
-        });
+        }
 
-        var readTask = Task.Run(() =>
+        void Read()
         {
             while (stopwatch.Elapsed < testDuration)
             {
@@ -569,10 +568,10 @@ public class BoundedTimestampQueueTests
 
                 Thread.Sleep(1);
             }
-        });
+        }
 
         // Assert - No exceptions or deadlocks
-        Task.WaitAll(writeTask, readTask);
+        ConcurrencyTestHelper.RunOnDedicatedThreads(Write, Read);
         queue.Count.Should().BeLessThanOrEqualTo(queue.Capacity);
     }
 

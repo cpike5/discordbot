@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Collections;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 
 namespace DiscordBot.Tests.Bot.Collections;
@@ -660,13 +661,10 @@ public class LruConcurrentDictionaryTests
         var dict = new LruConcurrentDictionary<int, string>(1000);
         const int threadCount = 10;
         const int operationsPerThread = 100;
-        var barrier = new System.Threading.Barrier(threadCount);
 
-        // Act - Multiple threads performing concurrent operations
-        Parallel.For(0, threadCount, threadIndex =>
+        // Act - Multiple threads performing concurrent operations (released together, off the thread pool)
+        ConcurrencyTestHelper.RunOnDedicatedThreads(threadCount, threadIndex =>
         {
-            barrier.SignalAndWait(); // Ensure all threads start at roughly the same time
-
             for (int i = 0; i < operationsPerThread; i++)
             {
                 var key = threadIndex * operationsPerThread + i;
@@ -700,14 +698,11 @@ public class LruConcurrentDictionaryTests
         var dict = new LruConcurrentDictionary<string, int>(10);
         var factoryCalls = 0;
         const int threadCount = 20;
-        var barrier = new System.Threading.Barrier(threadCount);
         var results = new int[threadCount];
 
-        // Act - Multiple threads trying to add the same key
-        Parallel.For(0, threadCount, threadIndex =>
+        // Act - Multiple threads trying to add the same key (released together, off the thread pool)
+        ConcurrencyTestHelper.RunOnDedicatedThreads(threadCount, threadIndex =>
         {
-            barrier.SignalAndWait();
-
             results[threadIndex] = dict.GetOrAdd("shared-key", k =>
             {
                 Interlocked.Increment(ref factoryCalls);
@@ -730,8 +725,9 @@ public class LruConcurrentDictionaryTests
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         var testDuration = TimeSpan.FromMilliseconds(500);
 
-        // Act - Concurrent writes and reads
-        var writeTask = Task.Run(() =>
+        // Act - Concurrent writes and reads on dedicated threads (these loops sleep, so they must
+        // not occupy thread-pool workers for the whole test duration)
+        void Write()
         {
             int counter = 0;
             while (stopwatch.Elapsed < testDuration)
@@ -740,9 +736,9 @@ public class LruConcurrentDictionaryTests
                 counter++;
                 Thread.Sleep(1);
             }
-        });
+        }
 
-        var readTask = Task.Run(() =>
+        void Read()
         {
             while (stopwatch.Elapsed < testDuration)
             {
@@ -758,9 +754,9 @@ public class LruConcurrentDictionaryTests
 
                 Thread.Sleep(1);
             }
-        });
+        }
 
-        var removeTask = Task.Run(() =>
+        void Remove()
         {
             int counter = 0;
             while (stopwatch.Elapsed < testDuration)
@@ -769,10 +765,10 @@ public class LruConcurrentDictionaryTests
                 counter++;
                 Thread.Sleep(2);
             }
-        });
+        }
 
         // Assert - No exceptions or deadlocks
-        Task.WaitAll(writeTask, readTask, removeTask);
+        ConcurrencyTestHelper.RunOnDedicatedThreads(Write, Read, Remove);
         dict.Count.Should().BeLessThanOrEqualTo(dict.Capacity);
     }
 
@@ -781,13 +777,17 @@ public class LruConcurrentDictionaryTests
     {
         // Arrange
         var dict = new LruConcurrentDictionary<int, int>(50);
-        const int totalItems = 500;
+        const int threadCount = 10;
+        const int itemsPerThread = 50;
 
-        // Act - Fill beyond capacity from multiple threads
-        Parallel.For(0, totalItems, i =>
+        // Act - Fill beyond capacity from multiple threads (dedicated threads, since each sleeps)
+        ConcurrencyTestHelper.RunOnDedicatedThreads(threadCount, threadIndex =>
         {
-            dict.GetOrAdd(i, k => k * 2);
-            Thread.Sleep(1); // Small delay to ensure interleaving
+            for (int i = 0; i < itemsPerThread; i++)
+            {
+                dict.GetOrAdd(threadIndex * itemsPerThread + i, k => k * 2);
+                Thread.Sleep(1); // Small delay to ensure interleaving
+            }
         });
 
         // Assert
