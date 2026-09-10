@@ -83,10 +83,12 @@ The Commands page underwent a major redesign in Epic #1218 that consolidated thr
 │  url-state.js         - URL parameter management            │
 │  date-range-filter.js - Date preset functionality           │
 │  command-log-modal.js - Details modal                       │
-│  command-loading-states.js - Loading UI states              │
-│  command-error-handler.js - Error management                │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+> `command-loading-states.js` and `command-error-handler.js` were documented
+> here but never wired into `Pages/Commands/Index.cshtml`; they were deleted
+> as unused in the Phase 0 UI cleanup (see sections 5 and 6 below).
 
 ---
 
@@ -159,9 +161,10 @@ command-filters.js (depends on command-tab-loader.js)
 command-pagination.js (depends on command-tab-loader.js)
 date-range-filter.js (depends on command-tab-loader.js)
 command-log-modal.js (standalone)
-command-loading-states.js (depends on LoadingManager)
-command-error-handler.js (depends on ToastManager)
 ```
+
+(`command-loading-states.js` and `command-error-handler.js` are not part of
+this dependency graph — they were removed as unused; see the note above.)
 
 ---
 
@@ -339,7 +342,7 @@ init({
 
 ---
 
-### 5. command-loading-states.js
+### 5. command-loading-states.js (removed, Phase 0 cleanup — not loaded by any page)
 
 **Purpose:** Simplified loading state API wrapping LoadingManager.
 
@@ -369,7 +372,7 @@ window.CommandLoadingStates = {
 
 ---
 
-### 6. command-error-handler.js
+### 6. command-error-handler.js (removed, Phase 0 cleanup — not loaded by any page)
 
 **Purpose:** Comprehensive error handling for AJAX operations.
 
@@ -1513,10 +1516,10 @@ document.addEventListener('DOMContentLoaded', function() {
 | `wwwroot/js/date-range-filter.js` | ~11KB | Date presets |
 | `wwwroot/js/url-state.js` | ~11KB | URL state management |
 | `wwwroot/js/command-log-modal.js` | ~8KB | Modal component |
-| `wwwroot/js/command-loading-states.js` | ~11KB | Loading UI |
-| `wwwroot/js/command-error-handler.js` | ~12KB | Error handling |
+| ~~`wwwroot/js/command-loading-states.js`~~ | ~11KB | Removed, Phase 0 cleanup (unused) |
+| ~~`wwwroot/js/command-error-handler.js`~~ | ~12KB | Removed, Phase 0 cleanup (unused) |
 
-**Total JS:** ~88KB (minified)
+**Total JS:** ~88KB (minified, includes the two removed files above at time of writing)
 
 ---
 
