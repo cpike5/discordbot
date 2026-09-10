@@ -4,6 +4,15 @@
 **Feature Reference:** Issue #295 (Epic)
 **Status:** Completed (9 of 9 sub-issues completed)
 
+> **Note:** The sections below describe each sub-issue as originally built, including
+> standalone page URLs like `/Admin/Performance/HealthMetrics`. Those standalone pages
+> were consolidated into the single tabbed `/Admin/Performance` dashboard (issue #722,
+> see `docs/lessons-learned/issue-722-performance-tab-conversion.md`), and the old
+> per-tab pages were deleted in the Phase 0 UI cleanup — their URLs now permanently
+> redirect to `/Admin/Performance` with the matching tab selected via URL hash
+> (`#health`, `#commands`, `#api`, `#system`, `#alerts`). Treat the URLs and page-model
+> file paths in this document as historical, not current.
+
 ---
 
 ## Table of Contents

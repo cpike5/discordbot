@@ -14,7 +14,7 @@
         </div>
         <authorize policy="RequireAdmin">
             <a
-                href="/Admin/AuditLogs"
+                href="/Admin/Logs?tab=audit"
                 class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-primary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary"
                 aria-label="View all audit logs"
                 title="View all audit logs"
@@ -73,7 +73,7 @@
         <!-- Card Footer -->
         <authorize policy="RequireAdmin">
             <div class="px-5 py-3 border-t border-border-primary bg-bg-primary/30">
-                <a href="/Admin/AuditLogs" class="text-sm font-medium text-accent-purple hover:text-accent-purple/80 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
+                <a href="/Admin/Logs?tab=audit" class="text-sm font-medium text-accent-purple hover:text-accent-purple/80 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
                     View all audit logs
                 </a>
             </div>

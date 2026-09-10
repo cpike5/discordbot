@@ -43,8 +43,9 @@ public class DetailsModel : PageModel
     {
         _logger.LogDebug("Loading audit log details for entry ID {EntryId}", id);
 
-        // Preserve return URL or default to index page
-        ReturnUrl = returnUrl ?? Url.Page("Index") ?? "/Admin/AuditLogs";
+        // Preserve return URL or default to the unified Logs page (audit tab);
+        // the standalone Index page was retired in favor of /Admin/Logs.
+        ReturnUrl = returnUrl ?? "/Admin/Logs?tab=audit";
 
         // Retrieve the audit log entry
         var log = await _auditLogService.GetByIdAsync(id, cancellationToken);

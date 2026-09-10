@@ -379,9 +379,9 @@ The audit log viewer provides a web-based interface for browsing, searching, and
 
 ### Audit Logs Index Page
 
-**Route:** `/Admin/AuditLogs`
+**Route:** `/Admin/Logs?tab=audit` — the standalone `/Admin/AuditLogs` list page was retired in favor of the unified Logs page's Audit tab; `/Admin/AuditLogs` now permanently redirects here.
 **Authorization:** Requires `Admin` or `SuperAdmin` role
-**Page Model:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\AuditLogs\Index.cshtml.cs`
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Logs/Index.cshtml.cs` (Audit tab partial: `Pages/Admin/Logs/Tabs/_AuditTab.cshtml`)
 
 #### Features
 
@@ -445,7 +445,7 @@ The dashboard (`/`) displays recent audit logs for Admin and SuperAdmin users:
 - **Display:** Last 5 audit log entries
 - **Access:** Only visible to users with Admin or SuperAdmin role
 - **Card Component:** `AuditLogCardViewModel`
-- **Link:** "View All" button navigates to `/Admin/AuditLogs`
+- **Link:** "View All" button navigates to `/Admin/Logs?tab=audit`
 
 ---
 
