@@ -139,7 +139,7 @@ public class AssistantMessageHandler
             activity?.SetTag("assistant.channel_allowed", true);
 
             // Check user consent if required
-            if (_options.RequireExplicitConsent)
+            if (_options.Privacy.RequireExplicitConsent)
             {
                 var hasConsent = await consentRepository.GetActiveConsentAsync(userId, ConsentType.AssistantUsage);
                 if (hasConsent == null)
@@ -214,7 +214,7 @@ public class AssistantMessageHandler
                 {
                     // Send error message
                     await message.Channel.SendMessageAsync(
-                        _options.ErrorMessage,
+                        _options.Messages.ErrorMessage,
                         messageReference: new MessageReference(messageId));
 
                     _logger.LogWarning(
@@ -241,7 +241,7 @@ public class AssistantMessageHandler
             try
             {
                 await message.Channel.SendMessageAsync(
-                    _options.ErrorMessage,
+                    _options.Messages.ErrorMessage,
                     messageReference: new MessageReference(messageId));
             }
             catch (Exception sendEx)

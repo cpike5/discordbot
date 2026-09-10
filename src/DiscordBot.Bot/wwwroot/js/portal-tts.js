@@ -162,8 +162,8 @@
             var savedVoice = window.UserPreferences
                 ? window.UserPreferences.get(CONFIG.STORAGE_KEY_VOICE)
                 : localStorage.getItem(CONFIG.STORAGE_KEY_VOICE);
-            if (savedVoice && window.voiceSelector_setValue) {
-                window.voiceSelector_setValue('portalVoiceSelector', savedVoice, true);
+            if (savedVoice && window.VoiceSelector?.setValue) {
+                window.VoiceSelector.setValue('portalVoiceSelector', savedVoice, true);
             }
         } catch (error) {
             // Failed to load saved voice
@@ -217,7 +217,7 @@
         if (isInitializing) return;
         try {
             const messageInput = document.getElementById('ttsMessage');
-            const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+            const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
             const draft = {
                 message: messageInput?.value || '',
                 voice: voice || '',
@@ -255,8 +255,8 @@
             }
 
             // Restore voice (if saved and different from current)
-            if (draft.voice && window.voiceSelector_setValue) {
-                window.voiceSelector_setValue('portalVoiceSelector', draft.voice, true);
+            if (draft.voice && window.VoiceSelector?.setValue) {
+                window.VoiceSelector.setValue('portalVoiceSelector', draft.voice, true);
             }
 
             // Restore mode (if saved)
@@ -342,7 +342,7 @@
     function buildTtsRequestBody() {
         const messageInput = document.getElementById('ttsMessage');
         const message = messageInput?.value?.trim() || '';
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
         const speed = parseFloat(document.getElementById('speedSlider').value) || CONFIG.SPEED_DEFAULT;
         const pitch = parseFloat(document.getElementById('pitchSlider').value) || CONFIG.PITCH_DEFAULT;
 
@@ -374,7 +374,7 @@
             return;
         }
 
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
         if (!voice) {
             showToast('warning', 'Please select a voice first!');
             return;
@@ -396,31 +396,24 @@
 
         try {
             const body = buildTtsRequestBody();
-            const response = await fetch(API.preview(guildId), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body)
+            const blob = await ApiClient.post(API.preview(guildId), body, {
+                responseType: 'blob',
+                errorMessage: 'Failed to generate preview'
             });
 
-            if (response.status === 429) {
-                const data = await response.json().catch(() => ({}));
-                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
-                return;
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to generate preview');
-            }
-
-            const blob = await response.blob();
             const url = URL.createObjectURL(blob);
             const audio = new Audio(url);
             audio.addEventListener('ended', () => URL.revokeObjectURL(url));
             audio.addEventListener('error', () => URL.revokeObjectURL(url));
             audio.play();
         } catch (error) {
-            showToast('error', error.message);
+            if (error instanceof ApiClient.ApiClientError && error.status === 429) {
+                const fallback = (error.data && error.data.message) || 'Rate limit exceeded. Please wait.';
+                const retrySeconds = error.retryAfter?.seconds;
+                showToast('warning', retrySeconds ? `${fallback} Try again in ${retrySeconds}s.` : fallback);
+            } else {
+                showToast('error', error.message);
+            }
         } finally {
             isPreviewing = false;
             previewBtn.innerHTML = originalHtml;
@@ -454,7 +447,7 @@
             return;
         }
 
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : null;
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : null;
         if (!voice) {
             showToast('warning', 'Please select a voice first!');
             return;
@@ -484,24 +477,7 @@
         `;
 
         try {
-            const response = await fetch(API.send(guildId), {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify(body)
-            });
-
-            if (response.status === 429) {
-                const data = await response.json().catch(() => ({}));
-                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
-                return;
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to send message');
-            }
+            await ApiClient.post(API.send(guildId), body, { errorMessage: 'Failed to send message' });
 
             showToast('success', 'Message sent successfully');
             clearDraft();
@@ -510,7 +486,11 @@
             saveToHistory(body);
         } catch (error) {
             // Send error occurred
-            showToast('error', error.message);
+            if (error instanceof ApiClient.ApiClientError && error.status === 429) {
+                showToast('warning', (error.data && error.data.message) || 'Rate limit exceeded. Please wait.');
+            } else {
+                showToast('error', error.message);
+            }
         } finally {
             isSending = false;
             sendBtn.innerHTML = originalHtml;
@@ -619,7 +599,7 @@
         const pitchSlider = document.getElementById('pitchSlider');
 
         const message = messageInput?.value?.trim() || '';
-        const voice = window.voiceSelector_getValue ? window.voiceSelector_getValue('portalVoiceSelector') : '';
+        const voice = window.VoiceSelector?.getValue ? window.VoiceSelector.getValue('portalVoiceSelector') : '';
         const speed = parseFloat(speedSlider?.value || '1.0');
         const pitch = parseFloat(pitchSlider?.value || '1.0');
 
@@ -648,14 +628,8 @@
                 }]
             };
 
-            const response = await fetch('/api/portal/tts/build-ssml', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-
-            if (response.ok) {
-                const data = await response.json();
+            const { ok, data } = await ApiClient.postRaw(API.buildSsml(), payload);
+            if (ok) {
                 currentSsml = data.ssml;
                 if (window.ssmlPreview_update) {
                     window.ssmlPreview_update('portalSsmlPreview', currentSsml, message.length);
@@ -741,8 +715,8 @@
      * Handle preset application from PresetBar component
      */
     window.portalHandlePresetApply = function(presetData) {
-        if (presetData.voice && window.voiceSelector_setValue) {
-            window.voiceSelector_setValue('portalVoiceSelector', presetData.voice, true);
+        if (presetData.voice && window.VoiceSelector?.setValue) {
+            window.VoiceSelector.setValue('portalVoiceSelector', presetData.voice, true);
         }
 
         const speedSlider = document.getElementById('speedSlider');
@@ -847,10 +821,10 @@
      */
     async function fetchHistory() {
         try {
-            const response = await fetch(API.history(guildId));
-            if (!response.ok) return;
+            const { ok, data } = await ApiClient.getRaw(API.history(guildId));
+            if (!ok) return;
 
-            historyEntries = await response.json();
+            historyEntries = data;
             renderHistory();
         } catch (error) {
             // Non-critical: history load failure should not block TTS usage
@@ -862,21 +836,16 @@
      */
     async function saveToHistory(body) {
         try {
-            const response = await fetch(API.history(guildId), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    message: body.message,
-                    voiceName: body.voice,
-                    style: body.style || null,
-                    speed: body.speed,
-                    pitch: body.pitch
-                })
+            const { ok, data: entry } = await ApiClient.postRaw(API.history(guildId), {
+                message: body.message,
+                voiceName: body.voice,
+                style: body.style || null,
+                speed: body.speed,
+                pitch: body.pitch
             });
 
-            if (!response.ok) return;
+            if (!ok) return;
 
-            const entry = await response.json();
             // Prepend to list and re-render
             historyEntries.unshift(entry);
             // Keep max 20 entries client-side
@@ -1010,25 +979,15 @@
         btn.innerHTML = `<svg class="inline-block animate-spin" fill="none" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>`;
 
         try {
-            const response = await fetch(API.historyReplay(guildId, id), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (response.status === 429) {
-                const data = await response.json().catch(() => ({}));
-                showToast('warning', data.message || 'Rate limit exceeded. Please wait.');
-                return;
-            }
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.message || 'Failed to replay message');
-            }
+            await ApiClient.post(API.historyReplay(guildId, id), undefined, { errorMessage: 'Failed to replay message' });
 
             showToast('success', 'Message replayed');
         } catch (error) {
-            showToast('error', error.message);
+            if (error instanceof ApiClient.ApiClientError && error.status === 429) {
+                showToast('warning', (error.data && error.data.message) || 'Rate limit exceeded. Please wait.');
+            } else {
+                showToast('error', error.message);
+            }
         } finally {
             btn.innerHTML = originalHtml;
             btn.disabled = false;
@@ -1050,8 +1009,8 @@
         }
 
         // Load voice
-        if (entry.voiceName && window.voiceSelector_setValue) {
-            window.voiceSelector_setValue('portalVoiceSelector', entry.voiceName, true);
+        if (entry.voiceName && window.VoiceSelector?.setValue) {
+            window.VoiceSelector.setValue('portalVoiceSelector', entry.voiceName, true);
         }
 
         // Load speed
@@ -1098,16 +1057,7 @@
      */
     async function toggleHistoryFavorite(id, btn) {
         try {
-            const response = await fetch(API.historyFavorite(guildId, id), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' }
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to update favorite');
-            }
-
-            const data = await response.json();
+            const data = await ApiClient.put(API.historyFavorite(guildId, id), undefined, { errorMessage: 'Failed to update favorite' });
 
             // Update local state
             const entry = historyEntries.find(e => e.id === id);
@@ -1126,13 +1076,7 @@
      */
     async function deleteHistoryEntry(id) {
         try {
-            const response = await fetch(API.historyDelete(guildId, id), {
-                method: 'DELETE'
-            });
-
-            if (!response.ok) {
-                throw new Error('Failed to delete entry');
-            }
+            await ApiClient.del(API.historyDelete(guildId, id), { errorMessage: 'Failed to delete entry' });
 
             // Remove from local state
             historyEntries = historyEntries.filter(e => e.id !== id);

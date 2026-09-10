@@ -1,9 +1,34 @@
+using DiscordBot.Core.Configuration.Assistant;
+
 namespace DiscordBot.Core.Configuration;
 
 /// <summary>
 /// Configuration options for the AI assistant feature.
 /// Controls Claude API integration, rate limiting, documentation tools, and response behavior.
 /// </summary>
+/// <remarks>
+/// Settings are grouped into cohesive nested option classes (<see cref="Sampling"/>,
+/// <see cref="RateLimits"/>, <see cref="Messages"/>, <see cref="Tools"/>, <see cref="Cost"/>,
+/// <see cref="Privacy"/>) that bind under their own configuration sub-sections, e.g.
+/// "Assistant:Sampling:MaxTokens". The historical flat keys (e.g. "Assistant:MaxTokens")
+/// remain fully supported via the <c>[Obsolete]</c> forwarding properties below, which
+/// read/write the same nested objects. New code should use the nested properties directly.
+///
+/// <para>
+/// <b>Binding precedence when both a flat legacy key and its nested equivalent are present:
+/// the flat legacy key wins.</b> This is NOT left to accident of property declaration order —
+/// plain <c>ConfigurationBinder</c>/<c>services.Configure&lt;AssistantOptions&gt;</c> binding order
+/// is an implementation detail, not a contract. Instead, precedence is enforced explicitly: the DI
+/// registration in <c>AssistantServiceExtensions.AddAssistant</c> follows the normal
+/// <c>Configure&lt;AssistantOptions&gt;</c> call with a <c>PostConfigure&lt;AssistantOptions&gt;</c> step
+/// that re-applies every flat legacy key actually present in the "Assistant" configuration section,
+/// overwriting whatever its nested equivalent bound to. This keeps existing deployments that only set
+/// flat keys unaffected, while still allowing operators to opt into the nested keys by removing the flat
+/// ones. See <c>AssistantServiceExtensions.ApplyFlatLegacyKeyPrecedence</c> for the implementation and
+/// AssistantOptionsBindingTests for the precedence contract under test (including through the real DI
+/// registration, not just raw <c>ConfigurationBinder.Bind</c>).
+/// </para>
+/// </remarks>
 public class AssistantOptions
 {
     /// <summary>
@@ -24,287 +49,6 @@ public class AssistantOptions
     /// </summary>
     public bool EnabledByDefaultForNewGuilds { get; set; } = false;
 
-    #region Rate Limiting
-
-    /// <summary>
-    /// Gets or sets the default maximum number of questions a user can ask within the rate limit window.
-    /// Guilds can override this value.
-    /// Default is 5 questions per 5 minutes.
-    /// </summary>
-    public int DefaultRateLimit { get; set; } = 5;
-
-    /// <summary>
-    /// Gets or sets the time window for rate limiting in minutes.
-    /// Default is 5 minutes.
-    /// </summary>
-    public int RateLimitWindowMinutes { get; set; } = 5;
-
-    /// <summary>
-    /// Gets or sets the minimum role required to bypass rate limits.
-    /// Roles at or above this level are not rate limited.
-    /// Default is "Admin" (Admin and SuperAdmin bypass).
-    /// </summary>
-    /// <remarks>
-    /// Valid values: "SuperAdmin", "Admin", "Moderator", "Viewer", or null (no bypass).
-    /// </remarks>
-    public string? RateLimitBypassRole { get; set; } = "Admin";
-
-    #endregion
-
-    #region Message Constraints
-
-    /// <summary>
-    /// Gets or sets the maximum length of a user's question in characters.
-    /// Questions longer than this will be rejected.
-    /// Default is 500 characters.
-    /// </summary>
-    public int MaxQuestionLength { get; set; } = 500;
-
-    /// <summary>
-    /// Gets or sets the maximum length of Claude's response in characters.
-    /// Responses exceeding this will be truncated with a suffix.
-    /// Default is 1800 (leaves buffer for Discord's 2000 char limit).
-    /// </summary>
-    public int MaxResponseLength { get; set; } = 1800;
-
-    /// <summary>
-    /// Gets or sets the suffix appended when responses are truncated.
-    /// Default is "\n\n... *(response truncated)*".
-    /// </summary>
-    public string TruncationSuffix { get; set; } = "\n\n... *(response truncated)*";
-
-    #endregion
-
-    #region Claude API Configuration
-
-    /// <summary>
-    /// Gets or sets the Claude model identifier to use.
-    /// Default is "claude-sonnet-4-20250514".
-    /// </summary>
-    /// <remarks>
-    /// Available models:
-    /// - claude-sonnet-4-20250514 (recommended for balance of speed/quality)
-    /// - claude-opus-4-20250514 (highest quality, slower, more expensive)
-    /// - claude-haiku-4-20250514 (fastest, cheapest, lower quality)
-    /// If null or empty, falls back to Anthropic:DefaultModel.
-    /// </remarks>
-    public string Model { get; set; } = "claude-sonnet-4-20250514";
-
-    /// <summary>
-    /// Gets or sets the timeout for Claude API calls in milliseconds.
-    /// Default is 30000 (30 seconds).
-    /// </summary>
-    public int ApiTimeoutMs { get; set; } = 30000;
-
-    /// <summary>
-    /// Gets or sets the maximum number of tokens for Claude's response.
-    /// Controls response length and API costs.
-    /// Default is 512 tokens (~375 words) to encourage concise responses.
-    /// </summary>
-    public int MaxTokens { get; set; } = 512;
-
-    /// <summary>
-    /// Gets or sets the temperature for Claude's responses (0.0 to 1.0).
-    /// Lower values are more focused and deterministic, higher values are more creative.
-    /// Default is 0.7 (balanced).
-    /// </summary>
-    public double Temperature { get; set; } = 0.7;
-
-    #endregion
-
-    #region Prompt and Documentation Paths
-
-    /// <summary>
-    /// Gets or sets the path to the agent behavior/security prompt file.
-    /// Supports placeholders: {GUILD_ID}, {BASE_URL}
-    /// Default is "docs/agents/assistant-agent.md".
-    /// </summary>
-    public string AgentPromptPath { get; set; } = "docs/agents/assistant-agent.md";
-
-    /// <summary>
-    /// Gets or sets the base directory for documentation files.
-    /// Used by documentation tools to locate feature docs.
-    /// Default is "docs/articles".
-    /// </summary>
-    public string DocumentationBasePath { get; set; } = "docs/articles";
-
-    /// <summary>
-    /// Gets or sets the path to the README file for command lists.
-    /// Default is "README.md".
-    /// </summary>
-    public string ReadmePath { get; set; } = "README.md";
-
-    #endregion
-
-    #region Tool Configuration
-
-    /// <summary>
-    /// Gets or sets whether documentation tools are enabled.
-    /// If false, Claude will only use the agent prompt without tool access.
-    /// Default is true.
-    /// </summary>
-    public bool EnableDocumentationTools { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets the maximum number of tool calls Claude can make per question.
-    /// Prevents infinite loops and controls API costs.
-    /// Default is 5.
-    /// </summary>
-    public int MaxToolCallsPerQuestion { get; set; } = 5;
-
-    /// <summary>
-    /// Gets or sets the timeout for individual tool executions in milliseconds.
-    /// Default is 5000 (5 seconds).
-    /// </summary>
-    public int ToolExecutionTimeoutMs { get; set; } = 5000;
-
-    #endregion
-
-    #region Error Handling and Retry
-
-    /// <summary>
-    /// Gets or sets the friendly error message shown to users when the API fails.
-    /// Default is "Oops, I'm having trouble thinking right now. Please try again in a moment."
-    /// </summary>
-    public string ErrorMessage { get; set; } = "Oops, I'm having trouble thinking right now. Please try again in a moment.";
-
-    /// <summary>
-    /// Gets or sets the maximum number of retry attempts for failed API calls.
-    /// Default is 2 (1 initial attempt + 2 retries = 3 total attempts).
-    /// </summary>
-    public int MaxRetryAttempts { get; set; } = 2;
-
-    /// <summary>
-    /// Gets or sets the delay between retry attempts in milliseconds.
-    /// Default is 1000 (1 second).
-    /// </summary>
-    public int RetryDelayMs { get; set; } = 1000;
-
-    #endregion
-
-    #region Cost Monitoring and Alerts
-
-    /// <summary>
-    /// Gets or sets whether to track and log token usage for cost monitoring.
-    /// Default is true.
-    /// </summary>
-    public bool EnableCostTracking { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets the daily cost threshold in USD for performance alerts.
-    /// If daily costs exceed this, an alert incident will be created.
-    /// Default is 5.00 (alerts if costs exceed $5/day).
-    /// </summary>
-    /// <remarks>
-    /// Costs are estimated based on Claude API pricing:
-    /// - Input tokens: ~$3 per million tokens
-    /// - Output tokens: ~$15 per million tokens
-    /// Set to a reasonable daily budget (e.g., 1.00 for $1/day).
-    /// </remarks>
-    public decimal? DailyCostThresholdUsd { get; set; } = 5.00m;
-
-    /// <summary>
-    /// Gets or sets the cost per million input tokens in USD for cost estimation.
-    /// Default is 3.00 (Claude 3.5 Sonnet pricing).
-    /// </summary>
-    public decimal CostPerMillionInputTokens { get; set; } = 3.00m;
-
-    /// <summary>
-    /// Gets or sets the cost per million output tokens in USD for cost estimation.
-    /// Default is 15.00 (Claude 3.5 Sonnet pricing).
-    /// </summary>
-    public decimal CostPerMillionOutputTokens { get; set; } = 15.00m;
-
-    #endregion
-
-    #region Privacy and Audit
-
-    /// <summary>
-    /// Gets or sets whether users must explicitly opt-in via /consent before using the assistant.
-    /// Default is true (explicit consent required).
-    /// </summary>
-    /// <remarks>
-    /// When true, users must run /consent and enable "assistant_usage" before asking questions.
-    /// When false, mentioning the bot implies consent (simpler UX, but less privacy control).
-    /// </remarks>
-    public bool RequireExplicitConsent { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets whether to log user questions and Claude responses for audit/debugging.
-    /// Default is true.
-    /// </summary>
-    /// <remarks>
-    /// When enabled, questions and responses are logged to the existing audit log system.
-    /// Users are informed via /privacy command that questions are processed by Claude API.
-    /// </remarks>
-    public bool LogInteractions { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets the number of days to retain assistant interaction logs.
-    /// Aligns with message log retention policy.
-    /// Default is 90 days.
-    /// </summary>
-    public int InteractionLogRetentionDays { get; set; } = 90;
-
-    #endregion
-
-    #region Prompt Caching
-
-    /// <summary>
-    /// Gets or sets whether to use Claude's Prompt Caching for agent prompt and common docs.
-    /// Reduces costs by ~50% and improves latency for cached content.
-    /// Cache is valid for 5 minutes and shared across all requests.
-    /// Default is true.
-    /// </summary>
-    /// <remarks>
-    /// Prompt caching pricing (Claude 3.5 Sonnet):
-    /// - Regular input tokens: $3.00 per million
-    /// - Cached input tokens: $0.30 per million (90% discount)
-    /// - Cache write: $3.75 per million (only on cache miss)
-    /// With typical usage, expect 50%+ cost reduction.
-    /// </remarks>
-    public bool EnablePromptCaching { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets whether to pre-cache common documentation in the system message.
-    /// When true, frequently-accessed docs are included in cached prompt.
-    /// When false, all docs are fetched via tools only (smaller prompts, more tool calls).
-    /// Default is true.
-    /// </summary>
-    public bool CacheCommonDocumentation { get; set; } = true;
-
-    /// <summary>
-    /// Gets or sets the list of documentation files to include in cached prompt.
-    /// Only used if CacheCommonDocumentation is true.
-    /// Files are loaded from DocumentationBasePath.
-    /// Default includes most frequently requested features.
-    /// </summary>
-    public string[] CachedDocumentationFiles { get; set; } =
-    [
-        "commands-page.md",    // Command overview and metadata
-        "soundboard.md",       // Most requested feature
-        "rat-watch.md",        // Second most requested
-        "tts-support.md"       // TTS feature documentation
-    ];
-
-    /// <summary>
-    /// Gets or sets the cost per million cached input tokens in USD for cost estimation.
-    /// Cached tokens cost 90% less than regular input tokens.
-    /// Default is 0.30 (Claude 3.5 Sonnet caching pricing).
-    /// </summary>
-    public decimal CostPerMillionCachedTokens { get; set; } = 0.30m;
-
-    /// <summary>
-    /// Gets or sets the cost per million cache write tokens in USD for cost estimation.
-    /// Cache writes occur on cache miss (first request or after 5-min expiry).
-    /// Default is 3.75 (Claude 3.5 Sonnet cache write pricing).
-    /// </summary>
-    public decimal CostPerMillionCacheWriteTokens { get; set; } = 3.75m;
-
-    #endregion
-
-    #region URL Generation
-
     /// <summary>
     /// Gets or sets the base URL for generating links in responses.
     /// Uses ApplicationOptions.BaseUrl by default if not set.
@@ -318,10 +62,6 @@ public class AssistantOptions
     /// Guild ID is provided via tool context, not in cached prompt (to maintain cache sharing).
     /// </remarks>
     public string? BaseUrl { get; set; }
-
-    #endregion
-
-    #region Feature Flags
 
     /// <summary>
     /// Gets or sets whether to show typing indicator while waiting for Claude's response.
@@ -339,6 +79,352 @@ public class AssistantOptions
     /// Only guild ID is included to enable guild-specific URL generation.
     /// </remarks>
     public bool IncludeGuildContext { get; set; } = true;
+
+    #region Nested Option Groups
+
+    /// <summary>
+    /// Claude API model and sampling configuration. Binds under "Assistant:Sampling".
+    /// </summary>
+    public AssistantSamplingOptions Sampling { get; set; } = new();
+
+    /// <summary>
+    /// Rate limiting configuration. Binds under "Assistant:RateLimits".
+    /// </summary>
+    public AssistantRateLimitOptions RateLimits { get; set; } = new();
+
+    /// <summary>
+    /// Message length constraints and error/retry behavior. Binds under "Assistant:Messages".
+    /// </summary>
+    public AssistantMessageOptions Messages { get; set; } = new();
+
+    /// <summary>
+    /// Tool execution and prompt/documentation path configuration. Binds under "Assistant:Tools".
+    /// </summary>
+    public AssistantToolOptions Tools { get; set; } = new();
+
+    /// <summary>
+    /// Cost tracking and prompt-caching configuration. Binds under "Assistant:Cost".
+    /// </summary>
+    public AssistantCostOptions Cost { get; set; } = new();
+
+    /// <summary>
+    /// Consent and audit logging configuration. Binds under "Assistant:Privacy".
+    /// </summary>
+    public AssistantPrivacyOptions Privacy { get; set; } = new();
+
+    #endregion
+
+    #region Obsolete Flat Forwarding Properties (backward-compatible binding)
+
+    /// <summary>
+    /// Gets or sets the default maximum number of questions a user can ask within the rate limit window.
+    /// </summary>
+    [Obsolete("Use RateLimits.DefaultRateLimit instead.")]
+    public int DefaultRateLimit
+    {
+        get => RateLimits.DefaultRateLimit;
+        set => RateLimits.DefaultRateLimit = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the time window for rate limiting in minutes.
+    /// </summary>
+    [Obsolete("Use RateLimits.RateLimitWindowMinutes instead.")]
+    public int RateLimitWindowMinutes
+    {
+        get => RateLimits.RateLimitWindowMinutes;
+        set => RateLimits.RateLimitWindowMinutes = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the minimum role required to bypass rate limits.
+    /// </summary>
+    [Obsolete("Use RateLimits.RateLimitBypassRole instead.")]
+    public string? RateLimitBypassRole
+    {
+        get => RateLimits.RateLimitBypassRole;
+        set => RateLimits.RateLimitBypassRole = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum length of a user's question in characters.
+    /// </summary>
+    [Obsolete("Use Messages.MaxQuestionLength instead.")]
+    public int MaxQuestionLength
+    {
+        get => Messages.MaxQuestionLength;
+        set => Messages.MaxQuestionLength = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum length of Claude's response in characters.
+    /// </summary>
+    [Obsolete("Use Messages.MaxResponseLength instead.")]
+    public int MaxResponseLength
+    {
+        get => Messages.MaxResponseLength;
+        set => Messages.MaxResponseLength = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the suffix appended when responses are truncated.
+    /// </summary>
+    [Obsolete("Use Messages.TruncationSuffix instead.")]
+    public string TruncationSuffix
+    {
+        get => Messages.TruncationSuffix;
+        set => Messages.TruncationSuffix = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the friendly error message shown to users when the API fails.
+    /// </summary>
+    [Obsolete("Use Messages.ErrorMessage instead.")]
+    public string ErrorMessage
+    {
+        get => Messages.ErrorMessage;
+        set => Messages.ErrorMessage = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum number of retry attempts for failed API calls.
+    /// </summary>
+    [Obsolete("Use Messages.MaxRetryAttempts instead.")]
+    public int MaxRetryAttempts
+    {
+        get => Messages.MaxRetryAttempts;
+        set => Messages.MaxRetryAttempts = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the delay between retry attempts in milliseconds.
+    /// </summary>
+    [Obsolete("Use Messages.RetryDelayMs instead.")]
+    public int RetryDelayMs
+    {
+        get => Messages.RetryDelayMs;
+        set => Messages.RetryDelayMs = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the Claude model identifier to use.
+    /// </summary>
+    [Obsolete("Use Sampling.Model instead.")]
+    public string Model
+    {
+        get => Sampling.Model;
+        set => Sampling.Model = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the timeout for Claude API calls in milliseconds.
+    /// </summary>
+    [Obsolete("Use Sampling.ApiTimeoutMs instead.")]
+    public int ApiTimeoutMs
+    {
+        get => Sampling.ApiTimeoutMs;
+        set => Sampling.ApiTimeoutMs = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum number of tokens for Claude's response.
+    /// </summary>
+    [Obsolete("Use Sampling.MaxTokens instead.")]
+    public int MaxTokens
+    {
+        get => Sampling.MaxTokens;
+        set => Sampling.MaxTokens = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the temperature for Claude's responses (0.0 to 1.0).
+    /// </summary>
+    [Obsolete("Use Sampling.Temperature instead.")]
+    public double Temperature
+    {
+        get => Sampling.Temperature;
+        set => Sampling.Temperature = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the path to the agent behavior/security prompt file.
+    /// </summary>
+    [Obsolete("Use Tools.AgentPromptPath instead.")]
+    public string AgentPromptPath
+    {
+        get => Tools.AgentPromptPath;
+        set => Tools.AgentPromptPath = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the base directory for documentation files.
+    /// </summary>
+    [Obsolete("Use Tools.DocumentationBasePath instead.")]
+    public string DocumentationBasePath
+    {
+        get => Tools.DocumentationBasePath;
+        set => Tools.DocumentationBasePath = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the path to the README file for command lists.
+    /// </summary>
+    [Obsolete("Use Tools.ReadmePath instead.")]
+    public string ReadmePath
+    {
+        get => Tools.ReadmePath;
+        set => Tools.ReadmePath = value;
+    }
+
+    /// <summary>
+    /// Gets or sets whether documentation tools are enabled.
+    /// </summary>
+    [Obsolete("Use Tools.EnableDocumentationTools instead.")]
+    public bool EnableDocumentationTools
+    {
+        get => Tools.EnableDocumentationTools;
+        set => Tools.EnableDocumentationTools = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum number of tool calls Claude can make per question.
+    /// </summary>
+    [Obsolete("Use Tools.MaxToolCallsPerQuestion instead.")]
+    public int MaxToolCallsPerQuestion
+    {
+        get => Tools.MaxToolCallsPerQuestion;
+        set => Tools.MaxToolCallsPerQuestion = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the timeout for individual tool executions in milliseconds.
+    /// </summary>
+    [Obsolete("Use Tools.ToolExecutionTimeoutMs instead.")]
+    public int ToolExecutionTimeoutMs
+    {
+        get => Tools.ToolExecutionTimeoutMs;
+        set => Tools.ToolExecutionTimeoutMs = value;
+    }
+
+    /// <summary>
+    /// Gets or sets whether to track and log token usage for cost monitoring.
+    /// </summary>
+    [Obsolete("Use Cost.EnableCostTracking instead.")]
+    public bool EnableCostTracking
+    {
+        get => Cost.EnableCostTracking;
+        set => Cost.EnableCostTracking = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the daily cost threshold in USD for performance alerts.
+    /// </summary>
+    [Obsolete("Use Cost.DailyCostThresholdUsd instead.")]
+    public decimal? DailyCostThresholdUsd
+    {
+        get => Cost.DailyCostThresholdUsd;
+        set => Cost.DailyCostThresholdUsd = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the cost per million input tokens in USD for cost estimation.
+    /// </summary>
+    [Obsolete("Use Cost.CostPerMillionInputTokens instead.")]
+    public decimal CostPerMillionInputTokens
+    {
+        get => Cost.CostPerMillionInputTokens;
+        set => Cost.CostPerMillionInputTokens = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the cost per million output tokens in USD for cost estimation.
+    /// </summary>
+    [Obsolete("Use Cost.CostPerMillionOutputTokens instead.")]
+    public decimal CostPerMillionOutputTokens
+    {
+        get => Cost.CostPerMillionOutputTokens;
+        set => Cost.CostPerMillionOutputTokens = value;
+    }
+
+    /// <summary>
+    /// Gets or sets whether users must explicitly opt-in via /consent before using the assistant.
+    /// </summary>
+    [Obsolete("Use Privacy.RequireExplicitConsent instead.")]
+    public bool RequireExplicitConsent
+    {
+        get => Privacy.RequireExplicitConsent;
+        set => Privacy.RequireExplicitConsent = value;
+    }
+
+    /// <summary>
+    /// Gets or sets whether to log user questions and Claude responses for audit/debugging.
+    /// </summary>
+    [Obsolete("Use Privacy.LogInteractions instead.")]
+    public bool LogInteractions
+    {
+        get => Privacy.LogInteractions;
+        set => Privacy.LogInteractions = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the number of days to retain assistant interaction logs.
+    /// </summary>
+    [Obsolete("Use Privacy.InteractionLogRetentionDays instead.")]
+    public int InteractionLogRetentionDays
+    {
+        get => Privacy.InteractionLogRetentionDays;
+        set => Privacy.InteractionLogRetentionDays = value;
+    }
+
+    /// <summary>
+    /// Gets or sets whether to use Claude's Prompt Caching for agent prompt and common docs.
+    /// </summary>
+    [Obsolete("Use Cost.EnablePromptCaching instead.")]
+    public bool EnablePromptCaching
+    {
+        get => Cost.EnablePromptCaching;
+        set => Cost.EnablePromptCaching = value;
+    }
+
+    /// <summary>
+    /// Gets or sets whether to pre-cache common documentation in the system message.
+    /// </summary>
+    [Obsolete("Use Cost.CacheCommonDocumentation instead.")]
+    public bool CacheCommonDocumentation
+    {
+        get => Cost.CacheCommonDocumentation;
+        set => Cost.CacheCommonDocumentation = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the list of documentation files to include in cached prompt.
+    /// </summary>
+    [Obsolete("Use Cost.CachedDocumentationFiles instead.")]
+    public string[] CachedDocumentationFiles
+    {
+        get => Cost.CachedDocumentationFiles;
+        set => Cost.CachedDocumentationFiles = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the cost per million cached input tokens in USD for cost estimation.
+    /// </summary>
+    [Obsolete("Use Cost.CostPerMillionCachedTokens instead.")]
+    public decimal CostPerMillionCachedTokens
+    {
+        get => Cost.CostPerMillionCachedTokens;
+        set => Cost.CostPerMillionCachedTokens = value;
+    }
+
+    /// <summary>
+    /// Gets or sets the cost per million cache write tokens in USD for cost estimation.
+    /// </summary>
+    [Obsolete("Use Cost.CostPerMillionCacheWriteTokens instead.")]
+    public decimal CostPerMillionCacheWriteTokens
+    {
+        get => Cost.CostPerMillionCacheWriteTokens;
+        set => Cost.CostPerMillionCacheWriteTokens = value;
+    }
 
     #endregion
 }

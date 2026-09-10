@@ -33,7 +33,10 @@ public class DocumentationToolProviderTests
 
         _mockAssistantOptions.Setup(o => o.Value).Returns(new AssistantOptions
         {
-            DocumentationBasePath = "docs/articles",
+            Tools = new()
+            {
+                DocumentationBasePath = "docs/articles"
+            },
             BaseUrl = "https://test.example.com"
         });
 

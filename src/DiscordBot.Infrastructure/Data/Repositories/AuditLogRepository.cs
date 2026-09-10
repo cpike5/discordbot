@@ -90,9 +90,6 @@ public class AuditLogRepository : Repository<AuditLog>, IAuditLogRepository
             queryable = queryable.Where(l => l.Details != null && l.Details.Contains(query.SearchTerm));
         }
 
-        // Get total count before pagination
-        var totalCount = await queryable.CountAsync(cancellationToken);
-
         // Apply sorting
         queryable = query.SortBy.ToLowerInvariant() switch
         {
@@ -113,12 +110,8 @@ public class AuditLogRepository : Repository<AuditLog>, IAuditLogRepository
                 : queryable.OrderBy(l => l.Timestamp)
         };
 
-        // Apply pagination
-        var skip = (query.Page - 1) * query.PageSize;
-        var items = await queryable
-            .Skip(skip)
-            .Take(query.PageSize)
-            .ToListAsync(cancellationToken);
+        // Apply pagination (count + skip/take)
+        var (items, totalCount) = await GetPagedAsync(queryable, query.Page, query.PageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} audit logs out of {TotalCount} total matching filters",

@@ -59,14 +59,8 @@ public class ScheduledMessageRepository : Repository<ScheduledMessage>, ISchedul
             .Include(s => s.Guild)
             .Where(s => s.GuildId == guildId);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(s => s.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderByDescending(s => s.CreatedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} scheduled messages for guild {GuildId} out of {TotalCount} total",

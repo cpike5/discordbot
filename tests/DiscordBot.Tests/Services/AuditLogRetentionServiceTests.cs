@@ -5,6 +5,7 @@ using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using DiscordBot.Tests.TestHelpers;
 using Moq;
 
 namespace DiscordBot.Tests.Services;
@@ -69,7 +70,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100); // Give it time to check and exit
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         await service.StopAsync(CancellationToken.None);
         await executeTask;
 
@@ -116,7 +117,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -167,7 +168,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -224,7 +225,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -277,7 +278,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -329,7 +330,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -384,7 +385,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel(); // Request cancellation
         await service.StopAsync(CancellationToken.None);
 
@@ -451,7 +452,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -497,7 +498,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -538,7 +539,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         await service.StopAsync(CancellationToken.None);
         await executeTask;
 
@@ -590,7 +591,7 @@ public class AuditLogRetentionServiceTests
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => _loggerMock.Invocations.Count(i => i.Method.Name == "Log") >= 2); // wait for the synchronous startup log sequence to complete, avoiding a fixed-delay race under load
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 

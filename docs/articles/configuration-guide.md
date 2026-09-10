@@ -158,7 +158,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 | Options Class | Section Key | Registered In | Key Properties |
 |--------------|-------------|---------------|----------------|
 | `AnthropicOptions` | `Anthropic` | `AssistantServiceExtensions` | `ApiKey` (secret), `DefaultModel`, `MaxRetries`, `TimeoutSeconds` |
-| `AssistantOptions` | `Assistant` | `AssistantServiceExtensions` | 30+ properties: enable/disable, rate limits, model config, prompt paths, tool config, cost tracking |
+| `AssistantOptions` | `Assistant` | `AssistantServiceExtensions` | Grouped into nested sub-options: `Sampling` (model/tokens/temperature/timeout), `RateLimits` (rate limit + bypass role), `Messages` (question/response length, error text, retry), `Tools` (doc tools, prompt/doc paths), `Cost` (cost tracking, prompt caching), `Privacy` (consent, logging, retention). Historical flat keys (e.g. `Assistant:MaxTokens`) still bind via obsolete forwarding properties and take precedence over the nested key (e.g. `Assistant:Sampling:MaxTokens`) if both are set. |
 
 #### Audio / Voice
 

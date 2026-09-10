@@ -29,6 +29,8 @@
 </head>
 <body class="portal-page bg-bg-primary text-text-primary font-sans antialiased">
     @RenderBody()
+    <!-- Shared fetch wrapper (anti-forgery token, JSON/blob handling, error parsing) -->
+    <script src="~/js/api-client.js" asp-append-version="true"></script>
     <!-- Unified User Preferences (localStorage + server sync) -->
     <script src="~/js/user-preferences.js" asp-append-version="true"></script>
     <!-- Shared Toast Notification Manager -->

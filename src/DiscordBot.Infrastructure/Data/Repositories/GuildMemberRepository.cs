@@ -370,9 +370,6 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
             query = query.Where(gm => userIds.Contains(gm.UserId));
         }
 
-        // Get total count before pagination
-        var totalCount = await query.CountAsync(cancellationToken);
-
         // Apply sorting
         query = sortBy.ToLower() switch
         {
@@ -390,11 +387,8 @@ public class GuildMemberRepository : Repository<GuildMember>, IGuildMemberReposi
                 : query.OrderBy(gm => gm.JoinedAt),
         };
 
-        // Apply pagination
-        var members = await query
-            .Skip((page - 1) * pageSize)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        // Apply pagination (count + skip/take)
+        var (members, totalCount) = await GetPagedAsync(query, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} of {TotalCount} members for guild {GuildId}",

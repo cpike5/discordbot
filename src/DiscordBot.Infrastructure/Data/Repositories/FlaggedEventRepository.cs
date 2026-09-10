@@ -78,14 +78,8 @@ public class FlaggedEventRepository : Repository<FlaggedEvent>, IFlaggedEventRep
             query = query.Where(e => e.UserId == userId.Value);
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(e => e.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderByDescending(e => e.CreatedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} pending flagged events for guild {GuildId} out of {TotalCount} total",
@@ -110,14 +104,8 @@ public class FlaggedEventRepository : Repository<FlaggedEvent>, IFlaggedEventRep
             .Include(e => e.Guild)
             .Where(e => e.GuildId == guildId && e.UserId == userId);
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(e => e.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderByDescending(e => e.CreatedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} flagged events for user {UserId} out of {TotalCount} total",
@@ -197,14 +185,8 @@ public class FlaggedEventRepository : Repository<FlaggedEvent>, IFlaggedEventRep
             query = query.Where(e => e.CreatedAt < endOfDay);
         }
 
-        var totalCount = await query.CountAsync(cancellationToken);
-
-        var skip = (page - 1) * pageSize;
-        var items = await query
-            .OrderByDescending(e => e.CreatedAt)
-            .Skip(skip)
-            .Take(pageSize)
-            .ToListAsync(cancellationToken);
+        var orderedQuery = query.OrderByDescending(e => e.CreatedAt);
+        var (items, totalCount) = await GetPagedAsync(orderedQuery, page, pageSize, cancellationToken);
 
         _logger.LogDebug(
             "Retrieved {Count} filtered flagged events for guild {GuildId} out of {TotalCount} total",

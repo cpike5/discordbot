@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Tests.TestHelpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -73,12 +74,15 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(50);
+        await LogTestHelper.WaitUntilAsync(
+            () => _queueMock.Invocations.Any(i => i.Method.Name == nameof(IAuditLogQueue.DequeueAsync)));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -99,12 +103,17 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(50);
+        await LogTestHelper.WaitForLogAsync(
+            _loggerMock,
+            LogLevel.Information,
+            msg => msg.Contains("starting") && msg.Contains("Batch size: 10") && msg.Contains("Timeout: 1000ms"));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -155,12 +164,15 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(1500); // Give it time to process
+        await LogTestHelper.WaitUntilAsync(() => dequeueCalled &&
+            _repositoryMock.Invocations.Any(i => i.Method.Name == nameof(IAuditLogRepository.BulkInsertAsync)));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -185,6 +197,8 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
@@ -223,12 +237,15 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(
+            () => _queueMock.Invocations.Any(i => i.Method.Name == nameof(IAuditLogQueue.DequeueAsync)));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -270,12 +287,15 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(
+            () => _queueMock.Invocations.Any(i => i.Method.Name == nameof(IAuditLogQueue.DequeueAsync)));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -326,6 +346,8 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
@@ -369,6 +391,8 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
@@ -406,12 +430,17 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(300); // Give it time to process and recover
+        await LogTestHelper.WaitForLogAsync(
+            _loggerMock,
+            LogLevel.Error,
+            msg => msg.Contains("Error processing audit log batch"));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -466,12 +495,15 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100); // Let it start
+        await LogTestHelper.WaitUntilAsync(
+            () => _queueMock.Invocations.Any(i => i.Method.Name == nameof(IAuditLogQueue.DequeueAsync))); // Let it start
         cts.Cancel(); // Trigger shutdown
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -512,12 +544,15 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(
+            () => _queueMock.Invocations.Any(i => i.Method.Name == nameof(IAuditLogQueue.DequeueAsync)));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -570,12 +605,14 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(100);
+        await LogTestHelper.WaitUntilAsync(() => callCount >= 1);
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -625,12 +662,15 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(1500);
+        await LogTestHelper.WaitUntilAsync(
+            () => _serviceScopeMock.Invocations.Any(i => i.Method.Name == nameof(IDisposable.Dispose)));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -678,12 +718,14 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(1500);
+        await LogTestHelper.WaitUntilAsync(() => capturedEntities != null);
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -736,6 +778,8 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
@@ -785,6 +829,8 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
@@ -837,14 +883,17 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        // Give sufficient time for service to process and handle error
-        // Using 3000ms to provide headroom for slow CI runners
-        await Task.Delay(3000);
+        await LogTestHelper.WaitForLogAsync(
+            _loggerMock,
+            LogLevel.Error,
+            msg => msg.Contains("Failed to write batch") && msg.Contains("Message.Deleted"));
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
         await executeTask;
@@ -892,12 +941,17 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 
         // Act
         var executeTask = service.StartAsync(cts.Token);
-        await Task.Delay(7000); // Give it time to process, fail, wait 5 seconds, and recover
+        // Wait for BulkInsertAsync to have been attempted at least twice: once that throws
+        // (per the SetupSequence above) and once that succeeds during the error-retry.
+        await LogTestHelper.WaitUntilAsync(() => _repositoryMock.Invocations
+            .Count(i => i.Method.Name == nameof(IAuditLogRepository.BulkInsertAsync)) >= 2);
         cts.Cancel();
         await service.StopAsync(CancellationToken.None);
 
@@ -941,6 +995,8 @@ public class AuditLogQueueProcessorTests
             _scopeFactoryMock.Object,
             _queueMock.Object,
             _loggerMock.Object);
+        service.BatchTimeout = TimeSpan.FromMilliseconds(50);
+        service.ErrorRetryDelay = TimeSpan.FromMilliseconds(50);
 
         using var cts = new CancellationTokenSource();
 

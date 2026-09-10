@@ -4,7 +4,8 @@
   "description": "Discord Bot Admin UI - Tailwind CSS Build",
   "scripts": {
     "build:css": "tailwindcss -i ./wwwroot/css/site.css -o ./wwwroot/css/app.css --minify",
-    "watch:css": "tailwindcss -i ./wwwroot/css/site.css -o ./wwwroot/css/app.css --watch"
+    "watch:css": "tailwindcss -i ./wwwroot/css/site.css -o ./wwwroot/css/app.css --watch",
+    "test": "node --test wwwroot/js/__tests__/*.test.js"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",

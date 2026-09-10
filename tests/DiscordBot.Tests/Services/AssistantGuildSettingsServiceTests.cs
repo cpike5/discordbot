@@ -37,7 +37,10 @@ public class AssistantGuildSettingsServiceTests
         {
             GloballyEnabled = true,
             EnabledByDefaultForNewGuilds = false,
-            DefaultRateLimit = DefaultRateLimit
+            RateLimits = new()
+            {
+                DefaultRateLimit = DefaultRateLimit
+            }
         };
 
         var mockOptions = new Mock<IOptions<AssistantOptions>>();

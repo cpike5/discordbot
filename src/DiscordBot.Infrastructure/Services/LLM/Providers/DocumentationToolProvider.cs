@@ -161,7 +161,7 @@ public class DocumentationToolProvider : IToolProvider
             fileName = $"{featureName}.md";
         }
 
-        var docPath = Path.Combine(_assistantOptions.Value.DocumentationBasePath, fileName);
+        var docPath = Path.Combine(_assistantOptions.Value.Tools.DocumentationBasePath, fileName);
 
         // Resolve path
         var fullPath = Path.IsPathRooted(docPath)

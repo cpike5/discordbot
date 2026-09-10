@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Services;
 public class AuditLogRetentionService : MonitoredBackgroundService
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly TimeProvider _timeProvider;
     private readonly IOptions<AuditLogRetentionOptions> _options;
     private readonly IOptions<BackgroundServicesOptions> _bgOptions;
 
@@ -28,9 +29,11 @@ public class AuditLogRetentionService : MonitoredBackgroundService
         IServiceScopeFactory scopeFactory,
         IOptions<AuditLogRetentionOptions> options,
         IOptions<BackgroundServicesOptions> bgOptions,
-        ILogger<AuditLogRetentionService> logger)
+        ILogger<AuditLogRetentionService> logger,
+        TimeProvider? timeProvider = null)
         : base(serviceProvider, logger)
     {
+        _timeProvider = timeProvider ?? TimeProvider.System;
         _scopeFactory = scopeFactory;
         _options = options;
         _bgOptions = bgOptions;
@@ -55,7 +58,7 @@ public class AuditLogRetentionService : MonitoredBackgroundService
 
         // Initial delay to let the app start up
         var initialDelay = TimeSpan.FromMinutes(_bgOptions.Value.AuditLogCleanupInitialDelayMinutes);
-        await Task.Delay(initialDelay, stoppingToken);
+        await Task.Delay(initialDelay, _timeProvider, stoppingToken);
 
         var executionCycle = 0;
 
@@ -93,7 +96,7 @@ public class AuditLogRetentionService : MonitoredBackgroundService
 
             // Wait for next cleanup interval
             var interval = TimeSpan.FromHours(_options.Value.CleanupIntervalHours);
-            await Task.Delay(interval, stoppingToken);
+            await Task.Delay(interval, _timeProvider, stoppingToken);
         }
 
         _logger.LogInformation("Audit log retention service stopping");
