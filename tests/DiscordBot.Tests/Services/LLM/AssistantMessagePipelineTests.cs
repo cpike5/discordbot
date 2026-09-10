@@ -116,6 +116,77 @@ public class AssistantMessagePipelineTests
         result.EstimatedCostUsd.Should().BeGreaterThan(0);
     }
 
+    /// <summary>
+    /// OpenRouter reports what it actually billed for a call. That figure is authoritative and must
+    /// win over the configured per-million rates, which are only an estimate from a fixed price list
+    /// and are wrong for any model priced differently from the configured one.
+    /// </summary>
+    [Fact]
+    public async Task RunAsync_UsesBilledCost_WhenTheProviderReportsOne()
+    {
+        var mockAgentRunner = new Mock<IAgentRunner>();
+        mockAgentRunner
+            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentRunResult
+            {
+                Success = true,
+                Response = "Answer.",
+                // Token counts that would price at 0.00105 via the configured rates, so a passing
+                // assertion cannot be satisfied by the fallback path.
+                TotalUsage = new LlmUsage
+                {
+                    InputTokens = 100,
+                    OutputTokens = 50,
+                    EstimatedCost = 0.00042m
+                }
+            });
+
+        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
+        var context = BuildGuildContext(out var mockPromptTemplate);
+        mockPromptTemplate
+            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("system prompt template");
+        mockPromptTemplate
+            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
+            .Returns("rendered system prompt");
+
+        var result = await pipeline.RunAsync("question", context);
+
+        result.EstimatedCostUsd.Should().Be(0.00042m);
+    }
+
+    /// <summary>
+    /// A response that carries no cost means "not reported", not "free" — the configured rates are
+    /// the fallback for that case.
+    /// </summary>
+    [Fact]
+    public async Task RunAsync_FallsBackToConfiguredRates_WhenNoBilledCostIsReported()
+    {
+        var mockAgentRunner = new Mock<IAgentRunner>();
+        mockAgentRunner
+            .Setup(r => r.RunAsync(It.IsAny<string>(), It.IsAny<AgentContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new AgentRunResult
+            {
+                Success = true,
+                Response = "Answer.",
+                TotalUsage = new LlmUsage { InputTokens = 100, OutputTokens = 50, EstimatedCost = null }
+            });
+
+        var pipeline = new AssistantMessagePipeline(mockAgentRunner.Object);
+        var context = BuildGuildContext(out var mockPromptTemplate);
+        mockPromptTemplate
+            .Setup(p => p.LoadAsync(It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync("system prompt template");
+        mockPromptTemplate
+            .Setup(p => p.Render(It.IsAny<string>(), It.IsAny<Dictionary<string, string>>()))
+            .Returns("rendered system prompt");
+
+        var result = await pipeline.RunAsync("question", context);
+
+        // 100 input @ $3/M + 50 output @ $15/M.
+        result.EstimatedCostUsd.Should().Be(0.00105m);
+    }
+
     [Fact]
     public async Task RunAsync_DmContext_ReturnsSuccessfulResult()
     {
@@ -191,7 +262,7 @@ public class AssistantMessagePipelineTests
 
         var options = new DmAssistantOptions
         {
-            Model = "claude-sonnet-4-20250514",
+            Model = "anthropic/claude-sonnet-4",
             MaxTokens = 4096,
             Temperature = 0.7,
             MaxResponseLength = 50000,
@@ -246,7 +317,7 @@ public class AssistantMessagePipelineTests
         {
             Sampling = new()
             {
-                Model = "claude-sonnet-4-20250514",
+                Model = "anthropic/claude-sonnet-4",
                 MaxTokens = 512,
                 Temperature = 0.7
             },
@@ -291,7 +362,7 @@ public class AssistantMessagePipelineTests
 
         var options = new DmAssistantOptions
         {
-            Model = "claude-sonnet-4-20250514",
+            Model = "anthropic/claude-sonnet-4",
             MaxTokens = 4096,
             Temperature = 0.7,
             MaxResponseLength = 50000,
