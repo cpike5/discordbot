@@ -1,5 +1,6 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

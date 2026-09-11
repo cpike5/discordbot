@@ -1,5 +1,5 @@
-using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Core.Interfaces.LLM;
 

@@ -1,12 +1,15 @@
 using DiscordBot.Core.Configuration;
-using DiscordBot.Core.DTOs.LLM;
-using DiscordBot.Core.DTOs.LLM.Enums;
+using DiscordBot.Agents.Contracts;
+using DiscordBot.Agents.Contracts.Enums;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Agents;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 

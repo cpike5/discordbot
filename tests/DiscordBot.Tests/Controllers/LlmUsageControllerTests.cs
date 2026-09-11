@@ -1,7 +1,7 @@
 using DiscordBot.Bot.Controllers;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -10,6 +10,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Tests.Controllers;
 

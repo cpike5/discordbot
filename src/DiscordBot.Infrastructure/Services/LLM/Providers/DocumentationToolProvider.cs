@@ -1,8 +1,9 @@
 using System.Text.Json;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Services.LLM.Implementations;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;

@@ -1,6 +1,6 @@
 using DiscordBot.Bot.Pages.Admin;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Tests.Bot.Pages.Admin;
 

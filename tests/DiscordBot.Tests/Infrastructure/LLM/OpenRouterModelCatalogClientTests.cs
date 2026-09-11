@@ -1,8 +1,9 @@
 using System.Net;
 using System.Text;
-using DiscordBot.Infrastructure.Services.LLM.OpenRouter;
+using DiscordBot.Agents.OpenRouter;
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
+using DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 
 namespace DiscordBot.Tests.Infrastructure.LLM;
 

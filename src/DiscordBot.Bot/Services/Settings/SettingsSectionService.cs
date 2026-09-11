@@ -5,6 +5,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using System.Text.Json;
 
 namespace DiscordBot.Bot.Services.Settings;

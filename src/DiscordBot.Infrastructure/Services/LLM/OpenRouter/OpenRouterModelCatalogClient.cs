@@ -1,8 +1,11 @@
 using System.Globalization;
 using System.Text.Json;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
+using DiscordBot.Core.DTOs.Llm.Reporting;
+using DiscordBot.Agents.OpenRouter;
 
 namespace DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 

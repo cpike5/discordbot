@@ -1,5 +1,5 @@
 using System.Text.Json;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 
 namespace DiscordBot.Infrastructure.Services.LLM.Implementations;
 

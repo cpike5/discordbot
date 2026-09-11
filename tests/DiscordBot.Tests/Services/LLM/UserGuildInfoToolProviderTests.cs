@@ -2,7 +2,7 @@ using System.Text.Json;
 using Discord;
 using Discord.WebSocket;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Services.LLM.Implementations;
 using DiscordBot.Bot.Services.LLM.Providers;
@@ -288,8 +288,7 @@ public class UserGuildInfoToolProviderTests
             UserId = userId,
             GuildId = guildId,
             ChannelId = channelId,
-            MessageId = 444555666,
-            UserRoles = new List<string> { "Member" }
+            MessageId = 444555666
         };
     }
 

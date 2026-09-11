@@ -17,7 +17,8 @@ Solution layout (clean architecture, dependencies point inward):
 
 | Project | Owns |
 | --- | --- |
-| `src/DiscordBot.Core` | Entities, enums, DTOs, service and repository interfaces, options classes. No framework dependencies. |
+| `src/DiscordBot.Agents` | The agent engine: the agentic loop (`AgentRunner`), tool contracts, `ToolRegistry`, `PromptTemplate`, and the OpenRouter chat client. A leaf library — it references no other project and knows nothing about Discord, EF Core, or guilds. |
+| `src/DiscordBot.Core` | Entities, enums, DTOs, service and repository interfaces, options classes. No framework dependencies, and no project references at all. |
 | `src/DiscordBot.Infrastructure` | EF Core `BotDbContext` (SQLite and Postgres variants), repositories, migrations, infrastructure services. |
 | `src/DiscordBot.Bot` | Everything hosted: Discord command modules, bot services, Razor Pages, controllers, SignalR hubs, DI registration in `Extensions/*ServiceExtensions.cs`, `Program.cs`. |
 | `src/DiscordBot.DocGen` | Small CLI that runs the feature-request document generator against the database. Rarely touched. |
@@ -26,6 +27,13 @@ Solution layout (clean architecture, dependencies point inward):
 A new service goes: interface in Core, implementation in Bot or Infrastructure,
 registration in the matching `*ServiceExtensions.cs`. Follow that split so Core
 stays framework-free.
+
+A new **tool** is not engine work: it implements `IToolProvider` from
+`DiscordBot.Agents.Abstractions` and lives in Infrastructure or Bot, next to the domain
+services it calls. Only the model-facing machinery itself belongs in `DiscordBot.Agents`.
+An assistant abstraction whose signature is made of engine types (`IAssistantContext`,
+`IAssistantMessagePipeline`, the context factories) lives in
+`Infrastructure/Abstractions/LLM/` rather than Core, because Core cannot see the engine.
 
 ## Read before you search
 
@@ -154,7 +162,7 @@ columns throw.
   ```
 
 - **The assistant talks to OpenRouter, not a vendor SDK.** `ILlmClient` is
-  implemented by `OpenRouterLlmClient` (`Infrastructure/Services/LLM/OpenRouter/`):
+  implemented by `OpenRouterLlmClient` (`DiscordBot.Agents/OpenRouter/`):
   an owned typed `HttpClient` over OpenRouter's OpenAI-compatible chat completions,
   plus owned wire records. There is no LLM SDK dependency — build LLM work on
   `ILlmClient` and those records rather than adding one. Model names are OpenRouter

@@ -1,14 +1,16 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Settings;
 using DiscordBot.Core.DTOs;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Tests.Bot.Services.Settings;
 

@@ -459,7 +459,7 @@ The assistant uses a provider-agnostic LLM abstraction layer that supports multi
 - `IPromptTemplate` - Loads and renders prompt templates with variable substitution
 
 **Current Provider:**
-- `OpenRouterLlmClient` (`DiscordBot.Infrastructure.Services.LLM.OpenRouter`) - OpenAI-compatible chat completions against OpenRouter, via an **owned typed `HttpClient`** and owned wire records (`ChatCompletionRequest.cs`, `ChatCompletionResponse.cs`). There is no LLM SDK dependency.
+- `OpenRouterLlmClient` (`DiscordBot.Agents.OpenRouter`) - OpenAI-compatible chat completions against OpenRouter, via an **owned typed `HttpClient`** and owned wire records (`ChatCompletionRequest.cs`, `ChatCompletionResponse.cs`). There is no LLM SDK dependency.
 - `OpenRouterMessageMapper` - translates between the neutral `LlmRequest`/`LlmResponse` DTOs and the wire records.
 
 Because OpenRouter fronts many providers, switching models is a configuration change (a different slug), not a code change.

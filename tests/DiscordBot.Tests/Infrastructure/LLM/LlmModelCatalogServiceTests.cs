@@ -1,8 +1,9 @@
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services.LLM;
@@ -11,6 +12,7 @@ using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Tests.Infrastructure.LLM;
 

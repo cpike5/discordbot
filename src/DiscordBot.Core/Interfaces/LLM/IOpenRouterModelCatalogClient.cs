@@ -1,11 +1,11 @@
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Core.Interfaces.LLM;
 
 /// <summary>
 /// Fetches and parses OpenRouter's model catalog (<c>GET /models</c>). Implemented in
 /// Infrastructure as a second typed <see cref="System.Net.Http.HttpClient"/>, separate from
-/// <see cref="ILlmClient"/>, carrying the same auth and attribution headers.
+/// the agent engine's <c>ILlmClient</c>, carrying the same auth and attribution headers.
 /// </summary>
 public interface IOpenRouterModelCatalogClient
 {

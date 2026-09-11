@@ -1,9 +1,11 @@
 using System.Text.Json;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Services.LLM.Implementations;
 using Microsoft.Extensions.Logging;
+using DiscordBot.Infrastructure.Abstractions.LLM;
 
 namespace DiscordBot.Infrastructure.Services.LLM.Providers;
 
@@ -79,7 +81,7 @@ public class DmAnalyticsToolProvider : IDmToolProvider
             if (!string.IsNullOrEmpty(gidStr) && ulong.TryParse(gidStr, out var parsed))
                 guildId = parsed;
         }
-        guildId ??= context.ActiveGuildId;
+        guildId ??= context.GetActiveGuildId();
 
         if (guildId is null or 0)
             return ToolExecutionResult.CreateError("No guild context. Use set_active_guild first or provide guild_id.");
@@ -126,7 +128,7 @@ public class DmAnalyticsToolProvider : IDmToolProvider
             if (!string.IsNullOrEmpty(gidStr) && ulong.TryParse(gidStr, out var parsed))
                 guildId = parsed;
         }
-        guildId ??= context.ActiveGuildId;
+        guildId ??= context.GetActiveGuildId();
 
         if (guildId is null or 0)
             return ToolExecutionResult.CreateError("No guild context. Use set_active_guild first or provide guild_id.");
