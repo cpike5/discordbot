@@ -97,6 +97,12 @@ them. An in-memory database also lives inside one connection, so writers cannot
 actually contend: a test about concurrent writes needs
 `TestDbContextFactory.CreateSharedDatabase()`, which is file-backed.
 
+**Browser (Playwright) tests.** `tests/DiscordBot.E2E` drives the real app with headless
+Chromium and is gated behind `E2E_ENABLED=1` (unset, every test reports Skipped, so the commands
+above stay green); Chromium is pre-installed in this repo's remote sessions at
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`. See `docs/articles/testing-guide.md` "Browser
+(Playwright) tests".
+
 **Background-service tests fail in a full run but pass alone** when something
 starves them. Two rules keep them green: never block a thread-pool thread on
 other pool threads (a `Barrier` inside `Parallel.For`, a `Thread.Sleep` loop in

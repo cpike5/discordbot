@@ -1077,6 +1077,95 @@ result.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 
 ---
 
+## Browser (Playwright) Tests
+
+`tests/DiscordBot.E2E` drives the real, running application with headless Chromium via
+[Microsoft.Playwright](https://playwright.dev/dotnet/) 1.62.0. It is separate from
+`DiscordBot.Tests`: where the unit test project mocks everything below the class under test,
+this project boots the actual `DiscordBot.Bot.dll`, in web-only mode (`Discord:Enabled=false` -
+see CLAUDE.md "Running it locally"), and clicks through it in a browser. Use it for the one
+thing unit and component tests cannot see: that a page actually renders, an Interactive Server
+circuit actually boots, and a login actually redirects, in a real browser DOM. See
+`docs/plans/blazor-port-plan.md` §6 "Testing strategy" for how this fits alongside bUnit
+component tests (`tests/DiscordBot.ComponentTests`, once that project exists).
+
+### Running it
+
+The whole project is gated behind the `E2E_ENABLED` environment variable so a plain
+`dotnet test DiscordBot.sln` - and CI's own unit-test job - stay green on any machine without
+Chromium: without `E2E_ENABLED=1`, every test in the class reports **Skipped** (not failed),
+via `E2EFactAttribute`.
+
+```bash
+# Build first - the project assumes the solution is already built and does not build it itself.
+dotnet build DiscordBot.sln -p:SkipTailwind=true
+
+# Then run the suite:
+E2E_ENABLED=1 dotnet test tests/DiscordBot.E2E --no-build
+```
+
+Chromium must already be installed. In this repository's remote (web) sessions it is
+pre-installed at `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`
+(`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` is set, so do not run `playwright install` there) - the
+tests resolve Chromium's executable from, in order: `E2E_CHROMIUM_PATH` (an explicit override),
+then `$PLAYWRIGHT_BROWSERS_PATH/chromium`, then Playwright's own default resolution (a browser
+installed the normal way, e.g. after `pwsh tests/DiscordBot.E2E/bin/<Configuration>/net10.0/playwright.ps1
+install chromium --with-deps`, which is what CI's `e2e` job does - see `.github/workflows/ci.yml`).
+
+Useful environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `E2E_ENABLED` | Set to `1` to actually run the suite; unset (or any other value) skips every test. |
+| `E2E_BOT_DLL` | Overrides the resolved path to `DiscordBot.Bot.dll`, in case the test assembly's own build configuration (parsed from its own `bin/<Configuration>/net10.0/` path) doesn't match where the bot was built. |
+| `E2E_CHROMIUM_PATH` | Overrides the Chromium executable Playwright launches. |
+
+### How the host fixture works
+
+`BotHostFixture` (`IAsyncLifetime`, shared by the whole class via `E2ECollection` so the host
+boots once, not once per test) starts `DiscordBot.Bot.dll` as a child process - not in-process,
+so the test project stays free of Discord.NET, native audio libraries and the rest of the Bot
+project's runtime dependencies:
+
+- `ASPNETCORE_ENVIRONMENT=Development`, `Discord__Enabled=false` (web-only, no bot token - see
+  CLAUDE.md "Running it locally").
+- `ASPNETCORE_URLS` bound to a free loopback port picked for that run.
+- `ConnectionStrings__DefaultConnection` pointed at a throwaway SQLite file, and
+  `DataProtection__KeyPath` at a sibling folder, both under a fresh temp directory.
+- `Identity__DefaultAdmin__Email`/`Identity__DefaultAdmin__Password` so `IdentitySeeder` seeds
+  one admin account (`e2e-admin@example.test`) on first startup - no other secrets are needed;
+  Discord OAuth, OpenRouter and Azure Speech all start up fine unconfigured (see
+  "Discord:Enabled (web-only mode)" and "Optional Secrets" in `configuration-guide.md`).
+
+It polls `/health` (200 for Healthy or Degraded - Discord's own gateway check reports Degraded,
+not Unhealthy, when disabled) for up to 60 seconds, captures the child process's stdout/stderr to
+`host.log` in that same temp directory, and includes that file's path in the exception if startup
+fails. On dispose it kills the process and deletes the temp directory - so if a run fails and you
+need to inspect the log, capture it before the process exits (e.g. run the affected test alone,
+or read `BotHostFixture.LogFilePath` from a debugger/breakpoint); CI's `e2e` job also attempts a
+best-effort upload of `/tmp/discordbot-e2e-*/` on failure, which only actually finds something
+when the host failed to become healthy in the first place.
+
+`PlaywrightFixture` launches one shared headless Chromium instance the same way, and each test
+opens its own `IBrowserContext` off of it (never sharing cookies/storage between tests) rather
+than one browser per test - xUnit constructs a fresh instance of the test class per test method
+regardless, so there is nothing else worth sharing at that level.
+
+### The rule
+
+**Every migrated page cluster (plan §5 Phase 4) adds one happy-path Playwright test**: log in (or
+reuse a login helper), navigate to the page, perform the one thing that page exists for, assert
+the result - mirroring plan §6's "one happy path per migrated cluster". Keep it to the happy path;
+edge cases and error states belong in bUnit component tests, which run without a browser and are
+far cheaper. Keep each test well under the file's practical ceiling (Playwright's own default
+timeouts are generous, but a host boot plus a browser round trip adds up fast in a shared CI
+runner) and prefer explicit waits (`Expect(...).ToBeVisibleAsync()`, `Expect(...).ToContainTextAsync()`)
+over `Task.Delay` sleeps, which are banned here for the same reason they're avoided in
+`ConcurrencyTestHelper`-style unit tests: they are either too short (flaky) or too long
+(slow) and never both at once.
+
+---
+
 ## Continuous Integration
 
 Tests are automatically run in CI/CD pipelines. Ensure:
