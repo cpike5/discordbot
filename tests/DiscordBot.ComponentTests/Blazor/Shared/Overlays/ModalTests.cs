@@ -87,6 +87,27 @@ public class ModalTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Dialog_HasTabIndexNegativeOne_SoEscapeWorksWithNoFocusableChild()
+    {
+        var cut = Render<Modal>(p => p.Add(x => x.Id, "m1").Add(x => x.IsOpen, true));
+        cut.Find("div[role='document']").GetAttribute("tabindex").Should().Be("-1");
+    }
+
+    [Fact]
+    public async Task Dispose_SwallowsJSDisconnectedException_FromReleaseFocus()
+    {
+        var moduleInterop = JSInterop.SetupModule("./js/blazor/browser.js");
+        moduleInterop.Setup<int>("trapFocus", _ => true).SetResult(1);
+        moduleInterop.SetupVoid("releaseFocus", _ => true).SetException(new Microsoft.JSInterop.JSDisconnectedException("circuit gone"));
+
+        Render<Modal>(p => p.Add(x => x.Id, "m1").Add(x => x.IsOpen, true));
+
+        var act = async () => await DisposeComponentsAsync();
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public void Class_And_AdditionalAttributes_ArePassedThrough()
     {
         var cut = Render<Modal>(p => p

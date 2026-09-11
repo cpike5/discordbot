@@ -21,7 +21,7 @@
     fallback; swap for <StatusIndicator> once Tier 1b ships.
 *@
 
-<div class="bg-bg-secondary border border-border-primary rounded-lg p-5" data-bot-status-card @attributes="AdditionalAttributes">
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-5 @Class" data-bot-status-card @attributes="AdditionalAttributes">
     <div class="flex items-center justify-between mb-4">
         <h2 class="text-lg font-semibold text-text-primary">Bot Status</h2>
         <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full @BadgeBgClass">
@@ -75,6 +75,8 @@
 </div>
 
 @code {
+    [Parameter] public string? Class { get; set; }
+
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
 

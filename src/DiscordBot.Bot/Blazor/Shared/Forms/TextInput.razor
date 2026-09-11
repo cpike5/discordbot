@@ -117,7 +117,21 @@
             var paddingLeft = !string.IsNullOrEmpty(IconLeft) ? "pl-10" : "";
             var paddingRight = !string.IsNullOrEmpty(IconRight) ? "pr-10" : "";
             var classes = $"w-full {SizeClasses} {paddingLeft} {paddingRight} text-text-primary bg-bg-primary border {ValidationClasses} rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px]";
-            return IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+            classes = IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+
+            // Appends the EditContext's modified/valid/invalid class (empty string when there is
+            // no cascaded EditContext, or none of those apply yet) - the same class InputBase<T>'s
+            // own CssClass computes, so an <EditForm>-hosted TextInput picks up the framework's
+            // validation styling.
+            if (CascadedEditContext is not null && _fieldIdentifier is { } fieldId)
+            {
+                // Local variable deliberately not named "field" - C#'s "field" contextual
+                // keyword (property backing-field access) takes over that identifier inside a
+                // property getter like this one and silently resolves to the wrong (string) type.
+                classes = $"{classes} {CascadedEditContext.FieldCssClass(fieldId)}";
+            }
+
+            return classes;
         }
     }
 

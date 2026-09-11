@@ -99,7 +99,20 @@ else
         _ = ReleaseClickOutsideAsync();
     }
 
-    private Task HandleKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Toggle() : Task.CompletedTask;
+    // Escape always closes, regardless of current state - unlike the toggle button, it should
+    // never reopen an already-closed dropdown.
+    private Task HandleKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
+
+    private async Task Close()
+    {
+        if (!_open)
+        {
+            return;
+        }
+
+        _open = false;
+        await ReleaseClickOutsideAsync();
+    }
 
     private async Task ReleaseClickOutsideAsync()
     {
@@ -112,7 +125,20 @@ else
 
     public async ValueTask DisposeAsync()
     {
-        await ReleaseClickOutsideAsync();
+        try
+        {
+            await ReleaseClickOutsideAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
         _selfRef?.Dispose();
     }
 }

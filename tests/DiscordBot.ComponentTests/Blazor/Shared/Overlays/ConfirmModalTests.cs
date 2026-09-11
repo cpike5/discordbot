@@ -152,6 +152,21 @@ public class ConfirmModalTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public async Task Class_And_AdditionalAttributes_ArePassedThrough_ToUnderlyingModal()
+    {
+        var cut = Render<ConfirmModal>(p => p
+            .Add(x => x.Id, "cm1")
+            .Add(x => x.Title, "x")
+            .Add(x => x.Message, "y")
+            .Add(x => x.Class, "extra-class")
+            .AddUnmatched("data-testid", "my-confirm"));
+        _ = await StartShowAsync(cut);
+
+        cut.Find("div[role='document']").ClassList.Should().Contain("extra-class");
+        cut.Find("div[role='dialog']").GetAttribute("data-testid").Should().Be("my-confirm");
+    }
+
+    [Fact]
     public async Task MessageContent_OverridesMessage()
     {
         var cut = Render<ConfirmModal>(p => p

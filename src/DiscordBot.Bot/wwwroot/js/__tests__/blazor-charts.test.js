@@ -86,6 +86,71 @@ test('buildPalette falls back to hardcoded Graphite colors when unset', async ()
     assert.equal(palette.secondary, '#e6602b');
 });
 
+test('buildPaletteList cycles through the palette tokens in a fixed order', async () => {
+    const { buildPaletteList } = await chartsModulePromise;
+
+    const values = {
+        '--color-accent-orange': 'orange',
+        '--color-accent-blue': 'blue',
+        '--color-success': 'green',
+        '--color-warning': 'amber',
+        '--color-info': 'cyan',
+        '--color-error': 'red',
+        '--color-accent-purple': 'violet'
+    };
+
+    const colors = buildPaletteList((name) => values[name], 9);
+
+    assert.deepEqual(colors, ['orange', 'blue', 'green', 'amber', 'cyan', 'red', 'violet', 'orange', 'blue']);
+});
+
+test('buildPaletteList returns an empty array for a zero count', async () => {
+    const { buildPaletteList } = await chartsModulePromise;
+
+    assert.deepEqual(buildPaletteList(() => undefined, 0), []);
+});
+
+test('applyGraphitePalette replaces the "graphite" sentinel with a real per-item color list', async () => {
+    const { applyGraphitePalette } = await chartsModulePromise;
+
+    const values = {
+        '--color-accent-orange': 'orange',
+        '--color-accent-blue': 'blue',
+        '--color-success': 'green'
+    };
+
+    const data = {
+        labels: ['a', 'b', 'c'],
+        datasets: [{ data: [1, 2, 3], backgroundColor: 'graphite', borderColor: 'graphite' }]
+    };
+
+    const result = applyGraphitePalette(data, (name) => values[name]);
+
+    assert.deepEqual(result.datasets[0].backgroundColor, ['orange', 'blue', 'green']);
+    assert.deepEqual(result.datasets[0].borderColor, ['orange', 'blue', 'green']);
+    assert.notEqual(result, data, 'must not mutate the input object');
+    assert.equal(data.datasets[0].backgroundColor, 'graphite', 'must not mutate the input dataset');
+});
+
+test('applyGraphitePalette leaves a dataset with its own explicit colors untouched', async () => {
+    const { applyGraphitePalette } = await chartsModulePromise;
+
+    const data = {
+        datasets: [{ data: [1, 2], backgroundColor: '#123456', borderColor: '#654321' }]
+    };
+
+    const result = applyGraphitePalette(data, () => undefined);
+
+    assert.equal(result, data, 'no dataset used the sentinel, so the same object is returned');
+});
+
+test('applyGraphitePalette tolerates missing/malformed data', async () => {
+    const { applyGraphitePalette } = await chartsModulePromise;
+
+    assert.equal(applyGraphitePalette(undefined, () => undefined), undefined);
+    assert.deepEqual(applyGraphitePalette({ labels: [] }, () => undefined), { labels: [] });
+});
+
 test('mergeDeep deep-merges nested objects without mutating either input', async () => {
     const { mergeDeep } = await chartsModulePromise;
 

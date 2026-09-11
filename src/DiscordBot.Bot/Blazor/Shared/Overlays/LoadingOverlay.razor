@@ -9,7 +9,7 @@
 
 @if (LoadingState.IsLoading)
 {
-    <div class="loading-overlay" role="alert" aria-live="polite" aria-busy="true" @attributes="AdditionalAttributes">
+    <div class="loading-overlay @Class" role="alert" aria-live="polite" aria-busy="true" @attributes="AdditionalAttributes">
         <LoadingSpinner Variant="Variant" Size="Size" Message="@(LoadingState.Message ?? Message)" SubMessage="SubMessage" Color="DiscordBot.Bot.ViewModels.Components.SpinnerColor.White" />
 
         @if (OnCancel.HasDelegate)
@@ -32,6 +32,7 @@
     [Parameter] public string? SubMessage { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
     [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public string? Class { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }

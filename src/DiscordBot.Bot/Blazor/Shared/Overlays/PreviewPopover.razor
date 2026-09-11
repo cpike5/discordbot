@@ -297,7 +297,21 @@
     {
         _showCts?.Cancel();
         _hideCts?.Cancel();
-        await ReleaseClickOutsideAsync();
+
+        try
+        {
+            await ReleaseClickOutsideAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+
         _selfRef?.Dispose();
     }
 }

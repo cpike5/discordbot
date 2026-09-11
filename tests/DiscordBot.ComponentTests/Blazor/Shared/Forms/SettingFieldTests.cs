@@ -89,6 +89,20 @@ public class SettingFieldTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Class_And_AdditionalAttributes_ArePassedThrough()
+    {
+        var setting = new SettingDto { Key = "a:b", Value = "true", DataType = SettingDataType.Boolean, DisplayName = "Feature" };
+        var cut = Render<SettingField>(p => p
+            .Add(x => x.Setting, setting)
+            .Add(x => x.Class, "extra-class")
+            .AddUnmatched("data-testid", "my-setting"));
+
+        var root = cut.Find("div");
+        root.ClassList.Should().Contain("extra-class");
+        root.GetAttribute("data-testid").Should().Be("my-setting");
+    }
+
+    [Fact]
     public void OnValueChanged_FiresWithKeyAndNewValue_OnTextInput()
     {
         (string Key, string Value)? captured = null;

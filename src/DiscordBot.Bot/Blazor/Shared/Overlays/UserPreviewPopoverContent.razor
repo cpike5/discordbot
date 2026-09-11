@@ -4,7 +4,7 @@
 @* Ported from _UserPreviewPopup.cshtml / UserPreviewViewModel - content only, the popup chrome
    (dialog role, positioning, width) belongs to PreviewPopover. *@
 
-<div class="preview-popup preview-popup-user">
+<div class="preview-popup preview-popup-user @Class" @attributes="AdditionalAttributes">
     <div class="preview-header">
         <div class="preview-avatar">
             @if (!string.IsNullOrEmpty(Model.AvatarUrl))
@@ -91,4 +91,8 @@
 
 @code {
     [Parameter, EditorRequired] public UserPreviewViewModel Model { get; set; } = null!;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
 }

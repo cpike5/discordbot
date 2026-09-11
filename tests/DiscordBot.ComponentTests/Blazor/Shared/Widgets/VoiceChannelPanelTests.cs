@@ -177,6 +177,20 @@ public class VoiceChannelPanelTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Class_IsAppended()
+    {
+        var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, GuildId).Add(x => x.Class, "extra-class"));
+        cut.Find("#voice-channel-panel").ClassList.Should().Contain("extra-class");
+    }
+
+    [Fact]
+    public void Class_IsAppended_OnInvalidGuildIdBranch()
+    {
+        var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, "not-a-guild-id").Add(x => x.Class, "extra-class"));
+        cut.Find("#voice-channel-panel").ClassList.Should().Contain("extra-class");
+    }
+
+    [Fact]
     public void InvalidGuildId_RendersDisabledPanel_WithoutThrowing()
     {
         var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, "not-a-guild-id"));

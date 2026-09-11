@@ -31,7 +31,7 @@
     usage, and the v2 path is the one that verifies against the published Heroicons SVG.
 *@
 
-<div class="@BannerClass" data-bot-status-card data-is-online="@IsOnline.ToString().ToLowerInvariant()" @attributes="AdditionalAttributes">
+<div class="@BannerClass @Class" data-bot-status-card data-is-online="@IsOnline.ToString().ToLowerInvariant()" @attributes="AdditionalAttributes">
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div class="flex items-center gap-4">
             <div class="w-11 h-11 rounded-md @IconBgColor flex items-center justify-center">
@@ -79,6 +79,8 @@
 </div>
 
 @code {
+    [Parameter] public string? Class { get; set; }
+
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
 

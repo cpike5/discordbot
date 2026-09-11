@@ -96,7 +96,17 @@
         get
         {
             var classes = $"form-textarea w-full {SizeClasses} text-text-primary bg-bg-primary border {ValidationClasses} rounded-md resize-none placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px]";
-            return IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+            classes = IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+
+            // See TextInput.razor's InputClasses comment - same EditContext modified/valid/invalid
+            // class appended here so a <textarea> inside an <EditForm> gets the same styling.
+            if (CascadedEditContext is not null && _fieldIdentifier is { } fieldId)
+            {
+                // See TextInput.razor's InputClasses comment on why this isn't named "field".
+                classes = $"{classes} {CascadedEditContext.FieldCssClass(fieldId)}";
+            }
+
+            return classes;
         }
     }
 

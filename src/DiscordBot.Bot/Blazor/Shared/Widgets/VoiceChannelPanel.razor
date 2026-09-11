@@ -43,7 +43,7 @@
 @if (_guildIdInvalid)
 {
     <div id="voice-channel-panel"
-         class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden p-4 text-sm text-text-tertiary @PanelClass"
+         class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden p-4 text-sm text-text-tertiary @PanelClass @Class"
          aria-disabled="true"
          @attributes="AdditionalAttributes">
         Voice channel panel unavailable: invalid guild id.
@@ -52,7 +52,7 @@
 else
 {
 <div id="voice-channel-panel"
-     class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden @PanelClass"
+     class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden @PanelClass @Class"
      data-guild-id="@GuildId"
      data-connected="@IsConnected.ToString().ToLowerInvariant()"
      data-channel-id="@ConnectedChannelId"
@@ -197,6 +197,7 @@ else
     [Parameter] public EventCallback OnLeft { get; set; }
     [Parameter] public EventCallback OnStopped { get; set; }
     [Parameter] public EventCallback<int> OnSkipped { get; set; }
+    [Parameter] public string? Class { get; set; }
 
     [Parameter(CaptureUnmatchedValues = true)]
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
