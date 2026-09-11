@@ -1,0 +1,59 @@
+@inject DiscordBot.Core.Interfaces.IThemeService ThemeService
+<!DOCTYPE html>
+<html lang="en" data-theme="@_themeKey">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f1114" />
+    <link rel="icon" type="image/svg+xml" href="/images/logo.svg" />
+    <title>Discord Bot Admin</title>
+    <!-- Blocking theme application script - runs before first paint to prevent flash.
+         Copied verbatim from Pages/Shared/_Layout.cshtml so both shells agree while they
+         coexist (see "Blazor components" in docs/architecture/patterns.md). -->
+    <script>
+        (function() {
+            try {
+                var match = document.cookie.match(/theme-preference=([^;]+)/);
+                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
+                if (theme) document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+    <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/tab-panel.css" />
+    <!-- Early sidebar state restoration to prevent FOUC (Flash of Unstyled Content). Copied
+         verbatim from Pages/Shared/_Layout.cshtml. -->
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 1024) {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <HeadOutlet />
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+    <Routes />
+    <script src="_framework/blazor.web.js"></script>
+</body>
+</html>
+
+@code {
+    // App.razor renders once, synchronously with the HTTP request that opens the circuit (it is
+    // never re-rendered inside the circuit itself), so resolving the theme here - the same way
+    // Pages/Shared/_Layout.cshtml does with @inject IThemeService - is safe: this is the one
+    // Blazor component allowed to depend on request-scoped services this freely.
+    private string _themeKey = "dark";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _themeKey = await ThemeService.GetCurrentThemeKeyAsync();
+    }
+}

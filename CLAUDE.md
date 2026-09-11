@@ -183,10 +183,16 @@ the other.
 - **Discord.NET is the official NuGet package** (`Discord.Net` 3.20.x). An older
   branch carried a local fork for a voice fix; if you see references to
   `local-packages/` or `3.19.0-fork`, they are stale.
-- **The UI is Razor Pages.** There is no Blazor in the project. Reusable UI is
-  partials under `Pages/Shared/Components/` with view models in
-  `ViewModels/Components/`; new pages are `.cshtml` plus `.cshtml.cs`, guild
-  pages inherit `GuildPageModelBase`.
+- **The UI is being ported from Razor Pages to Blazor.** Both coexist under
+  `src/DiscordBot.Bot/` until the port finishes: `Pages/` (Razor Pages, legacy,
+  being ported one cluster at a time) and `Blazor/` (new UI, Blazor Web App,
+  Interactive Server only, per-page interactivity). **New UI work goes in
+  `Blazor/`, not `Pages/`.** Legacy Razor Pages reusable UI is partials under
+  `Pages/Shared/Components/` with view models in `ViewModels/Components/`,
+  `.cshtml` plus `.cshtml.cs`, guild pages inheriting `GuildPageModelBase`; the
+  Blazor equivalent (component library, layouts) lands over `docs/plans/blazor-port-plan.md`
+  Phases 2-3. See "Blazor components" in `docs/architecture/patterns.md` for
+  hosting, auth-in-circuits and the `HttpContext`-is-prerender-only rule.
 - **Component interactions** (buttons, selects) are handled in separate
   `*ComponentModule` classes, with custom IDs built by `ComponentIdBuilder` and
   state kept in `IInteractionStateService` (expiry from `Caching:InteractionStateExpiryMinutes`). Putting handlers

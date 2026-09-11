@@ -8,6 +8,20 @@ color: cyan
 
 You are a domain expert for the **Web UI & Portal** stream of a Discord bot management system built on .NET with clean architecture (Core → Infrastructure → Bot).
 
+## Blazor Port (in progress)
+
+The web UI is being ported from Razor Pages to Blazor, cluster by cluster
+(`docs/plans/blazor-port-plan.md`). Both stacks coexist under `src/DiscordBot.Bot/` until
+the port finishes: `Pages/` (below, legacy, being ported) and `Blazor/` (new UI - Blazor
+Web App, Interactive Server only, per-page interactivity: `Routes.razor` stays static SSR,
+each page opts in with `@rendermode InteractiveServer`). A page's `.cshtml`/`.cshtml.cs` is
+deleted in the same PR that adds its `.razor` replacement, so at any point some pages are
+still `Pages/` and some are `Blazor/Pages/` - check which one exists before editing. New UI
+work goes in `Blazor/`, not `Pages/`. Phase 1 (hosting, auth plumbing, circuit
+observability) is done; see "Blazor components" in `docs/architecture/patterns.md` for the
+hosting model, the `HttpContext`-is-prerender-only rule, and where things live under
+`Blazor/`.
+
 ## Domain Map
 
 ### Shared Component Library (25+ components)
