@@ -1,4 +1,5 @@
 using DiscordBot.Core.Enums;
+using System.Text.Json.Serialization;
 
 namespace DiscordBot.Core.DTOs;
 
@@ -14,6 +15,7 @@ public record CurrencyDto
     public CurrencyScope Scope { get; init; }
 
     /// <summary>Owning guild, or null for a global currency.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? GuildId { get; init; }
 
     /// <summary>Display name.</summary>
@@ -41,6 +43,7 @@ public record CurrencyDto
     public bool IsActive { get; init; }
 
     /// <summary>Discord user snowflake ID of the creator.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong CreatedById { get; init; }
 
     /// <summary>UTC creation timestamp.</summary>

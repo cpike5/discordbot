@@ -1,0 +1,88 @@
+@page "/Guilds/{guildId:long}/Currency/{currencyId:guid}"
+@model DiscordBot.Bot.Pages.Guilds.Currency.DetailsModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"{Model.ViewModel.Currency.Name} - Currency";
+    Layout = "_GuildLayout";
+    var currency = Model.ViewModel.Currency;
+}
+
+<div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <a href="/Guilds/@Model.ViewModel.GuildId/Currency"
+       class="inline-flex items-center gap-2 text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+        </svg>
+        All currencies
+    </a>
+
+    @if (Model.ViewModel.CanAdminister)
+    {
+        <button type="button" id="reconcile-button"
+                class="px-3 py-1.5 text-xs font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+            Run reconcile check
+        </button>
+    }
+</div>
+
+@if (!currency.IsActive)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+            Variant = AlertVariant.Warning,
+            Title = "Currency Deactivated",
+            Message = "This currency is frozen: no minting, spending, transfers or fines. Balances and history stay readable."
+        }' />
+    </div>
+}
+else if (Model.IsCurrencyRuntimeDisabled)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+            Variant = AlertVariant.Warning,
+            Title = "Currency Features Disabled",
+            Message = "Currency features are switched off globally, so priced features are free and the wallet commands are unavailable right now."
+        }' />
+    </div>
+}
+
+<div id="reconcile-result" class="hidden mb-6"></div>
+
+<!-- Summary -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Holders</p>
+        <p class="text-xl font-semibold text-text-primary">@Model.ViewModel.HolderCount.ToString("N0")</p>
+    </div>
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">In circulation</p>
+        <p class="text-xl font-semibold text-text-primary">@Model.ViewModel.Circulation.ToString("N0") @currency.Symbol</p>
+    </div>
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">In debt</p>
+        <p class="text-xl font-semibold @(Model.ViewModel.DebtorCount > 0 ? "text-error" : "text-text-primary")">
+            @Model.ViewModel.DebtorCount.ToString("N0")
+        </p>
+    </div>
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Rules</p>
+        <p class="text-sm text-text-primary">@(currency.IsTransferable ? "Transferable" : "Not transferable")</p>
+        <p class="text-sm text-text-secondary">@(currency.AllowNegative ? $"Debt to {currency.DebtFloor}" : "No debt")</p>
+    </div>
+</div>
+
+<partial name="Shared/Components/_CurrencyWalletPanel" model="Model.WalletPanel" />
+
+@section Scripts {
+    <script>
+        window.currencyDetails = {
+            guildId: '@Model.ViewModel.GuildId',
+            currencyId: '@currency.Id'
+        };
+    </script>
+    <script src="~/js/currency/currency-wallets.js" asp-append-version="true"></script>
+    @if (Model.ViewModel.CanAdminister)
+    {
+        <script src="~/js/currency/currency-reconcile.js" asp-append-version="true"></script>
+    }
+}

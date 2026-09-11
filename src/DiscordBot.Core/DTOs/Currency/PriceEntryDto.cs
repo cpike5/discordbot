@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DiscordBot.Core.DTOs;
 
 /// <summary>
@@ -12,6 +14,7 @@ public record PriceEntryDto
     public string FeatureKey { get; init; } = string.Empty;
 
     /// <summary>The guild this price applies in, or null for everywhere.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? GuildId { get; init; }
 
     /// <summary>The currency charged.</summary>
@@ -27,12 +30,14 @@ public record PriceEntryDto
     public long Amount { get; init; }
 
     /// <summary>Discord role snowflake IDs whose holders pay nothing.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public IReadOnlyList<ulong> ExemptRoleIds { get; init; } = Array.Empty<ulong>();
 
     /// <summary>Whether this price is charged.</summary>
     public bool IsActive { get; init; }
 
     /// <summary>Discord user snowflake ID of whoever last saved this entry.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong UpdatedById { get; init; }
 
     /// <summary>UTC timestamp of the last save.</summary>
@@ -48,6 +53,7 @@ public record PriceEntrySaveDto
     public string FeatureKey { get; init; } = string.Empty;
 
     /// <summary>The guild this price applies in, or null for everywhere.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? GuildId { get; init; }
 
     /// <summary>The currency to charge.</summary>
@@ -57,6 +63,7 @@ public record PriceEntrySaveDto
     public long Amount { get; init; }
 
     /// <summary>Discord role snowflake IDs whose holders pay nothing.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public IReadOnlyList<ulong> ExemptRoleIds { get; init; } = Array.Empty<ulong>();
 
     /// <summary>Whether the price is charged.</summary>

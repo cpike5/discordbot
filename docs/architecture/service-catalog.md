@@ -256,6 +256,8 @@ Ledger-backed wallets, minting, and the charge seam every priced feature calls. 
 | `IMintService` | Core Interfaces/Currency | Mint authority check in front of `IWalletService.MintAsync` |
 | `MintService` | Bot/Services/Currency | User, role, and system principals; audits every mint |
 | `ILedgerRepository` | Core Interfaces/Currency | The single write path: idempotency key and cached balance |
+| `ICurrencyAccessService` | Bot/Interfaces | What a portal user may do with one currency (None / Read / Moderate / Administer) |
+| `CurrencyAccessService` | Bot/Authorization | Maps the signed-in user onto a currency's scope, mirroring `GuildAccessHandler` |
 
 ---
 

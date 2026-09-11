@@ -55,6 +55,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/admin/bulk-purge` | `Pages/Admin/BulkPurge.cshtml` | Bulk user/data purge tool |
 | `/admin/user-purge` | `Pages/Admin/UserPurge.cshtml` | User purge utility |
 | `/admin/ratwatch-analytics` | `Pages/Admin/RatWatchAnalytics.cshtml` | RatWatch analytics dashboard |
+| `/Admin/Currency` | `Pages/Admin/Currency/Index.cshtml` | Bot-wide currencies, including the credit that backs paid features: create, edit, deactivate, mint authorities, and the shared wallet/ledger panel across every guild. SuperAdmin only; sidebar entry "Currency" in the Administration group. |
 | `/admin/llm-usage` | `Pages/Admin/LlmUsage.cshtml` | Portal-wide LLM token/cost usage dashboard — date-range/guild/mode filters, hero totals, breakdowns by user/model/mode/day (rendered server-side from `ILlmUsageRepository`), and a per-user drill-down of raw ledger rows fetched client-side (`wwwroot/js/llm-usage.js`) from `LlmUsageController` (`api/admin/llm-usage/records`). Sidebar entry "LLM Usage" in the Administration group. |
 
 ### Guild Pages (Per-Server Management)
@@ -85,6 +86,9 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/guild/{guildId}/text-to-speech` | `Pages/Guilds/TextToSpeech/Index.cshtml` | TTS configuration |
 | `/guild/{guildId}/vox` | `Pages/Guilds/VOX/Index.cshtml` | VOX clip management |
 | `/guild/{guildId}/leaderboard` | `Pages/Guilds/PublicLeaderboard.cshtml` | Public member leaderboard |
+| `/Guilds/{guildId}/Currency` | `Pages/Guilds/Currency/Index.cshtml` | Guild currencies: create, edit rules, deactivate, manage mint authorities. Server-rendered cards with holder/circulation/debtor totals; every write goes out through `CurrenciesController` from `wwwroot/js/currency/currency-manage.js`. Admin + `GuildAccess`. |
+| `/Guilds/{guildId}/Currency/{currencyId}` | `Pages/Guilds/Currency/Details.cshtml` | One currency's wallets and ledger, with mint / fine / adjust and the reconcile check. Renders the shared `_CurrencyWalletPanel`, driven by `currency-wallets.js` (+ `currency-reconcile.js` for administrators). Moderator + `GuildAccess`; what the viewer may actually do comes from `ICurrencyAccessService`. |
+| `/Guilds/{guildId}/Currency/Prices` | `Pages/Guilds/Currency/Prices.cshtml` | Soundboard prices: per-sound price, currency picker, exempt-role picker, plus a read-only list of prices that are not this guild's sounds. Rows are keyed by `CurrencyFeatureKeys.Soundboard(soundId)` and `currency-prices.js` sends that key back untouched. Admin + `GuildAccess`. |
 
 ### Commands Pages
 
@@ -223,6 +227,7 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Guild Header** | `_GuildHeader.cshtml` | Guild name/icon header | `GuildHeaderViewModel` |
 | **Voice Channel Panel** | `_VoiceChannelPanel.cshtml` | Voice channel list/control panel | `VoiceChannelPanelViewModel` |
 | **Toast Container** | `_ToastContainer.cshtml` | Global toast notification area | `ToastContainerViewModel` |
+| **Currency Wallet Panel** | `_CurrencyWalletPanel.cshtml` | Holder list, ledger with paging, and the mint / fine / adjust modal for one currency. Static markup filled by `currency-wallets.js`; the `CanMint` / `CanFine` / `CanAdminister` flags decide which actions are rendered at all. Shared by the guild currency detail page and `/Admin/Currency`. | `CurrencyWalletPanelViewModel` |
 
 ### TTS & Audio Components
 
@@ -489,6 +494,10 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | NavTabs | `wwwroot/js/shared/nav-tabs.js` | Tab switching (page/in-page/AJAX) |
 | Toast System | `wwwroot/js/shared/toast.js` | Toast notifications API |
 | Preview Popup | `wwwroot/js/shared/preview-popup.js` | User/guild preview cards |
+| Currency Manage | `wwwroot/js/currency/currency-manage.js` | Currency create/edit form, deactivation, mint authority list (guild and bot-wide pages) |
+| Currency Wallets | `wwwroot/js/currency/currency-wallets.js` | Holder list, ledger paging, and the mint / fine / adjust actions behind `_CurrencyWalletPanel` |
+| Currency Prices | `wwwroot/js/currency/currency-prices.js` | Soundboard price rows, exempt roles, search/filter; sends back the feature key the row carries |
+| Currency Reconcile | `wwwroot/js/currency/currency-reconcile.js` | Runs the cached-balance vs ledger-sum check on the currency detail page |
 
 ### CSS Framework
 

@@ -56,6 +56,9 @@ You are a domain expert for the **Data & Infrastructure** stream of a Discord bo
 - **Balance rules live in `WalletService`**, never in the repository. Fines are the only thing that may cross zero.
 - `LedgerTransaction.ReferenceTransactionId` and `ModerationCaseId` are indexed columns with **no FK** (the transfer pair references itself circularly).
 - Ledger rows are exempt from every retention job.
+- **Portal reads go straight to the repositories** where no service method fits: the currency pages and `WalletsController` inject `IWalletRepository` (holder lists, totals) and `ILedgerRepository` (one row by id, for an adjustment). Balance *writes* still only ever go through `IWalletService` / `IMintService` / `IChargeService`, never a repository.
+- **Snowflake DTO fields carry `[JsonNumberHandling(WriteAsString | AllowReadingFromString)]`** (`CurrencyDto.GuildId`/`CreatedById`, `WalletDto.UserId`/`GuildId`, `LedgerTransactionDto.ActorId`, `MintAuthorityDto.PrincipalId`/`GrantedById`, `PriceEntryDto.GuildId`/`ExemptRoleIds`/`UpdatedById`). These DTOs are serialized to page scripts, where a `ulong` would lose its last digits. Keep the attribute on any ID field added later.
+- **Feature keys** (`Core/Constants/CurrencyFeatureKeys`) are the contract between a priced feature and the price row: the portal saves under `CurrencyFeatureKeys.Soundboard(soundId)` and the charge seam reads the same string. `PriceEntries(FeatureKey, GuildId)` is unique, and the lookup resolves the guild's own entry before the one that applies everywhere.
 
 ### Application Settings
 - **Entity:** `ApplicationSetting` (key-value store); **Infrastructure:** `SettingDefinitions`
