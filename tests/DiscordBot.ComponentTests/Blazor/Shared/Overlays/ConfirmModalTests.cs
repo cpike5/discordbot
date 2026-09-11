@@ -139,6 +139,19 @@ public class ConfirmModalTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public async Task Dispose_WhileShowAsyncPending_ResolvesFalse_InsteadOfHangingForever()
+    {
+        var cut = Render<ConfirmModal>(p => p.Add(x => x.Id, "cm1").Add(x => x.Title, "x").Add(x => x.Message, "y"));
+
+        var resultTask = await StartShowAsync(cut);
+
+        await DisposeComponentsAsync();
+
+        var result = await resultTask.WaitAsync(TimeSpan.FromSeconds(3));
+        result.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task MessageContent_OverridesMessage()
     {
         var cut = Render<ConfirmModal>(p => p

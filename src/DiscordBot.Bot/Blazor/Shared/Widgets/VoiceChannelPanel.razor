@@ -4,11 +4,14 @@
 @using DiscordBot.Bot.Services.Realtime
 @using DiscordBot.Bot.Services.Realtime.Events
 @using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.Blazor.Services
 @implements IDisposable
 @inject IDashboardAudioStatusService AudioStatusService
 @inject IAudioService AudioService
 @inject IPlaybackService PlaybackService
 @inject IDashboardEventBus EventBus
+@inject IToastService ToastService
+@inject ILogger<VoiceChannelPanel> Logger
 
 @*
     Ported from _VoiceChannelPanel.cshtml + voice-channel-panel.js. Initial connection/playback
@@ -37,6 +40,17 @@
     Heroicons SVG.
 *@
 
+@if (_guildIdInvalid)
+{
+    <div id="voice-channel-panel"
+         class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden p-4 text-sm text-text-tertiary @PanelClass"
+         aria-disabled="true"
+         @attributes="AdditionalAttributes">
+        Voice channel panel unavailable: invalid guild id.
+    </div>
+}
+else
+{
 <div id="voice-channel-panel"
      class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden @PanelClass"
      data-guild-id="@GuildId"
@@ -170,6 +184,7 @@
         </div>
     </div>
 </div>
+}
 
 @code {
     [Parameter, EditorRequired] public string GuildId { get; set; } = string.Empty;
@@ -194,6 +209,7 @@
     private NowPlayingInfo? NowPlaying { get; set; }
     private bool _mobileExpanded;
     private bool _isBusy;
+    private bool _guildIdInvalid;
 
     private readonly Debouncer _debouncer = new();
     private IDisposable? _connectedSub;
@@ -206,7 +222,11 @@
 
     protected override void OnInitialized()
     {
-        _guildId = ulong.Parse(GuildId);
+        if (!ulong.TryParse(GuildId, out _guildId))
+        {
+            _guildIdInvalid = true;
+            return;
+        }
 
         var status = AudioStatusService.GetCurrentAudioStatus(_guildId, null, null);
         IsConnected = status.IsConnected;
@@ -304,11 +324,16 @@
         });
     }
 
-    private void Debounced(Action apply) => _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ =>
+    // Mirrors ActivityFeed.Enqueue/NotificationBell.Debounced: the state mutation always applies
+    // immediately (never dropped), and only the resulting re-render is coalesced to <=1 Hz.
+    // Debouncing the mutation itself (the previous behavior) let the shared Debouncer cancel a
+    // pending call outright when a second event arrived inside the same window, silently dropping
+    // that event's state change.
+    private void Debounced(Action apply)
     {
         apply();
-        await InvokeAsync(StateHasChanged);
-    });
+        _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ => await InvokeAsync(StateHasChanged));
+    }
 
     private async Task HandleChannelSelectedAsync(ChangeEventArgs e)
     {
@@ -367,6 +392,11 @@
         try
         {
             await action();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Voice channel panel action failed for guild {GuildId}", GuildId);
+            ToastService.Error("Something went wrong with the voice channel. Please try again.");
         }
         finally
         {

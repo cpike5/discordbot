@@ -34,6 +34,28 @@ public class ActivityFeedTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Message_ContainingMarkup_RendersEscapedNotAsHtml()
+    {
+        var items = new List<ActivityFeedItemViewModel>
+        {
+            new()
+            {
+                Type = ActivityItemType.Info,
+                Message = "<img src=x onerror=alert(1)> ran /cmd",
+                CommandText = "/cmd",
+                Source = "Guild A",
+                Timestamp = DateTime.UtcNow
+            }
+        };
+
+        var cut = Render<ActivityFeed>(p => p.Add(x => x.Items, items));
+
+        cut.Markup.Should().NotContain("<img");
+        cut.Markup.Should().Contain("&lt;img src=x onerror=alert(1)&gt;");
+        cut.Markup.Should().Contain("<span class=\"font-mono text-accent-orange\">/cmd</span>");
+    }
+
+    [Fact]
     public async Task CommandExecutedEvent_UnscopedGuildId_PrependsItem()
     {
         var cut = Render<ActivityFeed>();
