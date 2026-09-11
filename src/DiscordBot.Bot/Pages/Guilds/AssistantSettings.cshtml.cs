@@ -282,13 +282,10 @@ public class AssistantSettingsModel : PageModel
         }
         settings.SetAllowedChannelIdsList(channelIds);
 
-        // Only names the catalogue knows are stored, so a stale or hand-crafted POST cannot widen
-        // the allow-list past what the checklist offered. An empty result is the house default set.
-        var selectedTools = (Input.EnabledTools ?? new List<string>())
-            .Where(ToolCatalog.IsCatalogued)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
-        settings.SetEnabledToolsList(selectedTools);
+        // Drops anything outside the guild checklist, and stores "exactly the defaults" as empty so
+        // saving the page untouched leaves the guild on the default set rather than pinning it to
+        // today's members of that set. See ToolCatalog.NormalizeSelection.
+        settings.SetEnabledToolsList(ToolCatalog.NormalizeSelection(Input.EnabledTools, ToolScopes.Guild));
 
         // Save settings
         await _settingsService.UpdateSettingsAsync(settings, cancellationToken);

@@ -137,4 +137,42 @@ public static class ToolCatalog
     /// <summary>Whether <paramref name="toolName"/> has a catalogue entry.</summary>
     public static bool IsCatalogued(string toolName) =>
         !string.IsNullOrWhiteSpace(toolName) && ByName.ContainsKey(toolName);
+
+    /// <summary>
+    /// Turns a checklist submission into what should be stored for <paramref name="scope"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Names the catalogue does not know, or that belong to a different scope, are dropped — a
+    /// stale or hand-crafted form post cannot widen the stored list past what the checklist offered.
+    /// </para>
+    /// <para>
+    /// A selection that is exactly the default set is stored as <em>empty</em>, which is what keeps
+    /// "empty means default" honest. The settings page shows the default set ticked when a guild has
+    /// chosen nothing, so saving that page untouched posts every default tool back; storing those
+    /// names literally would silently pin the guild to today's defaults and leave it behind when a
+    /// new tool joins the default set.
+    /// </para>
+    /// </remarks>
+    /// <param name="selected">Tool names ticked in the checklist.</param>
+    /// <param name="scope">The scope the checklist covers.</param>
+    /// <returns>The list to persist; empty means "use the house default set".</returns>
+    public static List<string> NormalizeSelection(IEnumerable<string>? selected, ToolScopes scope)
+    {
+        var inScope = Entries
+            .Where(e => (e.Scopes & scope) != 0)
+            .Select(e => e.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var chosen = (selected ?? Enumerable.Empty<string>())
+            .Where(name => !string.IsNullOrWhiteSpace(name) && inScope.Contains(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+
+        var defaults = DefaultsForScope(scope);
+
+        return chosen.Count == defaults.Count && chosen.All(defaults.Contains)
+            ? new List<string>()
+            : chosen;
+    }
 }

@@ -69,6 +69,57 @@ public class ToolCatalogTests
     }
 
     [Fact]
+    public void NormalizeSelection_StoresEmpty_ForExactlyTheDefaultSet()
+    {
+        // The settings page shows the default set ticked when a guild has chosen nothing, so saving
+        // it untouched posts every default tool back. Storing those names literally would pin the
+        // guild to today's defaults and leave it behind when a new tool joins the set.
+        var defaults = ToolCatalog.DefaultsForScope(ToolScopes.Guild).ToList();
+
+        ToolCatalog.NormalizeSelection(defaults, ToolScopes.Guild).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void NormalizeSelection_KeepsADeliberateSubset()
+    {
+        var result = ToolCatalog.NormalizeSelection(
+            new[] { "search_commands", "list_features" }, ToolScopes.Guild);
+
+        result.Should().BeEquivalentTo(new[] { "search_commands", "list_features" });
+    }
+
+    [Fact]
+    public void NormalizeSelection_DropsUncataloguedNames()
+    {
+        // A stale or hand-crafted form post must not widen the stored list.
+        ToolCatalog.NormalizeSelection(new[] { "search_commands", "not_a_tool" }, ToolScopes.Guild)
+            .Should().Equal("search_commands");
+    }
+
+    [Fact]
+    public void NormalizeSelection_DropsToolsFromAnotherScope()
+    {
+        // execute_python is a DM tool; it has no business in a guild's allow-list.
+        ToolCatalog.NormalizeSelection(new[] { "search_commands", "execute_python" }, ToolScopes.Guild)
+            .Should().Equal("search_commands");
+    }
+
+    [Fact]
+    public void NormalizeSelection_DeduplicatesCaseInsensitively()
+    {
+        ToolCatalog.NormalizeSelection(
+            new[] { "search_commands", "SEARCH_COMMANDS" }, ToolScopes.Guild)
+            .Should().ContainSingle();
+    }
+
+    [Fact]
+    public void NormalizeSelection_HandlesNoSelection()
+    {
+        ToolCatalog.NormalizeSelection(null, ToolScopes.Guild).Should().BeEmpty();
+        ToolCatalog.NormalizeSelection(Array.Empty<string>(), ToolScopes.Guild).Should().BeEmpty();
+    }
+
+    [Fact]
     public void EnabledToolsList_RoundTripsThroughJson()
     {
         var settings = new AssistantGuildSettings();
