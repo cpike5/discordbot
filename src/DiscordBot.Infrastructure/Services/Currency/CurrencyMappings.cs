@@ -5,9 +5,10 @@ namespace DiscordBot.Infrastructure.Services;
 
 /// <summary>
 /// Entity to DTO projections for the virtual currency system. Kept in one place so a ledger row
-/// renders the same whichever service returned it.
+/// renders the same whichever service returned it, including from the charge and mint services in
+/// the Bot project.
 /// </summary>
-internal static class CurrencyMappings
+public static class CurrencyMappings
 {
     public static CurrencyDto ToDto(this Currency currency) => new()
     {

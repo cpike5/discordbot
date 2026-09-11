@@ -128,5 +128,55 @@ public enum AuditLogAction
     /// <summary>
     /// An LLM model was removed from the admin allowlist.
     /// </summary>
-    LlmModelDisabled = 25
+    LlmModelDisabled = 25,
+
+    /// <summary>
+    /// A virtual currency was created.
+    /// </summary>
+    CurrencyCreated = 26,
+
+    /// <summary>
+    /// A virtual currency's rules were changed.
+    /// </summary>
+    CurrencyUpdated = 27,
+
+    /// <summary>
+    /// A virtual currency was deactivated, freezing every balance operation on it.
+    /// </summary>
+    CurrencyDeactivated = 28,
+
+    /// <summary>
+    /// A principal was granted authority to mint a currency.
+    /// </summary>
+    MintAuthorityGranted = 29,
+
+    /// <summary>
+    /// A principal's authority to mint a currency was revoked.
+    /// </summary>
+    MintAuthorityRevoked = 30,
+
+    /// <summary>
+    /// Units of a currency were created and credited to a wallet.
+    /// </summary>
+    CurrencyMinted = 31,
+
+    /// <summary>
+    /// A moderator fined a user in a guild currency.
+    /// </summary>
+    CurrencyFined = 32,
+
+    /// <summary>
+    /// A ledger row was corrected by an adjustment.
+    /// </summary>
+    CurrencyAdjusted = 33,
+
+    /// <summary>
+    /// A price was set on a feature.
+    /// </summary>
+    PriceSet = 34,
+
+    /// <summary>
+    /// A feature's price was removed, making it free again.
+    /// </summary>
+    PriceRemoved = 35
 }

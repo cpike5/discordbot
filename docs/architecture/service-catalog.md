@@ -20,6 +20,7 @@ Quick reference catalog of all services in the Discord bot system. Organized by 
 - [User & Guild Management](#user--guild-management)
 - [Moderation & Enforcement](#moderation--enforcement)
 - [Rat Watch System](#rat-watch-system)
+- [Virtual Currency](#virtual-currency)
 - [Analytics & Metrics](#analytics--metrics)
 - [Performance Monitoring](#performance-monitoring)
 - [Background Services](#background-services)
@@ -234,6 +235,27 @@ Accountability tracker system for tracking member commitments and voting.
 | `IRatWatchStatusService` | Core Interfaces | Manages bot status during active watches |
 | `RatWatchStatusService` | Bot/Services/RatWatch | Coordinates Rat Watch state → bot presence mapping |
 | `RatWatchExecutionService` | Bot/Services/RatWatch | Background service executing completed watches |
+
+---
+
+## Virtual Currency
+
+Ledger-backed wallets, minting, and the charge seam every priced feature calls. Registered by
+`AddCurrency` only when `Currency:Enabled` is true.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `ICurrencyService` | Core Interfaces/Currency | Currency rules, mint authorities, prices, reconciliation |
+| `CurrencyService` | Infrastructure/Services/Currency | Enforces name uniqueness, debt floors, and price scope |
+| `IWalletService` | Core Interfaces/Currency | Balance rules: mint, spend, transfer, fine, adjust, history |
+| `WalletService` | Infrastructure/Services/Currency | The balance rules, audited for fines and adjustments |
+| `IChargeService` | Core Interfaces/Currency | Hold / commit / release / refund, the seam priced features use |
+| `ChargeService` | Bot/Services/Currency | Price lookup, role exemption, reservation, spend on commit |
+| `IChargeHoldStore` | Core Interfaces/Currency | Where open holds live |
+| `ChargeHoldStore` | Bot/Services/Currency | In-process holds over `IInstrumentedCache`, prefix `currency:hold:` |
+| `IMintService` | Core Interfaces/Currency | Mint authority check in front of `IWalletService.MintAsync` |
+| `MintService` | Bot/Services/Currency | User, role, and system principals; audits every mint |
+| `ILedgerRepository` | Core Interfaces/Currency | The single write path: idempotency key and cached balance |
 
 ---
 

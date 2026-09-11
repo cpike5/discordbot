@@ -174,6 +174,13 @@ try
     // not-X (X/Twitter link preview)
     builder.Services.AddNotX(builder.Configuration);
 
+    // Virtual currency (wallets, ledger, charging). Registered only when the feature is on, so
+    // turning it off leaves priced features free rather than broken.
+    if (builder.Configuration.GetValue("Currency:Enabled", true))
+    {
+        builder.Services.AddCurrency(builder.Configuration);
+    }
+
     // Analytics and metrics
     builder.Services.AddAnalytics(builder.Configuration);
 
