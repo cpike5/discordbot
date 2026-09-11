@@ -24,6 +24,7 @@ Quick reference catalog of all services in the Discord bot system. Organized by 
 - [Performance Monitoring](#performance-monitoring)
 - [Background Services](#background-services)
 - [Notification & Alerting](#notification--alerting)
+- [Real-Time Event Bus & Blazor UI State](#real-time-event-bus--blazor-ui-state)
 - [Data & Repository Services](#data--repository-services)
 - [AI Assistant & Tools](#ai-assistant--tools)
 - [Configuration & Settings](#configuration--settings)
@@ -350,6 +351,27 @@ Services for user notifications, performance alerts, and subscriptions.
 | `DashboardNotifier` | Bot/Services | SignalR hub for real-time dashboard updates |
 | `IDashboardUpdateService` | Core Interfaces | Publish update events for dashboard |
 | `DashboardUpdateService` | Bot/Services | Publishes status/metric updates to SignalR |
+
+---
+
+## Real-Time Event Bus & Blazor UI State
+
+In-process pub/sub the seven broadcasters above dual-publish to alongside their SignalR hub
+sends, plus the Blazor circuit-scoped UI state services it exists to feed. See
+`docs/articles/signalr-realtime.md`, "In-process event bus" and `docs/architecture/patterns.md`,
+"Real-time event bus".
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `IDashboardEventBus` | Bot/Services/Realtime | Typed publish/subscribe bus mirroring `DashboardHub`'s SignalR pushes; guild- and user-scoped subscribe overloads |
+| `DashboardEventBus` | Bot/Services/Realtime | Singleton implementation; thread-safe subscriber lists, each handler guarded by its own try/catch, concurrent dispatch via `Task.WhenAll` |
+| `IDashboardEvent`, `GuildScopedEvent`, `UserScopedEvent` | Bot/Services/Realtime | Marker interface and scoping base records every published event implements/derives from |
+| Event records (`BotStatusBroadcastEvent`, `GuildActivityEvent`, `AudioConnectedEvent`, `HealthMetricsUpdatedEvent`, `AlertTriggeredEvent`, `NotificationReceivedEvent`, `BulkPurgeProgressEvent`, ...) | Bot/Services/Realtime/Events | One record per SignalR push event, carrying the same DTO the hub sends |
+| `IToastService` | Bot/Blazor/Services | Scoped (per-circuit) toast queue; max 5, mirrors `wwwroot/js/toast.js`'s `ToastManager` |
+| `ToastService` | Bot/Blazor/Services | Implementation; per-level default auto-dismiss durations, `Changed` event for a `ToastHost` component |
+| `ILoadingState` | Bot/Blazor/Services | Scoped, reference-counted loading flag shared by a page and its loading overlay |
+| `LoadingState` | Bot/Blazor/Services | Implementation; `Begin` returns a disposable scope, `Message` reflects the most recently opened open scope |
+| `Debouncer` | Bot/Blazor/Common | Disposable trailing-edge debounce (`CancellationTokenSource`-based) for coalescing bursty event-bus/UI updates into one `StateHasChanged` |
 
 ---
 

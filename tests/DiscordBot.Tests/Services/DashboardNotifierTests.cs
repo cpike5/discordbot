@@ -1,5 +1,7 @@
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Realtime;
+using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.DTOs;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
@@ -19,6 +21,7 @@ public class DashboardNotifierTests
     private readonly Mock<IHubClients> _mockClients;
     private readonly Mock<IClientProxy> _mockAllClientsProxy;
     private readonly Mock<IClientProxy> _mockGroupClientsProxy;
+    private readonly IDashboardEventBus _eventBus;
     private readonly DashboardNotifier _notifier;
 
     public DashboardNotifierTests()
@@ -34,7 +37,9 @@ public class DashboardNotifierTests
         _mockClients.Setup(c => c.All).Returns(_mockAllClientsProxy.Object);
         _mockClients.Setup(c => c.Group(It.IsAny<string>())).Returns(_mockGroupClientsProxy.Object);
 
-        _notifier = new DashboardNotifier(_mockHubContext.Object, _mockLogger.Object);
+        _eventBus = new DashboardEventBus(new Mock<ILogger<DashboardEventBus>>().Object);
+
+        _notifier = new DashboardNotifier(_mockHubContext.Object, _eventBus, _mockLogger.Object);
     }
 
     [Fact]
@@ -376,5 +381,71 @@ public class DashboardNotifierTests
                 It.IsAny<CancellationToken>()),
             Times.Once,
             "Should send complex guild event data without modification");
+    }
+
+    [Fact]
+    public async Task BroadcastBotStatusAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        var status = new BotStatusDto { GuildCount = 5, ConnectionState = "Connected" };
+        BotStatusUpdatedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<BotStatusUpdatedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _notifier.BroadcastBotStatusAsync(status);
+
+        // Assert
+        received.Should().NotBeNull();
+        received!.Status.Should().BeSameAs(status);
+    }
+
+    [Fact]
+    public async Task SendGuildUpdateAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        const ulong guildId = 424242;
+        const string eventName = "TestGuildEvent";
+        var data = new { Value = 1 };
+        DashboardGuildUpdateEvent? received = null;
+        using var subscription = _eventBus.Subscribe<DashboardGuildUpdateEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _notifier.SendGuildUpdateAsync(guildId, eventName, data);
+
+        // Assert
+        received.Should().NotBeNull();
+        received!.GuildId.Should().Be(guildId);
+        received.EventName.Should().Be(eventName);
+        received.Data.Should().BeSameAs(data);
+    }
+
+    [Fact]
+    public async Task BroadcastToAllAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        const string eventName = "TestBroadcastEvent";
+        var data = new { Value = 2 };
+        DashboardBroadcastEvent? received = null;
+        using var subscription = _eventBus.Subscribe<DashboardBroadcastEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _notifier.BroadcastToAllAsync(eventName, data);
+
+        // Assert
+        received.Should().NotBeNull();
+        received!.EventName.Should().Be(eventName);
+        received.Data.Should().BeSameAs(data);
     }
 }

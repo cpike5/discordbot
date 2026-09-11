@@ -23,6 +23,7 @@ Quick reference guide for common patterns and conventions used throughout the Di
 17. [IMemoryReportable](#imemoryreportable)
 18. [Per-Guild Locking](#per-guild-locking)
 19. [Blazor Components](#blazor-components)
+20. [Real-time event bus](#real-time-event-bus)
 
 ---
 
@@ -1862,6 +1863,78 @@ through `ApiMetricsMiddleware` or `UseSerilogRequestLogging` - see the circuit n
 - **`Discord:Enabled=false` (web-only mode)** works the same for Blazor pages as for Razor
   Pages - it's how the host runs for UI testing without a bot token or gateway connection. See
   "Running it locally" in `CLAUDE.md` and `docs/articles/configuration-guide.md`.
+
+## Real-time event bus
+
+`IDashboardEventBus` (`Bot/Services/Realtime/DashboardEventBus.cs`) is an in-process pub/sub bus
+that every SignalR dashboard broadcaster dual-publishes to alongside its
+`IHubContext<DashboardHub>` send, so a Blazor Server component gets the same real-time data a
+browser SignalR client gets, without a client connection. Full detail, event catalog, and the
+dual-publish rule for new broadcasters live in `docs/articles/signalr-realtime.md`, "In-process
+event bus" — this section is the component-authoring side of that same pattern.
+
+### Subscribing and rendering
+
+```csharp
+public partial class VoiceChannelPanel : ComponentBase, IDisposable
+{
+    [Parameter] public ulong GuildId { get; set; }
+
+    [Inject] private IDashboardEventBus EventBus { get; set; } = default!;
+
+    private IDisposable? _subscription;
+    private readonly Debouncer _debouncer = new();
+    private QueueUpdatedDto? _queue;
+
+    protected override void OnInitialized()
+    {
+        // Guild-scoped overload: only this guild's events reach the handler, one line, no
+        // `if (evt.GuildId != GuildId) return;` boilerplate.
+        _subscription = EventBus.Subscribe<QueueUpdatedEvent>(GuildId, (evt, _) =>
+        {
+            _debouncer.Debounce(TimeSpan.FromSeconds(1), async ct =>
+            {
+                _queue = evt.Queue;
+                await InvokeAsync(StateHasChanged);
+            });
+            return Task.CompletedTask;
+        });
+        base.OnInitialized();
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}
+```
+
+### Rules
+
+1. **Filter by guild** with the guild-scoped `Subscribe` overload (`Subscribe<TEvent>(guildId, handler)`)
+   for any event deriving from `GuildScopedEvent`, instead of subscribing broadly and filtering
+   by hand.
+2. **Debounce or coalesce to ≤1 Hz re-render.** High-frequency events (playback progress, a burst
+   of guild activity) must not drive `StateHasChanged` faster than about once a second; use
+   `Blazor/Common/Debouncer.cs`.
+3. **Unsubscribe in `Dispose`.** Failing to dispose the handle `Subscribe` returns leaks a
+   delegate that closes over the component; the bus catches a handler that throws (logged at
+   Warning) so a torn-down component can't fault the publisher, but a leaked subscription still
+   does pointless work forever.
+4. **Call `InvokeAsync(StateHasChanged)`.** A published event is delivered on whichever thread
+   called `PublishAsync` — a background service's timer thread, a request thread handling a hub
+   call, another circuit entirely — never automatically on this component's synchronization
+   context.
+
+### Toast, loading, and debounce services
+
+`Bot/Blazor/Services/IToastService` and `ILoadingState` are the scoped (per-circuit) UI-state
+counterparts to today's `wwwroot/js/toast.js` and the loading-overlay JS: inject them into a
+component, call `Toast.Success(...)` / `Loading.Begin(...)`, and subscribe to their `Changed`
+event the same way as the bus (`InvokeAsync(StateHasChanged)`). `Blazor/Common/Debouncer.cs` is
+the general-purpose trailing-edge debounce used above and anywhere else a component coalesces
+bursty input (a search box, a filter change) into one action.
 
 ---
 

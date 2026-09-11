@@ -1,5 +1,7 @@
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Realtime;
+using RealtimeEvents = DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -26,6 +28,7 @@ public class PerformanceNotifierTests
     private readonly Mock<IServiceProvider> _mockScopedServiceProvider;
     private readonly Mock<IPerformanceAlertRepository> _mockRepository;
     private readonly Mock<ILogger<PerformanceNotifier>> _mockLogger;
+    private readonly IDashboardEventBus _eventBus;
     private readonly PerformanceNotifier _notifier;
 
     public PerformanceNotifierTests()
@@ -68,8 +71,11 @@ public class PerformanceNotifierTests
         // but the underlying method will return a completed task by default
         _mockClientProxy.DefaultValue = DefaultValue.Mock;
 
+        _eventBus = new DashboardEventBus(new Mock<ILogger<DashboardEventBus>>().Object);
+
         _notifier = new PerformanceNotifier(
             _mockHubContext.Object,
+            _eventBus,
             _mockServiceProvider.Object,
             _mockLogger.Object);
     }
@@ -498,6 +504,124 @@ public class PerformanceNotifierTests
 
         var act2 = () => _notifier.BroadcastAlertResolvedAsync(resolvedIncident);
         await act2.Should().NotThrowAsync("Should broadcast resolved without throwing");
+    }
+
+    #endregion
+
+    #region Event Bus Dual-Publish Tests
+
+    [Fact]
+    public async Task BroadcastAlertTriggeredAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        var incident = new PerformanceIncidentDto
+        {
+            Id = Guid.NewGuid(),
+            MetricName = "TestMetric",
+            Severity = AlertSeverity.Critical,
+            Status = IncidentStatus.Active,
+            TriggeredAt = DateTime.UtcNow,
+            ThresholdValue = 100,
+            ActualValue = 200,
+            Message = "Test"
+        };
+        _mockRepository
+            .Setup(r => r.GetActiveIncidentsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PerformanceIncident>().AsReadOnly());
+
+        RealtimeEvents.AlertTriggeredEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.AlertTriggeredEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _notifier.BroadcastAlertTriggeredAsync(incident);
+
+        // Assert
+        received.Should().NotBeNull();
+        received!.Incident.Should().BeSameAs(incident);
+    }
+
+    [Fact]
+    public async Task BroadcastAlertResolvedAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        var incident = new PerformanceIncidentDto
+        {
+            Id = Guid.NewGuid(),
+            MetricName = "TestMetric",
+            Severity = AlertSeverity.Warning,
+            Status = IncidentStatus.Resolved,
+            TriggeredAt = DateTime.UtcNow,
+            ThresholdValue = 100,
+            ActualValue = 50,
+            Message = "Test"
+        };
+        _mockRepository
+            .Setup(r => r.GetActiveIncidentsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PerformanceIncident>().AsReadOnly());
+
+        RealtimeEvents.AlertResolvedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.AlertResolvedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _notifier.BroadcastAlertResolvedAsync(incident);
+
+        // Assert
+        received.Should().NotBeNull();
+        received!.Incident.Should().BeSameAs(incident);
+    }
+
+    [Fact]
+    public async Task BroadcastAlertAcknowledgedAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        var incidentId = Guid.NewGuid();
+        const string acknowledgedBy = "admin-user";
+
+        RealtimeEvents.AlertAcknowledgedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.AlertAcknowledgedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _notifier.BroadcastAlertAcknowledgedAsync(incidentId, acknowledgedBy);
+
+        // Assert
+        received.Should().NotBeNull();
+        received!.IncidentId.Should().Be(incidentId);
+        received.AcknowledgedBy.Should().Be(acknowledgedBy);
+    }
+
+    [Fact]
+    public async Task BroadcastActiveAlertCountAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        _mockRepository
+            .Setup(r => r.GetActiveIncidentsAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new List<PerformanceIncident>().AsReadOnly());
+
+        RealtimeEvents.ActiveAlertCountChangedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.ActiveAlertCountChangedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _notifier.BroadcastActiveAlertCountAsync();
+
+        // Assert
+        received.Should().NotBeNull();
+        received!.Summary.ActiveCount.Should().Be(0);
     }
 
     #endregion

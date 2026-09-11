@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Realtime;
+using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -13,6 +15,7 @@ namespace DiscordBot.Bot.Services;
 public class PerformanceNotifier : IPerformanceNotifier
 {
     private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IDashboardEventBus _eventBus;
     private readonly IServiceProvider _serviceProvider;
     private readonly ILogger<PerformanceNotifier> _logger;
 
@@ -20,14 +23,17 @@ public class PerformanceNotifier : IPerformanceNotifier
     /// Initializes a new instance of the <see cref="PerformanceNotifier"/> class.
     /// </summary>
     /// <param name="hubContext">The SignalR hub context for broadcasting to clients.</param>
+    /// <param name="eventBus">The in-process dashboard event bus, dual-published to alongside the hub.</param>
     /// <param name="serviceProvider">Service provider for creating scopes to resolve scoped dependencies.</param>
     /// <param name="logger">Logger for diagnostic and error information.</param>
     public PerformanceNotifier(
         IHubContext<DashboardHub> hubContext,
+        IDashboardEventBus eventBus,
         IServiceProvider serviceProvider,
         ILogger<PerformanceNotifier> logger)
     {
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _serviceProvider = serviceProvider;
         _logger = logger;
     }
@@ -46,6 +52,8 @@ public class PerformanceNotifier : IPerformanceNotifier
             await _hubContext.Clients
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnAlertTriggered", incident, cancellationToken);
+
+            await _eventBus.PublishAsync(new AlertTriggeredEvent { Incident = incident }, cancellationToken);
 
             // Also broadcast the updated active alert count
             await BroadcastActiveAlertCountAsync(cancellationToken);
@@ -74,6 +82,8 @@ public class PerformanceNotifier : IPerformanceNotifier
             await _hubContext.Clients
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnAlertResolved", incident, cancellationToken);
+
+            await _eventBus.PublishAsync(new AlertResolvedEvent { Incident = incident }, cancellationToken);
 
             // Also broadcast the updated active alert count
             await BroadcastActiveAlertCountAsync(cancellationToken);
@@ -110,6 +120,15 @@ public class PerformanceNotifier : IPerformanceNotifier
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnAlertAcknowledged", payload, cancellationToken);
 
+            await _eventBus.PublishAsync(
+                new AlertAcknowledgedEvent
+                {
+                    IncidentId = incidentId,
+                    AcknowledgedBy = acknowledgedBy,
+                    AcknowledgedAt = payload.AcknowledgedAt
+                },
+                cancellationToken);
+
             _logger.LogTrace("Alert acknowledged event broadcast completed: IncidentId={IncidentId}", incidentId);
         }
         catch (Exception ex)
@@ -145,6 +164,8 @@ public class PerformanceNotifier : IPerformanceNotifier
             await _hubContext.Clients
                 .Group(DashboardHub.AlertsGroupName)
                 .SendAsync("OnActiveAlertCountChanged", summary, cancellationToken);
+
+            await _eventBus.PublishAsync(new ActiveAlertCountChangedEvent { Summary = summary }, cancellationToken);
 
             _logger.LogTrace(
                 "Active alert count broadcast completed: ActiveCount={ActiveCount}, Critical={CriticalCount}, Warning={WarningCount}",

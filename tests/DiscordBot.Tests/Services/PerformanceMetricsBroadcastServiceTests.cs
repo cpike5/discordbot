@@ -1,5 +1,7 @@
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Realtime;
+using RealtimeEvents = DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -29,11 +31,13 @@ public class PerformanceMetricsBroadcastServiceTests
     private readonly Mock<IInstrumentedCache> _mockInstrumentedCache;
     private readonly Mock<ICpuHistoryService> _mockCpuHistoryService;
     private readonly Mock<ILogger<PerformanceMetricsBroadcastService>> _mockLogger;
+    private readonly IDashboardEventBus _eventBus;
 
     public PerformanceMetricsBroadcastServiceTests()
     {
         _mockServiceProvider = new Mock<IServiceProvider>();
         _mockHubContext = new Mock<IHubContext<DashboardHub>>();
+        _eventBus = new DashboardEventBus(new Mock<ILogger<DashboardEventBus>>().Object);
         _mockSubscriptionTracker = new Mock<IPerformanceSubscriptionTracker>();
         _mockLatencyHistoryService = new Mock<ILatencyHistoryService>();
         _mockConnectionStateService = new Mock<IConnectionStateService>();
@@ -72,6 +76,7 @@ public class PerformanceMetricsBroadcastServiceTests
         return new PerformanceMetricsBroadcastService(
             _mockServiceProvider.Object,
             _mockHubContext.Object,
+            _eventBus,
             _mockSubscriptionTracker.Object,
             _mockLatencyHistoryService.Object,
             _mockConnectionStateService.Object,
@@ -213,5 +218,86 @@ public class PerformanceMetricsBroadcastServiceTests
     {
         // Assert
         PerformanceBroadcastOptions.SectionName.Should().Be("PerformanceBroadcast");
+    }
+
+    [Fact]
+    public async Task BroadcastHealthMetricsAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        _mockSubscriptionTracker.Setup(x => x.PerformanceGroupClientCount).Returns(1);
+
+        var mockClients = new Mock<IHubClients>();
+        var mockClientProxy = new Mock<IClientProxy>();
+        mockClients.Setup(x => x.Group(DashboardHub.PerformanceGroupName)).Returns(mockClientProxy.Object);
+        _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
+
+        var service = CreateService();
+
+        RealtimeEvents.HealthMetricsUpdatedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.HealthMetricsUpdatedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await service.BroadcastHealthMetricsAsync(CancellationToken.None);
+
+        // Assert
+        received.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task BroadcastCommandPerformanceAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        _mockSubscriptionTracker.Setup(x => x.PerformanceGroupClientCount).Returns(1);
+
+        var mockClients = new Mock<IHubClients>();
+        var mockClientProxy = new Mock<IClientProxy>();
+        mockClients.Setup(x => x.Group(DashboardHub.PerformanceGroupName)).Returns(mockClientProxy.Object);
+        _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
+
+        var service = CreateService();
+
+        RealtimeEvents.CommandPerformanceUpdatedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.CommandPerformanceUpdatedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await service.BroadcastCommandPerformanceAsync(CancellationToken.None);
+
+        // Assert
+        received.Should().NotBeNull();
+    }
+
+    [Fact]
+    public async Task BroadcastSystemMetricsAsync_ShouldDualPublishToEventBus()
+    {
+        // Arrange
+        _mockSubscriptionTracker.Setup(x => x.SystemHealthGroupClientCount).Returns(1);
+
+        var mockClients = new Mock<IHubClients>();
+        var mockClientProxy = new Mock<IClientProxy>();
+        mockClients.Setup(x => x.Group(DashboardHub.SystemHealthGroupName)).Returns(mockClientProxy.Object);
+        _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
+
+        var service = CreateService();
+
+        RealtimeEvents.SystemMetricsUpdatedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.SystemMetricsUpdatedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await service.BroadcastSystemMetricsAsync(CancellationToken.None);
+
+        // Assert
+        received.Should().NotBeNull();
     }
 }

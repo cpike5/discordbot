@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Realtime;
+using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -17,17 +19,20 @@ public class BulkPurgeService : IBulkPurgeService
     private readonly BotDbContext _dbContext;
     private readonly IAuditLogService _auditLogService;
     private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<BulkPurgeService> _logger;
 
     public BulkPurgeService(
         BotDbContext dbContext,
         IAuditLogService auditLogService,
         IHubContext<DashboardHub> hubContext,
+        IDashboardEventBus eventBus,
         ILogger<BulkPurgeService> logger)
     {
         _dbContext = dbContext;
         _auditLogService = auditLogService;
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -406,6 +411,8 @@ public class BulkPurgeService : IBulkPurgeService
             await _hubContext.Clients
                 .Group(DashboardHub.BulkPurgeGroupName)
                 .SendAsync("BulkPurgeProgress", progress);
+
+            await _eventBus.PublishAsync(new BulkPurgeProgressEvent { Progress = progress });
         }
         catch (Exception ex)
         {
