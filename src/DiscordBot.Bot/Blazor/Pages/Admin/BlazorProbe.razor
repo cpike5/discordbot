@@ -1,0 +1,421 @@
+@page "/admin/blazor-probe"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Components
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Interop
+@using DiscordBot.Bot.Blazor.Services
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Core.DTOs
+@implements IAsyncDisposable
+@inject IToastService Toast
+@inject ILoadingState Loading
+@inject IDashboardEventBus EventBus
+@inject ChartInterop ChartInterop
+@inject BrowserInterop BrowserInterop
+@inject CircuitClientInfoService CircuitInfo
+
+@*
+    Phase 1 foundation probe page (docs/plans/blazor-port-plan.md §5 Phase 1, deliverable 7;
+    docs/architecture/patterns.md "Blazor Components" / "Real-time event bus").
+
+    Proves, end to end, that every Phase 1 building block actually works together: interactivity,
+    auth-in-circuit, the toast/loading UI-state services, the in-process dashboard event bus with
+    debounced re-render, Chart.js interop, and the browser interop wrapper plus
+    CircuitClientInfoService. A nested route ("/admin/blazor-probe" rather than a top-level one)
+    is deliberate - the old branch's regression here was blazor.server.js resolving
+    _blazor/initializers relative to the current path instead of the app root on a nested route.
+
+    Deleted at the end of Phase 2, together with /blazor-smoke (see ui-inventory.md).
+*@
+
+<PageTitle>Blazor Probe</PageTitle>
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div>
+        <h1 class="page-title">Blazor Foundation Probe</h1>
+        <p class="mt-1 text-sm text-text-secondary">
+            Temporary Phase 1 page proving interactivity, auth, toasts, loading state, the
+            real-time event bus, chart interop and browser interop all work on a nested,
+            admin-gated route.
+        </p>
+    </div>
+
+    <!-- (a) Counter -->
+    <section class="card" data-testid="probe-counter">
+        <div class="card-header">
+            <h2 class="card-title">Interactivity</h2>
+            <span class="badge badge-info">Counter</span>
+        </div>
+        <div class="card-body flex items-center gap-4">
+            <p class="text-text-primary" data-testid="counter-value">Current count: <span class="font-mono font-semibold">@_count</span></p>
+            <button type="button" class="btn btn-primary" data-testid="counter-increment" @onclick="Increment">
+                Click me
+            </button>
+        </div>
+    </section>
+
+    <!-- (b) Auth state -->
+    <section class="card" data-testid="probe-auth">
+        <div class="card-header">
+            <h2 class="card-title">Auth State</h2>
+            <span class="badge badge-info">CascadingParameter&lt;AuthenticationState&gt;</span>
+        </div>
+        <div class="card-body space-y-2">
+            <p class="text-text-primary">
+                Signed in as
+                <span class="font-mono font-semibold" data-testid="auth-username">@_userName</span>
+            </p>
+            <div class="flex flex-wrap items-center gap-2">
+                <span class="text-sm text-text-secondary">Roles:</span>
+                @if (_roles.Count == 0)
+                {
+                    <span class="badge badge-gray" data-testid="auth-roles">none</span>
+                }
+                else
+                {
+                    <span data-testid="auth-roles" class="flex flex-wrap gap-2">
+                        @foreach (var role in _roles)
+                        {
+                            <span class="badge badge-blue">@role</span>
+                        }
+                    </span>
+                }
+            </div>
+        </div>
+    </section>
+
+    <!-- (c) Toasts -->
+    <section class="card" data-testid="probe-toasts">
+        <div class="card-header">
+            <h2 class="card-title">Toasts</h2>
+            <span class="badge badge-info">IToastService</span>
+        </div>
+        <div class="card-body space-y-4">
+            <div class="flex flex-wrap gap-2">
+                <button type="button" class="btn btn-primary" data-testid="toast-success-btn" @onclick="ShowSuccessToast">
+                    Show success toast
+                </button>
+                <button type="button" class="btn btn-danger" data-testid="toast-error-btn" @onclick="ShowErrorToast">
+                    Show error toast
+                </button>
+            </div>
+            @if (Toast.Toasts.Count == 0)
+            {
+                <p class="text-sm text-text-secondary" data-testid="toast-empty">No toasts queued.</p>
+            }
+            else
+            {
+                <ul class="space-y-2" data-testid="toast-list">
+                    @foreach (var toast in Toast.Toasts)
+                    {
+                        <li class="flex items-center justify-between gap-4 rounded-md border border-border-primary bg-bg-tertiary px-3 py-2" data-testid="toast-item" data-toast-id="@toast.Id">
+                            <span class="text-sm text-text-primary">
+                                <span class="badge @ToastBadgeClass(toast.Level)">@toast.Level</span>
+                                @toast.Message
+                            </span>
+                            <button type="button" class="btn btn-ghost btn-sm" data-testid="toast-dismiss-btn" @onclick="() => Toast.Dismiss(toast.Id)">
+                                Dismiss
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </section>
+
+    <!-- (d) Loading state -->
+    <section class="card" data-testid="probe-loading">
+        <div class="card-header">
+            <h2 class="card-title">Loading State</h2>
+            <span class="badge badge-info">ILoadingState</span>
+        </div>
+        <div class="card-body flex items-center gap-4">
+            <button type="button" class="btn btn-secondary" data-testid="loading-start-btn" @onclick="RunLoadingWorkAsync">
+                Do 1.5s of work
+            </button>
+            <span class="badge @(Loading.IsLoading ? "badge-warning" : "badge-gray")" data-testid="loading-badge">
+                @(Loading.IsLoading ? $"Loading: {Loading.Message}" : "Idle")
+            </span>
+        </div>
+    </section>
+
+    <!-- (e) Event bus -->
+    <section class="card" data-testid="probe-eventbus">
+        <div class="card-header">
+            <h2 class="card-title">Real-time Event Bus</h2>
+            <span class="badge badge-info">IDashboardEventBus</span>
+        </div>
+        <div class="card-body space-y-3">
+            <p class="text-sm text-text-secondary">
+                Subscribed to <code class="font-mono">BotStatusBroadcastEvent</code>, debounced to at
+                most one re-render per second.
+            </p>
+            <button type="button" class="btn btn-primary" data-testid="eventbus-publish-btn" @onclick="PublishTestEventAsync">
+                Publish test event
+            </button>
+            @if (_lastReceivedAt is null)
+            {
+                <p class="text-sm text-text-secondary" data-testid="eventbus-empty">No event received yet.</p>
+            }
+            else
+            {
+                <div class="text-sm text-text-primary space-y-1" data-testid="eventbus-payload">
+                    <p>Last received: <span class="font-mono" data-testid="eventbus-last-received-at">@_lastReceivedAt.Value.ToString("O")</span></p>
+                    <p data-testid="eventbus-last-payload">
+                        @_lastStatus?.ConnectionState, latency @_lastStatus?.Latency ms, @_lastStatus?.GuildCount guild(s), uptime @_lastStatus?.Uptime
+                    </p>
+                </div>
+            }
+        </div>
+    </section>
+
+    <!-- (f) Chart -->
+    <section class="card" data-testid="probe-chart">
+        <div class="card-header">
+            <h2 class="card-title">Chart</h2>
+            <span class="badge badge-info">ChartInterop</span>
+        </div>
+        <div class="card-body space-y-3">
+            <canvas @ref="_canvasRef" data-testid="chart-canvas" width="400" height="160"></canvas>
+            <button type="button" class="btn btn-secondary" data-testid="chart-update-btn" @onclick="UpdateChartAsync" disabled="@(_chartHandle is null)">
+                Update chart
+            </button>
+        </div>
+    </section>
+
+    <!-- (g) Browser interop -->
+    <section class="card" data-testid="probe-browser">
+        <div class="card-header">
+            <h2 class="card-title">Browser Interop</h2>
+            <span class="badge badge-info">BrowserInterop / CircuitClientInfoService</span>
+        </div>
+        <div class="card-body space-y-2 text-sm text-text-primary">
+            <p>Time zone: <span class="font-mono" data-testid="timezone-value">@(_timeZone ?? "(loading...)")</span></p>
+            <p>Circuit ID: <span class="font-mono" data-testid="circuit-id-value">@CircuitInfo.CircuitId</span></p>
+            <p>Remote IP: <span class="font-mono" data-testid="circuit-ip-value">@(CircuitInfo.RemoteIp?.ToString() ?? "(unknown)")</span></p>
+            <p>User agent: <span class="font-mono break-all" data-testid="circuit-ua-value">@(CircuitInfo.UserAgent ?? "(unknown)")</span></p>
+            <button type="button" class="btn btn-secondary" data-testid="copy-circuit-btn" @onclick="CopyCircuitIdAsync">
+                Copy circuit id
+            </button>
+            @if (_copyResult is not null)
+            {
+                <p class="text-sm text-text-secondary" data-testid="copy-result">@_copyResult</p>
+            }
+        </div>
+    </section>
+
+    <!-- (h) Status summary -->
+    <section class="card" data-testid="probe-status-table">
+        <div class="card-header">
+            <h2 class="card-title">What This Proves</h2>
+        </div>
+        <div class="card-body overflow-x-auto">
+            <table class="w-full text-sm text-left">
+                <thead>
+                    <tr class="text-text-secondary border-b border-border-secondary">
+                        <th class="py-2 pr-4">Section</th>
+                        <th class="py-2">Proves</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-secondary">
+                    <tr>
+                        <td class="py-2 pr-4 text-text-primary">Interactivity</td>
+                        <td class="py-2 text-text-secondary">An Interactive Server circuit opens on a nested, admin-gated route and updates the DOM.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-text-primary">Auth state</td>
+                        <td class="py-2 text-text-secondary">The cascading <code class="font-mono">Task&lt;AuthenticationState&gt;</code> works inside a circuit, where <code class="font-mono">HttpContext</code> does not.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-text-primary">Toasts</td>
+                        <td class="py-2 text-text-secondary">The scoped <code class="font-mono">IToastService</code> queue, its <code class="font-mono">Changed</code> event, and dismissal all work.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-text-primary">Loading state</td>
+                        <td class="py-2 text-text-secondary">Scoped <code class="font-mono">ILoadingState</code> reference counting drives a badge across an awaited operation.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-text-primary">Event bus</td>
+                        <td class="py-2 text-text-secondary"><code class="font-mono">IDashboardEventBus</code> delivers a published event into this circuit with a debounced re-render, no SignalR client involved.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-text-primary">Chart</td>
+                        <td class="py-2 text-text-secondary"><code class="font-mono">ChartInterop</code> creates, updates and destroys a Chart.js instance via JS interop.</td>
+                    </tr>
+                    <tr>
+                        <td class="py-2 pr-4 text-text-primary">Browser interop</td>
+                        <td class="py-2 text-text-secondary"><code class="font-mono">BrowserInterop</code> and <code class="font-mono">CircuitClientInfoService</code> reach real browser/request data from inside a circuit.</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</div>
+
+@code {
+    private int _count;
+
+    private string _userName = "(unknown)";
+    private IReadOnlyList<string> _roles = [];
+
+    private readonly Debouncer _debouncer = new();
+    private IDisposable? _busSubscription;
+    private BotStatusUpdateDto? _lastStatus;
+    private DateTimeOffset? _lastReceivedAt;
+
+    private ElementReference _canvasRef;
+    private int? _chartHandle;
+
+    private string? _timeZone;
+    private string? _copyResult;
+
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask is not null)
+        {
+            var authState = await AuthenticationStateTask;
+            _userName = authState.User.Identity?.Name ?? "(unknown)";
+            _roles = authState.User.Claims
+                .Where(c => c.Type == ClaimTypes.Role)
+                .Select(c => c.Value)
+                .ToArray();
+        }
+
+        // (c) / (d): a single handler for both UI-state services - both events are plain
+        // Action, may fire from a non-circuit thread (an auto-dismiss timer), so always marshal
+        // back with InvokeAsync.
+        Toast.Changed += OnUiStateChanged;
+        Loading.Changed += OnUiStateChanged;
+
+        // (e): guild-unscoped subscribe - BotStatusBroadcastEvent isn't a GuildScopedEvent.
+        // Coalesce bursts to at most one re-render per second per patterns.md's "Real-time event
+        // bus" rules.
+        _busSubscription = EventBus.Subscribe<BotStatusBroadcastEvent>((evt, _) =>
+        {
+            _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ =>
+            {
+                _lastStatus = evt.Status;
+                _lastReceivedAt = DateTimeOffset.UtcNow;
+                await InvokeAsync(StateHasChanged);
+            });
+            return Task.CompletedTask;
+        });
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender)
+        {
+            return;
+        }
+
+        // (f) / (g): interop calls only after the circuit is live, never during prerender.
+        _chartHandle = await ChartInterop.CreateAsync(_canvasRef, BuildChartConfig());
+        _timeZone = await BrowserInterop.GetTimeZoneAsync();
+        StateHasChanged();
+    }
+
+    private void Increment() => _count++;
+
+    private void OnUiStateChanged() => InvokeAsync(StateHasChanged);
+
+    private void ShowSuccessToast() => Toast.Success("This is a success toast from the probe page.", "Probe");
+
+    private void ShowErrorToast() => Toast.Error("This is an error toast from the probe page.", "Probe");
+
+    private async Task RunLoadingWorkAsync()
+    {
+        using (Loading.Begin("Working…"))
+        {
+            await Task.Delay(1500);
+        }
+    }
+
+    private Task PublishTestEventAsync()
+    {
+        var evt = new BotStatusBroadcastEvent
+        {
+            Status = new BotStatusUpdateDto
+            {
+                ConnectionState = "Connected",
+                Latency = Random.Shared.Next(15, 150),
+                GuildCount = Random.Shared.Next(1, 200),
+                Uptime = TimeSpan.FromMinutes(Random.Shared.Next(1, 10_000)),
+                Timestamp = DateTime.UtcNow
+            }
+        };
+
+        return EventBus.PublishAsync(evt);
+    }
+
+    private async Task UpdateChartAsync()
+    {
+        if (_chartHandle is not { } handle)
+        {
+            return;
+        }
+
+        var data = new
+        {
+            datasets = new object[]
+            {
+                new { data = new[] { Random.Shared.Next(1, 30), Random.Shared.Next(1, 30), Random.Shared.Next(1, 30), Random.Shared.Next(1, 30), Random.Shared.Next(1, 30) } }
+            }
+        };
+
+        await ChartInterop.UpdateAsync(handle, data);
+    }
+
+    private async Task CopyCircuitIdAsync()
+    {
+        var copied = await BrowserInterop.CopyToClipboardAsync(CircuitInfo.CircuitId);
+        _copyResult = copied ? "Copied to clipboard." : "Copy failed.";
+    }
+
+    private static object BuildChartConfig() => new
+    {
+        type = "bar",
+        data = new
+        {
+            labels = new[] { "Mon", "Tue", "Wed", "Thu", "Fri" },
+            datasets = new object[]
+            {
+                new { label = "Probe metric", data = new[] { 12, 19, 7, 15, 22 } }
+            }
+        }
+    };
+
+    private static string ToastBadgeClass(ToastLevel level) => level switch
+    {
+        ToastLevel.Success => "badge-success",
+        ToastLevel.Warning => "badge-warning",
+        ToastLevel.Error => "badge-error",
+        _ => "badge-blue"
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        Toast.Changed -= OnUiStateChanged;
+        Loading.Changed -= OnUiStateChanged;
+        _busSubscription?.Dispose();
+        _debouncer.Dispose();
+
+        if (_chartHandle is { } handle)
+        {
+            try
+            {
+                await ChartInterop.DestroyAsync(handle);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already gone; nothing left to tell the client.
+            }
+        }
+    }
+}
