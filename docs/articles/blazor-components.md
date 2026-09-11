@@ -298,7 +298,28 @@ _Tier 3 — not yet built._
 
 ### Widgets
 
-_Tier 4 — not yet built._
+| Component | From partial(s) | Key parameters | Live source |
+| --- | --- | --- | --- |
+| `BotStatusBanner` | `_BotStatusBanner` / `BotStatusBannerViewModel` | `Class`, `AdditionalAttributes` (fully self-loading, no data parameters) | `IDashboardMetricsService.GetCurrentStatus` initial; `BotStatusUpdatedEvent`/`BotStatusBroadcastEvent` live (`IGuildService`/`IVersionService` for `TotalMembers`/`Version`, not live-updated — matches the legacy JS, which doesn't patch those either) |
+| `BotStatusCard` | `_BotStatusCard` / (Pages) `BotStatusViewModel` | `Class`, `AdditionalAttributes` | Same as `BotStatusBanner`; `StatusIndicator`'s markup reproduced inline (Tier 1b fallback, see file header) |
+| `ConnectionStatus` | `_ConnectionStatus` / `ConnectionStatusViewModel` | `State` (`ConnectionState?`, caller-controlled when set), `CustomText`, `Class`, `AdditionalAttributes` | Bus-driven from `BotStatusUpdatedEvent`/`BotStatusBroadcastEvent` when `State` is unset ("Reconnecting" only reachable by passing `State` explicitly) |
+| `ActivityFeed` | `_ActivityFeed` + `_ActivityFeedTimeline` merge / `ActivityFeedViewModel` + `ActivityFeedTimelineViewModel` + `ActivityFeedItemViewModel` | `Items`, `MaxItems`, `EmptyMessage`, `IsPaused`/`IsPausedChanged`, `Title`, `ShowRefreshButton`/`OnRefresh`, `ViewAllUrl`, `MaxHeight`, `GuildId` | `CommandExecutedEvent` (filtered on `Update.GuildId` when `GuildId` given) + `GuildActivityEvent` (guild-scoped `Subscribe` overload when `GuildId` given) |
+| `NotificationBell` | Navbar bell markup (`_Navbar.cshtml`) + `notification-bell.js` | `Class`, `AdditionalAttributes` (self-loading from the current user) | `IDashboardNotificationQueryService` for summary/list/mark-read/mark-all/dismiss; `NotificationReceivedEvent`/`NotificationCountChangedEvent`/`NotificationMarkedReadEvent`/`AllNotificationsReadEvent` via the user-scoped `Subscribe` overload (current user id from `AuthenticationStateProvider`) |
+| `QuickActionsCard` | `_QuickActionsCard` / `QuickActionsCardViewModel` + `QuickActionItemViewModel` | `Title`, `Actions`, `UserIsAdmin`, `OnAction`, `OnConfirmRequested` | none (presentation only) |
+| `ConnectedServersWidget` | `_ConnectedServersWidget` / `ConnectedServersWidgetViewModel` + `ConnectedServerItemViewModel` | `Title`, `ViewAllUrl`, `Servers`, `TotalServerCount`, `Class`, `AdditionalAttributes` | none (presentation only); row menu/copy-id are component state + `BrowserInterop.CopyToClipboardAsync` |
+| `AuditLogCard` | `_AuditLogCard` / `AuditLogCardViewModel` (`.FromLogs` reused) | `Logs`, `Class`, `AdditionalAttributes` | none (presentation only) |
+| `RecentActivityCard` | `_RecentActivityCard` / (Pages) `RecentActivityViewModel` | `Activities`, `OnRefresh`, `Class`, `AdditionalAttributes` | none (presentation only); `OnRefresh` is a real callback — the legacy button was non-functional |
+| `CommandStatsCard` | `_CommandStatsCard` + `command-stats-chart.js` / (Pages) `CommandStatsViewModel` | `TopCommands`, `TotalCommands`, `TimeRangeHours`, `OnTimeRangeChanged`, `Class`, `AdditionalAttributes` | none (presentation only); renders through `<Chart>` |
+| `Chart` | (new — generic Chart.js wrapper) | `Type` (required), `Data` (required), `Options`, `Height`, `Class`, `AdditionalAttributes` | none; owns `ChartInterop` create/update (on `Data`/`Options` reference change)/destroy |
+| `VoiceChannelPanel` | `_VoiceChannelPanel` + `voice-channel-panel.js` / `VoiceChannelPanelViewModel` + `VoiceChannelInfo`/`NowPlayingInfo`/`QueueItemInfo` | `GuildId` (string, required), `IsCompact`, `ShowNowPlaying`, `ShowProgress`, `AvailableChannels`, `Queue` (caller-seeded, like `ActivityFeed.Items` — not part of `AudioStatusDto`), `OnJoined`/`OnLeft`/`OnStopped`/`OnSkipped` | `IDashboardAudioStatusService.GetCurrentAudioStatus` initial; `AudioConnectedEvent`/`AudioDisconnectedEvent`/`PlaybackStartedEvent`/`PlaybackProgressEvent`/`PlaybackFinishedEvent`/`QueueUpdatedEvent`/`VoiceChannelMemberCountUpdatedEvent` live, all guild-scoped; join/leave/stop/skip call `IAudioService`/`IPlaybackService` directly |
+
+Tier 1b (`StatusIndicator`, `HeroMetricCard`, `DashboardWidget`) and Tier 3 (`TabGroup`, `Modal`)
+were being built in parallel and hadn't landed when this tier shipped — `BotStatusCard`
+reproduces `_StatusIndicator.cshtml`'s markup inline as a documented fallback (see the component's
+file header) rather than depending on either; no other Tier 4 component needed them. Every
+component ships an `IconPaths.Widgets.cs` partial-class addition rather than a second icon file;
+a handful of *filled* (non stroke-outline) icons specific to `VoiceChannelPanel`/`RecentActivityCard`
+stay as literal inline `<svg>` per the same exception `Badge.razor` documents.
 
 ### Tts
 

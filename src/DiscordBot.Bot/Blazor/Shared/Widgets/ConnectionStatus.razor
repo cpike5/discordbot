@@ -1,0 +1,106 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Interfaces
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Bot.ViewModels.Components
+@implements IDisposable
+@inject IDashboardMetricsService MetricsService
+@inject IDashboardEventBus EventBus
+
+@*
+    Ported from _ConnectionStatus.cshtml / ConnectionStatusViewModel. The legacy component was a
+    pure render target patched by dashboard-realtime.js's local SignalR-client connection events
+    (reconnecting/reconnected/disconnected), which have no equivalent for a Blazor Server circuit
+    (the circuit *is* the connection - there's no separate hub client to watch). Per the task
+    brief this instead reflects the bot's own connection state from the dashboard event bus when
+    the caller doesn't pin State explicitly, which is the live signal actually available here.
+
+    - State set (non-null): fully caller-controlled, no bus subscription (e.g. a page wiring this
+      to its own SignalR/circuit-level status).
+    - State unset (default): bus-driven - loads from IDashboardMetricsService.GetCurrentStatus,
+      then follows BotStatusUpdatedEvent/BotStatusBroadcastEvent. "Reconnecting" is never inferred
+      this way (BotStatusDto's ConnectionState is only "Connected"/"Connecting"/"Disconnected") -
+      pass State explicitly for that state.
+*@
+
+<div id="connection-status"
+     class="connection-status inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-bg-tertiary border border-border-primary @Class"
+     data-state="@StateAttribute"
+     role="status"
+     aria-live="polite"
+     @attributes="AdditionalAttributes">
+    <span class="connection-dot relative w-2 h-2 rounded-full"></span>
+    <span class="connection-text">@DisplayText</span>
+</div>
+
+@code {
+    [Parameter] public ConnectionState? State { get; set; }
+    [Parameter] public string? CustomText { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private ConnectionState _busState = ConnectionState.Disconnected;
+    private readonly Debouncer _debouncer = new();
+    private IDisposable? _updatedSubscription;
+    private IDisposable? _broadcastSubscription;
+
+    protected override void OnInitialized()
+    {
+        if (State.HasValue)
+        {
+            return;
+        }
+
+        ApplyFromConnectionState(MetricsService.GetCurrentStatus(null, null).ConnectionState);
+
+        _updatedSubscription = EventBus.Subscribe<BotStatusUpdatedEvent>((evt, _) =>
+        {
+            Debounced(() => ApplyFromConnectionState(evt.Status.ConnectionState));
+            return Task.CompletedTask;
+        });
+        _broadcastSubscription = EventBus.Subscribe<BotStatusBroadcastEvent>((evt, _) =>
+        {
+            Debounced(() => ApplyFromConnectionState(evt.Status.ConnectionState));
+            return Task.CompletedTask;
+        });
+    }
+
+    private void Debounced(Action apply)
+    {
+        _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ =>
+        {
+            apply();
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ApplyFromConnectionState(string connectionState) => _busState = connectionState switch
+    {
+        "Connected" => ConnectionState.Connected,
+        "Connecting" => ConnectionState.Connecting,
+        _ => ConnectionState.Disconnected
+    };
+
+    private ConnectionState EffectiveState => State ?? _busState;
+
+    private string StateAttribute => EffectiveState.ToString().ToLowerInvariant();
+
+    private string DisplayText => CustomText ?? EffectiveState switch
+    {
+        ConnectionState.Connected => "Connected",
+        ConnectionState.Connecting => "Connecting...",
+        ConnectionState.Reconnecting => "Reconnecting...",
+        ConnectionState.Disconnected => "Disconnected",
+        _ => "Unknown"
+    };
+
+    public void Dispose()
+    {
+        _updatedSubscription?.Dispose();
+        _broadcastSubscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}

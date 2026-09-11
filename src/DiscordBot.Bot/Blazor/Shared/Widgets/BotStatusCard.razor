@@ -1,0 +1,166 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Interfaces
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+@implements IDisposable
+@inject IDashboardMetricsService MetricsService
+@inject IDashboardEventBus EventBus
+
+@*
+    Ported from _BotStatusCard.cshtml / (Pages namespace) BotStatusViewModel. Same initial-load
+    and live-update sources as BotStatusBanner (IDashboardMetricsService.GetCurrentStatus, then
+    BotStatusUpdatedEvent/BotStatusBroadcastEvent) - this card only needs the fields BotStatusDto
+    already carries, no extra services.
+
+    _BotStatusCard.cshtml composes Tier 1b's _StatusIndicator twice (BadgeStyle + DotOnly), which
+    hasn't landed yet (built in parallel - see docs/blazor-components.md tier table). Reproduced
+    inline below from _StatusIndicator.cshtml's exact markup as a documented plain-markup
+    fallback; swap for <StatusIndicator> once Tier 1b ships.
+*@
+
+<div class="bg-bg-secondary border border-border-primary rounded-lg p-5" data-bot-status-card @attributes="AdditionalAttributes">
+    <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-semibold text-text-primary">Bot Status</h2>
+        <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold rounded-full @BadgeBgClass">
+            @if (IsPulsing)
+            {
+                <span class="relative inline-flex">
+                    <span class="w-1.5 h-1.5 @DotColorClass rounded-full"></span>
+                    <span class="absolute inset-0 w-1.5 h-1.5 @DotColorClass rounded-full animate-ping opacity-75"></span>
+                </span>
+            }
+            else
+            {
+                <span class="w-1.5 h-1.5 @DotColorClass rounded-full"></span>
+            }
+            @DisplayText
+        </span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4 mb-4">
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Connection</p>
+            <div class="flex items-center gap-2">
+                <span class="w-1.5 h-1.5 @DotColorClass rounded-full"></span>
+                <p class="text-sm font-medium text-text-primary" data-connection-state>@ConnectionState</p>
+            </div>
+        </div>
+
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Latency</p>
+            <p class="text-sm font-medium text-text-primary">
+                <span data-latency>@LatencyMs</span><span class="text-text-secondary"> ms</span>
+            </p>
+        </div>
+
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Uptime</p>
+            <p class="text-sm font-medium text-text-primary" data-uptime>@UptimeFormatted</p>
+        </div>
+
+        <div>
+            <p class="text-xs text-text-tertiary mb-1">Servers</p>
+            <p class="text-sm font-medium text-text-primary" data-guild-count>@GuildCount</p>
+        </div>
+    </div>
+
+    <div class="pt-3 border-t border-border-primary">
+        <p class="text-xs text-text-tertiary">
+            Last updated: <span data-last-updated>@LastUpdatedText</span>
+        </p>
+    </div>
+</div>
+
+@code {
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ConnectionState { get; set; } = string.Empty;
+    private int LatencyMs { get; set; }
+    private string UptimeFormatted { get; set; } = string.Empty;
+    private int GuildCount { get; set; }
+    private StatusType Status { get; set; } = StatusType.Offline;
+    private string LastUpdatedText { get; set; } = "Just now";
+
+    private readonly Debouncer _debouncer = new();
+    private IDisposable? _updatedSubscription;
+    private IDisposable? _broadcastSubscription;
+
+    protected override void OnInitialized()
+    {
+        Apply(BotStatusViewModel.FromDto(MetricsService.GetCurrentStatus(null, null)));
+
+        _updatedSubscription = EventBus.Subscribe<BotStatusUpdatedEvent>((evt, _) =>
+        {
+            Debounced(() => Apply(BotStatusViewModel.FromDto(evt.Status)));
+            return Task.CompletedTask;
+        });
+        _broadcastSubscription = EventBus.Subscribe<BotStatusBroadcastEvent>((evt, _) =>
+        {
+            Debounced(() => Apply(BotStatusViewModel.FromDto(new DiscordBot.Core.DTOs.BotStatusDto
+            {
+                ConnectionState = evt.Status.ConnectionState,
+                LatencyMs = evt.Status.Latency,
+                GuildCount = evt.Status.GuildCount,
+                Uptime = evt.Status.Uptime
+            })));
+            return Task.CompletedTask;
+        });
+    }
+
+    private void Debounced(Action apply)
+    {
+        _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ =>
+        {
+            apply();
+            LastUpdatedText = "Just now";
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void Apply(BotStatusViewModel model)
+    {
+        ConnectionState = model.ConnectionState;
+        LatencyMs = model.LatencyMs;
+        UptimeFormatted = model.UptimeFormatted;
+        GuildCount = model.GuildCount;
+        Status = model.StatusType;
+    }
+
+    // Matches _StatusIndicator.cshtml exactly (Tier 1b fallback - see file header comment).
+    private bool IsPulsing => Status == StatusType.Online;
+
+    private string DotColorClass => Status switch
+    {
+        StatusType.Online => "bg-success",
+        StatusType.Idle => "bg-warning",
+        StatusType.Busy => "bg-error",
+        _ => "bg-text-tertiary"
+    };
+
+    private string BadgeBgClass => Status switch
+    {
+        StatusType.Online => "bg-success/20 text-success",
+        StatusType.Idle => "bg-warning/20 text-warning",
+        StatusType.Busy => "bg-error/20 text-error",
+        _ => "bg-border-primary text-text-tertiary"
+    };
+
+    private string DisplayText => Status switch
+    {
+        StatusType.Online => "Online",
+        StatusType.Idle => "Idle",
+        StatusType.Busy => "Do Not Disturb",
+        _ => "Offline"
+    };
+
+    public void Dispose()
+    {
+        _updatedSubscription?.Dispose();
+        _broadcastSubscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}
