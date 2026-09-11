@@ -922,20 +922,34 @@ only falls back to a live lookup on a genuine cache miss.
    2. The `guildId` route value.
    3. The `guildId` query string.
 3. **Require a linked Discord account**: the user's `ApplicationUser.DiscordUserId` must be set.
-4. **Cache check** - a cached `UserDiscordGuild` row for the guild, or an explicit
-   `UserGuildAccess` grant meeting `GuildAccessRequirement.MinimumLevel`:
-   - **Moderator/Viewer** application role: a cached membership row alone is sufficient.
+4. **Max-age check**: a cached `UserDiscordGuild` row is only trusted if its
+   `LastUpdatedAt` is no older than `GuildMembershipCacheOptions.MembershipMaxAge`
+   (default **1 hour**, section `GuildMembershipCache`). A row older than that is treated as
+   if it were not cached at all and falls through to step 6, so a user kicked or banned from
+   the guild, or stripped of Discord Administrator, cannot ride a stale row indefinitely. This
+   is a different knob from `StoredGuildMembershipDurationMinutes` (default 30 minutes), which
+   only bounds the short-lived in-memory cache `IUserDiscordGuildService` places over the same
+   database rows - `MembershipMaxAge` bounds the row's own age.
+5. **Cache check** - a fresh cached `UserDiscordGuild` row for the guild, or an explicit
+   `UserGuildAccess` grant, each compared against `GuildAccessRequirement.MinimumLevel` via the
+   same effective `GuildAccessLevel` computation the live-lookup path uses (step 6):
+   - **Moderator/Viewer** application role: a cached membership row maps to the lowest level
+     (`GuildAccessLevel.Viewer`), so it only satisfies a `MinimumLevel` of `Viewer` - the only
+     policy in use today. A stricter future policy would deny plain membership here.
    - **Admin** application role: the cached row's `UserDiscordGuild.Permissions` bitfield
      (captured from Discord OAuth) is checked for the Administrator flag, since the entity
-     records exactly that. If the cached row lacks it, a sufficient explicit
-     `UserGuildAccess` grant can still succeed; otherwise the check **denies without falling
-     back live** - a cache hit is treated as authoritative until it naturally expires.
-5. **Cache miss** (no cached row and no sufficient grant): a live `DiscordSocketClient`
+     records exactly that. When present it maps to the top of the enum (Discord Administrator
+     is full guild control, so it satisfies any `MinimumLevel`); when absent it earns nothing
+     from membership alone. If the cached row's effective level is insufficient, a sufficient
+     explicit `UserGuildAccess` grant can still succeed; otherwise the check **denies without
+     falling back live** - a fresh cache hit is treated as authoritative until it expires.
+6. **Cache miss** (no fresh cached row and no sufficient grant): a live `DiscordSocketClient`
    lookup. A live hit **refreshes the cache** (best-effort, via
    `IUserDiscordGuildService.UpsertGuildMembershipAsync`) before the requirement is
-   evaluated, so a transient refresh failure never blocks authorization; the Admin role then
-   requires the live guild user's `GuildPermissions.Administrator` flag, same as before.
-   A live miss (guild or membership not found) denies.
+   evaluated, so a transient refresh failure never blocks authorization; the same effective
+   `GuildAccessLevel` computation as step 5 is applied to the live result, compared against
+   `MinimumLevel`. A live miss (guild or membership not found) denies and leaves any stale
+   cached row in place - the next check simply repeats the live lookup.
 
 **Code Example (abridged):**
 ```csharp
@@ -954,17 +968,27 @@ protected override async Task HandleRequirementAsync(
 
     var cachedGuilds = await _userDiscordGuildService.GetUserGuildsAsync(user.Id);
     var cachedMembership = cachedGuilds.FirstOrDefault(g => g.GuildId == guildId);
+    if (cachedMembership != null && IsStale(cachedMembership)) // older than MembershipMaxAge
+    {
+        cachedMembership = null; // treated as a cache miss
+    }
+
     var explicitGrant = await _dbContext.UserGuildAccess
         .FirstOrDefaultAsync(a => a.ApplicationUserId == user.Id && a.GuildId == guildId);
+    var explicitGrantSufficient = explicitGrant?.AccessLevel >= requirement.MinimumLevel;
 
     if (cachedMembership != null)
     {
-        // Moderator/Viewer succeed here; Admin checks cachedMembership.Permissions,
-        // then falls back to explicitGrant, otherwise denies (no live lookup).
+        // EffectiveMembershipLevel: Admin role + cached Administrator bit -> top of the enum;
+        // Moderator/Viewer role -> GuildAccessLevel.Viewer. Compared against MinimumLevel;
+        // falls back to explicitGrantSufficient, otherwise denies (no live lookup).
+        var level = EffectiveMembershipLevel(isAdminRole, HasAdministratorPermission(cachedMembership.Permissions));
+        if (level >= requirement.MinimumLevel) context.Succeed(requirement);
+        else if (explicitGrantSufficient) context.Succeed(requirement);
         return;
     }
 
-    if (explicitGrant?.AccessLevel >= requirement.MinimumLevel)
+    if (explicitGrantSufficient)
     {
         context.Succeed(requirement);
         return;
@@ -972,9 +996,10 @@ protected override async Task HandleRequirementAsync(
 
     // Cache miss -> live gateway lookup, refresh cache on a hit.
     var live = await GetLiveGuildMembershipAsync(guildId, user.DiscordUserId.Value);
-    if (live is null) return; // deny
+    if (live is null) return; // deny; stale row (if any) is left as-is
     await _userDiscordGuildService.UpsertGuildMembershipAsync(user.Id, /* ... */);
-    if (!isAdminRole || live.IsAdministrator) context.Succeed(requirement);
+    var liveLevel = EffectiveMembershipLevel(isAdminRole, live.IsAdministrator);
+    if (liveLevel >= requirement.MinimumLevel) context.Succeed(requirement);
 }
 ```
 

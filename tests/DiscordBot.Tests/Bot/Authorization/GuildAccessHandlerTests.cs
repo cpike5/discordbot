@@ -2,6 +2,7 @@ using System.Security.Claims;
 using Discord.WebSocket;
 using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -14,6 +15,7 @@ using Microsoft.AspNetCore.Routing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Bot.Authorization;
@@ -40,6 +42,8 @@ public class GuildAccessHandlerTests : IDisposable
     private const string UserId = "user123";
     private const ulong DiscordUserId = 555000111UL;
     private const ulong GuildId = 123456789012345678UL;
+
+    private static readonly TimeSpan DefaultMembershipMaxAge = TimeSpan.FromHours(1);
 
     public GuildAccessHandlerTests()
     {
@@ -75,7 +79,9 @@ public class GuildAccessHandlerTests : IDisposable
             .ReturnsAsync(new List<UserDiscordGuild>().AsReadOnly());
     }
 
-    private GuildAccessHandler CreateHandler(GuildAccessHandler.LiveGuildMembershipResult? liveResult = null)
+    private GuildAccessHandler CreateHandler(
+        GuildAccessHandler.LiveGuildMembershipResult? liveResult = null,
+        TimeSpan? membershipMaxAge = null)
         => new TestableGuildAccessHandler(
             _mockUserManager.Object,
             _mockDiscordClient.Object,
@@ -83,6 +89,10 @@ public class GuildAccessHandlerTests : IDisposable
             _mockUserDiscordGuildService.Object,
             _mockHttpContextAccessor.Object,
             _mockLogger.Object,
+            Options.Create(new GuildMembershipCacheOptions
+            {
+                MembershipMaxAge = membershipMaxAge ?? DefaultMembershipMaxAge
+            }),
             liveResult);
 
     private static ClaimsPrincipal CreatePrincipal(string userId, params string[] roles)
@@ -439,10 +449,143 @@ public class GuildAccessHandlerTests : IDisposable
     }
 
     // ---------------------------------------------------------------------------------------
+    // MembershipMaxAge: stale cached rows fall through to a live lookup
+    // ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task FreshCachedRow_DoesNotFallBackToLiveLookup()
+    {
+        await SeedLinkedUserAsync();
+        await SeedCachedMembershipAsync(GuildId, administrator: false, lastUpdatedAt: DateTime.UtcNow.AddMinutes(-5));
+        SetHttpContextRoute(GuildId);
+
+        var principal = CreatePrincipal(UserId, IdentitySeeder.Roles.Viewer);
+        var handler = CreateHandler(membershipMaxAge: TimeSpan.FromHours(1));
+        var context = CreateContext(principal, new GuildAccessRequirement());
+
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeTrue("a row well within MembershipMaxAge is a cache hit");
+        _mockDiscordClient.Verify(c => c.GetGuild(It.IsAny<ulong>()), Times.Never,
+            "a fresh cached row must not fall back to a live lookup");
+    }
+
+    [Fact]
+    public async Task StaleCachedRow_LiveHit_Succeeds_AndRefreshesCache()
+    {
+        await SeedLinkedUserAsync();
+        await SeedCachedMembershipAsync(GuildId, administrator: false, lastUpdatedAt: DateTime.UtcNow.AddHours(-2));
+        SetHttpContextRoute(GuildId);
+
+        var live = new GuildAccessHandler.LiveGuildMembershipResult(
+            IsAdministrator: false, GuildName: "Refreshed Guild", GuildIconHash: null,
+            IsOwner: false, PermissionsRaw: 0);
+
+        var principal = CreatePrincipal(UserId, IdentitySeeder.Roles.Viewer);
+        var handler = CreateHandler(live, membershipMaxAge: TimeSpan.FromHours(1));
+        var context = CreateContext(principal, new GuildAccessRequirement());
+
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeTrue(
+            "a stale cached row is treated as a cache miss, and the live lookup finds membership");
+        _mockUserDiscordGuildService.Verify(
+            s => s.UpsertGuildMembershipAsync(
+                UserId,
+                It.Is<DiscordGuildDto>(d => d.Id == GuildId && d.Name == "Refreshed Guild"),
+                It.IsAny<CancellationToken>()),
+            Times.Once,
+            "a live hit following a stale row must refresh the cache");
+    }
+
+    [Fact]
+    public async Task StaleCachedRow_LiveMiss_Fails()
+    {
+        await SeedLinkedUserAsync();
+        await SeedCachedMembershipAsync(GuildId, administrator: false, lastUpdatedAt: DateTime.UtcNow.AddHours(-2));
+        SetHttpContextRoute(GuildId);
+
+        var principal = CreatePrincipal(UserId, IdentitySeeder.Roles.Viewer);
+        var handler = CreateHandler(liveResult: null, membershipMaxAge: TimeSpan.FromHours(1));
+        var context = CreateContext(principal, new GuildAccessRequirement());
+
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeFalse(
+            "the stale row is a cache miss, and the user is no longer a member on the live lookup " +
+            "(e.g. kicked, banned, or left) - access must not be granted from the stale row");
+        _mockUserDiscordGuildService.Verify(
+            s => s.UpsertGuildMembershipAsync(It.IsAny<string>(), It.IsAny<DiscordGuildDto>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "nothing to refresh on a live miss; the stale row is left as-is");
+    }
+
+    // ---------------------------------------------------------------------------------------
+    // MinimumLevel: plain membership must not bypass a stricter requirement
+    // ---------------------------------------------------------------------------------------
+
+    [Fact]
+    public async Task CacheHit_PlainMembership_DeniedByHigherMinimumLevel()
+    {
+        await SeedLinkedUserAsync();
+        await SeedCachedMembershipAsync(GuildId, administrator: false);
+        SetHttpContextRoute(GuildId);
+
+        // Moderator role membership only ever computes to the lowest (Viewer) effective level,
+        // so a policy requiring more than Viewer must deny it even though the row is cached.
+        var principal = CreatePrincipal(UserId, IdentitySeeder.Roles.Moderator);
+        var handler = CreateHandler();
+        var context = CreateContext(principal, new GuildAccessRequirement(GuildAccessLevel.Moderator));
+
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeFalse(
+            "plain cached membership only satisfies the lowest (Viewer) MinimumLevel");
+    }
+
+    [Fact]
+    public async Task LiveHit_PlainMembership_DeniedByHigherMinimumLevel()
+    {
+        await SeedLinkedUserAsync();
+        SetHttpContextRoute(GuildId);
+
+        var live = new GuildAccessHandler.LiveGuildMembershipResult(
+            IsAdministrator: false, GuildName: "Live Guild", GuildIconHash: null,
+            IsOwner: false, PermissionsRaw: 0);
+
+        var principal = CreatePrincipal(UserId, IdentitySeeder.Roles.Moderator);
+        var handler = CreateHandler(live);
+        var context = CreateContext(principal, new GuildAccessRequirement(GuildAccessLevel.Moderator));
+
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeFalse(
+            "plain live membership only satisfies the lowest (Viewer) MinimumLevel");
+    }
+
+    [Fact]
+    public async Task CacheHit_PlainMembership_DefaultViewerPolicy_StillSucceeds()
+    {
+        // Behaviour must be unchanged for the only policy in use today (MinimumLevel = Viewer).
+        await SeedLinkedUserAsync();
+        await SeedCachedMembershipAsync(GuildId, administrator: false);
+        SetHttpContextRoute(GuildId);
+
+        var principal = CreatePrincipal(UserId, IdentitySeeder.Roles.Moderator);
+        var handler = CreateHandler();
+        var context = CreateContext(principal, new GuildAccessRequirement(GuildAccessLevel.Viewer));
+
+        await handler.HandleAsync(context);
+
+        context.HasSucceeded.Should().BeTrue();
+    }
+
+    // ---------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------
 
-    private async Task SeedCachedMembershipAsync(ulong guildId, bool administrator = false)
+    private async Task SeedCachedMembershipAsync(
+        ulong guildId, bool administrator = false, DateTime? lastUpdatedAt = null)
     {
         var membership = new UserDiscordGuild
         {
@@ -452,8 +595,8 @@ public class GuildAccessHandlerTests : IDisposable
             GuildName = "Cached Guild",
             IsOwner = false,
             Permissions = administrator ? 8L : 0L, // 0x8 = ADMINISTRATOR
-            CapturedAt = DateTime.UtcNow,
-            LastUpdatedAt = DateTime.UtcNow
+            CapturedAt = lastUpdatedAt ?? DateTime.UtcNow,
+            LastUpdatedAt = lastUpdatedAt ?? DateTime.UtcNow
         };
         _dbContext.Set<UserDiscordGuild>().Add(membership);
         await _dbContext.SaveChangesAsync();
@@ -484,8 +627,9 @@ public class GuildAccessHandlerTests : IDisposable
             IUserDiscordGuildService userDiscordGuildService,
             IHttpContextAccessor httpContextAccessor,
             ILogger<GuildAccessHandler> logger,
+            IOptions<GuildMembershipCacheOptions> cacheOptions,
             LiveGuildMembershipResult? liveResult)
-            : base(userManager, discordClient, dbContext, userDiscordGuildService, httpContextAccessor, logger)
+            : base(userManager, discordClient, dbContext, userDiscordGuildService, httpContextAccessor, logger, cacheOptions)
         {
             _liveResult = liveResult;
         }
