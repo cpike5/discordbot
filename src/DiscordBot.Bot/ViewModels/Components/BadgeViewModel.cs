@@ -8,6 +8,8 @@ public record BadgeViewModel
     public BadgeSize Size { get; init; } = BadgeSize.Medium;
     public BadgeStyle Style { get; init; } = BadgeStyle.Filled;
     public string? IconLeft { get; init; }
+    /// <summary>Renders the badge with a fully rounded (pill) border radius.</summary>
+    public bool IsPill { get; init; } = false;
     public bool IsRemovable { get; init; } = false;
     public string? OnRemove { get; init; }
 }

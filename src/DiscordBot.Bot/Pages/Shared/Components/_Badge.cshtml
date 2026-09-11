@@ -29,7 +29,9 @@
         _ => ""
     };
 
-    var classes = string.Join(" ", new[] { "badge", variantClass, styleClass, sizeClass }.Where(c => !string.IsNullOrEmpty(c)));
+    var pillClass = Model.IsPill ? "badge-pill" : "";
+
+    var classes = string.Join(" ", new[] { "badge", variantClass, styleClass, sizeClass, pillClass }.Where(c => !string.IsNullOrEmpty(c)));
 }
 
 <span class="@classes">

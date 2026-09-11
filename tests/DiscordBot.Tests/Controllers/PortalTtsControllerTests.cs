@@ -103,7 +103,7 @@ public class PortalTtsControllerTests
         // Setup HttpContext and User claims
         var claims = new List<Claim>
         {
-            new Claim("DiscordId", "123456789"),
+            new Claim("discord:user_id", "123456789"),
             new Claim(ClaimTypes.Name, "TestUser")
         };
         var identity = new ClaimsIdentity(claims, "TestAuth");
