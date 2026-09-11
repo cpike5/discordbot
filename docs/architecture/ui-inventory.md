@@ -17,14 +17,15 @@ For detailed component documentation, see [Component API Usage Guide](../article
 ## Blazor Routes (Phase 1, temporary)
 
 The Blazor port (`docs/plans/blazor-port-plan.md`) is under way alongside the Razor Pages
-below; see "Blazor components" in `patterns.md`. These two routes exist only to prove the
+below; see "Blazor components" in `patterns.md`. These routes exist only to prove the
 Phase 1 hosting foundation and are **deleted at the end of Phase 2**, once the real component
 library and shell layouts land — they are not part of the permanent route surface.
 
 | Route | File | Purpose |
 |-------|------|---------|
 | `/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Minimal smoke test: `RequireAdmin` auth on a routable component plus one interactive counter button. |
-| `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, and `BrowserInterop`/`CircuitClientInfoService`. Deliberately a nested route (`/admin/...`) rather than a top-level one — the old branch's regression here was `blazor.server.js` resolving `_blazor/initializers` relative to the current path instead of the app root. |
+| `/admin/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Second `@page` route on the same component as `/blazor-smoke`, guarding a known .NET 10 regression where `blazor.web.js` resolved `_blazor/initializers` relative to a nested path instead of the app base, 404ing and leaving the circuit dead — see `tests/DiscordBot.E2E`. Both the flat and nested Playwright checks run against this one component. |
+| `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, and `BrowserInterop`/`CircuitClientInfoService`. Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and is deleted with this probe at the end of Phase 2. |
 
 ---
 

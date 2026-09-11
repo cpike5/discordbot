@@ -45,9 +45,9 @@ services.AddBlazorInterop();
 ```
 
 which registers `ChartInterop`, `AudioInterop` and `BrowserInterop` as **scoped** — one
-instance per circuit, matching the lifetime of the `IJSRuntime` they wrap. This method is
-not called from `Program.cs` by this PR; the agent wiring Blazor hosting calls it during
-integration.
+instance per circuit, matching the lifetime of the `IJSRuntime` they wrap. Called from
+`Extensions/BlazorServiceExtensions.cs`'s `AddBlazorWeb`, which `Program.cs` calls alongside
+`AddRazorComponents()`.
 
 ## Disposal
 
