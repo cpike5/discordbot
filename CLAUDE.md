@@ -77,6 +77,9 @@ dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 dotnet test tests/DiscordBot.Evals   # skips entirely without OpenRouter:ApiKey
 ```
 
+`tests/DiscordBot.ComponentTests` (bUnit, wired into `DiscordBot.sln`) covers the `Blazor/` tree
+component-by-component — see "Component (bUnit) Tests" in `docs/articles/testing-guide.md`.
+
 CI (`.github/workflows/ci.yml`) runs restore, build in Release, and the full test
 suite on every PR to `main`. Both must be green before you push.
 

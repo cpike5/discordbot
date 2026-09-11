@@ -75,6 +75,91 @@ The project uses the following testing stack:
 
 ---
 
+## Component (bUnit) Tests
+
+The Blazor port (`docs/plans/blazor-port-plan.md`) has its own test project,
+**`tests/DiscordBot.ComponentTests`** (`Microsoft.NET.Sdk.Razor`, wired into `DiscordBot.sln` so
+`dotnet test DiscordBot.sln` and CI pick it up automatically) — a separate project from
+`DiscordBot.Tests` because bUnit renders real component trees and needs its own DI container per
+test, which doesn't mix with `DiscordBot.Tests`' SQLite-in-memory `TestDbContextFactory` setup.
+It mirrors `src/DiscordBot.Bot/Blazor/` (`Blazor/Layout/`, `Blazor/Pages/Admin/`, ...). Uses
+**bUnit** (pinned to the latest stable release that targets `net10.0` — verify with
+`dotnet package search bunit --exact-match` before bumping; do not guess a version) alongside the
+same xUnit/FluentAssertions/Moq versions as `DiscordBot.Tests`.
+
+### Base class: `BlazorComponentTestContext`
+
+Every test class inherits `tests/DiscordBot.ComponentTests/TestHelpers/BlazorComponentTestContext.cs`,
+which extends **`Bunit.BunitContext`** — bUnit 2.10 marks the older `Bunit.TestContext` obsolete
+in favour of this rename — and in its constructor registers the same services `AddBlazorWeb`
+wires into the real host: `AddBlazorUiServices()` (`IToastService`/`ILoadingState`),
+`AddBlazorInterop()` (`ChartInterop`/`BrowserInterop`, resolved against bUnit's fake
+`IJSRuntime`), a real `DashboardEventBus` singleton (not mocked — subscribe/publish/debounce
+behavior is exactly what the event-bus tests exercise), and a scoped `CircuitClientInfoService`.
+It also sets `JSInterop.Mode = JSRuntimeMode.Loose` by default, and exposes an
+`AddAuthorizedAdmin(string userName = "admin")` helper.
+
+**Auth**: call `AddAuthorizedAdmin()` (or bUnit's own `this.AddAuthorization()` for a
+lower-level case) before rendering a component that reads
+`[CascadingParameter] Task<AuthenticationState>` — bUnit supplies that cascading value
+automatically once authorization is configured; no explicit
+`AddCascadingAuthenticationState()` is needed. Note the name: bUnit renamed the old
+`AddTestAuthorization()` to **`AddAuthorization()`** in v2 — don't go looking for the v1 name.
+
+**JS interop**: with `JSInterop.Mode = JSRuntimeMode.Loose` (the default here), an unconfigured
+call — including a dynamic `import` — returns a default value instead of throwing, which is
+enough for any interop call a component makes in `OnAfterRenderAsync` without per-test setup.
+To assert exactly which interop calls a component made (e.g. "imports the chart module, then
+calls `create`"), use `JSInterop.SetupModule("./js/blazor/charts.js")` and
+`.Setup<int>("create", invocation => true)` on the result, then assert on the handler's
+`.Invocations` and on `JSInterop.Invocations["import"]`.
+
+**Navigation**: bUnit's fake `NavigationManager` (`Bunit.TestDoubles.BunitNavigationManager`,
+resolved via `Services.GetRequiredService<NavigationManager>()`) records every navigation —
+including a `forceLoad: true` one — in its `.History` stack (latest first) rather than
+performing it, so a component like `RedirectToLogin` that forces a full page load can be tested
+by asserting on `navMan.History.First()` (`.Uri`, `.Options.ForceLoad`, `.State`).
+
+### The debouncer / `WaitForAssertion` pattern
+
+Components subscribed to `IDashboardEventBus` coalesce to at most one re-render per second via
+`Debouncer` (see "Real-time event bus" in `patterns.md`), so a test that publishes an event and
+then immediately asserts on the rendered markup is racing the debounce window. Publish through
+the same `IDashboardEventBus` instance the component resolved
+(`Services.GetRequiredService<IDashboardEventBus>()`), then assert with
+`cut.WaitForAssertion(() => ..., TimeSpan.FromSeconds(3))` rather than a fixed delay — it polls
+until the assertion passes or the timeout elapses, so it passes as soon as the debounced
+re-render lands instead of always waiting the full window. Use `WaitForState` for a boolean
+predicate instead of an assertion. Proving the *opposite* — that a disposed component's
+subscription no longer fires — has nothing to wait *for*, so a single bounded `await
+Task.Delay(...)` past the debounce window followed by an assertion is the right tool there (see
+`BlazorProbeTests.Dispose_UnsubscribesFromEverything_...`); that single await is not the
+wall-clock polling loop CLAUDE.md's thread-pool-starvation `ConfigureAwait(false)` rule targets.
+
+### The bUnit modal-await deadlock rule
+
+Never block synchronously on `InvokeAsync`/a rendered component's `Task` inside a test (`.Result`,
+`.Wait()`, `.GetAwaiter().GetResult()`) — bUnit's renderer needs the same thread to process the
+continuation, so blocking on it can deadlock. Click a button with `cut.Find(...).Click()` (which
+returns as soon as the handler's synchronous portion completes, not the whole awaited task) and
+observe the result with `WaitForAssertion`/`WaitForState`, never by awaiting-then-blocking on the
+click itself.
+
+### `IAsyncDisposable`-only services and xUnit's synchronous `Dispose()`
+
+`ChartInterop`/`BrowserInterop` implement only `IAsyncDisposable` (see `blazor-interop.md`,
+"Disposal"). xUnit v2 calls a test class's plain, synchronous `IDisposable.Dispose()` by
+default at the end of a test, and .NET's DI container refuses to synchronously dispose a scoped
+instance that implements only `IAsyncDisposable` — it throws `InvalidOperationException`.
+`BunitContext`'s own `Dispose()`/`DisposeAsync()` are both sealed, so this can't be fixed by
+overriding them. `BlazorComponentTestContext` instead implements `Xunit.IAsyncLifetime`
+(explicit interface implementation, `DisposeAsync() => base.DisposeAsync().AsTask()`), which
+makes xUnit await the container's real async dispose first; the later synchronous `Dispose()`
+call then finds the container already torn down and no-ops. Any new test project that renders
+components depending on an `IAsyncDisposable`-only service needs the same pattern.
+
+---
+
 ## Running Tests
 
 ### Run All Tests

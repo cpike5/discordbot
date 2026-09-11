@@ -22,7 +22,8 @@ observability) is done; see "Blazor components" in `docs/architecture/patterns.m
 hosting model, the `HttpContext`-is-prerender-only rule, and where things live under
 `Blazor/`. `Blazor/Pages/Admin/BlazorProbe.razor` (`/admin/blazor-probe`) and
 `Blazor/Pages/BlazorSmoke.razor` (`/blazor-smoke`) are temporary Phase 1 proof pages, deleted at
-the end of Phase 2.
+the end of Phase 2; bUnit component tests for `Blazor/` live in `tests/DiscordBot.ComponentTests`
+(see "Component (bUnit) Tests" in `docs/articles/testing-guide.md`).
 
 ## Domain Map
 
