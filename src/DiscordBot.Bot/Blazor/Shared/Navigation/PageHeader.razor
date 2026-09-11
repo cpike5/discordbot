@@ -1,0 +1,45 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@* Ported from _CommandHeader.cshtml / CommandHeaderViewModel. The partial only ever rendered
+   Title/Subtitle (ActiveTab only drove which Subtitle string the page model computed, not
+   anything in the markup itself, so it isn't a parameter here); this tier's brief additionally
+   asks for an optional Actions slot, generalizing the page-title-with-actions layout every guild
+   page currently hand-rolls next to a plain <h1>. Absent Actions, the markup is unchanged from the
+   partial. *@
+
+<div class="@Merge("mb-6")" @attributes="AdditionalAttributes">
+    @if (Actions is not null)
+    {
+        <div class="flex items-center justify-between gap-4">
+            <div>
+                <h1 class="page-title">@Title</h1>
+                @if (!string.IsNullOrEmpty(Subtitle))
+                {
+                    <p class="text-sm text-text-secondary mt-1" data-command-subtitle>@Subtitle</p>
+                }
+            </div>
+            <div class="flex items-center gap-3">@Actions</div>
+        </div>
+    }
+    else
+    {
+        <h1 class="page-title">@Title</h1>
+        @if (!string.IsNullOrEmpty(Subtitle))
+        {
+            <p class="text-sm text-text-secondary mt-1" data-command-subtitle>@Subtitle</p>
+        }
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? Actions { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Merge(string baseClasses) => string.Join(" ", new[] { baseClasses, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+}

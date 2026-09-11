@@ -1,0 +1,41 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@* Ported from _GuildStatsCard.cshtml (model: DiscordBot.Bot.ViewModels.Pages.GuildStatsViewModel,
+   a Pages-namespace VM - this component takes the three primitive values directly instead of
+   depending on a Pages-layer type). Pure markup, no interop. *@
+
+<div class="@Merge("block bg-bg-secondary border border-border-primary rounded-lg p-5 transition-colors")" @attributes="AdditionalAttributes">
+    <div class="flex items-center justify-between">
+        <div>
+            <p class="text-sm font-medium text-text-secondary">Total Servers</p>
+            <p class="mt-2 text-3xl font-bold text-text-primary">@TotalGuilds</p>
+            <p class="mt-1 text-xs text-text-tertiary flex items-center gap-1.5">
+                <span class="inline-flex items-center gap-1 text-success">
+                    <Icon Path="@IconPaths.CheckCircle" Size="IconSize.XS" />
+                    @ActiveGuilds Active
+                </span>
+                @if (InactiveGuilds > 0)
+                {
+                    <span class="text-text-tertiary">•</span>
+                    <span class="text-text-tertiary">@InactiveGuilds Inactive</span>
+                }
+            </p>
+        </div>
+        <div class="p-3 bg-accent-blue/10 rounded-lg transition-colors">
+            <Icon Path="@IconPaths.Server" Size="IconSize.LG" Class="text-accent-blue" />
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public int TotalGuilds { get; set; }
+    [Parameter] public int ActiveGuilds { get; set; }
+    [Parameter] public int InactiveGuilds { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Merge(string baseClasses) => string.Join(" ", new[] { baseClasses, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+}
