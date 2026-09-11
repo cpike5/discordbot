@@ -1,0 +1,88 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using System.Linq.Expressions
+
+@* Merges _FormToggle.cshtml (Forms tier) and the settings-page toggle per the consolidation table
+   in docs/articles/blazor-components.md - _FormToggle's markup is canonical here. The inline
+   <style> block in _FormToggle.cshtml moves to Toggle.razor.css (Component contract, point 6).
+   data-setting-toggle="true" - the DOM-scanning hook settings.js/moderation-settings.js use for
+   dirty-state tracking - is opt-in via SettingToggle rather than always-on: a Blazor caller tracks
+   "did anything change" through EditContext.OnFieldChanged/IsModified once ported, so the
+   attribute is only worth emitting for a page still served by that legacy JS (see the
+   consolidation note: "the data-setting-toggle DOM-scanning dirty-tracking convention becomes
+   explicit component/EditContext state"). Same Value/ValueChanged/ValueExpression + optional
+   EditContext pattern as TextInput.razor (see the comment there). *@
+
+<div class="flex items-start gap-4 @Class" @attributes="AdditionalAttributes">
+    <label class="form-toggle @(IsDisabled ? "opacity-60 cursor-not-allowed" : "cursor-pointer")">
+        <input type="checkbox"
+               id="@Id"
+               name="@(Name ?? Id)"
+               class="form-toggle-input"
+               data-setting-toggle="@(SettingToggle ? "true" : null)"
+               checked="@Value"
+               disabled="@IsDisabled"
+               value="true"
+               @onchange="HandleChange" />
+        <span class="form-toggle-track">
+            <span class="form-toggle-thumb"></span>
+        </span>
+    </label>
+
+    @if (!string.IsNullOrEmpty(Label) || !string.IsNullOrEmpty(Description))
+    {
+        <div class="flex-1">
+            @if (!string.IsNullOrEmpty(Label))
+            {
+                <label for="@Id" class="block text-sm font-semibold text-text-primary @(IsDisabled ? "cursor-not-allowed" : "cursor-pointer")">
+                    @Label
+                </label>
+            }
+            @if (!string.IsNullOrEmpty(Description))
+            {
+                <p class="text-xs text-text-secondary mt-1">@Description</p>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Description { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+
+    /// <summary>Emit <c>data-setting-toggle="true"</c> so legacy settings.js/moderation-settings.js
+    /// dirty-tracking still finds this input, for a page still served by that script. Off by
+    /// default - see the file-level comment.</summary>
+    [Parameter] public bool SettingToggle { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public bool Value { get; set; }
+    [Parameter] public EventCallback<bool> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<bool>>? ValueExpression { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [CascadingParameter] private EditContext? CascadedEditContext { get; set; }
+
+    private FieldIdentifier? _fieldIdentifier;
+
+    protected override void OnParametersSet()
+    {
+        _fieldIdentifier = ValueExpression is not null ? FieldIdentifier.Create(ValueExpression) : null;
+    }
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        var newValue = e.Value is bool b && b;
+        Value = newValue;
+        await ValueChanged.InvokeAsync(newValue);
+        if (CascadedEditContext is not null && _fieldIdentifier is { } field)
+        {
+            CascadedEditContext.NotifyFieldChanged(field);
+        }
+    }
+}

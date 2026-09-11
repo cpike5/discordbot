@@ -1,0 +1,115 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using System.Linq.Expressions
+@using DiscordBot.Bot.ViewModels.Components
+
+@* No source partial exists for a multi-line field (see docs/plans/blazor-port-inventory.md Part 3
+   §2.2 - _FormInput covers only single-line types). Synthesized from two sources per the tier
+   brief: the "form-textarea" base class plus rows/placeholder/maxlength markup shape in
+   Pages/Guilds/ScheduledMessages/Create.cshtml's <textarea>, and _FormInput.cshtml's
+   Size/ValidationState class-building scheme (so a TextArea looks and behaves like a same-size,
+   same-validation-state TextInput, which nothing in the source app defines but every other member
+   of this group needs). Same Value/ValueChanged/ValueExpression + optional EditContext pattern as
+   TextInput.razor - see the comment there for why this isn't InputBase<string>-derived. *@
+
+<FormField Label="@Label" For="@Id" HelpText="@HelpText" ValidationState="ValidationState"
+           ValidationMessage="@ValidationMessage" IsRequired="IsRequired" Class="@Class"
+           FooterContent="@Footer">
+    <textarea id="@Id"
+              name="@(Name ?? Id)"
+              rows="@Rows"
+              class="@TextAreaClasses"
+              placeholder="@Placeholder"
+              @oninput="HandleInput"
+              disabled="@IsDisabled"
+              readonly="@IsReadOnly"
+              required="@IsRequired"
+              aria-required="@(IsRequired ? "true" : null)"
+              maxlength="@MaxLength"
+              aria-describedby="@DescribedByIds"
+              aria-invalid="@(ValidationState == ValidationState.Error ? "true" : null)"
+              @attributes="AdditionalAttributes">@Value</textarea>
+</FormField>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public int Rows { get; set; } = 4;
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public InputSize Size { get; set; } = InputSize.Medium;
+    [Parameter] public ValidationState ValidationState { get; set; } = ValidationState.None;
+    [Parameter] public string? ValidationMessage { get; set; }
+    [Parameter] public bool IsRequired { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+    [Parameter] public bool IsReadOnly { get; set; }
+    [Parameter] public int? MaxLength { get; set; }
+    [Parameter] public bool ShowCharacterCount { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<string?>>? ValueExpression { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [CascadingParameter] private EditContext? CascadedEditContext { get; set; }
+
+    private FieldIdentifier? _fieldIdentifier;
+
+    protected override void OnParametersSet()
+    {
+        _fieldIdentifier = ValueExpression is not null ? FieldIdentifier.Create(ValueExpression) : null;
+    }
+
+    private async Task HandleInput(ChangeEventArgs e)
+    {
+        var newValue = e.Value?.ToString();
+        Value = newValue;
+        await ValueChanged.InvokeAsync(newValue);
+        if (CascadedEditContext is not null && _fieldIdentifier is { } field)
+        {
+            CascadedEditContext.NotifyFieldChanged(field);
+        }
+    }
+
+    private string? DescribedByIds => FormField.ComputeDescribedByIds(Id, HelpText, ValidationState, ValidationMessage);
+
+    private string SizeClasses => Size switch
+    {
+        InputSize.Small => "py-1.5 px-3 text-xs",
+        InputSize.Large => "py-3 px-4 text-base",
+        _ => "py-2.5 px-3.5 text-sm"
+    };
+
+    private string ValidationClasses => ValidationState switch
+    {
+        ValidationState.Error => "border-error focus:border-error focus:ring-error/15",
+        ValidationState.Success => "border-success focus:border-success focus:ring-success/15",
+        ValidationState.Warning => "border-warning focus:border-warning focus:ring-warning/15",
+        _ => "border-border-primary focus:border-accent-blue focus:ring-accent-blue/15"
+    };
+
+    private string TextAreaClasses
+    {
+        get
+        {
+            var classes = $"form-textarea w-full {SizeClasses} text-text-primary bg-bg-primary border {ValidationClasses} rounded-md resize-none placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px]";
+            return IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+        }
+    }
+
+    private RenderFragment? Footer => @<text>
+        @if (CascadedEditContext is not null && ValueExpression is not null)
+        {
+            <ValidationMessage For="ValueExpression" class="flex items-center gap-1.5 text-xs text-error" />
+        }
+        @if (ShowCharacterCount && MaxLength.HasValue)
+        {
+            <div class="flex justify-end">
+                <span class="text-xs text-text-tertiary">@(Value?.Length ?? 0)/@MaxLength.Value</span>
+            </div>
+        }
+    </text>;
+}
