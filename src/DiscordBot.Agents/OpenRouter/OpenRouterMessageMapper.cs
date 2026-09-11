@@ -25,14 +25,20 @@ public static class OpenRouterMessageMapper
     /// Whether to mark the system message as a cache breakpoint. Honoured by OpenRouter for
     /// Claude-family models and ignored by everything else.
     /// </param>
+    /// <param name="cacheTtl">
+    /// Lifetime of that breakpoint ("5m", "1h"), or null for the provider's default of 5m.
+    /// </param>
     /// <returns>Messages in the order OpenRouter expects them.</returns>
-    public static List<ChatMessage> ToOpenRouterMessages(LlmRequest request, bool enablePromptCaching)
+    public static List<ChatMessage> ToOpenRouterMessages(
+        LlmRequest request,
+        bool enablePromptCaching,
+        string? cacheTtl = null)
     {
         var messages = new List<ChatMessage>();
 
         if (!string.IsNullOrEmpty(request.SystemPrompt))
         {
-            messages.Add(CreateSystemMessage(request.SystemPrompt, enablePromptCaching));
+            messages.Add(CreateSystemMessage(request.SystemPrompt, enablePromptCaching, cacheTtl));
         }
 
         foreach (var msg in request.Messages)
@@ -64,13 +70,25 @@ public static class OpenRouterMessageMapper
     /// Creates the system message, optionally carrying a prompt-cache breakpoint. The cached form
     /// needs the multipart content shape, because <c>cache_control</c> lives on a content part.
     /// </summary>
-    public static ChatMessage CreateSystemMessage(string systemPrompt, bool cached) => new()
+    /// <param name="systemPrompt">The prompt text.</param>
+    /// <param name="cached">Whether to mark it as a cache breakpoint.</param>
+    /// <param name="cacheTtl">Breakpoint lifetime ("5m", "1h"), or null for the provider default.</param>
+    public static ChatMessage CreateSystemMessage(string systemPrompt, bool cached, string? cacheTtl = null) => new()
     {
         Role = "system",
         Content = cached
-            ? new List<ContentPart> { ContentPart.TextPart(systemPrompt, CacheControl.Ephemeral) }
+            ? new List<ContentPart> { ContentPart.TextPart(systemPrompt, CacheBreakpoint(cacheTtl)) }
             : systemPrompt,
     };
+
+    /// <summary>
+    /// The breakpoint to stamp on the system prompt: the shared default when no TTL is configured,
+    /// so the common case allocates nothing.
+    /// </summary>
+    private static CacheControl CacheBreakpoint(string? cacheTtl) =>
+        string.IsNullOrWhiteSpace(cacheTtl)
+            ? CacheControl.Ephemeral
+            : new CacheControl { Ttl = cacheTtl.Trim() };
 
     /// <summary>
     /// Converts one user-role DTO message. Tool results fan out into one <c>"tool"</c>-role message

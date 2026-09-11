@@ -111,6 +111,39 @@ public class OpenRouterMessageMapperTests
     }
 
     [Fact]
+    public void ToOpenRouterMessages_WithACacheTtl_PutsItOnTheBreakpoint()
+    {
+        var request = new LlmRequest
+        {
+            SystemPrompt = "You are a bot.",
+            Messages = new List<LlmMessage> { new() { Role = LlmRole.User, Content = "Hi" } }
+        };
+
+        var messages = OpenRouterMessageMapper.ToOpenRouterMessages(
+            request, enablePromptCaching: true, cacheTtl: "1h");
+
+        var parts = messages[0].Content.Should().BeOfType<List<ContentPart>>().Subject;
+        parts[0].CacheControl!.Type.Should().Be("ephemeral");
+        parts[0].CacheControl!.Ttl.Should().Be("1h");
+    }
+
+    [Fact]
+    public void ToOpenRouterMessages_WithNoCacheTtl_LeavesTheProviderDefault()
+    {
+        var request = new LlmRequest
+        {
+            SystemPrompt = "You are a bot.",
+            Messages = new List<LlmMessage> { new() { Role = LlmRole.User, Content = "Hi" } }
+        };
+
+        var messages = OpenRouterMessageMapper.ToOpenRouterMessages(
+            request, enablePromptCaching: true, cacheTtl: "  ");
+
+        var parts = messages[0].Content.Should().BeOfType<List<ContentPart>>().Subject;
+        parts[0].CacheControl!.Ttl.Should().BeNull();
+    }
+
+    [Fact]
     public void ToOpenRouterMessages_WithCachingDisabled_UsesPlainStringSystemContent()
     {
         var request = new LlmRequest

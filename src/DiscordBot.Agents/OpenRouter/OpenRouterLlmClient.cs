@@ -278,7 +278,7 @@ public class OpenRouterLlmClient : ILlmClient
         return new ChatCompletionRequest
         {
             Model = model,
-            Messages = OpenRouterMessageMapper.ToOpenRouterMessages(request, cachingEnabled),
+            Messages = OpenRouterMessageMapper.ToOpenRouterMessages(request, cachingEnabled, options.PromptCacheTtl),
             MaxTokens = request.MaxTokens,
             Temperature = request.Temperature,
             Tools = tools,

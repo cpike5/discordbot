@@ -229,6 +229,41 @@ public class OpenRouterLlmClientTests
         var systemContent = handler.LastRequest().GetProperty("messages")[0].GetProperty("content");
         systemContent[0].GetProperty("cache_control").GetProperty("type").GetString()
             .Should().Be("ephemeral");
+        // The configured TTL rides on the same breakpoint; 1h is the default.
+        systemContent[0].GetProperty("cache_control").GetProperty("ttl").GetString()
+            .Should().Be("1h");
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithTheCacheTtlCleared_FallsBackToTheProviderDefault()
+    {
+        // The key exists so a 1h TTL can be reverted without a deploy.
+        var handler = new StubHandler().EnqueueSuccess();
+        var client = CreateClient(handler, o => o.PromptCacheTtl = string.Empty);
+
+        var request = SimpleRequest();
+        request.EnablePromptCaching = true;
+
+        await client.CompleteAsync(request);
+
+        var cacheControl = handler.LastRequest()
+            .GetProperty("messages")[0].GetProperty("content")[0].GetProperty("cache_control");
+        cacheControl.GetProperty("type").GetString().Should().Be("ephemeral");
+        cacheControl.TryGetProperty("ttl", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task CompleteAsync_WithToolChoice_SendsItOnTheWire()
+    {
+        var handler = new StubHandler().EnqueueSuccess();
+        var client = CreateClient(handler);
+
+        var request = SimpleRequest();
+        request.ToolChoice = "none";
+
+        await client.CompleteAsync(request);
+
+        handler.LastRequest().GetProperty("tool_choice").GetString().Should().Be("none");
     }
 
     [Fact]

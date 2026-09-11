@@ -108,9 +108,15 @@ public class ToolRegistry : IToolRegistry
     {
         lock (_lock)
         {
+            // Sorted by name, not left in provider-registration order. Tool schemas serialize at
+            // position 0 of the request, ahead of the system message, so any change in their order
+            // invalidates every prompt-cache breakpoint behind them - and a DI reshuffle would
+            // change that order silently, with correct answers and a tenfold price rise as the
+            // only symptom.
             var tools = _providers.Values
                 .Where(e => e.IsEnabled)
                 .SelectMany(e => e.Provider.GetTools())
+                .OrderBy(t => t.Name, StringComparer.Ordinal)
                 .ToList();
 
             _logger.LogDebug(

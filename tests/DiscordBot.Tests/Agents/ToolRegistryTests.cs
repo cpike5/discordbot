@@ -195,6 +195,34 @@ public class ToolRegistryTests
     }
 
     [Fact]
+    public void GetEnabledTools_ReturnsToolsSortedByNameRegardlessOfRegistrationOrder()
+    {
+        // Tool schemas serialize at position 0 of the request, ahead of the system message, so
+        // their order is part of the cached prefix. Registration order is DI order, which a future
+        // reshuffle changes silently - the symptom is a tenfold price rise with correct answers.
+        _registry.RegisterProvider(CreateMockProvider("Zulu", "Last registered", "zeta_tool").Object);
+        _registry.RegisterProvider(CreateMockProvider("Alpha", "First registered", "alpha_tool").Object);
+        _registry.RegisterProvider(CreateMockProvider("Mike", "Middle", "Beta_tool").Object);
+
+        var names = _registry.GetEnabledTools().Select(t => t.Name).ToList();
+
+        // Ordinal, so an uppercase name sorts before the lowercase ones rather than by culture.
+        names.Should().Equal("Beta_tool", "alpha_tool", "zeta_tool");
+    }
+
+    [Fact]
+    public void GetEnabledTools_ReturnsTheSameOrderOnEveryCall()
+    {
+        _registry.RegisterProvider(CreateMockProvider("Zulu", "Z", "zeta_tool").Object);
+        _registry.RegisterProvider(CreateMockProvider("Alpha", "A", "alpha_tool").Object);
+
+        var first = _registry.GetEnabledTools().Select(t => t.Name).ToList();
+        var second = _registry.GetEnabledTools().Select(t => t.Name).ToList();
+
+        second.Should().Equal(first);
+    }
+
+    [Fact]
     public void GetEnabledTools_ReturnsEmptyWhenNoProviders()
     {
         // Act

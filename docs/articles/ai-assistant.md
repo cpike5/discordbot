@@ -330,7 +330,11 @@ repeat if the model tries anyway.
 
 #### Prompt Caching (Cost Optimization)
 
-Prompt caching reduces API costs by ~50% by caching the agent prompt and common documentation files for 5 minutes. OpenRouter passes cache breakpoints through to **Claude-family models only** — other models ignore them and report zero cached tokens, so caching is safe to leave on for any slug but only pays off on Claude.
+Prompt caching reduces API costs by ~50% by caching the agent prompt and common documentation files. OpenRouter passes cache breakpoints through to **Claude-family models only** — other models ignore them and report zero cached tokens, so caching is safe to leave on for any slug but only pays off on Claude.
+
+The breakpoint sits on the system prompt, and its lifetime comes from `OpenRouter:PromptCacheTtl` (default `"1h"`; clear it to fall back to the provider's 5 minutes). The system prompt and the tool schemas behind it are the layer shared across every user and every question in a guild, and a guild's questions are frequently more than five minutes apart, so the longer TTL's write premium pays for itself.
+
+Two things sit in front of that breakpoint and must not move: the tool schemas serialize at position 0 of the request, ahead of the system message, so any change in their order invalidates the cache behind them. `ToolRegistry.GetEnabledTools()` therefore returns them sorted by name (ordinal) rather than in DI registration order — the symptom of getting this wrong is correct answers at roughly ten times the price, which no test catches unless one asserts the order.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -430,6 +434,7 @@ The transport-level settings live in their own `OpenRouter` section, separate fr
 | `TimeoutSeconds` | `300` | Per-attempt request timeout |
 | `RetryBaseDelayMs` | `1000` | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
 | `EnablePromptCachingByDefault` | `true` | Add a cache breakpoint to the system prompt unless a request overrides it |
+| `PromptCacheTtl` | `"1h"` | Lifetime of that breakpoint, as Anthropic spells it (`"5m"` or `"1h"`). Empty falls back to the provider default of 5 minutes |
 | `AppUrl` | *(none)* | Site URL sent as `HTTP-Referer` (attribution on openrouter.ai rankings) |
 | `AppTitle` | `"DiscordBot"` | Application name sent as `X-Title` |
 
@@ -442,6 +447,7 @@ The transport-level settings live in their own `OpenRouter` section, separate fr
     "TimeoutSeconds": 300,
     "RetryBaseDelayMs": 1000,
     "EnablePromptCachingByDefault": true,
+    "PromptCacheTtl": "1h",
     "AppTitle": "DiscordBot"
   }
 }
