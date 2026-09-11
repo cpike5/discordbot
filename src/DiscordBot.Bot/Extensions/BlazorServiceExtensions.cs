@@ -54,6 +54,10 @@ public static class BlazorServiceExtensions
         // OpenTelemetryExtensions). Scoped -> one handler instance per circuit.
         services.AddScoped<CircuitHandler, BlazorCircuitHandler>();
 
+        // Per-circuit UI state (toast, loading) and JS interop wrappers.
+        services.AddBlazorUiServices();
+        services.AddBlazorInterop();
+
         return services;
     }
 }
