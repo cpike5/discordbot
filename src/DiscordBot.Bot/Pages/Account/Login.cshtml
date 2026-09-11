@@ -34,48 +34,10 @@
 
     <div class="login-container">
 
-        <!-- Left Panel: Brand -->
-        <aside class="login-brand-panel">
-            <div class="login-brand-head">
-                <img src="~/images/logo.svg" alt="" />
-                <div>
-                    <div class="font-display font-bold text-text-primary leading-tight">Bot Admin</div>
-                    <div class="login-brand-sub">Control Console</div>
-                </div>
-            </div>
-
-            <div class="login-brand-body">
-                <p class="login-eyebrow">Discord bot administration</p>
-                <h1 class="login-title">Every server,<br />one <em>console</em>.</h1>
-                <p class="login-tagline">Moderation, audio, analytics and automation for your Discord bot, managed from a single place.</p>
-
-                <ul class="login-features">
-                    <li>
-                        <span class="idx">01</span>
-                        <span>Live bot status and command telemetry<small>Latency, uptime and execution logs as they happen.</small></span>
-                    </li>
-                    <li>
-                        <span class="idx">02</span>
-                        <span>Per-server moderation and safety tooling<small>Cases, watchlists, auto-moderation and audit trails.</small></span>
-                    </li>
-                    <li>
-                        <span class="idx">03</span>
-                        <span>Secure sign-in with Discord<small>OAuth-backed access with role-based permissions.</small></span>
-                    </li>
-                </ul>
-            </div>
-
-            <div class="login-brand-foot">
-                <span><span class="led" aria-hidden="true"></span>Secured session</span>
-                <span>@VersionService.GetVersion()</span>
-            </div>
-        </aside>
-
-        <!-- Right Panel: Login Form -->
         <main class="login-form-panel">
             <div class="login-form-wrap login-form-animated">
 
-                <div class="login-form-mobile-brand">
+                <div class="login-brand">
                     <img src="~/images/logo.svg" alt="" />
                     <span>Bot Admin</span>
                 </div>
@@ -234,7 +196,10 @@
                     </button>
                 </form>
 
-                <p class="login-foot">Authorised operators only</p>
+                <p class="login-foot">
+                    <span>Authorised operators only</span>
+                    <span>@VersionService.GetVersion()</span>
+                </p>
 
             </div>
         </main>
