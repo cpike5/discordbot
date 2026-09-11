@@ -146,6 +146,7 @@
     private void ScheduleShow()
     {
         _showCts?.Cancel();
+        _showCts?.Dispose();
         var cts = new CancellationTokenSource();
         _showCts = cts;
         _ = DelayThenAsync(HoverDelay, cts.Token, OpenAsync);
@@ -159,6 +160,7 @@
         }
 
         _hideCts?.Cancel();
+        _hideCts?.Dispose();
         var cts = new CancellationTokenSource();
         _hideCts = cts;
         _ = DelayThenAsync(HideDelay, cts.Token, CloseAsync);
@@ -167,6 +169,7 @@
     private void CancelHide()
     {
         _hideCts?.Cancel();
+        _hideCts?.Dispose();
         _hideCts = null;
     }
 
@@ -296,7 +299,9 @@
     public async ValueTask DisposeAsync()
     {
         _showCts?.Cancel();
+        _showCts?.Dispose();
         _hideCts?.Cancel();
+        _hideCts?.Dispose();
 
         try
         {

@@ -123,13 +123,15 @@ public class VoiceChannelPanelTests : BlazorComponentTestContext
         var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, GuildId));
         var bus = Services.GetRequiredService<IDashboardEventBus>();
 
+        // The guild-scoped Subscribe overload filters synchronously inside PublishAsync, so by
+        // the time this await returns the event has already been dispatched (or, as expected
+        // here, not dispatched at all) - no wait needed to know that.
         await bus.PublishAsync(new QueueUpdatedEvent
         {
             GuildId = ParsedGuildId + 1,
             Queue = new QueueUpdatedDto { GuildId = ParsedGuildId + 1, Queue = [new QueueItemDto { Position = 1, Name = "not-ours.mp3" }] }
         });
 
-        await Task.Delay(TimeSpan.FromSeconds(1.2));
         cut.Markup.Should().NotContain("not-ours.mp3");
     }
 
@@ -156,6 +158,17 @@ public class VoiceChannelPanelTests : BlazorComponentTestContext
         var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, GuildId));
         var bus = Services.GetRequiredService<IDashboardEventBus>();
 
+        // First prove the subscription is live before disposal, so the "does not re-render"
+        // check below is actually meaningful.
+        await bus.PublishAsync(new AudioConnectedEvent
+        {
+            GuildId = ParsedGuildId,
+            Data = new AudioConnectedDto { GuildId = ParsedGuildId, ChannelId = 1, ChannelName = "before-dispose", MemberCount = 1 }
+        });
+        cut.WaitForAssertion(
+            () => cut.Find("#voice-channel-panel").GetAttribute("data-connected").Should().Be("true"),
+            TimeSpan.FromSeconds(3));
+
         await DisposeComponentsAsync();
         var renderCountAfterDispose = cut.RenderCount;
 
@@ -164,7 +177,9 @@ public class VoiceChannelPanelTests : BlazorComponentTestContext
             GuildId = ParsedGuildId,
             Data = new AudioConnectedDto { GuildId = ParsedGuildId, ChannelId = 1, ChannelName = "x", MemberCount = 1 }
         });
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        // Short window, not a full debounce-window sleep: Dispose() unsubscribes synchronously,
+        // so there is nothing left to debounce - this only guards against a latent regression.
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
 
         cut.RenderCount.Should().Be(renderCountAfterDispose);
     }

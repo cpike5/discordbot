@@ -95,16 +95,21 @@ public class CardTests : BlazorComponentTestContext
     }
 
     [Fact]
-    public void NotInteractive_ClickDoesNotInvokeOnClick()
+    public void NotInteractive_DoesNotAttachClickHandlerAtAll()
     {
+        // @onclick is now only rendered when IsInteractive (item 14 regression guard) - bUnit
+        // throws MissingEventHandlerException when asked to dispatch an event with no registered
+        // handler, which is the clearest proof the handler was never attached to the DOM at all
+        // (rather than attached-but-a-no-op, the previous behavior).
         var clicked = false;
         var cut = Render<Card>(p => p
             .Add(x => x.Title, "x")
             .Add(x => x.IsInteractive, false)
             .Add(x => x.OnClick, EventCallback.Factory.Create<MouseEventArgs>(this, () => clicked = true)));
 
-        cut.Find("div").Click();
+        var act = () => cut.Find("div").Click();
 
+        act.Should().Throw<MissingEventHandlerException>();
         clicked.Should().BeFalse();
     }
 

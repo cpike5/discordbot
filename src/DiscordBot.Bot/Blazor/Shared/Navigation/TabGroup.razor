@@ -99,6 +99,19 @@
     protected override void OnParametersSet()
     {
         EffectiveId = Id ?? _generatedId;
+
+        // Drop refs for tabs that no longer exist in Tabs - the @ref="_tabRefs[tab.Id]" indexer
+        // below only ever adds/updates entries, so without this the dictionary grows unbounded
+        // across successive Tabs changes and HandleKeyDown could try to focus a stale
+        // ElementReference whose DOM node has already been removed.
+        if (_tabRefs.Count > 0)
+        {
+            var currentIds = Tabs.Select(t => t.Id).ToHashSet();
+            foreach (var staleId in _tabRefs.Keys.Where(id => !currentIds.Contains(id)).ToList())
+            {
+                _tabRefs.Remove(staleId);
+            }
+        }
     }
 
     private string ContainerClasses => string.Join(" ", new[]
@@ -189,7 +202,16 @@
 
         if (_tabRefs.TryGetValue(t.Tab.Id, out var elementRef))
         {
-            await elementRef.FocusAsync();
+            try
+            {
+                await elementRef.FocusAsync();
+            }
+            catch (JSException)
+            {
+                // The captured ElementReference's DOM node may already be gone (e.g. Tabs changed
+                // between the keydown and this await) - focus is a nice-to-have here, not worth
+                // crashing the circuit over.
+            }
         }
 
         await ActivateTab(t.Tab);

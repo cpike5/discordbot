@@ -136,7 +136,7 @@
     private ElementReference _rootRef;
     private List<ElementReference> _itemRefs = [];
     private DotNetObjectReference<NotificationBell>? _selfRef;
-    private int _clickOutsideHandle;
+    private int? _clickOutsideHandle;
 
     private IDisposable? _receivedSubscription;
     private IDisposable? _countSubscription;
@@ -402,12 +402,15 @@
         _allReadSubscription?.Dispose();
         _debouncer.Dispose();
 
-        try
+        if (_clickOutsideHandle is { } handle)
         {
-            await BrowserInterop.OffClickOutsideAsync(_clickOutsideHandle);
-        }
-        catch (JSDisconnectedException)
-        {
+            try
+            {
+                await BrowserInterop.OffClickOutsideAsync(handle);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
         }
 
         _selfRef?.Dispose();
