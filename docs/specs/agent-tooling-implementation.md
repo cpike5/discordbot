@@ -4,7 +4,12 @@ The concrete changes behind [docs/plans/agent-tooling-improvements.md](../plans/
 That document says *what is wrong and why*; this one says *what the code becomes*. Read the plan
 first — the finding IDs (F1…F13) are shared.
 
-**Status**: proposed. Nothing here is implemented.
+**Status**: partially implemented. §1.1, §1.4, §1.5, §1.6 and §1.7a/b shipped as Phase 2 of the
+groundwork overhaul, in `DiscordBot.Agents` rather than `DiscordBot.Infrastructure` — see
+[§5.1a of the plan](../plans/agent-groundwork-overhaul.md) for the corrections that came out of
+doing it. §1.3 (F13, the documentation path containment) is still unshipped and still wants its own
+PR. §1.7c wants a probe against live traffic before anyone builds it. Everything else here is
+proposed.
 
 **Sequencing note.** [plans/agent-groundwork-overhaul.md](../plans/agent-groundwork-overhaul.md)
 supersedes the tier order used here: the engine moves to a `DiscordBot.Agents` project *before*
