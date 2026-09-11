@@ -5,6 +5,12 @@
 **Target:** HTML Prototyper
 **Purpose:** Modern, visually impressive login page for Discord Bot Admin application
 
+> **Status (2026-09):** The split-panel layout described below has been retired.
+> The login page is now a single centred column: a small brand mark, the form
+> header, the Discord OAuth button and the email form. The left brand panel,
+> its feature list and its footer no longer exist; the version string now sits
+> in the form footer. The form-panel sections of this document still apply.
+
 ---
 
 ## Table of Contents
