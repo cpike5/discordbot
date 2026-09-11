@@ -47,6 +47,7 @@ public class RateLimitAttribute : PreconditionAttribute
         IServiceProvider services)
     {
         var now = DateTime.UtcNow;
+        var times = GetLimit(services);
         var key = GetRateLimitKey(context, commandInfo);
         var commandName = commandInfo.Name;
         var userId = context.User.Id;
@@ -68,7 +69,7 @@ public class RateLimitAttribute : PreconditionAttribute
             var currentCount = invocations.Count;
 
             // Check if rate limit is exceeded
-            if (currentCount >= _times)
+            if (currentCount >= times)
             {
                 var oldestInvocation = invocations.Min();
                 var timeUntilReset = _periodSeconds - (now - oldestInvocation).TotalSeconds;
@@ -86,7 +87,7 @@ public class RateLimitAttribute : PreconditionAttribute
                     userId,
                     commandName,
                     guildId,
-                    _times,
+                    times,
                     _periodSeconds,
                     timeUntilReset,
                     currentCount,
@@ -109,12 +110,19 @@ public class RateLimitAttribute : PreconditionAttribute
                 userId,
                 commandName,
                 currentCount + 1,
-                _times,
+                times,
                 _periodSeconds);
         }
 
         return Task.FromResult(PreconditionResult.FromSuccess());
     }
+
+    /// <summary>
+    /// The number of invocations allowed in the period. Constant by default; a derived attribute
+    /// overrides this to read the limit from configuration, which an attribute argument cannot do.
+    /// </summary>
+    /// <param name="services">The interaction's service provider.</param>
+    protected virtual int GetLimit(IServiceProvider services) => _times;
 
     /// <summary>
     /// Generates a unique key for rate limiting based on the target scope.

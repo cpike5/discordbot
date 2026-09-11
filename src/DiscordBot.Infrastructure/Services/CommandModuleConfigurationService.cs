@@ -49,6 +49,8 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
         new("ReminderModule", "Reminders", "Personal reminder commands", "Features", true),
         new("PrivacyModule", "Privacy", "User data privacy and GDPR deletion commands", "Features", true),
         new("NotXCommandModule", "not-X", "X/Twitter link preview commands, including the \"Fetch Tweet\" context menu", "Features", true),
+        new("WalletModule", "Wallet", "Virtual currency balances, history, payments, mints and fines", "Features", true),
+        new("CurrencyModule", "Currency", "Create and list virtual currencies for this server", "Features", true),
 
         // Audio modules
         new("TtsModule", "Text-to-Speech", "Text-to-speech commands", "Audio", true),
