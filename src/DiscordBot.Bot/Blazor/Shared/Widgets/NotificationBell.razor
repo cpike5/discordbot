@@ -27,6 +27,12 @@
     arrow keys move DOM focus among them, which is not a true ARIA roving-tabindex pattern. This
     component implements the real thing (exactly one item at a time is tabindex="0", the rest are
     "-1") per the task brief's explicit "roving tabindex" requirement.
+
+    Fidelity deviation: IconPaths.ShieldCheck (the "BotStatus" notification type icon) and
+    IconPaths.Check (the "mark all read" button) both now render the Heroicons v2 shapes rather
+    than the v1 shapes notification-bell.js/_Navbar.cshtml render inline, per the IconPaths merge
+    (docs/plans/blazor-port-plan.md §5 Phase 2 step 1) - both names collided with a v2 usage
+    elsewhere, and the v2 path is the one that verifies against the published Heroicons SVG.
 *@
 
 <div class="relative @Class" @attributes="AdditionalAttributes" @ref="_rootRef">

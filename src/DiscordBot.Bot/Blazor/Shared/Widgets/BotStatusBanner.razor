@@ -24,6 +24,11 @@
     this subscribes to both. Neither payload carries TotalMembers (the legacy JS bot-status-refresh.js
     doesn't live-patch it either - see _BotStatusBanner.cshtml, no data-* attribute on that span),
     so it stays a load-time snapshot; ServerCount/ConnectionState/Uptime/LatencyMs update live.
+
+    Fidelity deviation: IconPaths.ShieldCheck now renders the Heroicons v2 shield-check outline
+    (the IconPaths merge, docs/plans/blazor-port-plan.md §5 Phase 2 step 1) instead of the v1
+    shape _BotStatusBanner.cshtml renders inline - the same name collided with RuleTypeIcon's v2
+    usage, and the v2 path is the one that verifies against the published Heroicons SVG.
 *@
 
 <div class="@BannerClass" data-bot-status-card data-is-online="@IsOnline.ToString().ToLowerInvariant()" @attributes="AdditionalAttributes">
