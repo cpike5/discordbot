@@ -46,6 +46,20 @@ public interface IAssistantContext
     double Temperature { get; }
     int MaxToolCallIterations { get; }
 
+    /// <summary>
+    /// Ceiling in characters on one tool result entering conversation history; 0 disables the cap.
+    /// </summary>
+    int MaxToolResultChars { get; }
+
+    /// <summary>Deadline for a single tool execution in milliseconds; 0 disables it.</summary>
+    int ToolExecutionTimeoutMs { get; }
+
+    /// <summary>
+    /// How many identical calls to one tool a run allows before refusing further ones; 0 disables
+    /// the guard.
+    /// </summary>
+    int DuplicateToolCallLimit { get; }
+
     IToolRegistry? ToolRegistry { get; }
     ToolContext ExecutionContext { get; }
 

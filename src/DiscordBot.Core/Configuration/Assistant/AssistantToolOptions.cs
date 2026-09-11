@@ -22,9 +22,32 @@ public class AssistantToolOptions
 
     /// <summary>
     /// Gets or sets the timeout for individual tool executions in milliseconds.
-    /// Default is 5000 (5 seconds).
+    /// A tool that overruns it is abandoned and the model is told so; the loop continues.
+    /// Default is 10000 (10 seconds).
     /// </summary>
-    public int ToolExecutionTimeoutMs { get; set; } = 5000;
+    /// <remarks>
+    /// Raised from 5000: that was tight for a documentation read plus a database round trip on a
+    /// cold SQLite file, and the deadline was not actually enforced until it was.
+    /// </remarks>
+    public int ToolExecutionTimeoutMs { get; set; } = 10000;
+
+    /// <summary>
+    /// Gets or sets the ceiling, in characters, on a single tool result entering conversation
+    /// history. A longer result is replaced by a truncation envelope telling the model it is
+    /// reading a fragment. Default is 8000 (~2,000 tokens). 0 disables the cap.
+    /// </summary>
+    /// <remarks>
+    /// A tool result is re-sent on every later iteration of the agentic loop, so one oversized
+    /// read is paid for again on each following turn.
+    /// </remarks>
+    public int MaxToolResultChars { get; set; } = 8000;
+
+    /// <summary>
+    /// Gets or sets how many times one tool may be called with identical arguments in a single
+    /// run before further identical calls are refused without executing the tool.
+    /// Default is 3. 0 disables the guard.
+    /// </summary>
+    public int DuplicateToolCallLimit { get; set; } = 3;
 
     /// <summary>
     /// Gets or sets the path to the agent behavior/security prompt file.

@@ -44,6 +44,36 @@ public class AgentContext
     public int MaxToolCallIterations { get; set; } = 10;
 
     /// <summary>
+    /// Hard ceiling on the characters of a single tool result entering conversation history.
+    /// A longer result is replaced by a truncation envelope so the model knows it is reading a
+    /// fragment. Default 8000 (~2,000 tokens). 0 disables the cap.
+    /// </summary>
+    /// <remarks>
+    /// A tool result is re-sent on every subsequent iteration of the loop, so one oversized read
+    /// is paid for again on every following turn. This is the engine's backstop: a tool that
+    /// returns too much is capped here whether or not it knows how to limit itself.
+    /// </remarks>
+    public int MaxToolResultChars { get; set; } = 8000;
+
+    /// <summary>
+    /// Deadline for a single tool execution, in milliseconds. On expiry the tool's result is
+    /// replaced by a directive timeout message and the loop continues. Default 10000. 0 disables
+    /// the deadline.
+    /// </summary>
+    /// <remarks>
+    /// Only the tool's own deadline is laundered into a result: a cancellation coming from the
+    /// caller still propagates out of the run as cancellation.
+    /// </remarks>
+    public int ToolExecutionTimeoutMs { get; set; } = 10000;
+
+    /// <summary>
+    /// How many times one tool may be called with identical arguments in a single run before
+    /// further identical calls are refused with a directive result instead of being executed.
+    /// Default 3. 0 disables the guard.
+    /// </summary>
+    public int DuplicateToolCallLimit { get; set; } = 3;
+
+    /// <summary>
     /// Optional pre-existing conversation history.
     /// When set, the agent runner initializes from this history + appends the user message,
     /// instead of starting with only the user message. Used by the DM assistant to carry

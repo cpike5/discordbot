@@ -288,8 +288,17 @@ slugs. See `docs/articles/settings-page.md` ("AI Models Tab") for the UI details
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `EnableDocumentationTools` | `true` | Whether the model can call documentation tools |
-| `MaxToolCallsPerQuestion` | `5` | Max tool calls per question (prevents loops) |
-| `ToolExecutionTimeoutMs` | `5000` | Tool execution timeout in milliseconds |
+| `MaxToolCallsPerQuestion` | `5` | Max tool rounds per question (prevents loops) |
+| `ToolExecutionTimeoutMs` | `10000` | Per-tool deadline in milliseconds; an overrun tool is abandoned and the model is told so, and the loop continues. `0` disables it |
+| `MaxToolResultChars` | `8000` | Ceiling on one tool result entering conversation history (~2,000 tokens). A longer result is replaced by a truncation envelope telling the model it is reading a fragment. `0` disables the cap |
+| `DuplicateToolCallLimit` | `3` | How many times one tool may be called with identical arguments in a run before further identical calls are refused without executing the tool. `0` disables the guard |
+
+A tool result is not paid for once: it is appended to the conversation and re-sent on every later
+iteration of the loop, so one oversized read costs its tokens again on each following turn. That is
+what `MaxToolResultChars` exists to bound — individual tools should still return aggregates rather
+than dumps; the cap is the backstop that makes the next careless tool safe. The truncation envelope
+carries an explicit instruction not to re-call the tool, and `DuplicateToolCallLimit` refuses the
+repeat if the model tries anyway.
 
 #### Error Handling
 
@@ -369,7 +378,9 @@ At 100 questions/day:
     "ReadmePath": "README.md",
     "EnableDocumentationTools": true,
     "MaxToolCallsPerQuestion": 5,
-    "ToolExecutionTimeoutMs": 5000,
+    "ToolExecutionTimeoutMs": 10000,
+    "MaxToolResultChars": 8000,
+    "DuplicateToolCallLimit": 3,
     "ErrorMessage": "Oops, I'm having trouble thinking right now. Please try again in a moment.",
     "MaxRetryAttempts": 2,
     "RetryDelayMs": 1000,

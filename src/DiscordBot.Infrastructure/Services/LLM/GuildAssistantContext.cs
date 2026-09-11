@@ -88,6 +88,9 @@ public class GuildAssistantContext : IAssistantContext
     public int MaxTokens => _options.Sampling.MaxTokens;
     public double Temperature => _options.Sampling.Temperature;
     public int MaxToolCallIterations => _options.Tools.MaxToolCallsPerQuestion;
+    public int MaxToolResultChars => _options.Tools.MaxToolResultChars;
+    public int ToolExecutionTimeoutMs => _options.Tools.ToolExecutionTimeoutMs;
+    public int DuplicateToolCallLimit => _options.Tools.DuplicateToolCallLimit;
 
     public IToolRegistry? ToolRegistry { get; }
     public ToolContext ExecutionContext { get; }
