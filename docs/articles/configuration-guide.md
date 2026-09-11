@@ -190,6 +190,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 | `AutoModerationOptions` | `AutoModeration` | `ModerationServiceExtensions` | `DetectionCacheExpiryMinutes`, `FlaggedEventRetentionDays` |
 | `RatWatchOptions` | `RatWatch` | `RatWatchServiceExtensions` | `CheckIntervalSeconds` (30), `DefaultVotingDurationMinutes` (5) |
 | `CurrencyOptions` | `Currency` | `CurrencyServiceExtensions` | `Enabled` (true), `HoldExpirySeconds` (120), `MaxTransferPerMinute` (5), `DefaultDebtFloor` (-100), `HistoryPageSize` (10) |
+| `NotXOptions` | `NotX` | `NotXServiceExtensions` | `Enabled` (true), `RequestTimeoutSeconds` (5), `MaxResponseBytes` (262144), `UserAgent` |
 
 #### Data Retention / Logging
 
@@ -414,6 +415,25 @@ Axis A: RatWatchModule enabled in CommandModuleConfigurations?
 Axis B: ISettingsService → "Features:RatWatchEnabled" == true?
 Axis C: (GuildRatWatchSettings.IsEnabled exists but is not currently wired into the precondition)
 ```
+
+**not-X (Tweet Previews):**
+```
+Axis A: NotX:Enabled == true in appsettings/environment?
+  └─ This feature's Axis A is configuration, not CommandModuleConfigurations: NotXCommandModule
+     and NotXContextMenuModule are not in the DefaultModules seed list, so they have no
+     database toggle. When NotX:Enabled is false, SlashCommandRegistrationService leaves both
+     modules out of discovery — because registration is a bulk overwrite, the /notx commands
+     and the "Fetch Tweet" context menu are removed from Discord on the next startup.
+Axis B: (No ApplicationSettings flag — the appsettings switch is the global one)
+Axis C: NotXGuildSettings.IsEnabled == true?
+  └─ Bonus: NotXGuildSettings monitored channels (empty = all channels), SensitiveOnly, OutputChannelId
+```
+
+`NotX:Enabled` is a hard kill switch, not just a registration filter: `NotXMessageHandler`
+ignores every message while it is false, and `NotXService.ProcessTweetAsync` refuses to post
+even when called with `ignoreSettingsGate: true`. Changing it requires a restart (both to
+re-register the commands and because `IOptions<T>` is not reloaded — see Reload Behavior).
+Per-guild settings are preserved and take effect again once it is switched back on.
 
 **Guild-Level Kill Switch:**
 

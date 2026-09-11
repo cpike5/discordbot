@@ -47,7 +47,7 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private SlashCommandRegistrationService CreateService(ulong? testGuildId)
+    private SlashCommandRegistrationService CreateService(ulong? testGuildId, bool notXEnabled = true)
     {
         var config = Options.Create(new BotConfiguration
         {
@@ -65,7 +65,8 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
             serviceProvider,
             config,
             _mockLogger.Object,
-            _mockCommandModuleConfigService.Object);
+            _mockCommandModuleConfigService.Object,
+            Options.Create(new NotXOptions { Enabled = notXEnabled }));
     }
 
     [Fact]
@@ -193,6 +194,74 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
 
         await act.Should().ThrowAsync<InvalidOperationException>()
             .WithMessage("Could not build the module*");
+    }
+
+    [Fact]
+    public void GetConfigurationDisabledModules_WithNotXEnabled_ShouldReturnEmptySet()
+    {
+        var result = SlashCommandRegistrationService.GetConfigurationDisabledModules(
+            new NotXOptions { Enabled = true });
+
+        result.Should().BeEmpty("an enabled feature must not have its modules filtered out");
+    }
+
+    [Fact]
+    public void GetConfigurationDisabledModules_WithNotXDisabled_ShouldContainBothNotXModules()
+    {
+        // Both modules must be named: the context menu command lives in its own top-level
+        // module (it cannot sit inside a [Group]), so the component-module parent lookup
+        // in DiscoverAndLoadModulesAsync would never catch it.
+        var result = SlashCommandRegistrationService.GetConfigurationDisabledModules(
+            new NotXOptions { Enabled = false });
+
+        // nameof keeps this honest: renaming either module breaks the build here rather
+        // than silently leaving the kill switch matching a name that no longer exists.
+        result.Should().BeEquivalentTo(new[]
+        {
+            nameof(DiscordBot.Bot.Commands.NotXCommandModule),
+            nameof(DiscordBot.Bot.Commands.NotXContextMenuModule)
+        });
+    }
+
+    [Fact]
+    public void GetConfigurationDisabledModules_ShouldMatchModuleNamesCaseInsensitively()
+    {
+        // Module names are compared against the database configuration case-insensitively
+        // elsewhere in the service; this set must behave the same way.
+        var result = SlashCommandRegistrationService.GetConfigurationDisabledModules(
+            new NotXOptions { Enabled = false });
+
+        result.Contains("notxcommandmodule").Should().BeTrue();
+        result.Contains("NOTXCONTEXTMENUMODULE").Should().BeTrue();
+    }
+
+    [Fact]
+    public void GetConfigurationDisabledModules_ShouldNameOnlyTopLevelInteractionModules()
+    {
+        // The skip in DiscoverAndLoadModulesAsync matches on Type.Name of the top-level
+        // modules it discovers, so every name here must belong to a discoverable module —
+        // a nested sub-group or a non-module name would never match and the commands would
+        // register anyway.
+        var disabled = SlashCommandRegistrationService.GetConfigurationDisabledModules(
+            new NotXOptions { Enabled = false });
+
+        var isInteractionModule = typeof(SlashCommandRegistrationService).GetMethod(
+            "IsInteractionModule",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+        var isNestedSubModule = typeof(SlashCommandRegistrationService).GetMethod(
+            "IsNestedSubModule",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!;
+
+        var discoverableModuleNames = typeof(SlashCommandRegistrationService).Assembly
+            .GetTypes()
+            .Where(t => t.IsClass
+                && !t.IsAbstract
+                && (bool)isInteractionModule.Invoke(null, new object[] { t })!
+                && !(bool)isNestedSubModule.Invoke(null, new object[] { t })!)
+            .Select(t => t.Name)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        disabled.Should().OnlyContain(name => discoverableModuleNames.Contains(name));
     }
 
     [Fact]

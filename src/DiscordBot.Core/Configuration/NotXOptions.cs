@@ -12,6 +12,16 @@ public class NotXOptions
     public const string SectionName = "NotX";
 
     /// <summary>
+    /// Gets or sets whether the not-X feature is enabled globally.
+    /// When false the slash-command and context-menu modules are left out of command
+    /// registration (which deregisters them from Discord on the next startup), the
+    /// message handler ignores every message, and <c>NotXService</c> refuses to post.
+    /// Per-guild settings are unaffected and take effect again once re-enabled.
+    /// Default is true.
+    /// </summary>
+    public bool Enabled { get; set; } = true;
+
+    /// <summary>
     /// Gets or sets the HTTP request timeout in seconds for fxtwitter API calls.
     /// Default is 5 seconds.
     /// </summary>

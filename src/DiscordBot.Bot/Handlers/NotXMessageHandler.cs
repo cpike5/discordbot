@@ -1,6 +1,8 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Services.NotX;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Handlers;
 
@@ -13,13 +15,16 @@ namespace DiscordBot.Bot.Handlers;
 public class NotXMessageHandler
 {
     private readonly IServiceScopeFactory _scopeFactory;
+    private readonly NotXOptions _options;
     private readonly ILogger<NotXMessageHandler> _logger;
 
     public NotXMessageHandler(
         IServiceScopeFactory scopeFactory,
+        IOptions<NotXOptions> options,
         ILogger<NotXMessageHandler> logger)
     {
         _scopeFactory = scopeFactory;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -33,6 +38,10 @@ public class NotXMessageHandler
     {
         try
         {
+            // Global kill switch — the feature is off for every guild
+            if (!_options.Enabled)
+                return;
+
             // Only process real user messages
             if (message is not SocketUserMessage userMessage)
                 return;

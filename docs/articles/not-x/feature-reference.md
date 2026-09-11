@@ -389,11 +389,37 @@ The bot never posts an error message to any guild channel. All errors are intern
 
 | Key | Type | Default | Description |
 |-----|------|---------|-------------|
+| `Enabled` | `bool` | `true` | Global kill switch for the whole feature — see below |
 | `RequestTimeoutSeconds` | `int` | `5` | HTTP timeout for fxtwitter API calls |
 | `MaxResponseBytes` | `int` | `262144` | Maximum response body size (bytes) before rejection |
 | `UserAgent` | `string` | `DiscordBot/1.0 (+not-x)` | User-Agent header sent to fxtwitter |
 
 Options class: `NotXOptions` (bound from `IOptions<NotXOptions>`).
+
+### Disabling the feature
+
+Setting `NotX:Enabled` to `false` (appsettings, an environment variable
+`NotX__Enabled=false`, or user secrets) turns the feature off everywhere. Three gates
+enforce it, so no entry point can post while it is off:
+
+1. **Command deregistration.** `SlashCommandRegistrationService` leaves `NotXCommandModule`
+   and `NotXContextMenuModule` out of module discovery. Registration publishes the loaded
+   command set as a bulk overwrite, so the `/notx` commands and the "Fetch Tweet" context
+   menu disappear from Discord on the next startup rather than lingering and failing.
+2. **Handler short-circuit.** `NotXMessageHandler` returns before inspecting any message, so
+   no URL scanning or DI scope creation happens on the `MessageReceived` hot path.
+3. **Service refusal.** `NotXService.ProcessTweetAsync` returns `false` before reading guild
+   settings or calling fxtwitter. This outranks `ignoreSettingsGate`, so even a manual
+   context-menu invocation cannot post.
+
+Because these modules are not in the `CommandModuleConfigurations` seed list
+(`CommandModuleConfigurationService.DefaultModules`), they have no admin-portal toggle —
+`NotX:Enabled` is the only global switch. It is read through `IOptions<T>`, which this
+project does not reload, so a change needs a process restart; the restart is required
+anyway for Discord to pick up the changed command set.
+
+`NotXGuildSettings` rows are left untouched, so each guild's own configuration returns
+as it was when the feature is switched back on.
 
 ---
 

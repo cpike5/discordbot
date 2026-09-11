@@ -1,6 +1,7 @@
 using System.Reflection;
 using Discord.Interactions;
 using Discord.WebSocket;
+using DiscordBot.Bot.Commands;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
@@ -27,6 +28,19 @@ public class SlashCommandRegistrationService : IHostedService
     private readonly BotConfiguration _config;
     private readonly ILogger<SlashCommandRegistrationService> _logger;
     private readonly ICommandModuleConfigurationService _commandModuleConfigService;
+    private readonly NotXOptions _notXOptions;
+
+    /// <summary>
+    /// Module names belonging to the not-X feature. Both are top-level modules — a context
+    /// menu command cannot be declared inside a <see cref="GroupAttribute"/> module — so
+    /// neither is covered by the component-module parent lookup in
+    /// <see cref="DiscoverAndLoadModulesAsync"/> and they must be named explicitly.
+    /// </summary>
+    private static readonly string[] NotXModuleNames =
+    [
+        nameof(NotXCommandModule),
+        nameof(NotXContextMenuModule)
+    ];
 
     public SlashCommandRegistrationService(
         DiscordSocketClient client,
@@ -34,7 +48,8 @@ public class SlashCommandRegistrationService : IHostedService
         IServiceProvider serviceProvider,
         IOptions<BotConfiguration> config,
         ILogger<SlashCommandRegistrationService> logger,
-        ICommandModuleConfigurationService commandModuleConfigService)
+        ICommandModuleConfigurationService commandModuleConfigService,
+        IOptions<NotXOptions> notXOptions)
     {
         _client = client;
         _interactionService = interactionService;
@@ -42,6 +57,29 @@ public class SlashCommandRegistrationService : IHostedService
         _config = config.Value;
         _logger = logger;
         _commandModuleConfigService = commandModuleConfigService;
+        _notXOptions = notXOptions.Value;
+    }
+
+    /// <summary>
+    /// Builds the set of module names switched off by configuration, as opposed to by the
+    /// database module toggles. Leaving a module out of discovery is what deregisters its
+    /// commands: <see cref="RegisterCommandsAsync"/> publishes the loaded command set as a
+    /// bulk overwrite, so commands that are no longer registered locally are removed from
+    /// Discord on the next startup.
+    /// </summary>
+    internal static IReadOnlySet<string> GetConfigurationDisabledModules(NotXOptions notXOptions)
+    {
+        var disabled = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        if (!notXOptions.Enabled)
+        {
+            foreach (var moduleName in NotXModuleNames)
+            {
+                disabled.Add(moduleName);
+            }
+        }
+
+        return disabled;
     }
 
     /// <summary>
@@ -94,10 +132,23 @@ public class SlashCommandRegistrationService : IHostedService
             .Select(m => m.ModuleName)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
 
+        // Features switched off in configuration outrank the database toggles: their modules
+        // are never loaded, so the bulk-overwrite registration drops their commands.
+        var configurationDisabledModules = GetConfigurationDisabledModules(_notXOptions);
+
         // Register only enabled modules
         foreach (var moduleType in allModuleTypes)
         {
             var moduleName = moduleType.Name;
+
+            if (configurationDisabledModules.Contains(moduleName))
+            {
+                skippedModules.Add(moduleName);
+                _logger.LogInformation(
+                    "Skipped module {ModuleName} because its feature is disabled in configuration",
+                    moduleName);
+                continue;
+            }
 
             // If this is a component module, check if its parent module is disabled
             if (moduleName.EndsWith("ComponentModule", StringComparison.Ordinal))

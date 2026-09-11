@@ -315,9 +315,9 @@ Automatic or manual preview embeds for X/Twitter links, using the fxtwitter API 
 | **Handlers** | `NotXMessageHandler` (auto-detects tweet URLs in messages) |
 | **Services** | `INotXService`, `FxTwitterClient`, `NotXEmbedBuilder`, `TweetUrlExtractor` |
 | **Database Entities** | `NotXGuildSettings` |
-| **Configuration** | `NotXOptions` (`NotX` section) |
+| **Configuration** | `NotXOptions` (`NotX` section) — `Enabled` is a global kill switch that also deregisters `/notx` and the `Fetch Tweet` context menu |
 | **External Services** | fxtwitter API (tweet metadata and media) |
-| **Key Features** | Auto-detect tweet URLs, sensitive-only mode, output channel routing, monitored channel filtering, context menu manual fetch, guild-level kill-switch |
+| **Key Features** | Auto-detect tweet URLs, sensitive-only mode, output channel routing, monitored channel filtering, context menu manual fetch, guild-level kill-switch, global config kill-switch (`NotX:Enabled`) |
 | **Rate Limiting** | 5 commands per 60 seconds |
 
 **Architecture Flow**:

@@ -1,7 +1,9 @@
 using Discord;
 using Discord.WebSocket;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services.NotX;
 
@@ -15,17 +17,20 @@ public class NotXService : INotXService
     private readonly INotXGuildSettingsRepository _repository;
     private readonly IFxTwitterClient _fxTwitterClient;
     private readonly DiscordSocketClient _client;
+    private readonly NotXOptions _options;
     private readonly ILogger<NotXService> _logger;
 
     public NotXService(
         INotXGuildSettingsRepository repository,
         IFxTwitterClient fxTwitterClient,
         DiscordSocketClient client,
+        IOptions<NotXOptions> options,
         ILogger<NotXService> logger)
     {
         _repository = repository;
         _fxTwitterClient = fxTwitterClient;
         _client = client;
+        _options = options.Value;
         _logger = logger;
     }
 
@@ -37,6 +42,17 @@ public class NotXService : INotXService
         string tweetUrl,
         bool ignoreSettingsGate = false)
     {
+        // Step 0 — Global kill switch. Checked here as well as at the handler and command
+        // registration so no entry point can post while the feature is off in configuration;
+        // it deliberately outranks ignoreSettingsGate.
+        if (!_options.Enabled)
+        {
+            _logger.LogDebug(
+                "not-X is disabled in configuration; skipping tweet URL '{TweetUrl}' for guild {GuildId}",
+                tweetUrl, guildId);
+            return false;
+        }
+
         // Step 1 — Extract screen name and tweet ID from URL
         var matches = TweetUrlExtractor.Extract(tweetUrl);
         if (matches.Count == 0)
