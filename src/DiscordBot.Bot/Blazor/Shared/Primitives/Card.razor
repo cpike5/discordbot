@@ -1,0 +1,145 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Merges _Card.cshtml (CardViewModel) and _EnhancedCard.cshtml (EnhancedCardViewModel) per the
+   consolidation in docs/articles/blazor-components.md: Accent="CardAccent.None" (default) renders
+   the plain ".card" markup (Variant applies here); any other Accent renders the ".card-enhanced"
+   markup with the gradient top border (HoverLift/CompactPadding are enhanced-only concepts).
+   Collapse state is now component state (IsExpanded/IsExpandedChanged) instead of the original's
+   "this.nextElementSibling?.classList.toggle('hidden')" inline-JS onclick. *@
+
+<div id="@Id" class="@RootClasses" @onclick="HandleRootClick" @attributes="AdditionalAttributes">
+    @if (HasHeader)
+    {
+        @if (IsCollapsible)
+        {
+            <button type="button"
+                    class="w-full flex items-center justify-between px-6 py-4 @HeaderBorderClass hover:bg-bg-hover transition-colors"
+                    aria-expanded="@(IsExpanded ? "true" : "false")"
+                    @onclick="ToggleExpanded" @onclick:stopPropagation="true">
+                <div class="text-left">
+                    @HeaderInner
+                </div>
+                <Icon Path="IconPaths.ChevronDown" Size="IconSize.MD"
+                      Class="@("text-text-secondary transition-transform " + (IsExpanded ? "" : "rotate-180"))" />
+            </button>
+        }
+        else
+        {
+            <div class="flex items-center justify-between px-6 py-4 @HeaderBorderClass">
+                <div>
+                    @HeaderInner
+                </div>
+                @if (HeaderActions is not null)
+                {
+                    <div>@HeaderActions</div>
+                }
+            </div>
+        }
+    }
+
+    @if (ChildContent is not null)
+    {
+        <div class="@BodyClasses">
+            @ChildContent
+        </div>
+    }
+
+    @if (HasFooter)
+    {
+        <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+            @FooterContent
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string? Subtitle { get; set; }
+    [Parameter] public RenderFragment? HeaderContent { get; set; }
+    [Parameter] public RenderFragment? HeaderActions { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+
+    /// <summary>Only affects the plain-card path (<see cref="CardAccent.None"/>) - the
+    /// card-enhanced markup has no variant concept in the source partial.</summary>
+    [Parameter] public CardVariant Variant { get; set; } = CardVariant.Default;
+
+    [Parameter] public CardAccent Accent { get; set; } = CardAccent.None;
+    [Parameter] public bool HoverLift { get; set; } = true;
+    [Parameter] public bool CompactPadding { get; set; }
+    [Parameter] public bool IsInteractive { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter] public bool IsCollapsible { get; set; }
+    [Parameter] public bool IsExpanded { get; set; } = true;
+    [Parameter] public EventCallback<bool> IsExpandedChanged { get; set; }
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool IsEnhanced => Accent != CardAccent.None;
+    private bool HasHeader => !string.IsNullOrEmpty(Title) || HeaderContent is not null || HeaderActions is not null;
+    private bool HasFooter => FooterContent is not null;
+    private string HeaderBorderClass => HasFooter || ChildContent is not null ? "border-b border-border-primary" : "";
+    private string TitleClass => IsEnhanced ? "text-lg font-semibold text-text-primary" : "text-h5 text-text-primary";
+
+    private RenderFragment HeaderInner => @<text>
+        @if (HeaderContent is not null)
+        {
+            @HeaderContent
+        }
+        else if (!string.IsNullOrEmpty(Title))
+        {
+            <h3 class="@TitleClass">@Title</h3>
+            @if (!string.IsNullOrEmpty(Subtitle))
+            {
+                <p class="text-sm text-text-secondary mt-1">@Subtitle</p>
+            }
+        }
+    </text>;
+
+    private string PlainCardClasses => string.Join(" ", new[]
+    {
+        Variant switch
+        {
+            CardVariant.Flat => "bg-bg-secondary",
+            CardVariant.Elevated => "bg-bg-secondary border border-border-primary shadow-lg",
+            _ => "bg-bg-secondary border border-border-primary"
+        },
+        IsInteractive ? "cursor-pointer transition-all hover:border-accent-blue hover:-translate-y-0.5 hover:shadow-lg hover:shadow-accent-blue/15" : "",
+        "rounded-lg overflow-hidden",
+        Class
+    }.Where(c => !string.IsNullOrEmpty(c)));
+
+    private string EnhancedCardClasses => string.Join(" ", new[]
+    {
+        "card-enhanced",
+        Accent switch
+        {
+            CardAccent.Blue => "accent-blue",
+            CardAccent.Orange => "accent-orange",
+            CardAccent.Success => "accent-success",
+            CardAccent.Info => "accent-info",
+            _ => ""
+        },
+        HoverLift ? "hover:transform hover:-translate-y-0.5" : "",
+        IsInteractive ? "cursor-pointer" : "",
+        Class
+    }.Where(c => !string.IsNullOrEmpty(c)));
+
+    private string RootClasses => IsEnhanced ? EnhancedCardClasses : PlainCardClasses;
+
+    private string BodyPadding => IsEnhanced ? (CompactPadding ? "p-4" : "p-6") : "p-6";
+
+    private string BodyClasses => IsCollapsible && !IsExpanded ? $"{BodyPadding} hidden" : BodyPadding;
+
+    private async Task ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
+        await IsExpandedChanged.InvokeAsync(IsExpanded);
+    }
+
+    private Task HandleRootClick(MouseEventArgs args) => IsInteractive ? OnClick.InvokeAsync(args) : Task.CompletedTask;
+}

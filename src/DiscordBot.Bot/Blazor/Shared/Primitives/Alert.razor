@@ -1,0 +1,96 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _Alert.cshtml / AlertViewModel. Self-hides when OnDismiss has no delegate; a
+   caller that does supply one is assumed to own removing this Alert from whatever list rendered
+   it, so the component defers to the caller instead of hiding out from under a still-truthy
+   caller-side flag (see docs/articles/blazor-components.md, worked example). *@
+
+@if (!_dismissed)
+{
+    <div class="flex items-start gap-3 p-4 rounded-lg border @BgClass @BorderClass @TextClass @Class"
+         role="alert" aria-live="polite" @attributes="AdditionalAttributes">
+        @if (ShowIcon)
+        {
+            <Icon Path="@IconPath" Size="IconSize.MD" Class="flex-shrink-0 mt-0.5" />
+        }
+
+        <div class="flex-1">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <h3 class="text-sm font-semibold">@Title</h3>
+            }
+            <p class="text-sm opacity-90 @(!string.IsNullOrEmpty(Title) ? "mt-1" : "")">
+                @(ChildContent is not null ? ChildContent : (RenderFragment)(builder => builder.AddContent(0, Message)))
+            </p>
+        </div>
+
+        @if (IsDismissible)
+        {
+            <button type="button" class="p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss"
+                    @onclick="HandleDismiss">
+                <Icon Path="IconPaths.XMark" Size="IconSize.MD" />
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public AlertVariant Variant { get; set; } = AlertVariant.Info;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool IsDismissible { get; set; }
+    [Parameter] public bool ShowIcon { get; set; } = true;
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _dismissed;
+
+    private async Task HandleDismiss()
+    {
+        if (OnDismiss.HasDelegate)
+        {
+            await OnDismiss.InvokeAsync();
+        }
+        else
+        {
+            _dismissed = true;
+        }
+    }
+
+    private string IconPath => Variant switch
+    {
+        AlertVariant.Success => IconPaths.CheckCircle,
+        AlertVariant.Warning => IconPaths.ExclamationTriangle,
+        AlertVariant.Error => IconPaths.XCircle,
+        _ => IconPaths.InformationCircle
+    };
+
+    private string BgClass => Variant switch
+    {
+        AlertVariant.Success => "bg-success/10",
+        AlertVariant.Warning => "bg-warning/10",
+        AlertVariant.Error => "bg-error/10",
+        _ => "bg-info/10"
+    };
+
+    private string BorderClass => Variant switch
+    {
+        AlertVariant.Success => "border-success/30",
+        AlertVariant.Warning => "border-warning/30",
+        AlertVariant.Error => "border-error/30",
+        _ => "border-info/30"
+    };
+
+    private string TextClass => Variant switch
+    {
+        AlertVariant.Success => "text-success",
+        AlertVariant.Warning => "text-warning",
+        AlertVariant.Error => "text-error",
+        _ => "text-info"
+    };
+}

@@ -1,0 +1,105 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _Button.cshtml / ButtonViewModel. Renders an <a> instead of a <button> when Href
+   is set - the partial has no equivalent (it is always a <button>), added here because a Blazor
+   caller frequently wants a button-styled navigation link (see docs/articles/blazor-components.md
+   "Component contract"). *@
+
+@if (!string.IsNullOrEmpty(Href))
+{
+    <a href="@(_isDisabled ? null : Href)"
+       class="@ClassNames"
+       aria-disabled="@(_isDisabled ? "true" : null)"
+       aria-busy="@(IsLoading ? "true" : null)"
+       aria-label="@AriaLabelValue"
+       @onclick="OnClick"
+       @attributes="AdditionalAttributes">
+        @Content
+    </a>
+}
+else
+{
+    <button type="@Type"
+            class="@ClassNames"
+            disabled="@_isDisabled"
+            aria-busy="@(IsLoading ? "true" : null)"
+            aria-label="@AriaLabelValue"
+            @onclick="OnClick"
+            @attributes="AdditionalAttributes">
+        @Content
+    </button>
+}
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public ButtonVariant Variant { get; set; } = ButtonVariant.Primary;
+    [Parameter] public ButtonSize Size { get; set; } = ButtonSize.Medium;
+    [Parameter] public string Type { get; set; } = "button";
+    [Parameter] public string? IconLeft { get; set; }
+    [Parameter] public string? IconRight { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public string? LoadingText { get; set; }
+    [Parameter] public bool IsIconOnly { get; set; }
+    [Parameter] public string? AriaLabel { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnClick { get; set; }
+    [Parameter] public string? Href { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _isDisabled => IsDisabled || IsLoading;
+    private string? AriaLabelValue => AriaLabel ?? (IsIconOnly ? Text : null);
+
+    private string SizeClasses => Size switch
+    {
+        ButtonSize.Small => "px-3 py-1.5 text-xs",
+        ButtonSize.Large => "px-6 py-3 text-base",
+        _ => "px-5 py-2.5 text-sm"
+    };
+
+    private string VariantClasses => Variant switch
+    {
+        ButtonVariant.Secondary => "text-text-primary bg-transparent border border-border-primary hover:bg-bg-hover",
+        ButtonVariant.Accent => "text-white bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active",
+        ButtonVariant.Danger => "text-white bg-error hover:bg-error/80",
+        ButtonVariant.Ghost => "text-text-secondary hover:text-text-primary hover:bg-bg-hover",
+        _ => "text-white bg-accent-orange hover:bg-accent-orange-hover active:bg-accent-orange-active"
+    };
+
+    private string BaseClasses => IsIconOnly
+        ? "p-2.5 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-md transition-colors"
+        : $"inline-flex items-center justify-center gap-2 {SizeClasses} font-semibold {VariantClasses} rounded-md transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent-blue disabled:opacity-50 disabled:cursor-not-allowed";
+
+    private string ClassNames => string.IsNullOrEmpty(Class) ? BaseClasses : $"{BaseClasses} {Class}";
+
+    // Content is identical whether the root element ends up being <a> or <button>, so it's built
+    // once as a template rather than duplicated in both markup branches above.
+    private RenderFragment Content => @<text>
+        @if (IsLoading)
+        {
+            <svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            <span class="sr-only">@(LoadingText ?? "Loading")</span>
+        }
+        else if (!string.IsNullOrEmpty(IconLeft))
+        {
+            <Icon Path="@IconLeft" Size="IconSize.SM" />
+        }
+
+        @if (!IsIconOnly)
+        {
+            <span>@(ChildContent is not null ? ChildContent : (RenderFragment)(builder => builder.AddContent(0, Text)))</span>
+        }
+
+        @if (!IsLoading && !string.IsNullOrEmpty(IconRight))
+        {
+            <Icon Path="@IconRight" Size="IconSize.SM" />
+        }
+    </text>;
+}
