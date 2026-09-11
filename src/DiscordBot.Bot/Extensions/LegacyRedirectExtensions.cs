@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.WebUtilities;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -39,24 +40,52 @@ public static class LegacyRedirectExtensions
 
     private static void MapPerformanceTabRedirect(IEndpointRouteBuilder app, string oldRoute, string tabId)
     {
-        app.MapGet(oldRoute, () => Results.Redirect(BuildPerformanceTabUrl(tabId), permanent: true))
+        app.MapGet(oldRoute, (HttpContext context) =>
+                Results.Redirect(BuildPerformanceTabUrl(tabId, context.Request.QueryString), permanent: true))
             .RequireAuthorization("RequireViewer");
     }
 
     /// <summary>
-    /// Builds the unified Performance dashboard URL with the given tab selected.
+    /// Builds the unified Performance dashboard URL with the given tab selected,
+    /// preserving any existing query string (e.g. <c>?hours=720</c>) from the old
+    /// bookmarked URL.
     /// </summary>
-    internal static string BuildPerformanceTabUrl(string tabId) => $"/Admin/Performance#{tabId}";
+    internal static string BuildPerformanceTabUrl(string tabId, QueryString existingQuery = default)
+        => $"/Admin/Performance{existingQuery.Value}#{tabId}";
 
     /// <summary>
     /// Builds the unified Logs page URL for the given tab, preserving any query
     /// string carried over from the old bookmarked URL and appending the tab
-    /// selector the unified page expects.
+    /// selector the unified page expects. <c>handler</c> is dropped - the old
+    /// <c>?handler=Export</c> scheme bound different parameter names on the
+    /// legacy stub pages than the unified page's export handler does, so
+    /// forwarding it would silently produce an unfiltered export - and any
+    /// pre-existing <c>tab</c> is dropped too, so the tab added here is never
+    /// duplicated.
     /// </summary>
     internal static string BuildLogsTabUrl(string tab, QueryString existingQuery)
     {
-        return existingQuery.HasValue
-            ? $"/Admin/Logs{existingQuery.Value}&tab={tab}"
-            : $"/Admin/Logs?tab={tab}";
+        var parameters = new List<KeyValuePair<string, string?>>();
+
+        if (existingQuery.HasValue)
+        {
+            foreach (var pair in QueryHelpers.ParseQuery(existingQuery.Value))
+            {
+                if (string.Equals(pair.Key, "handler", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(pair.Key, "tab", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                foreach (var value in pair.Value)
+                {
+                    parameters.Add(new KeyValuePair<string, string?>(pair.Key, value));
+                }
+            }
+        }
+
+        parameters.Add(new KeyValuePair<string, string?>("tab", tab));
+
+        return $"/Admin/Logs{QueryString.Create(parameters).ToUriComponent()}";
     }
 }
