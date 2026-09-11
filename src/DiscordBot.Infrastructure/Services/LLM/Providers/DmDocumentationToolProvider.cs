@@ -1,13 +1,15 @@
 using System.Text.Json;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
+using DiscordBot.Infrastructure.Abstractions.LLM;
 
 namespace DiscordBot.Infrastructure.Services.LLM.Providers;
 
 /// <summary>
 /// DM-scoped wrapper around <see cref="DocumentationToolProvider"/>.
-/// Copies <see cref="ToolContext.ActiveGuildId"/> into <see cref="ToolContext.GuildId"/>
+/// Copies the DM assistant's active guild into <see cref="ToolContext.GuildId"/>
 /// before delegating so that guild-specific URL substitution works in DM context.
 /// </summary>
 public class DmDocumentationToolProvider : IDmToolProvider
@@ -39,12 +41,13 @@ public class DmDocumentationToolProvider : IDmToolProvider
         ToolContext context,
         CancellationToken cancellationToken = default)
     {
-        // In DM context there is no GuildId, but ActiveGuildId may be set
+        // In DM context there is no GuildId, but an active guild may be set
         // via the set_active_guild tool. Copy it so documentation URL substitution works.
-        if (context.GuildId == 0 && context.ActiveGuildId is > 0)
+        var activeGuildId = context.GetActiveGuildId();
+        if (context.GuildId == 0 && activeGuildId is > 0)
         {
-            _logger.LogDebug("DM documentation: copying ActiveGuildId {ActiveGuildId} to GuildId", context.ActiveGuildId);
-            context.GuildId = context.ActiveGuildId.Value;
+            _logger.LogDebug("DM documentation: copying ActiveGuildId {ActiveGuildId} to GuildId", activeGuildId);
+            context.GuildId = activeGuildId.Value;
         }
 
         return await _inner.ExecuteToolAsync(toolName, input, context, cancellationToken);

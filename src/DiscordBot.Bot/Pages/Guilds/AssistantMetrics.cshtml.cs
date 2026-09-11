@@ -1,6 +1,6 @@
 using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;

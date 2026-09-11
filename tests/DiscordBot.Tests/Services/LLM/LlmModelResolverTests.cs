@@ -1,5 +1,5 @@
 using DiscordBot.Core.Configuration;
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -10,6 +10,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
 using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
+using DiscordBot.Agents.Configuration;
 
 namespace DiscordBot.Tests.Services.LLM;
 

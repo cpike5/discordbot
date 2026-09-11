@@ -35,6 +35,12 @@ graph TB
         REPOS["Entity Repositories<br/>(Guild, User, CommandLog, etc.)"]
     end
 
+    subgraph "Agent Engine (DiscordBot.Agents)"
+        LOOP["AgentRunner<br/>(Agentic Loop)"]
+        TOOLS["Tool Contracts<br/>(IToolProvider, ToolRegistry)"]
+        LLM["OpenRouter Client<br/>(Chat Completions)"]
+    end
+
     subgraph "Core Layer (DiscordBot.Core)"
         ENTITIES["Entities<br/>(Domain Models)"]
         IFACES["Interfaces<br/>(Service Contracts)"]
@@ -79,6 +85,11 @@ graph TB
 
     DB -->|Persist| SQL
 
+    HANDLERS -->|Assistant messages| LOOP
+    LOOP -->|Chat completions| LLM
+    LOOP -->|Dispatch| TOOLS
+    TOOLS -->|Implemented by| REPO
+
     style GUILD fill:#5865F2,stroke:#fff,color:#fff
     style USER fill:#5865F2,stroke:#fff,color:#fff
     style VOICE fill:#5865F2,stroke:#fff,color:#fff
@@ -121,6 +132,24 @@ This arrangement ensures:
 - **Reusability**: Core and Infrastructure can be used by multiple applications
 
 ---
+
+## Agent Engine (DiscordBot.Agents)
+
+**Location:** `src/DiscordBot.Agents/`
+
+The model-facing machinery, and nothing else: `AgentRunner` (the agentic loop), `ToolRegistry`,
+`PromptTemplate`, the engine contracts under `Contracts/`, the abstractions under `Abstractions/`,
+and the OpenRouter chat client under `OpenRouter/`.
+
+It is a **leaf project**: it has no `ProjectReference` at all, and no Discord, EF Core, or ASP.NET
+package references. It knows nothing about Discord, guilds, or this bot — the application hands it
+a system prompt, a tool registry, and a budget, and gets a run result back. Everything that makes
+the bot *this* bot — the tool implementations, the assistant contexts, the entities and
+repositories — stays in Infrastructure and Bot, which reference the engine rather than the other
+way round.
+
+It emits its own traces on the `DiscordBot.Agents` activity source (`AgentsActivitySource`),
+subscribed in the bot's OpenTelemetry setup.
 
 ## Core Layer (DiscordBot.Core)
 

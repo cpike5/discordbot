@@ -3,7 +3,7 @@ using DiscordBot.Core.Entities;
 namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>
-/// Scope-neutral result of running a message through the <see cref="Interfaces.LLM.IAssistantMessagePipeline"/>.
+/// Scope-neutral result of running a message through the <c>IAssistantMessagePipeline</c>.
 /// The guild and DM assistant services each map this to their own public result DTO
 /// (<c>AssistantResponseResult</c> / <c>DmAssistantResponse</c>).
 /// </summary>
@@ -34,7 +34,7 @@ public class AssistantPipelineResult
     /// The ledger row built for this exchange, or null on an error path that never reached the
     /// agent runner. <c>InteractionLogId</c> is unset here — the caller (<c>GuildAssistantContext</c>/
     /// <c>DmAssistantContext</c>) fills it in after its own <c>AddAsync</c> and then hands the
-    /// record to <see cref="Interfaces.LLM.ILlmUsageRecorder"/>.
+    /// record to <see cref="Core.Interfaces.LLM.ILlmUsageRecorder"/>.
     /// </summary>
     public LlmUsageRecord? UsageRecord { get; set; }
 

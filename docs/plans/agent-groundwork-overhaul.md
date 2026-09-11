@@ -10,7 +10,9 @@ as the detail.
 | [specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md) | The code shape of each enhancement — option keys, interfaces, migrations, tests. Sections referenced below as *impl §x.y*. |
 | **This document** | The extraction, and the order the whole overhaul runs in. |
 
-**Status**: proposed. Nothing here is implemented.
+**Status**: Phase 0 and Phase 1 are implemented — see §4.3a for where the manifest needed
+correcting. Phases 2–6 remain proposed. F13 (impl §1.3) has not shipped yet; it is still meant to
+go out as its own PR.
 
 ---
 
@@ -234,6 +236,40 @@ the three already there. Phase 3's telemetry is written against that.
 - **Namespace churn is the whole diff.** Do the move with `git mv` and a mechanical
   find-and-replace, in a commit that contains nothing else, so `git log --follow` still works and
   the review is skimmable.
+
+### 4.3a Corrections found while doing it
+
+Two things in the manifest above did not survive contact with the compiler. Both are recorded here
+because later phases build on them.
+
+**The OpenRouter model-catalogue client stays in Infrastructure.** §4.1 moved all seven OpenRouter
+files and accepted that the app would depend on `IOpenRouterModelCatalogClient` from Agents. That
+is not possible: the client's return type, `LlmCatalogModel`, is also a parameter of Core's
+`ILlmModelRepository`, so moving it would force `DiscordBot.Core` to reference `DiscordBot.Agents`
+and break §4.4's first acceptance criterion. The alternative — a separate Agents-side catalogue
+record plus a mapping layer — is a logic change in a PR that is supposed to contain none. So
+`IOpenRouterModelCatalogClient`, `OpenRouterModelCatalogClient`, `ModelCatalogWireRecords` and
+`OpenRouterModelCatalogClientTests` stay exactly where they are. This costs nothing: the model
+catalogue feeds a database table and an admin page, and is application policy rather than engine
+machinery. Five OpenRouter files move, not seven.
+
+**Five assistant abstractions move to Infrastructure, not Core.** §4.1 listed `IAssistantContext`,
+`IAssistantMessagePipeline`, `IDmToolProvider`, `IGuildAssistantContextFactory` and
+`IDmAssistantContextFactory` as staying put, and §3.3 claimed Core would be clean after 3.1 and
+3.2. Both overlooked that these five have engine types *in their signatures*: `IAssistantContext`
+exposes `IToolRegistry`, `ToolContext` and `List<LlmMessage>`; `IAssistantMessagePipeline` takes an
+`IAgentRunner`; `IDmToolProvider` extends `IToolProvider`; the two factories return
+`IAssistantContext`. They are application concepts, so they do not belong in Agents; but Core
+cannot see the engine, so they cannot stay in Core either. They move to
+`Infrastructure/Abstractions/LLM/` (`DiscordBot.Infrastructure.Abstractions.LLM`), the one place
+that can see both sides. The rule that falls out is worth keeping: *an assistant abstraction whose
+signature is made of engine types lives in Infrastructure; one made only of Core types stays in
+Core.* `IAssistantAccessGate`, `IAssistantRateLimiter`, `IAssistantTelemetryReader`,
+`ILlmUsageRecorder`, `ILlmModelCatalogService`, `ILlmModelResolver` and
+`IOpenRouterModelCatalogClient` all pass that test and stayed.
+
+One smaller note: `ToolRegistryTests` moves to `tests/.../Agents/` alongside the other engine
+tests. §4.1 did not list it, but `ToolRegistry` moves, and the test project mirrors `src/`.
 
 ### 4.4 Acceptance
 

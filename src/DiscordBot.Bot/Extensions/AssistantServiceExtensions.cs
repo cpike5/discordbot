@@ -1,10 +1,11 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
-using DiscordBot.Infrastructure.Services.LLM.OpenRouter;
+using DiscordBot.Agents.OpenRouter;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
 using DiscordBot.Bot.Services.LLM;
 using DiscordBot.Bot.Services.LLM.Providers;
@@ -12,6 +13,10 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using System.Reflection;
+using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Agents.Configuration;
+using DiscordBot.Agents;
+using DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 
 namespace DiscordBot.Bot.Extensions;
 

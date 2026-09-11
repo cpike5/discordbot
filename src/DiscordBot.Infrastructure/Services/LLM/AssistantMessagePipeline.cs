@@ -1,8 +1,10 @@
-using DiscordBot.Core.DTOs.LLM;
+using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Core.DTOs.Llm.Reporting;
+using DiscordBot.Infrastructure.Abstractions.LLM;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 
@@ -41,7 +43,7 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
             Temperature = context.Temperature,
             MaxToolCallIterations = context.MaxToolCallIterations,
             ConversationHistory = context.ConversationHistory.Count > 0 ? context.ConversationHistory : null,
-            Mode = context.Mode
+            RunKind = context.Mode.ToString()
         };
 
         var agentResult = await _agentRunner.RunAsync(userMessage, agentContext, cancellationToken);

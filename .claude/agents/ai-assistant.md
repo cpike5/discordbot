@@ -10,20 +10,32 @@ You are a domain expert for the **AI Assistant & LLM** stream of a Discord bot m
 
 ## Domain Map
 
-### Core (`Core/Interfaces/LLM/`, `Core/DTOs/LLM/`)
-- **Interfaces:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IPromptTemplate`, `IAssistantService`, `ILlmModelCatalogService`, `IOpenRouterModelCatalogClient`, `ILlmModelRepository`, `ILlmModelResolver` (per-mode default resolution, see below), `ILlmUsageRepository` (usage ledger grouped queries — `Core/Interfaces/ILlmUsageRepository.cs`), `ILlmUsageRecorder` (non-blocking ledger write path — `Core/Interfaces/LLM/ILlmUsageRecorder.cs`)
-- **DTOs:** `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Result`, `AgentContext/RunResult` (`AgentContext.Mode`, `AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext/ExecutionResult`, `LlmModelCatalogFilter`, `LlmCatalogModel`, `LlmCatalogRefreshResult`, `LlmModelEnableResult`, `LlmModelDto`/`LlmModelListResponseDto`/`LlmModeDefaultDto` (portal-facing, `Core/DTOs/LLM/LlmModelDto.cs`), `LlmResolvedModel`/`LlmCatalogPricing`/`LlmModelResolutionSource` (`Core/DTOs/LLM/LlmResolvedModel.cs`), `LlmUsageQuery`/`LlmUsageTotals`/`LlmUsageByUser`/`LlmUsageByModel`/`LlmUsageByMode`/`LlmUsageByDay`/`LlmUsagePagedRecords` (`Core/DTOs/LLM/LlmUsage*.cs`), `AssistantPipelineResult.Model`/`.UsageRecord`
+### Agent Engine (`DiscordBot.Agents`)
+
+The model-facing machinery lives in its own leaf project, `src/DiscordBot.Agents/`. It has **no
+project references** and no Discord, EF Core, or ASP.NET packages — everything that makes this
+bot *this* bot stays in Infrastructure and Bot, which reference the engine.
+
+- **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IPromptTemplate`
+- **`Agents/Contracts/`:** `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Definition/Result`, `LlmUsage`, `AgentContext`/`AgentRunResult` (`AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext`/`ToolExecutionResult`, and `Contracts/Enums/` `LlmRole`, `LlmStopReason`
+- **`Agents/Configuration/`:** `OpenRouterOptions`
+- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
+- **`Agents/OpenRouter/`:** `OpenRouterLlmClient` (owned typed `HttpClient`, no SDK), `OpenRouterMessageMapper`, `ChatCompletionRequest`/`ChatCompletionResponse` wire records, `OpenRouterParameterSupportCache`
+
+Two contract details the boundary forced:
+- **`AgentContext.RunKind` is a plain `string?`**, not `LlmMode`. `LlmMode` is application taxonomy and stays in Core; the engine carries the label for correlation only and never switches on it. The pipeline populates it from `IAssistantContext.Mode`.
+- **`ToolContext` has no `UserRoles` and no `ActiveGuildId`.** `UserRoles` was never populated or read and is gone. "Active guild" is a DM-assistant concept and now rides in `ToolContext.Items`, an open-ended `Dictionary<string, object?>` the app owns; read and write it through `DmToolContextExtensions.GetActiveGuildId()`/`SetActiveGuildId()` (`Infrastructure/Services/LLM/`), never by spelling the key inline.
+
+### Core (`Core/Interfaces/LLM/`, `Core/DTOs/Llm/Reporting/`)
+- **Interfaces:** `IAssistantService`, `ILlmModelCatalogService`, `IOpenRouterModelCatalogClient`, `ILlmModelRepository`, `ILlmModelResolver` (per-mode default resolution, see below), `ILlmUsageRepository` (usage ledger grouped queries — `Core/Interfaces/ILlmUsageRepository.cs`), `ILlmUsageRecorder` (non-blocking ledger write path — `Core/Interfaces/LLM/ILlmUsageRecorder.cs`)
+- **DTOs (reporting only — the engine contracts are in `DiscordBot.Agents`):** `LlmModelCatalogFilter`, `LlmCatalogModel`, `LlmCatalogRefreshResult`, `LlmModelEnableResult`, `LlmModelDto`/`LlmModelListResponseDto`/`LlmModeDefaultDto` (portal-facing, `Core/DTOs/Llm/Reporting/LlmModelDto.cs`), `LlmResolvedModel`/`LlmCatalogPricing`/`LlmModelResolutionSource` (`Core/DTOs/Llm/Reporting/LlmResolvedModel.cs`), `LlmUsageQuery`/`LlmUsageTotals`/`LlmUsageByUser`/`LlmUsageByModel`/`LlmUsageByMode`/`LlmUsageByDay`/`LlmUsagePagedRecords` (`Core/DTOs/Llm/Reporting/LlmUsage*.cs`), `AssistantPipelineResult.Model`/`.UsageRecord`
 - **Entities:** `AssistantGuildSettings`, `AssistantInteractionLog` (has a nullable `Model` column), `DmAssistantInteractionLog` (same), `AssistantUsageMetrics`, `LlmModel` (local OpenRouter catalog row, PK = slug), `LlmUsageRecord` (usage ledger — one row per user message across every `LlmMode`; see "Usage Ledger" below)
-- **Config:** `AssistantOptions`, `OpenRouterOptions`, `LlmOptions` (`Llm:CatalogRefreshHours`, `Llm:CatalogRefreshInitialDelayMinutes`, `Llm:UsageQueueCapacity`, `Llm:RetentionSweepIntervalHours`, `Llm:RetentionBatchSize`, `Llm:RetentionSweepInitialDelayMinutes`)
-- **Enums:** `LlmRole`, `LlmStopReason`, `LlmMode` (`GuildAssistant`/`DmAssistant`/`FeatureRequests`) with its `LlmModeSettings` static helper (`KeyFor`, `LabelFor`, `All`) — `Core/Enums/LlmMode.cs`; `LlmCostSource` (`Billed`/`Estimated`) — `Core/Enums/LlmCostSource.cs`
+- **Config:** `AssistantOptions`, `LlmOptions` (`Llm:CatalogRefreshHours`, `Llm:CatalogRefreshInitialDelayMinutes`, `Llm:UsageQueueCapacity`, `Llm:RetentionSweepIntervalHours`, `Llm:RetentionBatchSize`, `Llm:RetentionSweepInitialDelayMinutes`)
+- **Enums:** `LlmMode` (`GuildAssistant`/`DmAssistant`/`FeatureRequests`) with its `LlmModeSettings` static helper (`KeyFor`, `LabelFor`, `All`) — `Core/Enums/LlmMode.cs`; `LlmCostSource` (`Billed`/`Estimated`) — `Core/Enums/LlmCostSource.cs`
 
 ### Infrastructure (`Infrastructure/Services/LLM/`)
-- `AgentRunner` — Agentic loop: message → tool call → result → repeat
-- `ToolRegistry` — Manages tool providers, per-guild enable/disable
-- `PromptTemplate` — System prompt construction
-- `OpenRouter/OpenRouterLlmClient` — OpenRouter API client (owned typed `HttpClient`, no SDK)
-- `OpenRouter/OpenRouterMessageMapper` — Internal DTOs ↔ OpenRouter (OpenAI-compatible) format
-- `OpenRouter/ChatCompletionRequest`, `OpenRouter/ChatCompletionResponse` — Owned wire records
+- `Abstractions/LLM/` — the assistant abstractions whose signatures are made of engine types, and which therefore cannot live in Core: `IAssistantContext`, `IAssistantMessagePipeline`, `IDmToolProvider`, `IGuildAssistantContextFactory`, `IDmAssistantContextFactory`
+- `DmToolContextExtensions` — typed access to the DM assistant's entries in `ToolContext.Items`
 - `LlmModelCatalogService` — Local model catalog: refresh (upsert by slug), filtered/sorted listing, enable/disable allowlist. Audited (`AuditLogCategory.Configuration`).
 - `OpenRouter/OpenRouterModelCatalogClient` — **Second, separate** typed `HttpClient` against OpenRouter's `GET /models` (not `OpenRouterLlmClient`, which only does chat completions); same auth/attribution headers, no retry loop
 - `Data/Repositories/LlmModelRepository` — `LlmModel` persistence (filtered query, enabled list, last-refresh, mark-unavailable)
@@ -72,7 +84,7 @@ One `LlmUsageRecord` row per user message, across every `LlmMode` — tokens, co
 (`Billed`/`Estimated`), which model answered, and (when the mode logs one) a link to that mode's
 own interaction-log row via `InteractionLogId`. **Record usage once in the pipeline:**
 `AssistantMessagePipeline.RunAsync` builds the `LlmUsageRecord` (shared by the guild and DM
-assistants — `Mode` comes from `IAssistantContext.Mode`, `Model` from `AgentRunResult.Model` or
+assistants — `Mode` comes from `IAssistantContext.Mode` (the engine's `AgentContext.RunKind` carries only a correlation label), `Model` from `AgentRunResult.Model` or
 the requested slug, `CostSource` from whether `TotalUsage.EstimatedCost` was reported) and hands
 it back on `AssistantPipelineResult.UsageRecord`; `GuildAssistantContext`/`DmAssistantContext.RecordUsageAsync`
 set `InteractionLogId` after their own interaction-log `AddAsync` (null when `LogInteractions` is

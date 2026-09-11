@@ -3,6 +3,7 @@ using DiscordBot.Bot.Services.LLM.Providers;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
@@ -10,6 +11,7 @@ using DiscordBot.Infrastructure.Services.LLM.Providers;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
+using DiscordBot.Infrastructure.Abstractions.LLM;
 
 namespace DiscordBot.Bot.Extensions;
 

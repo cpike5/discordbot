@@ -2,6 +2,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Infrastructure.Services;

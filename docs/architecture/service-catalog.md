@@ -146,7 +146,7 @@ Services for AI-powered feature request submission with multi-step DM conversati
 | `IInputValidationService` | Core Interfaces | Input validation contract for feature request text |
 | `InputValidationService` | Bot/Services/FeatureRequests | Validates description length and content constraints |
 | `PromptInjectionFilter` | Bot/Services/FeatureRequests | Regex-based prompt injection detection using configurable patterns from `FeatureRequestsOptions` |
-| `FeatureRequestToolProvider` | Infrastructure/Services/FeatureRequests | `IDmToolProvider` implementation exposing feature-request tools to the AI agent |
+| `FeatureRequestToolProvider` | Infrastructure/Services/FeatureRequests | `IDmToolProvider` (Infrastructure/Abstractions/LLM) implementation exposing feature-request tools to the AI agent |
 | `FeatureRequestDmHandler` | Bot/Handlers | Handles DM messages during active feature request conversations |
 
 ---
@@ -407,13 +407,17 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `AssistantService` | Infrastructure/Services | Rate limiting, consent, delegate to agent runner |
 | `IAssistantGuildSettingsService` | Core Interfaces | Guild-specific assistant configuration |
 | `AssistantGuildSettingsService` | Infrastructure/Services | Assistant settings per guild |
-| `IAgentRunner` | Core Interfaces | LLM message routing and tool execution |
-| `ILlmClient` | Core Interfaces | Provider-agnostic LLM completion calls |
-| `OpenRouterLlmClient` | Infrastructure/Services/LLM/OpenRouter | `ILlmClient` over OpenRouter's OpenAI-compatible chat completions — owned typed `HttpClient` and wire records, no LLM SDK; retry, prompt-cache breakpoints, usage and billed cost |
-| `OpenRouterParameterSupportCache` | Infrastructure/Services/LLM/OpenRouter | Singleton memo of slugs that reject `temperature` (reasoning models); `OpenRouterLlmClient` resends once without it on OpenRouter's "no endpoints for the requested parameters" 404 and records the slug here so later requests omit it up front |
-| `OpenRouterMessageMapper` | Infrastructure/Services/LLM/OpenRouter | Maps `Llm*` DTOs to and from the OpenAI-compatible wire shape |
-| `IToolRegistry` | Core Interfaces | Available tools registry |
-| `IPromptTemplate` | Core Interfaces | System prompt and context template |
+| `IAgentRunner` | Agents/Abstractions | LLM message routing and tool execution |
+| `AgentRunner` | Agents | The agentic loop — iterates model call, tool dispatch, and history until a final response |
+| `ILlmClient` | Agents/Abstractions | Provider-agnostic LLM completion calls |
+| `OpenRouterLlmClient` | Agents/OpenRouter | `ILlmClient` over OpenRouter's OpenAI-compatible chat completions — owned typed `HttpClient` and wire records, no LLM SDK; retry, prompt-cache breakpoints, usage and billed cost |
+| `OpenRouterParameterSupportCache` | Agents/OpenRouter | Singleton memo of slugs that reject `temperature` (reasoning models); `OpenRouterLlmClient` resends once without it on OpenRouter's "no endpoints for the requested parameters" 404 and records the slug here so later requests omit it up front |
+| `OpenRouterMessageMapper` | Agents/OpenRouter | Maps `Llm*` DTOs to and from the OpenAI-compatible wire shape |
+| `IToolRegistry` | Agents/Abstractions | Available tools registry |
+| `ToolRegistry` | Agents | Default registry — aggregates the registered `IToolProvider`s and dispatches a call to the owning provider |
+| `IToolProvider` | Agents/Abstractions | The contract a tool group implements; implementations live in Infrastructure and Bot, beside the domain services they call |
+| `IPromptTemplate` | Agents/Abstractions | System prompt and context template |
+| `PromptTemplate` | Agents | Loads a template from disk (memory-cached) and renders `{{variable}}` substitutions |
 | `RatWatchToolProvider` | Bot/Services/LLM | RatWatch-specific tool provider for assistant |
 | `RatWatchTools` | Infrastructure/Services/LLM | Tool implementations for RatWatch queries |
 | `UserGuildInfoToolProvider` | Bot/Services/LLM | Tool provider exposing get_user_profile, get_guild_info, and get_user_roles tools; resolves data from Discord client and database |

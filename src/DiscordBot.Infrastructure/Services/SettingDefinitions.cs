@@ -1,5 +1,6 @@
 using DiscordBot.Core.Enums;
 using System.Text.Json;
+using DiscordBot.Agents.Configuration;
 
 namespace DiscordBot.Infrastructure.Services;
 

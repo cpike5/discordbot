@@ -4,18 +4,20 @@ using Discord;
 using Discord.WebSocket;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Configuration.Assistant;
-using DiscordBot.Core.DTOs.LLM;
-using DiscordBot.Core.DTOs.LLM.Enums;
+using DiscordBot.Agents.Contracts;
+using DiscordBot.Agents.Contracts.Enums;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Core.Models.FeatureRequests;
 using DiscordBot.Infrastructure.Services.FeatureRequests;
 using DiscordBot.Infrastructure.Services.LLM;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 using DiscordBot.Core.DTOs.Llm.Reporting;
+using DiscordBot.Agents;
 
 namespace DiscordBot.Bot.Services.FeatureRequests;
 
@@ -238,7 +240,7 @@ public class FeatureRequestConversationService
                 MaxTokens = 1024,
                 Temperature = 0.7,
                 MaxToolCallIterations = 2,
-                Mode = LlmMode.FeatureRequests
+                RunKind = nameof(LlmMode.FeatureRequests)
             };
 
             var result = await agentRunner.RunAsync(userMessage, context);

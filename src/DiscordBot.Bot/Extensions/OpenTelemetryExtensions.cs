@@ -6,6 +6,7 @@ using Microsoft.Extensions.Options;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Resources;
 using OpenTelemetry.Trace;
+using DiscordBot.Agents;
 
 namespace DiscordBot.Bot.Extensions;
 
@@ -198,6 +199,7 @@ public static class OpenTelemetryExtensions
                 // Add custom activity sources
                 tracing.AddSource(BotActivitySource.SourceName);
                 tracing.AddSource("DiscordBot.Infrastructure");
+                tracing.AddSource(AgentsActivitySource.SourceName);
                 tracing.AddSource("DiscordBot.Vox");
 
                 // Add ASP.NET Core instrumentation for HTTP requests
