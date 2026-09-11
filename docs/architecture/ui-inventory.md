@@ -27,6 +27,15 @@ library and shell layouts land — they are not part of the permanent route surf
 | `/admin/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Second `@page` route on the same component as `/blazor-smoke`, guarding a known .NET 10 regression where `blazor.web.js` resolved `_blazor/initializers` relative to a nested path instead of the app base, 404ing and leaving the circuit dead — see `tests/DiscordBot.E2E`. Both the flat and nested Playwright checks run against this one component. |
 | `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, and `BrowserInterop`/`CircuitClientInfoService`. Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and is deleted with this probe at the end of Phase 2. |
 
+## Blazor Routes (Phase 2, permanent)
+
+Unlike the Phase 1 probe/smoke routes above, this route is a permanent part of the app — it
+replaces a Razor Page rather than proving the hosting foundation.
+
+| Route | File | Purpose |
+|-------|------|---------|
+| `/components` | `Blazor/Pages/Components/ComponentsPage.razor` | Component showcase / design-system reference, `RequireAdmin`-gated. Replaces the former Razor Page `Pages/Components.cshtml` (route `/Components` — ASP.NET Core endpoint routing matches both case-insensitively, so the sidebar's existing link keeps resolving). Composes the six tier showcase sections (`Blazor/Pages/Components/Sections/*Showcase.razor`) behind an anchor nav, plus a `ToastHost`/`LoadingOverlay` so their demos render into something. Renders under `EmptyLayout` (the real `MainLayout` shell lands in Phase 3). See "Blazor components" table below for every component it showcases. |
+
 ---
 
 ## Razor Page Routes
