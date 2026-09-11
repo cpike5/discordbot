@@ -67,13 +67,16 @@
                                 <span class="activity-timestamp text-xs text-text-tertiary font-mono">@item.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
                             </div>
                             <p class="text-sm text-text-primary activity-description">
-                                @if (!string.IsNullOrEmpty(item.CommandText))
+                                @foreach (var segment in SplitOnCommandText(item))
                                 {
-                                    @((MarkupString)item.Message.Replace(item.CommandText, $"<span class=\"font-mono text-accent-orange\">{item.CommandText}</span>"))
-                                }
-                                else
-                                {
-                                    @item.Message
+                                    @if (segment.IsCommand)
+                                    {
+                                        <span class="font-mono text-accent-orange">@segment.Text</span>
+                                    }
+                                    else
+                                    {
+                                        @segment.Text
+                                    }
                                 }
                             </p>
                             <p class="text-xs text-text-tertiary mt-1 activity-guild">@item.Source - @item.RelativeTime</p>
@@ -171,6 +174,45 @@
         Source = update.GuildName,
         Timestamp = update.Timestamp
     };
+
+    private readonly record struct MessageSegment(string Text, bool IsCommand);
+
+    // Splits item.Message on every occurrence of item.CommandText so the command name can be
+    // wrapped in a highlight <span> without ever passing user/Discord-controlled text (usernames,
+    // command names) through MarkupString - both sides render as plain Razor text, which
+    // HTML-encodes automatically. Mirrors the previous string.Replace's all-occurrences behavior.
+    private static List<MessageSegment> SplitOnCommandText(ActivityFeedItemViewModel item)
+    {
+        if (string.IsNullOrEmpty(item.CommandText))
+        {
+            return [new MessageSegment(item.Message, false)];
+        }
+
+        var segments = new List<MessageSegment>();
+        var message = item.Message;
+        var commandText = item.CommandText;
+        var index = 0;
+
+        while (index < message.Length)
+        {
+            var matchIndex = message.IndexOf(commandText, index, StringComparison.Ordinal);
+            if (matchIndex < 0)
+            {
+                segments.Add(new MessageSegment(message[index..], false));
+                break;
+            }
+
+            if (matchIndex > index)
+            {
+                segments.Add(new MessageSegment(message[index..matchIndex], false));
+            }
+
+            segments.Add(new MessageSegment(commandText, true));
+            index = matchIndex + commandText.Length;
+        }
+
+        return segments;
+    }
 
     private static string DescribeGuildEvent(DiscordBot.Core.DTOs.GuildActivityUpdateDto update)
     {

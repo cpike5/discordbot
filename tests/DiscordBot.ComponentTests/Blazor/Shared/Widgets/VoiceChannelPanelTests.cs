@@ -1,5 +1,6 @@
 using Bunit;
 using Discord.Audio;
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services.Realtime;
 using DiscordBot.Bot.Services.Realtime.Events;
@@ -173,5 +174,62 @@ public class VoiceChannelPanelTests : BlazorComponentTestContext
     {
         var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, GuildId).Add(x => x.IsCompact, true));
         cut.Find("#voice-channel-panel").ClassList.Should().Contain("voice-panel-compact");
+    }
+
+    [Fact]
+    public void InvalidGuildId_RendersDisabledPanel_WithoutThrowing()
+    {
+        var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, "not-a-guild-id"));
+
+        cut.Markup.Should().Contain("invalid guild id", "the panel should degrade instead of crashing the circuit");
+        cut.Find("#voice-channel-panel").GetAttribute("aria-disabled").Should().Be("true");
+        _audioStatusService.Verify(s => s.GetCurrentAudioStatus(It.IsAny<ulong>(), It.IsAny<string?>(), It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
+    public void LeaveButton_WhenAudioServiceThrows_ShowsToast_InsteadOfCrashingCircuit()
+    {
+        _audioStatusService
+            .Setup(s => s.GetCurrentAudioStatus(ParsedGuildId, null, null))
+            .Returns(new AudioStatusDto { GuildId = ParsedGuildId, IsConnected = true, ChannelId = 42, ChannelName = "General" });
+        _audioService
+            .Setup(s => s.LeaveChannelAsync(ParsedGuildId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, GuildId));
+
+        var act = () => cut.Find("#leave-channel-btn").Click();
+        act.Should().NotThrow();
+
+        var toastService = Services.GetRequiredService<IToastService>();
+        toastService.Toasts.Should().ContainSingle(t => t.Level == ToastLevel.Error);
+    }
+
+    [Fact]
+    public async Task TwoEventsWithinDebounceWindow_BothApply()
+    {
+        var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, GuildId));
+        var bus = Services.GetRequiredService<IDashboardEventBus>();
+
+        // Both events arrive inside the same 1s debounce window. If Debounced() were still
+        // debouncing the state mutation itself (rather than only the render), the second event
+        // would cancel the first's pending apply() and its ConnectedChannelId assignment would be
+        // lost - which would then make the member-count event's "same channel" check fail too.
+        await bus.PublishAsync(new AudioConnectedEvent
+        {
+            GuildId = ParsedGuildId,
+            Data = new AudioConnectedDto { GuildId = ParsedGuildId, ChannelId = 42, ChannelName = "General", MemberCount = 2 }
+        });
+        await bus.PublishAsync(new VoiceChannelMemberCountUpdatedEvent
+        {
+            GuildId = ParsedGuildId,
+            Data = new VoiceChannelMemberCountUpdatedDto { GuildId = ParsedGuildId, ChannelId = 42, MemberCount = 5 }
+        });
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.Find("#voice-channel-panel").GetAttribute("data-connected").Should().Be("true");
+            cut.Markup.Should().Contain("(5 members)");
+        }, TimeSpan.FromSeconds(3));
     }
 }

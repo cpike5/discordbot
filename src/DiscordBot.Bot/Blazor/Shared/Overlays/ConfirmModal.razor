@@ -1,5 +1,6 @@
 @namespace DiscordBot.Bot.Blazor.Shared
 @using DiscordBot.Bot.ViewModels.Components
+@implements IDisposable
 
 @*
     Merges _ConfirmationModal.cshtml (ConfirmationModalViewModel) and _TypedConfirmationModal.cshtml
@@ -167,4 +168,9 @@
             _awaiter.TrySetResult(false);
         }
     }
+
+    // If this component is disposed (e.g. its parent stops rendering it) while ShowAsync() is
+    // still awaited, nothing would otherwise ever settle _awaiter and the caller would hang
+    // forever. Resolve it with false, the same outcome as a Cancel/Escape close.
+    public void Dispose() => _awaiter?.TrySetResult(false);
 }
