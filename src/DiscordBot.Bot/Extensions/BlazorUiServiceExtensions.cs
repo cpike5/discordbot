@@ -5,8 +5,9 @@ namespace DiscordBot.Bot.Extensions;
 
 /// <summary>
 /// Extension methods for registering Blazor UI state services (toast queue, loading overlay
-/// state). Not called from <c>Program.cs</c> yet — the Blazor hosting work wires this in once
-/// <c>AddRazorComponents()</c> lands; see docs/plans/blazor-port-plan.md, Phase 1.
+/// state). Called from <see cref="BlazorServiceExtensions.AddBlazorWeb"/>, which
+/// <c>Program.cs</c> calls alongside <c>AddRazorComponents()</c>; see
+/// docs/plans/blazor-port-plan.md, Phase 1.
 /// </summary>
 public static class BlazorUiServiceExtensions
 {

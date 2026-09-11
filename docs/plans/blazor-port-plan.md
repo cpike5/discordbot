@@ -184,6 +184,17 @@ Independent clean-ups that shrink the port and remove ambiguity. Each is its own
 6. Tests: `tests/DiscordBot.ComponentTests` (bUnit, xUnit, FluentAssertions, Moq) wired into `DiscordBot.sln` and CI; `tests/DiscordBot.E2E` (Playwright, Chromium is pre-installed in remote sessions) with one smoke test that boots the host in web-only mode, logs in with a seeded admin, and loads `/`.
 7. Probe page: `/blazor-probe` (admin-only, deleted at the end of Phase 2) proving interactive events, auth state, toast, theme interop, an event-bus subscription and a chart render. The old branch found a real .NET 10 regression here (`blazor.server.js` resolving `_blazor/initializers` relative to nested routes); add a Playwright check that a nested route such as `/Guilds/1/members` boots its circuit.
 
+**Deferred from Phase 1.** Three items step 3 lists landed later than planned, each because it
+has no real caller until the phase that needs it: `IThemeInterop` moves to Phase 3, alongside
+the shell — theme switching lives in the layout/`Profile`, so there is nothing in Phase 1 to
+call it from. `GuildContext` types move to Phase 3 with `GuildLayout`, the component that
+actually cascades a `GuildContext` — defining the type earlier would mean carrying an unused
+shape through Phase 2. `PersistentComponentState` is applied per page as each page is ported in
+Phase 4 rather than added to the Phase 1 foundation, since it needs a real `OnInitializedAsync`
+worth protecting from a double run to be worth wiring up. Separately, the probe page's "publish
+test event" button (step 7) is admin-only, matching the rest of `/admin/blazor-probe`, and is
+deleted with the probe page itself at the end of Phase 2 — it is not a permanent piece of UI.
+
 ### Phase 2 — Design system as Blazor components · 10–14 days · 6–8 PRs (one per tier, tier 4 split)
 
 Build Tiers 1–5 from §4.6 in order. Each PR: components, bUnit tests, `.razor.css` where needed, showcase entries. The last PR of the phase replaces `Pages/Components.cshtml` with a Blazor `/components` showcase (the existing page enumerates every variant and is the parity check) and deletes the `.cshtml`. Also in this phase: `docs/articles/component-api.md` gains a Blazor section per component (or a new `blazor-components.md`), `ui-inventory.md` starts a Blazor components table.
