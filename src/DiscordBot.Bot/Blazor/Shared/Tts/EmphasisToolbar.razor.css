@@ -1,0 +1,139 @@
+/* Ported from _EmphasisToolbar.cshtml's inline <style> block, with one deliberate change: the
+   source positioned this toolbar with `position: fixed` and a JS-computed inline top/left
+   (textarea.getBoundingClientRect()). Per the Tier 5 task instructions this component instead
+   anchors via CSS alone - `position: absolute; top: 100%` under whatever `position: relative`
+   ancestor the hosting page wraps around its textarea + this component (see TtsShowcase.razor for
+   the expected wrapper shape). The mobile bottom-sheet rule below needed no such computation in
+   the source (already plain `position: fixed`) and ports unchanged. */
+
+.emphasis-toolbar {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    margin-top: 0.5rem;
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.5rem;
+    padding: 0.5rem;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3);
+    z-index: var(--z-popover, 1000);
+    animation: emphasisToolbar_slideUp 0.2s ease-out;
+}
+
+@keyframes emphasisToolbar_slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.emphasis-toolbar__button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 0.375rem;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
+    color: var(--color-text-primary);
+    cursor: pointer;
+    transition: all 150ms ease-out;
+    font-weight: 600;
+    font-size: 0.75rem;
+}
+
+.emphasis-toolbar__button:hover {
+    background: var(--color-bg-hover);
+    border-color: var(--color-accent-orange);
+}
+
+.emphasis-toolbar__button:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px var(--color-accent-orange-muted);
+}
+
+.emphasis-toolbar__button--strong {
+    color: var(--color-accent-orange);
+}
+
+.emphasis-toolbar__button--strong:hover {
+    background: var(--color-accent-orange-muted);
+    border-color: var(--color-accent-orange);
+}
+
+.emphasis-toolbar__button--moderate {
+    color: var(--color-accent-blue);
+}
+
+.emphasis-toolbar__button--moderate:hover {
+    background: var(--color-accent-blue-muted);
+    border-color: var(--color-accent-blue);
+}
+
+.emphasis-toolbar__button svg {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+}
+
+.emphasis-toolbar__separator {
+    width: 1px;
+    height: 24px;
+    background: var(--color-border-secondary);
+    margin: 0 0.25rem;
+}
+
+.emphasis-toolbar__button--emphasis-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+}
+
+.emphasis-toolbar__notice {
+    flex-basis: 100%;
+    margin: 0.25rem 0 0 0;
+    font-size: 0.75rem;
+    color: var(--color-text-tertiary);
+}
+
+@media (max-width: 767px) {
+    .emphasis-toolbar {
+        position: fixed !important;
+        top: auto !important;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        margin-top: 0;
+        width: 100%;
+        border-radius: 0.75rem 0.75rem 0 0;
+        padding: 1rem;
+        justify-content: center;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        animation: emphasisToolbar_slideUpMobile 0.3s ease-out;
+    }
+
+    @keyframes emphasisToolbar_slideUpMobile {
+        from {
+            opacity: 0;
+            transform: translateY(100%);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
+
+    .emphasis-toolbar__button {
+        min-width: 44px;
+        min-height: 44px;
+    }
+}

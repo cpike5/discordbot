@@ -1,0 +1,277 @@
+/* Ported from _PresetBar.cshtml's inline <style> block. Additions beyond the source partial (see
+   PresetBar.razor's header comment): .preset-button--save-form/.preset-button__save-* (the inline
+   "name this preset" field replacing window.prompt()) and .preset-button__delete--confirm (the
+   two-click delete replacing window.confirm()). */
+
+.presets-bar-wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.presets-bar {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+}
+
+.preset-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 1rem 0.75rem;
+    background: var(--color-bg-tertiary);
+    border: 2px solid var(--color-border-primary);
+    border-radius: 0.75rem;
+    color: var(--color-text-secondary);
+    font-size: 0.875rem;
+    font-weight: 500;
+    text-align: center;
+    cursor: pointer;
+    transition: all 200ms cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.preset-button:hover {
+    background: var(--color-bg-hover);
+    color: var(--color-text-primary);
+    border-color: var(--color-accent-orange-muted);
+    transform: translateY(-2px);
+}
+
+.preset-button:active {
+    transform: translateY(0);
+}
+
+.preset-button--active {
+    border-color: var(--color-accent-orange);
+    background: var(--color-accent-orange-muted);
+    color: var(--color-accent-orange);
+    box-shadow: 0 0 0 3px rgba(var(--color-accent-orange-rgb), 0.15),
+                0 4px 12px rgba(var(--color-accent-orange-rgb), 0.2);
+    /* Plays once whenever a button is (re)created in the active state - paired with the @key
+       (preset.Id + active/inactive) in PresetBar.razor, which forces a fresh element (and so a
+       fresh animation) exactly when a preset becomes active, replacing the original's manual
+       classList.add/removeEventListener('animationend', ...) dance. */
+    animation: preset-pulse 200ms ease-out;
+}
+
+.preset-button--active:hover {
+    border-color: var(--color-accent-orange-hover);
+    color: var(--color-accent-orange-hover);
+}
+
+.preset-button svg {
+    width: 1.5rem;
+    height: 1.5rem;
+    flex-shrink: 0;
+}
+
+.preset-button__label {
+    display: block;
+    line-height: 1.25;
+}
+
+.preset-button__active-badge {
+    position: absolute;
+    top: 0.375rem;
+    right: 0.375rem;
+    padding: 0.125rem 0.375rem;
+    background: var(--color-accent-orange);
+    color: white;
+    font-size: 0.625rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 0.25rem;
+}
+
+@keyframes preset-pulse {
+    0% {
+        box-shadow: 0 0 0 0 rgba(var(--color-accent-orange-rgb), 0.7);
+    }
+    50% {
+        box-shadow: 0 0 0 10px rgba(var(--color-accent-orange-rgb), 0);
+    }
+    100% {
+        box-shadow: 0 0 0 0 rgba(var(--color-accent-orange-rgb), 0);
+    }
+}
+
+.preset-button--save {
+    border-style: dashed;
+    border-color: var(--color-border-primary);
+    color: var(--color-text-muted);
+    animation: none;
+}
+
+.preset-button--save:hover {
+    border-color: var(--color-accent-orange-muted);
+    color: var(--color-accent-orange);
+    border-style: solid;
+}
+
+/* Inline "name this preset" field (replaces window.prompt()) */
+.preset-button--save-form {
+    cursor: default;
+    animation: none;
+    gap: 0.375rem;
+}
+
+.preset-button__save-input {
+    width: 100%;
+    padding: 0.375rem 0.5rem;
+    background: var(--color-bg-primary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 0.375rem;
+    color: var(--color-text-primary);
+    font-size: 0.8125rem;
+    text-align: center;
+}
+
+.preset-button__save-input:focus {
+    outline: none;
+    border-color: var(--color-accent-orange);
+    box-shadow: 0 0 0 2px var(--color-accent-orange-muted);
+}
+
+.preset-button__save-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.preset-button__save-confirm,
+.preset-button__save-cancel {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.75rem;
+    height: 1.75rem;
+    border-radius: 0.25rem;
+    border: 1px solid var(--color-border-primary);
+    background: var(--color-bg-primary);
+    color: var(--color-text-secondary);
+    cursor: pointer;
+}
+
+.preset-button__save-confirm:hover {
+    border-color: var(--color-success);
+    color: var(--color-success);
+}
+
+.preset-button__save-cancel:hover {
+    border-color: var(--color-error);
+    color: var(--color-error);
+}
+
+.presets-bar--custom {
+    margin-top: 0.5rem;
+}
+
+/* Wraps a custom preset's button + its sibling delete button (see PresetBar.razor's header
+   comment on this slot - the delete "x" can't legally nest inside the preset <button>). Takes
+   over the position:relative anchor and the grid-cell slot the button used to occupy directly. */
+.preset-button-slot {
+    position: relative;
+}
+
+.preset-button-slot .preset-button {
+    width: 100%;
+    height: 100%;
+}
+
+.preset-button--custom {
+    border-color: var(--color-accent-orange-muted);
+}
+
+.preset-button__badge {
+    position: absolute;
+    top: 0.25rem;
+    left: 0.375rem;
+    padding: 0.0625rem 0.25rem;
+    background: var(--color-accent-orange-muted);
+    color: var(--color-accent-orange);
+    font-size: 0.5625rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 0.1875rem;
+}
+
+.preset-button__delete {
+    position: absolute;
+    top: 0.25rem;
+    right: 0.25rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: 50%;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    padding: 0;
+    z-index: 1;
+}
+
+.preset-button__delete svg {
+    width: 0.75rem;
+    height: 0.75rem;
+}
+
+.preset-button__delete:hover {
+    background: var(--color-error);
+    border-color: var(--color-error);
+    color: white;
+}
+
+.preset-button-slot:hover .preset-button__delete,
+.preset-button__delete--confirm {
+    display: flex;
+}
+
+/* Pending two-click delete confirm (replaces window.confirm()) */
+.preset-button__delete--confirm {
+    background: var(--color-error);
+    border-color: var(--color-error);
+    color: white;
+}
+
+@media (max-width: 767px) {
+    .presets-bar {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        gap: 0.5rem;
+        padding-bottom: 0.5rem;
+    }
+
+    .preset-button {
+        min-width: 6rem;
+        min-height: 44px;
+        flex-shrink: 0;
+        scroll-snap-align: start;
+    }
+
+    .presets-bar::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .presets-bar::-webkit-scrollbar-track {
+        background: var(--color-bg-tertiary);
+        border-radius: 2px;
+    }
+
+    .presets-bar::-webkit-scrollbar-thumb {
+        background: var(--color-border-primary);
+        border-radius: 2px;
+    }
+
+    .presets-bar::-webkit-scrollbar-thumb:hover {
+        background: var(--color-accent-orange);
+    }
+}

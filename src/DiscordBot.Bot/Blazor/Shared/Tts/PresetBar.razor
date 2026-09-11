@@ -1,0 +1,300 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Ported from _PresetBar.cshtml. The inline script's fetch/POST/DELETE against
+    /api/portal/tts/{guildId}/presets/custom (a small CRUD app in its own right, per
+    docs/plans/blazor-port-inventory.md Part 3 §2.2/§2.7) is entirely the hosting page's job here:
+    this component only renders CustomPresets and raises OnSaveCustom/OnDeleteCustom, exactly like
+    OnApply for the built-in Presets. Two behaviors the original got from browser dialogs have no
+    Blazor/no-interop equivalent and are replaced with inline UI instead (see the "Fidelity
+    deviations" note in the PR): window.prompt() for naming a new preset becomes an inline text
+    field revealed by the Save button; window.confirm() for deleting becomes a two-click
+    confirm/cancel on the delete button itself.
+*@
+
+<div class="presets-bar-wrapper @Class" @attributes="AdditionalAttributes">
+    <div class="presets-bar" role="group" aria-label="Voice preset selection" @onkeydown="HandleKeyDownAsync">
+        @for (var i = 0; i < Presets.Count; i++)
+        {
+            var preset = Presets[i];
+            var index = i;
+            var isActive = preset.Id == ActivePresetId;
+            var isFirst = index == 0;
+
+            <button type="button"
+                    @key="@($"{preset.Id}-{(isActive ? "active" : "inactive")}")"
+                    @ref="_builtInRefs[index]"
+                    class="preset-button @(isActive ? "preset-button--active" : "")"
+                    title="@preset.Description"
+                    aria-pressed="@(isActive ? "true" : "false")"
+                    tabindex="@((isActive || (ActivePresetId is null && isFirst)) ? "0" : "-1")"
+                    @onclick="() => ApplyAsync(preset)">
+                <Icon Path="@PresetIconPath(preset.Icon)" Class="w-6 h-6" />
+                <span class="preset-button__label">@preset.Name</span>
+                @if (isActive)
+                {
+                    <span class="preset-button__active-badge" aria-label="Active preset">Active</span>
+                }
+            </button>
+        }
+
+        @if (_savingName)
+        {
+            <div class="preset-button preset-button--save-form">
+                <input class="preset-button__save-input"
+                       @bind="_newPresetName" @bind:event="oninput"
+                       @onkeydown="HandleSaveNameKeyDownAsync"
+                       maxlength="50"
+                       placeholder="Preset name"
+                       aria-label="New preset name"
+                       @ref="_saveInputRef" />
+                <div class="preset-button__save-actions">
+                    <button type="button" class="preset-button__save-confirm" aria-label="Save preset" @onclick="ConfirmSaveAsync">
+                        <Icon Path="@IconPaths.Check" Class="w-4 h-4" />
+                    </button>
+                    <button type="button" class="preset-button__save-cancel" aria-label="Cancel" @onclick="CancelSave">
+                        <Icon Path="@IconPaths.XMark" Class="w-4 h-4" />
+                    </button>
+                </div>
+            </div>
+        }
+        else
+        {
+            <button type="button" class="preset-button preset-button--save" title="Save current settings as a custom preset"
+                    tabindex="-1" @onclick="BeginSaveAsync">
+                <Icon Path="@IconPaths.PlusOutline" Class="w-6 h-6" />
+                <span class="preset-button__label">Save</span>
+            </button>
+        }
+    </div>
+
+    @if (CustomPresets.Count > 0)
+    {
+        <div class="presets-bar presets-bar--custom" role="group" aria-label="Custom voice presets">
+            @foreach (var custom in CustomPresets)
+            {
+                var id = CustomId(custom);
+                var isActive = id == ActivePresetId;
+                var isPendingDelete = _pendingDeleteId == custom.Id;
+
+                @* A <button> cannot legally nest another <button> (the delete "x") - the source
+                   partial got away with it only because it built the nodes with raw DOM APIs
+                   (document.createElement/appendChild), which bypass the HTML parser's
+                   auto-close-on-nested-button rule; parsed markup can't. The delete button is a
+                   sibling instead, inside a position:relative slot so its CSS (unchanged) still
+                   positions it over the top-right corner of the preset button. *@
+                <div class="preset-button-slot" @key="@($"{id}-{(isActive ? "active" : "inactive")}")">
+                    <button type="button"
+                            class="preset-button preset-button--custom @(isActive ? "preset-button--active" : "")"
+                            title="@(custom.VoiceName + (string.IsNullOrEmpty(custom.Style) ? "" : $" ({custom.Style})"))"
+                            aria-pressed="@(isActive ? "true" : "false")"
+                            tabindex="@(isActive ? "0" : "-1")"
+                            @onclick="() => ApplyCustomAsync(custom)">
+                        <span class="preset-button__badge">Custom</span>
+                        <Icon Path="@IconPaths.Star" Class="w-6 h-6" />
+                        <span class="preset-button__label">@custom.Name</span>
+                        @if (isActive)
+                        {
+                            <span class="preset-button__active-badge" aria-label="Active preset">Active</span>
+                        }
+                    </button>
+                    <button type="button"
+                            class="preset-button__delete @(isPendingDelete ? "preset-button__delete--confirm" : "")"
+                            aria-label="@(isPendingDelete ? "Click again to confirm delete" : "Delete preset")"
+                            @onclick="() => DeleteClickedAsync(custom)">
+                        <Icon Path="@IconPaths.XMark" />
+                    </button>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<PresetButtonViewModel> Presets { get; set; } = Array.Empty<PresetButtonViewModel>();
+    [Parameter] public string? ActivePresetId { get; set; }
+    [Parameter] public EventCallback<PresetButtonViewModel> OnApply { get; set; }
+    [Parameter] public IReadOnlyList<CustomTtsPreset> CustomPresets { get; set; } = Array.Empty<CustomTtsPreset>();
+
+    /// <summary>Raised with the trimmed (max 50 char) name the user entered in the inline "Save"
+    /// field - the page performs the actual <c>POST .../presets/custom</c> and, on success, adds
+    /// the result to what it passes back as <see cref="CustomPresets"/>.</summary>
+    [Parameter] public EventCallback<string> OnSaveCustom { get; set; }
+
+    /// <summary>Raised after the two-click inline confirm - the page performs the actual
+    /// <c>DELETE .../presets/custom/{id}</c> and removes it from <see cref="CustomPresets"/>.</summary>
+    [Parameter] public EventCallback<CustomTtsPreset> OnDeleteCustom { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _savingName;
+    private string _newPresetName = string.Empty;
+    private int? _pendingDeleteId;
+    private ElementReference _saveInputRef;
+    private ElementReference[] _builtInRefs = Array.Empty<ElementReference>();
+
+    /// <summary>Consumed in <see cref="OnAfterRenderAsync"/> once the render it depends on has
+    /// committed - see VoiceSelector.razor's identically-named field for why this replaces a
+    /// fire-and-forget <c>await Task.Yield(); await elementRef.FocusAsync();</c>.</summary>
+    private Func<ElementReference>? _pendingFocus;
+
+    protected override void OnParametersSet()
+    {
+        if (_builtInRefs.Length != Presets.Count)
+        {
+            _builtInRefs = new ElementReference[Presets.Count];
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingFocus is { } pending)
+        {
+            _pendingFocus = null;
+            try
+            {
+                await pending().FocusAsync();
+            }
+            catch (Exception)
+            {
+                // Best-effort: focusing is a UX nicety, not correctness.
+            }
+        }
+    }
+
+    private static string CustomId(CustomTtsPreset preset) => $"custom-{preset.Id}";
+
+    private static string PresetIconPath(string icon) => icon switch
+    {
+        "sparkles" => IconPaths.Sparkles,
+        "megaphone" => IconPaths.Megaphone,
+        "computer-desktop" => IconPaths.ComputerDesktop,
+        "face-smile" => IconPaths.FaceSmile,
+        "fire" => IconPaths.Fire,
+        "microphone" => IconPaths.Microphone,
+        "speaker-x-mark" => IconPaths.SpeakerXMark,
+        "speaker-wave" => IconPaths.SpeakerWave,
+        _ => IconPaths.Microphone
+    };
+
+    private Task ApplyAsync(PresetButtonViewModel preset)
+    {
+        _pendingDeleteId = null;
+        return OnApply.InvokeAsync(preset);
+    }
+
+    private Task ApplyCustomAsync(CustomTtsPreset custom)
+    {
+        _pendingDeleteId = null;
+        return OnApply.InvokeAsync(new PresetButtonViewModel
+        {
+            Id = CustomId(custom),
+            Name = custom.Name,
+            Icon = "star",
+            VoiceName = custom.VoiceName,
+            Style = custom.Style,
+            Speed = custom.Speed,
+            Pitch = custom.Pitch,
+            IsActive = true
+        });
+    }
+
+    private async Task DeleteClickedAsync(CustomTtsPreset custom)
+    {
+        if (_pendingDeleteId == custom.Id)
+        {
+            _pendingDeleteId = null;
+            await OnDeleteCustom.InvokeAsync(custom);
+        }
+        else
+        {
+            _pendingDeleteId = custom.Id;
+        }
+    }
+
+    private Task BeginSaveAsync()
+    {
+        _savingName = true;
+        _newPresetName = string.Empty;
+        _pendingFocus = () => _saveInputRef;
+        return Task.CompletedTask;
+    }
+
+    private void CancelSave()
+    {
+        _savingName = false;
+        _newPresetName = string.Empty;
+    }
+
+    private async Task ConfirmSaveAsync()
+    {
+        var name = _newPresetName.Trim();
+        if (name.Length == 0)
+        {
+            return;
+        }
+
+        if (name.Length > 50)
+        {
+            name = name[..50];
+        }
+
+        _savingName = false;
+        _newPresetName = string.Empty;
+        await OnSaveCustom.InvokeAsync(name);
+    }
+
+    private Task HandleSaveNameKeyDownAsync(KeyboardEventArgs e) => e.Key switch
+    {
+        "Enter" => ConfirmSaveAsync(),
+        "Escape" => Set(CancelSave),
+        _ => Task.CompletedTask
+    };
+
+    private static Task Set(Action action)
+    {
+        action();
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (Presets.Count == 0)
+        {
+            return;
+        }
+
+        var currentIndex = Presets.ToList().FindIndex(p => p.Id == ActivePresetId);
+        int newIndex;
+
+        switch (e.Key)
+        {
+            case "ArrowRight" or "ArrowDown":
+                newIndex = (currentIndex + 1 + Presets.Count) % Presets.Count;
+                break;
+            case "ArrowLeft" or "ArrowUp":
+                newIndex = (currentIndex - 1 + Presets.Count) % Presets.Count;
+                break;
+            case "Home":
+                newIndex = 0;
+                break;
+            case "End":
+                newIndex = Presets.Count - 1;
+                break;
+            default:
+                return;
+        }
+
+        if (newIndex == currentIndex)
+        {
+            return;
+        }
+
+        await ApplyAsync(Presets[newIndex]);
+        _pendingFocus = () => _builtInRefs[newIndex];
+    }
+}

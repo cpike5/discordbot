@@ -1,0 +1,322 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Ported from _VoiceSelector.cshtml + wwwroot/js/voice-selector.js (docs/plans/blazor-port-inventory.md
+    Part 3 §2.2). A 2-tier (locale group -> voice) combobox. voice-selector.js's DOM query / class
+    toggling (open/close/search/toggleGroup/keyboard nav) all becomes component state here; the only
+    behavior it drops is closing via a document-level "click outside" listener, which this reproduces
+    with a transparent full-viewport backdrop instead of browser.js's OnClickOutsideAsync interop -
+    Tier 5's interop surface is scoped to textarea selection/clipboard (EmphasisToolbar/SsmlPreview)
+    and localStorage (ModeSwitcher) per docs/articles/blazor-components.md, so this component needs
+    none of it.
+*@
+
+<div class="voice-selector @Class" @attributes="AdditionalAttributes">
+
+    <button type="button"
+            class="voice-selector__trigger"
+            aria-haspopup="listbox"
+            aria-expanded="@(_isOpen ? "true" : "false")"
+            @ref="_triggerRef"
+            @onclick="ToggleOpenAsync">
+        <span class="voice-selector__trigger-text">@TriggerText</span>
+        <svg class="voice-selector__trigger-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+    </button>
+
+    @if (_isOpen)
+    {
+        <div class="voice-selector__backdrop" @onclick="CloseAsync"></div>
+
+        <div class="voice-selector__dropdown" role="listbox" aria-label="Voice options">
+            <div class="voice-selector__search-wrapper">
+                <svg class="voice-selector__search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+                </svg>
+                <input type="text"
+                       class="voice-selector__search"
+                       placeholder="@SearchPlaceholder"
+                       aria-label="Search voices"
+                       @ref="_searchInputRef"
+                       value="@_searchQuery"
+                       @oninput="OnSearchInput"
+                       @onkeydown="HandleKeyDownAsync"
+                       @onkeydown:preventDefault="_preventNextKeyDefault" />
+            </div>
+
+            <div class="voice-selector__list" @onkeydown="HandleKeyDownAsync" @onkeydown:preventDefault="_preventNextKeyDefault">
+                @if (Groups.Count > 0)
+                {
+                    @foreach (var group in Groups)
+                    {
+                        <div class="voice-selector__group @(HasVisibleOptions(group) ? "" : "voice-selector__group--hidden")" data-locale="@group.Locale">
+                            <button type="button"
+                                    class="voice-selector__group-header"
+                                    aria-expanded="@(IsGroupExpanded(group) ? "true" : "false")"
+                                    @onclick="() => ToggleGroup(group.Locale)">
+                                <span class="voice-selector__group-name">@group.LocaleDisplayName</span>
+                                <span class="voice-selector__group-count">@group.Voices.Count</span>
+                                <svg class="voice-selector__group-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                                </svg>
+                            </button>
+
+                            @if (IsGroupExpanded(group))
+                            {
+                                <div class="voice-selector__options">
+                                    @foreach (var voice in group.Voices.Where(v => IsVisible(v, group)))
+                                    {
+                                        var isSelected = voice.Value == Value;
+                                        var idx = VisibleFlat.IndexOf(voice);
+                                        <button type="button"
+                                                class="voice-selector__option @(isSelected ? "voice-selector__option--selected" : "")"
+                                                role="option"
+                                                aria-selected="@(isSelected ? "true" : "false")"
+                                                @ref="_optionRefs[idx]"
+                                                @onclick="() => SelectVoiceAsync(voice)">
+                                            <span class="voice-selector__option-name">@voice.DisplayName</span>
+                                            <span class="voice-selector__option-gender">(@voice.Gender)</span>
+                                            @if (isSelected)
+                                            {
+                                                <Icon Path="@IconPaths.Check" Class="voice-selector__option-checkmark" />
+                                            }
+                                        </button>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    }
+                }
+                else
+                {
+                    <div class="voice-selector__empty">No voices available</div>
+                }
+            </div>
+
+            @if (Groups.Count > 0 && !HasAnyVisibleResults)
+            {
+                <div class="voice-selector__empty">No voices found</div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<VoiceSelectorVoiceOption> Voices { get; set; } = Array.Empty<VoiceSelectorVoiceOption>();
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public string Placeholder { get; set; } = "Select a voice";
+    [Parameter] public string SearchPlaceholder { get; set; } = "Search voices...";
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _isOpen;
+    private string _searchQuery = string.Empty;
+    private readonly HashSet<string> _collapsedLocales = new();
+    private int _focusedIndex = -1;
+    private bool _preventNextKeyDefault;
+    private ElementReference _triggerRef;
+    private ElementReference _searchInputRef;
+    private ElementReference[] _optionRefs = Array.Empty<ElementReference>();
+
+    private sealed record LocaleGroup(string Locale, string LocaleDisplayName, List<VoiceSelectorVoiceOption> Voices);
+
+    private List<LocaleGroup> Groups => Voices
+        .GroupBy(v => (v.Locale, v.LocaleDisplayName))
+        .OrderBy(g => g.Key.LocaleDisplayName, StringComparer.Ordinal)
+        .Select(g => new LocaleGroup(g.Key.Locale, g.Key.LocaleDisplayName, g.OrderBy(v => v.DisplayName, StringComparer.Ordinal).ToList()))
+        .ToList();
+
+    private string SearchQueryLower => _searchQuery.Trim().ToLowerInvariant();
+
+    private bool GroupMatches(LocaleGroup group)
+        => SearchQueryLower.Length == 0 || group.LocaleDisplayName.ToLowerInvariant().Contains(SearchQueryLower);
+
+    private bool IsVisible(VoiceSelectorVoiceOption voice, LocaleGroup group)
+    {
+        if (SearchQueryLower.Length == 0)
+        {
+            return true;
+        }
+
+        var searchText = $"{voice.DisplayName} {voice.Gender} {voice.LocaleDisplayName}".ToLowerInvariant();
+        return searchText.Contains(SearchQueryLower) || GroupMatches(group);
+    }
+
+    private bool HasVisibleOptions(LocaleGroup group) => group.Voices.Any(v => IsVisible(v, group));
+
+    private bool HasAnyVisibleResults => Groups.Any(HasVisibleOptions);
+
+    private bool IsGroupExpanded(LocaleGroup group)
+    {
+        if (SearchQueryLower.Length > 0 && HasVisibleOptions(group))
+        {
+            return true;
+        }
+
+        return !_collapsedLocales.Contains(group.Locale);
+    }
+
+    /// <summary>Flat, visual-order list of every visible option across every expanded group -
+    /// used for keyboard Up/Down/Home/End navigation, matching voice-selector.js's
+    /// <c>querySelectorAll('.voice-selector__option:not(.voice-selector__option--hidden)')</c>.</summary>
+    private List<VoiceSelectorVoiceOption> VisibleFlat => Groups
+        .Where(IsGroupExpanded)
+        .SelectMany(g => g.Voices.Where(v => IsVisible(v, g)))
+        .ToList();
+
+    private VoiceSelectorVoiceOption? Selected => Voices.FirstOrDefault(v => v.Value == Value);
+
+    private string TriggerText => Selected is { } s
+        ? $"{s.DisplayName} ({s.Gender}) - {s.LocaleDisplayName}"
+        : Placeholder;
+
+    /// <summary>Set by whichever handler below wants an element focused once the render it just
+    /// triggered actually commits, and consumed in <see cref="OnAfterRenderAsync"/> - the correct
+    /// Blazor idiom for "focus this after the DOM updates" (see the class remarks), replacing
+    /// voice-selector.js's <c>setTimeout(() => searchInput.focus(), 50)</c>. A raw
+    /// <c>await Task.Yield(); await elementRef.FocusAsync();</c> fire-and-forget from inside the
+    /// handler itself was tried first and dropped: it raced the render it depended on under
+    /// xUnit's default test parallelism (see docs/lessons-learned/flaky-tests-thread-pool-starvation.md
+    /// for the general class of problem), occasionally focusing (or silently failing to focus) a
+    /// stale pre-render element.</summary>
+    private Func<ElementReference>? _pendingFocus;
+
+    protected override void OnParametersSet()
+    {
+        var visible = VisibleFlat;
+        if (_optionRefs.Length != visible.Count)
+        {
+            _optionRefs = new ElementReference[visible.Count];
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingFocus is { } pending)
+        {
+            _pendingFocus = null;
+            try
+            {
+                await pending().FocusAsync();
+            }
+            catch (Exception)
+            {
+                // Best-effort: focusing is a UX nicety, not correctness.
+            }
+        }
+    }
+
+    private Task ToggleOpenAsync()
+    {
+        if (_isOpen)
+        {
+            CloseInternal();
+        }
+        else
+        {
+            OpenInternal();
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private void OpenInternal()
+    {
+        _isOpen = true;
+        _searchQuery = string.Empty;
+        _focusedIndex = -1;
+        _pendingFocus = () => _searchInputRef;
+    }
+
+    private Task CloseAsync()
+    {
+        CloseInternal();
+        return Task.CompletedTask;
+    }
+
+    private void CloseInternal()
+    {
+        _isOpen = false;
+        _searchQuery = string.Empty;
+        _focusedIndex = -1;
+        _pendingFocus = () => _triggerRef;
+    }
+
+    private void OnSearchInput(ChangeEventArgs e)
+    {
+        _searchQuery = e.Value?.ToString() ?? string.Empty;
+        _focusedIndex = -1;
+    }
+
+    private void ToggleGroup(string locale)
+    {
+        if (!_collapsedLocales.Remove(locale))
+        {
+            _collapsedLocales.Add(locale);
+        }
+    }
+
+    private async Task SelectVoiceAsync(VoiceSelectorVoiceOption voice)
+    {
+        await ValueChanged.InvokeAsync(voice.Value);
+        await CloseAsync();
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        var visible = VisibleFlat;
+        _preventNextKeyDefault = e.Key is "Escape" or "ArrowDown" or "ArrowUp" or "Home" or "End";
+
+        switch (e.Key)
+        {
+            case "Escape":
+                await CloseAsync();
+                break;
+
+            case "ArrowDown":
+                await FocusOptionAsync(visible, _focusedIndex + 1 >= visible.Count ? 0 : _focusedIndex + 1);
+                break;
+
+            case "ArrowUp":
+                await FocusOptionAsync(visible, _focusedIndex - 1 < 0 ? visible.Count - 1 : _focusedIndex - 1);
+                break;
+
+            case "Home":
+                await FocusOptionAsync(visible, 0);
+                break;
+
+            case "End":
+                await FocusOptionAsync(visible, visible.Count - 1);
+                break;
+
+            case "Enter":
+                if (_focusedIndex >= 0 && _focusedIndex < visible.Count)
+                {
+                    await SelectVoiceAsync(visible[_focusedIndex]);
+                }
+                break;
+        }
+    }
+
+    private Task FocusOptionAsync(List<VoiceSelectorVoiceOption> visible, int index)
+    {
+        if (visible.Count == 0)
+        {
+            return Task.CompletedTask;
+        }
+
+        _focusedIndex = index;
+        if (index >= 0 && index < _optionRefs.Length)
+        {
+            var elementIndex = index;
+            _pendingFocus = () => _optionRefs[elementIndex];
+        }
+
+        return Task.CompletedTask;
+    }
+}
