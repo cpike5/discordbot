@@ -80,3 +80,67 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "Build configuration: Release" >> $GITHUB_STEP_SUMMARY
         echo "Tests completed for commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  e2e:
+    name: Browser (Playwright) Tests
+    runs-on: ubuntu-latest
+    # Runs after build-and-test but is not a gate for it - a Chromium/E2E problem here must
+    # never block the unit-test job's own pass/fail (see docs/articles/testing-guide.md
+    # "Browser (Playwright) tests").
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/DiscordBot.Bot/package.json
+
+    - name: Restore .NET dependencies
+      run: dotnet restore
+
+    - name: Install Node.js dependencies
+      run: npm ci
+      working-directory: src/DiscordBot.Bot
+
+    - name: Build solution
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Install Playwright Chromium
+      run: pwsh tests/DiscordBot.E2E/bin/Release/net10.0/playwright.ps1 install chromium --with-deps
+
+    - name: Run browser tests
+      run: E2E_ENABLED=1 dotnet test tests/DiscordBot.E2E --configuration Release --no-build --logger "trx" --logger "console;verbosity=detailed"
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-test-results
+        path: 'tests/DiscordBot.E2E/**/TestResults/*.trx'
+        retention-days: 30
+        if-no-files-found: ignore
+
+    - name: Upload host logs
+      # BotHostFixture deletes its temp directory (host.log, the throwaway SQLite db, Data
+      # Protection keys) on dispose even after a failing run, so this is best-effort: it only
+      # finds something when the host itself failed to become healthy (BotHostFixture threw out
+      # of InitializeAsync before a normal DisposeAsync could run) - see BotHostFixture.cs. A
+      # plain assertion failure inside a test still leaves the trx/console output above as the
+      # primary source of what went wrong.
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-host-logs
+        path: /tmp/discordbot-e2e-*/
+        retention-days: 30
+        if-no-files-found: ignore

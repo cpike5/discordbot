@@ -1811,7 +1811,7 @@ static SSR Blazor pages; it validates the same ASP.NET Core antiforgery token Ra
 
 | Folder | Contents |
 | --- | --- |
-| `Blazor/App.razor` | Static root document: `<!DOCTYPE html>`/`<head>` (fonts, `app.css`, pre-paint theme script, sidebar FOUC guard - copied verbatim from `Pages/Shared/_Layout.cshtml`), `<HeadOutlet />`, `<Routes />`, `blazor.web.js`. |
+| `Blazor/App.razor` | Static root document: `<!DOCTYPE html>`/`<head>` (`<base href="/">`, fonts, `app.css`, pre-paint theme script, sidebar FOUC guard - copied verbatim from `Pages/Shared/_Layout.cshtml`), `<HeadOutlet />`, `<Routes />`, an absolute-path `blazor.web.js` `<script>`. The `<base>` tag and the absolute script `src` both matter: without either, `blazor.web.js` resolves `_blazor/initializers` (and its own script URL) relative to the *current route* instead of the app root, 404ing and leaving the circuit dead on any nested page (e.g. `/admin/blazor-smoke`) - this is the known .NET 10 regression `tests/DiscordBot.E2E`'s nested-route test guards. |
 | `Blazor/Routes.razor` | `Router` + `AuthorizeRouteView` (`DefaultLayout="typeof(EmptyLayout)"`) + `RedirectToLogin` + `FocusOnNavigate`. |
 | `Blazor/Layout/` | `EmptyLayout` (no chrome; today's only layout) and, from Phase 3, `MainLayout`/`GuildLayout`/`PortalLayout`/`LandingLayout`. |
 | `Blazor/Shared/` | The design-system component library (Phase 2 - Button, Card, Modal, etc., one `bUnit` test each). |
