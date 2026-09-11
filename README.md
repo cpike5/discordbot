@@ -53,7 +53,7 @@ A Discord bot built with .NET 8 and Discord.NET that provides a foundation for m
 
 ### Bot Features
 - **Rat Watch** - Accountability system for tracking commitments with community voting and leaderboards ([docs](docs/articles/rat-watch.md))
-- **AI Assistant** - OpenRouter-powered conversational assistant (Claude Sonnet by default, any model slug supported) with tool usage, conversation history, and cost tracking ([docs](docs/articles/ai-assistant.md))
+- **AI Assistant** - OpenRouter-powered conversational assistant (any model slug supported, `openrouter/auto` by default) with tool usage, conversation history, and cost tracking ([docs](docs/articles/ai-assistant.md))
 - **Auto-Moderation** - Configurable content filtering with spam detection, flagged event management, and automated actions
 - **Scheduled Messages** - Automated announcements with flexible scheduling (one-time, recurring, cron expressions) ([docs](docs/articles/scheduled-messages.md))
 - **Welcome System** - Configurable welcome messages and automatic role assignment for new members ([docs](docs/articles/welcome-system.md))
