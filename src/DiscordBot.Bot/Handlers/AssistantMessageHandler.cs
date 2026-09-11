@@ -280,7 +280,8 @@ public class AssistantMessageHandler
             .WithDescription(
                 "To use the AI assistant feature, you need to grant consent first.\n\n" +
                 "Run `/consent grant AssistantUsage` to enable this feature.\n\n" +
-                "Your questions and responses will be processed by Claude AI and logged for quality purposes.")
+                "By consenting, you agree that when you @-mention the bot the text of your message is sent to OpenRouter and on to the model provider serving the configured model, " +
+                "and that your question and the bot's response are stored in this bot's database for quality, troubleshooting, and usage metrics.")
             .WithColor(Color.Orange)
             .WithCurrentTimestamp()
             .Build();

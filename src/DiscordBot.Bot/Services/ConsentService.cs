@@ -314,6 +314,7 @@ public class ConsentService : IConsentService
         return type switch
         {
             ConsentType.MessageLogging => "Message Logging",
+            ConsentType.AssistantUsage => "AI Assistant Usage",
             _ => type.ToString()
         };
     }
@@ -326,6 +327,7 @@ public class ConsentService : IConsentService
         return type switch
         {
             ConsentType.MessageLogging => "Allow the bot to log your messages and interactions for moderation, analytics, and troubleshooting purposes. This includes message content, timestamps, and metadata.",
+            ConsentType.AssistantUsage => "Allow the bot to answer questions you ask by @-mentioning it. When you do, the text of your message is sent to OpenRouter and on to the model provider serving the configured model - a third party outside this bot. Your question and the bot's response are also stored in this bot's own database for quality, troubleshooting, and usage metrics.",
             _ => "No description available."
         };
     }
