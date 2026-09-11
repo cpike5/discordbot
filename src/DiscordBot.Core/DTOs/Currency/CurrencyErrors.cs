@@ -55,4 +55,16 @@ public static class CurrencyErrors
 
     /// <summary>The wallet id does not exist.</summary>
     public const string WalletNotFound = "WalletNotFound";
+
+    /// <summary>The hold has expired out of the store, or never existed.</summary>
+    public const string HoldNotFound = "HoldNotFound";
+
+    /// <summary>The caller is not on the currency's mint authority list.</summary>
+    public const string NotAuthorizedToMint = "NotAuthorizedToMint";
+
+    /// <summary>The transaction being refunded is not a spend.</summary>
+    public const string NotRefundable = "NotRefundable";
+
+    /// <summary>The spend has already been refunded.</summary>
+    public const string AlreadyRefunded = "AlreadyRefunded";
 }

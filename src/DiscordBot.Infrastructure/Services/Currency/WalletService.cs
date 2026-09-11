@@ -16,17 +16,20 @@ public class WalletService : IWalletService
     private readonly ICurrencyRepository _currencies;
     private readonly IWalletRepository _wallets;
     private readonly ILedgerRepository _ledger;
+    private readonly IAuditLogService _auditLog;
     private readonly ILogger<WalletService> _logger;
 
     public WalletService(
         ICurrencyRepository currencies,
         IWalletRepository wallets,
         ILedgerRepository ledger,
+        IAuditLogService auditLog,
         ILogger<WalletService> logger)
     {
         _currencies = currencies;
         _wallets = wallets;
         _ledger = ledger;
+        _auditLog = auditLog;
         _logger = logger;
     }
 
@@ -343,6 +346,33 @@ public class WalletService : IWalletService
             "Fined user {UserId} {Amount} of currency {CurrencyId} by moderator {ModeratorId} (clamped to {Effective})",
             userId, amount, currencyId, moderatorId, effective);
 
+        // Spends and transfers are the ledger's own record, but a fine is a moderation action and
+        // is audited like one.
+        var fineBuilder = _auditLog.CreateBuilder()
+            .ForCategory(AuditLogCategory.User)
+            .WithAction(AuditLogAction.CurrencyFined)
+            .ByUser(moderatorId.ToString())
+            .OnTarget("Wallet", userId.ToString())
+            .WithDetails(new
+            {
+                currencyId,
+                currencyName = currency.Name,
+                userId = userId.ToString(),
+                requestedAmount = amount,
+                appliedAmount = effective,
+                wasClamped = clamped.HasValue,
+                balanceBefore = balance,
+                reason,
+                moderationCaseId
+            });
+
+        if (currency.GuildId.HasValue)
+        {
+            fineBuilder = fineBuilder.InGuild(currency.GuildId.Value);
+        }
+
+        await fineBuilder.LogAsync(cancellationToken);
+
         return new FineResult
         {
             Success = true,
@@ -412,6 +442,30 @@ public class WalletService : IWalletService
         _logger.LogWarning(
             "Adjusted transaction {ReferenceId} by {Amount} on wallet {WalletId} by actor {ActorId}: {Reason}",
             referenceTransactionId, amount, wallet.Id, actorId, reason);
+
+        // An adjustment is the only way to rewrite history's effect, so it is always audited.
+        var adjustBuilder = _auditLog.CreateBuilder()
+            .ForCategory(AuditLogCategory.User)
+            .WithAction(AuditLogAction.CurrencyAdjusted)
+            .ByUser(actorId.ToString())
+            .OnTarget("LedgerTransaction", referenceTransactionId.ToString())
+            .WithDetails(new
+            {
+                currencyId = currency.Id,
+                currencyName = currency.Name,
+                walletId = wallet.Id,
+                userId = wallet.UserId.ToString(),
+                referenceTransactionId,
+                amount,
+                reason
+            });
+
+        if (currency.GuildId.HasValue)
+        {
+            adjustBuilder = adjustBuilder.InGuild(currency.GuildId.Value);
+        }
+
+        await adjustBuilder.LogAsync(cancellationToken);
 
         return new AdjustmentResult
         {

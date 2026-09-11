@@ -189,6 +189,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 | `ModerationOptions` | `Moderation` | `ModerationServiceExtensions` | `DefaultTempBanDurationDays` (7), `MaxPurgeMessages` (100) |
 | `AutoModerationOptions` | `AutoModeration` | `ModerationServiceExtensions` | `DetectionCacheExpiryMinutes`, `FlaggedEventRetentionDays` |
 | `RatWatchOptions` | `RatWatch` | `RatWatchServiceExtensions` | `CheckIntervalSeconds` (30), `DefaultVotingDurationMinutes` (5) |
+| `CurrencyOptions` | `Currency` | `CurrencyServiceExtensions` | `Enabled` (true), `HoldExpirySeconds` (120), `MaxTransferPerMinute` (5), `DefaultDebtFloor` (-100), `HistoryPageSize` (10) |
 
 #### Data Retention / Logging
 
@@ -215,6 +216,21 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 | `DatabaseSettings`** | `Database` | `ServiceCollectionExtensions` | `SlowQueryThresholdMs`, `LogQueryParameters`, `Provider` |
 
 \*\* Lives in `DiscordBot.Infrastructure.Configuration` (the only Options class not in Core). Also eagerly read at startup via `.Get<DatabaseSettings>()` to select the DB provider before DbContext registration.
+
+#### Virtual Currency
+
+`Currency:Enabled` is read directly in `Program.cs`, not only bound into the options class: when it
+is false `AddCurrency` is never called, so no currency service is resolvable, the commands and
+pages are hidden, and the optional `IChargeService` a priced feature takes is null and the feature
+is free. That is the rollback path for the feature as a whole.
+
+| Key | Default | Meaning |
+|-----|---------|---------|
+| `Currency:Enabled` | `true` | Registers the feature. Off hides commands and pages and makes every priced feature free. |
+| `Currency:HoldExpirySeconds` | `120` | How long a hold reserves funds against a wallet. An expired hold still commits; expiry only frees the reservation for concurrent holds. |
+| `Currency:MaxTransferPerMinute` | `5` | Rate limit on user-to-user transfers. |
+| `Currency:DefaultDebtFloor` | `-100` | Pre-filled when an admin turns debt on for a currency. Stored negative. |
+| `Currency:HistoryPageSize` | `10` | Rows per page in wallet history. |
 
 ### Environment-Specific Overrides
 
