@@ -1,0 +1,90 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Components.Authorization
+
+@*
+    Ported from _AuditLogCard.cshtml / AuditLogCardViewModel (AuditLogCardViewModel.FromLogs
+    reused as-is - relative-time and icon/description lookup live there already). Fully
+    server-rendered, no live subscription (audit log events are not on the dashboard event bus).
+    <authorize policy="RequireAdmin"> becomes <AuthorizeView Policy="RequireAdmin">.
+*@
+
+<div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden @Class" @attributes="AdditionalAttributes">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-accent-purple/10 rounded-lg">
+                <Icon Path="IconPaths.DocumentText" Class="w-5 h-5 text-accent-purple" />
+            </div>
+            <h2 class="text-lg font-semibold text-text-primary">Recent Audit Logs</h2>
+        </div>
+        <AuthorizeView Policy="RequireAdmin">
+            <a href="/Admin/Logs?tab=audit"
+               class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-primary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary"
+               aria-label="View all audit logs" title="View all audit logs">
+                <Icon Path="IconPaths.ChevronRight" Class="w-5 h-5" />
+            </a>
+        </AuthorizeView>
+    </div>
+
+    @if (Logs.Count > 0)
+    {
+        <div class="max-h-[400px] overflow-y-auto">
+            <ul class="divide-y divide-border-primary">
+                @foreach (var log in Logs)
+                {
+                    <li class="px-5 py-3 hover:bg-bg-primary/30 transition-colors">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-0.5">
+                                <div class="p-1.5 bg-accent-purple/10 rounded-lg" title="@log.CategoryName">
+                                    <Icon Path="@log.CategoryIcon" Class="w-4 h-4 text-accent-purple" />
+                                </div>
+                            </div>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-baseline gap-2 flex-wrap">
+                                    <span class="font-medium text-sm text-text-primary">@log.ActionName</span>
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent-purple/10 text-accent-purple">@log.CategoryName</span>
+                                </div>
+                                <p class="mt-1 text-sm text-text-secondary truncate" title="@log.Description">@log.Description</p>
+                                <div class="mt-1 flex items-center gap-2 text-xs text-text-tertiary">
+                                    @if (!string.IsNullOrEmpty(log.GuildName))
+                                    {
+                                        <span class="truncate">@log.GuildName</span>
+                                        <span aria-hidden="true">•</span>
+                                    }
+                                    <span class="flex-shrink-0">@log.RelativeTime</span>
+                                </div>
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <AuthorizeView Policy="RequireAdmin">
+            <div class="px-5 py-3 border-t border-border-primary bg-bg-primary/30">
+                <a href="/Admin/Logs?tab=audit" class="text-sm font-medium text-accent-purple hover:text-accent-purple/80 transition-colors focus:outline-none focus:ring-2 focus:ring-accent-purple focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
+                    View all audit logs
+                </a>
+            </div>
+        </AuthorizeView>
+    }
+    else
+    {
+        <div class="px-5 py-12">
+            <div class="text-center">
+                <Icon Path="IconPaths.DocumentText" Class="w-12 h-12 mx-auto text-text-tertiary mb-3" />
+                <p class="text-text-secondary font-medium">No audit logs yet</p>
+                <p class="text-sm text-text-tertiary mt-1">System and user actions will appear here</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<AuditLogItem> Logs { get; set; } = [];
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}

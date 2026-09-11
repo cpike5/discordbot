@@ -1,0 +1,128 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Pages
+@using Microsoft.AspNetCore.Components.Authorization
+
+@*
+    Ported from _RecentActivityCard.cshtml / (Pages namespace) RecentActivityViewModel. The
+    legacy refresh button is explicitly non-functional ("Refresh (not yet functional)") - this is
+    the "easy place to add real refresh behavior" the inventory calls out: OnRefresh is a real
+    EventCallback the caller wires to re-fetch Activities, with a spinning icon while awaited.
+*@
+
+<div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden @Class" @attributes="AdditionalAttributes">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+        <div class="flex items-center gap-3">
+            <div class="p-2 bg-accent-blue/10 rounded-lg">
+                <Icon Path="IconPaths.Clock" Class="w-5 h-5 text-accent-blue" />
+            </div>
+            <h2 class="text-lg font-semibold text-text-primary">Recent Activity</h2>
+        </div>
+        <button type="button"
+                class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-primary rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:ring-offset-2 focus:ring-offset-bg-secondary disabled:opacity-50"
+                aria-label="Refresh activity feed"
+                title="Refresh"
+                disabled="@_isRefreshing"
+                @onclick="RefreshAsync">
+            <Icon Path="IconPaths.Refresh" Class="@("w-5 h-5" + (_isRefreshing ? " animate-spin" : ""))" />
+        </button>
+    </div>
+
+    @if (Activities.Count > 0)
+    {
+        <div class="max-h-[400px] overflow-y-auto">
+            <ul class="divide-y divide-border-primary">
+                @foreach (var activity in Activities)
+                {
+                    <li class="px-5 py-3 hover:bg-bg-primary/30 transition-colors">
+                        <div class="flex items-start gap-3">
+                            <div class="flex-shrink-0 mt-0.5">
+                                @if (activity.Success)
+                                {
+                                    <div class="p-1 bg-status-online/10 rounded-full" title="Success">
+                                        <svg class="w-4 h-4 text-status-online" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                }
+                                else
+                                {
+                                    <div class="p-1 bg-status-offline/10 rounded-full" title="Error">
+                                        <svg class="w-4 h-4 text-status-offline" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                        </svg>
+                                    </div>
+                                }
+                            </div>
+
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-baseline gap-2 flex-wrap">
+                                    <span class="font-mono text-sm font-medium text-accent-blue">@activity.CommandName</span>
+                                    @if (!activity.Success && !string.IsNullOrEmpty(activity.ErrorMessage))
+                                    {
+                                        <span class="text-xs text-status-offline" title="@activity.ErrorMessage">failed</span>
+                                    }
+                                </div>
+                                <div class="mt-1 flex items-center gap-2 text-sm text-text-secondary">
+                                    <span class="truncate">@activity.GuildName</span>
+                                    <span aria-hidden="true">•</span>
+                                    <span class="flex-shrink-0">@activity.RelativeTime</span>
+                                </div>
+                                @if (!activity.Success && !string.IsNullOrEmpty(activity.ErrorMessage))
+                                {
+                                    <p class="mt-1 text-xs text-text-tertiary truncate" title="@activity.ErrorMessage">@activity.ErrorMessage</p>
+                                }
+                            </div>
+                        </div>
+                    </li>
+                }
+            </ul>
+        </div>
+
+        <AuthorizeView Policy="RequireModerator">
+            <div class="px-5 py-3 border-t border-border-primary bg-bg-primary/30">
+                <a href="/Commands?tab=logs" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors focus:outline-none focus:ring-2 focus:ring-accent-blue focus:ring-offset-2 focus:ring-offset-bg-secondary rounded px-2 py-1">
+                    View all activity
+                </a>
+            </div>
+        </AuthorizeView>
+    }
+    else
+    {
+        <div class="px-5 py-12">
+            <div class="text-center">
+                <Icon Path="IconPaths.Clock" Class="w-12 h-12 mx-auto text-text-tertiary mb-3" />
+                <p class="text-text-secondary font-medium">No recent activity</p>
+                <p class="text-sm text-text-tertiary mt-1">Command activity will appear here as they are executed</p>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ActivityItem> Activities { get; set; } = [];
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _isRefreshing;
+
+    private async Task RefreshAsync()
+    {
+        if (!OnRefresh.HasDelegate || _isRefreshing)
+        {
+            return;
+        }
+
+        _isRefreshing = true;
+        try
+        {
+            await OnRefresh.InvokeAsync();
+        }
+        finally
+        {
+            _isRefreshing = false;
+        }
+    }
+}

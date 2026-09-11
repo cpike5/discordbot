@@ -1,0 +1,88 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Interop
+@implements IAsyncDisposable
+@inject ChartInterop ChartInterop
+
+@*
+    Generic Chart.js wrapper so every later chart page/component (CommandStatsCard today, more in
+    Phase 4 as legacy chart pages migrate) shares one <Chart> instead of hand-rolling
+    ChartInterop calls per page (docs/articles/blazor-interop.md "ChartInterop / charts.js").
+    Creates on first render, updates when Data/Options change *by reference* (the caller is
+    expected to build a new object rather than mutate one in place - matching how ChartInterop's
+    own update() replaces chart.data/chart.options wholesale), destroys on dispose.
+*@
+
+<div class="@Class" style="@HeightStyle" @attributes="AdditionalAttributes">
+    <canvas @ref="_canvasRef"></canvas>
+</div>
+
+@code {
+    /// <summary>Chart.js chart type - "bar", "line", "doughnut", etc.</summary>
+    [Parameter, EditorRequired] public string Type { get; set; } = "bar";
+
+    /// <summary>Chart.js <c>data</c> object (labels/datasets). Re-created (not mutated) by the
+    /// caller whenever it changes - this component only re-renders the chart when the reference
+    /// changes.</summary>
+    [Parameter, EditorRequired] public object Data { get; set; } = new { };
+
+    /// <summary>Chart.js <c>options</c> object. Graphite theme defaults are merged in on the JS
+    /// side (see charts.js), so this only needs to carry overrides.</summary>
+    [Parameter] public object? Options { get; set; }
+
+    /// <summary>CSS height for the chart's containing element (e.g. "300px"). The canvas itself
+    /// is sized by Chart.js's <c>responsive</c>/<c>maintainAspectRatio</c> options.</summary>
+    [Parameter] public string? Height { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private ElementReference _canvasRef;
+    private int? _handle;
+    private object? _lastData;
+    private object? _lastOptions;
+
+    private string HeightStyle => string.IsNullOrEmpty(Height) ? "position: relative;" : $"position: relative; height: {Height};";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _handle = await ChartInterop.CreateAsync(_canvasRef, new { type = Type, data = Data, options = Options });
+            _lastData = Data;
+            _lastOptions = Options;
+            return;
+        }
+
+        if (_handle is not { } handle)
+        {
+            return;
+        }
+
+        var dataChanged = !ReferenceEquals(_lastData, Data);
+        var optionsChanged = !ReferenceEquals(_lastOptions, Options);
+
+        if (dataChanged || optionsChanged)
+        {
+            await ChartInterop.UpdateAsync(handle, dataChanged ? Data : null, optionsChanged ? Options : null);
+            _lastData = Data;
+            _lastOptions = Options;
+        }
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_handle is { } handle)
+        {
+            try
+            {
+                await ChartInterop.DestroyAsync(handle);
+            }
+            catch (JSDisconnectedException)
+            {
+                // Circuit already gone; nothing left to tell the client.
+            }
+        }
+    }
+}

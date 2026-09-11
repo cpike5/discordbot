@@ -1,0 +1,174 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Interop
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Components.Enums
+@using Microsoft.AspNetCore.Components.Authorization
+@inject BrowserInterop BrowserInterop
+@inject NavigationManager Navigation
+
+@*
+    Ported from _ConnectedServersWidget.cshtml / ConnectedServersWidgetViewModel. The per-row
+    action dropdown (toggleServerActionMenu) becomes component state (_openMenuServerId) instead
+    of a global DOM-scanning JS function; "Copy Server ID" goes through
+    BrowserInterop.CopyToClipboardAsync; row navigation uses NavigationManager instead of
+    window.location.href. <authorize policy="RequireModerator"> becomes <AuthorizeView>.
+*@
+
+<AuthorizeView Policy="RequireModerator">
+    <div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden h-full flex flex-col @Class" @attributes="AdditionalAttributes">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+            <h2 class="text-lg font-semibold text-text-primary">@Title</h2>
+            @if (ShowViewAll)
+            {
+                <a href="@ViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">View All</a>
+            }
+        </div>
+
+        <div class="overflow-x-auto flex-grow">
+            <table class="w-full">
+                <thead class="bg-bg-primary/50">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Server</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Members</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                        <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Commands</th>
+                        <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @if (Servers.Count > 0)
+                    {
+                        @foreach (var server in Servers)
+                        {
+                            <tr class="hover:bg-bg-hover transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset"
+                                tabindex="0"
+                                role="link"
+                                aria-label="View details for @server.Name"
+                                @onclick="() => Navigation.NavigateTo(server.DetailUrl)"
+                                @onkeydown="e => HandleRowKeyDown(e, server)">
+                                <td class="px-6 py-4">
+                                    <a href="@server.DetailUrl" class="flex items-center gap-3 focus:outline-none" tabindex="-1" @onclick:stopPropagation="true">
+                                        @if (!string.IsNullOrEmpty(server.IconUrl))
+                                        {
+                                            <img src="@server.IconUrl" alt="@server.Name icon" class="w-10 h-10 rounded-full" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br @server.AvatarGradient flex items-center justify-center text-white font-bold text-sm">@server.Initials</div>
+                                        }
+                                        <div>
+                                            <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors">@server.Name</p>
+                                            <p class="text-xs text-text-tertiary font-mono">ID: @server.Id</p>
+                                        </div>
+                                    </a>
+                                </td>
+                                <td class="px-6 py-4 text-text-secondary">@server.MemberCount.ToString("N0")</td>
+                                <td class="px-6 py-4">
+                                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-@StatusColor(server.Status) bg-@StatusBgColor(server.Status) rounded-full">
+                                        <span class="w-1.5 h-1.5 @StatusDotColor(server.Status) rounded-full"></span>
+                                        @server.Status
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 text-text-secondary">@server.CommandsToday.ToString("N0")</td>
+                                <td class="px-6 py-4 text-right">
+                                    <div class="relative inline-block" @onclick:stopPropagation="true">
+                                        <button
+                                            class="server-action-btn p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
+                                            aria-label="Server actions for @server.Name"
+                                            aria-expanded="@(_openMenuServerId == server.Id ? "true" : "false")"
+                                            aria-haspopup="menu"
+                                            @onclick="() => ToggleMenu(server.Id)">
+                                            <Icon Path="IconPaths.EllipsisVertical" Class="w-5 h-5" />
+                                        </button>
+                                        @if (_openMenuServerId == server.Id)
+                                        {
+                                            <div class="server-action-dropdown" role="menu" aria-label="Server actions">
+                                                <a href="@server.DetailUrl" role="menuitem" class="flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
+                                                    <Icon Path="IconPaths.Eye" Class="w-4 h-4" />
+                                                    View Details
+                                                </a>
+                                                <button type="button" role="menuitem" class="w-full text-left flex items-center gap-2 px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors" @onclick="() => CopyServerIdAsync(server.Id)">
+                                                    <Icon Path="IconPaths.ClipboardCopy" Class="w-4 h-4" />
+                                                    <span>@(_copiedServerId == server.Id ? "Copied!" : "Copy Server ID")</span>
+                                                </button>
+                                            </div>
+                                        }
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                    else
+                    {
+                        <tr>
+                            <td colspan="5" class="px-6 py-12 text-center">
+                                <div class="flex flex-col items-center justify-center">
+                                    <Icon Path="IconPaths.ServerStack" Class="w-12 h-12 text-text-tertiary mb-3" StrokeWidth="1.5" />
+                                    <p class="text-sm text-text-secondary">No connected servers</p>
+                                    <p class="text-xs text-text-tertiary mt-1">Servers will appear here when the bot joins them</p>
+                                </div>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</AuthorizeView>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Connected Servers";
+    [Parameter] public string ViewAllUrl { get; set; } = "/Guilds";
+    [Parameter] public List<ConnectedServerItemViewModel> Servers { get; set; } = [];
+    [Parameter] public int TotalServerCount { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool ShowViewAll => TotalServerCount > Servers.Count;
+
+    private ulong? _openMenuServerId;
+    private ulong? _copiedServerId;
+
+    private void ToggleMenu(ulong serverId) => _openMenuServerId = _openMenuServerId == serverId ? null : serverId;
+
+    private void HandleRowKeyDown(KeyboardEventArgs e, ConnectedServerItemViewModel server)
+    {
+        if (e.Key == "Enter")
+        {
+            Navigation.NavigateTo(server.DetailUrl);
+        }
+    }
+
+    private async Task CopyServerIdAsync(ulong serverId)
+    {
+        var copied = await BrowserInterop.CopyToClipboardAsync(serverId.ToString());
+        if (copied)
+        {
+            _copiedServerId = serverId;
+            StateHasChanged();
+        }
+    }
+
+    private static string StatusColor(ServerConnectionStatus status) => status switch
+    {
+        ServerConnectionStatus.Online => "success",
+        ServerConnectionStatus.Idle => "warning",
+        _ => "text-tertiary"
+    };
+
+    private static string StatusBgColor(ServerConnectionStatus status) => status switch
+    {
+        ServerConnectionStatus.Online => "success/10",
+        ServerConnectionStatus.Idle => "warning/10",
+        _ => "border-primary/50"
+    };
+
+    private static string StatusDotColor(ServerConnectionStatus status) => status switch
+    {
+        ServerConnectionStatus.Online => "bg-success",
+        ServerConnectionStatus.Idle => "bg-warning",
+        _ => "bg-text-tertiary"
+    };
+}

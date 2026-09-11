@@ -1,0 +1,146 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Interfaces
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@implements IDisposable
+@inject IDashboardMetricsService MetricsService
+@inject IGuildService GuildService
+@inject IVersionService VersionService
+
+@*
+    Ported from _BotStatusBanner.cshtml / BotStatusBannerViewModel. Initial status comes from
+    IDashboardMetricsService.GetCurrentStatus - the same service DashboardHub.GetCurrentStatus
+    calls (docs/architecture/patterns.md "Real-time event bus"). ServerCount/TotalMembers/Version
+    are not part of BotStatusDto (the hub's shape), so they come from IGuildService/IVersionService
+    the same way IndexModel.BuildBotStatusBanner builds this view model today - PageModel services
+    are fair game per the task brief, only DashboardHub itself is off limits.
+
+    Two live events both carry a "BotStatusUpdated" push under one hub event name, from two
+    different broadcasters (see BotStatusUpdatedEvent/BotStatusBroadcastEvent doc comments), so
+    this subscribes to both. Neither payload carries TotalMembers (the legacy JS bot-status-refresh.js
+    doesn't live-patch it either - see _BotStatusBanner.cshtml, no data-* attribute on that span),
+    so it stays a load-time snapshot; ServerCount/ConnectionState/Uptime/LatencyMs update live.
+*@
+
+<div class="@BannerClass" data-bot-status-card data-is-online="@IsOnline.ToString().ToLowerInvariant()" @attributes="AdditionalAttributes">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="w-11 h-11 rounded-md @IconBgColor flex items-center justify-center">
+                <Icon Path="@(IsOnline ? IconPaths.ShieldCheck : IconPaths.ShieldExclamation)" Class="@("w-6 h-6 " + IconColor)" />
+            </div>
+
+            <div>
+                <div class="flex items-center gap-2">
+                    <h2 class="text-base font-semibold text-text-primary" data-status-heading>@StatusHeading</h2>
+                    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 font-mono text-[0.625rem] font-semibold uppercase tracking-[0.1em] @StatusBadgeText @StatusBadgeBg rounded-sm" data-status-badge>
+                        <span class="w-1.5 h-1.5 @StatusDotColor rounded-full @(IsOnline ? "animate-pulse" : "")" data-status-dot></span>
+                        <span data-connection-state data-status-text>@StatusText</span>
+                    </span>
+                </div>
+                <p class="text-sm text-text-secondary mt-0.5" data-summary-text>
+                    @if (IsOnline)
+                    {
+                        <text>Connected to <span data-guild-count>@ServerCount.ToString("N0")</span> @(ServerCount == 1 ? "server" : "servers") with @TotalMembers.ToString("N0") total @(TotalMembers == 1 ? "member" : "members")</text>
+                    }
+                    else
+                    {
+                        <text>Not currently connected to Discord</text>
+                    }
+                </p>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-8 text-sm @(IsOnline ? "" : "hidden")" data-metrics-section>
+            <div class="bot-status-metric">
+                <p class="bot-status-metric-value" data-uptime>@UptimeDisplay</p>
+                <p class="bot-status-metric-label">Uptime</p>
+            </div>
+
+            <div class="bot-status-metric">
+                <p class="bot-status-metric-value" data-version>@Version</p>
+                <p class="bot-status-metric-label">Version</p>
+            </div>
+
+            <div class="bot-status-metric">
+                <p class="bot-status-metric-value"><span data-latency>@LatencyMs</span><span class="text-text-tertiary">ms</span></p>
+                <p class="bot-status-metric-label">Latency</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool IsOnline { get; set; }
+    private string StatusText { get; set; } = "Disconnected";
+    private int ServerCount { get; set; }
+    private int TotalMembers { get; set; }
+    private string UptimeDisplay { get; set; } = "0m";
+    private string Version { get; set; } = "v0.0.0";
+    private int LatencyMs { get; set; }
+
+    private readonly Debouncer _debouncer = new();
+    private IDisposable? _updatedSubscription;
+    private IDisposable? _broadcastSubscription;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var status = MetricsService.GetCurrentStatus(null, null);
+        var guilds = (await GuildService.GetAllGuildsAsync()).ToList();
+        ApplyStatus(status.ConnectionState, status.GuildCount, status.Uptime, status.LatencyMs);
+        TotalMembers = guilds.Sum(g => g.MemberCount ?? 0);
+        Version = VersionService.GetVersion();
+
+        _updatedSubscription = EventBus.Subscribe<BotStatusUpdatedEvent>((evt, _) =>
+        {
+            Debounced(() => ApplyStatus(evt.Status.ConnectionState, evt.Status.GuildCount, evt.Status.Uptime, evt.Status.LatencyMs));
+            return Task.CompletedTask;
+        });
+        _broadcastSubscription = EventBus.Subscribe<BotStatusBroadcastEvent>((evt, _) =>
+        {
+            Debounced(() => ApplyStatus(evt.Status.ConnectionState, evt.Status.GuildCount, evt.Status.Uptime, evt.Status.Latency));
+            return Task.CompletedTask;
+        });
+    }
+
+    [Inject] private IDashboardEventBus EventBus { get; set; } = default!;
+
+    private void Debounced(Action apply)
+    {
+        _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ =>
+        {
+            apply();
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void ApplyStatus(string connectionState, int guildCount, TimeSpan uptime, int latencyMs)
+    {
+        IsOnline = connectionState == "Connected";
+        StatusText = IsOnline ? "Connected" : "Disconnected";
+        ServerCount = guildCount;
+        UptimeDisplay = BotStatusViewModel.FormatUptime(uptime);
+        LatencyMs = latencyMs;
+    }
+
+    private string BannerClass => IsOnline ? "bot-status-banner" : "bot-status-banner offline";
+    private string IconColor => IsOnline ? "text-success" : "text-error";
+    private string IconBgColor => IsOnline ? "bg-success/20" : "bg-error/20";
+    private string StatusBadgeBg => IsOnline ? "bg-success/20" : "bg-error/20";
+    private string StatusBadgeText => IsOnline ? "text-success" : "text-error";
+    private string StatusDotColor => IsOnline ? "bg-success" : "bg-error";
+    private string StatusHeading => IsOnline ? "Bot is Online" : "Bot is Offline";
+
+    public void Dispose()
+    {
+        _updatedSubscription?.Dispose();
+        _broadcastSubscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}

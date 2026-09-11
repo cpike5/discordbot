@@ -1,0 +1,256 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Components.Enums
+@implements IDisposable
+@inject IDashboardEventBus EventBus
+
+@*
+    Merges _ActivityFeed.cshtml + _ActivityFeedTimeline.cshtml (docs/plans/blazor-port-plan.md
+    §4.6 consolidations) - one component owning a List<ActivityFeedItemViewModel> and appending
+    from its own event-bus subscription instead of the <template>-cloning dashboard-realtime.js
+    drove (see dashboard-realtime.js handleCommandExecuted/handleGuildActivity for the source
+    formatting this reproduces). Renders the richer Timeline empty state (icon + two lines) for
+    both call sites rather than keeping the plainer _ActivityFeed one.
+
+    Fidelity note: _ActivityFeedTimeline.cshtml's "ShowRefreshButton" flag actually gates its
+    pause/resume button (existing legacy naming - the button it wraps has pause/play icons, not a
+    refresh icon), while _ActivityFeed.cshtml always shows a pause/resume button unconditionally.
+    Per the task brief's own parameter list (IsPaused two-way with the pause/resume button,
+    separately ShowRefreshButton + OnRefresh), this component treats them as the two distinct
+    features their names describe: pause/resume is always shown, and ShowRefreshButton/OnRefresh
+    is a real refresh action of its own.
+*@
+
+<div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden h-full flex flex-col @Class" @attributes="AdditionalAttributes">
+    <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+        <div class="flex items-center gap-3">
+            <Icon Path="IconPaths.Lightning" Class="w-5 h-5 text-accent-blue" />
+            <h2 class="text-lg font-semibold text-text-primary">@Title</h2>
+            @if (IsPaused)
+            {
+                <span class="text-xs text-warning font-medium">Paused</span>
+            }
+        </div>
+        <div class="flex items-center gap-2">
+            @if (ShowRefreshButton)
+            {
+                <button type="button"
+                        class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
+                        aria-label="Refresh activity feed"
+                        @onclick="HandleRefreshAsync">
+                    <Icon Path="IconPaths.Refresh" Class="w-4 h-4" />
+                </button>
+            }
+            <button type="button"
+                    class="btn-toggle"
+                    aria-label="@(IsPaused ? "Resume activity feed" : "Pause activity feed")"
+                    aria-pressed="@IsPaused.ToString().ToLowerInvariant()"
+                    @onclick="TogglePausedAsync">
+                <Icon Path="@(IsPaused ? IconPaths.Play : IconPaths.Pause)" Class="w-4 h-4" />
+                <span>@(IsPaused ? "Resume" : "Pause")</span>
+            </button>
+        </div>
+    </div>
+
+    <div class="p-4 overflow-y-auto flex-grow" style="@(!string.IsNullOrEmpty(MaxHeight) ? $"max-height: {MaxHeight};" : "")" role="log" aria-live="polite" aria-atomic="false">
+        <div class="activity-timeline">
+            @if (_items.Count > 0)
+            {
+                @foreach (var item in _items)
+                {
+                    <div class="activity-item @item.TypeClassName">
+                        <div class="bg-bg-primary/50 rounded-lg p-3">
+                            <div class="flex items-center gap-2 mb-1">
+                                <span class="activity-timestamp text-xs text-text-tertiary font-mono">@item.Timestamp.ToLocalTime().ToString("HH:mm:ss")</span>
+                            </div>
+                            <p class="text-sm text-text-primary activity-description">
+                                @if (!string.IsNullOrEmpty(item.CommandText))
+                                {
+                                    @((MarkupString)item.Message.Replace(item.CommandText, $"<span class=\"font-mono text-accent-orange\">{item.CommandText}</span>"))
+                                }
+                                else
+                                {
+                                    @item.Message
+                                }
+                            </p>
+                            <p class="text-xs text-text-tertiary mt-1 activity-guild">@item.Source - @item.RelativeTime</p>
+                        </div>
+                    </div>
+                }
+            }
+            else
+            {
+                <div class="flex flex-col items-center justify-center py-12 text-center">
+                    <Icon Path="IconPaths.BookOpen" Class="w-12 h-12 text-text-tertiary mb-3" StrokeWidth="1.5" />
+                    <p class="text-sm text-text-secondary">@EmptyMessage</p>
+                    <p class="text-xs text-text-tertiary mt-1">Activity will appear here as it occurs</p>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ViewAllUrl))
+    {
+        <div class="px-6 py-3 border-t border-border-primary bg-bg-primary/30">
+            <a href="@ViewAllUrl" class="text-sm text-accent-blue hover:text-accent-blue-hover font-medium transition-colors duration-150">
+                View all activity
+                <Icon Path="IconPaths.ChevronRight" Class="inline-block w-4 h-4 ml-1" />
+            </a>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public List<ActivityFeedItemViewModel> Items { get; set; } = [];
+    [Parameter] public int MaxItems { get; set; } = 15;
+    [Parameter] public string EmptyMessage { get; set; } = "No recent activity";
+    [Parameter] public bool IsPaused { get; set; }
+    [Parameter] public EventCallback<bool> IsPausedChanged { get; set; }
+    [Parameter] public string Title { get; set; } = "Live Activity";
+    [Parameter] public bool ShowRefreshButton { get; set; }
+    [Parameter] public EventCallback OnRefresh { get; set; }
+    [Parameter] public string? ViewAllUrl { get; set; }
+    [Parameter] public string? MaxHeight { get; set; }
+    [Parameter] public ulong? GuildId { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private List<ActivityFeedItemViewModel> _items = [];
+    private readonly List<ActivityFeedItemViewModel> _pending = [];
+
+    private readonly Debouncer _debouncer = new();
+    private IDisposable? _commandSubscription;
+    private IDisposable? _guildSubscription;
+
+    protected override void OnInitialized()
+    {
+        _items = Items.Take(MaxItems).ToList();
+
+        _commandSubscription = EventBus.Subscribe<CommandExecutedEvent>((evt, _) =>
+        {
+            if (GuildId.HasValue && evt.Update.GuildId != GuildId.Value)
+            {
+                return Task.CompletedTask;
+            }
+
+            Enqueue(FromCommandExecuted(evt.Update));
+            return Task.CompletedTask;
+        });
+
+        _guildSubscription = GuildId.HasValue
+            ? EventBus.Subscribe<GuildActivityEvent>(GuildId.Value, (evt, _) =>
+            {
+                Enqueue(FromGuildActivity(evt.Update));
+                return Task.CompletedTask;
+            })
+            : EventBus.Subscribe<GuildActivityEvent>((evt, _) =>
+            {
+                Enqueue(FromGuildActivity(evt.Update));
+                return Task.CompletedTask;
+            });
+    }
+
+    private static ActivityFeedItemViewModel FromCommandExecuted(DiscordBot.Core.DTOs.CommandExecutedUpdateDto update) => new()
+    {
+        Type = update.Success ? ActivityItemType.Success : ActivityItemType.Error,
+        Message = $"/{update.CommandName} executed by @{update.Username ?? "Unknown"}",
+        CommandText = $"/{update.CommandName}",
+        Source = update.GuildName ?? "Direct Message",
+        Timestamp = update.Timestamp
+    };
+
+    private static ActivityFeedItemViewModel FromGuildActivity(DiscordBot.Core.DTOs.GuildActivityUpdateDto update) => new()
+    {
+        Type = ActivityItemType.Info,
+        Message = DescribeGuildEvent(update),
+        Source = update.GuildName,
+        Timestamp = update.Timestamp
+    };
+
+    private static string DescribeGuildEvent(DiscordBot.Core.DTOs.GuildActivityUpdateDto update)
+    {
+        var username = update.Username ?? "Unknown";
+        return update.EventType switch
+        {
+            "RatWatchCreated" => $"Rat Watch created for @{username}",
+            "RatWatchVotingStarted" => $"Voting started for @{username}",
+            "RatWatchVotingEnded" => $"Verdict: {update.Details ?? "Unknown"} for @{username}",
+            "RatWatchCheckIn" => $"@{username} checked in early!",
+            "RatWatchCancelled" => $"Rat Watch cancelled for @{username}",
+            "MemberJoined" => "New member joined the server",
+            "MemberLeft" => "A member left the server",
+            "MessageSent" => "Message sent",
+            "MessageDeleted" => "Message deleted",
+            "MessageEdited" => "Message edited",
+            _ => $"{update.EventType} event"
+        };
+    }
+
+    private readonly Lock _itemsLock = new();
+
+    // Mirrors dashboard-realtime.js's pause/resume queueing: new items queue behind IsPaused
+    // instead of being dropped, and are replayed in arrival order once resumed. The item itself
+    // is always applied immediately (never dropped) - only the resulting re-render is debounced
+    // to <=1 Hz, since coalescing the *data* here (not just the render) would silently drop
+    // activity items whenever two arrive inside the same debounce window.
+    private void Enqueue(ActivityFeedItemViewModel item)
+    {
+        if (IsPaused)
+        {
+            lock (_itemsLock)
+            {
+                _pending.Add(item);
+            }
+            return;
+        }
+
+        lock (_itemsLock)
+        {
+            _items = new[] { item }.Concat(_items).Take(MaxItems).ToList();
+        }
+
+        _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ =>
+        {
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private async Task TogglePausedAsync()
+    {
+        var next = !IsPaused;
+
+        if (!next)
+        {
+            List<ActivityFeedItemViewModel> flushed;
+            lock (_itemsLock)
+            {
+                flushed = [.. _pending];
+                _pending.Clear();
+                _items = flushed.AsEnumerable().Reverse().Concat(_items).Take(MaxItems).ToList();
+            }
+        }
+
+        if (IsPausedChanged.HasDelegate)
+        {
+            await IsPausedChanged.InvokeAsync(next);
+        }
+        else
+        {
+            IsPaused = next;
+        }
+    }
+
+    private Task HandleRefreshAsync() => OnRefresh.HasDelegate ? OnRefresh.InvokeAsync() : Task.CompletedTask;
+
+    public void Dispose()
+    {
+        _commandSubscription?.Dispose();
+        _guildSubscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}
