@@ -414,7 +414,6 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `OpenRouterMessageMapper` | Infrastructure/Services/LLM/OpenRouter | Maps `Llm*` DTOs to and from the OpenAI-compatible wire shape |
 | `IToolRegistry` | Core Interfaces | Available tools registry |
 | `IPromptTemplate` | Core Interfaces | System prompt and context template |
-| `IDocumentationToolService` | Core Interfaces | Documentation lookup tool for assistant |
 | `RatWatchToolProvider` | Bot/Services/LLM | RatWatch-specific tool provider for assistant |
 | `RatWatchTools` | Infrastructure/Services/LLM | Tool implementations for RatWatch queries |
 | `UserGuildInfoToolProvider` | Bot/Services/LLM | Tool provider exposing get_user_profile, get_guild_info, and get_user_roles tools; resolves data from Discord client and database |

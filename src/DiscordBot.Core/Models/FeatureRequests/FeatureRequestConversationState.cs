@@ -1,5 +1,3 @@
-using DiscordBot.Core.DTOs.LLM;
-
 namespace DiscordBot.Core.Models.FeatureRequests;
 
 /// <summary>
@@ -13,9 +11,9 @@ public class FeatureRequestConversationState
     public string InitialDescription { get; set; } = string.Empty;
 
     /// <summary>
-    /// Full LLM conversation history for multi-turn requirements gathering.
+    /// Full conversation history for multi-turn requirements gathering, in engine-agnostic form.
     /// </summary>
-    public List<LlmMessage> ConversationHistory { get; set; } = new();
+    public List<FeatureRequestTurn> ConversationHistory { get; set; } = new();
 
     /// <summary>
     /// Whether the feature request has been submitted (agent called submit tool).

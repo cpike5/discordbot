@@ -1,6 +1,6 @@
 using DiscordBot.Core.Entities;
 
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>One page of raw <see cref="LlmUsageRecord"/> rows, newest first.</summary>
 public class LlmUsagePagedRecords

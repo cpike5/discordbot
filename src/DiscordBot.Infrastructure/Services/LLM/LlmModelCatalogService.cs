@@ -4,6 +4,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Logging;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 

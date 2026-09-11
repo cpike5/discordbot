@@ -7,6 +7,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Bot.Controllers;
 

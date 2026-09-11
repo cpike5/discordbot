@@ -3,6 +3,7 @@ using System.Text.Json;
 using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Logging;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Infrastructure.Services.LLM.OpenRouter;
 

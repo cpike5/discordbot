@@ -1,6 +1,6 @@
 using DiscordBot.Core.Interfaces.LLM;
 
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>Where <see cref="ILlmModelResolver.ResolveAsync"/>'s slug came from.</summary>
 public enum LlmModelResolutionSource

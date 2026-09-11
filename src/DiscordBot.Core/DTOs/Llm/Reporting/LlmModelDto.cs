@@ -1,6 +1,6 @@
 using System.Text.Json.Serialization;
 
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>
 /// One <see cref="Entities.LlmModel"/> row shaped for the admin portal's catalog table

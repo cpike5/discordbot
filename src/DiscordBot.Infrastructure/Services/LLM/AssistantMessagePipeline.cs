@@ -2,6 +2,7 @@ using DiscordBot.Core.DTOs.LLM;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Infrastructure.Services.LLM;
 

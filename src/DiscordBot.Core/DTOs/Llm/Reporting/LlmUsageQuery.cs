@@ -1,6 +1,6 @@
 using DiscordBot.Core.Enums;
 
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>
 /// Filter shared by every grouped <c>ILlmUsageRepository</c> read: a date range plus optional

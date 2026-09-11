@@ -1,4 +1,4 @@
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>Sort key for <see cref="LlmModelCatalogFilter"/>.</summary>
 public enum LlmModelSortBy

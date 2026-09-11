@@ -1,6 +1,6 @@
 using DiscordBot.Core.Enums;
 
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>Aggregate totals over an <see cref="LlmUsageQuery"/> — the hero numbers for a usage dashboard.</summary>
 public class LlmUsageTotals

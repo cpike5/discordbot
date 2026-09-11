@@ -1,6 +1,6 @@
 using DiscordBot.Core.Entities;
 
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>
 /// Scope-neutral result of running a message through the <see cref="Interfaces.LLM.IAssistantMessagePipeline"/>.

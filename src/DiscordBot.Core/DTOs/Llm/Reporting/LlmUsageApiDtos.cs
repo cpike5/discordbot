@@ -1,4 +1,4 @@
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>
 /// Range limits shared by <c>LlmUsageController</c> (API validation) and <c>LlmUsageModel</c>

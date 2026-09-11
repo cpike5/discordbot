@@ -4,6 +4,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Infrastructure.Data.Repositories;
 

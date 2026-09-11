@@ -1,4 +1,4 @@
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>Outcome of one <c>ILlmModelCatalogService.RefreshAsync</c> call.</summary>
 public sealed record LlmCatalogRefreshResult

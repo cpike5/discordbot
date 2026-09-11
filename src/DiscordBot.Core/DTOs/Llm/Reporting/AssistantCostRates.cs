@@ -1,4 +1,4 @@
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>
 /// Per-million-token USD cost rates used to price an LLM usage report.

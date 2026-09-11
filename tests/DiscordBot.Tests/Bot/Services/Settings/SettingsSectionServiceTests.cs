@@ -9,6 +9,7 @@ using DiscordBot.Core.Interfaces.LLM;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
+using DiscordBot.Core.DTOs.Llm.Reporting;
 
 namespace DiscordBot.Tests.Bot.Services.Settings;
 

@@ -1,4 +1,4 @@
-namespace DiscordBot.Core.DTOs.LLM;
+namespace DiscordBot.Core.DTOs.Llm.Reporting;
 
 /// <summary>
 /// One model as fetched and parsed from OpenRouter's <c>GET /models</c> by
