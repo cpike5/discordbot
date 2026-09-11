@@ -174,7 +174,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 |--------------|-------------|---------------|----------------|
 | `ApplicationOptions` | `Application` | `Program.cs` | `Title`, `BaseUrl`, `ContactEmail`, `Version` |
 | `CachingOptions` | `Caching` | `Program.cs` | 9 TTL properties for guild, user, interaction, consent, dashboard caches |
-| `GuildMembershipCacheOptions` | `GuildMembershipCache` | `Program.cs` | `StoredGuildMembershipDurationMinutes` (30) |
+| `GuildMembershipCacheOptions` | `GuildMembershipCache` | `Program.cs` | `StoredGuildMembershipDurationMinutes` (30), `MembershipMaxAge` (1 hour) |
 | `BackgroundServicesOptions` | `BackgroundServices` | `Program.cs` | 20+ properties for all background service intervals, batch sizes, delays |
 | `ObservabilityOptions` | `Observability` | `Program.cs` | `KibanaUrl`, `SeqUrl` |
 | `VerificationOptions` | `Verification` | `Program.cs` | `CodeCharset`, `CodeLength`, `CodeExpiryMinutes`, `MaxCodesPerHour` |
