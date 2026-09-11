@@ -1,0 +1,22 @@
+@namespace DiscordBot.ComponentTests.Blazor.Shared.Forms
+@using DiscordBot.Bot.Blazor.Shared
+@using Microsoft.AspNetCore.Components.Forms
+
+@* Minimal EditForm host for TextInputTests - proves TextInput integrates with EditContext via
+   ValueExpression (DataAnnotationsValidator errors surface through the framework's own
+   <ValidationMessage/>, rendered inside TextInput's FooterContent). *@
+
+<EditForm Model="Model" FormName="text-input-host">
+    <DataAnnotationsValidator />
+    <TextInput Id="form-name" @bind-Value="Model.Name" />
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired] public FormModel Model { get; set; } = null!;
+
+    public class FormModel
+    {
+        [System.ComponentModel.DataAnnotations.Required(ErrorMessage = "This field is required.")]
+        public string? Name { get; set; }
+    }
+}
