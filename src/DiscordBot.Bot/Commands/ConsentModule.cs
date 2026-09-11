@@ -303,7 +303,8 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
             ConsentType.MessageLogging =>
                 "Your messages in DMs with this bot and in mutual servers may now be logged.",
             ConsentType.AssistantUsage =>
-                "You can now mention the bot to ask questions. Your questions and responses will be processed by OpenRouter and its model provider, and logged for quality purposes.",
+                "You can now mention the bot to ask questions. When you @-mention the bot, the text of your message is sent to OpenRouter and on to the model provider serving the configured model. " +
+                "Your question and the bot's response are also stored in this bot's own database for quality, troubleshooting, and usage metrics.",
             _ => "Your consent has been recorded."
         };
     }
@@ -320,7 +321,7 @@ public class ConsentModule : InteractionModuleBase<SocketInteractionContext>
             ConsentType.MessageLogging =>
                 "Your messages will no longer be logged.",
             ConsentType.AssistantUsage =>
-                "You will no longer be able to use the AI assistant feature by mentioning the bot.",
+                "You will no longer be able to use the AI assistant feature by mentioning the bot, and no further messages of yours will be sent to OpenRouter.",
             _ => "Your consent has been revoked."
         };
     }
