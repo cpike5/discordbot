@@ -98,6 +98,7 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
     [ProducesResponseType(typeof(SsmlSynthesisResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> SynthesizeSsml(
         ulong guildId,
         [FromBody] Core.DTOs.Tts.SsmlSynthesisRequest request,
@@ -211,6 +212,18 @@ public class PortalTtsSynthesisController : PortalTtsControllerBase
         try
         {
             audioStream = await _ttsService.SynthesizeSpeechAsync(request.Ssml, null, SynthesisMode.Ssml, cancellationToken);
+        }
+        catch (TtsUpstreamUnavailableException ex)
+        {
+            _logger.LogError(ex, "Azure Speech service unreachable for guild {GuildId} after {Attempts} attempt(s)", guildId, ex.Attempts);
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new ApiErrorDto
+            {
+                Message = "Speech service unreachable",
+                Detail = "The bot could not reach the Azure Speech service. This is usually a temporary network problem; please try again in a moment.",
+                StatusCode = StatusCodes.Status503ServiceUnavailable,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = "tts_upstream_unavailable"
+            });
         }
         catch (InvalidOperationException ex)
         {

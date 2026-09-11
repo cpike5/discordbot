@@ -1,8 +1,10 @@
 using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Exceptions;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using FluentAssertions;
+using Microsoft.CognitiveServices.Speech;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
@@ -695,4 +697,121 @@ public class AzureTtsServiceTests : IDisposable
     }
 
     #endregion
+}
+
+/// <summary>
+/// Tests for the synthesis retry and upstream-failure classification in <see cref="AzureTtsService"/>.
+/// Uses a subclass that replaces the Azure SDK call with scripted outcomes so no subscription is needed.
+/// </summary>
+public class AzureTtsServiceRetryTests
+{
+    private sealed class ScriptedAzureTtsService : AzureTtsService
+    {
+        private readonly Queue<SynthesisAttemptOutcome> _outcomes;
+
+        public int Attempts { get; private set; }
+
+        public ScriptedAzureTtsService(IEnumerable<SynthesisAttemptOutcome> outcomes)
+            : base(
+                Options.Create(new AzureSpeechOptions { SubscriptionKey = "test-key", Region = "eastus" }),
+                new Mock<ILogger<AzureTtsService>>().Object,
+                new Mock<IVoiceCapabilityProvider>().Object,
+                new Mock<IStylePresetProvider>().Object,
+                new Mock<ISsmlValidator>().Object)
+        {
+            _outcomes = new Queue<SynthesisAttemptOutcome>(outcomes);
+        }
+
+        protected internal override Task<SynthesisAttemptOutcome> RunSynthesisAttemptAsync(string ssml, CancellationToken cancellationToken)
+        {
+            Attempts++;
+            return Task.FromResult(_outcomes.Dequeue());
+        }
+    }
+
+    private static AzureTtsService.SynthesisAttemptOutcome Completed(byte[] audio) =>
+        new(ResultReason.SynthesizingAudioCompleted, audio, null, null, null);
+
+    private static AzureTtsService.SynthesisAttemptOutcome Cancelled(CancellationErrorCode errorCode, string details = "boom") =>
+        new(ResultReason.Canceled, Array.Empty<byte>(), CancellationReason.Error, errorCode, details);
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_RetriesOnce_WhenFirstAttemptCannotReachAzure()
+    {
+        // Arrange - mono PCM sample that the service widens to stereo
+        var mono = new byte[] { 1, 2, 3, 4 };
+        var service = new ScriptedAzureTtsService(new[]
+        {
+            Cancelled(CancellationErrorCode.ConnectionFailure, "WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED"),
+            Completed(mono)
+        });
+
+        // Act
+        await using var stream = await service.SynthesizeSpeechAsync("hello world");
+
+        // Assert
+        service.Attempts.Should().Be(2);
+        stream.Length.Should().Be(mono.Length * 2, "mono PCM is converted to stereo");
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_ThrowsUpstreamUnavailable_WhenEveryAttemptCannotReachAzure()
+    {
+        // Arrange
+        var service = new ScriptedAzureTtsService(new[]
+        {
+            Cancelled(CancellationErrorCode.ConnectionFailure, "WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED"),
+            Cancelled(CancellationErrorCode.ConnectionFailure, "WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED")
+        });
+
+        // Act
+        var act = async () => await service.SynthesizeSpeechAsync("hello world");
+
+        // Assert
+        var assertion = await act.Should().ThrowAsync<TtsUpstreamUnavailableException>()
+            .WithMessage("*eastus*unreachable*ConnectionFailure*WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED*");
+        assertion.Which.Attempts.Should().Be(AzureTtsService.MaxSynthesisAttempts);
+        service.Attempts.Should().Be(AzureTtsService.MaxSynthesisAttempts);
+    }
+
+    [Fact]
+    public async Task SynthesizeSpeechAsync_DoesNotRetry_WhenAzureRejectsTheRequest()
+    {
+        // Arrange - an authentication failure is not transient, so no retry
+        var service = new ScriptedAzureTtsService(new[]
+        {
+            Cancelled(CancellationErrorCode.AuthenticationFailure, "WebSocket upgrade failed: Authentication error (401)")
+        });
+
+        // Act
+        var act = async () => await service.SynthesizeSpeechAsync("hello world");
+
+        // Assert
+        var assertion = await act.Should().ThrowAsync<InvalidOperationException>()
+            .WithMessage("Speech synthesis failed: *Authentication error (401)*");
+        assertion.Which.Should().NotBeOfType<TtsUpstreamUnavailableException>();
+        service.Attempts.Should().Be(1);
+    }
+
+    [Theory]
+    [InlineData(CancellationErrorCode.ConnectionFailure, true)]
+    [InlineData(CancellationErrorCode.ServiceTimeout, true)]
+    [InlineData(CancellationErrorCode.ServiceUnavailable, true)]
+    [InlineData(CancellationErrorCode.AuthenticationFailure, false)]
+    [InlineData(CancellationErrorCode.BadRequest, false)]
+    [InlineData(CancellationErrorCode.Forbidden, false)]
+    [InlineData(CancellationErrorCode.TooManyRequests, false)]
+    [InlineData(CancellationErrorCode.ServiceError, false)]
+    [InlineData(CancellationErrorCode.RuntimeError, false)]
+    [InlineData(CancellationErrorCode.NoError, false)]
+    public void IsUpstreamUnavailable_ClassifiesSdkErrorCodes(CancellationErrorCode errorCode, bool expected)
+    {
+        AzureTtsService.IsUpstreamUnavailable(errorCode).Should().Be(expected);
+    }
+
+    [Fact]
+    public void IsUpstreamUnavailable_ReturnsFalse_WhenErrorCodeIsNull()
+    {
+        AzureTtsService.IsUpstreamUnavailable(null).Should().BeFalse();
+    }
 }

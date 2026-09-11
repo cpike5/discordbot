@@ -6,6 +6,7 @@ using DiscordBot.Bot.Controllers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Exceptions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Portal;
 using DiscordBot.Core.Entities;
@@ -230,6 +231,57 @@ public class PortalTtsControllerTests
         error.Should().NotBeNull();
         error!.Message.Should().Be("Failed to play TTS");
         error.Detail.Should().Be("Failed to get audio stream");
+    }
+
+    [Fact]
+    public async Task SendTts_WhenSpeechServiceUnreachable_Returns503()
+    {
+        // Arrange
+        const ulong guildId = 123456789UL;
+        var request = new SendTtsRequest
+        {
+            Message = "Hello world",
+            Voice = "en-US-JennyNeural",
+            Speed = 1.0,
+            Pitch = 1.0
+        };
+
+        var settings = new GuildTtsSettings
+        {
+            GuildId = guildId,
+            TtsEnabled = true,
+            MaxMessageLength = 500,
+            RateLimitPerMinute = 5
+        };
+
+        _mockTtsSettingsService
+            .Setup(s => s.GetOrCreateSettingsAsync(guildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(settings);
+        _mockAudioService.Setup(s => s.IsConnected(guildId)).Returns(true);
+        _mockTtsSettingsService
+            .Setup(s => s.IsUserRateLimitedAsync(guildId, It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        // Azure Speech could not be reached (e.g. WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED) after all retries
+        _mockTtsService
+            .Setup(s => s.SynthesizeSpeechAsync(request.Message, It.IsAny<TtsOptions>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new TtsUpstreamUnavailableException("Azure Speech service in region 'eastus' is unreachable", attempts: 2));
+
+        // Act
+        var result = await _controller.SendTts(guildId, request, CancellationToken.None);
+
+        // Assert
+        var objectResult = result.Should().BeOfType<ObjectResult>().Subject;
+        objectResult.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
+
+        var error = objectResult.Value.Should().BeOfType<ApiErrorDto>().Subject;
+        error.ErrorCode.Should().Be("tts_upstream_unavailable");
+        error.StatusCode.Should().Be(StatusCodes.Status503ServiceUnavailable);
+        error.Message.Should().Be("Speech service unreachable");
+
+        _mockTtsPlaybackService.Verify(
+            s => s.PlayAsync(It.IsAny<ulong>(), It.IsAny<ulong>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<Stream>(), It.IsAny<CancellationToken>()),
+            Times.Never);
     }
 
     [Fact]

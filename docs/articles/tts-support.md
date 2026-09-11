@@ -441,6 +441,19 @@ public interface ITtsService
 - `GetAvailableVoicesAsync` - Retrieves available voices for a locale
 - `IsConfigured` - Checks if Azure Speech is configured
 
+**Failure modes of `SynthesizeSpeechAsync`:**
+
+| Exception | Meaning | Retried? | Portal response |
+|-----------|---------|----------|-----------------|
+| `TtsUpstreamUnavailableException` | The Azure Speech endpoint could not be reached (SDK error codes `ConnectionFailure`, `ServiceTimeout`, `ServiceUnavailable`, e.g. `WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED`). Usually DNS, egress, or an Azure outage, not configuration. | Once, after 500 ms | `503` with error code `tts_upstream_unavailable` |
+| `InvalidOperationException` | Not configured (missing `SubscriptionKey`), or Azure rejected the request (authentication, bad request, quota). | No | `400` with error code `tts_not_configured` |
+| `SsmlValidationException` | The SSML failed validation before synthesis. | No | `400` with error code `ssml_validation_failed` |
+| `ArgumentException` | Empty input, or plain text longer than `MaxTextLength`. | No | `400` |
+
+`TtsUpstreamUnavailableException` derives from `InvalidOperationException`, so callers that only catch the latter keep working. Its `Attempts` property records how many synthesis attempts were made.
+
+The SDK derives the synthesis host from `AzureSpeech:Region` as `wss://{region}.tts.speech.microsoft.com`. That is a different hostname from the resource endpoint shown in the Azure portal (`https://{region}.api.cognitive.microsoft.com/`), which the SDK only uses for token issuance; seeing the `tts.speech` host in a connection error does not mean the endpoint is misconfigured.
+
 ### SignalR Notifications
 
 TTS integrates with the audio notification system (shared with Soundboard):

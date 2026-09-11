@@ -99,6 +99,7 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status429TooManyRequests)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status503ServiceUnavailable)]
     public async Task<IActionResult> SendTts(
         ulong guildId,
         [FromBody] SendTtsRequest request,

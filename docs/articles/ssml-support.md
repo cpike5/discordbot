@@ -526,6 +526,19 @@ Synthesize SSML to audio and play in the guild's voice channel.
 
 ## Troubleshooting
 
+**Response (503 Service Unavailable):**
+
+Returned when the Azure Speech endpoint could not be reached after the built-in retry. The SSML was valid; ask the user to try again shortly.
+
+```json
+{
+  "message": "Speech service unreachable",
+  "detail": "The bot could not reach the Azure Speech service. This is usually a temporary network problem; please try again in a moment.",
+  "statusCode": 503,
+  "errorCode": "tts_upstream_unavailable"
+}
+```
+
 ### SSML Not Available
 
 **Symptom:** The SSML UI modes and presets are not visible in the portal.
