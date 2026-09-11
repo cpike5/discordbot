@@ -12,17 +12,18 @@ Quick reference guide for common patterns and conventions used throughout the Di
 6. [API Controller Base](#api-controller-base)
 7. [Search Provider Pattern](#search-provider-pattern)
 8. [Agent Tool Authoring](#agent-tool-authoring)
-9. [Helper Extraction Pattern](#helper-extraction-pattern)
-10. [Background Task Runner](#background-task-runner)
-11. [Service Activity Helper](#service-activity-helper)
-12. [Discord Resolver Services](#discord-resolver-services)
-13. [Data Access](#data-access)
-14. [Authorization](#authorization)
-15. [Audit Logging](#audit-logging)
-16. [Error Handling](#error-handling)
-17. [MonitoredBackgroundService](#monitoredbackgroundservice)
-18. [IMemoryReportable](#imemoryreportable)
-19. [Per-Guild Locking](#per-guild-locking)
+9. [Agent Skills](#agent-skills)
+10. [Helper Extraction Pattern](#helper-extraction-pattern)
+11. [Background Task Runner](#background-task-runner)
+12. [Service Activity Helper](#service-activity-helper)
+13. [Discord Resolver Services](#discord-resolver-services)
+14. [Data Access](#data-access)
+15. [Authorization](#authorization)
+16. [Audit Logging](#audit-logging)
+17. [Error Handling](#error-handling)
+18. [MonitoredBackgroundService](#monitoredbackgroundservice)
+19. [IMemoryReportable](#imemoryreportable)
+20. [Per-Guild Locking](#per-guild-locking)
 
 ---
 
@@ -842,6 +843,76 @@ when they are next being touched anyway, not in one sitting.
 registered provider's tools without de-duplicating, so a provider left registered beside its own
 converted tools puts each name in the array twice — and the duplicate schema is paid for on every
 request in the run.
+
+---
+
+## Agent Skills
+
+A **skill** is how a tool stops costing its schema on every request. It is a markdown file naming
+some tools and carrying the instructions for using them; the model sees only a one-line summary
+until it decides a request needs the skill, and pays for the rest then.
+
+Skill files live in `docs/agents/skills/<surface>/` — `dm/` and `guild/`, one directory per
+assistant, configured by `DmAssistant:SkillsPath` and `Assistant:Tools:SkillsPath`. The format and
+the authoring advice are in [`docs/agents/skills/README.md`](../agents/skills/README.md); this
+section is the mechanism.
+
+### The rule
+
+> A tool named by **any** available skill is hidden until one of the skills naming it is loaded.
+
+Everything else the registry holds is advertised as it always was. So a surface keeps its common
+tools always-on and puts only the rare, heavy ones behind a skill — putting a frequently needed tool
+in a skill file makes every request that needs it cost an extra round.
+
+### The pieces
+
+| Piece | Where | Does |
+|-------|-------|------|
+| `AgentSkill` | `Agents/Contracts/` | Key, summary, tool names, instructions. |
+| `SkillFile` | `Agents/` | Parses one markdown file. `summary` is the only required key. |
+| `SkillLibrary` (`ISkillLibrary`) | `Agents/` | Reads a directory, through `IPromptTemplate` so a skill is cached and hot-reloaded exactly like a prompt. |
+| `SkillSession` (`ISkillActivationState`) | `Agents/` | One run's available and activated skills. |
+| `SkillToolSet.Compose` | `Agents/` | Applies the rule above. `AgentRunner` calls it once at the start and again after any round that activated a skill. |
+| `SkillRoster.Append` | `Agents/` | The prompt block: one line per loadable skill, plus the full instructions of anything pre-activated. |
+| `SkillSessionFactory` (`ISkillSessionFactory`) | `Infrastructure/Services/LLM/` | Builds the run's session and **narrows** each skill's tools to what the run's registry advertises. |
+| `LoadSkillTool` | `Infrastructure/Services/LLM/Tools/` | The `load_skill` tool. An ordinary `IAgentTool` with an ordinary `ToolCatalog` entry. |
+| `DmSkillActivationStore` (`IDmSkillActivationStore`) | `Infrastructure/Services/LLM/` | Remembers a DM user's activations between turns, in `IMemoryCache`. |
+
+The session is reachable from both ends of the mechanism: the loop reads it off
+`AgentContext.Skills`, and the tool reads the same instance out of `ToolContext.Items` via
+`SkillToolContextExtensions`. A context factory puts it in both places.
+
+### Two things that are not negotiable
+
+**A skill can never widen reach.** `SkillToolSet.Compose` builds the advertised set from
+`IToolRegistry.GetEnabledTools()` and only ever subtracts from it, and `SkillSessionFactory` narrows
+each skill's tool list to the same registry first. On the guild surface that registry is a
+`FilteredToolRegistry` over the guild's allow-list, so a skill file naming a tool a guild has turned
+off cannot turn it back on — the name is dropped, and the model is never told it existed.
+
+**Loading costs a prompt-cache write.** The tool array serializes at position 0 of the request, so
+re-composing it invalidates the cached prefix for the rest of that run. That is one cache write on a
+loading turn, and it is the reason the loop re-composes only when the activated set actually changed.
+Expect a cache-miss spike after a `load_skill` on the metrics page; it is the mechanism working.
+
+### Stickiness differs by surface, and that is the whole design
+
+- **DM assistant** — multi-turn. `DmAssistantContextFactory` replays the previous turn's activations
+  into the session, so from turn 2 the skill's tools are advertised on the first call and its
+  instructions are already in the prompt (the tool result that carried them the first time is not in
+  the sliding-window history, which is why `SkillRoster` re-renders them). A skill is paid for once.
+- **Guild assistant** — single-turn by design: `ConversationHistory` is always empty, so there is no
+  previous turn to replay. A skill there costs a round **every** time it is used. That is still the
+  right trade for a rare, heavy tool group and the wrong one for anything else, which is why
+  `docs/agents/skills/guild/` ships empty.
+
+### Adding a skill
+
+One file in the right directory, and nothing else — no catalogue entry, no DI, no code. It is picked
+up within the prompt cache's five minutes. The tools it names must already exist and be advertised on
+that surface; a name that is not is dropped with a `Debug` line rather than an error, because on the
+guild surface an allow-list excluding one is routine.
 
 ---
 

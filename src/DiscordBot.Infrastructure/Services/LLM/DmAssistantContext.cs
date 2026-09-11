@@ -4,6 +4,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents;
 using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
 using DiscordBot.Core.DTOs.Llm.Reporting;
@@ -30,6 +31,8 @@ public class DmAssistantContext : IAssistantContext
     private readonly string _resolvedModel;
     private readonly LlmCatalogPricing? _resolvedPricing;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly ISkillActivationState? _skills;
+    private readonly IDmSkillActivationStore? _skillActivations;
 
     public DmAssistantContext(
         ulong userId,
@@ -44,7 +47,9 @@ public class DmAssistantContext : IAssistantContext
         ILogger logger,
         string resolvedModel,
         LlmCatalogPricing? resolvedPricing = null,
-        ILlmUsageRecorder? usageRecorder = null)
+        ILlmUsageRecorder? usageRecorder = null,
+        ISkillActivationState? skills = null,
+        IDmSkillActivationStore? skillActivations = null)
     {
         _userId = userId;
         ToolRegistry = toolRegistry ?? throw new ArgumentNullException(nameof(toolRegistry));
@@ -58,11 +63,16 @@ public class DmAssistantContext : IAssistantContext
         _resolvedModel = resolvedModel ?? throw new ArgumentNullException(nameof(resolvedModel));
         _resolvedPricing = resolvedPricing;
         _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
+        _skills = skills;
+        _skillActivations = skillActivations;
 
         // The DM assistant is owner-only — access is decided before a message ever reaches here,
         // so there is no narrower permission left to express.
         ExecutionContext = new ToolContext { UserId = userId, CanMutate = true };
         ExecutionContext.SetActiveGuildId(activeGuildId);
+
+        // The loader tool reads the session from here; the loop reads it from AgentContext.Skills.
+        ExecutionContext.SetSkills(skills);
     }
 
     public string RateLimitCacheKeyPrefix => RateLimitPrefix;
@@ -85,6 +95,14 @@ public class DmAssistantContext : IAssistantContext
     public ToolContext ExecutionContext { get; }
     public List<LlmMessage> ConversationHistory { get; }
 
+    /// <inheritdoc />
+    /// <remarks>
+    /// This surface has conversation state, so the factory replays the previous turn's activations
+    /// into the session before the run starts. That is what makes a skill cost one round on the turn
+    /// that loads it and nothing afterwards.
+    /// </remarks>
+    public ISkillActivationState? Skills => _skills;
+
     /// <summary>
     /// Per-million-token rates: catalog pricing for the resolved model wins when the catalog
     /// reports a price, falling back to the configured rate for any price it does not report
@@ -102,16 +120,23 @@ public class DmAssistantContext : IAssistantContext
     /// <inheritdoc />
     public async Task<string> BuildSystemPromptAsync(CancellationToken cancellationToken)
     {
+        string prompt;
+
         try
         {
-            return await _promptTemplate.LoadAsync(_options.OwnerSystemPromptPath, cancellationToken);
+            prompt = await _promptTemplate.LoadAsync(_options.OwnerSystemPromptPath, cancellationToken);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to load owner system prompt from {Path}, using fallback",
                 _options.OwnerSystemPromptPath);
-            return "You are a helpful AI assistant. Be concise and accurate.";
+            prompt = "You are a helpful AI assistant. Be concise and accurate.";
         }
+
+        // The roster, plus the instructions of anything replayed from a previous turn: the tool
+        // result that carried them the first time is not in the sliding-window history, so without
+        // this the tools would come back on turn 2 without the instructions that explain them.
+        return SkillRoster.Append(prompt, _skills);
     }
 
     /// <inheritdoc />
@@ -150,6 +175,27 @@ public class DmAssistantContext : IAssistantContext
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to save DM conversation turn for user {UserId}", _userId);
+            }
+        }
+
+        // Carry this turn's skills into the next one. Clearing the conversation clears them too:
+        // the instructions they put in the prompt are part of what "start again" means.
+        if (_skillActivations is not null)
+        {
+            try
+            {
+                if (result.ConversationCleared)
+                {
+                    _skillActivations.Clear(_userId);
+                }
+                else if (result.Success && _skills is not null)
+                {
+                    _skillActivations.Set(_userId, _skills.Activated.Select(skill => skill.Key));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to record active skills for user {UserId}", _userId);
             }
         }
 

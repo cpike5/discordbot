@@ -13,6 +13,7 @@ using Microsoft.Extensions.Options;
 using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Infrastructure.Abstractions.LLM;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services.LLM;
 
@@ -42,7 +43,9 @@ public class DmAssistantContextFactoryTests
             new MemoryCache(new MemoryCacheOptions()),
             modelResolver,
             Options.Create(options ?? new DmAssistantOptions()),
-            Mock.Of<ILlmUsageRecorder>());
+            Mock.Of<ILlmUsageRecorder>(),
+            new StubSkillSessionFactory(),
+            new DmSkillActivationStore(new MemoryCache(new MemoryCacheOptions())));
     }
 
     [Fact]

@@ -54,6 +54,10 @@ public static class DmAssistantServiceExtensions
         // Register DM tool providers. The memory tools are IAgentTool implementations now and reach
         // the assistant through DmAgentToolProvider - the one adapter for individually authored
         // tools - rather than through a provider of their own.
+        // Remembers which skills this user has loaded, so an activation carries into the next turn.
+        // Ungated: it is a memory-cache entry, and it must exist wherever the DM context is built.
+        services.TryAddSingleton<IDmSkillActivationStore, DmSkillActivationStore>();
+
         services.AddScoped<IDmToolProvider, DmAgentToolProvider>();
         services.AddScoped<IDmToolProvider, ConversationToolProvider>();
         services.AddScoped<IDmToolProvider, BotManagementToolProvider>();

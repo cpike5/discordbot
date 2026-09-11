@@ -45,20 +45,8 @@ public partial class PromptTemplate : IPromptTemplate
 
         _logger.LogDebug("Loading template from disk: {FilePath}", filePath);
 
-        // Resolve relative paths from application root
-        var fullPath = Path.IsPathRooted(filePath)
-            ? filePath
-            : Path.Combine(AppContext.BaseDirectory, filePath);
-
-        // Also check relative to working directory if not found
-        if (!File.Exists(fullPath))
-        {
-            var workingDirPath = Path.Combine(Directory.GetCurrentDirectory(), filePath);
-            if (File.Exists(workingDirPath))
-            {
-                fullPath = workingDirPath;
-            }
-        }
+        // Application root first, then the working directory - see PromptPaths.
+        var fullPath = PromptPaths.ResolveFile(filePath);
 
         if (!File.Exists(fullPath))
         {

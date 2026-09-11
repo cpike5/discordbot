@@ -10,9 +10,10 @@ as the detail.
 | [specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md) | The code shape of each enhancement — option keys, interfaces, migrations, tests. Sections referenced below as *impl §x.y*. |
 | **This document** | The extraction, and the order the whole overhaul runs in. |
 
-**Status**: Phases 0, 1, 2, 3 and 4 are implemented — see §4.3a and §5.1a for where the manifest
-and the spec needed correcting, §5.2a for what Phase 3 shipped, and §5.3a for Phase 4. Phases 5–6
-remain proposed. F13 (impl §1.3) has not shipped yet; it is still meant to go out as its own PR.
+**Status**: Phases 0, 1, 2, 3, 4 and 5 are implemented — see §4.3a and §5.1a for where the manifest
+and the spec needed correcting, §5.2a for what Phase 3 shipped, §5.3a for Phase 4, and §5.4a for
+Phase 5. Phase 6 remains proposed. F13 (impl §1.3) has not shipped yet; it is still meant to go out
+as its own PR.
 
 ---
 
@@ -427,6 +428,53 @@ multi-turn, so activation is sticky and nearly free from turn 2. Our DM assistan
 **the guild assistant is single-turn**, so a skill there costs an extra round every time it is
 used. Guild keeps common tools always-on and puts only rare, heavy ones behind skills.
 
+#### 5.4a What shipped, and the two decisions the design risk came down to
+
+Done, on the DM surface only. The guild surface has the machinery and an empty skill directory,
+which is the recommendation above taken literally rather than a job half finished.
+
+The mechanism, in one sentence: *a tool named by any available skill is hidden from the advertised
+tool array until one of the skills naming it is loaded*. `SkillToolSet.Compose` applies it, the loop
+calls it once at the start and again after any round that activated a skill, and
+`docs/architecture/patterns.md` § Agent Skills is the pattern page.
+
+- **The surface split is two directories, not a `surfaces:` field.** A skill file declaring which
+  assistants it belongs to would have put this bot's guild/DM taxonomy inside the engine's file
+  format — the same mistake `[DmOnlyTool]` would have been in Phase 4, and rejected for the same
+  reason. `docs/agents/skills/dm/` and `docs/agents/skills/guild/` instead, one config key each, and
+  the engine's loader only ever knows about *a* directory. The cost is that a skill wanted on both
+  surfaces is written twice; the two would want different wording anyway, because they advertise
+  different tools and only one of them is multi-turn.
+- **The narrowing happens twice, and the second time is the one that matters.**
+  `SkillSessionFactory` cuts each skill's tool list down to what the run's registry advertises before
+  the run starts, so the roster and `load_skill`'s answer are honest about what the model will get.
+  `SkillToolSet.Compose` then builds the advertised set from `GetEnabledTools()` and only subtracts,
+  so even a session seeded wrongly could not widen anything. On the guild surface that registry is a
+  `FilteredToolRegistry` over the guild's allow-list, which is what makes §3.2's "`load_skill` can
+  never widen a guild's reach" structural rather than a promise.
+
+Four smaller notes:
+
+- **`load_skill` is an ordinary tool with an ordinary catalogue entry** (category **Skills**, scopes
+  `Guild | Dm`, on by default), exactly as Phase 4 requires — the catalogue is what routes it to a
+  surface, so it could not have lived in `DiscordBot.Agents` whatever the spec said. The engine's one
+  concession is `ISkillActivationState.LoaderToolName`: when a surface has no skills, the loop drops
+  that name from the array rather than paying for a schema nothing can use. So a surface with an
+  empty skill directory costs exactly what it did before this phase.
+- **Stickiness is `IMemoryCache`, not a column.** `DmSkillActivationStore` keys activated skill keys
+  by user for 24 hours, the same shape and lifetime as the DM assistant's active guild. That keeps
+  Phase 5 migration-free; losing it on restart costs one extra round rather than anything a user
+  notices. Clearing the conversation clears it too — the instructions a skill puts in the prompt are
+  part of what "start again" means.
+- **A pre-activated skill's instructions go back into the prompt, not into history.** The DM
+  conversation is a sliding window of user and assistant text; the tool result that carried the
+  instructions on the loading turn is not in it. `SkillRoster.Render` re-renders the body of anything
+  replayed, which means a DM user's system prompt now varies with their activation set — one
+  prompt-cache prefix per combination, on a surface with exactly one user.
+- **`PromptTemplate`'s path resolution moved into `PromptPaths`** so the skill directory is found by
+  the same application-directory-then-working-directory search a prompt file is. Pure refactor, no
+  behaviour change.
+
 ### Phase 6 — Discipline (impl §3.3, §4.1, §4.2, §4.3)
 
 Prompt-surface report, per-tool specs in `docs/tools/`, the tool contract test, and the eval
@@ -450,7 +498,7 @@ tools, not the library's — it is asserting house conventions, which are an app
 | 9 | 3 | Tool telemetry + `ToolNames` + metrics table | low — 2 migrations |
 | 10 | 3 | Caller access | low — blocks write tools until done |
 | 11 | 4 | `IAgentTool` + helpers + one conversion | medium |
-| 12 | 5 | Skills | high — largest design surface |
+| 12 | 5 | Skills | **done** — high risk as predicted; see §5.4a |
 | 13 | 6 | Report, specs, contract test, evals | low |
 
 Phases 2 and 3 can overlap once PR 3 lands; 4 and 5 should not start until 2 is finished, because
@@ -468,9 +516,11 @@ both build on the loop.
 - **§1.7c may be impossible.** Whether OpenRouter forwards `cache_control` on a `role: "tool"`
   message into Anthropic's `tool_result` block is an empirical question about someone else's
   translation layer. Probe first; the history-message fallback is the real plan.
-- **Skills are the one phase with genuine design risk.** Everything before it is mechanical or
-  well-specified. If time runs short, stopping after Phase 4 leaves the codebase in a good state —
-  a clean engine, governed tools, and cheap tool authoring. Stopping mid-Phase-5 does not.
+- **Skills were the one phase with genuine design risk**, and the risk turned out to be where §5.4a
+  says: what the engine is allowed to know about a surface, and where the narrowing happens. Both are
+  settled. What remains open is empirical — whether the DM assistant's model actually loads the right
+  skill often enough to be worth the round, which needs real traffic on the metrics page (a
+  `load_skill` call followed by the skill's own tools is the shape to look for).
 
 ## 8. Documentation to update
 

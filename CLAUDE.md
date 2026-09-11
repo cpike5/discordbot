@@ -35,6 +35,9 @@ decides which assistant advertises it, so a tool without one reaches nothing. Th
 the assembly scan finds it. `IToolProvider` is still there and still right for a group of tools that
 share expensive state, but it is no longer the default. Only the model-facing machinery itself
 belongs in `DiscordBot.Agents`. See `docs/architecture/patterns.md` § Agent Tool Authoring.
+A new **skill** — instructions for a rare, heavy tool group, kept out of every request until the
+model loads it — is one markdown file in `docs/agents/skills/<surface>/` and nothing else: no
+catalogue entry, no DI, no code. See `docs/architecture/patterns.md` § Agent Skills.
 An assistant abstraction whose signature is made of engine types (`IAssistantContext`,
 `IAssistantMessagePipeline`, the context factories) lives in
 `Infrastructure/Abstractions/LLM/` rather than Core, because Core cannot see the engine.

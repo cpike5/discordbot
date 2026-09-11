@@ -63,6 +63,18 @@ public interface IAssistantContext
     IToolRegistry? ToolRegistry { get; }
     ToolContext ExecutionContext { get; }
 
+    /// <summary>
+    /// The skills this exchange may load, or null when the scope has none.
+    /// </summary>
+    /// <remarks>
+    /// Defaulted rather than required, because a context that knows nothing about skills is a
+    /// perfectly good context and there are several of them in the tests. A scope that wants skills
+    /// builds a <c>SkillSession</c> in its factory, puts it here <em>and</em> on
+    /// <c>ExecutionContext</c> (where the loader tool reads it), and appends
+    /// <c>SkillRoster</c>'s block to its system prompt.
+    /// </remarks>
+    ISkillActivationState? Skills => null;
+
     /// <summary>Prior turns to seed the agent with, or an empty list when the scope has no history.</summary>
     List<LlmMessage> ConversationHistory { get; }
 

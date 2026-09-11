@@ -639,8 +639,9 @@ Owner-only DM assistant with multi-turn conversation history.
 | **Services** | `IDmAssistantService`, `IAgentRunner`, `ILlmClient` (`OpenRouterLlmClient` — OpenAI-compatible chat completions via an owned typed `HttpClient`, no LLM SDK), `IToolRegistry` |
 | **Tool Providers** | `IDmToolProvider` implementations: `DmAnalyticsToolProvider`, `DmModerationToolProvider`, `DmDocumentationToolProvider`, `ConversationToolProvider`, `WebFetchToolProvider`, `CodeExecutionToolProvider`, plus `DmAgentToolProvider` — the one adapter over individually authored `IAgentTool`s (the memory tools) |
 | **Database Entities** | `DmConversationMessage`, `DmAssistantInteractionLog`, `DmAssistantUsageMetrics` |
-| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `openrouter/auto`), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries) |
+| **Configuration** | `DmAssistantOptions` (`DmAssistant` section — `Model` is an OpenRouter slug, default `openrouter/auto`; `SkillsPath`, default `docs/agents/skills/dm`, blank disables skills for this surface), `OpenRouterOptions` (`OpenRouter` section — API key, base URL, retries) |
 | **Agent Prompt** | `docs/agents/dm-owner-agent.md` |
+| **Skills** | `docs/agents/skills/dm/` — `moderation.md` (`get_moderation_cases`, `get_user_mod_history`, `search_audit_logs`) and `analytics.md` (`get_server_activity_summary`, `get_command_analytics`). Those five tools are held back from the advertised tool array until the model calls `load_skill`; everything else the surface offers is advertised as before. Engine types: `AgentSkill`, `SkillFile`, `SkillLibrary`/`ISkillLibrary`, `SkillSession`/`ISkillActivationState`, `SkillToolSet`, `SkillRoster` (`DiscordBot.Agents`). Host side: `SkillSessionFactory`/`ISkillSessionFactory`, `DmSkillActivationStore`/`IDmSkillActivationStore`, `LoadSkillTool` (Infrastructure), plus the `load_skill` catalogue entry (category **Skills**, both scopes, on by default). Mechanism in [patterns.md § Agent Skills](patterns.md#agent-skills); file format in [`docs/agents/skills/README.md`](../agents/skills/README.md) |
 | **Key Features** | Owner-only access (Discord API check), sliding-window conversation history, response chunking (split / `.md` attachment) |
 | **Access Control** | Owner identified via `GetApplicationInfoAsync()`. Non-owners receive placeholder response. |
 
@@ -654,6 +655,12 @@ Owner DMs bot →
 ```
 
 **Preconditions**: Owner check via Discord API. `DmAssistant__Enabled=true` required in configuration.
+
+Skills are the multi-turn surface's payoff: `DmAssistantContextFactory` replays the previous
+turn's activations, so a skill costs one round on the turn that loads it and nothing afterwards.
+The guild assistant reads the same mechanism from `Assistant:Tools:SkillsPath`
+(default `docs/agents/skills/guild`), but it is single-turn, so `docs/agents/skills/guild/` ships
+empty rather than making a skill cost a round on every question.
 
 ---
 

@@ -75,6 +75,25 @@ public class AssistantToolOptions
     public string AgentPromptPath { get; set; } = "docs/agents/assistant-agent.md";
 
     /// <summary>
+    /// Gets or sets the directory holding this surface's skill files.
+    /// Default is "docs/agents/skills/guild". Blank disables skills for the guild assistant.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A skill is a markdown file with <c>summary</c> and optional <c>tools</c> front matter: the
+    /// summary is advertised in every request, and the instructions and tools arrive only when the
+    /// model loads it.
+    /// </para>
+    /// <para>
+    /// The guild assistant is single-turn, so a skill here costs an extra round <em>every</em> time
+    /// it is used — there is no conversation to carry the activation into. Put only rare, heavy
+    /// capabilities behind a guild skill and leave the common tools always-on. The directory ships
+    /// empty for that reason; the DM assistant is where skills pay for themselves.
+    /// </para>
+    /// </remarks>
+    public string SkillsPath { get; set; } = "docs/agents/skills/guild";
+
+    /// <summary>
     /// Gets or sets the base directory for documentation files.
     /// Used by documentation tools to locate feature docs.
     /// Default is "docs/articles".

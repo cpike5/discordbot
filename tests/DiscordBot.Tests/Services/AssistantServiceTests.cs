@@ -14,6 +14,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -172,7 +173,8 @@ public class AssistantServiceTests
             _mockToolAccessResolver.Object,
             Mock.Of<ILogger<GuildAssistantContext>>(),
             options,
-            Mock.Of<ILlmUsageRecorder>());
+            Mock.Of<ILlmUsageRecorder>(),
+            new StubSkillSessionFactory());
         var telemetryReader = new AssistantTelemetryReader(
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object);
