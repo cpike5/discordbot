@@ -25,6 +25,17 @@ public class AzureTtsService : ITtsService
     private readonly ISsmlValidator _ssmlValidator;
 
     /// <summary>
+    /// Total synthesis attempts made when the Azure Speech endpoint is unreachable
+    /// (one initial attempt plus one retry). Other failures are not retried.
+    /// </summary>
+    internal const int MaxSynthesisAttempts = 2;
+
+    /// <summary>
+    /// Delay between synthesis attempts when the Azure Speech endpoint is unreachable.
+    /// </summary>
+    internal static readonly TimeSpan UpstreamRetryDelay = TimeSpan.FromMilliseconds(500);
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AzureTtsService"/> class.
     /// </summary>
     /// <param name="options">Azure Speech configuration options.</param>
@@ -184,49 +195,62 @@ public class AzureTtsService : ITtsService
             // Add synthesis mode to activity
             activity?.SetTag("tts.synthesis_mode", actualMode.ToString());
 
-            // Create synthesizer with raw PCM output format (mono - we'll convert to stereo)
-            // Azure Speech SDK outputs Raw48Khz16BitMonoPcm
-            _speechConfig!.SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat.Raw48Khz16BitMonoPcm);
-
-            using var synthesizer = new SpeechSynthesizer(_speechConfig, null); // null = no audio output, we'll handle the stream
-
-            // Synthesize speech from SSML
-            var result = await synthesizer.SpeakSsmlAsync(ssml);
-
-            // Record synthesis result
-            activity?.SetTag(TracingConstants.Attributes.TtsSynthesisResult, result.Reason.ToString());
-
-            if (result.Reason == ResultReason.SynthesizingAudioCompleted)
+            for (var attempt = 1; ; attempt++)
             {
-                _logger.LogInformation("Speech synthesis completed successfully. Audio data size: {SizeBytes} bytes", result.AudioData.Length);
+                var outcome = await RunSynthesisAttemptAsync(ssml, cancellationToken);
 
-                // Record audio size
-                activity?.SetTag(TracingConstants.Attributes.TtsAudioSizeBytes, result.AudioData.Length);
+                // Record synthesis result
+                activity?.SetTag(TracingConstants.Attributes.TtsSynthesisResult, outcome.Reason.ToString());
 
-                // Convert mono PCM to stereo PCM for Discord
-                var stereoData = ConvertMonoToStereo(result.AudioData);
+                if (outcome.Reason == ResultReason.SynthesizingAudioCompleted)
+                {
+                    _logger.LogInformation("Speech synthesis completed successfully. Audio data size: {SizeBytes} bytes", outcome.AudioData.Length);
 
-                scope.SetSuccess();
-                return new MemoryStream(stereoData);
-            }
-            else if (result.Reason == ResultReason.Canceled)
-            {
-                var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
-                _logger.LogError("Speech synthesis cancelled: {Reason} - {ErrorDetails}", cancellation.Reason, cancellation.ErrorDetails);
+                    // Record audio size
+                    activity?.SetTag(TracingConstants.Attributes.TtsAudioSizeBytes, outcome.AudioData.Length);
 
-                // Record cancellation details
-                activity?.SetTag(TracingConstants.Attributes.TtsCancellationReason, cancellation.Reason.ToString());
+                    // Convert mono PCM to stereo PCM for Discord
+                    var stereoData = ConvertMonoToStereo(outcome.AudioData);
 
-                var ex = new InvalidOperationException($"Speech synthesis failed: {cancellation.ErrorDetails}");
-                scope.RecordException(ex);
-                throw ex;
-            }
-            else
-            {
-                _logger.LogError("Speech synthesis failed with reason: {Reason}", result.Reason);
-                var ex = new InvalidOperationException($"Speech synthesis failed: {result.Reason}");
-                scope.RecordException(ex);
-                throw ex;
+                    scope.SetSuccess();
+                    return new MemoryStream(stereoData);
+                }
+                else if (outcome.Reason == ResultReason.Canceled)
+                {
+                    var isUpstreamUnavailable = IsUpstreamUnavailable(outcome.ErrorCode);
+
+                    if (isUpstreamUnavailable && attempt < MaxSynthesisAttempts)
+                    {
+                        _logger.LogWarning(
+                            "Speech synthesis attempt {Attempt} of {MaxAttempts} could not reach Azure Speech in region {Region} ({ErrorCode}); retrying in {DelayMs}ms - {ErrorDetails}",
+                            attempt, MaxSynthesisAttempts, _options.Region, outcome.ErrorCode, UpstreamRetryDelay.TotalMilliseconds, outcome.ErrorDetails);
+                        await Task.Delay(UpstreamRetryDelay, cancellationToken);
+                        continue;
+                    }
+
+                    _logger.LogError("Speech synthesis cancelled: {Reason} ({ErrorCode}) after {Attempts} attempt(s) - {ErrorDetails}",
+                        outcome.CancellationReason, outcome.ErrorCode, attempt, outcome.ErrorDetails);
+
+                    // Record cancellation details
+                    activity?.SetTag(TracingConstants.Attributes.TtsCancellationReason, outcome.CancellationReason?.ToString());
+                    activity?.SetTag("tts.cancellation_error_code", outcome.ErrorCode?.ToString());
+                    activity?.SetTag("tts.synthesis_attempts", attempt);
+
+                    InvalidOperationException ex = isUpstreamUnavailable
+                        ? new Core.Exceptions.TtsUpstreamUnavailableException(
+                            $"Azure Speech service in region '{_options.Region}' is unreachable ({outcome.ErrorCode}): {outcome.ErrorDetails}",
+                            attempt)
+                        : new InvalidOperationException($"Speech synthesis failed: {outcome.ErrorDetails}");
+                    scope.RecordException(ex);
+                    throw ex;
+                }
+                else
+                {
+                    _logger.LogError("Speech synthesis failed with reason: {Reason}", outcome.Reason);
+                    var ex = new InvalidOperationException($"Speech synthesis failed: {outcome.Reason}");
+                    scope.RecordException(ex);
+                    throw ex;
+                }
             }
         }
         catch (Core.Exceptions.SsmlValidationException)
@@ -234,12 +258,67 @@ public class AzureTtsService : ITtsService
             // Re-throw SSML validation exceptions without wrapping
             throw;
         }
-        catch (Exception ex) when (ex is not ArgumentException && ex is not InvalidOperationException)
+        catch (Exception ex) when (ex is not ArgumentException && ex is not InvalidOperationException && ex is not OperationCanceledException)
         {
             _logger.LogError(ex, "Unexpected error during speech synthesis");
             scope.RecordException(ex);
             throw new InvalidOperationException("Speech synthesis failed. See inner exception for details.", ex);
         }
+    }
+
+    /// <summary>
+    /// The outcome of a single synthesis attempt against the Azure Speech SDK.
+    /// </summary>
+    /// <param name="Reason">The SDK result reason.</param>
+    /// <param name="AudioData">The raw mono PCM audio, empty unless synthesis completed.</param>
+    /// <param name="CancellationReason">The cancellation reason when <paramref name="Reason"/> is <see cref="ResultReason.Canceled"/>.</param>
+    /// <param name="ErrorCode">The cancellation error code when <paramref name="Reason"/> is <see cref="ResultReason.Canceled"/>.</param>
+    /// <param name="ErrorDetails">The cancellation error details when <paramref name="Reason"/> is <see cref="ResultReason.Canceled"/>.</param>
+    protected internal sealed record SynthesisAttemptOutcome(
+        ResultReason Reason,
+        byte[] AudioData,
+        CancellationReason? CancellationReason,
+        CancellationErrorCode? ErrorCode,
+        string? ErrorDetails);
+
+    /// <summary>
+    /// Runs one synthesis attempt against the Azure Speech SDK.
+    /// Virtual so tests can substitute outcomes without a live subscription.
+    /// </summary>
+    /// <param name="ssml">The SSML document to synthesize.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The outcome of the attempt.</returns>
+    protected internal virtual async Task<SynthesisAttemptOutcome> RunSynthesisAttemptAsync(string ssml, CancellationToken cancellationToken)
+    {
+        // Create synthesizer with raw PCM output format (mono - we'll convert to stereo)
+        // Azure Speech SDK outputs Raw48Khz16BitMonoPcm
+        _speechConfig!.SetSpeechSynthesisOutputFormat(SpeechSynthesisOutputFormat.Raw48Khz16BitMonoPcm);
+
+        using var synthesizer = new SpeechSynthesizer(_speechConfig, null); // null = no audio output, we'll handle the stream
+
+        // Synthesize speech from SSML
+        var result = await synthesizer.SpeakSsmlAsync(ssml);
+
+        if (result.Reason == ResultReason.Canceled)
+        {
+            var cancellation = SpeechSynthesisCancellationDetails.FromResult(result);
+            return new SynthesisAttemptOutcome(result.Reason, Array.Empty<byte>(), cancellation.Reason, cancellation.ErrorCode, cancellation.ErrorDetails);
+        }
+
+        return new SynthesisAttemptOutcome(result.Reason, result.AudioData, null, null, null);
+    }
+
+    /// <summary>
+    /// Returns true when a cancellation error code means the Azure Speech endpoint
+    /// could not be reached or did not answer, as opposed to rejecting the request.
+    /// </summary>
+    /// <param name="errorCode">The SDK cancellation error code.</param>
+    /// <returns>True for connection failures, service timeouts, and service unavailability.</returns>
+    internal static bool IsUpstreamUnavailable(CancellationErrorCode? errorCode)
+    {
+        return errorCode is CancellationErrorCode.ConnectionFailure
+            or CancellationErrorCode.ServiceTimeout
+            or CancellationErrorCode.ServiceUnavailable;
     }
 
     /// <inheritdoc/>

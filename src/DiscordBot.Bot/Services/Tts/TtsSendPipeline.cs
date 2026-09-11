@@ -268,6 +268,19 @@ public class TtsSendPipeline : ITtsSendPipeline
         {
             audioStream = await SynthesizeFromRequestAsync(request, ssmlBuilder, cancellationToken);
         }
+        catch (TtsUpstreamUnavailableException ex)
+        {
+            _logger.LogError(ex, "Azure Speech service unreachable for guild {GuildId} after {Attempts} attempt(s)", guildId, ex.Attempts);
+            return new ObjectResult(new ApiErrorDto
+            {
+                Message = "Speech service unreachable",
+                Detail = "The bot could not reach the Azure Speech service. This is usually a temporary network problem; please try again in a moment.",
+                StatusCode = StatusCodes.Status503ServiceUnavailable,
+                TraceId = httpContext.GetCorrelationId(),
+                ErrorCode = "tts_upstream_unavailable"
+            })
+            { StatusCode = StatusCodes.Status503ServiceUnavailable };
+        }
         catch (InvalidOperationException ex)
         {
             _logger.LogError(ex, "TTS service not configured for guild {GuildId}", guildId);
