@@ -300,4 +300,77 @@ public class BrowserInteropTests
 
         Assert.Null(exception);
     }
+
+    [Fact]
+    public async Task DisposeAsync_SwallowsOperationCanceledException()
+    {
+        var (_, module, sut) = CreateSut();
+        await sut.GetTimeZoneAsync();
+        module
+            .Setup(m => m.DisposeAsync())
+            .Returns(() => ValueTask.FromException(new OperationCanceledException()));
+
+        var exception = await Record.ExceptionAsync(() => sut.DisposeAsync().AsTask());
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_SwallowsObjectDisposedException()
+    {
+        var (_, module, sut) = CreateSut();
+        await sut.GetTimeZoneAsync();
+        module
+            .Setup(m => m.DisposeAsync())
+            .Returns(() => ValueTask.FromException(new ObjectDisposedException(nameof(IJSObjectReference))));
+
+        var exception = await Record.ExceptionAsync(() => sut.DisposeAsync().AsTask());
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task ModuleImport_WhenItFails_IsNotCachedForever_AndRetriesOnNextCall()
+    {
+        var jsRuntimeMock = new Mock<IJSRuntime>();
+        var callCount = 0;
+        jsRuntimeMock
+            .Setup(js => js.InvokeAsync<IJSObjectReference>(
+                "import",
+                It.Is<object?[]>(args => args.Length == 1 && (string)args[0]! == ModulePath)))
+            .Returns(() =>
+            {
+                callCount++;
+                return callCount == 1
+                    ? ValueTask.FromException<IJSObjectReference>(new JSException("boom"))
+                    : ValueTask.FromResult(Mock.Of<IJSObjectReference>());
+            });
+
+        var sut = new BrowserInterop(jsRuntimeMock.Object);
+
+        await Assert.ThrowsAsync<JSException>(() => sut.GetTimeZoneAsync());
+
+        var exception = await Record.ExceptionAsync(() => sut.GetTimeZoneAsync());
+
+        Assert.Null(exception);
+        Assert.Equal(2, callCount);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_AfterFailedImport_DoesNotRethrowTheImportFailure()
+    {
+        var jsRuntimeMock = new Mock<IJSRuntime>();
+        jsRuntimeMock
+            .Setup(js => js.InvokeAsync<IJSObjectReference>(
+                "import",
+                It.Is<object?[]>(args => args.Length == 1 && (string)args[0]! == ModulePath)))
+            .Returns(() => ValueTask.FromException<IJSObjectReference>(new JSException("boom")));
+
+        var sut = new BrowserInterop(jsRuntimeMock.Object);
+        await Assert.ThrowsAsync<JSException>(() => sut.GetTimeZoneAsync());
+
+        var exception = await Record.ExceptionAsync(() => sut.DisposeAsync().AsTask());
+
+        Assert.Null(exception);
+    }
 }

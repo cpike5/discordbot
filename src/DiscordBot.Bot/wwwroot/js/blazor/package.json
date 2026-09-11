@@ -1,5 +1,0 @@
-{
-  "type": "module",
-  "private": true,
-  "description": "Marks *.js files in this directory as ES modules for Node's module resolution (dynamic import() from the node --test files under wwwroot/js/__tests__/). Has no effect on the browser, which already treats dynamically-imported scripts as modules regardless of this file. Does not apply to the rest of wwwroot/js, which stays CommonJS/UMD."
-}

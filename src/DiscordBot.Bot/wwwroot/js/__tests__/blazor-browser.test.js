@@ -1,15 +1,19 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-// browser.js is an ES module (see wwwroot/js/blazor/package.json); dynamic
-// import() works from this CommonJS test file regardless. It is imported
-// once per test via a fresh promise per test.afterEach reset since the
-// storage helpers close over `window.localStorage`, which we stub per test.
+// browser.js uses ES module syntax with no "type": "module" package.json above
+// it (there is deliberately none under wwwroot - it is publicly served); the
+// "test" script's `--experimental-detect-module` flag is what lets Node's
+// dynamic import() parse it as ESM from this CommonJS test file regardless.
+// It is imported once per test via a fresh promise per test.afterEach reset
+// since the storage helpers close over `window.localStorage`, which we stub
+// per test.
 const browserModulePromise = import('../blazor/browser.js');
 
 test.afterEach(() => {
     delete global.window;
     delete global.navigator;
+    delete global.document;
 });
 
 test('resolveTimeZone returns the IANA zone from Intl.DateTimeFormat().resolvedOptions()', async () => {
@@ -122,4 +126,55 @@ test('storageRemove reports failure without throwing when localStorage throws', 
     });
 
     assert.equal(storageRemove('theme'), false);
+});
+
+function fakeElement() {
+    return { querySelectorAll: () => [], addEventListener() {}, removeEventListener() {} };
+}
+
+test('releaseAll does nothing and does not throw when nothing is registered', async () => {
+    const { releaseAll } = await browserModulePromise;
+
+    assert.doesNotThrow(() => releaseAll());
+});
+
+test('releaseAll releases every focus trap, matchMedia watcher and click-outside listener', async () => {
+    const { trapFocus, releaseFocus, matchMedia, unwatchMedia, onClickOutside, offClickOutside, releaseAll } =
+        await browserModulePromise;
+
+    // Stub just enough of `window`/`document` for these three registration
+    // functions - none of them need a real DOM.
+    let matchMediaRemoved = false;
+    global.window = {
+        matchMedia: () => ({
+            matches: false,
+            addEventListener() {},
+            removeEventListener: () => { matchMediaRemoved = true; }
+        })
+    };
+    let clickOutsideRemoved = false;
+    global.document = {
+        activeElement: null,
+        addEventListener() {},
+        removeEventListener: () => { clickOutsideRemoved = true; }
+    };
+    const dotNetRef = { invokeMethodAsync: () => Promise.resolve() };
+
+    trapFocus(fakeElement());
+    matchMedia('(max-width: 1023px)', dotNetRef);
+    onClickOutside(fakeElement(), dotNetRef);
+
+    assert.doesNotThrow(() => releaseAll());
+    assert.equal(matchMediaRemoved, true);
+    assert.equal(clickOutsideRemoved, true);
+
+    // A second releaseAll (e.g. both the enhancedload and pagehide hooks
+    // firing) must be a no-op, not an error, since every handle above has
+    // already been released.
+    assert.doesNotThrow(() => releaseAll());
+
+    // The handles are gone: releasing them again individually is a no-op too.
+    assert.doesNotThrow(() => releaseFocus(1));
+    assert.doesNotThrow(() => unwatchMedia(1));
+    assert.doesNotThrow(() => offClickOutside(1));
 });

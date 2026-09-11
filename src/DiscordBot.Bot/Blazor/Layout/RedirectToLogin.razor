@@ -14,6 +14,15 @@
         var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
         var returnUrl = "/" + relativePath;
 
+        // Reject anything that could carry the browser off-site: "//host/..." is a
+        // protocol-relative URL, and "scheme://" anywhere in the path (Login's LocalRedirect
+        // does not itself re-check this) would otherwise be handed straight to the browser as
+        // the post-login destination. Fall back to the app root instead of failing the redirect.
+        if (returnUrl.StartsWith("//", StringComparison.Ordinal) || returnUrl.Contains("://", StringComparison.Ordinal))
+        {
+            returnUrl = "/";
+        }
+
         Navigation.NavigateTo(
             $"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}",
             forceLoad: true);

@@ -188,6 +188,45 @@ export function unregisterDropZone(handle) {
 }
 
 // ---------------------------------------------------------------------------
+// Release-all — last-resort cleanup for a circuit that goes away without
+// every component getting a chance to call its own release method (a lost
+// connection, a crashed circuit). Registered below on the Blazor
+// enhanced-navigation and page-unload hooks so this module never holds
+// listeners or dropped `File` objects past the circuit that created them.
+// ---------------------------------------------------------------------------
+
+/**
+ * Stops any preview in progress, releases every registered drop zone, and
+ * discards any dropped-but-never-uploaded `File` objects. Safe to call with
+ * nothing registered. Exported for the Blazor lifecycle hooks below and for
+ * a component/layout that wants an explicit last-resort cleanup of its own.
+ */
+export function releaseAll() {
+    stopPreview();
+    for (const handle of Array.from(dropZones.keys())) {
+        unregisterDropZone(handle);
+    }
+    droppedFiles.clear();
+}
+
+if (typeof window !== 'undefined') {
+    // Enhanced navigation swaps the page without a full reload, so a
+    // component's own DisposeAsync may never run for the elements it
+    // registered listeners on; releaseAll on every enhanced navigation keeps
+    // those - and any held File objects - from accumulating for the life of
+    // the circuit.
+    if (window.Blazor && typeof window.Blazor.addEventListener === 'function') {
+        window.Blazor.addEventListener('enhancedload', releaseAll);
+    }
+    // pagehide is the reliable fallback for circuit loss (tab close, network
+    // drop, crash): Blazor Server has no client-side "circuit down" DOM
+    // event, but pagehide always fires before the page/tab actually goes
+    // away, unlike beforeunload which some browsers skip on a fast/backward
+    // navigation.
+    window.addEventListener('pagehide', releaseAll);
+}
+
+// ---------------------------------------------------------------------------
 // Upload
 // ---------------------------------------------------------------------------
 

@@ -38,8 +38,27 @@ public sealed class ChartInterop : IAsyncDisposable
         _jsRuntime = jsRuntime;
     }
 
-    private Task<IJSObjectReference> ModuleAsync()
-        => _moduleTask ??= ImportModuleAsync();
+    private async Task<IJSObjectReference> ModuleAsync()
+    {
+        var task = _moduleTask ??= ImportModuleAsync();
+        try
+        {
+            return await task;
+        }
+        catch
+        {
+            // Do not cache a failed import forever: clear the field so the next call to
+            // ModuleAsync() retries instead of forever awaiting this same faulted task. Only
+            // clear it if it still holds this failed attempt - a concurrent caller may already
+            // have started (and cached) a fresh one, which must not be clobbered.
+            if (ReferenceEquals(_moduleTask, task))
+            {
+                _moduleTask = null;
+            }
+
+            throw;
+        }
+    }
 
     private async Task<IJSObjectReference> ImportModuleAsync()
         => await _jsRuntime.InvokeAsync<IJSObjectReference>("import", ModulePath);
@@ -87,13 +106,15 @@ public sealed class ChartInterop : IAsyncDisposable
     }
 
     /// <summary>
-    /// Disposes the imported JS module reference. Safe to call even if the circuit has
-    /// already disconnected; <see cref="JSDisconnectedException"/> is swallowed since there
-    /// is nothing left to clean up client-side in that case.
+    /// Disposes the imported JS module reference. A no-op if the module was never imported or
+    /// the import failed (a faulted <see cref="_moduleTask"/> is never re-awaited here). Safe to
+    /// call even if the circuit has already disconnected; <see cref="JSDisconnectedException"/>,
+    /// <see cref="OperationCanceledException"/> and <see cref="ObjectDisposedException"/> are
+    /// swallowed since there is nothing left to clean up client-side in that case.
     /// </summary>
     public async ValueTask DisposeAsync()
     {
-        if (_moduleTask is null)
+        if (_moduleTask is not { IsCompletedSuccessfully: true })
         {
             return;
         }
@@ -104,6 +125,12 @@ public sealed class ChartInterop : IAsyncDisposable
             await module.DisposeAsync();
         }
         catch (JSDisconnectedException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
         {
         }
     }
