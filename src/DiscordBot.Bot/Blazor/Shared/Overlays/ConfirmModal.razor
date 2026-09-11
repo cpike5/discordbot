@@ -1,0 +1,170 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Merges _ConfirmationModal.cshtml (ConfirmationModalViewModel) and _TypedConfirmationModal.cshtml
+    (TypedConfirmationModalViewModel) per docs/articles/blazor-components.md "Consolidations":
+    RequiredText unset (default) is the plain confirmation; setting it turns on the typed-input
+    behavior, CanConfirm becoming "RequiredText is null || Input == RequiredText" instead of a
+    second component. Built on Modal (role="dialog" there; this renders alertdialog semantics into
+    Modal's Title/ChildContent/FooterContent slots, since a confirmation is more urgent than a
+    generic dialog). The real <form method="post"> + antiforgery-token submit both source partials
+    used becomes ShowAsync()/OnConfirm - a normal EventCallback invoking a service call in the same
+    circuit has no reason to round-trip through a form post.
+*@
+
+<Modal @ref="_modal" Id="@Id" IsOpen="_isOpen" IsOpenChanged="HandleIsOpenChanged" OnClosed="HandleClosed">
+    <ChildContent>
+        <div class="flex items-start gap-4">
+            <div class="flex-shrink-0 w-10 h-10 rounded-full @IconBgClass flex items-center justify-center">
+                <Icon Path="@EffectiveIconPath" Class="@IconTextClass" />
+            </div>
+            <div class="flex-1">
+                <h3 id="@ModalTitleId" class="text-lg font-semibold text-text-primary">@Title</h3>
+                <p id="@(Id)Desc" class="mt-2 text-sm text-text-secondary">
+                    @(MessageContent is not null ? MessageContent : (RenderFragment)(b => b.AddContent(0, Message)))
+                </p>
+
+                @if (RequiredText is not null)
+                {
+                    <div class="mt-4">
+                        <label for="@(Id)Input" class="block text-sm font-medium text-text-primary mb-2">
+                            @InputLabel
+                        </label>
+                        <input type="text"
+                               id="@(Id)Input"
+                               class="w-full px-3 py-2 text-sm bg-bg-primary border border-error rounded-md text-text-primary placeholder-text-tertiary focus:border-error focus:ring-1 focus:ring-error transition-colors"
+                               placeholder="@RequiredText"
+                               autocomplete="off"
+                               value="@_typedInput"
+                               @oninput="HandleInputChanged" />
+                    </div>
+                }
+            </div>
+        </div>
+    </ChildContent>
+    <FooterContent>
+        <button type="button"
+                @onclick="HandleCancel"
+                class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+            @CancelText
+        </button>
+        <button type="button"
+                disabled="@(!CanConfirm)"
+                @onclick="HandleConfirm"
+                class="px-4 py-2 @ConfirmButtonClass text-white font-medium text-sm rounded-md transition-colors min-w-[100px] flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            @ConfirmText
+        </button>
+    </FooterContent>
+</Modal>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? MessageContent { get; set; }
+    [Parameter] public string ConfirmText { get; set; } = "Confirm";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public ConfirmationVariant Variant { get; set; } = ConfirmationVariant.Warning;
+    [Parameter] public string? CustomIconPath { get; set; }
+
+    /// <summary>When set, the confirm button stays disabled until the typed input matches this
+    /// text exactly - <c>_TypedConfirmationModal.cshtml</c>'s behavior. <see langword="null"/>
+    /// (default) is the plain <c>_ConfirmationModal.cshtml</c> behavior.</summary>
+    [Parameter] public string? RequiredText { get; set; }
+    [Parameter] public string InputLabel { get; set; } = string.Empty;
+
+    [Parameter] public EventCallback OnConfirm { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private Modal? _modal;
+    private bool _isOpen;
+    private string _typedInput = string.Empty;
+    private TaskCompletionSource<bool>? _awaiter;
+
+    private string ModalTitleId => _modal?.TitleId ?? $"{Id}Title";
+
+    private bool CanConfirm => RequiredText is null || _typedInput == RequiredText;
+
+    private string EffectiveIconPath => !string.IsNullOrEmpty(CustomIconPath) ? CustomIconPath : Variant switch
+    {
+        ConfirmationVariant.Info => IconPaths.InformationCircle,
+        _ => IconPaths.ExclamationTriangle
+    };
+
+    // Full literal tokens (not interpolated) per docs/articles/blazor-components.md "Component
+    // contract" point 6 - Tailwind's safelist only covers literal prefixes, not $"bg-{x}/20".
+    private string IconBgClass => Variant switch
+    {
+        ConfirmationVariant.Info => "bg-accent-blue/20",
+        ConfirmationVariant.Danger => "bg-error/20",
+        _ => "bg-warning/20"
+    };
+
+    private string IconTextClass => Variant switch
+    {
+        ConfirmationVariant.Info => "w-5 h-5 text-accent-blue",
+        ConfirmationVariant.Danger => "w-5 h-5 text-error",
+        _ => "w-5 h-5 text-warning"
+    };
+
+    private string ConfirmButtonClass => Variant switch
+    {
+        ConfirmationVariant.Info => "bg-accent-blue hover:bg-accent-blue-hover active:bg-accent-blue-active disabled:hover:bg-accent-blue",
+        ConfirmationVariant.Danger => "bg-error hover:bg-error-hover active:bg-error-active disabled:hover:bg-error",
+        _ => "bg-warning hover:bg-warning-hover active:bg-warning-active disabled:hover:bg-warning"
+    };
+
+    private void HandleInputChanged(ChangeEventArgs e) => _typedInput = e.Value?.ToString() ?? string.Empty;
+
+    /// <summary>Opens the modal and returns a task that completes with <see langword="true"/> when
+    /// the user confirms or <see langword="false"/> when they cancel/dismiss it (Escape, backdrop
+    /// click, or the Cancel button) - the Blazor-native replacement for the JS
+    /// <c>quickActions.typedConfirm()</c>/<c>confirm()</c> Promise API documented in
+    /// component-api.md.</summary>
+    public Task<bool> ShowAsync()
+    {
+        _typedInput = string.Empty;
+        _awaiter = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        _isOpen = true;
+        StateHasChanged();
+        return _awaiter.Task;
+    }
+
+    private async Task HandleConfirm()
+    {
+        if (!CanConfirm)
+        {
+            return;
+        }
+
+        _isOpen = false;
+        await OnConfirm.InvokeAsync();
+        _awaiter?.TrySetResult(true);
+    }
+
+    private async Task HandleCancel()
+    {
+        _isOpen = false;
+        await OnCancel.InvokeAsync();
+        _awaiter?.TrySetResult(false);
+    }
+
+    private Task HandleIsOpenChanged(bool isOpen)
+    {
+        _isOpen = isOpen;
+        return Task.CompletedTask;
+    }
+
+    private async Task HandleClosed()
+    {
+        // Reached on Escape/backdrop-close, which the Cancel button path doesn't go through -
+        // HandleCancel already resolved _awaiter for that one, so only settle it here if it's
+        // still pending (TrySetResult is a no-op otherwise).
+        if (_awaiter is { Task.IsCompleted: false })
+        {
+            await OnCancel.InvokeAsync();
+            _awaiter.TrySetResult(false);
+        }
+    }
+}

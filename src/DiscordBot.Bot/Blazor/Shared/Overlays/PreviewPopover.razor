@@ -1,0 +1,303 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@typeparam TModel
+@using DiscordBot.Bot.Blazor.Interop
+@implements IAsyncDisposable
+@inject BrowserInterop BrowserInterop
+
+@*
+    Wraps trigger ChildContent with the hover/focus/click-driven popup preview_UserPreviewPopup
+    .cshtml and _GuildPreviewPopup.cshtml share via preview-popup.js: hover-intent (300ms show
+    delay, 150ms hide delay, cancelled by re-entering the trigger or the popup itself - see
+    CONFIG.hoverDelay/hideDelay in that file), a loading skeleton (_PreviewPopupLoading.cshtml)
+    while Loader runs, an error state (_PreviewPopupError.cshtml) if it throws or returns null, and
+    the loaded content otherwise via ContentTemplate. The caller supplies Loader - this component
+    never calls a controller or service directly (docs/plans/blazor-port-plan.md Phase 2 scope).
+
+    Positioning is CSS (absolute, relative to a position:relative trigger wrapper, flipped by
+    Placement) rather than preview-popup.js's getBoundingClientRect viewport-edge math - see
+    PopoverPlacement's XML doc for this as a disclosed fidelity deviation.
+
+    Interop: BrowserInterop.OnClickOutsideAsync while open, released on close/dispose.
+*@
+
+<span @ref="_wrapperRef" class="relative inline-block @Class" @attributes="AdditionalAttributes">
+    <span tabindex="0" role="button" aria-haspopup="dialog" aria-expanded="@(_open ? "true" : "false")"
+          data-preview-type="@(Kind == PreviewKind.Guild ? "guild" : "user")" data-preview-id="@Id" data-context-guild-id="@GuildId"
+          @onmouseenter="HandleTriggerMouseEnter" @onmouseleave="HandleTriggerMouseLeave"
+          @onfocusin="HandleTriggerFocusIn" @onfocusout="HandleTriggerFocusOut"
+          @onclick="HandleTriggerClick" @onkeydown="HandleTriggerKeyDown">
+        @ChildContent
+    </span>
+
+    @if (_open)
+    {
+        <div class="preview-popup-container absolute z-[1100] bg-bg-tertiary border border-border-primary rounded-lg @WidthClass shadow-xl overflow-hidden @PlacementClass"
+             role="dialog" aria-label="@AriaLabel"
+             @onmouseenter="HandlePopupMouseEnter" @onmouseleave="HandlePopupMouseLeave">
+            @if (_loading)
+            {
+                @LoadingContent
+            }
+            else if (_error || _model is null)
+            {
+                @ErrorContent
+            }
+            else
+            {
+                @ContentTemplate(_model)
+            }
+        </div>
+    }
+</span>
+
+@code {
+    [Parameter, EditorRequired] public PreviewKind Kind { get; set; }
+
+    /// <summary>The user or guild snowflake (as a string - see the CLAUDE.md gotcha on Discord IDs
+    /// reaching markup) this popover previews. Not used to fetch data directly - <see cref="Loader"/>
+    /// does that - only reproduced onto the trigger as <c>data-preview-id</c> for parity with the
+    /// <c>data-user-id</c>/<c>data-guild-id</c> attributes <c>preview-popup.js</c> read.</summary>
+    [Parameter] public string? Id { get; set; }
+
+    /// <summary>Optional guild context for a <see cref="PreviewKind.User"/> popover - mirrors
+    /// <c>data-context-guild-id</c>.</summary>
+    [Parameter] public string? GuildId { get; set; }
+
+    [Parameter, EditorRequired] public Func<Task<TModel?>> Loader { get; set; } = null!;
+    [Parameter, EditorRequired] public RenderFragment<TModel> ContentTemplate { get; set; } = null!;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public PopoverPlacement Placement { get; set; } = PopoverPlacement.Below;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(300);
+    private static readonly TimeSpan HideDelay = TimeSpan.FromMilliseconds(150);
+
+    private ElementReference _wrapperRef;
+    private DotNetObjectReference<PreviewPopover<TModel>>? _selfRef;
+    private int? _clickOutsideHandle;
+
+    private bool _open;
+    private bool _loading;
+    private bool _error;
+    private TModel? _model;
+
+    private CancellationTokenSource? _showCts;
+    private CancellationTokenSource? _hideCts;
+    private int _hoverDepth;
+
+    private string WidthClass => Kind == PreviewKind.Guild ? "w-80" : "w-72";
+    private string AriaLabel => Kind == PreviewKind.Guild ? "Guild preview" : "User preview";
+    private string PlacementClass => Placement == PopoverPlacement.Above
+        ? "bottom-full mb-2 left-0"
+        : "top-full mt-2 left-0";
+
+    protected override void OnInitialized() => _selfRef = DotNetObjectReference.Create(this);
+
+    private void HandleTriggerMouseEnter()
+    {
+        _hoverDepth++;
+        CancelHide();
+        ScheduleShow();
+    }
+
+    private void HandleTriggerMouseLeave()
+    {
+        _hoverDepth--;
+        ScheduleHide();
+    }
+
+    private void HandlePopupMouseEnter()
+    {
+        _hoverDepth++;
+        CancelHide();
+    }
+
+    private void HandlePopupMouseLeave()
+    {
+        _hoverDepth--;
+        ScheduleHide();
+    }
+
+    private void HandleTriggerFocusIn()
+    {
+        CancelHide();
+        _ = OpenAsync();
+    }
+
+    private Task HandleTriggerFocusOut() => CloseAsync();
+
+    private async Task HandleTriggerClick()
+    {
+        if (_open)
+        {
+            await CloseAsync();
+        }
+        else
+        {
+            await OpenAsync();
+        }
+    }
+
+    private Task HandleTriggerKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? CloseAsync() : Task.CompletedTask;
+
+    private void ScheduleShow()
+    {
+        _showCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _showCts = cts;
+        _ = DelayThenAsync(HoverDelay, cts.Token, OpenAsync);
+    }
+
+    private void ScheduleHide()
+    {
+        if (_hoverDepth > 0)
+        {
+            return;
+        }
+
+        _hideCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _hideCts = cts;
+        _ = DelayThenAsync(HideDelay, cts.Token, CloseAsync);
+    }
+
+    private void CancelHide()
+    {
+        _hideCts?.Cancel();
+        _hideCts = null;
+    }
+
+    private static async Task DelayThenAsync(TimeSpan delay, CancellationToken token, Func<Task> action)
+    {
+        try
+        {
+            await Task.Delay(delay, token);
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (!token.IsCancellationRequested)
+        {
+            await action();
+        }
+    }
+
+    private async Task OpenAsync()
+    {
+        if (_open)
+        {
+            return;
+        }
+
+        _open = true;
+        _loading = true;
+        _error = false;
+        _model = default;
+        StateHasChanged();
+
+        if (_clickOutsideHandle is null)
+        {
+            _clickOutsideHandle = await BrowserInterop.OnClickOutsideAsync(_wrapperRef, _selfRef!);
+        }
+
+        try
+        {
+            _model = await Loader();
+            _error = _model is null;
+        }
+        catch
+        {
+            _error = true;
+        }
+        finally
+        {
+            _loading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CloseAsync()
+    {
+        if (!_open)
+        {
+            return;
+        }
+
+        _open = false;
+        StateHasChanged();
+        await ReleaseClickOutsideAsync();
+    }
+
+    [JSInvokable]
+    public void OnClickOutside()
+    {
+        _open = false;
+        StateHasChanged();
+        _ = ReleaseClickOutsideAsync();
+    }
+
+    private async Task ReleaseClickOutsideAsync()
+    {
+        if (_clickOutsideHandle is { } handle)
+        {
+            _clickOutsideHandle = null;
+            await BrowserInterop.OffClickOutsideAsync(handle);
+        }
+    }
+
+    private RenderFragment LoadingContent => Kind == PreviewKind.Guild ? GuildLoadingSkeleton : UserLoadingSkeleton;
+
+    // Both skeletons reproduce _PreviewPopupLoading.cshtml, which shapes its avatar per type.
+    private static readonly RenderFragment UserLoadingSkeleton = LoadingSkeleton("w-12 h-12 rounded-full");
+    private static readonly RenderFragment GuildLoadingSkeleton = LoadingSkeleton("w-14 h-14 rounded-lg");
+
+    private static RenderFragment LoadingSkeleton(string avatarClass) => @<div class="preview-popup preview-popup-loading">
+        <div class="preview-header">
+            <div class="@avatarClass bg-bg-hover animate-pulse"></div>
+            <div class="flex-1 space-y-2">
+                <div class="h-4 w-24 bg-bg-hover rounded animate-pulse"></div>
+                <div class="h-3 w-16 bg-bg-hover rounded animate-pulse"></div>
+            </div>
+        </div>
+        <div class="preview-body space-y-2">
+            <div class="h-3 w-full bg-bg-hover rounded animate-pulse"></div>
+            <div class="h-3 w-3/4 bg-bg-hover rounded animate-pulse"></div>
+            <div class="h-3 w-1/2 bg-bg-hover rounded animate-pulse"></div>
+        </div>
+        <div class="preview-footer">
+            <div class="flex-1 h-7 bg-bg-hover rounded animate-pulse"></div>
+            <div class="flex-1 h-7 bg-bg-hover rounded animate-pulse"></div>
+        </div>
+    </div>;
+
+    private string ErrorTitle => Kind == PreviewKind.Guild ? "Guild Unavailable" : "User Not Found";
+
+    private string ErrorDescription => Kind == PreviewKind.Guild
+        ? "The bot may have been removed from this server or the server was deleted."
+        : "This user may have been deleted or is unavailable.";
+
+    private RenderFragment ErrorContent => @<div class="preview-popup preview-popup-error">
+        <div class="p-4">
+            <div class="text-center py-4">
+                <div class="w-12 h-12 mx-auto mb-3 rounded-full bg-error-bg flex items-center justify-center">
+                    <Icon Path="IconPaths.ExclamationTriangle" Class="w-6 h-6 text-error" />
+                </div>
+                <p class="text-sm font-medium text-text-primary mb-1">@ErrorTitle</p>
+                <p class="text-xs text-text-tertiary">@ErrorDescription</p>
+            </div>
+        </div>
+    </div>;
+
+    public async ValueTask DisposeAsync()
+    {
+        _showCts?.Cancel();
+        _hideCts?.Cancel();
+        await ReleaseClickOutsideAsync();
+        _selfRef?.Dispose();
+    }
+}
