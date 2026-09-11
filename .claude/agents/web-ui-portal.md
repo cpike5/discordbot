@@ -20,7 +20,9 @@ still `Pages/` and some are `Blazor/Pages/` - check which one exists before edit
 work goes in `Blazor/`, not `Pages/`. Phase 1 (hosting, auth plumbing, circuit
 observability) is done; see "Blazor components" in `docs/architecture/patterns.md` for the
 hosting model, the `HttpContext`-is-prerender-only rule, and where things live under
-`Blazor/`.
+`Blazor/`. `Blazor/Pages/Admin/BlazorProbe.razor` (`/admin/blazor-probe`) and
+`Blazor/Pages/BlazorSmoke.razor` (`/blazor-smoke`) are temporary Phase 1 proof pages, deleted at
+the end of Phase 2.
 
 ## Domain Map
 
