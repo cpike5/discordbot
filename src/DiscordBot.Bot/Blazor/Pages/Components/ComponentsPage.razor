@@ -1,0 +1,87 @@
+@page "/components"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Pages.Components.Sections
+@using DiscordBot.Bot.Blazor.Shared
+
+@*
+    Routable replacement for Pages/Components.cshtml (docs/plans/blazor-port-plan.md §5 Phase 2,
+    the phase's last PR). Route is deliberately "/components" (lowercase) rather than the legacy
+    page's implicit "/Components" - ASP.NET Core endpoint routing matches both the same way
+    (case-insensitive), so the sidebar's existing `href="/Components"` link keeps resolving with
+    no change there.
+
+    Composes the six tier showcase sections built over the rest of Phase 2
+    (Blazor/Pages/Components/Sections/*Showcase.razor) plus a ToastHost and LoadingOverlay so
+    their interactive demos (the toast buttons in NavigationAndOverlaysShowcase, any showcase
+    content that calls ILoadingState) actually have something to render into - neither showcase
+    section hosts its own.
+
+    No shell yet: this renders under Routes.razor's DefaultLayout (EmptyLayout) rather than a real
+    MainLayout, same as every other Phase 1/2 page - MainLayout/GuildLayout land in Phase 3 (plan
+    §5 Phase 3). Anchor nav (not TabGroup) links the six sections: TabGroup's InPage mode only
+    renders the active TabPanel's content (see TabPanel.razor), which would hide five of six
+    sections at a time - wrong for a page whose whole job, like the Razor Page it replaces, is
+    being a single scrollable catalog of every variant at once.
+*@
+
+<PageTitle>Component Showcase</PageTitle>
+
+<ToastHost />
+<LoadingOverlay />
+
+<div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    <div class="mb-2">
+        <h1 class="text-3xl font-bold text-text-primary mb-2">Component Showcase</h1>
+        <p class="text-text-secondary">Visual reference for all UI components with their various states and variants.</p>
+    </div>
+
+    <nav class="flex flex-wrap gap-2 sticky top-0 z-10 bg-bg-primary/95 backdrop-blur py-2 -mx-1 px-1" aria-label="Component sections" data-testid="components-nav">
+        @foreach (var navItem in Sections)
+        {
+            <a href="#@navItem.Id" class="px-3 py-1.5 text-sm font-medium rounded-md bg-bg-secondary border border-border-primary text-text-primary hover:bg-bg-hover transition-colors">@navItem.Label</a>
+        }
+    </nav>
+
+    <section id="primitives" aria-labelledby="primitives-heading" data-testid="components-section-primitives">
+        <h2 id="primitives-heading" class="text-xl font-semibold text-text-primary mb-4">Primitives</h2>
+        <PrimitivesShowcase />
+    </section>
+
+    <section id="status-and-headers" aria-labelledby="status-and-headers-heading" data-testid="components-section-status-and-headers">
+        <h2 id="status-and-headers-heading" class="text-xl font-semibold text-text-primary mb-4">Status &amp; Headers</h2>
+        <StatusAndHeadersShowcase />
+    </section>
+
+    <section id="forms" aria-labelledby="forms-heading" data-testid="components-section-forms">
+        <h2 id="forms-heading" class="text-xl font-semibold text-text-primary mb-4">Forms</h2>
+        <FormsShowcase />
+    </section>
+
+    <section id="navigation-and-overlays" aria-labelledby="navigation-and-overlays-heading" data-testid="components-section-navigation-and-overlays">
+        <h2 id="navigation-and-overlays-heading" class="text-xl font-semibold text-text-primary mb-4">Navigation &amp; Overlays</h2>
+        <NavigationAndOverlaysShowcase />
+    </section>
+
+    <section id="widgets" aria-labelledby="widgets-heading" data-testid="components-section-widgets">
+        <h2 id="widgets-heading" class="text-xl font-semibold text-text-primary mb-4">Widgets</h2>
+        <WidgetsShowcase />
+    </section>
+
+    <section id="tts" aria-labelledby="tts-heading" data-testid="components-section-tts">
+        <h2 id="tts-heading" class="text-xl font-semibold text-text-primary mb-4">TTS Authoring</h2>
+        <TtsShowcase />
+    </section>
+</div>
+
+@code {
+    private static readonly IReadOnlyList<(string Id, string Label)> Sections =
+    [
+        ("primitives", "Primitives"),
+        ("status-and-headers", "Status & Headers"),
+        ("forms", "Forms"),
+        ("navigation-and-overlays", "Navigation & Overlays"),
+        ("widgets", "Widgets"),
+        ("tts", "TTS Authoring")
+    ];
+}
