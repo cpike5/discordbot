@@ -90,6 +90,17 @@ public class BotStatusBannerTests : BlazorComponentTestContext
         var cut = Render<BotStatusBanner>();
         var bus = Services.GetRequiredService<IDashboardEventBus>();
 
+        // First prove the subscription is live before disposal (initial status is "Connected",
+        // so flip to "Disconnected" to get an observable change), so the "does not re-render"
+        // check below is actually meaningful.
+        await bus.PublishAsync(new BotStatusUpdatedEvent
+        {
+            Status = new BotStatusDto { ConnectionState = "Disconnected" }
+        });
+        cut.WaitForAssertion(
+            () => cut.Find("[data-status-heading]").TextContent.Should().Be("Bot is Offline"),
+            TimeSpan.FromSeconds(3));
+
         await DisposeComponentsAsync();
         cut.IsDisposed.Should().BeTrue();
         var renderCountAfterDispose = cut.RenderCount;
@@ -100,7 +111,9 @@ public class BotStatusBannerTests : BlazorComponentTestContext
         });
         await act.Should().NotThrowAsync();
 
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        // Short window, not a full debounce-window sleep: Dispose() unsubscribes synchronously,
+        // so there is nothing left to debounce - this only guards against a latent regression.
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
         cut.RenderCount.Should().Be(renderCountAfterDispose);
     }
 }

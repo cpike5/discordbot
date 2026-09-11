@@ -23,30 +23,44 @@ namespace DiscordBot.ComponentTests.Blazor.Shared;
 public class IconPathsUsageGuardTests : BlazorComponentTestContext
 {
     /// <summary>
-    /// Static sweep: every <c>.razor</c> file under <c>Blazor/</c>, scanned for an attribute
-    /// value that starts with <c>IconPaths.</c> but isn't preceded by <c>@</c> (allowing for the
-    /// attribute's own opening quote, e.g. <c>Path="IconPaths.X"</c> vs the correct
-    /// <c>Path="@IconPaths.X"</c>). Reports every offending file:line rather than stopping at the
+    /// Static sweep: every <c>.razor</c> AND <c>.cs</c> file under <c>Blazor/</c>, scanned for an
+    /// attribute/assignment value that starts with <c>IconPaths.</c> but isn't preceded by
+    /// <c>@</c> (allowing for optional whitespace and either quote style around the <c>=</c>,
+    /// e.g. <c>Path="IconPaths.X"</c>, <c>Path = "IconPaths.X"</c>, or <c>Path='IconPaths.X'</c>
+    /// vs. the correct <c>Path="@IconPaths.X"</c>). <c>.cs</c> files are included because a
+    /// code-behind partial (<c>*.razor.cs</c>) can build the same string literal in C# with the
+    /// identical bug - a bare <c>"IconPaths.X"</c> string is still just text there, not a
+    /// reference to the constant. Reports every offending file:line rather than stopping at the
     /// first one, so a regression sweep fixes everything in one pass.
     /// </summary>
     [Fact]
-    public void NoRazorFile_HasAnUnguardedIconPathsAttribute()
+    public void NoBlazorFile_HasAnUnguardedIconPathsAttribute()
     {
         var blazorDir = Path.Combine(FindRepoRoot(), "src", "DiscordBot.Bot", "Blazor");
         Directory.Exists(blazorDir).Should().BeTrue($"expected {blazorDir} to exist");
 
-        // Matches `SomeAttribute="IconPaths.X` - i.e. an attribute value that starts with the
-        // literal text IconPaths. with no leading @. A correctly-guarded usage is
-        // `="@IconPaths.X"`, which this pattern does not match because of the required `="` right
-        // before `IconPaths.` (an `@` in between breaks the match).
-        var unguarded = new Regex("=\"IconPaths\\.", RegexOptions.Compiled);
+        // Matches `SomeAttribute="IconPaths.X` / `SomeAttribute = 'IconPaths.X` - i.e. an
+        // assignment whose value starts with the literal text IconPaths. with no leading @,
+        // tolerating whitespace around `=` and either quote character. A correctly-guarded usage
+        // is `="@IconPaths.X"`, which this pattern does not match because the required quote
+        // must sit directly before `IconPaths.` (an `@` in between breaks the match).
+        var unguarded = new Regex("=\\s*[\"']IconPaths\\.", RegexOptions.Compiled);
 
         var violations = new List<string>();
-        foreach (var file in Directory.EnumerateFiles(blazorDir, "*.razor", SearchOption.AllDirectories))
+        var files = Directory.EnumerateFiles(blazorDir, "*.razor", SearchOption.AllDirectories)
+            .Concat(Directory.EnumerateFiles(blazorDir, "*.cs", SearchOption.AllDirectories));
+        foreach (var file in files)
         {
             var lines = File.ReadAllLines(file);
             for (var i = 0; i < lines.Length; i++)
             {
+                // Skip XML doc comments (///) and Razor comments (@* ... *@ content) - this guard
+                // is about real markup/code, not a worked example inside documentation prose.
+                if (lines[i].TrimStart().StartsWith("///", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
                 if (unguarded.IsMatch(lines[i]))
                 {
                     violations.Add($"{Path.GetRelativePath(blazorDir, file)}:{i + 1}: {lines[i].Trim()}");
@@ -55,8 +69,9 @@ public class IconPathsUsageGuardTests : BlazorComponentTestContext
         }
 
         violations.Should().BeEmpty(
-            "every IconPaths.X attribute value must be @-prefixed to evaluate as C# rather than " +
-            $"render literally, but found:\n{string.Join('\n', violations)}");
+            "every IconPaths.X value must be @-prefixed (in .razor markup) or referenced as the " +
+            "constant itself (in .cs) to evaluate as C# rather than render/compare literally, but " +
+            $"found:\n{string.Join('\n', violations)}");
     }
 
     /// <summary>

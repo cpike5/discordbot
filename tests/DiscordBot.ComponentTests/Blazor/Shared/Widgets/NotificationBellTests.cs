@@ -103,13 +103,15 @@ public class NotificationBellTests : BlazorComponentTestContext
         var cut = Render<NotificationBell>();
         var bus = Services.GetRequiredService<IDashboardEventBus>();
 
+        // The user-scoped Subscribe overload filters synchronously inside PublishAsync, so by
+        // the time this await returns the event has already been dispatched (or, as expected
+        // here, not dispatched at all) - no wait needed to know that.
         await bus.PublishAsync(new NotificationReceivedEvent
         {
             UserId = "someone-else",
             Notification = new UserNotificationDto { Id = Guid.NewGuid(), Title = "NotForUs", Message = "x", Type = NotificationType.BotStatus, TypeDisplay = "Bot Status", CreatedAt = DateTime.UtcNow }
         });
 
-        await Task.Delay(TimeSpan.FromSeconds(1.2));
         cut.Markup.Should().NotContain("NotForUs");
     }
 
@@ -119,11 +121,19 @@ public class NotificationBellTests : BlazorComponentTestContext
         var cut = Render<NotificationBell>();
         var bus = Services.GetRequiredService<IDashboardEventBus>();
 
+        // First prove the subscription is live before disposal (initial unread count is 2 from
+        // the constructor's summary mock, so use a distinct value), so the "does not re-render"
+        // check below is actually meaningful.
+        await bus.PublishAsync(new NotificationCountChangedEvent { UserId = UserId, Summary = new NotificationSummaryDto { TotalUnread = 42 } });
+        cut.WaitForAssertion(() => cut.Find(".notification-badge").TextContent.Should().Be("42"), TimeSpan.FromSeconds(3));
+
         await DisposeComponentsAsync();
         var renderCountAfterDispose = cut.RenderCount;
 
         await bus.PublishAsync(new NotificationCountChangedEvent { UserId = UserId, Summary = new NotificationSummaryDto { TotalUnread = 99 } });
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        // Short window, not a full debounce-window sleep: Dispose() unsubscribes synchronously,
+        // so there is nothing left to debounce - this only guards against a latent regression.
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
 
         cut.RenderCount.Should().Be(renderCountAfterDispose);
     }

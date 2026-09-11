@@ -164,11 +164,13 @@ public class BlazorProbeTests : BlazorComponentTestContext
         });
         await act.Should().NotThrowAsync();
 
-        // No WaitForAssertion here on purpose: there is nothing to wait FOR - the debouncer's
-        // ~1s window is the thing under test, so this proves its silence rather than polling for
-        // a change that must not happen. A plain await (not a poll loop), so CLAUDE.md's
-        // thread-pool-starvation ConfigureAwait(false) rule for wall-clock polling doesn't apply.
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        // No WaitForAssertion here on purpose: there is nothing to wait FOR - Dispose() already
+        // unsubscribed above (proven live first, so this negative assertion is meaningful), so a
+        // short window is enough to catch a re-render that must not happen, rather than sleeping
+        // out the full ~1s debounce window a still-subscribed component would need. A plain await
+        // (not a poll loop), so CLAUDE.md's thread-pool-starvation ConfigureAwait(false) rule for
+        // wall-clock polling doesn't apply.
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
         cut.RenderCount.Should().Be(renderCountAfterDispose);
     }
 }

@@ -77,11 +77,13 @@ public class ActivityFeedTests : BlazorComponentTestContext
         var cut = Render<ActivityFeed>(p => p.Add(x => x.GuildId, 111UL));
         var bus = Services.GetRequiredService<IDashboardEventBus>();
 
+        // The GuildId filter check runs synchronously inside the subscriber, so by the time
+        // PublishAsync's await returns, "ignored" is either enqueued or (as expected here) it
+        // never will be - no wait needed to know that.
         await bus.PublishAsync(new CommandExecutedEvent
         {
             Update = new CommandExecutedUpdateDto { CommandName = "ignored", GuildId = 222, Success = true, Timestamp = DateTime.UtcNow }
         });
-        await Task.Delay(TimeSpan.FromSeconds(1.2));
         cut.Markup.Should().NotContain("/ignored");
 
         await bus.PublishAsync(new CommandExecutedEvent
@@ -89,6 +91,10 @@ public class ActivityFeedTests : BlazorComponentTestContext
             Update = new CommandExecutedUpdateDto { CommandName = "matched", GuildId = 111, Success = true, Timestamp = DateTime.UtcNow }
         });
         cut.WaitForAssertion(() => cut.Markup.Should().Contain("/matched"), TimeSpan.FromSeconds(3));
+
+        // The debounced render above proves enough time has passed for "ignored" to have shown
+        // up too, had the filter not rejected it.
+        cut.Markup.Should().NotContain("/ignored");
     }
 
     [Fact]
@@ -115,11 +121,13 @@ public class ActivityFeedTests : BlazorComponentTestContext
             .Add(x => x.IsPausedChanged, v => lastChanged = v));
 
         var bus = Services.GetRequiredService<IDashboardEventBus>();
+        // Enqueue's paused branch adds to _pending synchronously with no debounce involved, so
+        // by the time this await returns the item is either queued (as expected) or already
+        // rendered - no wait needed either way.
         await bus.PublishAsync(new CommandExecutedEvent
         {
             Update = new CommandExecutedUpdateDto { CommandName = "queued", Success = true, Timestamp = DateTime.UtcNow }
         });
-        await Task.Delay(TimeSpan.FromSeconds(1.2));
         cut.Markup.Should().NotContain("/queued");
 
         cut.Find("button[aria-pressed='true']").Click();
@@ -147,6 +155,14 @@ public class ActivityFeedTests : BlazorComponentTestContext
         var cut = Render<ActivityFeed>();
         var bus = Services.GetRequiredService<IDashboardEventBus>();
 
+        // First prove the subscription is live before disposal, so the "does not re-render"
+        // check below is actually meaningful.
+        await bus.PublishAsync(new CommandExecutedEvent
+        {
+            Update = new CommandExecutedUpdateDto { CommandName = "before-dispose", Success = true, Timestamp = DateTime.UtcNow }
+        });
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("/before-dispose"), TimeSpan.FromSeconds(3));
+
         await DisposeComponentsAsync();
         var renderCountAfterDispose = cut.RenderCount;
 
@@ -154,7 +170,9 @@ public class ActivityFeedTests : BlazorComponentTestContext
         {
             Update = new CommandExecutedUpdateDto { CommandName = "after-dispose", Success = true, Timestamp = DateTime.UtcNow }
         });
-        await Task.Delay(TimeSpan.FromSeconds(1.5));
+        // Short window, not a full debounce-window sleep: Dispose() unsubscribes synchronously,
+        // so there is nothing left to debounce - this only guards against a latent regression.
+        await Task.Delay(TimeSpan.FromMilliseconds(200));
 
         cut.RenderCount.Should().Be(renderCountAfterDispose);
     }

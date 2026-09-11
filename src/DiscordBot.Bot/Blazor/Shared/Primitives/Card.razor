@@ -8,50 +8,18 @@
    Collapse state is now component state (IsExpanded/IsExpandedChanged) instead of the original's
    "this.nextElementSibling?.classList.toggle('hidden')" inline-JS onclick. *@
 
-<div id="@Id" class="@RootClasses" @onclick="HandleRootClick" @attributes="AdditionalAttributes">
-    @if (HasHeader)
-    {
-        @if (IsCollapsible)
-        {
-            <button type="button"
-                    class="w-full flex items-center justify-between px-6 py-4 @HeaderBorderClass hover:bg-bg-hover transition-colors"
-                    aria-expanded="@(IsExpanded ? "true" : "false")"
-                    @onclick="ToggleExpanded" @onclick:stopPropagation="true">
-                <div class="text-left">
-                    @HeaderInner
-                </div>
-                <Icon Path="@IconPaths.ChevronDown" Size="IconSize.MD"
-                      Class="@("text-text-secondary transition-transform " + (IsExpanded ? "" : "rotate-180"))" />
-            </button>
-        }
-        else
-        {
-            <div class="flex items-center justify-between px-6 py-4 @HeaderBorderClass">
-                <div>
-                    @HeaderInner
-                </div>
-                @if (HeaderActions is not null)
-                {
-                    <div>@HeaderActions</div>
-                }
-            </div>
-        }
-    }
-
-    @if (ChildContent is not null)
-    {
-        <div class="@BodyClasses">
-            @ChildContent
-        </div>
-    }
-
-    @if (HasFooter)
-    {
-        <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
-            @FooterContent
-        </div>
-    }
-</div>
+@if (IsInteractive)
+{
+    <div id="@Id" class="@RootClasses" @onclick="HandleRootClick" @attributes="AdditionalAttributes">
+        @CardBody
+    </div>
+}
+else
+{
+    <div id="@Id" class="@RootClasses" @attributes="AdditionalAttributes">
+        @CardBody
+    </div>
+}
 
 @code {
     [Parameter] public string? Title { get; set; }
@@ -84,6 +52,51 @@
     private bool HasFooter => FooterContent is not null;
     private string HeaderBorderClass => HasFooter || ChildContent is not null ? "border-b border-border-primary" : "";
     private string TitleClass => IsEnhanced ? "text-lg font-semibold text-text-primary" : "text-h5 text-text-primary";
+
+    private RenderFragment CardBody => @<text>
+        @if (HasHeader)
+        {
+            @if (IsCollapsible)
+            {
+                <button type="button"
+                        class="w-full flex items-center justify-between px-6 py-4 @HeaderBorderClass hover:bg-bg-hover transition-colors"
+                        aria-expanded="@(IsExpanded ? "true" : "false")"
+                        @onclick="ToggleExpanded" @onclick:stopPropagation="true">
+                    <div class="text-left">
+                        @HeaderInner
+                    </div>
+                    <Icon Path="@IconPaths.ChevronDown" Size="IconSize.MD"
+                          Class="@("text-text-secondary transition-transform " + (IsExpanded ? "" : "rotate-180"))" />
+                </button>
+            }
+            else
+            {
+                <div class="flex items-center justify-between px-6 py-4 @HeaderBorderClass">
+                    <div>
+                        @HeaderInner
+                    </div>
+                    @if (HeaderActions is not null)
+                    {
+                        <div>@HeaderActions</div>
+                    }
+                </div>
+            }
+        }
+
+        @if (ChildContent is not null)
+        {
+            <div class="@BodyClasses">
+                @ChildContent
+            </div>
+        }
+
+        @if (HasFooter)
+        {
+            <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                @FooterContent
+            </div>
+        }
+    </text>;
 
     private RenderFragment HeaderInner => @<text>
         @if (HeaderContent is not null)
