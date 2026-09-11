@@ -14,7 +14,8 @@
     circuit has no reason to round-trip through a form post.
 *@
 
-<Modal @ref="_modal" Id="@Id" IsOpen="_isOpen" IsOpenChanged="HandleIsOpenChanged" OnClosed="HandleClosed">
+<Modal @ref="_modal" Id="@Id" IsOpen="_isOpen" IsOpenChanged="HandleIsOpenChanged" OnClosed="HandleClosed"
+       Class="@Class" AdditionalAttributes="AdditionalAttributes">
     <ChildContent>
         <div class="flex items-start gap-4">
             <div class="flex-shrink-0 w-10 h-10 rounded-full @IconBgClass flex items-center justify-center">
@@ -77,6 +78,11 @@
 
     [Parameter] public EventCallback OnConfirm { get; set; }
     [Parameter] public EventCallback OnCancel { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private Modal? _modal;
     private bool _isOpen;

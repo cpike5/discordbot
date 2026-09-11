@@ -78,6 +78,13 @@ public class BotStatusBannerTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Class_IsAppended()
+    {
+        var cut = Render<BotStatusBanner>(p => p.Add(x => x.Class, "extra-class"));
+        cut.Find("[data-bot-status-card]").ClassList.Should().Contain("extra-class");
+    }
+
+    [Fact]
     public async Task Dispose_UnsubscribesFromBus()
     {
         var cut = Render<BotStatusBanner>();

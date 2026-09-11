@@ -57,6 +57,17 @@ public class LoadingOverlayTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Class_IsAppended()
+    {
+        var loadingState = Services.GetRequiredService<ILoadingState>();
+        var cut = Render<LoadingOverlay>(p => p.Add(x => x.Class, "extra-class"));
+
+        using var scope = loadingState.Begin();
+
+        cut.WaitForAssertion(() => cut.Find("div.loading-overlay").ClassList.Should().Contain("extra-class"));
+    }
+
+    [Fact]
     public void OnCancel_RendersButton_AndInvokesCallback()
     {
         var loadingState = Services.GetRequiredService<ILoadingState>();

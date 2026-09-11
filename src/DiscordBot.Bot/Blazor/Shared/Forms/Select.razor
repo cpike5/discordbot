@@ -34,13 +34,14 @@
                 required="@IsRequired"
                 disabled="@IsDisabled"
                 multiple="@AllowMultiple"
+                value="@(AllowMultiple ? null : CurrentValueAsString)"
                 aria-describedby="@DescribedByIds"
                 aria-invalid="@(ValidationState == ValidationState.Error ? "true" : null)"
                 @attributes="AdditionalAttributes"
                 @onchange="HandleChange">
             @if (!string.IsNullOrEmpty(Placeholder) && !AllowMultiple)
             {
-                <option value="" disabled selected="@string.IsNullOrEmpty(CurrentValueAsString)">@Placeholder</option>
+                <option value="" disabled>@Placeholder</option>
             }
 
             @if (OptionGroups is { Count: > 0 })
@@ -50,7 +51,7 @@
                     <optgroup label="@group.Label">
                         @foreach (var option in group.Options)
                         {
-                            <option value="@option.Value" disabled="@option.IsDisabled" selected="@IsSelected(option.Value)">@option.Text</option>
+                            <option value="@option.Value" disabled="@option.IsDisabled" selected="@(AllowMultiple && IsSelected(option.Value))">@option.Text</option>
                         }
                     </optgroup>
                 }
@@ -59,7 +60,7 @@
             {
                 @foreach (var option in Options)
                 {
-                    <option value="@option.Value" disabled="@option.IsDisabled" selected="@IsSelected(option.Value)">@option.Text</option>
+                    <option value="@option.Value" disabled="@option.IsDisabled" selected="@(AllowMultiple && IsSelected(option.Value))">@option.Text</option>
                 }
             }
         </select>
@@ -163,7 +164,17 @@
         get
         {
             var classes = $"w-full {SizeClasses} pr-10 text-text-primary bg-bg-primary border {ValidationClasses} rounded-md appearance-none transition-colors focus:outline-none focus:ring-[3px]";
-            return IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+            classes = IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+
+            // See TextInput.razor's InputClasses comment - same EditContext modified/valid/invalid
+            // class appended here so a <select> inside an <EditForm> gets the same styling.
+            if (CascadedEditContext is not null && _fieldIdentifier is { } fieldId)
+            {
+                // See TextInput.razor's InputClasses comment on why this isn't named "field".
+                classes = $"{classes} {CascadedEditContext.FieldCssClass(fieldId)}";
+            }
+
+            return classes;
         }
     }
 

@@ -13,7 +13,7 @@
        aria-disabled="@(_isDisabled ? "true" : null)"
        aria-busy="@(IsLoading ? "true" : null)"
        aria-label="@AriaLabelValue"
-       @onclick="OnClick"
+       @onclick="HandleAnchorClick"
        @attributes="AdditionalAttributes">
         @Content
     </a>
@@ -52,6 +52,11 @@ else
     public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private bool _isDisabled => IsDisabled || IsLoading;
+
+    // A disabled <a> still receives click events (unlike a disabled <button>, there is no native
+    // browser guard for an anchor - removing href only stops navigation) - guard OnClick here so a
+    // disabled/loading link-styled Button doesn't fire its callback.
+    private Task HandleAnchorClick(MouseEventArgs e) => _isDisabled ? Task.CompletedTask : OnClick.InvokeAsync(e);
     private string? AriaLabelValue => AriaLabel ?? (IsIconOnly ? Text : null);
 
     private string SizeClasses => Size switch

@@ -4,7 +4,7 @@
 @* Ported from _GuildPreviewPopup.cshtml / GuildPreviewViewModel - content only, see
    UserPreviewPopoverContent.razor's top-of-file note. *@
 
-<div class="preview-popup preview-popup-guild">
+<div class="preview-popup preview-popup-guild @Class" @attributes="AdditionalAttributes">
     <div class="preview-header">
         <div class="preview-avatar">
             @if (!string.IsNullOrEmpty(Model.IconUrl))
@@ -85,6 +85,10 @@
 
 @code {
     [Parameter, EditorRequired] public GuildPreviewViewModel Model { get; set; } = null!;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private static string FeatureBadgeClass(string feature) => feature.ToLowerInvariant() switch
     {

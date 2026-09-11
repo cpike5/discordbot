@@ -18,7 +18,7 @@
 
 @if (Setting.DataType == SettingDataType.Boolean)
 {
-    <div class="lg:col-span-2">
+    <div class="lg:col-span-2 @Class" @attributes="AdditionalAttributes">
         <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-primary">
             <Toggle Id="@inputId" Name="@inputName" Label="@Setting.DisplayName" Description="@Setting.Description"
                     Value="_boolValue" ValueChanged="HandleBoolChanged" />
@@ -33,7 +33,7 @@
 }
 else if (Setting.AllowedValues is { Count: > 0 })
 {
-    <div>
+    <div class="@Class" @attributes="AdditionalAttributes">
         <Select TValue="string" Id="@inputId" Name="@inputName" Label="@Setting.DisplayName"
                 Options="@AllowedOptions" HelpText="@Setting.Description"
                 Value="_stringValue" ValueChanged="HandleStringChanged" />
@@ -47,7 +47,7 @@ else if (Setting.AllowedValues is { Count: > 0 })
 }
 else if (Setting.DataType is SettingDataType.Integer or SettingDataType.Decimal)
 {
-    <div>
+    <div class="@Class" @attributes="AdditionalAttributes">
         <TextInput Id="@inputId" Name="@inputName" Label="@Setting.DisplayName" Type="number"
                    HelpText="@Setting.Description" Value="_stringValue" ValueChanged="HandleStringChanged"
                    AdditionalAttributes="@NumberStepAttribute" />
@@ -61,7 +61,7 @@ else if (Setting.DataType is SettingDataType.Integer or SettingDataType.Decimal)
 }
 else
 {
-    <div>
+    <div class="@Class" @attributes="AdditionalAttributes">
         <TextInput Id="@inputId" Name="@inputName" Label="@Setting.DisplayName" Type="text"
                    HelpText="@Setting.Description" Value="_stringValue" ValueChanged="HandleStringChanged" />
         @if (Setting.RequiresRestart)
@@ -80,6 +80,11 @@ else
     /// always the same string representation SettingDto.Value already uses ("true"/"false" for a
     /// Boolean setting, the raw text otherwise).</summary>
     [Parameter] public EventCallback<(string Key, string Value)> OnValueChanged { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
 
     private string? _stringValueOverride;
     private string _stringValue => _stringValueOverride ?? Setting.Value;

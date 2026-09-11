@@ -157,16 +157,39 @@ and read from CSS custom properties on `document.documentElement` **at create ti
 chart created after a theme switch picks up the new palette (existing charts are not
 live-retinted — destroy and recreate to pick up a theme change mid-session).
 
+### Per-item dataset colors: the `"graphite"` sentinel
+
+A component that needs one color per bar/slice/point (e.g. `CommandStatsCard`'s horizontal bar
+chart) must not hardcode hex literals in C# (`docs/articles/blazor-components.md` "Component
+contract" point 6 bans that in markup, and a static `#e6602b`-style array in `@code` is the same
+problem one step removed). Instead, set a dataset's `backgroundColor`/`borderColor` to the
+literal string `"graphite"` in the config object handed to `<Chart>`:
+
+```csharp
+new { label = "Usage Count", data = counts, backgroundColor = "graphite", borderColor = "graphite" }
+```
+
+`create()`/`update()` run every dataset through `applyGraphitePalette()` before handing the
+config to Chart.js: any dataset whose `backgroundColor`/`borderColor` is exactly `"graphite"`
+gets that property replaced with a `count`-long array from `buildPaletteList()`, which cycles
+through `buildPalette()`'s tokens (`secondary, primary, success, warning, info, error, purple` —
+repeating once `count` exceeds seven); every other dataset (or one with its own explicit color)
+passes through unchanged. Pure and side-effect-free — `applyGraphitePalette`/`buildPaletteList`
+return a new object rather than mutating the one passed in, and both are covered by
+`node --test` (`wwwroot/js/__tests__/blazor-charts.test.js`) the same way `buildPalette` is.
+
 ### JS API
 
 | Function | Signature | Notes |
 | --- | --- | --- |
-| `create` | `(canvasElement, config) => Promise<number>` | Returns a numeric handle. Merges Graphite defaults under `config.options`. |
-| `update` | `(handle, data?, options?) => void` | Replaces `chart.data` / deep-merges `chart.options` when provided, then redraws. |
+| `create` | `(canvasElement, config) => Promise<number>` | Returns a numeric handle. Merges Graphite defaults under `config.options`; resolves the `"graphite"` sentinel in `config.data` (see above). |
+| `update` | `(handle, data?, options?) => void` | Replaces `chart.data` (resolving the `"graphite"` sentinel first) / deep-merges `chart.options` when provided, then redraws. |
 | `destroy` | `(handle) => void` | Destroys one chart. |
 | `destroyAll` | `() => void` | Destroys every chart this module is tracking. |
 | `buildDefaultOptions` | `(cssVarGetter) => object` | Pure; exported for the `node --test` unit tests. |
-| `buildPalette` | `(cssVarGetter) => object` | Pure; the `{primary, secondary, success, warning, error, info, muted}` Graphite chart palette. |
+| `buildPalette` | `(cssVarGetter) => object` | Pure; the `{primary, secondary, success, warning, error, info, purple, muted}` Graphite chart palette. |
+| `buildPaletteList` | `(cssVarGetter, count) => string[]` | Pure; cycles `buildPalette()`'s tokens into a `count`-long array. |
+| `applyGraphitePalette` | `(data, cssVarGetter) => object` | Pure; replaces the `"graphite"` sentinel on every dataset's `backgroundColor`/`borderColor` with a `buildPaletteList()` array sized to that dataset's `data.length`. |
 
 ### C# API (`ChartInterop`)
 

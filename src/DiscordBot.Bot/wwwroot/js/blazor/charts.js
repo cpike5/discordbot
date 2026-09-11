@@ -89,8 +89,72 @@ export function buildPalette(cssVarGetter) {
         warning: read('--color-warning', '#f0a323'),
         error: read('--color-error', '#ef4f4f'),
         info: read('--color-info', '#2fb3cc'),
+        purple: read('--color-accent-purple', '#9b7bea'),
         muted: read('--color-bg-tertiary', 'rgba(28, 32, 37, 0.8)')
     };
+}
+
+/**
+ * Fixed draw order the "graphite" dataset-color sentinel (see {@link applyGraphitePalette})
+ * cycles through - every entry is a real semantic token from {@link buildPalette}, not a bare
+ * hex literal, so a caller never hardcodes chart colors itself.
+ */
+const PALETTE_CYCLE_KEYS = ['secondary', 'primary', 'success', 'warning', 'info', 'error', 'purple'];
+
+/**
+ * Builds a `count`-long array of colors for a chart dataset, cycling through
+ * {@link buildPalette}'s tokens (repeating once `count` exceeds the palette size). This is the
+ * one place a per-bar/per-slice color list is generated - see {@link applyGraphitePalette}.
+ *
+ * @param {(name: string) => string | null | undefined} cssVarGetter
+ * @param {number} count
+ * @returns {string[]}
+ */
+export function buildPaletteList(cssVarGetter, count) {
+    const palette = buildPalette(cssVarGetter);
+    const colors = PALETTE_CYCLE_KEYS.map((key) => palette[key]);
+    const result = [];
+    for (let i = 0; i < count; i++) {
+        result.push(colors[i % colors.length]);
+    }
+    return result;
+}
+
+const GRAPHITE_SENTINEL = 'graphite';
+
+function resolveDatasetColor(value, count, cssVarGetter) {
+    return value === GRAPHITE_SENTINEL ? buildPaletteList(cssVarGetter, count) : value;
+}
+
+/**
+ * Replaces the `"graphite"` sentinel on `backgroundColor`/`borderColor` in every dataset with a
+ * real per-item color list from {@link buildPaletteList}, leaving every other dataset (and any
+ * dataset with its own explicit colors) untouched. Lets a .NET caller ask for the themed Graphite
+ * palette without ever hardcoding a hex value - see `CommandStatsCard.razor`. Pure: returns a new
+ * object, `data` itself is never mutated (both {@link create} and {@link update} hand this
+ * .NET-deserialized JSON they still hold their own reference to).
+ *
+ * @param {{datasets?: Array<{data?: unknown[], backgroundColor?: unknown, borderColor?: unknown}>}} data
+ * @param {(name: string) => string | null | undefined} cssVarGetter
+ */
+export function applyGraphitePalette(data, cssVarGetter) {
+    if (!data || !Array.isArray(data.datasets)) {
+        return data;
+    }
+
+    let changed = false;
+    const datasets = data.datasets.map((dataset) => {
+        const count = Array.isArray(dataset.data) ? dataset.data.length : 0;
+        const backgroundColor = resolveDatasetColor(dataset.backgroundColor, count, cssVarGetter);
+        const borderColor = resolveDatasetColor(dataset.borderColor, count, cssVarGetter);
+        if (backgroundColor === dataset.backgroundColor && borderColor === dataset.borderColor) {
+            return dataset;
+        }
+        changed = true;
+        return { ...dataset, backgroundColor, borderColor };
+    });
+
+    return changed ? { ...data, datasets } : data;
 }
 
 function readDocumentCssVar(name) {
@@ -176,7 +240,8 @@ export async function create(canvasElement, config) {
     const Chart = await loadChartJs();
     const defaults = buildDefaultOptions(readDocumentCssVar);
     const options = mergeDeep(defaults, (config && config.options) || {});
-    const chart = new Chart(canvasElement, { ...config, options });
+    const data = applyGraphitePalette(config && config.data, readDocumentCssVar);
+    const chart = new Chart(canvasElement, { ...config, data, options });
 
     const handle = nextHandle++;
     charts.set(handle, chart);
@@ -197,7 +262,7 @@ export function update(handle, data, options) {
     }
 
     if (data) {
-        chart.data = data;
+        chart.data = applyGraphitePalette(data, readDocumentCssVar);
     }
     if (options) {
         chart.options = mergeDeep(chart.options, options);

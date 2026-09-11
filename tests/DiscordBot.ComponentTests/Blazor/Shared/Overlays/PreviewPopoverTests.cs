@@ -128,6 +128,21 @@ public class PreviewPopoverTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public async Task Dispose_SwallowsJSDisconnectedException_FromOffClickOutside()
+    {
+        var moduleInterop = JSInterop.SetupModule("./js/blazor/browser.js");
+        moduleInterop.Setup<int>("onClickOutside", _ => true).SetResult(1);
+        moduleInterop.SetupVoid("offClickOutside", _ => true).SetException(new Microsoft.JSInterop.JSDisconnectedException("circuit gone"));
+
+        var cut = RenderUserPopover(() => Task.FromResult<UserPreviewViewModel?>(FakeUser));
+        cut.Find("[tabindex='0']").Click(); // opens, registering the click-outside handler
+
+        var act = async () => await DisposeComponentsAsync();
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public void DataAttributes_ReflectKindAndId()
     {
         var cut = RenderUserPopover(() => Task.FromResult<UserPreviewViewModel?>(FakeUser));

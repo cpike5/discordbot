@@ -16,17 +16,38 @@ public class SelectTests : BlazorComponentTestContext
     };
 
     [Fact]
-    public void RendersOptions_WithSelectedValueMarked()
+    public void RendersOptions_WithSelectValueSetFromCurrentValue()
     {
+        // Selection is driven by the <select>'s own value="@CurrentValueAsString" (like the
+        // framework's InputSelect<T>) rather than a per-<option> selected attribute, so a later
+        // programmatic Value change re-renders correctly even after the user has interacted with
+        // the control - see Value_ProgrammaticChange_AfterUserInteraction_UpdatesSelection below.
         var cut = Render<Select<string>>(p => p
             .Add(x => x.Id, "s")
             .Add(x => x.Options, Options)
             .Add(x => x.Value, "b"));
 
+        var select = cut.Find("select");
+        select.GetAttribute("value").Should().Be("b");
+
         var options = cut.FindAll("option").Where(o => !string.IsNullOrEmpty(o.GetAttribute("value"))).ToList();
         options.Should().HaveCount(2);
-        options.Single(o => o.GetAttribute("value") == "b").HasAttribute("selected").Should().BeTrue();
-        options.Single(o => o.GetAttribute("value") == "a").HasAttribute("selected").Should().BeFalse();
+    }
+
+    [Fact]
+    public void Value_ProgrammaticChange_AfterUserInteraction_UpdatesSelection()
+    {
+        // Regression for the per-option `selected` attribute bug: once bUnit's diffing has
+        // already applied a user-driven change, a per-option `selected="@IsSelected(...)"`
+        // attribute stops being re-applied by the diff (its computed value is unchanged from the
+        // option's perspective), so a subsequent *programmatic* Value change from the caller
+        // never took effect. Binding the <select>'s own value fixes this.
+        var cut = Render<Select<string>>(p => p.Add(x => x.Id, "s").Add(x => x.Options, Options).Add(x => x.Value, "a"));
+
+        cut.Find("select").Change("b"); // simulates the user picking "b"
+        cut.Render(p => p.Add(x => x.Id, "s").Add(x => x.Options, Options).Add(x => x.Value, "a")); // caller resets it back to "a"
+
+        cut.Find("select").GetAttribute("value").Should().Be("a");
     }
 
     [Fact]
@@ -37,7 +58,7 @@ public class SelectTests : BlazorComponentTestContext
         var placeholder = cut.Find("option[value='']");
         placeholder.TextContent.Should().Be("Choose...");
         placeholder.HasAttribute("disabled").Should().BeTrue();
-        placeholder.HasAttribute("selected").Should().BeTrue();
+        cut.Find("select").GetAttribute("value").Should().BeNullOrEmpty();
     }
 
     [Fact]

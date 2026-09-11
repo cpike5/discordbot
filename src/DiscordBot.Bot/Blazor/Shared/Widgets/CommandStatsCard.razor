@@ -76,11 +76,11 @@
 </div>
 
 @code {
-    private static readonly string[] ChartColors =
-    [
-        "#e6602b", "#3d9ad6", "#2fbf7f", "#f0a323", "#2fb3cc",
-        "#ef4f4f", "#8b5cf6", "#ec4899", "#14b8a6", "#6366f1"
-    ];
+    // "graphite" is a sentinel charts.js's applyGraphitePalette() (wwwroot/js/blazor/charts.js)
+    // recognizes and replaces with a per-bar color list built from the CSS custom properties on
+    // documentElement (docs/articles/blazor-interop.md "Chart palette") - no hex literal lives in
+    // C#, per docs/articles/blazor-components.md "Component contract" point 6.
+    private const string GraphitePalette = "graphite";
 
     [Parameter] public IReadOnlyList<CommandUsageStat> TopCommands { get; set; } = [];
     [Parameter] public int TotalCommands { get; set; }
@@ -122,8 +122,8 @@
                 {
                     label = "Usage Count",
                     data = TopCommands.Select(c => c.Count).ToArray(),
-                    backgroundColor = ChartColors,
-                    borderColor = ChartColors,
+                    backgroundColor = GraphitePalette,
+                    borderColor = GraphitePalette,
                     borderWidth = 1,
                     borderRadius = 4,
                     barThickness = 24

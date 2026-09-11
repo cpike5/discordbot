@@ -156,6 +156,52 @@ public class ButtonTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Href_WithIsDisabled_DoesNotInvokeOnClick()
+    {
+        // Unlike a disabled <button>, a disabled-styled <a> still receives click events natively
+        // (removing href only stops navigation) - HandleAnchorClick must guard it explicitly.
+        var clicked = false;
+        var cut = Render<Button>(p => p
+            .Add(x => x.Text, "Go")
+            .Add(x => x.Href, "/dashboard")
+            .Add(x => x.IsDisabled, true)
+            .Add(x => x.OnClick, EventCallback.Factory.Create<MouseEventArgs>(this, () => clicked = true)));
+
+        cut.Find("a").Click();
+
+        clicked.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Href_WithIsLoading_DoesNotInvokeOnClick()
+    {
+        var clicked = false;
+        var cut = Render<Button>(p => p
+            .Add(x => x.Text, "Go")
+            .Add(x => x.Href, "/dashboard")
+            .Add(x => x.IsLoading, true)
+            .Add(x => x.OnClick, EventCallback.Factory.Create<MouseEventArgs>(this, () => clicked = true)));
+
+        cut.Find("a").Click();
+
+        clicked.Should().BeFalse();
+    }
+
+    [Fact]
+    public void Href_WhenEnabled_OnClick_StillFires()
+    {
+        var clicked = false;
+        var cut = Render<Button>(p => p
+            .Add(x => x.Text, "Go")
+            .Add(x => x.Href, "/dashboard")
+            .Add(x => x.OnClick, EventCallback.Factory.Create<MouseEventArgs>(this, () => clicked = true)));
+
+        cut.Find("a").Click();
+
+        clicked.Should().BeTrue();
+    }
+
+    [Fact]
     public void Class_IsAppended()
     {
         var cut = Render<Button>(p => p.Add(x => x.Text, "x").Add(x => x.Class, "my-extra-class"));

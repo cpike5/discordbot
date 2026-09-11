@@ -145,4 +145,18 @@ public class TextInputTests : BlazorComponentTestContext
 
         cut.Markup.Should().Contain("This field is required.");
     }
+
+    [Fact]
+    public void EditForm_DataAnnotationsValidator_AppliesInvalidClass_OnInvalidSubmit()
+    {
+        var model = new TextInputEditFormHost.FormModel();
+        var cut = Render<TextInputEditFormHost>(p => p.Add(x => x.Model, model));
+
+        var input = cut.Find("input");
+        input.ClassList.Should().NotContain("invalid");
+
+        cut.Find("form").Submit();
+
+        cut.Find("input").ClassList.Should().Contain("invalid");
+    }
 }

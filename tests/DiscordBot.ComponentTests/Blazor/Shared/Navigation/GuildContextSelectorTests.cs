@@ -78,6 +78,39 @@ public class GuildContextSelectorTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public async Task Escape_WhileClosed_StaysClosed_InsteadOfToggling()
+    {
+        // Regression: HandleKeyDown used to call Toggle(), so Escape on an already-closed
+        // dropdown would incorrectly open it. It must always close, never toggle.
+        var cut = Render<GuildContextSelector>(p => p
+            .Add(x => x.RouteTemplate, "/Guilds/{guildId}")
+            .Add(x => x.Guilds, Multiple));
+
+        cut.FindAll("div.hidden").Should().NotBeEmpty();
+
+        await cut.Find("div.relative div").KeyDownAsync(new KeyboardEventArgs { Key = "Escape" });
+
+        cut.FindAll("div.hidden").Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Dispose_SwallowsJSDisconnectedException_FromOffClickOutside()
+    {
+        var moduleInterop = JSInterop.SetupModule("./js/blazor/browser.js");
+        moduleInterop.Setup<int>("onClickOutside", _ => true).SetResult(1);
+        moduleInterop.SetupVoid("offClickOutside", _ => true).SetException(new Microsoft.JSInterop.JSDisconnectedException("circuit gone"));
+
+        var cut = Render<GuildContextSelector>(p => p
+            .Add(x => x.RouteTemplate, "/Guilds/{guildId}")
+            .Add(x => x.Guilds, Multiple));
+        cut.Find("button").Click(); // opens, registering the click-outside handler
+
+        var act = async () => await DisposeComponentsAsync();
+
+        await act.Should().NotThrowAsync();
+    }
+
+    [Fact]
     public void Class_And_AdditionalAttributes_ArePassedThrough()
     {
         var cut = Render<GuildContextSelector>(p => p
