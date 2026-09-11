@@ -1,8 +1,10 @@
 # Virtual Currency — Implementation Plan
 
-**Status:** Proposed
+**Status:** Shipped. PRs 1-5 are merged, and the two follow-ups in *Cross-cutting
+notes* — the manual Postgres run and the lessons-learned note — are done.
 **Date:** 2026-09-11
 **Spec:** `docs/specs/virtual-currency-spec.md`
+**Lessons learned:** `docs/lessons-learned/virtual-currency.md`
 
 This plan turns the spec into ordered PRs, each small enough to review on its
 own and green on its own. The spec is authoritative on behaviour; this
@@ -222,7 +224,10 @@ for the price save validation (guild currency may only price its own guild).
 ## Cross-cutting notes
 
 - **Provider coverage.** The test suite runs SQLite only. Each migration PR
-  says so and asks for a manual Postgres `database update` before release.
+  says so and asks for a manual Postgres `database update` before release. Done
+  on 2026-09-11 against PostgreSQL 16.13: all migrations applied from empty, the
+  schema matches the spec, and the `FOR UPDATE` write path was exercised under
+  concurrency by hand. Results are in the lessons-learned note.
 - **Row locking.** SQLite serializes writes anyway. For Postgres,
   `ILedgerRepository.AppendAsync` uses `SELECT ... FOR UPDATE` on the wallet
   row through a raw query so concurrent appends cannot both read the same
@@ -233,6 +238,8 @@ for the price save validation (guild currency may only price its own guild).
   never called, the optional `IChargeService?` in the soundboard is null, and
   every play is free. This is the rollback path if something misbehaves in
   production.
-- **Lessons learned.** After PR 4 or 5, add
-  `docs/lessons-learned/virtual-currency.md` if anything fought back,
-  especially around holds and concurrency.
+- **Lessons learned.** `docs/lessons-learned/virtual-currency.md` covers the
+  two-provider row lock, the concurrency test database, the hold's two clocks,
+  the Postgres run above, and the three things left open — global prices not
+  constrained by an index, no scheduled reconcile check, and the income / award
+  / refund hooks that have no caller yet.

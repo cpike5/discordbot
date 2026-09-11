@@ -76,7 +76,9 @@ it cannot, so a plain `dotnet build` works either way.
 `tests/DiscordBot.Tests/TestHelpers/TestDbContextFactory.cs`. There is no
 PostgreSQL test path, so a green test run says nothing about the Postgres
 provider or its migrations. Say so when you report on a change that touches
-them.
+them. An in-memory database also lives inside one connection, so writers cannot
+actually contend: a test about concurrent writes needs
+`TestDbContextFactory.CreateSharedDatabase()`, which is file-backed.
 
 **Background-service tests fail in a full run but pass alone** when something
 starves them. Two rules keep them green: never block a thread-pool thread on

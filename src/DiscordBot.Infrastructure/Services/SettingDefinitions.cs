@@ -135,6 +135,15 @@ public static class SettingDefinitions
             description: "Enable or disable not-X X/Twitter link previews globally (in addition to per-guild settings)"
         ),
         new(
+            key: "Features:CurrencyEnabled",
+            displayName: "Virtual Currency",
+            category: SettingCategory.Features,
+            dataType: SettingDataType.Boolean,
+            defaultValue: "true",
+            requiresRestart: false,
+            description: "Enable or disable virtual currency globally. Off keeps wallets, prices and history readable but charges nothing and refuses the commands"
+        ),
+        new(
             key: "Features:AudioEnabled",
             displayName: "Audio Features",
             category: SettingCategory.Features,
