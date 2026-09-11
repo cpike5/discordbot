@@ -13,6 +13,7 @@ namespace DiscordBot.Bot.Commands;
 [Group("notx", "Configure not-X tweet previews")]
 [RequireUserPermission(GuildPermission.ManageGuild)]
 [RequireGuildActive]
+[RequireNotXEnabled]
 [RateLimit(5, 60)]
 public class NotXCommandModule : InteractionModuleBase<SocketInteractionContext>
 {

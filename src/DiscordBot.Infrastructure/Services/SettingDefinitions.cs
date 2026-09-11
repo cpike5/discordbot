@@ -125,6 +125,15 @@ public static class SettingDefinitions
             description: "Enable or disable the Rat Watch accountability feature globally"
         ),
         new(
+            key: "Features:NotXEnabled",
+            displayName: "not-X Tweet Previews",
+            category: SettingCategory.Features,
+            dataType: SettingDataType.Boolean,
+            defaultValue: "true",
+            requiresRestart: false,
+            description: "Enable or disable not-X X/Twitter link previews globally (in addition to per-guild settings)"
+        ),
+        new(
             key: "Features:AudioEnabled",
             displayName: "Audio Features",
             category: SettingCategory.Features,
