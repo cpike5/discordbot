@@ -30,6 +30,11 @@ public class DashboardEventBusTests
         public required int Value { get; init; }
     }
 
+    private sealed record TestUserEvent : UserScopedEvent
+    {
+        public required int Value { get; init; }
+    }
+
     [Fact]
     public async Task PublishAsync_WithSubscriber_DeliversTheEvent()
     {
@@ -191,5 +196,66 @@ public class DashboardEventBusTests
         using var check = _bus.Subscribe<TestEvent>((_, _) => { secondRoundCount++; return Task.CompletedTask; });
         await _bus.PublishAsync(new TestEvent(2));
         secondRoundCount.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Subscribe_WithUserFilter_OnlyReceivesMatchingUser()
+    {
+        // Arrange
+        const string targetUser = "user-1";
+        const string otherUser = "user-2";
+        var received = new List<TestUserEvent>();
+        using var subscription = _bus.Subscribe<TestUserEvent>(targetUser, (evt, _) =>
+        {
+            received.Add(evt);
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await _bus.PublishAsync(new TestUserEvent { UserId = otherUser, Value = 1 });
+        await _bus.PublishAsync(new TestUserEvent { UserId = targetUser, Value = 2 });
+
+        // Assert
+        received.Should().ContainSingle();
+        received[0].UserId.Should().Be(targetUser);
+        received[0].Value.Should().Be(2);
+    }
+
+    [Fact]
+    public void HasSubscribers_WithNoSubscriber_ReturnsFalse()
+    {
+        // Assert
+        _bus.HasSubscribers<TestEvent>().Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasSubscribers_WithSubscriber_ReturnsTrue()
+    {
+        // Arrange
+        using var subscription = _bus.Subscribe<TestEvent>((_, _) => Task.CompletedTask);
+
+        // Assert
+        _bus.HasSubscribers<TestEvent>().Should().BeTrue();
+    }
+
+    [Fact]
+    public void HasSubscribers_AfterUnsubscribe_ReturnsFalse()
+    {
+        // Arrange
+        var subscription = _bus.Subscribe<TestEvent>((_, _) => Task.CompletedTask);
+        subscription.Dispose();
+
+        // Assert
+        _bus.HasSubscribers<TestEvent>().Should().BeFalse();
+    }
+
+    [Fact]
+    public void HasSubscribers_DoesNotCrossEventTypes()
+    {
+        // Arrange - a subscriber for a different event type must not count for TestEvent.
+        using var subscription = _bus.Subscribe<TestGuildEvent>((_, _) => Task.CompletedTask);
+
+        // Assert
+        _bus.HasSubscribers<TestEvent>().Should().BeFalse();
     }
 }
