@@ -3,6 +3,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
+using DiscordBot.Bot.ViewModels.Components;
 using Microsoft.AspNetCore.Mvc;
 
 namespace DiscordBot.Bot.Pages.Guilds.AudioModerationLog;
@@ -92,11 +93,28 @@ public class IndexModel : PaginatedGuildPageModel
         DateTo.HasValue;
 
     /// <summary>
+    /// Builds the design-system badge for an audio feature type so the desktop table and the
+    /// mobile cards stay in step.
+    /// </summary>
+    public static BadgeViewModel BuildFeatureBadge(AudioFeatureType featureType) => featureType switch
+    {
+        AudioFeatureType.Soundboard => new BadgeViewModel { Text = "Soundboard", Variant = BadgeVariant.Blue, IsPill = true },
+        AudioFeatureType.Tts => new BadgeViewModel { Text = "TTS", Variant = BadgeVariant.Success, IsPill = true },
+        AudioFeatureType.Vox => new BadgeViewModel { Text = "VOX", Variant = BadgeVariant.Orange, IsPill = true },
+        _ => new BadgeViewModel { Text = featureType.ToString(), Variant = BadgeVariant.Default, IsPill = true }
+    };
+
+    /// <summary>
     /// Resolves a Discord user ID to a display name using the Discord client.
     /// Falls back to the raw ID if the user cannot be resolved.
     /// </summary>
     public string ResolveUserName(ulong userId)
     {
+        // Entries written before the portal claim fix carry no user; show that plainly
+        // rather than a bare "0".
+        if (userId == 0)
+            return "Unknown";
+
         try
         {
             var guild = _discordClient.GetGuild(GuildId);

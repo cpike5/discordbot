@@ -187,7 +187,7 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 
 | Component | File | Purpose | ViewModel |
 |-----------|------|---------|-----------|
-| **Badge** | `_Badge.cshtml` | Small labeled tag/status indicator | `BadgeViewModel` |
+| **Badge** | `_Badge.cshtml` | Small labeled tag/status indicator; `IsPill = true` for a fully rounded pill | `BadgeViewModel` |
 | **Rule Type Icon** | `_RuleTypeIcon.cshtml` | Rule type visual indicator | `RuleTypeIconViewModel` |
 | **Pagination** | `_Pagination.cshtml` | Page navigation with first/prev/next/last | `PaginationViewModel` |
 | **Activity Feed** | `_ActivityFeed.cshtml` | List of activity/event items | `ActivityFeedViewModel` |

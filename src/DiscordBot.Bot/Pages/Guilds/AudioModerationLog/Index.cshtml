@@ -1,5 +1,6 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Guilds.AudioModerationLog.IndexModel
+@using DiscordBot.Bot.Pages.Guilds.AudioModerationLog
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Core.Enums
 @{
@@ -144,23 +145,19 @@ else
                                 <span class="text-sm text-text-secondary" data-utc="@entry.PlayedAt.ToString("o")" data-format="datetime"></span>
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
-                                <span class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@Model.GuildId">
-                                    @Model.ResolveUserName(entry.UserId)
-                                </span>
+                                @if (entry.UserId != 0)
+                                {
+                                    <span class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId.ToString()" data-context-guild-id="@Model.GuildId">
+                                        @Model.ResolveUserName(entry.UserId)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-sm text-text-tertiary">Unknown</span>
+                                }
                             </td>
                             <td class="px-4 py-4 whitespace-nowrap">
-                                @{
-                                    var (badgeClass, badgeLabel) = entry.FeatureType switch
-                                    {
-                                        AudioFeatureType.Soundboard => ("bg-accent-blue/20 text-accent-blue", "Soundboard"),
-                                        AudioFeatureType.Tts => ("bg-accent-green/20 text-accent-green", "TTS"),
-                                        AudioFeatureType.Vox => ("bg-accent-orange/20 text-accent-orange", "VOX"),
-                                        _ => ("bg-bg-tertiary text-text-secondary", entry.FeatureType.ToString())
-                                    };
-                                }
-                                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @badgeClass">
-                                    @badgeLabel
-                                </span>
+                                <partial name="Shared/Components/_Badge" model="IndexModel.BuildFeatureBadge(entry.FeatureType)" />
                             </td>
                             <td class="px-4 py-4">
                                 <span class="text-sm text-text-primary truncate block max-w-xs" title="@entry.ContentName">@entry.ContentName</span>
@@ -189,27 +186,23 @@ else
             <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
                 <div class="flex items-start justify-between mb-3">
                     <div>
-                        @{
-                            var (mBadgeClass, mBadgeLabel) = entry.FeatureType switch
-                            {
-                                AudioFeatureType.Soundboard => ("bg-accent-blue/20 text-accent-blue", "Soundboard"),
-                                AudioFeatureType.Tts => ("bg-accent-green/20 text-accent-green", "TTS"),
-                                AudioFeatureType.Vox => ("bg-accent-orange/20 text-accent-orange", "VOX"),
-                                _ => ("bg-bg-tertiary text-text-secondary", entry.FeatureType.ToString())
-                            };
-                        }
-                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium @mBadgeClass">
-                            @mBadgeLabel
-                        </span>
+                        <partial name="Shared/Components/_Badge" model="IndexModel.BuildFeatureBadge(entry.FeatureType)" />
                     </div>
                     <span class="text-xs text-text-tertiary" data-utc="@entry.PlayedAt.ToString("o")" data-format="datetime"></span>
                 </div>
                 <div class="space-y-2">
                     <div class="flex items-center gap-2">
                         <span class="text-sm font-semibold text-text-secondary">User:</span>
-                        <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@Model.GuildId">
-                            @Model.ResolveUserName(entry.UserId)
-                        </span>
+                        @if (entry.UserId != 0)
+                        {
+                            <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId.ToString()" data-context-guild-id="@Model.GuildId">
+                                @Model.ResolveUserName(entry.UserId)
+                            </span>
+                        }
+                        else
+                        {
+                            <span class="text-sm text-text-tertiary">Unknown</span>
+                        }
                     </div>
                     <div>
                         <span class="text-sm font-semibold text-text-secondary">Content:</span>

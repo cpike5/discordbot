@@ -130,7 +130,7 @@ public class PortalTtsIntegrationTests : IDisposable
     {
         var claims = new List<Claim>
         {
-            new Claim("DiscordId", userId?.ToString() ?? "123456789"),
+            new Claim("discord:user_id", userId?.ToString() ?? "123456789"),
             new Claim(ClaimTypes.Name, username ?? "TestUser"),
             new Claim(ClaimTypes.NameIdentifier, userId?.ToString() ?? "123456789")
         };
