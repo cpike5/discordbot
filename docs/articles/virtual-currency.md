@@ -96,3 +96,27 @@ and linked to the ledger row, so the case history and the ledger agree.
 A wallet below zero is locked out of priced features and cannot send currency.
 Nothing else changes: free commands keep working. The way out is a gift from
 another member or a mint — spending can never create debt.
+
+## Priced features
+
+A feature costs currency when there is an active price entry for its feature key
+in this guild. Nothing is priced by default, so every feature stays free until
+someone sets a price.
+
+| Feature | Feature key | What it costs |
+| --- | --- | --- |
+| Soundboard playback | `soundboard:{soundId}` | One price per sound, per guild |
+
+Charging a feature is always hold → play → commit. The price is reserved before
+the work starts, so two plays cannot both go through on funds for one, and it
+only reaches the ledger once the work is accepted. A user who cannot pay is told
+what it costs and what they have, and nothing is written.
+
+For the soundboard specifically — where the price is charged, what a refusal
+looks like in Discord and in the portal, and how the price badge is rendered —
+see [Soundboard](soundboard.md#pricing-sounds).
+
+Members holding one of a price entry's exempt roles pay nothing. A wallet in
+debt is refused regardless of the price.
+
+The admin page for setting prices ships with the portal currency pages.

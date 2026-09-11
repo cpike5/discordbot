@@ -2,6 +2,8 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Portal;
+using DiscordBot.Core.Constants;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -25,6 +27,12 @@ public class IndexModel : PortalPageModelBase
     private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
+    /// <summary>
+    /// Currency lookup for the price badges, or null when <c>Currency:Enabled</c> is false and
+    /// nothing can be priced. Optional so the page still builds with the feature switched off.
+    /// </summary>
+    private readonly ICurrencyService? _currencyService;
+
     public IndexModel(
         ISoundService soundService,
         IGuildAudioSettingsRepository audioSettingsRepository,
@@ -34,7 +42,8 @@ public class IndexModel : PortalPageModelBase
         IPlaybackService playbackService,
         ISettingsService settingsService,
         UserManager<ApplicationUser> userManager,
-        ILogger<IndexModel> logger)
+        ILogger<IndexModel> logger,
+        ICurrencyService? currencyService = null)
         : base(guildService, discordClient, userManager, logger)
     {
         _soundService = soundService;
@@ -43,6 +52,7 @@ public class IndexModel : PortalPageModelBase
         _playbackService = playbackService;
         _settingsService = settingsService;
         _logger = logger;
+        _currencyService = currencyService;
     }
 
     /// <summary>
@@ -145,16 +155,26 @@ public class IndexModel : PortalPageModelBase
             // Get audio settings for limits
             var settings = await _audioSettingsRepository.GetOrCreateAsync(guildId, cancellationToken);
 
+            // Prices for the badges. Everything is free until an admin sets a price, so the common
+            // case is an empty lookup and no badges at all.
+            var prices = await GetSoundPricesAsync(guildId, cancellationToken);
+
             // Map sounds to portal view models
             var soundViewModels = sounds
-                .Select(s => new PortalSoundViewModel
+                .Select(s =>
                 {
-                    Id = s.Id,
-                    Name = s.Name,
-                    PlayCount = s.PlayCount,
-                    DurationSeconds = s.DurationSeconds,
-                    UploadedById = s.UploadedById?.ToString(),
-                    UploadedAt = s.UploadedAt
+                    prices.TryGetValue(CurrencyFeatureKeys.Soundboard(s.Id), out var price);
+                    return new PortalSoundViewModel
+                    {
+                        Id = s.Id,
+                        Name = s.Name,
+                        PlayCount = s.PlayCount,
+                        DurationSeconds = s.DurationSeconds,
+                        UploadedById = s.UploadedById?.ToString(),
+                        UploadedAt = s.UploadedAt,
+                        Price = price?.Amount,
+                        CurrencySymbol = price?.CurrencySymbol
+                    };
                 })
                 .ToList();
 
@@ -214,6 +234,55 @@ public class IndexModel : PortalPageModelBase
         {
             _logger.LogError(ex, "Failed to load Soundboard Portal for guild {GuildId}", guildId);
             return StatusCode(500);
+        }
+    }
+
+    /// <summary>
+    /// Builds the feature-key lookup of active soundboard prices in this guild.
+    /// <para>
+    /// Returns an empty lookup when the currency feature is off (by configuration or by the
+    /// runtime setting), when nothing is priced, and when the lookup fails: a missing badge is not
+    /// a reason to fail the page.
+    /// </para>
+    /// </summary>
+    /// <param name="guildId">The guild's Discord snowflake ID.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task<Dictionary<string, PriceEntryDto>> GetSoundPricesAsync(
+        ulong guildId,
+        CancellationToken cancellationToken)
+    {
+        if (_currencyService == null)
+        {
+            return new Dictionary<string, PriceEntryDto>();
+        }
+
+        try
+        {
+            // Badges follow the same runtime switch as the charge: with the feature off nothing is
+            // charged, so nothing should be advertised as costing anything either.
+            var currencyEnabled = await _settingsService.GetSettingValueAsync<bool?>(
+                "Features:CurrencyEnabled", cancellationToken) ?? true;
+
+            if (!currencyEnabled)
+            {
+                return new Dictionary<string, PriceEntryDto>();
+            }
+
+            var prices = await _currencyService.GetPricesForGuildAsync(guildId, cancellationToken);
+
+            return prices
+                .Where(p => p.IsActive && p.FeatureKey.StartsWith(
+                    CurrencyFeatureKeys.SoundboardArea + ":", StringComparison.Ordinal))
+                // A guild entry and a global entry can share a feature key; the guild's wins, the
+                // same way the charge seam resolves it.
+                .OrderByDescending(p => p.GuildId.HasValue)
+                .GroupBy(p => p.FeatureKey, StringComparer.Ordinal)
+                .ToDictionary(g => g.Key, g => g.First(), StringComparer.Ordinal);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not load soundboard prices for guild {GuildId}", guildId);
+            return new Dictionary<string, PriceEntryDto>();
         }
     }
 }

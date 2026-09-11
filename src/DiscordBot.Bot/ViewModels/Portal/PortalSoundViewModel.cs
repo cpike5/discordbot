@@ -46,4 +46,15 @@ public record PortalSoundViewModel
     /// Gets the category name for this sound, if assigned.
     /// </summary>
     public string? CategoryName { get; init; }
+
+    /// <summary>
+    /// Gets what playing this sound costs in the guild, in whole units, or null when it is free.
+    /// Null is also what every sound shows while the currency feature is switched off.
+    /// </summary>
+    public long? Price { get; init; }
+
+    /// <summary>
+    /// Gets the symbol of the currency <see cref="Price"/> is in, for the price badge.
+    /// </summary>
+    public string? CurrencySymbol { get; init; }
 }

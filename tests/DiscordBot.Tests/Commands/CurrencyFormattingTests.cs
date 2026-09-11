@@ -130,6 +130,47 @@ public class CurrencyFormattingTests
 
     #endregion
 
+    #region DescribeChargeRefusal
+
+    [Fact]
+    public void DescribeChargeRefusal_InsufficientFunds_NamesTheSubjectThePriceAndTheBalance()
+    {
+        var message = CurrencyFormatting.DescribeChargeRefusal(
+            ChargeHoldStatus.InsufficientFunds, price: 5, balance: 2, symbol: "\U0001FA99", subject: "This sound");
+
+        message.Should().Be("This sound costs 5 \U0001FA99. You have 2 \U0001FA99.");
+    }
+
+    [Fact]
+    public void DescribeChargeRefusal_WithoutASubject_FallsBackToTheGenericWording()
+    {
+        CurrencyFormatting.DescribeChargeRefusal(ChargeHoldStatus.InsufficientFunds, 5, 2, "\U0001FA99")
+            .Should().StartWith("This costs");
+    }
+
+    [Fact]
+    public void DescribeChargeRefusal_InDebt_ShowsTheDebtAsAPositiveAmountAndTheLock()
+    {
+        var message = CurrencyFormatting.DescribeChargeRefusal(
+            ChargeHoldStatus.InDebt, price: 5, balance: -40, symbol: "\U0001FA99");
+
+        message.Should().Contain("40 \U0001FA99").And.NotContain("-40");
+        message.Should().Contain("above zero");
+    }
+
+    [Theory]
+    [InlineData(ChargeHoldStatus.CurrencyInactive)]
+    [InlineData(ChargeHoldStatus.NoWallet)]
+    public void DescribeChargeRefusal_WhenTheCurrencyIsUnusable_SaysSoWithoutAnAmount(ChargeHoldStatus status)
+    {
+        var message = CurrencyFormatting.DescribeChargeRefusal(status, price: 5, balance: 0, symbol: null);
+
+        message.Should().NotBeNullOrWhiteSpace();
+        message.Should().NotContain("5");
+    }
+
+    #endregion
+
     #region Embeds
 
     [Fact]

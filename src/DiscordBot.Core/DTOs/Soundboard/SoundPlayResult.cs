@@ -1,4 +1,5 @@
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 
 namespace DiscordBot.Core.DTOs.Soundboard;
 
@@ -33,4 +34,32 @@ public class SoundPlayResult
     /// Null if sound is playing immediately.
     /// </summary>
     public int? QueuePosition { get; set; }
+
+    /// <summary>
+    /// Gets or sets what the charge seam decided when the sound was priced.
+    /// <para>
+    /// Null when the currency feature is switched off entirely.
+    /// <see cref="ChargeHoldStatus.Free"/> when no price applies or the user is exempt,
+    /// <see cref="ChargeHoldStatus.Held"/> when the price was reserved and then charged, and any
+    /// other value on a refusal, which the caller renders from <see cref="ErrorMessage"/>.
+    /// </para>
+    /// </summary>
+    public ChargeHoldStatus? ChargeStatus { get; set; }
+
+    /// <summary>
+    /// Gets or sets the price of this sound in the guild, in whole units. Null when nothing was
+    /// priced; zero when the user pays nothing.
+    /// </summary>
+    public long? Price { get; set; }
+
+    /// <summary>
+    /// Gets or sets the user's balance in the priced currency: what they had when a refusal was
+    /// decided, or what they have left after a charge.
+    /// </summary>
+    public long? Balance { get; set; }
+
+    /// <summary>
+    /// Gets or sets the symbol of the priced currency, for rendering amounts next to it.
+    /// </summary>
+    public string? CurrencySymbol { get; set; }
 }

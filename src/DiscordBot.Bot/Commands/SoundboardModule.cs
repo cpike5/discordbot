@@ -128,6 +128,21 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
 
             if (!result.Success)
             {
+                // A priced sound the user cannot pay for is a refusal, not a fault: it gets the
+                // price and the balance rather than "Playback Failed" and an error log.
+                if (result.ChargeStatus is ChargeHoldStatus refusal and not (ChargeHoldStatus.Free or ChargeHoldStatus.Held))
+                {
+                    _logger.LogInformation(
+                        "Play of '{SoundName}' by user {UserId} in guild {GuildId} refused: {ChargeStatus}",
+                        soundName, userId, guildId, refusal);
+
+                    var title = refusal == ChargeHoldStatus.InDebt ? "You're in Debt" : "Not Enough Funds";
+                    await RespondAsync(
+                        embed: EmbedHelper.Error(title, result.ErrorMessage ?? "This sound could not be paid for."),
+                        ephemeral: true);
+                    return;
+                }
+
                 _logger.LogError("Failed to play sound '{SoundName}': {ErrorMessage}", soundName, result.ErrorMessage);
 
                 await RespondAsync(embed: EmbedHelper.Error("Playback Failed", result.ErrorMessage ?? "An unknown error occurred."), ephemeral: true);
@@ -137,6 +152,15 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
             // Get filter display text for embed
             var filterText = filter != AudioFilter.None && AudioFilters.Definitions.TryGetValue(filter, out var filterDef)
                 ? $" (with {filterDef.Name} effect)"
+                : string.Empty;
+
+            // A priced sound says what it cost and what is left, so nobody has to run
+            // `/wallet balance` to find out where their money went.
+            var costText = result.Price is > 0 && !string.IsNullOrEmpty(result.CurrencySymbol)
+                ? $"\n\nCost: {CurrencyFormatting.Amount(result.Price.Value, result.CurrencySymbol)}" +
+                  (result.Balance.HasValue
+                      ? $" — balance: {CurrencyFormatting.Amount(result.Balance.Value, result.CurrencySymbol)}"
+                      : string.Empty)
                 : string.Empty;
 
             // Determine response based on whether sound was queued or playing immediately
@@ -158,7 +182,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 }
                 else
                 {
-                            await RespondAsync(embed: EmbedHelper.EmptyState("Sound Queued", $"Queued: **{sound.Name}**{filterText} (position: {result.QueuePosition})"), ephemeral: true);
+                            await RespondAsync(embed: EmbedHelper.EmptyState("Sound Queued", $"Queued: **{sound.Name}**{filterText} (position: {result.QueuePosition}){costText}"), ephemeral: true);
                 }
             }
             else
@@ -178,7 +202,7 @@ public class SoundboardModule : InteractionModuleBase<SocketInteractionContext>
                 }
                 else
                 {
-                    await RespondAsync(embed: EmbedHelper.Success("Now Playing", $"Now playing: **{sound.Name}**{filterText}"), ephemeral: true);
+                    await RespondAsync(embed: EmbedHelper.Success("Now Playing", $"Now playing: **{sound.Name}**{filterText}{costText}"), ephemeral: true);
                 }
             }
         }

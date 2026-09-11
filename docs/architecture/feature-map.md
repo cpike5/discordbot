@@ -29,7 +29,7 @@ The soundboard system allows guild members to play pre-uploaded audio files in v
 | **UI Pages** | Portal: Soundboard player page; Admin: Sounds management (`SoundsController`) |
 | **Database Entities** | `Sound`, `SoundPlayLog`, `GuildAudioSettings`, `AudioPlaybackLog` |
 | **Storage** | Audio files on disk (configurable path) |
-| **Key Features** | Queue management, audio filtering (distortion, echo, pitch shift), silent playback mode, auto-leave voice channels |
+| **Key Features** | Queue management, audio filtering (distortion, echo, pitch shift), silent playback mode, auto-leave voice channels, optional per-sound pricing through the currency charge seam |
 | **Rate Limiting** | 5 commands per 10 seconds |
 
 **Architecture Flow**:
@@ -37,10 +37,20 @@ The soundboard system allows guild members to play pre-uploaded audio files in v
 User invokes /play → SoundboardModule →
   SoundService (fetch sound) →
   SoundboardOrchestrationService (handle queue/filter) →
+  ChargeService (hold the price, if the sound has one) →
   PlaybackService (manage playback queue) →
+  ChargeService (commit the hold once playback is accepted) →
   AudioService (join channel, play audio) →
   SoundPlayLog (record usage)
 ```
+
+**Pricing**: a sound is free unless a guild admin prices `soundboard:{soundId}`
+(`CurrencyFeatureKeys.Soundboard`). `SoundboardOrchestrationService.PlaySoundAsync` takes an
+optional `IChargeService?` — null when `Currency:Enabled` is false — and holds the price after the
+audio-enabled and voice-connection checks, commits it when the sound is accepted for playback, and
+releases it on every other exit. A refusal comes back on `SoundPlayResult.ChargeStatus` /
+`Price` / `Balance` / `CurrencySymbol`; `/play` renders it as an embed and the portal play endpoint
+as `402 Payment Required`.
 
 ---
 
@@ -296,7 +306,7 @@ Ledger-backed virtual currency. Authorized people create currencies scoped to a 
 | **Discord Commands** | `/wallet balance`, `/wallet history`, `/wallet pay`, `/wallet mint`, `/wallet fine` (WalletModule, WalletComponentModule); `/currency create`, `/currency list` (CurrencyModule) |
 | **Services** | `ICurrencyService`, `IWalletService`, `IMintService`, `IChargeService`, `IChargeHoldStore` |
 | **Repositories** | `ICurrencyRepository`, `IWalletRepository`, `ILedgerRepository`, `IPriceRepository`, `IMintAuthorityRepository` |
-| **UI Pages** | Portal currency pages (planned, PR 5) |
+| **UI Pages** | Portal soundboard price badges; portal currency pages (planned, PR 5) |
 | **Database Entities** | `Currency`, `Wallet`, `LedgerTransaction`, `MintAuthority`, `PriceEntry` |
 | **Configuration** | `Currency:Enabled`, `HoldExpirySeconds`, `MaxTransferPerMinute`, `DefaultDebtFloor`, `HistoryPageSize` |
 | **Key Features** | Append-only ledger with idempotency keys, cached balances, mint authorities (user/role/system), hold-commit-release charging for priced features, fines clamped at zero or a debt floor, transfer confirmation and history pagination buttons |
@@ -304,6 +314,9 @@ Ledger-backed virtual currency. Authorized people create currencies scoped to a 
 **Autocomplete**: `CurrencyAutocompleteHandler` suggests the currencies visible in the guild — the guild's own plus the active globals — and sends the currency ID as the value.
 
 **Preconditions**: `[RequireGuildActive]`, `[RequireCurrencyEnabled]`; `/wallet fine` adds `[RequireModerator]`, `/currency create` requires Discord Administrator, `/wallet pay` carries `[RateLimitTransfers]`.
+
+**Priced features**: soundboard playback (`soundboard:{soundId}`) is the first and, so far, only
+consumer of `IChargeService`. See the Soundboard section above.
 
 **User guide**: `docs/articles/virtual-currency.md`. **Spec**: `docs/specs/virtual-currency-spec.md`.
 

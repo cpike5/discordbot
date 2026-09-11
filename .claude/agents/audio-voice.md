@@ -17,6 +17,16 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Controllers:** `SoundsController`, `AudioController`, `PortalSoundboardController`
 - **Pages:** `Guilds/Soundboard/Index.cshtml`, `Portal/Soundboard/Index.cshtml`
 - **Config:** `SoundboardOptions`, `AudioCacheOptions`
+- **Pricing hook:** `SoundboardOrchestrationService` takes an optional `IChargeService?` (null when
+  `Currency:Enabled` is false, which is the rollback path — every sound plays free).
+  `PlaySoundAsync` holds the price of `soundboard:{soundId}` —
+  `CurrencyFeatureKeys.Soundboard(soundId)`, and a price saved under a different spelling of the
+  key is never found — after the audio-enabled and voice-connection checks, commits it once the
+  sound is accepted for playback, and releases it in a `finally` on every other exit. Refusals come
+  back on `SoundPlayResult.ChargeStatus` / `Price` / `Balance` / `CurrencySymbol` with
+  `ErrorMessage` already worded by `CurrencyFormatting.DescribeChargeRefusal`; `SoundboardModule`
+  renders them as an embed and `PortalSoundboardPlaybackController` as `402 Payment Required`. See
+  `docs/articles/soundboard.md` § Pricing sounds.
 
 ### Text-to-Speech (Azure)
 - **Entities:** `TtsMessage`, `GuildTtsSettings`
@@ -59,5 +69,8 @@ You are a domain expert for the **Audio & Voice** stream of a Discord bot manage
 - **Azure TTS connection failures** (`WS_OPEN_ERROR_UNDERLYING_IO_OPEN_FAILED`, SDK `ConnectionFailure`/`ServiceTimeout`/`ServiceUnavailable`) are retried once in `AzureTtsService` and then thrown as `TtsUpstreamUnavailableException` (Core, derives from `InvalidOperationException`); `TtsSendPipeline` and `PortalTtsSynthesisController` map it to `503 tts_upstream_unavailable`. Other SDK cancellations stay `InvalidOperationException` → `400 tts_not_configured`. Tests override `AzureTtsService.RunSynthesisAttemptAsync` instead of hitting the SDK.
 - **Audio settings are per-guild** via `GuildAudioSettings`
 - **Leaving voice must go through `IVoiceChannel.DisconnectAsync()`** (→ `SocketGuild.DisconnectAudioAsync`). Calling `IAudioClient.StopAsync()`/`Dispose()` directly only closes the voice websocket; the gateway voice state is never cleared, so Discord keeps showing the bot in the channel while `AudioService.IsConnected` says false, and Discord.NET's `SocketGuild._audioClient` is left pointing at a disposed client. See `docs/lessons-learned/voice-channel-state-drift.md`.
+- **Charge on accepted playback, not on completion.** A sound someone skips half way through is
+  still paid for. Anything added between the hold and `PlaybackService.PlayAsync` must leave via a
+  `return` or a throw so the `finally` releases the hold — never swallow a failure and carry on.
 - **Portal pages** use separate controllers (PortalSoundboardController, PortalTtsController, PortalVoxController)
 - **Rate limiting:** VOX commands: 5 per 10 seconds
