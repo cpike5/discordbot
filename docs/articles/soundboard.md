@@ -10,6 +10,7 @@ The Soundboard feature provides:
 - Admin UI for sound management and configuration
 - Configurable storage limits and audio settings per guild
 - Real-time playback status via SignalR
+- Optional per-sound pricing in a virtual currency (see [Pricing sounds](#pricing-sounds))
 
 ## Prerequisites
 
@@ -418,8 +419,14 @@ Plays a sound in the bot's current voice channel.
 }
 ```
 
+On a priced sound the 200 response also carries `price`, `balance` and `currencySymbol` so the
+page can show what the play cost.
+
 **Error Responses:**
 - **400 Bad Request** - Audio disabled, bot not in voice channel, or sound not found
+- **402 Payment Required** - The sound is priced and the member cannot pay for it. `message` is
+  the sentence to show ("This sound costs 5 🪙. You have 2 🪙."), and `errorCode` is
+  `insufficient_funds`, `in_debt`, or `currency_unavailable`.
 - **404 Not Found** - Sound file missing
 
 #### List Voice Channels
@@ -760,11 +767,55 @@ sounds/
 
 1. User runs `/play airhorn` (optionally with `filter:Nightcore`)
 2. Bot verifies user is in voice channel (or auto-joins)
-3. Sound file is located on disk
-4. FFmpeg transcodes to PCM (48kHz, 16-bit, stereo), applying filter if specified
-5. Audio is encrypted via libsodium
-6. Opus-encoded audio streams to Discord voice server
-7. Play count is incremented
+3. If the sound is priced, the price is reserved against the user's wallet (see
+   [Pricing sounds](#pricing-sounds)); a user who cannot pay is refused here
+4. Sound file is located on disk
+5. FFmpeg transcodes to PCM (48kHz, 16-bit, stereo), applying filter if specified
+6. Audio is encrypted via libsodium
+7. Opus-encoded audio streams to Discord voice server
+8. Any reserved price is committed to the ledger
+9. Play count is incremented
+
+## Pricing sounds
+
+Playing a sound can cost virtual currency. Nothing is priced by default, so a guild that has not
+set a price behaves exactly as it always did.
+
+A price is a `PriceEntry` on the feature key `soundboard:{soundId}` — built by
+`CurrencyFeatureKeys.Soundboard(soundId)`, so a price saved under any other spelling of the key is
+never found. At most one active price applies per sound per guild, and members holding one of the
+entry's exempt roles play it for nothing.
+
+**What happens on a play**
+
+1. `SoundboardOrchestrationService.PlaySoundAsync` runs the usual checks: audio enabled globally,
+   audio enabled for the guild, bot connected to voice.
+2. It then asks `IChargeService.TryHoldAsync` for `soundboard:{soundId}`. No price, an exempt
+   role, or `Currency:Enabled = false` all come back as free and nothing is reserved.
+3. A refusal (`InsufficientFunds`, `InDebt`, `CurrencyInactive`, `NoWallet`) returns an
+   unsuccessful `SoundPlayResult` carrying `ChargeStatus`, `Price`, `Balance` and
+   `CurrencySymbol`, before any voice work happens.
+4. On a successful hold the sound plays, and the hold is committed to a ledger `Spend` row the
+   moment the sound is **accepted for playback** — queued or started. A sound someone else skips
+   half way through is still paid for.
+5. Every other way out — sound deleted, file missing, playback threw, request cancelled —
+   releases the hold and writes nothing.
+
+**What the user sees**
+
+- `/play` on a refusal: an ephemeral embed titled "Not Enough Funds" or "You're in Debt" with the
+  price and the balance. On a successful priced play, the "Now Playing" embed adds
+  `Cost: 5 🪙 — balance: 15 🪙`.
+- The member portal: a price badge on every priced sound card, and a warning toast carrying the
+  same sentence when a play is refused (the endpoint answers `402 Payment Required`).
+
+**Switching it off.** With `Currency:Enabled = false` the currency services are never registered,
+the soundboard's optional `IChargeService?` is null, and every sound plays free. That is the
+rollback path; no soundboard setting has to change.
+
+The admin page for setting prices lands with the portal currency pages. Until then a price can only
+be created through `ICurrencyService.SetPriceAsync`. See
+[Virtual Currency](virtual-currency.md) for currencies, wallets and the ledger.
 
 ## Queue vs Replace Mode
 
@@ -811,3 +862,4 @@ The bot maintains a persistent PCM stream per guild. If audio fails after the fi
 - [Audio Dependencies](audio-dependencies.md) - FFmpeg, libsodium, libopus setup
 - [SignalR Real-Time Updates](signalr-realtime.md) - Dashboard real-time notifications
 - [Unified Now Playing](unified-now-playing.md) - Shared Now Playing component architecture
+- [Virtual Currency](virtual-currency.md) - Currencies, wallets, and the charge seam that prices sounds

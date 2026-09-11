@@ -84,6 +84,42 @@ public static class CurrencyFormatting
         _ => "The request could not be completed."
     };
 
+    /// <summary>
+    /// Turns a refused <see cref="ChargeHoldStatus"/> into the sentence a priced feature shows
+    /// instead of doing the thing. Every caller renders the same wording, so a refusal reads the
+    /// same in Discord and in the portal.
+    /// </summary>
+    /// <param name="status">Why the charge seam said no.</param>
+    /// <param name="price">What the feature costs here.</param>
+    /// <param name="balance">What the user had when the decision was made.</param>
+    /// <param name="symbol">Symbol of the priced currency.</param>
+    /// <param name="subject">
+    /// What is being paid for, as the subject of the sentence: "This sound" reads better on a
+    /// soundboard refusal than the generic "This".
+    /// </param>
+    public static string DescribeChargeRefusal(
+        ChargeHoldStatus status,
+        long price,
+        long balance,
+        string? symbol,
+        string subject = "This")
+    {
+        var currency = symbol ?? string.Empty;
+
+        return status switch
+        {
+            ChargeHoldStatus.InsufficientFunds =>
+                $"{subject} costs {Amount(price, currency)}. You have {Amount(balance, currency)}.",
+            ChargeHoldStatus.InDebt =>
+                $"You owe {Amount(Math.Abs(balance), currency)}. Priced features are locked until you're back above zero.",
+            ChargeHoldStatus.CurrencyInactive =>
+                "The currency this is priced in has been deactivated, so it can't be paid for right now.",
+            ChargeHoldStatus.NoWallet =>
+                "The currency this is priced in is no longer available, so it can't be paid for right now.",
+            _ => "This could not be paid for right now."
+        };
+    }
+
     /// <summary>Builds the balance card for one or more wallets.</summary>
     public static Embed BalanceEmbed(string username, IReadOnlyList<WalletDto> wallets)
     {

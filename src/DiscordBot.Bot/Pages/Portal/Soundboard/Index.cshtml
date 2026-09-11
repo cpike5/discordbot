@@ -744,6 +744,27 @@
         color: var(--color-text-secondary);
     }
 
+    /* Price badge on a sound that costs currency to play. The other three corners are taken by
+       the preview, favourite and delete buttons. */
+    .sound-price {
+        position: absolute;
+        bottom: 0.5rem;
+        left: 0.5rem;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        padding: 0.1rem 0.4rem;
+        border-radius: 9999px;
+        background-color: var(--color-bg-tertiary);
+        border: 1px solid var(--color-border-primary);
+        font-size: 0.6875rem;
+        font-weight: 600;
+        line-height: 1.4;
+        color: var(--color-warning);
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
     /* Category Filter Bar */
     .category-filter-bar {
         display: flex;
@@ -1240,7 +1261,9 @@ else
         uploadedById = s.UploadedById ?? "",
         uploadedAt = s.UploadedAt?.ToString("o") ?? "",
         categoryId = s.CategoryId?.ToString() ?? "",
-        categoryName = s.CategoryName ?? ""
+        categoryName = s.CategoryName ?? "",
+        price = s.Price,
+        currencySymbol = s.CurrencySymbol ?? ""
     })))</script>
 
     <script>

@@ -361,6 +361,16 @@
             ? `<div class="sound-duration">${formatDuration(sound.durationSeconds)}</div>`
             : '';
 
+        // Priced sounds wear what they cost. Unpriced ones - every sound until an admin sets a
+        // price - render nothing at all.
+        const price = Number(sound.price);
+        const priceLabel = Number.isFinite(price) && price > 0
+            ? price + (sound.currencySymbol ? ' ' + sound.currencySymbol : '')
+            : '';
+        const priceHtml = priceLabel
+            ? `<div class="sound-price" title="Costs ${escapeHtml(priceLabel)} to play">${escapeHtml(priceLabel)}</div>`
+            : '';
+
         card.innerHTML = `
             <button class="preview-btn" data-sound-id="${sound.id}" title="Preview in browser" aria-label="Preview ${escapeHtml(sound.name)} in browser">
                 <svg style="width: 20px; height: 20px;" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -380,6 +390,7 @@
             <div class="sound-name">${escapeHtml(sound.name)}</div>
             <div class="sound-plays">${sound.playCount || 0} plays</div>
             ${durationHtml}
+            ${priceHtml}
             ${deleteButtonHtml}
         `;
 
@@ -960,6 +971,12 @@
                 ToastManager.show('warning', 'Please join a voice channel first!');
                 return Promise.reject('not_connected');
             }
+            // 402 Payment Required: the sound is priced and the wallet could not cover it. That
+            // is a refusal to show as a warning with the price, not a failure to retry.
+            if (error instanceof ApiClient.ApiClientError && error.status === 402) {
+                ToastManager.show('warning', error.message || 'You cannot afford this sound.');
+                return Promise.reject('payment_required');
+            }
             throw error;
         })
         .then(data => {
@@ -976,7 +993,7 @@
             }
         })
         .catch(error => {
-            if (error === 'not_connected') return;
+            if (error === 'not_connected' || error === 'payment_required') return;
             ToastManager.show('error', error.message || 'Failed to play sound. Please try again.');
         });
     }

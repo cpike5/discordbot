@@ -1,6 +1,9 @@
 using Discord.WebSocket;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
+using DiscordBot.Core.Constants;
+using DiscordBot.Core.DTOs;
 using DiscordBot.Core.DTOs.Soundboard;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -26,6 +29,13 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
     private readonly ILogger<SoundboardOrchestrationService> _logger;
 
     /// <summary>
+    /// The charge seam, or null when the currency feature is switched off. With
+    /// <c>Currency:Enabled</c> false nothing registers <see cref="IChargeService"/>, so this is
+    /// null and every sound plays free — which is the feature's rollback path.
+    /// </summary>
+    private readonly IChargeService? _chargeService;
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="SoundboardOrchestrationService"/> class.
     /// </summary>
     /// <param name="soundService">The sound service for metadata operations.</param>
@@ -36,7 +46,12 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
     /// <param name="settingsService">The bot-level settings service.</param>
     /// <param name="audioNotifier">The audio notifier for real-time updates.</param>
     /// <param name="discordClient">The Discord socket client for resolving user display names.</param>
+    /// <param name="audioModerationLogService">The audio moderation log service.</param>
     /// <param name="logger">The logger.</param>
+    /// <param name="chargeService">
+    /// The currency charge seam, or null when <c>Currency:Enabled</c> is false. Optional so the
+    /// soundboard still constructs with the currency feature switched off.
+    /// </param>
     public SoundboardOrchestrationService(
         ISoundService soundService,
         ISoundFileService soundFileService,
@@ -47,7 +62,8 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         IAudioNotifier audioNotifier,
         DiscordSocketClient discordClient,
         IAudioModerationLogService audioModerationLogService,
-        ILogger<SoundboardOrchestrationService> logger)
+        ILogger<SoundboardOrchestrationService> logger,
+        IChargeService? chargeService = null)
     {
         _soundService = soundService;
         _soundFileService = soundFileService;
@@ -59,6 +75,7 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         _discordClient = discordClient;
         _audioModerationLogService = audioModerationLogService;
         _logger = logger;
+        _chargeService = chargeService;
     }
 
     /// <inheritdoc/>
@@ -253,6 +270,12 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
         _logger.LogInformation("Play sound request for sound {SoundId} in guild {GuildId} by user {UserId}",
             soundId, guildId, userId);
 
+        // The price is held once the play is otherwise allowed and committed only when the sound
+        // is accepted for playback. Every other way out of this method leaves the hold open, and
+        // the finally below drops it, so a refused or failed play never costs anyone anything.
+        ChargeHoldResult? charge = null;
+        var chargeSettled = false;
+
         try
         {
             // Check if audio is globally enabled at the bot level
@@ -289,6 +312,27 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 {
                     Success = false,
                     ErrorMessage = "The bot must be connected to a voice channel before playing sounds."
+                };
+            }
+
+            // Reserve the price, if this sound has one. An unpriced sound, an exempt user, and a
+            // bot with the currency feature switched off all take the free path unchanged.
+            charge = await TryHoldPriceAsync(guildId, soundId, userId, cancellationToken);
+            if (charge != null && !charge.IsAllowed)
+            {
+                _logger.LogInformation(
+                    "Play of sound {SoundId} in guild {GuildId} by user {UserId} refused: {ChargeStatus}",
+                    soundId, guildId, userId, charge.Status);
+                BotActivitySource.SetSuccess(activity);
+                return new SoundPlayResult
+                {
+                    Success = false,
+                    ErrorMessage = CurrencyFormatting.DescribeChargeRefusal(
+                        charge.Status, charge.Price, charge.Balance, charge.CurrencySymbol, "This sound"),
+                    ChargeStatus = charge.Status,
+                    Price = charge.Price,
+                    Balance = charge.Balance,
+                    CurrencySymbol = charge.CurrencySymbol
                 };
             }
 
@@ -342,6 +386,11 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
             _logger.LogInformation("Successfully started playback of sound {SoundName} ({SoundId}) in guild {GuildId}",
                 sound.Name, sound.Id, guildId);
 
+            // The sound is accepted for playback, so it is paid for. Someone skipping it partway
+            // through does not get anyone their money back; that is the point of charging here.
+            var balanceAfter = await CommitPriceAsync(charge, guildId, soundId, cancellationToken);
+            chargeSettled = true;
+
             // Log play event
             await _soundService.LogPlayAsync(sound.Id, guildId, userId, cancellationToken);
 
@@ -355,7 +404,13 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 Success = true,
                 Sound = sound,
                 WasQueued = willBeQueued,
-                QueuePosition = queuePosition
+                QueuePosition = queuePosition,
+                ChargeStatus = charge?.Status,
+                // A balance means the spend landed. Nothing held, or a commit that got away,
+                // leaves all three null so nobody is shown a cost they were not charged.
+                Price = balanceAfter.HasValue ? charge!.Price : null,
+                Balance = balanceAfter,
+                CurrencySymbol = balanceAfter.HasValue ? charge!.CurrencySymbol : null
             };
         }
         catch (Exception ex)
@@ -369,6 +424,91 @@ public class SoundboardOrchestrationService : ISoundboardOrchestrationService
                 Sound = null
             };
         }
+        finally
+        {
+            // Every path that did not reach playback gets here with the hold still open.
+            if (!chargeSettled && _chargeService != null && charge?.HoldId is Guid holdId)
+            {
+                // Not the caller's token: a cancelled play still has to give the money back.
+                await _chargeService.ReleaseAsync(holdId, CancellationToken.None);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Asks the charge seam to reserve this sound's price, or returns null when the currency
+    /// feature is switched off — by configuration or by the runtime setting — and there is
+    /// nothing to charge against.
+    /// </summary>
+    /// <param name="guildId">Discord guild snowflake ID.</param>
+    /// <param name="soundId">The sound being played.</param>
+    /// <param name="userId">Discord user snowflake ID paying.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task<ChargeHoldResult?> TryHoldPriceAsync(
+        ulong guildId,
+        Guid soundId,
+        ulong userId,
+        CancellationToken cancellationToken)
+    {
+        if (_chargeService == null)
+        {
+            return null;
+        }
+
+        // The same runtime switch the currency commands check. An administrator turning the
+        // feature off stops sounds costing anything, without touching any price entry.
+        var currencyEnabled = await _settingsService.GetSettingValueAsync<bool?>(
+            "Features:CurrencyEnabled", cancellationToken) ?? true;
+
+        if (!currencyEnabled)
+        {
+            return null;
+        }
+
+        // A fresh key per attempt: two plays of the same sound are two charges, while a retried
+        // commit of one attempt still writes one row.
+        var idempotencyKey = $"sound:{guildId}:{soundId}:{userId}:{Guid.NewGuid()}";
+
+        return await _chargeService.TryHoldAsync(
+            userId,
+            guildId,
+            CurrencyFeatureKeys.Soundboard(soundId),
+            idempotencyKey,
+            cancellationToken);
+    }
+
+    /// <summary>
+    /// Turns a hold into the ledger's <c>Spend</c> row and returns the balance left behind, or
+    /// null when nothing was held or the commit did not land.
+    /// </summary>
+    /// <param name="charge">The hold taken before playback, if any.</param>
+    /// <param name="guildId">Discord guild snowflake ID, for logging.</param>
+    /// <param name="soundId">The sound being played, for logging.</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    private async Task<long?> CommitPriceAsync(
+        ChargeHoldResult? charge,
+        ulong guildId,
+        Guid soundId,
+        CancellationToken cancellationToken)
+    {
+        if (_chargeService == null || charge?.HoldId is not Guid holdId)
+        {
+            return null;
+        }
+
+        var commit = await _chargeService.CommitAsync(holdId, cancellationToken);
+        if (commit.Success)
+        {
+            return commit.Balance;
+        }
+
+        // The sound is already going out over the wire, so this is a charge that got away rather
+        // than a play that failed. The charge service has dropped the hold either way.
+        _logger.LogWarning(
+            "Could not charge for sound {SoundId} in guild {GuildId} after playback started: {Error}",
+            soundId, guildId, commit.Error);
+
+        return null;
     }
 
     /// <inheritdoc/>

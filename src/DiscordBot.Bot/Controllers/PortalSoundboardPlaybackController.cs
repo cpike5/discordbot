@@ -2,6 +2,7 @@ using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Elastic.Apm;
 using Microsoft.AspNetCore.Authorization;
@@ -47,6 +48,7 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
     // TODO: Add rate limiting [EnableRateLimiting("portal-play")] when policy is configured
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status402PaymentRequired)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
     public async Task<IActionResult> PlaySound(
         ulong guildId,
@@ -83,6 +85,24 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             queueEnabled,
             cancellationToken: cancellationToken);
 
+        // A priced sound the member cannot pay for is its own answer: Payment Required, with the
+        // price sentence in Message so the toast shows it rather than a generic failure.
+        if (result.ChargeStatus is ChargeHoldStatus refusal and not (ChargeHoldStatus.Free or ChargeHoldStatus.Held))
+        {
+            _logger.LogInformation(
+                "Portal play of sound {SoundId} in guild {GuildId} by user {UserId} refused: {ChargeStatus}",
+                soundId, guildId, userId, refusal);
+
+            return StatusCode(StatusCodes.Status402PaymentRequired, new ApiErrorDto
+            {
+                Message = result.ErrorMessage ?? "This sound could not be paid for.",
+                Detail = result.ErrorMessage,
+                StatusCode = StatusCodes.Status402PaymentRequired,
+                TraceId = HttpContext.GetCorrelationId(),
+                ErrorCode = ChargeErrorCode(refusal)
+            });
+        }
+
         if (!result.Success)
         {
             var statusCode = result.ErrorMessage?.Contains("not found") == true
@@ -99,8 +119,27 @@ public class PortalSoundboardPlaybackController : PortalSoundboardControllerBase
             });
         }
 
-        return Ok(new { Message = "Playing sound", SoundName = result.Sound!.Name, SoundId = soundId });
+        return Ok(new
+        {
+            Message = "Playing sound",
+            SoundName = result.Sound!.Name,
+            SoundId = soundId,
+            Price = result.Price,
+            Balance = result.Balance,
+            CurrencySymbol = result.CurrencySymbol
+        });
     }
+
+    /// <summary>
+    /// The machine-readable code the portal script branches on for a refused charge.
+    /// </summary>
+    /// <param name="status">Why the charge seam said no.</param>
+    private static string ChargeErrorCode(ChargeHoldStatus status) => status switch
+    {
+        ChargeHoldStatus.InsufficientFunds => "insufficient_funds",
+        ChargeHoldStatus.InDebt => "in_debt",
+        _ => "currency_unavailable"
+    };
 
     /// <summary>
     /// Gets all available voice channels in the guild.
