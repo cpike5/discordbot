@@ -29,6 +29,12 @@
     (_mobileExpanded) and the styles into VoiceChannelPanel.razor.css (contract point 6). No
     upfront "is audio enabled for this guild" check (AudioController's IGuildAudioSettingsService
     guard) - out of scope for a widget built only on the interfaces named in the task brief.
+
+    Fidelity deviation: IconPaths.Microphone now renders the Heroicons v2 microphone outline
+    instead of the v1 shape _VoiceChannelPanel.cshtml renders inline, per the IconPaths merge
+    (docs/plans/blazor-port-plan.md §5 Phase 2 step 1) - the name collided with the TTS preset
+    bar/mode switcher's v2 usage, and the v2 path is the one that verifies against the published
+    Heroicons SVG.
 *@
 
 <div id="voice-channel-panel"

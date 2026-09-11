@@ -13,7 +13,13 @@
    "focus left the whole dropdown" apart from "focus moved from the toggle to one of its own
    options" via onfocusout alone isn't reliable without JS interop, which the tier brief rules out
    for this component. Escape, selecting an option, or the toggle button itself all close it;
-   clicking elsewhere on the page does not. *@
+   clicking elsewhere on the page does not.
+
+   Fidelity deviation: IconPaths.Check (the selected-option indicator) now renders the Heroicons
+   v2 checkmark instead of the v1 shape _SortDropdown.cshtml renders inline, per the IconPaths
+   merge (docs/plans/blazor-port-plan.md §5 Phase 2 step 1) - the name collided with the TTS
+   voice selector/preset bar's v2 usage, and the v2 path is the one that verifies against the
+   published Heroicons SVG. *@
 
 <div class="relative" @attributes="AdditionalAttributes">
     <button type="button"
