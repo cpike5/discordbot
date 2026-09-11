@@ -1,0 +1,293 @@
+# Blazor Component Library
+
+Conventions for the design-system component library being built at
+`src/DiscordBot.Bot/Blazor/Shared/` — Phase 2 of the Blazor port
+(`docs/plans/blazor-port-plan.md` §4.6, §5 "Phase 2"). Every component in this library derives
+from a shipped Graphite v2 Razor Pages partial in `Pages/Shared/Components/_*.cshtml` (view
+models in `ViewModels/Components/`); ground truth for markup, classes, ARIA attributes and
+variants is always the partial and the `@layer components` classes in `wwwroot/css/site.css`,
+never the (pre-v2, stale) samples in §4 of `design-system.md`.
+
+See "Blazor Components" in `docs/architecture/patterns.md` for the hosting model, render-mode
+rules, and auth-in-circuits — this page is about the component library specifically.
+
+## Component contract
+
+Every component in this library follows the same shape. Read this section before adding one.
+
+1. **Location and namespace.** Files live in `src/DiscordBot.Bot/Blazor/Shared/<Group>/<Name>.razor`
+   (+ an optional `<Name>.razor.cs` code-behind partial, + an optional `<Name>.razor.css`
+   isolation file), and every `.razor` file declares `@namespace DiscordBot.Bot.Blazor.Shared`
+   explicitly at the top — regardless of which `<Group>` subfolder it lives in. That one
+   namespace, already covered by a single `@using DiscordBot.Bot.Blazor.Shared` in
+   `Blazor/_Imports.razor`, is what lets a consumer use any component in the library without
+   knowing which group it's filed under. The groups are:
+
+   | Group | Contents |
+   | --- | --- |
+   | `Primitives` | Button, Badge, Alert, Card, Skeleton, EmptyState, ... |
+   | `Forms` | FormField, TextInput, Select, Toggle, ... |
+   | `Navigation` | TabGroup, Breadcrumb, Pagination, ... |
+   | `Overlays` | Modal, ConfirmModal, ToastHost, ... |
+   | `Widgets` | Live/dashboard components (ActivityFeed, BotStatusCard, ...) |
+   | `Tts` | VoiceSelector, StyleSelector, PresetBar, ... |
+   | `Icons` | `Icon`, `IconPaths` |
+
+2. **Parameters mirror the partial's view model**, PascalCase, `[Parameter]`. Use
+   `[Parameter, EditorRequired]` for the ones the view model marks `required` — none of the view
+   models ported so far use C#'s `required` modifier (they're all mutable records with defaults),
+   so `EditorRequired` is applied by judgment: a parameter with no sensible default (an icon
+   `Path`, a required id) gets it; everything else stays optional with the same default the view
+   model had. **Never use the C# `required` modifier or an `init` accessor on a `[Parameter]`** —
+   Blazor sets parameters via reflection after construction, which both features defeat (see
+   `05-components.md` in the Blazor skill).
+
+3. **Slots are `RenderFragment` / `RenderFragment<T>`, never HTML strings.** Every partial's
+   `HeaderContent`/`BodyContent`/`FooterContent`/`HeaderActions` is a `string?` filled by the
+   caller with `@Html.Raw(...)`-injected markup — the single biggest structural mismatch with
+   Blazor (see `blazor-port-inventory.md` Part 3 §2, "Slot pattern used throughout"). Every one of
+   those becomes a typed slot on the component:
+   - The main body slot is always named `ChildContent` (the Blazor convention — it's what
+     `<Card>...</Card>` child markup binds to without an explicit tag).
+   - Named slots keep the partial's name: `HeaderContent`, `FooterContent`, `HeaderActions`.
+   - A slot that iterates typed data (a table row template, a list item) is `RenderFragment<T>`.
+
+4. **Every raw-JS-string callback becomes an `EventCallback`.** `OnClick`, `DismissCallback`,
+   `OnRemove`, `OnModeChange`, `OnFormatChange`, and the rest of the `string?` "JavaScript handler
+   name" parameters throughout `ViewModels/Components/` become `EventCallback` (no argument) or
+   `EventCallback<T>` (`MouseEventArgs`, a typed value, ...). The two view models that
+   regex-validate their callback as a JS identifier in their `init` setter
+   (`EmphasisToolbarViewModel.OnFormatChange`, `PauseModalViewModel.OnInsertCallback`) lose that
+   validation code entirely — an `EventCallback` can't be an invalid identifier.
+
+5. **Pass-through attributes and classes.** Every component declares
+   `[Parameter(CaptureUnmatchedValues = true)] public Dictionary<string, object>? AdditionalAttributes { get; set; }`
+   splatted on the root element with `@attributes="AdditionalAttributes"`, plus a
+   `[Parameter] public string? Class { get; set; }` appended to the root element's own computed
+   class list (after it, so a caller's override class can win on specificity ties the same way
+   the partials merge `Model.CssClass`/`Model.AdditionalAttributes["class"]` today).
+
+6. **Styling.** Only the existing Tailwind utilities and the `@layer components` classes already
+   in `site.css` (`btn-*`, `badge-*`, `card*`, `alert-*`, `skeleton`, `status-*`, the token colors
+   `bg-bg-*`, `text-text-*`, `text-accent-*`, ...). No hex values, no inline `style` that sets a
+   color. **Reproduce the partial's classes exactly — this phase does not restyle anything.** An
+   inline `<style>` block that exists in a partial today moves to that component's `.razor.css`
+   isolation file; no other component gets one. Because Tailwind purges by literal class-name
+   token (the `safelist` in `tailwind.config.js` only covers the `btn-`/`badge-`/`card-`/...
+   *prefixes*, not arbitrary interpolation), a class string built in C# must always contain the
+   full literal token: `$"btn-{variant}"` where `variant` is a small closed enum is fine,
+   `$"text-{colour}-500"` is not — enumerate the possibilities in a `switch` instead (see
+   `LoadingSpinner`'s `border-accent-orange` / `border-accent-blue` for a worked example: two
+   literal branches, not one interpolated one).
+
+7. **Discord IDs are `string` in any parameter that reaches markup** — a `ulong` guild/user/channel
+   ID is fine in C# logic, but the moment it is bound into an `href`, a `data-*` attribute, or an
+   `IJSRuntime.InvokeAsync` call, convert it to `string` first (same rule as `'@Model.GuildId'` in
+   Razor Pages — see the Gotchas section of `CLAUDE.md`).
+
+8. **Icons go through `<Icon>`.** No inline `<svg>` for a stroke-outline icon and no raw path
+   string sitting in a component parameter as a magic literal — reference a named constant on
+   `Icons/IconPaths.cs` (`IconPaths.ChevronDown`, not a `"M19 9l-7 7-7-7"` literal at the call
+   site). The one exception is a partial whose icon markup isn't a 24×24 stroke-outline icon at
+   all — `_Badge.cshtml`'s `IconLeft` is a 20×20 **filled** Heroicon sized by the `.badge svg` CSS
+   rule (0.75rem), not the `w-*/h-*` Tailwind sizing `<Icon>` uses — reproduce that markup
+   literally instead of forcing it through `<Icon>`.
+
+9. **Accessibility attributes identical to the partial** — every `aria-*`, `role`, and
+   `aria-hidden` on a decorative SVG carries over unchanged. Where a partial is visibly
+   inconsistent about this (some of the Tier 1a partials put `aria-hidden="true"` on a decorative
+   icon, others of the same shape omit it), the component takes the more correct, more consistent
+   behavior rather than reproducing the omission — `<Icon>` always sets `aria-hidden="true"`
+   unless a `Title` is given, which is strictly an accessibility improvement on top of markup that
+   is otherwise unchanged.
+
+10. **Tests and showcase.** Every component ships a bUnit test class at
+    `tests/DiscordBot.ComponentTests/Blazor/Shared/<Group>/<Name>Tests.cs` (derive from
+    `BlazorComponentTestContext`, see its XML doc for what it wires up) covering every
+    variant/size/state enum value, slot rendering, callback invocation, and `Class` /
+    `AdditionalAttributes` pass-through — and an entry on the `/components` showcase page (built
+    tier by tier as `*Showcase.razor` sections under `Blazor/Pages/Components/Sections/`, composed
+    into the routable page in the PR that replaces `Pages/Components.cshtml`).
+
+### Worked example
+
+`Alert` from `_Alert.cshtml` / `AlertViewModel`, showing the pattern end to end — a view-model
+`string?` becomes a typed parameter, a `DismissCallback` raw-JS-string becomes an `EventCallback`,
+and (per the "self-manage" note already called out for this one in
+`blazor-port-inventory.md`) the component owns its own dismissed state instead of relying on the
+caller to stop rendering it:
+
+```razor
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@if (!_dismissed)
+{
+    <div class="flex items-start gap-3 p-4 rounded-lg border @BgClass @BorderClass @TextClass @Class"
+         role="alert" aria-live="polite" @attributes="AdditionalAttributes">
+        @if (ShowIcon)
+        {
+            <Icon Path="@IconPath" Size="IconSize.MD" Class="flex-shrink-0 mt-0.5" />
+        }
+        <div class="flex-1">
+            @if (!string.IsNullOrEmpty(Title))
+            {
+                <h3 class="text-sm font-semibold">@Title</h3>
+            }
+            <p class="text-sm opacity-90 @(!string.IsNullOrEmpty(Title) ? "mt-1" : "")">
+                @(ChildContent is not null ? ChildContent : (RenderFragment)(b => b.AddContent(0, Message)))
+            </p>
+        </div>
+        @if (IsDismissible)
+        {
+            <button type="button" class="p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss"
+                    @onclick="HandleDismiss">
+                <Icon Path="IconPaths.XMark" Size="IconSize.MD" />
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public AlertVariant Variant { get; set; } = AlertVariant.Info;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public string Message { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public bool IsDismissible { get; set; }
+    [Parameter] public bool ShowIcon { get; set; } = true;
+    [Parameter] public EventCallback OnDismiss { get; set; }
+    [Parameter] public string? Class { get; set; }
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _dismissed;
+
+    // Self-hides when the caller doesn't care to be told (no OnDismiss delegate); a caller that
+    // does supply one is assumed to own removing this Alert from whatever list rendered it, so
+    // the component defers instead of hiding out from under a still-truthy caller-side flag.
+    private async Task HandleDismiss()
+    {
+        if (OnDismiss.HasDelegate)
+        {
+            await OnDismiss.InvokeAsync();
+        }
+        else
+        {
+            _dismissed = true;
+        }
+    }
+
+    private string IconPath => Variant switch
+    {
+        AlertVariant.Success => IconPaths.CheckCircle,
+        AlertVariant.Warning => IconPaths.ExclamationTriangle,
+        AlertVariant.Error => IconPaths.XCircle,
+        _ => IconPaths.InformationCircle
+    };
+
+    private string BgClass => Variant switch { AlertVariant.Success => "bg-success/10", AlertVariant.Warning => "bg-warning/10", AlertVariant.Error => "bg-error/10", _ => "bg-info/10" };
+    private string BorderClass => Variant switch { AlertVariant.Success => "border-success/30", AlertVariant.Warning => "border-warning/30", AlertVariant.Error => "border-error/30", _ => "border-info/30" };
+    private string TextClass => Variant switch { AlertVariant.Success => "text-success", AlertVariant.Warning => "text-warning", AlertVariant.Error => "text-error", _ => "text-info" };
+}
+```
+
+### Gotchas that apply here specifically
+
+- A component with `@onclick` (or any other interactive directive) only actually runs once the
+  page hosting it opts into `@rendermode InteractiveServer` — that's the page's concern, not the
+  component's; the component itself is render-mode agnostic and works identically under static
+  SSR (minus the event handlers firing) or an interactive circuit.
+- Don't call `StateHasChanged` from a parameter setter — react to parameter changes in
+  `OnParametersSet(Async)` instead (see `05-components.md`).
+- An `EventCallback` raised from a non-UI thread (a background subscription, a timer) must be
+  invoked through `InvokeAsync` to marshal back onto the component's synchronization context —
+  not relevant to any Tier 1a component (none of them subscribe to anything), but it applies the
+  moment a Tier 4 live widget calls back into a parent.
+
+## Tiers
+
+Build order, from `blazor-port-plan.md` §4.6. Each tier only depends on tiers before it (a
+Tier 2 form component may use a Tier 1 `Icon` or `Badge`; nothing in Tier 1 depends on Tier 2+).
+
+| Tier | Components | Interop |
+| --- | --- | --- |
+| 1 Primitives | Button, Badge, Alert, Card, Skeleton, SkeletonCard, LoadingSpinner, EmptyState, StatusIndicator, StatusBadge, SeverityBadge, RuleTypeIcon, Icon, HeroMetricCard, GuildStatsCard, DashboardWidget, Breadcrumb, PageHeader, GuildHeader, Pagination, Kbd | none |
+| 2 Forms | FormField, TextInput, Select (with optgroups), Toggle, TextArea, SettingField, Autocomplete (native rewrite), FilterPanel, SortDropdown, DateRangeFilter | `browser.js` for localStorage on DateRangeFilter |
+| 3 Navigation & overlays | TabGroup, Modal, ConfirmModal, ToastHost + `IToastService`, PreviewPopover (user/guild), LoadingOverlay + `ILoadingState`, GuildContextSelector, Highlight, RestartBanner | `browser.js` (focus trap, click-outside, positioning) |
+| 4 Live widgets | BotStatusBanner/Card (one subscription, no pollers), ActivityFeed, ConnectionStatus, NotificationBell, QuickActionsCard, ConnectedServersWidget, AuditLogCard, RecentActivityCard (make its refresh button work), CommandStatsCard, Chart, VoiceChannelPanel | `charts.js`; event bus |
+| 5 TTS | VoiceSelector, StyleSelector, PresetBar, ModeSwitcher, SsmlPreview, EmphasisToolbar, PauseModal | `browser.js` textarea selection + clipboard; `ssml-markers.js` |
+
+This document built **Tier 1a** — the base primitives every later component composes with:
+`Icon`, `Button`, `Badge`, `Alert`, `Card`, `Skeleton`, `SkeletonCard`, `LoadingSpinner`,
+`EmptyState`, `Kbd`. The rest of Tier 1 (StatusIndicator, StatusBadge, SeverityBadge,
+RuleTypeIcon, HeroMetricCard, GuildStatsCard, DashboardWidget, Breadcrumb, PageHeader,
+GuildHeader, Pagination) lands in a later PR of this same tier.
+
+## Consolidations
+
+The port merges several near-duplicate partials into one Blazor component rather than porting
+both sides separately (full rationale for each pair is in `blazor-port-inventory.md` Part 3 §5.2,
+"Inconsistencies between components"):
+
+| Merge into | Absorbs | How |
+| --- | --- | --- |
+| `Card` | `_Card` + `_EnhancedCard` | One component; `Accent="CardAccent.None"` (default) renders the plain `.card` markup, any other `Accent` renders the `.card-enhanced` markup with the gradient top border, `HoverLift`/`CompactPadding` (enhanced-only concepts) apply only on that path. |
+| `TabGroup` | `_NavTabs` + `_TabPanel` | One component with an in-page mode (conditional rendering, no JS) and a navigation mode (`NavLink`); the AJAX partial-swap mode both partials support is dropped — there is no reason to fetch and inject another route's HTML from inside a Blazor circuit. |
+| `ConfirmModal` | `_ConfirmationModal` + `_TypedConfirmationModal` | One component; `RequiredText` (unset by default) turns on the typed-confirmation behavior — `CanConfirm` becomes `RequiredText is null || Input == RequiredText` instead of a second component. |
+| `ActivityFeed` | `_ActivityFeed` + `_ActivityFeedTimeline` | One component that owns a `List<ActivityItem>` and appends from its own event-bus subscription — the `<template>`-cloning / SignalR-hub-script pattern both partials rely on has no reason to survive; a native Blazor re-render replaces it entirely. |
+| `Breadcrumb` | `_Breadcrumb` (root) + `_GuildBreadcrumb` + `_CommandBreadcrumb` | One component taking a typed `IReadOnlyList<BreadcrumbItem>`; the root partial's untyped `ViewData["Breadcrumbs"]` tuple list and `_CommandBreadcrumb`'s hardcoded 3-tab special case both go away — callers build the list explicitly. |
+| `Toggle` | `_FormToggle` (Forms tier) + the settings-page toggle | One `<InputCheckbox>`-style component; the `data-setting-toggle` DOM-scanning dirty-tracking convention becomes explicit component/`EditContext` state. |
+| `ToastHost` | `_ToastContainer` (root, top-right, `TempData`-bridged) + `_ToastContainer` (Components/, bottom-right) | One component + `IToastService`; the `TempData` flash-message bridge has no equivalent need once a form action is an `EventCallback` inside the same circuit rather than a full page post. |
+| `FilterPanel` | `FilterPanelTagHelper` + its orphaned view model | One component; the tag helper's attribute-based API becomes ordinary `[Parameter]`s. |
+| `Highlight` | `HighlightTagHelper` | One component; same reasoning. |
+
+## Component reference
+
+Each tier appends its rows here as it lands. Full per-partial detail (view model, JS coupling,
+proposed mapping) is in `blazor-port-inventory.md` Part 3 §2 — this table is the "what actually
+shipped" record, kept current as the source of truth for what exists today.
+
+### Icons
+
+| Component | From partial | Parameters |
+| --- | --- | --- |
+| `Icon` | (new — replaces the inline `<svg>` mix every other partial uses) | `Path` (required), `Size` (`IconSize?`, no default — omit for a `Class`-driven size), `Class`, `Title`, `StrokeWidth` (`string`, default `"2"`), `AdditionalAttributes` |
+
+`IconPaths` is a static class of Heroicons-outline `d` path constants, named by Heroicon name
+(`XMark`, `ChevronDown`, `Plus`, `CheckCircle`, `ExclamationTriangle`, `XCircle`,
+`InformationCircle`, `FolderOpen`, `MagnifyingGlass`, `Sparkles`, `ExclamationCircle`,
+`LockClosed`, `SignalSlash` as of Tier 1a). Later tiers add to it rather than introducing a second
+icon-constants class.
+
+### Primitives
+
+| Component | From partial(s) | Key parameters |
+| --- | --- | --- |
+| `Button` | `_Button` / `ButtonViewModel` | `Text`, `ChildContent`, `Variant` (`ButtonVariant`), `Size` (`ButtonSize`), `Type`, `IconLeft`/`IconRight`, `IsDisabled`, `IsLoading` + `LoadingText`, `IsIconOnly` + `AriaLabel`, `OnClick`, `Href`, `Class`, `AdditionalAttributes` |
+| `Badge` | `_Badge` / `BadgeViewModel` | `Text`, `ChildContent`, `Variant` (`BadgeVariant`), `Size` (`BadgeSize`), `Style` (`BadgeStyle`), `IconLeft`, `IsRemovable` + `OnRemove`, `Class`, `AdditionalAttributes` |
+| `Alert` | `_Alert` / `AlertViewModel` | `Variant` (`AlertVariant`), `Title`, `Message`/`ChildContent`, `IsDismissible`, `ShowIcon`, `OnDismiss`, `Class`, `AdditionalAttributes` |
+| `Card` | `_Card` + `_EnhancedCard` / `CardViewModel` + `EnhancedCardViewModel` | `Title`, `Subtitle`, `HeaderContent`, `HeaderActions`, `ChildContent`, `FooterContent`, `Variant` (`CardVariant`, plain-card path only), `Accent` (`CardAccent`), `HoverLift`, `CompactPadding`, `IsInteractive` + `OnClick`, `IsCollapsible` + `IsExpanded`/`IsExpandedChanged`, `Id`, `Class`, `AdditionalAttributes` |
+| `Skeleton` | `_Skeleton` / `SkeletonViewModel` | `Type` (`SkeletonType`), `Width`, `Height`, `Rounded`, `Animate`, `Class`, `AdditionalAttributes` |
+| `SkeletonCard` | `_SkeletonCard` / `SkeletonCardViewModel` | `Type` (`SkeletonCardType`), `ShowHeader`, `Class`, `AdditionalAttributes` |
+| `LoadingSpinner` | `_LoadingSpinner` / `LoadingSpinnerViewModel` | `Variant` (`SpinnerVariant`), `Size` (`SpinnerSize`), `Message`, `SubMessage`, `Color` (`SpinnerColor`), `IsOverlay`, `Class`, `AdditionalAttributes` |
+| `EmptyState` | `_EmptyState` / `EmptyStateViewModel` | `Type` (`EmptyStateType`), `Title`, `Description`, `IconPath` (override), `PrimaryActionText` + `PrimaryActionHref`/`OnPrimaryAction`, `SecondaryActionText` + `SecondaryActionHref`, `Size` (`EmptyStateSize`), `Class`, `AdditionalAttributes` |
+| `Kbd` | (new — the `.kbd` class in `site.css`, not wired to any partial today) | `ChildContent`, `Class`, `AdditionalAttributes` |
+
+### Forms
+
+_Tier 2 — not yet built._
+
+### Navigation
+
+_Tier 3 — not yet built._
+
+### Overlays
+
+_Tier 3 — not yet built._
+
+### Widgets
+
+_Tier 4 — not yet built._
+
+### Tts
+
+_Tier 5 — not yet built._
