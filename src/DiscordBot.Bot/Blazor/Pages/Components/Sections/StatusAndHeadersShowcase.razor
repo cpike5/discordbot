@@ -1,0 +1,279 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Components.Sections
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@* Non-routable showcase section for the Tier 1b status/header/pagination primitives, mirroring
+   what Pages/Components.cshtml shows today for StatusIndicator and Pagination (the only two of
+   this tier's components that page already has a section for) and adding equivalent variant
+   coverage for the rest, following the same layout convention PrimitivesShowcase.razor uses (see
+   docs/articles/blazor-components.md "Component contract", point 10). *@
+
+<div class="space-y-8" data-testid="status-and-headers-showcase">
+    <!-- Status Indicators -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-status-indicators">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Status Indicators</h3>
+            <p class="text-sm text-text-secondary mt-1">Visual status displays for users and services</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Dot Only</h4>
+                <div class="flex flex-wrap gap-4">
+                    <StatusIndicator Status="StatusType.Online" DisplayStyle="StatusDisplayStyle.DotOnly" />
+                    <StatusIndicator Status="StatusType.Idle" DisplayStyle="StatusDisplayStyle.DotOnly" />
+                    <StatusIndicator Status="StatusType.Busy" DisplayStyle="StatusDisplayStyle.DotOnly" />
+                    <StatusIndicator Status="StatusType.Offline" DisplayStyle="StatusDisplayStyle.DotOnly" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Dot With Text</h4>
+                <div class="flex flex-wrap gap-4">
+                    <StatusIndicator Status="StatusType.Online" Text="Online" DisplayStyle="StatusDisplayStyle.DotWithText" />
+                    <StatusIndicator Status="StatusType.Idle" Text="Idle" DisplayStyle="StatusDisplayStyle.DotWithText" />
+                    <StatusIndicator Status="StatusType.Busy" Text="Busy" DisplayStyle="StatusDisplayStyle.DotWithText" />
+                    <StatusIndicator Status="StatusType.Offline" Text="Offline" DisplayStyle="StatusDisplayStyle.DotWithText" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Badge Style</h4>
+                <div class="flex flex-wrap gap-3">
+                    <StatusIndicator Status="StatusType.Online" Text="Online" DisplayStyle="StatusDisplayStyle.BadgeStyle" />
+                    <StatusIndicator Status="StatusType.Idle" Text="Away" DisplayStyle="StatusDisplayStyle.BadgeStyle" />
+                    <StatusIndicator Status="StatusType.Busy" Text="Do Not Disturb" DisplayStyle="StatusDisplayStyle.BadgeStyle" />
+                    <StatusIndicator Status="StatusType.Offline" Text="Offline" DisplayStyle="StatusDisplayStyle.BadgeStyle" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Pulsing Animation</h4>
+                <div class="flex flex-wrap gap-4">
+                    <StatusIndicator Status="StatusType.Online" Text="Bot Active" DisplayStyle="StatusDisplayStyle.DotWithText" IsPulsing="true" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Sizes</h4>
+                <div class="flex flex-wrap items-center gap-4">
+                    <StatusIndicator Status="StatusType.Online" Text="Small" Size="StatusSize.Small" />
+                    <StatusIndicator Status="StatusType.Online" Text="Medium" Size="StatusSize.Medium" />
+                    <StatusIndicator Status="StatusType.Online" Text="Large" Size="StatusSize.Large" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Moderation badges: StatusBadge / SeverityBadge / RuleTypeIcon -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-moderation-badges">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Moderation Badges</h3>
+            <p class="text-sm text-text-secondary mt-1">Flagged-event status, severity, and rule-type indicators (wwwroot/css/moderation.css)</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Status Badge (FlaggedEventStatus)</h4>
+                <div class="flex flex-wrap gap-2">
+                    <StatusBadge Status="FlaggedEventStatus.Pending" />
+                    <StatusBadge Status="FlaggedEventStatus.Dismissed" />
+                    <StatusBadge Status="FlaggedEventStatus.Acknowledged" />
+                    <StatusBadge Status="FlaggedEventStatus.Actioned" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Severity Badge (Severity)</h4>
+                <div class="flex flex-wrap gap-2">
+                    <SeverityBadge Severity="Severity.Low" />
+                    <SeverityBadge Severity="Severity.Medium" />
+                    <SeverityBadge Severity="Severity.High" />
+                    <SeverityBadge Severity="Severity.Critical" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Rule Type Icon (RuleType)</h4>
+                <div class="flex flex-wrap items-center gap-4">
+                    <RuleTypeIcon RuleType="RuleType.Spam" />
+                    <RuleTypeIcon RuleType="RuleType.Content" />
+                    <RuleTypeIcon RuleType="RuleType.Raid" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hero Metric Cards -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-hero-metric-cards">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Hero Metric Cards</h3>
+            <p class="text-sm text-text-secondary mt-1">Large-emphasis dashboard statistics with trend and sparkline</p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <HeroMetricCard Title="Total Servers" Value="12" TrendValue="+2" TrendDirection="TrendDirection.Up" TrendLabel="this week"
+                                 AccentColor="CardAccent.Blue" IconPath="IconPaths.Server" DataAttribute="data-total-guilds" />
+                <HeroMetricCard Title="Commands Today" Value="1,847" TrendValue="-5%" TrendDirection="TrendDirection.Down" TrendLabel="vs yesterday"
+                                 AccentColor="CardAccent.Orange" IconPath="IconPaths.CheckCircle" />
+                <HeroMetricCard Title="Uptime" Value="99.9%" TrendValue="0%" TrendDirection="TrendDirection.Neutral" TrendLabel="14 days stable"
+                                 AccentColor="CardAccent.Success" ShowSparkline="true" SparklineData="@_sparkline">
+                    <IconContent>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </IconContent>
+                </HeroMetricCard>
+            </div>
+        </div>
+    </section>
+
+    <!-- Guild Stats Card -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-guild-stats-card">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Guild Stats Card</h3>
+            <p class="text-sm text-text-secondary mt-1">Server count summary card</p>
+        </div>
+        <div class="p-6">
+            <div class="max-w-sm">
+                <GuildStatsCard TotalGuilds="12" ActiveGuilds="9" InactiveGuilds="3" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Dashboard Widget -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-dashboard-widget">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Dashboard Widget</h3>
+            <p class="text-sm text-text-secondary mt-1">Widget shell with header actions, detail link, and body/empty-state slots</p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <DashboardWidget Title="Recent Activity" Subtitle="Last 24 hours" IconPath="IconPaths.CheckCircle" IsEnabled="true"
+                                  DetailUrl="#" DetailLinkText="View All →"
+                                  HeaderActions="@_widgetHeaderActions">
+                    <p class="text-text-secondary text-sm">3 commands executed, 1 moderation action taken.</p>
+                </DashboardWidget>
+                <DashboardWidget Title="Custom Commands" IsEnabled="false" ColSpan="1"
+                                  EmptyState="@(new EmptyStateViewModel { Type = EmptyStateType.NoData, Title = "No Commands Yet", Description = "Create your first custom command.", PrimaryActionText = "Create Command", PrimaryActionUrl = "#" })" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Breadcrumb -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-breadcrumb">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Breadcrumb</h3>
+            <p class="text-sm text-text-secondary mt-1">Merges the root, guild, and command breadcrumb partials into one typed component</p>
+        </div>
+        <div class="p-6 space-y-4">
+            <Breadcrumb Items="@_breadcrumbItems" />
+            <Breadcrumb Items="@_singleBreadcrumbItem" />
+        </div>
+    </section>
+
+    <!-- Page Header -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-page-header">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Page Header</h3>
+            <p class="text-sm text-text-secondary mt-1">Simple title/subtitle header, optionally with an actions slot</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <PageHeader Title="Commands" Subtitle="Browse every registered slash command" />
+            <PageHeader Title="Audit Logs" Subtitle="Every administrative action, newest first">
+                <Actions>
+                    <Button Text="Export" Variant="ButtonVariant.Secondary" Size="ButtonSize.Small" />
+                </Actions>
+            </PageHeader>
+        </div>
+    </section>
+
+    <!-- Guild Header -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-guild-header">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Guild Header</h3>
+            <p class="text-sm text-text-secondary mt-1">Guild icon/name, page title and description, status badge, and action buttons</p>
+        </div>
+        <div class="p-6">
+            <GuildHeader GuildId="123456789012345678" Name="Awesome Gaming Community"
+                         PageTitle="Server Settings" PageDescription="Configure moderation, audio, and bot behavior for this server."
+                         Actions="@_headerActions"
+                         StatusBadge="@(new BadgeViewModel { Text = "Active", Variant = BadgeVariant.Success, Style = BadgeStyle.Subtle })" />
+        </div>
+    </section>
+
+    <!-- Pagination -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-pagination">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Pagination</h3>
+            <p class="text-sm text-text-secondary mt-1">Navigation controls for paginated content - link mode (BaseUrl) and callback mode (OnPageChanged)</p>
+        </div>
+        <div class="p-6 space-y-8">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Full Style (link mode)</h4>
+                <div>
+                    <Pagination CurrentPage="3" TotalPages="10" TotalItems="247" PageSize="25" Style="PaginationStyle.Full"
+                                ShowItemCount="true" BaseUrl="/components" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Simple Style (link mode)</h4>
+                <div>
+                    <Pagination CurrentPage="2" TotalPages="5" Style="PaginationStyle.Simple" BaseUrl="/components" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Compact Style (link mode)</h4>
+                <div>
+                    <Pagination CurrentPage="4" TotalPages="8" Style="PaginationStyle.Compact" BaseUrl="/components" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Bordered Style (link mode, page size selector)</h4>
+                <div>
+                    <Pagination CurrentPage="1" TotalPages="6" PageSize="10" Style="PaginationStyle.Bordered"
+                                ShowPageSizeSelector="true" BaseUrl="/components" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Callback Mode (no BaseUrl - renders buttons)</h4>
+                <div class="space-y-2">
+                    <Pagination CurrentPage="@_callbackPage" TotalPages="5" Style="PaginationStyle.Full"
+                                OnPageChanged="@(p => _callbackPage = p)" />
+                    <span class="text-xs text-text-tertiary" data-testid="pagination-callback-page">Current page: @_callbackPage</span>
+                </div>
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private readonly List<int> _sparkline = new() { 40, 65, 55, 70, 80, 75, 100 };
+
+    private readonly List<WidgetHeaderAction> _widgetHeaderActions = new()
+    {
+        new WidgetHeaderAction { Text = "Settings", Url = "#" }
+    };
+
+    private readonly IReadOnlyList<BreadcrumbItem> _breadcrumbItems = new List<BreadcrumbItem>
+    {
+        new() { Label = "Home", Url = "/" },
+        new() { Label = "Servers", Url = "/servers" },
+        new() { Label = "Awesome Gaming Community", IsCurrent = true }
+    };
+
+    private readonly IReadOnlyList<BreadcrumbItem> _singleBreadcrumbItem = new List<BreadcrumbItem>
+    {
+        new() { Label = "Current Page", IsCurrent = true }
+    };
+
+    private readonly List<HeaderAction> _headerActions = new()
+    {
+        new HeaderAction { Label = "Save Changes", Url = "#", Icon = IconPaths.CheckCircle, Style = HeaderActionStyle.Primary },
+        new HeaderAction { Label = "View on Discord", Url = "#", Style = HeaderActionStyle.Secondary, OpenInNewTab = true },
+        new HeaderAction { Label = "Advanced Settings", Url = "#", Style = HeaderActionStyle.Link }
+    };
+
+    private int _callbackPage = 1;
+}

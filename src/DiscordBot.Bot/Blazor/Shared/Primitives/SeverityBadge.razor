@@ -1,0 +1,37 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Core.Enums
+
+@* Ported from _SeverityBadge.cshtml, whose "model" is the Core Severity enum directly - no
+   ViewModel wrapper. Classes (.severity-badge / .severity-* / .pulse-dot) come from
+   wwwroot/css/moderation.css. *@
+
+<span class="@Merge("severity-badge " + SeverityClass)" @attributes="AdditionalAttributes">
+    @if (Severity == Severity.Critical)
+    {
+        <span class="pulse-dot"></span>
+    }
+    @Label
+</span>
+
+@code {
+    [Parameter] public Severity Severity { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private (string SeverityClass, string Label) SeverityAndLabel => Severity switch
+    {
+        Severity.Low => ("severity-low", "Low"),
+        Severity.Medium => ("severity-medium", "Medium"),
+        Severity.High => ("severity-high", "High"),
+        Severity.Critical => ("severity-critical", "Critical"),
+        _ => ("severity-low", "Unknown")
+    };
+
+    private string SeverityClass => SeverityAndLabel.SeverityClass;
+    private string Label => SeverityAndLabel.Label;
+
+    private string Merge(string baseClasses) => string.Join(" ", new[] { baseClasses, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+}

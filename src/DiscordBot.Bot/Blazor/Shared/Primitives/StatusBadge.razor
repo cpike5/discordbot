@@ -1,0 +1,32 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Core.Enums
+
+@* Ported from _StatusBadge.cshtml, whose "model" is the Core FlaggedEventStatus enum directly -
+   no ViewModel wrapper. Classes (.status-badge / .status-*) come from wwwroot/css/moderation.css. *@
+
+<span class="@Merge("status-badge " + StatusClass)" @attributes="AdditionalAttributes">
+    @Label
+</span>
+
+@code {
+    [Parameter] public FlaggedEventStatus Status { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private (string StatusClass, string Label) StatusAndLabel => Status switch
+    {
+        FlaggedEventStatus.Pending => ("status-pending", "Pending"),
+        FlaggedEventStatus.Dismissed => ("status-dismissed", "Dismissed"),
+        FlaggedEventStatus.Acknowledged => ("status-acknowledged", "Acknowledged"),
+        FlaggedEventStatus.Actioned => ("status-actioned", "Actioned"),
+        _ => ("status-dismissed", "Unknown")
+    };
+
+    private string StatusClass => StatusAndLabel.StatusClass;
+    private string Label => StatusAndLabel.Label;
+
+    private string Merge(string baseClasses) => string.Join(" ", new[] { baseClasses, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+}

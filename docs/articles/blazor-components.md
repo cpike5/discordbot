@@ -271,6 +271,13 @@ icon-constants class.
 | `LoadingSpinner` | `_LoadingSpinner` / `LoadingSpinnerViewModel` | `Variant` (`SpinnerVariant`), `Size` (`SpinnerSize`), `Message`, `SubMessage`, `Color` (`SpinnerColor`), `IsOverlay`, `Class`, `AdditionalAttributes` |
 | `EmptyState` | `_EmptyState` / `EmptyStateViewModel` | `Type` (`EmptyStateType`), `Title`, `Description`, `IconPath` (override), `PrimaryActionText` + `PrimaryActionHref`/`OnPrimaryAction`, `SecondaryActionText` + `SecondaryActionHref`, `Size` (`EmptyStateSize`), `Class`, `AdditionalAttributes` |
 | `Kbd` | (new — the `.kbd` class in `site.css`, not wired to any partial today) | `ChildContent`, `Class`, `AdditionalAttributes` |
+| `StatusIndicator` | `_StatusIndicator` / `StatusIndicatorViewModel` | `Status` (`StatusType`), `Text` (override), `DisplayStyle` (`StatusDisplayStyle`), `IsPulsing`, `Size` (`StatusSize`), `Class`, `AdditionalAttributes` |
+| `StatusBadge` | `_StatusBadge` (model: Core `FlaggedEventStatus` directly, no ViewModel) | `Status` (`FlaggedEventStatus`), `Class`, `AdditionalAttributes` |
+| `SeverityBadge` | `_SeverityBadge` (model: Core `Severity` directly, no ViewModel) | `Severity` (`Severity`), `Class`, `AdditionalAttributes` |
+| `RuleTypeIcon` | `_RuleTypeIcon` (model: Core `RuleType` directly, no ViewModel) | `RuleType` (`RuleType`), `Class`, `AdditionalAttributes` |
+| `HeroMetricCard` | `_HeroMetricCard` / `HeroMetricCardViewModel` | `Title`, `Value`, `TrendValue`/`TrendDirection` (`TrendDirection`)/`TrendLabel`, `AccentColor` (`CardAccent`), `IconContent` (`RenderFragment`, raw inner `<svg>` content) or `IconPath` (single-path convenience, through `<Icon>`), `ShowSparkline` + `SparklineData`, `DataAttribute` (still emits a bare `data-*` attribute on the value element for the legacy realtime JS), `Id`, `Class`, `AdditionalAttributes` |
+| `GuildStatsCard` | `_GuildStatsCard` (model: Pages-namespace `GuildStatsViewModel`, taken here as three primitive values) | `TotalGuilds`, `ActiveGuilds`, `InactiveGuilds`, `Class`, `AdditionalAttributes` |
+| `DashboardWidget` | `_DashboardWidget` / `DashboardWidgetViewModel` | `Title`, `Subtitle`, `DetailUrl`/`DetailLinkText`, `IconPath`, `IsEnabled` + `EnabledLabel`/`DisabledLabel`, `ChildContent` (body) or `EmptyState` (`EmptyStateViewModel`, mapped onto `<EmptyState>`) or `EmptyContent` (`RenderFragment`) — precedence `ChildContent` > `EmptyContent` > `EmptyState`, `ColSpan` (1\|2), `HeaderActions` (`List<WidgetHeaderAction>`), `Class`, `AdditionalAttributes` |
 
 ### Forms
 
@@ -278,7 +285,12 @@ _Tier 2 — not yet built._
 
 ### Navigation
 
-_Tier 3 — not yet built._
+| Component | From partial(s) | Key parameters |
+| --- | --- | --- |
+| `Breadcrumb` | `_Breadcrumb` (root) + `_GuildBreadcrumb` + `_CommandBreadcrumb` / `BreadcrumbItem` | `Items` (`IReadOnlyList<BreadcrumbItem>`, reused from `GuildBreadcrumbViewModel.cs`), `Class`, `AdditionalAttributes` — `aria-current="page"` is applied to the last item consistently regardless of which source partial did or didn't |
+| `PageHeader` | `_CommandHeader` / `CommandHeaderViewModel` | `Title`, `Subtitle`, `Actions` (`RenderFragment`, new — the partial had no actions slot), `Class`, `AdditionalAttributes` |
+| `GuildHeader` | `_GuildHeader` / `GuildHeaderViewModel` | `GuildId` (`string`), `Name`, `IconUrl`, `PageTitle`/`PageDescription`, `Actions` (`List<HeaderAction>`, reused from the view model), `StatusBadge` (`BadgeViewModel`, rendered through the Tier 1a `<Badge>`), `Class`, `AdditionalAttributes` |
+| `Pagination` | `_Pagination` / `PaginationViewModel` | `CurrentPage`/`TotalPages`/`TotalItems`/`PageSize`, `PageSizeOptions`, `Style` (`PaginationStyle`), `ShowPageSizeSelector`/`ShowItemCount`/`ShowFirstLast`, `BaseUrl` (link mode — builds `<a href>` like the partial) or, when `null`, callback mode (`<button>`s) via `OnPageChanged`/`OnPageSizeChanged` (`EventCallback<int>`), `PageParameterName`/`PageSizeParameterName`, `Class`, `AdditionalAttributes` — the page-size `<select onchange="location.href=...">` becomes `NavigationManager.NavigateTo` in link mode |
 
 ### Overlays
 

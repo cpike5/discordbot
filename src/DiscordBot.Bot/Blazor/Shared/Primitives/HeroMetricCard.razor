@@ -1,0 +1,147 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _HeroMetricCard.cshtml / HeroMetricCardViewModel. IconSvg (a raw-HTML fragment of
+   bare <path>/<circle> elements) becomes IconContent, a RenderFragment rendered inside the same
+   fixed <svg> wrapper the partial used - or the simpler IconPath for the common single-<path>
+   case, which goes through <Icon>. DataAttribute keeps emitting a bare data-* attribute (no value)
+   for the legacy realtime JS that still queries it by attribute presence while pages coexist -
+   see docs/articles/blazor-components.md "Component contract", point 7 and this tier's brief. *@
+
+<div id="@Id" class="@RootClass" @attributes="AdditionalAttributes">
+    <div class="flex items-start justify-between">
+        <div>
+            <p class="hero-metric-label">@Title</p>
+            <p class="hero-metric-value" @attributes="ValueAttributes">@Value</p>
+
+            @if (!string.IsNullOrEmpty(TrendValue) || !string.IsNullOrEmpty(TrendLabel))
+            {
+                <div class="mt-2 flex items-center gap-1.5">
+                    @if (!string.IsNullOrEmpty(TrendValue))
+                    {
+                        <span class="@TrendClass flex items-center gap-1 text-xs font-medium">
+                            <Icon Path="@TrendIconPath" Class="w-3.5 h-3.5" />
+                            @TrendValue
+                        </span>
+                    }
+                    @if (!string.IsNullOrEmpty(TrendLabel))
+                    {
+                        <span class="text-xs text-text-tertiary">@TrendLabel</span>
+                    }
+                </div>
+            }
+        </div>
+
+        @if (IconContent is not null)
+        {
+            <div class="hero-metric-icon @IconBgClass">
+                <svg class="w-5 h-5 @IconTextClass" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                    @IconContent
+                </svg>
+            </div>
+        }
+        else if (!string.IsNullOrEmpty(IconPath))
+        {
+            <div class="hero-metric-icon @IconBgClass">
+                <Icon Path="@IconPath" Class="@("w-5 h-5 " + IconTextClass)" />
+            </div>
+        }
+    </div>
+
+    @if (ShowSparkline && SparklineData.Count > 0)
+    {
+        <div class="sparkline mt-4" aria-hidden="true">
+            @foreach (var height in SparklineData)
+            {
+                <div class="sparkline-bar" style="height: @(height)%; background-color: @SparklineColorVar"></div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public string TrendValue { get; set; } = string.Empty;
+    [Parameter] public TrendDirection TrendDirection { get; set; } = TrendDirection.Neutral;
+    [Parameter] public string TrendLabel { get; set; } = string.Empty;
+    [Parameter] public CardAccent AccentColor { get; set; } = CardAccent.Blue;
+
+    /// <summary>Inner &lt;svg&gt; content (bare &lt;path&gt;/&lt;circle&gt; elements) for a custom
+    /// icon. Takes priority over <see cref="IconPath"/> when both are set.</summary>
+    [Parameter] public RenderFragment? IconContent { get; set; }
+
+    /// <summary>Single Heroicon path for the common case - pass an <see cref="IconPaths"/>
+    /// constant. Ignored when <see cref="IconContent"/> is set.</summary>
+    [Parameter] public string? IconPath { get; set; }
+
+    [Parameter] public bool ShowSparkline { get; set; }
+    [Parameter] public List<int> SparklineData { get; set; } = new();
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    /// <summary>Name of a data-* attribute (e.g. "data-total-commands") emitted with no value on
+    /// the value element, for the legacy realtime JS that still patches this node by attribute
+    /// selector during the Blazor/Razor Pages coexistence period.</summary>
+    [Parameter] public string? DataAttribute { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string AccentClass => AccentColor switch
+    {
+        CardAccent.Blue => "accent-blue",
+        CardAccent.Orange => "accent-orange",
+        CardAccent.Success => "accent-success",
+        CardAccent.Info => "accent-info",
+        _ => "accent-blue"
+    };
+
+    private string TrendClass => TrendDirection switch
+    {
+        TrendDirection.Up => "trend-up",
+        TrendDirection.Down => "trend-down",
+        _ => "trend-neutral"
+    };
+
+    private string TrendIconPath => TrendDirection switch
+    {
+        TrendDirection.Up => IconPaths.ArrowUp,
+        TrendDirection.Down => IconPaths.ArrowDown,
+        _ => IconPaths.Minus
+    };
+
+    private string IconBgClass => AccentColor switch
+    {
+        CardAccent.Blue => "bg-accent-blue/10",
+        CardAccent.Orange => "bg-accent-orange/10",
+        CardAccent.Success => "bg-success/10",
+        CardAccent.Info => "bg-info/10",
+        _ => "bg-accent-blue/10"
+    };
+
+    private string IconTextClass => AccentColor switch
+    {
+        CardAccent.Blue => "text-accent-blue",
+        CardAccent.Orange => "text-accent-orange",
+        CardAccent.Success => "text-success",
+        CardAccent.Info => "text-info",
+        _ => "text-accent-blue"
+    };
+
+    private string SparklineColorVar => AccentColor switch
+    {
+        CardAccent.Blue => "var(--color-accent-blue)",
+        CardAccent.Orange => "var(--color-accent-orange)",
+        CardAccent.Success => "var(--color-success)",
+        CardAccent.Info => "var(--color-info)",
+        _ => "var(--color-accent-blue)"
+    };
+
+    private string RootClass => string.Join(" ", new[] { "hero-metric-card", AccentClass, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+
+    private Dictionary<string, object>? ValueAttributes => string.IsNullOrEmpty(DataAttribute)
+        ? null
+        : new Dictionary<string, object> { [DataAttribute] = "" };
+}
