@@ -18,7 +18,7 @@
     <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
         <div class="flex items-center gap-3">
             <div class="p-2 bg-accent-orange/10 rounded-lg">
-                <Icon Path="IconPaths.ChartBar" Class="w-5 h-5 text-accent-orange" />
+                <Icon Path="@IconPaths.ChartBar" Class="w-5 h-5 text-accent-orange" />
             </div>
             <h2 class="text-lg font-semibold text-text-primary">Command Usage</h2>
         </div>
@@ -46,7 +46,7 @@
                     <p class="mt-1 text-3xl font-bold text-text-primary" data-total-count>@TotalCommands.ToString("N0")</p>
                 </div>
                 <div class="text-text-secondary">
-                    <Icon Path="IconPaths.ChartBarSquare" Class="w-8 h-8" />
+                    <Icon Path="@IconPaths.ChartBarSquare" Class="w-8 h-8" />
                 </div>
             </div>
         </div>
@@ -58,7 +58,7 @@
         else
         {
             <div class="py-12 text-center" data-empty-state>
-                <Icon Path="IconPaths.DocumentText" Class="w-12 h-12 mx-auto text-text-tertiary mb-3" />
+                <Icon Path="@IconPaths.DocumentText" Class="w-12 h-12 mx-auto text-text-tertiary mb-3" />
                 <p class="text-text-secondary font-medium">No command data available</p>
                 <p class="text-sm text-text-tertiary mt-1">Commands will appear here once they are executed</p>
             </div>

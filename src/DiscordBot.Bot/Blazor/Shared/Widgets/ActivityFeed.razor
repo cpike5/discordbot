@@ -27,7 +27,7 @@
 <div class="bg-bg-secondary border border-border-primary rounded-xl overflow-hidden h-full flex flex-col @Class" @attributes="AdditionalAttributes">
     <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
         <div class="flex items-center gap-3">
-            <Icon Path="IconPaths.Lightning" Class="w-5 h-5 text-accent-blue" />
+            <Icon Path="@IconPaths.Lightning" Class="w-5 h-5 text-accent-blue" />
             <h2 class="text-lg font-semibold text-text-primary">@Title</h2>
             @if (IsPaused)
             {
@@ -41,7 +41,7 @@
                         class="p-2 text-text-secondary hover:text-text-primary hover:bg-bg-hover rounded-lg transition-colors"
                         aria-label="Refresh activity feed"
                         @onclick="HandleRefreshAsync">
-                    <Icon Path="IconPaths.Refresh" Class="w-4 h-4" />
+                    <Icon Path="@IconPaths.Refresh" Class="w-4 h-4" />
                 </button>
             }
             <button type="button"
@@ -84,7 +84,7 @@
             else
             {
                 <div class="flex flex-col items-center justify-center py-12 text-center">
-                    <Icon Path="IconPaths.BookOpen" Class="w-12 h-12 text-text-tertiary mb-3" StrokeWidth="1.5" />
+                    <Icon Path="@IconPaths.BookOpen" Class="w-12 h-12 text-text-tertiary mb-3" StrokeWidth="1.5" />
                     <p class="text-sm text-text-secondary">@EmptyMessage</p>
                     <p class="text-xs text-text-tertiary mt-1">Activity will appear here as it occurs</p>
                 </div>
@@ -97,7 +97,7 @@
         <div class="px-6 py-3 border-t border-border-primary bg-bg-primary/30">
             <a href="@ViewAllUrl" class="text-sm text-accent-blue hover:text-accent-blue-hover font-medium transition-colors duration-150">
                 View all activity
-                <Icon Path="IconPaths.ChevronRight" Class="inline-block w-4 h-4 ml-1" />
+                <Icon Path="@IconPaths.ChevronRight" Class="inline-block w-4 h-4 ml-1" />
             </a>
         </div>
     }

@@ -10,7 +10,7 @@
         <div class="mb-6 bg-warning/10 border-2 border-warning rounded-lg p-4 @Class" @attributes="AdditionalAttributes">
             <div class="flex items-start gap-3">
                 <div class="flex-shrink-0">
-                    <Icon Path="IconPaths.ExclamationTriangle" Class="w-6 h-6 text-warning" />
+                    <Icon Path="@IconPaths.ExclamationTriangle" Class="w-6 h-6 text-warning" />
                 </div>
                 <div class="flex-1">
                     <h3 class="text-base font-semibold text-warning mb-1">Restart Required</h3>
@@ -21,7 +21,7 @@
                     <a href="/Admin/Settings"
                        class="inline-flex items-center gap-2 px-4 py-2 bg-warning hover:bg-warning-hover active:bg-warning-active text-text-inverse font-semibold text-sm rounded-lg transition-colors"
                        @onclick="HandleClick" @onclick:preventDefault="OnOpenBotControl.HasDelegate">
-                        <Icon Path="IconPaths.ArrowPath" Class="w-4 h-4" />
+                        <Icon Path="@IconPaths.ArrowPath" Class="w-4 h-4" />
                         Go to Bot Control
                     </a>
                 </div>

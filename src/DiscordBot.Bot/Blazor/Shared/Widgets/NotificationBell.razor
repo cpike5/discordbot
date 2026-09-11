@@ -44,7 +44,7 @@
         aria-haspopup="menu"
         aria-controls="notificationDropdown"
         @onclick="ToggleAsync">
-        <Icon Path="IconPaths.Bell" StrokeWidth="1.75" />
+        <Icon Path="@IconPaths.Bell" StrokeWidth="1.75" />
         <span class="notification-badge @(UnreadCount > 0 ? "" : "hidden")" aria-label="@($"{UnreadCount} unread notification{(UnreadCount == 1 ? "" : "s")}")">@BadgeText</span>
     </button>
 
@@ -52,7 +52,7 @@
         <div class="notification-dropdown-header">
             <h3 class="text-sm font-semibold text-text-primary">Notifications</h3>
             <button type="button" class="notification-mark-all-read" aria-label="Mark all as read" @onclick="MarkAllAsReadAsync">
-                <Icon Path="IconPaths.Check" Class="w-4 h-4" />
+                <Icon Path="@IconPaths.Check" Class="w-4 h-4" />
                 <span>Mark all read</span>
             </button>
         </div>
@@ -65,7 +65,7 @@
             else if (_notifications.Count == 0)
             {
                 <div class="notification-empty">
-                    <Icon Path="IconPaths.Bell" Class="w-12 h-12 text-text-tertiary opacity-50" StrokeWidth="1.5" />
+                    <Icon Path="@IconPaths.Bell" Class="w-12 h-12 text-text-tertiary opacity-50" StrokeWidth="1.5" />
                     <p class="notification-empty-title">No notifications</p>
                     <p class="notification-empty-message">You're all caught up!</p>
                 </div>
@@ -100,12 +100,12 @@
                             {
                                 <button type="button" class="notification-action-btn" aria-label="Mark as read" title="Mark as read"
                                         @onclick="() => MarkAsReadAsync(notification.Id)" @onclick:stopPropagation="true">
-                                    <Icon Path="IconPaths.EnvelopeOpen" StrokeWidth="2" />
+                                    <Icon Path="@IconPaths.EnvelopeOpen" StrokeWidth="2" />
                                 </button>
                             }
                             <button type="button" class="notification-action-btn" aria-label="Dismiss notification" title="Dismiss"
                                     @onclick="() => DismissAsync(notification.Id)" @onclick:stopPropagation="true">
-                                <Icon Path="IconPaths.XMark" StrokeWidth="2" />
+                                <Icon Path="@IconPaths.XMark" StrokeWidth="2" />
                             </button>
                         </div>
                     </div>

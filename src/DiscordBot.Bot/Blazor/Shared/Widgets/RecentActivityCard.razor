@@ -13,7 +13,7 @@
     <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
         <div class="flex items-center gap-3">
             <div class="p-2 bg-accent-blue/10 rounded-lg">
-                <Icon Path="IconPaths.Clock" Class="w-5 h-5 text-accent-blue" />
+                <Icon Path="@IconPaths.Clock" Class="w-5 h-5 text-accent-blue" />
             </div>
             <h2 class="text-lg font-semibold text-text-primary">Recent Activity</h2>
         </div>
@@ -23,7 +23,7 @@
                 title="Refresh"
                 disabled="@_isRefreshing"
                 @onclick="RefreshAsync">
-            <Icon Path="IconPaths.Refresh" Class="@("w-5 h-5" + (_isRefreshing ? " animate-spin" : ""))" />
+            <Icon Path="@IconPaths.Refresh" Class="@("w-5 h-5" + (_isRefreshing ? " animate-spin" : ""))" />
         </button>
     </div>
 
@@ -90,7 +90,7 @@
     {
         <div class="px-5 py-12">
             <div class="text-center">
-                <Icon Path="IconPaths.Clock" Class="w-12 h-12 mx-auto text-text-tertiary mb-3" />
+                <Icon Path="@IconPaths.Clock" Class="w-12 h-12 mx-auto text-text-tertiary mb-3" />
                 <p class="text-text-secondary font-medium">No recent activity</p>
                 <p class="text-sm text-text-tertiary mt-1">Command activity will appear here as they are executed</p>
             </div>
