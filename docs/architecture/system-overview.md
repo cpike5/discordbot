@@ -138,8 +138,9 @@ This arrangement ensures:
 **Location:** `src/DiscordBot.Agents/`
 
 The model-facing machinery, and nothing else: `AgentRunner` (the agentic loop), `ToolRegistry`,
-`PromptTemplate`, the engine contracts under `Contracts/`, the abstractions under `Abstractions/`,
-and the OpenRouter chat client under `OpenRouter/`.
+`PromptTemplate`, the tool authoring model (`IAgentTool`, `AgentToolProvider`, `AddAgentTools`, and
+the `ToolInput`/`ToolResults`/`ToolJson` helpers), the engine contracts under `Contracts/`, the
+abstractions under `Abstractions/`, and the OpenRouter chat client under `OpenRouter/`.
 
 It is a **leaf project**: it has no `ProjectReference` at all, and no Discord, EF Core, or ASP.NET
 package references. It knows nothing about Discord, guilds, or this bot — the application hands it

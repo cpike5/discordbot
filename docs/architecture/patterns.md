@@ -11,17 +11,18 @@ Quick reference guide for common patterns and conventions used throughout the Di
 5. [Guild Page Model Base](#guild-page-model-base)
 6. [API Controller Base](#api-controller-base)
 7. [Search Provider Pattern](#search-provider-pattern)
-8. [Helper Extraction Pattern](#helper-extraction-pattern)
-9. [Background Task Runner](#background-task-runner)
-10. [Service Activity Helper](#service-activity-helper)
-11. [Discord Resolver Services](#discord-resolver-services)
-12. [Data Access](#data-access)
-13. [Authorization](#authorization)
-14. [Audit Logging](#audit-logging)
-15. [Error Handling](#error-handling)
-16. [MonitoredBackgroundService](#monitoredbackgroundservice)
-17. [IMemoryReportable](#imemoryreportable)
-18. [Per-Guild Locking](#per-guild-locking)
+8. [Agent Tool Authoring](#agent-tool-authoring)
+9. [Helper Extraction Pattern](#helper-extraction-pattern)
+10. [Background Task Runner](#background-task-runner)
+11. [Service Activity Helper](#service-activity-helper)
+12. [Discord Resolver Services](#discord-resolver-services)
+13. [Data Access](#data-access)
+14. [Authorization](#authorization)
+15. [Audit Logging](#audit-logging)
+16. [Error Handling](#error-handling)
+17. [MonitoredBackgroundService](#monitoredbackgroundservice)
+18. [IMemoryReportable](#imemoryreportable)
+19. [Per-Guild Locking](#per-guild-locking)
 
 ---
 
@@ -722,6 +723,125 @@ Nine providers are included:
 | `ReminderSearchProvider` | Reminders | Reminders by title and content |
 | `ScheduledMessageSearchProvider` | Scheduled Messages | Scheduled messages by content |
 | `UserSearchProvider` | Users | Users by name, username, or ID |
+
+---
+
+## Agent Tool Authoring
+
+A tool the AI assistant can call is **one file** in `Infrastructure/Services/LLM/Tools/` (or
+`Bot/Services/LLM/Tools/` when it needs Discord.NET), plus one line in `ToolCatalog`. No provider
+class, no DI registration, no static definitions file.
+
+### The interface
+
+```csharp
+public interface IAgentTool
+{
+    LlmToolDefinition Definition { get; }   // what the model sees
+    string? Mutation => null;               // null = read-only
+    Task<ToolExecutionResult> InvokeAsync(
+        JsonElement input, ToolContext context, CancellationToken cancellationToken = default);
+}
+```
+
+### A complete tool
+
+```csharp
+public sealed class GetNoteTool : IAgentTool
+{
+    // Static: read once per run and serialized at position 0 of the request.
+    private static readonly LlmToolDefinition ToolDefinition = new()
+    {
+        Name = "get_note",
+        Description = "Retrieves a specific note by its ID. Use this when you need the full "
+            + "content of a particular note.",
+        InputSchema = ToolInput.ObjectSchema(
+            new { note_id = ToolInput.Schema("integer", "The ID of the note to retrieve.") },
+            "note_id")
+    };
+
+    private readonly IDmAssistantNoteRepository _notes;
+
+    public GetNoteTool(IDmAssistantNoteRepository notes) => _notes = notes;
+
+    public LlmToolDefinition Definition => ToolDefinition;
+
+    public async Task<ToolExecutionResult> InvokeAsync(
+        JsonElement input, ToolContext context, CancellationToken cancellationToken = default)
+    {
+        var noteId = ToolInput.GetLong(input, "note_id");
+        if (noteId is null)
+        {
+            return ToolResults.Error("Missing required parameter: note_id");
+        }
+
+        var note = await _notes.GetByIdAsync(noteId.Value, context.UserId, cancellationToken);
+
+        return note is null
+            ? ToolResults.NotFound($"Note with ID {noteId.Value} not found.")
+            : ToolResults.Json(new { id = note.Id, content = note.Content });
+    }
+}
+```
+
+### Three things that used to be separate rules
+
+Each of these is now something the shape does for you rather than something to remember:
+
+| Rule | How it is now enforced |
+|------|------------------------|
+| Add a `ToolCatalog` entry | The catalogue *routes* the tool. `CataloguedAgentToolProvider` keeps only the tools whose `ToolScopes` include its surface, so an uncatalogued tool is advertised nowhere — and logged as a warning saying so. |
+| Check `ToolContext.CanMutate` before writing | Declare `Mutation` — a phrase that follows "isn't allowed to", e.g. `"save notes"`. `AgentToolProvider` refuses the call with `ToolPermissions.MutationForbidden` **before entering the tool**, so a write cannot half-run. |
+| Report an expected failure so `ToolOutcomes.Classify` counts it | `ToolResults.Error` / `.NotFound` emit the top-level `error`/`found` keys the classifier reads. Using the helpers is the convention. |
+
+### The helpers
+
+All in `DiscordBot.Agents`:
+
+- **`ToolInput`** — `GetString`/`GetInt`/`GetLong`/`GetUInt64`/`GetBool`/`GetStringArray(input, key)`,
+  each null when the property is missing, null, blank or the wrong kind, because those are one
+  answer to a tool. `GetInt(input, key, fallback, min, max)` is the shape every `limit` wants.
+  Quoted numbers are read as numbers — models do that, and snowflakes exceed JavaScript's safe
+  integer range so they arrive quoted routinely. `Schema(type, description, …)` and
+  `ObjectSchema(properties, required…)` build the input schema instead of a hand-written JSON string.
+- **`ToolResults`** — `Json`, `Error`, `NotFound`, `Truncated`, `Forbidden`, `Failed`. Everything
+  except `Failed` is a *successful* result: an expected failure has to reach the model as readable
+  content, because `CreateError` prefixes `Error: ` on the wire and reads as a malfunction to retry
+  around. `Failed` is for a genuine malfunction.
+- **`ToolJson.Compact`** — the serializer settings: no naming policy (the names in the code are the
+  names on the wire, so write payload members in `snake_case`) and nulls dropped, so an optional
+  field costs nothing when absent.
+
+### Registration
+
+`AddAgentTools(assemblies, configuration)` scans for `IAgentTool` implementations and registers each
+one scoped, ordered by full type name, through `TryAddEnumerable` so both assistant registrations
+can call it. `AssistantServiceExtensions` and `DmAssistantServiceExtensions` both do, over
+`AgentToolAssemblies.All` (Infrastructure and Bot).
+
+Two adapters expose the scanned tools to the two registries, and are the only DI lines involved:
+
+```csharp
+services.AddScoped<IToolProvider, GuildAgentToolProvider>();    // AddAssistant
+services.AddScoped<IDmToolProvider, DmAgentToolProvider>();     // AddDmAssistant
+```
+
+A tool that should ship dark carries `[OptInTool("Section:Enabled")]` and is registered only when
+that configuration flag is true — a disabled tool then costs nothing rather than costing a class
+and a runtime branch.
+
+### When to write an `IToolProvider` instead
+
+`IToolProvider` is still the contract the registry speaks, and still the right shape when several
+tools share expensive state — a cached Discord lookup, a compiled index — that is worth constructing
+once for the group. It is the wrong shape for the common case of one capability over one service,
+which is what this pattern replaces. The eleven existing providers are converted opportunistically,
+when they are next being touched anyway, not in one sitting.
+
+**When converting one, delete its DI registration in the same change.** A registry advertises every
+registered provider's tools without de-duplicating, so a provider left registered beside its own
+converted tools puts each name in the array twice — and the duplicate schema is paid for on every
+request in the run.
 
 ---
 

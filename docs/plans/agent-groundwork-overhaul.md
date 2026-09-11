@@ -10,9 +10,9 @@ as the detail.
 | [specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md) | The code shape of each enhancement — option keys, interfaces, migrations, tests. Sections referenced below as *impl §x.y*. |
 | **This document** | The extraction, and the order the whole overhaul runs in. |
 
-**Status**: Phases 0, 1, 2 and 3 are implemented — see §4.3a and §5.1a for where the manifest and
-the spec needed correcting, and §5.2a for what Phase 3 shipped. Phases 4–6 remain proposed. F13
-(impl §1.3) has not shipped yet; it is still meant to go out as its own PR.
+**Status**: Phases 0, 1, 2, 3 and 4 are implemented — see §4.3a and §5.1a for where the manifest
+and the spec needed correcting, §5.2a for what Phase 3 shipped, and §5.3a for Phase 4. Phases 5–6
+remain proposed. F13 (impl §1.3) has not shipped yet; it is still meant to go out as its own PR.
 
 ---
 
@@ -379,6 +379,43 @@ registration extension takes the assemblies to scan as a parameter rather than a
 After this, a new tool is one file in the app and no DI edit. Convert `MemoryToolProvider` in the
 same PR as the proof, and leave the other ten to be converted when they are next touched.
 
+#### 5.3a What shipped, and where the shape differs from the spec
+
+Done, including the `MemoryToolProvider` conversion. Four notes, three of them about the three
+Phase 3 rules this phase was supposed to absorb (§5.2a) rather than restate.
+
+- **`[DmOnlyTool]` did not survive, and the catalogue replaced it.** impl §3.1 proposed two
+  attributes; the opt-in one (`[OptInTool("Section:Enabled")]`) shipped as specified, but a
+  `[DmOnlyTool]` attribute would have put this bot's guild/DM taxonomy inside the engine, and it
+  would have been a *second* place declaring where a tool is advertised — `ToolCatalog.Scopes`
+  already says. So the catalogue routes instead: `CataloguedAgentToolProvider` (Infrastructure)
+  keeps the scanned tools whose scopes include its own surface, and `GuildAgentToolProvider` /
+  `DmAgentToolProvider` are its two subclasses, registered as `IToolProvider` and `IDmToolProvider`
+  exactly where the hand-written providers are. This is what makes §5.2a's "a catalogue entry is now
+  part of adding a tool" structural rather than a rule: an uncatalogued tool has
+  `ToolScopes.None`, reaches no surface, and is logged as a warning naming itself and its type.
+- **The `CanMutate` check is a declaration, not an `if`.** `IAgentTool.Mutation` is a `string?` —
+  the phrase that follows "isn't allowed to" — and `AgentToolProvider` refuses the call *before
+  entering the tool*. A bool would have read better on the interface but would have cost the
+  refusal its wording ("isn't allowed to use save_note"), and the wording is the part the model
+  relays. The refusal itself stays this bot's: `AgentToolProvider` takes an optional
+  `Func<string, ToolExecutionResult>` and the two surfaces pass `ToolPermissions.MutationForbidden`,
+  so the engine keeps a neutral default (`ToolResults.Forbidden`) and the bot keeps its voice.
+- **`ToolResults` makes `ToolOutcomes.Classify` the default, which changes converted tools' traces.**
+  `ToolResults.Error`/`.NotFound` return a *successful* result carrying a top-level `error` (and
+  `found: false`) key, so a converted tool's bad-input and not-found paths now report
+  `failed_result` where the old provider's `CreateError` reported `error` and reached the model
+  prefixed `Error: `. That is the house convention arriving, not a regression — but it does mean a
+  tool's outcome mix shifts when it is converted, and anyone reading the metrics page across the
+  change should expect it.
+- **The conversion is pinned byte-for-byte.** The tool array serializes at position 0 of the
+  request, so a moved byte in a schema invalidates the whole cached prefix at correct answers and
+  ~10x the input price. `MemoryAgentToolsTests` asserts each of the five schemas against the literal
+  the deleted `MemoryTools` carried, and each description against its old string; `ToolInput.Schema`
+  writes its optional keywords in a fixed order for the same reason. Do the same on the next
+  conversion. One intentional difference: `ToolJson.Compact` drops nulls, so a note with no tag no
+  longer carries `"tag":null` — cheaper, same meaning.
+
 ### Phase 5 — Skills (impl §3.2)
 
 The loader, the roster rendering, and `load_skill` in Agents; the skill markdown in
@@ -443,7 +480,8 @@ Not optional, per the repo's own rule, and it is the thing most likely to be ski
   goes changes.
 - `docs/architecture/system-overview.md` — the layer diagram.
 - `docs/architecture/service-catalog.md` — engine services move projects.
-- `docs/architecture/patterns.md` — the tool-authoring pattern is replaced in Phase 4.
+- `docs/architecture/patterns.md` — the tool-authoring pattern is replaced in Phase 4. **Done**:
+  § Agent Tool Authoring.
 - `docs/articles/ai-assistant.md` — option renames, new keys, the tool list.
 - `docs/articles/configuration-guide.md` — `MaxToolRounds`, `MaxToolResultChars`,
   `DuplicateToolCallLimit`, `PromptCacheTtl`.

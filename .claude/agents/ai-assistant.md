@@ -16,10 +16,10 @@ The model-facing machinery lives in its own leaf project, `src/DiscordBot.Agents
 project references** and no Discord, EF Core, or ASP.NET packages — everything that makes this
 bot *this* bot stays in Infrastructure and Bot, which reference the engine.
 
-- **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IPromptTemplate`
+- **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IAgentTool`, `OptInToolAttribute`, `IPromptTemplate`
 - **`Agents/Contracts/`:** `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Definition/Result`, `LlmUsage`, `AgentContext`/`AgentRunResult` (`AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext`/`ToolExecutionResult`, and `Contracts/Enums/` `LlmRole`, `LlmStopReason`
 - **`Agents/Configuration/`:** `OpenRouterOptions`
-- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `FilteredToolRegistry`, `ToolResultLimiter`, `ToolOutcomes`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
+- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `FilteredToolRegistry`, `ToolResultLimiter`, `ToolOutcomes`, `AgentToolProvider`, `AgentToolRegistration`, `ToolInput`, `ToolResults`, `ToolJson`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
 - **`Agents/OpenRouter/`:** `OpenRouterLlmClient` (owned typed `HttpClient`, no SDK), `OpenRouterMessageMapper`, `ChatCompletionRequest`/`ChatCompletionResponse` wire records, `OpenRouterParameterSupportCache`
 
 #### Loop guard rails (Phase 2 hardening)
@@ -80,9 +80,11 @@ it, at correct answers and ~10x the price. The system-prompt breakpoint's TTL co
   permissions in `AssistantMessageHandler.CallerCanMutate` (Manage Server or Administrator — the
   Bot layer is the only one with a Discord client, which is why it travels as a plain `bool`
   through `IAssistantService.AskQuestionAsync` → `IGuildAssistantContextFactory.CreateAsync`); the
-  DM assistant and the feature-request conversation set it unconditionally. A write tool checks it
-  first and returns `ToolPermissions.MutationForbidden(action)` — a *successful* result carrying a
-  directive, same reasoning as the duplicate refusal.
+  DM assistant and the feature-request conversation set it unconditionally. The refusal is
+  `ToolPermissions.MutationForbidden(action)` — a *successful* result carrying a directive, same
+  reasoning as the duplicate refusal. A tool authored as `IAgentTool` declares `Mutation` and
+  `AgentToolProvider` applies the check before entering it (Phase 4); the hand-written providers
+  still check it themselves at the top of each write.
 - **Per-tool spans.** Every tool call gets `agent.tool {name}` on `AgentsActivitySource`, tagged
   `gen_ai.tool.name`, `gen_ai.tool.call.id`, `bot.tool.provider`, `bot.tool.result_chars` (measured
   after the cap — that is what the run pays for) and `bot.tool.outcome` ∈ `ok` / `failed_result` /
@@ -90,8 +92,9 @@ it, at correct answers and ~10x the price. The system-prompt breakpoint's TTL co
   spans too; nothing runs in either case, which is exactly why they are worth seeing.
   **`failed_result` is the important one:** house style returns an expected failure as a
   *successful* result, so `ToolOutcomes.Classify` reads a top-level `error` string or a false
-  `success`/`available`/`found` flag off the payload. Follow that convention in a new tool or its
-  failures are invisible. Only `error` and `unknown_tool` set span status to Error — a timeout, a
+  `success`/`available`/`found` flag off the payload. `ToolResults.Error`/`.NotFound` emit exactly
+  those keys, so a tool written through the helpers follows the convention without knowing it
+  exists; a hand-written provider has to follow it deliberately, or its failures are invisible. Only `error` and `unknown_tool` set span status to Error — a timeout, a
   refused repeat and an expected failure are normal traffic and must not inflate the error rate.
 - **`AssistantInteractionLog.ToolNames`** (comma-joined, 512 chars, truncated at a whole name)
   backs the metrics page's per-tool table, so it works with no trace backend deployed. The page
@@ -120,7 +123,16 @@ Two contract details the boundary forced:
 - `LlmModelResolver` (singleton) — the **single resolution path** for a mode's effective model slug: `ISettingsService.GetStoredValueAsync(LlmModeSettings.KeyFor(mode))` (DB override) → bound `IOptions<T>.Value` for that mode → `OpenRouterOptions.DefaultModel` (last-resort fallback). Caches the result per `LlmMode` in a `ConcurrentDictionary`; the cache is cleared when `ISettingsService.SettingsChanged.UpdatedKeys` contains that mode's setting key, so a save through the AI Models tab takes effect on the next message with no restart. Resolves the scoped `ILlmModelRepository` via `IServiceScopeFactory` per call (same pattern as `SettingsService`) to also report the slug's `IsEnabled`/`IsAvailable` state and, when the catalog reports a price, an `LlmCatalogPricing` for the cost fallback. Logs a once-per-slug warning (not per message) when the resolved slug is not enabled — it still sends the request; the allowlist is enforced at save time, not send time. Registered ungated in `AssistantServiceExtensions` (needs no API key).
 - `Data/Repositories/LlmUsageRepository` — `LlmUsageRecord` persistence: `AddRangeAsync` (bulk insert, used by the queue processor), `DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` (retention and purge build on these), and the grouped dashboard queries (`GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync`, `GetRecordsAsync`) over an `LlmUsageQuery` (date range + optional guild/mode/user filter). **Cost sums go through `double`, not `decimal`:** the SQLite EF provider refuses to translate `Sum(decimal)`/`OrderBy(decimal)` into SQL at all (`NotSupportedException`) — every cost aggregate is `Math.Round((decimal)g.Sum(r => (double)r.CostUsd), 8)`, and the by-user/by-model/by-mode breakdowns sort client-side after materializing, so one query shape works on both SQLite and PostgreSQL. Do not "fix" this back to a plain `Sum(r => r.CostUsd)` — it will build and then throw at runtime against SQLite.
 
-### Tool Providers
+### Tools
+- `Services/LLM/Tools/` — individually authored `IAgentTool`s, one file each. Currently the DM
+  assistant's memory tools: `SaveNoteTool`, `SearchNotesTool`, `GetNoteTool`, `ListNotesTool`,
+  `DeleteNoteTool`, sharing `NotePayloads` for the one shape a note takes in a result. They replaced
+  `MemoryToolProvider` + `MemoryTools` (417 lines → 364, all of it now XML-documented, and no
+  provider name/description, no `switch`, no try/catch wrapper and no DI line).
+- `Providers/CataloguedAgentToolProvider` + `GuildAgentToolProvider` / `DmAgentToolProvider` — the
+  two surfaces over those tools, registered as `IToolProvider` and `IDmToolProvider`
+
+### Tool Providers (the ten not yet converted)
 - `Providers/DocumentationToolProvider` — Maps 13 features to doc files
 - `Bot/Services/LLM/Providers/UserGuildInfoToolProvider` — User profiles, guild info, roles
 - `Bot/Services/LLM/Providers/RatWatchToolProvider` — Rat Watch leaderboards, stats
@@ -201,23 +213,36 @@ agree on what tables exist for a user) via
 that change) — it would be natural to add them there too, since bulk purge already exists for
 other per-user tables, but that's for a future PR to decide.
 
-## Adding a New Tool Provider
+## Adding a New Tool
 
-1. Create tool implementation in `Infrastructure/Services/LLM/Implementations/`
-2. Create provider implementing `IToolProvider` in `Infrastructure/Services/LLM/Providers/` or `Bot/Services/LLM/Providers/`
-3. Register in DI — ToolRegistry discovers it automatically
-4. Define tool schemas (name, description, parameters) in the provider
-5. Add an entry to `ToolCatalog` (`Core/Models/Llm/`) with its category, label, description and
-   `ToolScopes`. Without one the tool still works, but it lands in the **Other** bucket, is absent
-   from the guild settings checklist, and is therefore not in the house default set.
-6. If it writes anything, check `context.CanMutate` first and return
-   `ToolPermissions.MutationForbidden(...)` when it is false.
-7. Report an expected failure as a *successful* result carrying a top-level `error` string or a
-   false `success`/`available`/`found` flag, so `ToolOutcomes.Classify` can count it.
+Two files, and one of them already exists.
+
+1. One class implementing `IAgentTool` in `Infrastructure/Services/LLM/Tools/` (or
+   `Bot/Services/LLM/Tools/` if it needs Discord.NET): a static `LlmToolDefinition` built with
+   `ToolInput.ObjectSchema`/`.Schema`, and an `InvokeAsync` that reads its arguments with
+   `ToolInput` and returns through `ToolResults`.
+2. An entry in `ToolCatalog` (`Core/Models/Llm/`) with its category, label, admin-facing
+   description and `ToolScopes`. **This is load-bearing, not a footnote:** the catalogue's scope is
+   what routes the tool to the guild or DM surface, so a tool without an entry is advertised
+   nowhere (and logs a warning saying so).
+3. No DI edit. `AddAgentTools` scans Infrastructure and Bot from both assistant registrations.
+4. If it writes, declare `Mutation` — the phrase after "isn't allowed to". `AgentToolProvider`
+   refuses the call before entering the tool; do not also write the check by hand.
+5. Report an expected failure with `ToolResults.Error` / `.NotFound`, which is what makes it
+   `failed_result` rather than invisible in the traces.
+6. Ship it dark with `[OptInTool("Section:Enabled")]` if it needs a flag.
+
+Write an `IToolProvider` instead only when several tools share expensive state worth constructing
+once for the group. Full pattern in `docs/architecture/patterns.md` § Agent Tool Authoring.
 
 ## Gotchas
 
 - **API key in User Secrets:** `OpenRouter:ApiKey` — never commit. Without it the LLM services are not registered at all (so migrations run without a key); both `AddAssistant` and `AddDmAssistant` gate on it.
+- **A tool's schema bytes are the prompt cache's prefix.** The tool array serializes at position 0
+  of the request, so editing a description or reordering a schema's properties invalidates every
+  breakpoint behind it — correct answers at ~10x the input price, with no other symptom. Build the
+  definition from a `static readonly` field, and when converting a tool, pin its schema against the
+  old literal in a test (`MemoryAgentToolsTests` does).
 - **Tool execution is synchronous within the agent loop** — long-running tools block the response
 - **Token limits:** Conversation history can grow large; be mindful of context window
 - **DocumentationToolProvider** maps feature names to doc files — update mapping when docs change

@@ -69,6 +69,13 @@ public static class AssistantServiceExtensions
         // drop its cache on save.
         services.AddScoped<IToolAccessResolver, ToolAccessResolver>();
 
+        // Scan Infrastructure and Bot for IAgentTool implementations and register each one. Ungated:
+        // a tool object costs nothing to register without an API key, and AddDmAssistant registers
+        // the same set (TryAddEnumerable, so whichever runs first wins and the second is a no-op).
+        // The surface providers that expose them - GuildAgentToolProvider below and
+        // DmAgentToolProvider in AddDmAssistant - are what decide which tools each assistant sees.
+        services.AddAgentTools(AgentToolAssemblies.All, configuration);
+
         // Register assistant guild settings service (always needed for admin UI)
         services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
 
@@ -180,6 +187,10 @@ public static class AssistantServiceExtensions
             services.AddScoped<IToolProvider, DocumentationToolProvider>();
             services.AddScoped<IToolProvider, UserGuildInfoToolProvider>();
             services.AddScoped<IToolProvider, RatWatchToolProvider>();
+
+            // The single adapter for tools authored as IAgentTool: one provider over every scanned
+            // tool the catalogue puts on the guild surface, so a new tool needs no DI edit here.
+            services.AddScoped<IToolProvider, GuildAgentToolProvider>();
 
             // Register tool registry as scoped (auto-registers injected IToolProvider instances)
             services.AddScoped<IToolRegistry, ToolRegistry>();

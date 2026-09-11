@@ -491,8 +491,9 @@ The assistant uses a provider-agnostic LLM abstraction layer that supports multi
 **Interfaces:**
 - `ILlmClient` - Core LLM provider interface (message completion, tool use, prompt caching support)
 - `IAgentRunner` - Orchestrates agentic loop (tool use cycles, conversation management)
-- `IToolProvider` - Provides related tools (definitions and execution)
-- `IToolRegistry` - Manages tool providers with enable/disable capability
+- `IAgentTool` - One tool: a definition and an `InvokeAsync`. The unit a new tool is written as
+- `IToolProvider` - A group of tools (definitions and execution); what the registry speaks
+- `IToolRegistry` - Holds the registered providers and routes a call to the one that owns the tool
 - `IPromptTemplate` - Loads and renders prompt templates with variable substitution
 
 **Current Provider:**
@@ -516,7 +517,18 @@ Because OpenRouter fronts many providers, switching models is a configuration ch
 
 ### Tool System
 
+**Writing a tool** is one file implementing `IAgentTool` plus a `ToolCatalog` entry — no provider
+class and no DI line; the assembly scan finds it, and the catalogue decides which assistant
+advertises it. The helpers (`ToolInput`, `ToolResults`, `ToolJson`) are what make the tool's
+argument reading and failure reporting match house convention by default. Full pattern, including
+when a provider is still the right shape, in
+[patterns.md § Agent Tool Authoring](../architecture/patterns.md#agent-tool-authoring).
+
 **Tool Providers:**
+- `GuildAgentToolProvider` / `DmAgentToolProvider` - The two adapters over individually authored
+  `IAgentTool`s. Each keeps the scanned tools whose `ToolCatalog` scope matches its surface, and
+  refuses a write the caller may not make before entering the tool
+  - `save_note`, `search_notes`, `get_note`, `list_notes`, `delete_note` - The DM assistant's memory
 - `DocumentationToolProvider` - Access to feature docs, command info, and guild context
   - `get_feature_documentation` - Fetch markdown docs for a feature
   - `search_commands` - Search available commands by keyword
@@ -537,10 +549,12 @@ Because OpenRouter fronts many providers, switching models is a configuration ch
   `IToolAccessResolver` from `AssistantGuildSettings.EnabledTools` (empty = the house default set)
 - It refuses a call to a tool outside the set as well as hiding it, because a model that saw the
   tool in an earlier cached prefix will sometimes call it anyway
-- Per-caller permission is separate: `ToolContext.CanMutate` is checked *inside* a tool that
-  writes, rather than used to filter the advertised list, which would give every permission level
-  its own prompt-cache prefix. In a guild it is set from the caller's Discord permissions (Manage
-  Server or Administrator); in DMs, which are owner-only, it is always true.
+- Per-caller permission is separate: `ToolContext.CanMutate` gates a tool that writes, rather than
+  filtering the advertised list, which would give every permission level its own prompt-cache
+  prefix. In a guild it is set from the caller's Discord permissions (Manage Server or
+  Administrator); in DMs, which are owner-only, it is always true. A tool authored as `IAgentTool`
+  declares `Mutation` and `AgentToolProvider` applies the check before entering it; the remaining
+  hand-written providers check it themselves.
 
 **Tool Telemetry:**
 - Every tool call emits an `agent.tool {name}` span on the `DiscordBot.Agents` source, tagged with
