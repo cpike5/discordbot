@@ -75,6 +75,9 @@ public class DmAssistantContext : IAssistantContext
     public int MaxTokens => _options.MaxTokens;
     public double Temperature => _options.Temperature;
     public int MaxToolCallIterations => 10;
+    public int MaxToolResultChars => _options.MaxToolResultChars;
+    public int ToolExecutionTimeoutMs => _options.ToolExecutionTimeoutMs;
+    public int DuplicateToolCallLimit => _options.DuplicateToolCallLimit;
 
     public IToolRegistry? ToolRegistry { get; }
     public ToolContext ExecutionContext { get; }

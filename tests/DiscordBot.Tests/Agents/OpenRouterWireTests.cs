@@ -91,6 +91,36 @@ public class OpenRouterWireTests
         json.TryGetProperty("temperature", out _).Should().BeFalse();
         json.GetProperty("messages")[0].TryGetProperty("tool_calls", out _).Should().BeFalse();
         json.GetProperty("messages")[0].TryGetProperty("tool_call_id", out _).Should().BeFalse();
+        json.TryGetProperty("tool_choice", out _).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Request_serializes_tool_choice_alongside_the_tools_it_forbids()
+    {
+        // The wrap-up call keeps the tool schemas so the cached prefix still matches, and forbids
+        // their use with tool_choice instead.
+        var request = new ChatCompletionRequest
+        {
+            Model = "anthropic/claude-sonnet-4",
+            Messages = new List<ChatMessage> { new() { Role = "user", Content = "Hi" } },
+            ToolChoice = "none",
+            Tools = new List<ToolDefinition>
+            {
+                new()
+                {
+                    Function = new FunctionDefinition
+                    {
+                        Name = "get_roles",
+                        Parameters = JsonDocument.Parse("{\"type\":\"object\"}").RootElement.Clone()
+                    }
+                }
+            }
+        };
+
+        var json = Serialize(request);
+
+        json.GetProperty("tool_choice").GetString().Should().Be("none");
+        json.GetProperty("tools").GetArrayLength().Should().Be(1);
     }
 
     [Fact]

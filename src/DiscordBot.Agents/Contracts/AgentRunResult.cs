@@ -16,8 +16,10 @@ public class AgentRunResult
     public string Response { get; set; } = string.Empty;
 
     /// <summary>
-    /// Number of agentic loop iterations executed (tool use cycles). Also the number of LLM calls
-    /// made during this run — one <see cref="ILlmClient.CompleteAsync"/> call per iteration.
+    /// Number of agentic loop iterations executed (tool use cycles), plus the run's text-only
+    /// follow-up call when it made one (the budget wrap-up, or blank-final-text recovery). Also
+    /// the number of LLM calls made during this run — one completion call per iteration — which is
+    /// what the usage ledger records.
     /// </summary>
     public int LoopCount { get; set; }
 
@@ -47,6 +49,13 @@ public class AgentRunResult
     /// Names of tools that were invoked during this run, in order of execution.
     /// </summary>
     public List<string> ToolNames { get; set; } = new();
+
+    /// <summary>
+    /// Whether the run used up its tool-round budget instead of the model ending its own turn.
+    /// The reply is then the wrap-up answer (or, if that call failed too, no reply at all), so
+    /// callers can record it distinctly from a clean run.
+    /// </summary>
+    public bool StoppedOnMaxIterations { get; set; }
 
     /// <summary>
     /// Whether the clear_conversation tool was invoked during this run.

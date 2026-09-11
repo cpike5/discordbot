@@ -24,6 +24,12 @@ public class AssistantPipelineResult
     public List<string> ToolNames { get; set; } = new();
     public bool ConversationCleared { get; set; }
 
+    /// <summary>
+    /// Whether the run used up its tool-round budget rather than the model ending its own turn.
+    /// The reply is then the wrap-up answer, already carrying its "may be incomplete" notice.
+    /// </summary>
+    public bool StoppedOnMaxIterations { get; set; }
+
     public int LatencyMs { get; set; }
     public decimal EstimatedCostUsd { get; set; }
 

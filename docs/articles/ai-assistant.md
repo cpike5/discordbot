@@ -288,8 +288,26 @@ slugs. See `docs/articles/settings-page.md` ("AI Models Tab") for the UI details
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `EnableDocumentationTools` | `true` | Whether the model can call documentation tools |
-| `MaxToolCallsPerQuestion` | `5` | Max tool calls per question (prevents loops) |
-| `ToolExecutionTimeoutMs` | `5000` | Tool execution timeout in milliseconds |
+| `MaxToolRounds` | `8` | Max tool-use rounds per question (prevents loops). A round is one completion that asks for tools, not one tool call |
+| `MaxToolCallsPerQuestion` | — | Deprecated name for `MaxToolRounds`. Still binds, and still wins when both are set |
+| `ToolExecutionTimeoutMs` | `10000` | Per-tool deadline in milliseconds; an overrun tool is abandoned and the model is told so, and the loop continues. `0` disables it |
+| `MaxToolResultChars` | `8000` | Ceiling on one tool result entering conversation history (~2,000 tokens). A longer result is replaced by a truncation envelope telling the model it is reading a fragment. `0` disables the cap |
+| `DuplicateToolCallLimit` | `3` | How many times one tool may be called with identical arguments in a run before further identical calls are refused without executing the tool. `0` disables the guard |
+
+When the round budget runs out the run no longer fails. The model is asked once more for an
+answer with `tool_choice: none` — it keeps every tool result it already gathered, it just cannot
+fetch more — and the reply is prefixed with *"Heads up — I ran out of steps on this one, so this
+may be incomplete."* so the user is told it may be partial whatever the model wrote. Only if that
+call fails or comes back empty does the old error surface. The same follow-up covers a model that
+ends its turn without writing anything: one recovery call, never two, which previously reached the
+user as a blank reply.
+
+A tool result is not paid for once: it is appended to the conversation and re-sent on every later
+iteration of the loop, so one oversized read costs its tokens again on each following turn. That is
+what `MaxToolResultChars` exists to bound — individual tools should still return aggregates rather
+than dumps; the cap is the backstop that makes the next careless tool safe. The truncation envelope
+carries an explicit instruction not to re-call the tool, and `DuplicateToolCallLimit` refuses the
+repeat if the model tries anyway.
 
 #### Error Handling
 
@@ -312,7 +330,11 @@ slugs. See `docs/articles/settings-page.md` ("AI Models Tab") for the UI details
 
 #### Prompt Caching (Cost Optimization)
 
-Prompt caching reduces API costs by ~50% by caching the agent prompt and common documentation files for 5 minutes. OpenRouter passes cache breakpoints through to **Claude-family models only** — other models ignore them and report zero cached tokens, so caching is safe to leave on for any slug but only pays off on Claude.
+Prompt caching reduces API costs by ~50% by caching the agent prompt and common documentation files. OpenRouter passes cache breakpoints through to **Claude-family models only** — other models ignore them and report zero cached tokens, so caching is safe to leave on for any slug but only pays off on Claude.
+
+The breakpoint sits on the system prompt, and its lifetime comes from `OpenRouter:PromptCacheTtl` (default `"1h"`; clear it to fall back to the provider's 5 minutes). The system prompt and the tool schemas behind it are the layer shared across every user and every question in a guild, and a guild's questions are frequently more than five minutes apart, so the longer TTL's write premium pays for itself.
+
+Two things sit in front of that breakpoint and must not move: the tool schemas serialize at position 0 of the request, ahead of the system message, so any change in their order invalidates the cache behind them. `ToolRegistry.GetEnabledTools()` therefore returns them sorted by name (ordinal) rather than in DI registration order — the symptom of getting this wrong is correct answers at roughly ten times the price, which no test catches unless one asserts the order.
 
 | Setting | Default | Description |
 |---------|---------|-------------|
@@ -368,8 +390,10 @@ At 100 questions/day:
     "DocumentationBasePath": "docs/articles",
     "ReadmePath": "README.md",
     "EnableDocumentationTools": true,
-    "MaxToolCallsPerQuestion": 5,
-    "ToolExecutionTimeoutMs": 5000,
+    "MaxToolRounds": 8,
+    "ToolExecutionTimeoutMs": 10000,
+    "MaxToolResultChars": 8000,
+    "DuplicateToolCallLimit": 3,
     "ErrorMessage": "Oops, I'm having trouble thinking right now. Please try again in a moment.",
     "MaxRetryAttempts": 2,
     "RetryDelayMs": 1000,
@@ -410,6 +434,7 @@ The transport-level settings live in their own `OpenRouter` section, separate fr
 | `TimeoutSeconds` | `300` | Per-attempt request timeout |
 | `RetryBaseDelayMs` | `1000` | Base delay for exponential backoff (`baseDelay * 2^attempt`) |
 | `EnablePromptCachingByDefault` | `true` | Add a cache breakpoint to the system prompt unless a request overrides it |
+| `PromptCacheTtl` | `"1h"` | Lifetime of that breakpoint, as Anthropic spells it (`"5m"` or `"1h"`). Empty falls back to the provider default of 5 minutes |
 | `AppUrl` | *(none)* | Site URL sent as `HTTP-Referer` (attribution on openrouter.ai rankings) |
 | `AppTitle` | `"DiscordBot"` | Application name sent as `X-Title` |
 
@@ -422,6 +447,7 @@ The transport-level settings live in their own `OpenRouter` section, separate fr
     "TimeoutSeconds": 300,
     "RetryBaseDelayMs": 1000,
     "EnablePromptCachingByDefault": true,
+    "PromptCacheTtl": "1h",
     "AppTitle": "DiscordBot"
   }
 }

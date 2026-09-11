@@ -106,7 +106,7 @@ public class AssistantServiceTests
             },
             Tools = new()
             {
-                MaxToolCallsPerQuestion = 5,
+                MaxToolRounds = 5,
                 EnableDocumentationTools = true,
                 AgentPromptPath = "docs/agents/assistant-agent.md"
             },

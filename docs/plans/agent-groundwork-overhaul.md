@@ -306,6 +306,29 @@ That is a better shape than the spec's original and the boundary is what makes i
 Section-aware documentation (§1.2) is a *tool* change and stays in Infrastructure. It can ship in
 parallel with this phase; it shares no files.
 
+#### 5.1a What shipped, and the two corrections
+
+Items 1–5 are done, across three commits matching PRs 4–6 in §6. Three notes for later phases:
+
+- **A fourth knob rides along with the three.** `MaxToolCallIterations` was already on
+  `AgentContext`; `Assistant:Tools:MaxToolRounds` (default 8) is now what fills it, with
+  `MaxToolCallsPerQuestion` kept as an `[Obsolete]` forwarding property that still wins when both
+  are set. `ApplyFlatLegacyKeyPrecedence` only walked `AssistantOptions`' own obsolete properties,
+  so it could not have enforced that for a key inside a nested group; it now walks the nested
+  group's legacy names first and the flat ones second, which preserves "the flat key is oldest and
+  wins" while extending the guarantee downward. Any future rename *inside* a nested options group
+  gets that precedence for free.
+- **The two follow-up calls count in `LoopCount`.** The budget wrap-up and the blank-text recovery
+  are real completions and are billed, so they are counted — `LoopCount` feeds the usage ledger's
+  `LlmCalls`, and a follow-up that did not appear there would make the ledger lie. A run can
+  therefore report `LoopCount == MaxToolRounds + 1`, which is not a budget violation.
+- **§1.7c is not attempted.** It needs a probe against live traffic (does OpenRouter forward
+  `cache_control` on a `role: "tool"` message into Anthropic's `tool_result` block?), which is not
+  something a test run can answer. Item 6 stays open, and the history-message fallback is still the
+  real plan. §1.7's stated verification — comparing the cached fraction of input in the
+  `LlmUsageRecord` ledger before and after — applies to §1.7b as shipped and needs a day of real
+  traffic on each side.
+
 ### Phase 3 — Governance (impl §2.1, §2.2, §2.3, §2.4)
 
 Mostly application-side, which is the right answer and is now visible in the diff.

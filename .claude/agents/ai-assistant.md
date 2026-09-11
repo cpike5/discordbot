@@ -19,8 +19,46 @@ bot *this* bot stays in Infrastructure and Bot, which reference the engine.
 - **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IPromptTemplate`
 - **`Agents/Contracts/`:** `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Definition/Result`, `LlmUsage`, `AgentContext`/`AgentRunResult` (`AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext`/`ToolExecutionResult`, and `Contracts/Enums/` `LlmRole`, `LlmStopReason`
 - **`Agents/Configuration/`:** `OpenRouterOptions`
-- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
+- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `ToolResultLimiter`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
 - **`Agents/OpenRouter/`:** `OpenRouterLlmClient` (owned typed `HttpClient`, no SDK), `OpenRouterMessageMapper`, `ChatCompletionRequest`/`ChatCompletionResponse` wire records, `OpenRouterParameterSupportCache`
+
+#### Loop guard rails (Phase 2 hardening)
+
+Four knobs ride on `AgentContext`, populated by `AssistantMessagePipeline` from `IAssistantContext`
+— the engine takes no `IOptions`, it is handed its budget, which is what keeps a per-scope override
+possible (guild reads `Assistant:Tools`, DM reads `DmAssistant`). A new engine knob goes the same
+way: `AgentContext` → `IAssistantContext` → both contexts → the pipeline.
+
+- **`MaxToolResultChars`** (8000, `0` disables) — `ToolResultLimiter.Cap` replaces an oversized tool
+  result with a truncation envelope before it enters history. A result is re-sent on every later
+  iteration, so an 80 KB read is paid for again each turn. The envelope's `message` tells the model
+  to narrow its query rather than re-call the tool; that wording is prompt surface, so change it
+  deliberately.
+- **`ToolExecutionTimeoutMs`** (10000, `0` disables) — per-tool deadline, linked to the caller's
+  token. The `when (!cancellationToken.IsCancellationRequested)` clause is load-bearing: only the
+  tool's own deadline becomes a result, an outer cancellation still propagates out of `RunAsync`.
+- **`DuplicateToolCallLimit`** (3, `0` disables) — per-run count keyed by tool name plus arguments
+  normalised with object properties sorted, so `{"a":1,"b":2}` and `{"b":2,"a":1}` are one key. Past
+  the limit the tool is never entered and a `repeated_call` result is returned with `IsError = false`
+  — it is a directive, not a fault; flagging it would inflate the error metrics and prepend
+  `Error: ` on the wire. A refused call is not counted in `TotalToolCalls`/`ToolNames`: nothing ran.
+- **`MaxToolCallIterations`** — from `Assistant:Tools:MaxToolRounds` (default 8; the old
+  `MaxToolCallsPerQuestion` still binds and still wins when both are set). Running out no longer
+  fails the run: `AgentRunner` makes one more completion with `ToolChoice = "none"` and the tools
+  *still attached* (dropping them would change the serialized prefix and throw away the cached tool
+  schemas), and prefixes `AgentRunner.MaxIterationsNotice` to whatever comes back.
+  `AgentRunResult.StoppedOnMaxIterations` (and `AssistantPipelineResult.StoppedOnMaxIterations`)
+  distinguishes that from a clean run; the old error is the fallback when the wrap-up call fails or
+  returns nothing. The same helper recovers a blank final text — once per run, never twice.
+
+Both follow-up calls are billed like any other, so they count in `LoopCount` and therefore in the
+usage ledger's `LlmCalls`.
+
+**Prompt-cache ordering is a correctness concern, not a nicety.** Tool schemas serialize at position
+0, ahead of the system message, so `ToolRegistry.GetEnabledTools()` sorts by name (ordinal) — DI
+registration order would change silently under a reshuffle and invalidate every breakpoint behind
+it, at correct answers and ~10x the price. The system-prompt breakpoint's TTL comes from
+`OpenRouter:PromptCacheTtl` (default `"1h"`, empty = the provider's 5m).
 
 Two contract details the boundary forced:
 - **`AgentContext.RunKind` is a plain `string?`**, not `LlmMode`. `LlmMode` is application taxonomy and stays in Core; the engine carries the label for correlation only and never switches on it. The pipeline populates it from `IAssistantContext.Mode`.

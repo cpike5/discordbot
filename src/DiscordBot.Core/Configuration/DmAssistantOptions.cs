@@ -66,6 +66,31 @@ public class DmAssistantOptions
 
     #endregion
 
+    #region Tool Execution
+
+    /// <summary>
+    /// Gets or sets the timeout for individual tool executions in milliseconds.
+    /// A tool that overruns it is abandoned and the model is told so; the loop continues.
+    /// Default is 10000 (10 seconds).
+    /// </summary>
+    public int ToolExecutionTimeoutMs { get; set; } = 10000;
+
+    /// <summary>
+    /// Gets or sets the ceiling, in characters, on a single tool result entering conversation
+    /// history. A longer result is replaced by a truncation envelope telling the model it is
+    /// reading a fragment. Default is 8000 (~2,000 tokens). 0 disables the cap.
+    /// </summary>
+    public int MaxToolResultChars { get; set; } = 8000;
+
+    /// <summary>
+    /// Gets or sets how many times one tool may be called with identical arguments in a single
+    /// run before further identical calls are refused without executing the tool.
+    /// Default is 3. 0 disables the guard.
+    /// </summary>
+    public int DuplicateToolCallLimit { get; set; } = 3;
+
+    #endregion
+
     #region Message Constraints
 
     /// <summary>

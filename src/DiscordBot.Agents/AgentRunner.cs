@@ -1,3 +1,5 @@
+using System.Buffers;
+using System.Text;
 using System.Text.Json;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Agents.Contracts.Enums;
@@ -12,6 +14,32 @@ namespace DiscordBot.Agents;
 /// </summary>
 public class AgentRunner : IAgentRunner
 {
+    /// <summary>How deep argument normalization descends before collapsing to a marker.</summary>
+    private const int MaxNormalizedDepth = 8;
+
+    /// <summary>Ceiling on the normalized-argument half of a duplicate-guard key.</summary>
+    private const int MaxNormalizedKeyChars = 4000;
+
+    /// <summary>Stands in for anything below <see cref="MaxNormalizedDepth"/>.</summary>
+    private const string DepthLimitMarker = "<depth-limited>";
+
+    /// <summary>
+    /// Prefixed to a wrap-up answer so the user is told it may be partial regardless of what the
+    /// model wrote. Public so callers and tests assert on the exact text.
+    /// </summary>
+    public const string MaxIterationsNotice =
+        "*Heads up — I ran out of steps on this one, so this may be incomplete.*";
+
+    /// <summary>What the model is asked once its tool-round budget is spent.</summary>
+    private const string WrapUpInstruction =
+        "You have run out of tool-use steps. Answer now using the tool results you already have. " +
+        "If something is missing, say briefly what you could not check. Do not mention steps or budgets.";
+
+    /// <summary>What the model is asked when it ended a turn without writing anything.</summary>
+    private const string BlankTextInstruction =
+        "Your last turn ended without any text. Answer the user now, in words, using the tool " +
+        "results you already have. Do not mention this instruction.";
+
     private readonly ILlmClient _llmClient;
     private readonly ILogger<AgentRunner> _logger;
 
@@ -69,6 +97,9 @@ public class AgentRunner : IAgentRunner
         var conversationCleared = false;
         string? lastModel = null;
         var toolNames = new List<string>();
+
+        // Per-run duplicate-call counters, keyed by tool name plus its normalised arguments.
+        var duplicateCallCounts = new Dictionary<string, int>(StringComparer.Ordinal);
 
         // Build the initial LLM request
         var request = new LlmRequest
@@ -154,15 +185,7 @@ public class AgentRunner : IAgentRunner
             lastModel = response.Model ?? lastModel;
 
             // Accumulate token usage
-            totalUsage.InputTokens += response.Usage.InputTokens;
-            totalUsage.OutputTokens += response.Usage.OutputTokens;
-            totalUsage.CachedTokens += response.Usage.CachedTokens;
-            totalUsage.CacheWriteTokens += response.Usage.CacheWriteTokens;
-
-            if (response.Usage.EstimatedCost.HasValue)
-            {
-                totalUsage.EstimatedCost = (totalUsage.EstimatedCost ?? 0) + response.Usage.EstimatedCost.Value;
-            }
+            AccumulateUsage(totalUsage, response.Usage);
 
             _logger.LogDebug(
                 "LLM response received. StopReason: {StopReason}, InputTokens: {InputTokens}, OutputTokens: {OutputTokens}, CachedTokens: {CachedTokens}",
@@ -175,6 +198,35 @@ public class AgentRunner : IAgentRunner
             switch (response.StopReason)
             {
                 case LlmStopReason.EndTurn:
+                {
+                    var finalText = response.Content;
+
+                    if (string.IsNullOrWhiteSpace(finalText))
+                    {
+                        // A model that ends its turn after a tool round without writing anything
+                        // leaves the user with a blank reply and no clue why. Ask once for the
+                        // answer in words; this path returns either way, so it can never run twice
+                        // in one run, and it is not charged against the tool-round budget.
+                        _logger.LogWarning(
+                            "Model ended its turn with no text on iteration {Iteration}; asking once for a written answer",
+                            loopCount);
+
+                        var recovered = await RequestTextOnlyReplyAsync(
+                            request, conversationHistory, BlankTextInstruction, cancellationToken);
+
+                        if (recovered is not null)
+                        {
+                            loopCount++;
+                            AccumulateUsage(totalUsage, recovered.Usage);
+                            lastModel = recovered.Model ?? lastModel;
+
+                            if (recovered.Success && !string.IsNullOrWhiteSpace(recovered.Content))
+                            {
+                                finalText = recovered.Content;
+                            }
+                        }
+                    }
+
                     // Final response reached
                     _logger.LogInformation(
                         "Agent run completed successfully. Iterations: {Iterations}, ToolCalls: {ToolCalls}, TotalTokens: {TotalTokens}",
@@ -185,7 +237,7 @@ public class AgentRunner : IAgentRunner
                     return new AgentRunResult
                     {
                         Success = true,
-                        Response = response.Content ?? string.Empty,
+                        Response = finalText ?? string.Empty,
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
                         ToolNames = toolNames,
@@ -193,6 +245,7 @@ public class AgentRunner : IAgentRunner
                         ConversationCleared = conversationCleared,
                         Model = lastModel
                     };
+                }
 
                 case LlmStopReason.ToolUse:
                     // LLM wants to use tools
@@ -245,6 +298,14 @@ public class AgentRunner : IAgentRunner
 
                     foreach (var toolCall in response.ToolCalls)
                     {
+                        if (IsRefusedAsDuplicate(toolCall, context, duplicateCallCounts, out var refusal))
+                        {
+                            // The tool is never entered, so this is not counted as a tool call and
+                            // does not reach ToolNames: nothing ran.
+                            toolResults.Add(refusal);
+                            continue;
+                        }
+
                         totalToolCalls++;
                         toolNames.Add(toolCall.Name);
 
@@ -255,11 +316,8 @@ public class AgentRunner : IAgentRunner
 
                         try
                         {
-                            var executionResult = await context.ToolRegistry.ExecuteToolAsync(
-                                toolCall.Name,
-                                toolCall.Input,
-                                context.ExecutionContext,
-                                cancellationToken);
+                            var executionResult = await ExecuteWithDeadlineAsync(
+                                toolCall, context, cancellationToken);
 
                             // Convert ToolExecutionResult to LlmToolResult
                             JsonElement contentElement;
@@ -283,6 +341,10 @@ public class AgentRunner : IAgentRunner
                                     success = true
                                 });
                             }
+
+                            // Cap before the result enters history: it is re-sent on every later
+                            // iteration, so an oversized one is paid for again each time.
+                            contentElement = ToolResultLimiter.Cap(contentElement, context.MaxToolResultChars);
 
                             toolResults.Add(new LlmToolResult
                             {
@@ -310,6 +372,12 @@ public class AgentRunner : IAgentRunner
                                     executionResult.ErrorMessage);
                             }
                         }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            // The caller cancelled (interaction expired, host shutting down). That
+                            // is not a tool failure and must not be laundered into a tool result.
+                            throw;
+                        }
                         catch (Exception ex)
                         {
                             _logger.LogError(ex,
@@ -325,12 +393,11 @@ public class AgentRunner : IAgentRunner
                             toolResults.Add(new LlmToolResult
                             {
                                 ToolCallId = toolCall.Id,
-                                Content = errorElement,
+                                Content = ToolResultLimiter.Cap(errorElement, context.MaxToolResultChars),
                                 IsError = true
                             });
                         }
                     }
-
                     // Add tool results as a user message
                     conversationHistory.Add(new LlmMessage
                     {
@@ -394,20 +461,277 @@ public class AgentRunner : IAgentRunner
             }
         }
 
-        // Exceeded max iterations
+        // The tool-round budget is spent. Rather than dropping everything the run already paid
+        // for, ask the model one last time for an answer with tools forbidden - it has the tool
+        // results in hand, it just cannot fetch more.
         _logger.LogWarning(
-            "Agent run exceeded maximum iterations ({MaxIterations}). Returning incomplete result",
+            "Agent run exhausted its tool-round budget ({MaxIterations}). Requesting a wrap-up answer",
             context.MaxToolCallIterations);
+
+        var wrapUp = await RequestTextOnlyReplyAsync(
+            request, conversationHistory, WrapUpInstruction, cancellationToken);
+
+        if (wrapUp is not null)
+        {
+            loopCount++;
+            AccumulateUsage(totalUsage, wrapUp.Usage);
+            lastModel = wrapUp.Model ?? lastModel;
+        }
+
+        if (wrapUp is { Success: true } && !string.IsNullOrWhiteSpace(wrapUp.Content))
+        {
+            return new AgentRunResult
+            {
+                Success = true,
+                // The notice is added here rather than asked for, so the user is told the answer
+                // may be partial whatever the model chose to write.
+                Response = $"{MaxIterationsNotice}\n\n{wrapUp.Content.Trim()}",
+                StoppedOnMaxIterations = true,
+                LoopCount = loopCount,
+                TotalToolCalls = totalToolCalls,
+                ToolNames = toolNames,
+                TotalUsage = totalUsage,
+                ConversationCleared = conversationCleared,
+                Model = lastModel
+            };
+        }
+
+        _logger.LogWarning("Wrap-up call produced no usable answer; returning the budget failure");
 
         return new AgentRunResult
         {
             Success = false,
             ErrorMessage = $"Exceeded maximum tool call iterations ({context.MaxToolCallIterations})",
+            StoppedOnMaxIterations = true,
             LoopCount = loopCount,
             TotalToolCalls = totalToolCalls,
             ToolNames = toolNames,
             TotalUsage = totalUsage,
             Model = lastModel
         };
+    }
+
+    /// <summary>
+    /// Runs one tool under its own deadline, converting an expired deadline into a directive error
+    /// result rather than letting it cancel the run.
+    /// </summary>
+    /// <remarks>
+    /// The <c>when</c> clause is load-bearing: an outer cancellation (the Discord interaction
+    /// expiring, the host shutting down) must still propagate as cancellation and not be laundered
+    /// into a tool result.
+    /// </remarks>
+    private async Task<ToolExecutionResult> ExecuteWithDeadlineAsync(
+        LlmToolCall toolCall,
+        AgentContext context,
+        CancellationToken cancellationToken)
+    {
+        using var toolCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        if (context.ToolExecutionTimeoutMs > 0)
+        {
+            toolCts.CancelAfter(context.ToolExecutionTimeoutMs);
+        }
+
+        try
+        {
+            return await context.ToolRegistry!.ExecuteToolAsync(
+                toolCall.Name,
+                toolCall.Input,
+                context.ExecutionContext,
+                toolCts.Token);
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            _logger.LogWarning(
+                "Tool {ToolName} exceeded its {TimeoutMs}ms deadline and was abandoned",
+                toolCall.Name,
+                context.ToolExecutionTimeoutMs);
+
+            return ToolExecutionResult.CreateError(
+                $"Tool '{toolCall.Name}' timed out after {context.ToolExecutionTimeoutMs}ms. " +
+                "Do not retry it; answer with what you have or try a different approach.");
+        }
+    }
+
+    /// <summary>
+    /// Counts this call against the run's duplicate budget and, once the budget is spent, produces
+    /// the refusal to return in place of executing the tool.
+    /// </summary>
+    /// <remarks>
+    /// The refusal is a normal result carrying a directive, not an error: flagging it would both
+    /// inflate tool-error metrics and prepend <c>Error: </c> on the wire, which reads to the model
+    /// as a malfunction rather than an instruction.
+    /// </remarks>
+    /// <returns>True when the call must not be executed.</returns>
+    private bool IsRefusedAsDuplicate(
+        LlmToolCall toolCall,
+        AgentContext context,
+        Dictionary<string, int> counts,
+        out LlmToolResult refusal)
+    {
+        refusal = null!;
+
+        if (context.DuplicateToolCallLimit <= 0)
+        {
+            return false;
+        }
+
+        var key = BuildDuplicateKey(toolCall);
+        counts.TryGetValue(key, out var seen);
+        counts[key] = seen + 1;
+
+        if (seen < context.DuplicateToolCallLimit)
+        {
+            return false;
+        }
+
+        _logger.LogWarning(
+            "Refusing call {CallNumber} to tool {ToolName} with arguments already used {Limit} time(s) in this run",
+            seen + 1,
+            toolCall.Name,
+            context.DuplicateToolCallLimit);
+
+        refusal = new LlmToolResult
+        {
+            ToolCallId = toolCall.Id,
+            Content = JsonSerializer.SerializeToElement(new
+            {
+                error = "repeated_call",
+                message = $"You have already called '{toolCall.Name}' with these exact arguments "
+                    + $"{context.DuplicateToolCallLimit} time(s) in this run. Do not repeat it: use the "
+                    + "result you already have, call it with different arguments, or answer with what you know.",
+            }),
+            IsError = false,
+        };
+
+        return true;
+    }
+
+    /// <summary>
+    /// The duplicate-guard key for one call: the tool name, a separator that cannot occur in a tool
+    /// name, and the arguments normalised so property order does not matter.
+    /// </summary>
+    private static string BuildDuplicateKey(LlmToolCall toolCall) =>
+        toolCall.Name + '\u001f' + NormalizeArguments(toolCall.Input);
+
+    /// <summary>
+    /// Re-serializes an argument object with object properties sorted by name, so
+    /// <c>{"a":1,"b":2}</c> and <c>{"b":2,"a":1}</c> produce one key.
+    /// </summary>
+    /// <remarks>
+    /// Depth-limited and length-capped against pathological inputs. Both limits can in principle
+    /// collapse two genuinely different argument sets onto one key; the cost of that is one refused
+    /// call carrying a directive, which is cheaper than walking an adversarial payload.
+    /// </remarks>
+    private static string NormalizeArguments(JsonElement arguments)
+    {
+        var buffer = new ArrayBufferWriter<byte>();
+        using (var writer = new Utf8JsonWriter(buffer))
+        {
+            WriteNormalized(arguments, writer, MaxNormalizedDepth);
+        }
+
+        var text = Encoding.UTF8.GetString(buffer.WrittenSpan);
+        return text.Length <= MaxNormalizedKeyChars ? text : text[..MaxNormalizedKeyChars];
+    }
+
+    /// <summary>Writes one element with object properties in ordinal name order.</summary>
+    private static void WriteNormalized(JsonElement element, Utf8JsonWriter writer, int depthRemaining)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object when depthRemaining > 0:
+                writer.WriteStartObject();
+                foreach (var property in element.EnumerateObject().OrderBy(p => p.Name, StringComparer.Ordinal))
+                {
+                    writer.WritePropertyName(property.Name);
+                    WriteNormalized(property.Value, writer, depthRemaining - 1);
+                }
+                writer.WriteEndObject();
+                break;
+
+            case JsonValueKind.Array when depthRemaining > 0:
+                writer.WriteStartArray();
+                foreach (var item in element.EnumerateArray())
+                {
+                    WriteNormalized(item, writer, depthRemaining - 1);
+                }
+                writer.WriteEndArray();
+                break;
+
+            case JsonValueKind.Object:
+            case JsonValueKind.Array:
+                // Past the depth limit everything collapses to one marker.
+                writer.WriteStringValue(DepthLimitMarker);
+                break;
+
+            case JsonValueKind.Undefined:
+                writer.WriteNullValue();
+                break;
+
+            default:
+                element.WriteTo(writer);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// Makes one more completion with tools forbidden, asking the model to answer in words.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="LlmRequest.Tools"/> is deliberately left on the request: removing it would change
+    /// the serialized prefix and throw away the cached tool schemas for this call, which costs more
+    /// than the schemas do. <c>tool_choice: none</c> is what actually forbids their use.
+    /// <para>
+    /// Returns null when the call itself faulted; the caller decides what a missing answer means.
+    /// </para>
+    /// </remarks>
+    private async Task<LlmResponse?> RequestTextOnlyReplyAsync(
+        LlmRequest request,
+        List<LlmMessage> conversationHistory,
+        string instruction,
+        CancellationToken cancellationToken)
+    {
+        var followUp = new LlmRequest
+        {
+            SystemPrompt = request.SystemPrompt,
+            Messages = new List<LlmMessage>(conversationHistory)
+            {
+                new() { Role = LlmRole.User, Content = instruction },
+            },
+            Tools = request.Tools,
+            ToolChoice = "none",
+            Model = request.Model,
+            MaxTokens = request.MaxTokens,
+            Temperature = request.Temperature,
+            EnablePromptCaching = request.EnablePromptCaching,
+        };
+
+        try
+        {
+            return await _llmClient.CompleteAsync(followUp, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LLM client threw on the text-only follow-up call");
+            return null;
+        }
+    }
+
+    /// <summary>Adds one response's usage to the run total.</summary>
+    private static void AccumulateUsage(LlmUsage total, LlmUsage usage)
+    {
+        total.InputTokens += usage.InputTokens;
+        total.OutputTokens += usage.OutputTokens;
+        total.CachedTokens += usage.CachedTokens;
+        total.CacheWriteTokens += usage.CacheWriteTokens;
+
+        if (usage.EstimatedCost.HasValue)
+        {
+            total.EstimatedCost = (total.EstimatedCost ?? 0) + usage.EstimatedCost.Value;
+        }
     }
 }

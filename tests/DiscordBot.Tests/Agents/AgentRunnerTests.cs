@@ -681,8 +681,10 @@ public class AgentRunnerTests
     #region Iteration Limit Tests
 
     [Fact]
-    public async Task RunAsync_ExceedsMaxIterations_ReturnsError()
+    public async Task RunAsync_ExceedsMaxIterationsAndCannotWrapUp_ReturnsError()
     {
+        // The scripted model asks for tools forever and never writes a word, so even the wrap-up
+        // call - which forbids tools - comes back empty and the run falls back to the budget error.
         // Arrange
         const string userMessage = "Test message";
 
@@ -729,7 +731,9 @@ public class AgentRunnerTests
         // Assert
         result.Success.Should().BeFalse();
         result.ErrorMessage.Should().Contain("maximum tool call iterations");
-        result.LoopCount.Should().Be(2);
+        result.StoppedOnMaxIterations.Should().BeTrue();
+        // Two loop iterations plus the wrap-up attempt, which is billed like any other call.
+        result.LoopCount.Should().Be(3);
     }
 
     #endregion

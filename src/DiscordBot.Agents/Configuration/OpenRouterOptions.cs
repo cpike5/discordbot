@@ -86,6 +86,18 @@ public class OpenRouterOptions
     public bool EnablePromptCachingByDefault { get; set; } = true;
 
     /// <summary>
+    /// Gets or sets the lifetime of the system-prompt cache breakpoint, as Anthropic spells it
+    /// ("5m" or "1h"). Default is "1h". Empty falls back to the provider's own default of 5m.
+    /// </summary>
+    /// <remarks>
+    /// The system prompt and tool schemas are the layer shared across every user and every
+    /// question in a guild, and a guild's questions are frequently more than five minutes apart, so
+    /// the longer TTL's write premium pays for itself. Configurable so it can be reverted without
+    /// a deploy. Only Claude-family models honour it; others ignore the breakpoint entirely.
+    /// </remarks>
+    public string PromptCacheTtl { get; set; } = "1h";
+
+    /// <summary>
     /// Gets or sets the site URL reported to OpenRouter via the HTTP-Referer header.
     /// Optional; used for attribution on openrouter.ai rankings.
     /// </summary>

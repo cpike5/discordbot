@@ -42,6 +42,9 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
             MaxTokens = context.MaxTokens,
             Temperature = context.Temperature,
             MaxToolCallIterations = context.MaxToolCallIterations,
+            MaxToolResultChars = context.MaxToolResultChars,
+            ToolExecutionTimeoutMs = context.ToolExecutionTimeoutMs,
+            DuplicateToolCallLimit = context.DuplicateToolCallLimit,
             ConversationHistory = context.ConversationHistory.Count > 0 ? context.ConversationHistory : null,
             RunKind = context.Mode.ToString()
         };
@@ -85,6 +88,7 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
             LoopCount = agentResult.LoopCount,
             ToolNames = agentResult.ToolNames,
             ConversationCleared = agentResult.ConversationCleared,
+            StoppedOnMaxIterations = agentResult.StoppedOnMaxIterations,
             EstimatedCostUsd = cost,
             Model = resolvedModel,
             UsageRecord = usageRecord
