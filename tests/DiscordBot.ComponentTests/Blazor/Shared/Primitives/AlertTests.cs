@@ -51,6 +51,22 @@ public class AlertTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void IsDismissible_DismissButtonIcon_RendersRealPathData()
+    {
+        // Regression guard: the dismiss button's <Icon Path="IconPaths.XMark" ...> previously
+        // lacked the "@" prefix a string-typed component parameter needs to be evaluated as C#
+        // (see docs/lessons-learned - Blazor treats an unprefixed value as a literal string for
+        // string parameters), so it rendered the literal text "IconPaths.XMark" as the SVG `d`.
+        var cut = Render<Alert>(p => p.Add(x => x.Message, "x").Add(x => x.IsDismissible, true));
+
+        var d = cut.Find("button[aria-label='Dismiss'] svg path").GetAttribute("d");
+
+        d.Should().StartWith("M");
+        d.Should().NotContain("IconPaths");
+        d.Should().Be(IconPaths.XMark);
+    }
+
+    [Fact]
     public void IsDismissible_RendersDismissButton()
     {
         var cut = Render<Alert>(p => p.Add(x => x.Message, "x").Add(x => x.IsDismissible, true));

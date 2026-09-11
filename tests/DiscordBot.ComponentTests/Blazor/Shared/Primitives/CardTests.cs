@@ -129,6 +129,22 @@ public class CardTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void IsCollapsible_ChevronIcon_RendersRealPathData()
+    {
+        // Regression guard: <Icon Path="IconPaths.ChevronDown" ...> previously lacked the "@"
+        // prefix a string-typed component parameter needs to be evaluated as C# (Blazor treats an
+        // unprefixed value as a literal string for string parameters), so it rendered the literal
+        // text "IconPaths.ChevronDown" as the SVG `d` instead of the actual path data.
+        var cut = Render<Card>(p => p.Add(x => x.Title, "x").Add(x => x.IsCollapsible, true).AddChildContent("<p>Body</p>"));
+
+        var d = cut.Find("button svg path").GetAttribute("d");
+
+        d.Should().StartWith("M");
+        d.Should().NotContain("IconPaths");
+        d.Should().Be(IconPaths.ChevronDown);
+    }
+
+    [Fact]
     public void Id_IsRenderedOnRoot()
     {
         var cut = Render<Card>(p => p.Add(x => x.Title, "x").Add(x => x.Id, "my-card"));

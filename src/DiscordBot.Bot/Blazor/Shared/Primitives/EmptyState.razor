@@ -24,7 +24,7 @@
                 @if (!string.IsNullOrEmpty(PrimaryActionHref))
                 {
                     <a href="@PrimaryActionHref" class="inline-flex items-center @Sizing.IconGap @Sizing.ButtonSize bg-accent-orange hover:bg-accent-orange-hover text-white font-semibold rounded-md transition-colors">
-                        <Icon Path="IconPaths.Plus" Size="IconSize.SM" />
+                        <Icon Path="@IconPaths.Plus" Size="IconSize.SM" />
                         @PrimaryActionText
                     </a>
                 }
@@ -33,7 +33,7 @@
                     <button type="button"
                             class="inline-flex items-center @Sizing.IconGap @Sizing.ButtonSize bg-accent-orange hover:bg-accent-orange-hover text-white font-semibold rounded-md transition-colors"
                             @onclick="OnPrimaryAction">
-                        <Icon Path="IconPaths.Plus" Size="IconSize.SM" />
+                        <Icon Path="@IconPaths.Plus" Size="IconSize.SM" />
                         @PrimaryActionText
                     </button>
                 }

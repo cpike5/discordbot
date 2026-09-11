@@ -1,5 +1,6 @@
 using Bunit;
 using DiscordBot.Bot.Blazor.Pages.Components.Sections;
+using DiscordBot.Bot.Blazor.Shared;
 using DiscordBot.ComponentTests.TestHelpers;
 using FluentAssertions;
 
@@ -47,5 +48,29 @@ public class PrimitivesShowcaseTests : BlazorComponentTestContext
         cut.Find("button[aria-expanded='true']").Click();
 
         cut.Find("button[aria-expanded='false']").Should().NotBeNull();
+    }
+
+    [Fact]
+    public void IconButtons_RenderRealPathData()
+    {
+        // Regression guard: the Icon Buttons section's IconLeft="IconPaths.X" values previously
+        // lacked the "@" prefix a string-typed component parameter needs to be evaluated as C#
+        // (Blazor treats an unprefixed value as a literal string for string parameters), so
+        // every icon rendered the literal text "IconPaths.X" as the SVG `d` instead of path data.
+        var cut = Render<PrimitivesShowcase>();
+
+        var iconButtons = cut.Find("[data-testid='showcase-buttons']");
+        var paths = iconButtons.QuerySelectorAll("svg path");
+
+        paths.Should().NotBeEmpty();
+        foreach (var path in paths)
+        {
+            var d = path.GetAttribute("d");
+            d.Should().StartWith("M");
+            d.Should().NotContain("IconPaths");
+        }
+
+        // Spot-check the first Icon Buttons entry (Save, IconLeft="IconPaths.CheckCircle").
+        iconButtons.QuerySelector("button svg path")!.GetAttribute("d").Should().Be(IconPaths.CheckCircle);
     }
 }
