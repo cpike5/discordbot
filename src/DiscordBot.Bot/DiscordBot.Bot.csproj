@@ -66,9 +66,11 @@
 
   <!-- Tailwind CSS Build Integration -->
   <!-- Set SkipTailwind=true or CI=true to bypass in environments without Node.js -->
-  <Target Name="NpmInstall" BeforeTargets="BeforeBuild" Condition="'$(SkipTailwind)' != 'true' And '$(CI)' != 'true' And !Exists('node_modules')">
+  <!-- Re-runs npm install whenever package.json/package-lock.json change (stamp-based), not only when node_modules is missing. -->
+  <Target Name="NpmInstall" BeforeTargets="BeforeBuild" Condition="'$(SkipTailwind)' != 'true' And '$(CI)' != 'true'" Inputs="package.json;package-lock.json" Outputs="node_modules/.msbuild-npm-install.stamp">
     <Message Text="Running npm install..." Importance="high" />
     <Exec Command="npm install" WorkingDirectory="$(ProjectDir)" />
+    <Touch Files="node_modules/.msbuild-npm-install.stamp" AlwaysCreate="true" />
   </Target>
 
   <Target Name="BuildTailwindCSS" BeforeTargets="BeforeBuild" DependsOnTargets="NpmInstall" Condition="'$(SkipTailwind)' != 'true' And '$(CI)' != 'true'">
