@@ -122,6 +122,81 @@ public sealed class BrowserTests
     }
 
     /// <summary>
+    /// Covers the Phase 2 /components showcase page end to end (plan §5 Phase 2 step 4): logs in,
+    /// opens the page, exercises the toast and confirm-modal demos (proof the circuit actually
+    /// booted, the same way <see cref="AssertCounterIncrementsAsync"/> proves it for the smoke
+    /// page - there is no other DOM signal for "the circuit is connected"), and asserts no
+    /// _blazor/_framework request failed anywhere along the way.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_E_ComponentsShowcase_TogglesToastAndConfirmModal_WithNoBlazorAssetFailures()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        var blazorFailures = new List<string>();
+        page.RequestFailed += (_, request) =>
+        {
+            if (request.Url.Contains("_blazor", StringComparison.OrdinalIgnoreCase)
+                || request.Url.Contains("_framework/blazor", StringComparison.OrdinalIgnoreCase))
+            {
+                blazorFailures.Add($"request failed: {request.Url} ({request.Failure})");
+            }
+        };
+        page.Response += (_, response) =>
+        {
+            var isBlazorAsset = response.Url.Contains("_blazor", StringComparison.OrdinalIgnoreCase)
+                || response.Url.Contains("_framework/blazor", StringComparison.OrdinalIgnoreCase);
+            if (response.Status == 404 && isBlazorAsset)
+            {
+                blazorFailures.Add($"404: {response.Url}");
+            }
+        };
+
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/components");
+        await Expect(page.Locator("[data-testid='components-nav']")).ToBeVisibleAsync();
+
+        // Toast demo: the "Success" button inside the Toasts section, scoped there since several
+        // other sections (badges, alerts) also render text/labels called "Success".
+        var toastSection = page.Locator("[data-testid='showcase-toasts']");
+        var successButton = toastSection.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Success", Exact = true });
+        var toast = page.Locator("[role='alert']").Filter(new LocatorFilterOptions { HasTextString = "Saved successfully." });
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+        while (true)
+        {
+            await successButton.ClickAsync();
+            try
+            {
+                await Expect(toast).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 1_000 });
+                break;
+            }
+            catch (PlaywrightException) when (DateTime.UtcNow < deadline)
+            {
+                // Circuit still not connected (or this particular click didn't land) - try again,
+                // same retry shape AssertCounterIncrementsAsync uses for the smoke page.
+            }
+        }
+
+        // Confirm modal demo: open it, then cancel - the modal must close and the result readout
+        // must reflect a cancelled (false) confirmation, not a lingering "none".
+        var confirmSection = page.Locator("[data-testid='showcase-confirm-modal']");
+        await confirmSection.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete item", Exact = true }).ClickAsync();
+
+        var dialog = page.Locator("#showcase-confirm-plain");
+        await Expect(dialog).ToBeVisibleAsync();
+        await dialog.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Cancel", Exact = true }).ClickAsync();
+
+        await Expect(dialog).ToBeHiddenAsync();
+        await Expect(confirmSection.Locator("[data-testid='confirm-result']")).ToContainTextAsync("False");
+
+        blazorFailures.Should().BeEmpty(
+            "no _blazor/_framework request should fail while driving the components showcase page");
+    }
+
+    /// <summary>
     /// Opens a browser context pointed at the running host, with requests to Google Fonts
     /// short-circuited. Every page in the app (App.razor and the legacy _Layout.cshtml alike)
     /// references fonts.googleapis.com/fonts.gstatic.com; those are unrelated to anything under

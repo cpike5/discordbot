@@ -2,6 +2,7 @@ using Bunit;
 using DiscordBot.Bot.Blazor.Shared;
 using DiscordBot.ComponentTests.TestHelpers;
 using FluentAssertions;
+using Microsoft.JSInterop;
 
 namespace DiscordBot.ComponentTests.Blazor.Shared.Widgets;
 
@@ -79,5 +80,30 @@ public class ChartTests : BlazorComponentTestContext
     {
         var cut = Render<Chart>(p => p.Add(x => x.Type, "line").Add(x => x.Data, new { }).Add(x => x.Height, "250px"));
         cut.Find("div").GetAttribute("style").Should().Contain("height: 250px");
+    }
+
+    /// <summary>
+    /// Regression guard (plan §5 Phase 2 step 4): a missing vendored chart.umd.js - the real
+    /// failure mode in an environment that skipped the npm build:vendor step (e.g.
+    /// <c>dotnet build -p:SkipTailwind=true</c>) - throws a <see cref="JSException"/> from
+    /// ChartInterop.CreateAsync. Before this fix that propagated out of OnAfterRenderAsync
+    /// unhandled and crashed the whole circuit; now it must be caught, logged, and replaced with
+    /// an inline fallback instead of the canvas.
+    /// </summary>
+    [Fact]
+    public void CreateThrowsJSException_RendersFallback_InsteadOfCrashing()
+    {
+        var moduleInterop = JSInterop.SetupModule("./js/blazor/charts.js");
+        moduleInterop.Setup<int>("create", _ => true).SetException(new JSException("Failed to load Chart.js from /lib/chart.js/chart.umd.js"));
+
+        var cut = Render<Chart>(p => p
+            .Add(x => x.Type, "bar")
+            .Add(x => x.Data, new { labels = new[] { "a" }, datasets = Array.Empty<object>() }));
+
+        cut.WaitForAssertion(() =>
+        {
+            cut.FindAll("canvas").Should().BeEmpty();
+            cut.Markup.Should().Contain("Chart unavailable");
+        });
     }
 }

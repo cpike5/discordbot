@@ -2,6 +2,7 @@
 @using DiscordBot.Bot.Blazor.Interop
 @implements IAsyncDisposable
 @inject ChartInterop ChartInterop
+@inject ILogger<Chart> Logger
 
 @*
     Generic Chart.js wrapper so every later chart page/component (CommandStatsCard today, more in
@@ -10,11 +11,29 @@
     Creates on first render, updates when Data/Options change *by reference* (the caller is
     expected to build a new object rather than mutate one in place - matching how ChartInterop's
     own update() replaces chart.data/chart.options wholesale), destroys on dispose.
+
+    Fidelity/robustness note (docs/plans/blazor-port-plan.md §5 Phase 2 step 4): the first
+    ChartInterop.CreateAsync call is wrapped in try/catch. An environment missing the vendored
+    /lib/chart.js/chart.umd.js (e.g. a `dotnet build -p:SkipTailwind=true` session, which skips the
+    npm build:vendor step that copies it - see CLAUDE.md "Tailwind") throws a JSException there;
+    left unhandled, that exception crashes the whole circuit (every component on the page, not
+    just this one), which is caught here rendering the /components showcase in exactly that kind
+    of environment. Caught and logged instead, with a small inline fallback replacing the canvas,
+    so one missing static asset degrades one widget instead of taking down the circuit.
 *@
 
-<div class="@Class" style="@HeightStyle" @attributes="AdditionalAttributes">
-    <canvas @ref="_canvasRef"></canvas>
-</div>
+@if (_createFailed)
+{
+    <div class="@Class flex items-center justify-center text-sm text-text-tertiary bg-bg-tertiary rounded-md" style="@HeightStyle" @attributes="AdditionalAttributes">
+        Chart unavailable
+    </div>
+}
+else
+{
+    <div class="@Class" style="@HeightStyle" @attributes="AdditionalAttributes">
+        <canvas @ref="_canvasRef"></canvas>
+    </div>
+}
 
 @code {
     /// <summary>Chart.js chart type - "bar", "line", "doughnut", etc.</summary>
@@ -42,6 +61,7 @@
     private int? _handle;
     private object? _lastData;
     private object? _lastOptions;
+    private bool _createFailed;
 
     private string HeightStyle => string.IsNullOrEmpty(Height) ? "position: relative;" : $"position: relative; height: {Height};";
 
@@ -49,9 +69,24 @@
     {
         if (firstRender)
         {
-            _handle = await ChartInterop.CreateAsync(_canvasRef, new { type = Type, data = Data, options = Options });
-            _lastData = Data;
-            _lastOptions = Options;
+            try
+            {
+                _handle = await ChartInterop.CreateAsync(_canvasRef, new { type = Type, data = Data, options = Options });
+                _lastData = Data;
+                _lastOptions = Options;
+            }
+            catch (JSException ex)
+            {
+                Logger.LogWarning(ex, "Failed to create Chart.js chart (type={ChartType}); rendering fallback instead", Type);
+                _createFailed = true;
+                StateHasChanged();
+            }
+
+            return;
+        }
+
+        if (_createFailed)
+        {
             return;
         }
 
