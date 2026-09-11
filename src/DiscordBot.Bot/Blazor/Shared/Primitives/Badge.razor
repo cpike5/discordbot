@@ -1,0 +1,62 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _Badge.cshtml / BadgeViewModel. IconLeft renders literally (not through <Icon>) -
+   it's a 20x20 filled Heroicon sized by the ".badge svg" rule in site.css, not the 24x24
+   stroke-outline family Icon.razor renders (see docs/articles/blazor-components.md "Component
+   contract", point 8). *@
+
+<span class="@ClassNames" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrEmpty(IconLeft))
+    {
+        <svg fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path fill-rule="evenodd" d="@IconLeft" clip-rule="evenodd" />
+        </svg>
+    }
+    @(ChildContent is not null ? ChildContent : (RenderFragment)(builder => builder.AddContent(0, Text)))
+    @if (IsRemovable)
+    {
+        <button type="button" class="badge-remove" aria-label="Remove" @onclick="HandleRemove">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+        </button>
+    }
+</span>
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public BadgeVariant Variant { get; set; } = BadgeVariant.Default;
+    [Parameter] public BadgeSize Size { get; set; } = BadgeSize.Medium;
+    [Parameter] public BadgeStyle Style { get; set; } = BadgeStyle.Filled;
+    [Parameter] public string? IconLeft { get; set; }
+    [Parameter] public bool IsRemovable { get; set; }
+    [Parameter] public EventCallback OnRemove { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    // Badges are soft tints by default (see .badge-* in site.css). Outline drops the fill; Subtle
+    // drops the hairline.
+    private string SizeClass => Size switch { BadgeSize.Small => "badge-sm", BadgeSize.Large => "badge-lg", _ => "" };
+
+    private string VariantClass => Variant switch
+    {
+        BadgeVariant.Orange => "badge-orange",
+        BadgeVariant.Blue => "badge-blue",
+        BadgeVariant.Success => "badge-success",
+        BadgeVariant.Warning => "badge-warning",
+        BadgeVariant.Error => "badge-error",
+        BadgeVariant.Info => "badge-info",
+        _ => "badge-gray"
+    };
+
+    private string StyleClass => Style switch { BadgeStyle.Outline => "badge-outline", BadgeStyle.Subtle => "badge-subtle", _ => "" };
+
+    private string ClassNames => string.Join(" ", new[] { "badge", VariantClass, StyleClass, SizeClass, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+
+    private Task HandleRemove() => OnRemove.HasDelegate ? OnRemove.InvokeAsync() : Task.CompletedTask;
+}

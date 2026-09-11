@@ -1,0 +1,43 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _Skeleton.cshtml / SkeletonViewModel. *@
+
+<div class="@ClassNames" aria-hidden="true" @attributes="AdditionalAttributes"></div>
+
+@code {
+    [Parameter] public SkeletonType Type { get; set; } = SkeletonType.Text;
+    [Parameter] public string? Width { get; set; }
+    [Parameter] public string? Height { get; set; }
+    [Parameter] public bool Rounded { get; set; } = true;
+    [Parameter] public bool Animate { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private (string Width, string Height, string Rounded) Defaults => Type switch
+    {
+        SkeletonType.Title => ("w-full", "h-6", "rounded"),
+        SkeletonType.Avatar => ("w-10", "h-10", "rounded-full"),
+        SkeletonType.AvatarSmall => ("w-8", "h-8", "rounded-full"),
+        SkeletonType.AvatarLarge => ("w-16", "h-16", "rounded-full"),
+        SkeletonType.Button => ("w-24", "h-10", "rounded-md"),
+        SkeletonType.Card => ("w-full", "h-32", "rounded-lg"),
+        SkeletonType.Rectangle => ("w-full", "h-20", "rounded-md"),
+        _ => ("w-full", "h-4", "rounded")
+    };
+
+    private string ClassNames
+    {
+        get
+        {
+            var defaults = Defaults;
+            var width = Width ?? defaults.Width;
+            var height = Height ?? defaults.Height;
+            var rounded = Rounded ? defaults.Rounded : "";
+            var animateClass = Animate ? "skeleton" : "skeleton-static";
+            return $"{width} {height} {rounded} {animateClass} {Class ?? ""}".Trim();
+        }
+    }
+}

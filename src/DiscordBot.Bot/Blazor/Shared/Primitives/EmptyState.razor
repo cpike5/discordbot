@@ -1,0 +1,86 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _EmptyState.cshtml / EmptyStateViewModel. The canned per-Type icon comes from
+   IconPaths; IconPath overrides it, matching the partial's IconSvgPath override. The icon's size
+   (w-10/w-16/w-20 by EmptyStateSize) doesn't fit Icon's IconSize steps, so it's sized via Class
+   instead of Size (see docs/articles/blazor-components.md, IconSize remarks). *@
+
+<div class="flex flex-col items-center text-center @Sizing.Container @Class mx-auto" @attributes="AdditionalAttributes">
+    <div class="@Sizing.IconContainer bg-bg-tertiary rounded-full">
+        <Icon Path="@ResolvedIconPath" Class="@(Sizing.Icon + " text-text-tertiary")" StrokeWidth="@IconStrokeWidth" />
+    </div>
+
+    <div>
+        <h3 class="@Sizing.TitleSize font-semibold text-text-primary @(Size == EmptyStateSize.Compact ? "mb-1" : "mb-2")">@Title</h3>
+        <p class="@Sizing.DescSize text-text-secondary">@Description</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(PrimaryActionText) || !string.IsNullOrEmpty(SecondaryActionText))
+    {
+        <div class="flex flex-col sm:flex-row items-center gap-3">
+            @if (!string.IsNullOrEmpty(PrimaryActionText))
+            {
+                @if (!string.IsNullOrEmpty(PrimaryActionHref))
+                {
+                    <a href="@PrimaryActionHref" class="inline-flex items-center @Sizing.IconGap @Sizing.ButtonSize bg-accent-orange hover:bg-accent-orange-hover text-white font-semibold rounded-md transition-colors">
+                        <Icon Path="IconPaths.Plus" Size="IconSize.SM" />
+                        @PrimaryActionText
+                    </a>
+                }
+                else
+                {
+                    <button type="button"
+                            class="inline-flex items-center @Sizing.IconGap @Sizing.ButtonSize bg-accent-orange hover:bg-accent-orange-hover text-white font-semibold rounded-md transition-colors"
+                            @onclick="OnPrimaryAction">
+                        <Icon Path="IconPaths.Plus" Size="IconSize.SM" />
+                        @PrimaryActionText
+                    </button>
+                }
+            }
+
+            @if (!string.IsNullOrEmpty(SecondaryActionText) && !string.IsNullOrEmpty(SecondaryActionHref))
+            {
+                <a href="@SecondaryActionHref" class="@Sizing.DescSize text-accent-blue hover:text-accent-blue-hover transition-colors">
+                    @SecondaryActionText
+                </a>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public EmptyStateType Type { get; set; } = EmptyStateType.NoData;
+    [Parameter] public string Title { get; set; } = "No Data";
+    [Parameter] public string Description { get; set; } = "There are no items to display.";
+    [Parameter] public string? IconPath { get; set; }
+    [Parameter] public string? PrimaryActionText { get; set; }
+    [Parameter] public string? PrimaryActionHref { get; set; }
+    [Parameter] public EventCallback<MouseEventArgs> OnPrimaryAction { get; set; }
+    [Parameter] public string? SecondaryActionText { get; set; }
+    [Parameter] public string? SecondaryActionHref { get; set; }
+    [Parameter] public EmptyStateSize Size { get; set; } = EmptyStateSize.Default;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ResolvedIconPath => IconPath ?? Type switch
+    {
+        EmptyStateType.NoResults => IconPaths.MagnifyingGlass,
+        EmptyStateType.FirstTime => IconPaths.Sparkles,
+        EmptyStateType.Error => IconPaths.ExclamationCircle,
+        EmptyStateType.NoPermission => IconPaths.LockClosed,
+        EmptyStateType.Offline => IconPaths.SignalSlash,
+        _ => IconPaths.FolderOpen
+    };
+
+    private string IconStrokeWidth => Type == EmptyStateType.NoData ? "1.5" : "2";
+
+    private (string Container, string IconContainer, string Icon, string TitleSize, string DescSize, string ButtonSize, string IconGap) Sizing => Size switch
+    {
+        EmptyStateSize.Compact => ("max-w-[320px] space-y-3 py-5", "p-3", "w-10 h-10", "text-base", "text-xs", "px-4 py-2 text-xs", "gap-1.5"),
+        EmptyStateSize.Large => ("max-w-[500px] space-y-6 py-12", "p-5", "w-20 h-20", "text-2xl", "text-base", "px-6 py-3 text-base", "gap-2.5"),
+        _ => ("max-w-[400px] space-y-4 py-8", "p-4", "w-16 h-16", "text-lg", "text-sm", "px-5 py-2.5 text-sm", "gap-2")
+    };
+}

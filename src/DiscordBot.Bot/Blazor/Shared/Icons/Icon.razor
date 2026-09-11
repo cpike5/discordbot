@@ -1,0 +1,68 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@* One home for every 24x24 stroke-outline Heroicon the ported partials render inline (see
+   docs/articles/blazor-components.md "Component contract", point 8). Paths live in IconPaths.cs
+   as named constants - callers pass IconPaths.XMark, not a raw "M6 18L18 6..." literal. *@
+
+<svg class="@ClassNames" fill="none" viewBox="0 0 24 24" stroke="currentColor"
+     aria-hidden="@(HasTitle ? "false" : "true")" @attributes="AdditionalAttributes">
+    @if (HasTitle)
+    {
+        <title>@Title</title>
+    }
+    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="@StrokeWidth" d="@Path" />
+</svg>
+
+@code {
+    /// <summary>The Heroicon <c>d</c> path - pass a named <see cref="IconPaths"/> constant.</summary>
+    [Parameter, EditorRequired]
+    public string Path { get; set; } = string.Empty;
+
+    /// <summary>
+    /// One of the five Tailwind <c>w-*/h-*</c> steps the partials use. Leave unset (default) when
+    /// the icon's size doesn't fit one of the five - e.g. <c>_EmptyState.cshtml</c>'s icon, which
+    /// ranges from <c>w-10</c> to <c>w-20</c> by <c>EmptyStateSize</c> - and size it entirely via
+    /// <see cref="Class"/> instead.
+    /// </summary>
+    [Parameter]
+    public IconSize? Size { get; set; }
+
+    /// <summary>Additional classes appended after the size class (or the only sizing if
+    /// <see cref="Size"/> is unset).</summary>
+    [Parameter]
+    public string? Class { get; set; }
+
+    /// <summary>
+    /// When set, renders a <c>&lt;title&gt;</c> element and marks the icon <c>aria-hidden="false"</c>
+    /// - use this only when the icon conveys meaning on its own with no adjacent text label.
+    /// Every icon in this library is decorative (paired with a text label or an
+    /// <c>aria-label</c> on its containing control) as of Tier 1a, so <see cref="Title"/> is
+    /// unused today but is part of the contract for a future icon-only case.
+    /// </summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    /// <summary>SVG <c>stroke-width</c>. A <c>string</c>, not an <c>int</c>, because
+    /// <c>_EmptyState.cshtml</c> uses the fractional value <c>"1.5"</c> for its
+    /// <see cref="DiscordBot.Bot.ViewModels.Components.EmptyStateType.NoData"/> icon.</summary>
+    [Parameter]
+    public string StrokeWidth { get; set; } = "2";
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool HasTitle => !string.IsNullOrEmpty(Title);
+
+    private string? SizeClass => Size switch
+    {
+        IconSize.XS => "w-3 h-3",
+        IconSize.SM => "w-4 h-4",
+        IconSize.MD => "w-5 h-5",
+        IconSize.LG => "w-6 h-6",
+        IconSize.XL => "w-8 h-8",
+        _ => null
+    };
+
+    private string ClassNames => string.Join(" ", new[] { SizeClass, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+}
