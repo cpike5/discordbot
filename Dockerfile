@@ -41,9 +41,9 @@ RUN curl -fsSL -o /tmp/libdave.zip \
 # Copy remaining source code
 COPY src/ src/
 
-# Build Tailwind CSS (npm packages already installed above)
+# Build Tailwind CSS and vendor JS libraries, e.g. Chart.js (npm packages already installed above)
 WORKDIR /src/src/DiscordBot.Bot
-RUN npm run build:css
+RUN npm run build
 
 # Publish the application
 WORKDIR /src

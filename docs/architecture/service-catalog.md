@@ -27,6 +27,7 @@ Quick reference catalog of all services in the Discord bot system. Organized by 
 - [Data & Repository Services](#data--repository-services)
 - [AI Assistant & Tools](#ai-assistant--tools)
 - [Configuration & Settings](#configuration--settings)
+- [Blazor Interop](#blazor-interop)
 - [Base Classes](#base-classes)
 - [Helpers & Utilities](#helpers--utilities)
 - [Utility & Support](#utility--support)
@@ -408,6 +409,23 @@ Services for managing application configuration and options.
 | `BotConfiguration` | Bot/Services | Central configuration options holder |
 | `DiscordOAuthSettings` | Bot/Services | OAuth2 configuration container |
 | `ISettingsRepository` | Core Interfaces | Settings persistence layer |
+
+---
+
+## Blazor Interop
+
+Thin C# wrappers around the three JS interop modules under `wwwroot/js/blazor/` (Phase 1 of
+the Blazor port, `docs/plans/blazor-port-plan.md` §4.4). Scoped services (one per circuit),
+registered via `AddBlazorInterop()`. See `docs/articles/blazor-interop.md` for the full API,
+the prerender rule, and disposal rules.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `ChartInterop` | Bot/Blazor/Interop | Create/update/destroy Chart.js charts via `wwwroot/js/blazor/charts.js`; lazily vendors and loads Chart.js |
+| `AudioInterop` | Bot/Blazor/Interop | Shared-element audio preview, client-side duration probing, drag-and-drop intake, and progress-reporting upload via `wwwroot/js/blazor/audio.js` |
+| `BrowserInterop` | Bot/Blazor/Interop | localStorage, clipboard, focus/scroll, modal focus trap, `beforeunload` guard, `matchMedia` watching, timezone detection, click-outside detection, and textarea selection via `wwwroot/js/blazor/browser.js` |
+
+Registration: `Extensions/BlazorInteropServiceExtensions.cs` → `AddBlazorInterop(this IServiceCollection)`.
 
 ---
 

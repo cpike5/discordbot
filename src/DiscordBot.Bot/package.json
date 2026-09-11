@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "description": "Discord Bot Admin UI - Tailwind CSS Build",
   "scripts": {
+    "build:vendor": "node -e \"const fs=require('fs');fs.mkdirSync('wwwroot/lib/chart.js',{recursive:true});fs.copyFileSync('node_modules/chart.js/dist/chart.umd.js','wwwroot/lib/chart.js/chart.umd.js');\"",
     "build:css": "tailwindcss -i ./wwwroot/css/site.css -o ./wwwroot/css/app.css --minify",
+    "build": "npm run build:vendor && npm run build:css",
     "watch:css": "tailwindcss -i ./wwwroot/css/site.css -o ./wwwroot/css/app.css --watch",
     "test": "node --test wwwroot/js/__tests__/*.test.js"
   },
@@ -14,6 +16,7 @@
   },
   "main": "postcss.config.js",
   "dependencies": {
+    "chart.js": "4.4.1",
     "any-promise": "^1.3.0",
     "anymatch": "^3.1.3",
     "arg": "^5.0.2",

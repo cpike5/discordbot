@@ -72,8 +72,8 @@
   </Target>
 
   <Target Name="BuildTailwindCSS" BeforeTargets="BeforeBuild" DependsOnTargets="NpmInstall" Condition="'$(SkipTailwind)' != 'true' And '$(CI)' != 'true'">
-    <Message Text="Building Tailwind CSS..." Importance="high" />
-    <Exec Command="npm run build:css" WorkingDirectory="$(ProjectDir)" />
+    <Message Text="Building Tailwind CSS and vendored JS libraries (Chart.js)..." Importance="high" />
+    <Exec Command="npm run build" WorkingDirectory="$(ProjectDir)" />
   </Target>
 
 </Project>

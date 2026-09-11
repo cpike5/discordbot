@@ -15,6 +15,7 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Repository Pattern](repository-pattern.md) - Data access implementation
 - [Design System](design-system.md) - UI design tokens and components
 - [Razor Components](razor-components.md) - Reusable Razor components specification
+- [Blazor JavaScript Interop](blazor-interop.md) - JS interop modules for charts, audio and browser APIs, and their C# wrappers
 - [Identity Configuration](identity-configuration.md) - ASP.NET Identity setup and Discord OAuth integration
 
 ## Security & Authentication
