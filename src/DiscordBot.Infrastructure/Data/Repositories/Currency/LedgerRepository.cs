@@ -241,8 +241,9 @@ public class LedgerRepository : ILedgerRepository
         if (_context.Database.IsNpgsql())
         {
             // Held until commit. ToListAsync with no further composition sends the SQL verbatim,
-            // which matters: Postgres will not accept a locking clause that EF has wrapped in a
-            // subquery.
+            // which matters: composing over a FromSql query lets EF wrap it in shapes Postgres
+            // refuses a locking clause in (DISTINCT, an aggregate, the nullable side of an outer
+            // join), and the ones it accepts no longer say which rows get locked.
             await _context.Wallets
                 .FromSqlInterpolated($"SELECT * FROM \"Wallets\" WHERE \"Id\" = {walletId} FOR UPDATE")
                 .ToListAsync(cancellationToken);

@@ -233,6 +233,10 @@ is free. That is the rollback path for the feature as a whole.
 | `Currency:DefaultDebtFloor` | `-100` | Pre-filled when an admin turns debt on for a currency. Stored negative. |
 | `Currency:HistoryPageSize` | `10` | Rows per page in wallet history. |
 
+The database-backed switch `Features:CurrencyEnabled` (Features tab in Settings, default on) is the
+runtime half of the pair: with the feature registered but the switch off, the pages and commands
+stay reachable and say so, prices are kept, and nothing is charged.
+
 ### Environment-Specific Overrides
 
 | Setting Category | Development | Staging | Production |
@@ -272,6 +276,7 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | `Features:WelcomeMessagesEnabled` | Features | Boolean | `true` | Global welcome messages toggle |
 | `Features:RatWatchEnabled` | Features | Boolean | `true` | Global Rat Watch toggle |
 | `Features:AudioEnabled` | Features | Boolean | `true` | Global audio (soundboard, TTS, voice) toggle |
+| `Features:CurrencyEnabled` | Features | Boolean | `true` | Global virtual currency toggle. Off charges nothing and refuses the wallet commands; `Currency:Enabled` decides whether the feature is registered at all |
 | `Assistant:GloballyEnabled` | Features | Boolean | `false` | Global AI assistant toggle |
 | `Advanced:MessageLogRetentionDays` | Advanced | Integer | `90` | Message log retention (range: 1-365) |
 | `Advanced:AuditLogRetentionDays` | Advanced | Integer | `90` | Audit log retention (range: 1-365) |

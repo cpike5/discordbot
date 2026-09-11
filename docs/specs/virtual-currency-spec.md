@@ -1,8 +1,10 @@
 # Virtual Currency — Feature Specification
 
-**Status:** Proposed
+**Status:** Implemented as specified, except for the daily reconcile warning in
+[Security and abuse](#security-and-abuse), which nothing schedules yet.
 **Date:** 2026-09-11
 **Implementation plan:** `docs/plans/virtual-currency-implementation-plan.md`
+**Lessons learned:** `docs/lessons-learned/virtual-currency.md`
 
 ## Summary
 

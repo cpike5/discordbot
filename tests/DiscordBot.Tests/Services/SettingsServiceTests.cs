@@ -403,6 +403,23 @@ public class SettingsServiceTests
         result.Should().BeTrue("SettingDefinitions.DefaultValue for this key is 'true'");
     }
 
+    /// <summary>
+    /// The currency feature's runtime switch is read in six places and documented as something an
+    /// administrator flips in Settings, which only works while it has a definition to render from.
+    /// </summary>
+    [Fact]
+    public void SettingDefinitions_CarriesTheCurrencyFeatureSwitch_SoTheSettingsPageCanRenderIt()
+    {
+        var definition = SettingDefinitions.GetByKey("Features:CurrencyEnabled");
+
+        definition.Should().NotBeNull("the key is read at runtime and shown on the Features tab");
+        definition!.Category.Should().Be(SettingCategory.Features);
+        definition.DataType.Should().Be(SettingDataType.Boolean);
+        definition.DefaultValue.Should().Be("true");
+        definition.RequiresRestart.Should().BeFalse();
+        SettingDefinitions.GetByCategory(SettingCategory.Features).Should().Contain(definition);
+    }
+
     [Fact]
     public async Task GetSettingValueAsync_SettingDefinitionFallback_DoesNotOverrideDatabaseValue()
     {
