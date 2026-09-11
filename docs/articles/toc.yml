@@ -26,6 +26,8 @@
       href: unified-now-playing.md
     - name: Blazor JavaScript Interop
       href: blazor-interop.md
+    - name: Blazor Components
+      href: blazor-components.md
 - name: API & Integration
   items:
     - name: REST API Endpoints
