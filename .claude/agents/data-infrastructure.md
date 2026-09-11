@@ -11,9 +11,9 @@ You are a domain expert for the **Data & Infrastructure** stream of a Discord bo
 ## Domain Map
 
 ### Database Layer
-- **DbContext:** `Infrastructure/Data/BotDbContext.cs` — 72 DbSets
+- **DbContext:** `Infrastructure/Data/BotDbContext.cs` — 68 DbSets
 - **Base:** `Infrastructure/Data/Repositories/Repository.cs` — Generic repository
-- **Repos:** 41 files in `Infrastructure/Data/Repositories/`
+- **Repos:** 61 files in `Infrastructure/Data/Repositories/`
 - **Entity Config:** `Infrastructure/Data/Configurations/`
 - **Interceptors:** `Infrastructure/Data/Interceptors/`
 
@@ -46,6 +46,17 @@ You are a domain expert for the **Data & Infrastructure** stream of a Discord bo
 - Retention: `AnalyticsRetentionService`, `AuditLogRetentionService`, `MessageLogCleanupService`, `SoundPlayLogRetentionService`, `NotificationRetentionService`, `VerificationCleanupService`
 - Other: `VoxClipLibraryInitializer`, `VoiceAutoLeaveService`, `InteractionStateCleanupService`, `MemberSyncService`
 
+### Virtual Currency
+- **Entities:** `Currency`, `Wallet`, `LedgerTransaction`, `MintAuthority`, `PriceEntry` (in `Core/Entities/Currency/`, flat `DiscordBot.Core.Entities` namespace)
+- **Enums:** `CurrencyScope`, `LedgerTransactionType`, `LedgerSource`, `MintPrincipalType`, `IncomeInterval`
+- **Repos:** `Data/Repositories/Currency/` - `CurrencyRepository`, `WalletRepository`, `LedgerRepository`, `PriceRepository`, `MintAuthorityRepository`
+- **Services:** `Services/Currency/` - `CurrencyService` (admin, mint authorities, prices, reconcile), `WalletService` (balance rules)
+- **`ILedgerRepository.AppendAsync` is the single write path.** One transaction: idempotency check, wallet row lock, `BalanceAfter` stamp, insert, `CachedBalance` update. A duplicate key writes nothing and returns the existing row. Nothing else writes `CachedBalance`.
+- **Row locking:** Postgres uses `SELECT ... FOR UPDATE`; SQLite uses a no-op write to promote the transaction before reading. `AppendPairAsync` (transfers) locks both wallets in id order.
+- **Balance rules live in `WalletService`**, never in the repository. Fines are the only thing that may cross zero.
+- `LedgerTransaction.ReferenceTransactionId` and `ModerationCaseId` are indexed columns with **no FK** (the transfer pair references itself circularly).
+- Ledger rows are exempt from every retention job.
+
 ### Application Settings
 - **Entity:** `ApplicationSetting` (key-value store); **Infrastructure:** `SettingDefinitions`
 
@@ -63,6 +74,6 @@ dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure -
 
 - **Always pass `--context`** to EF CLI — both SqliteBotDbContext and PostgresBotDbContext exist
 - **Npgsql legacy timestamp:** `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)` is required — do not remove
-- **72 DbSets** — new entities need DbSet in BotDbContext + entity configuration
+- **68 DbSets** — new entities need DbSet in BotDbContext + entity configuration
 - **Background services must register** with `BackgroundServiceHealthRegistry`
 - **Large services:** BotHostedService (739), SearchService (919) — search specific methods
