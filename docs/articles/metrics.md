@@ -684,6 +684,48 @@ In addition to custom metrics, OpenTelemetry automatically collects these standa
 
 ---
 
+### Blazor Circuit Metrics
+
+**Meter Name:** `DiscordBot.Blazor`
+
+Blazor Interactive Server circuit interactions travel over the SignalR hub, not an HTTP request,
+so they never pass through `ApiMetricsMiddleware` (the source of the API request metrics above)
+and never appear in `UseSerilogRequestLogging`'s request logs - there is no per-request pipeline
+to instrument once a circuit is open. The one piece of per-circuit instrumentation the app has
+instead is `BlazorCircuitHandler` (`src/DiscordBot.Bot/Blazor/Services/BlazorCircuitHandler.cs`),
+which records these two metrics on circuit open/close and logs a structured
+"Blazor circuit opened"/"closed" line (user ID, circuit ID, correlation ID) at Information. See
+"Circuit observability" in `docs/architecture/patterns.md` and the matching note in
+[tracing.md](tracing.md).
+
+#### blazor.circuits.opened_total
+
+**Type:** Counter
+**Unit:** `{circuits}`
+**Description:** Total number of Blazor Interactive Server circuits opened since process start
+
+**Usage:** Circuit open rate over time; compare against `blazor.circuits.active` to see how long
+circuits typically stay open.
+
+---
+
+#### blazor.circuits.active
+
+**Type:** UpDownCounter (Gauge)
+**Unit:** `{circuits}`
+**Description:** Number of currently open Blazor Interactive Server circuits
+
+**Example Query (PromQL):**
+```promql
+# Current open circuits
+sum(blazor_circuits_active)
+```
+
+**Usage:** Capacity planning for interactive UI load; a gauge that never returns to zero after
+traffic subsides can indicate circuits leaking (not disposed/closed cleanly).
+
+---
+
 ## Prometheus Setup
 
 ### Scrape Configuration
@@ -1034,6 +1076,23 @@ finally
         durationMs: stopwatch.Elapsed.TotalMilliseconds);
 }
 ```
+
+#### Blazor Circuits
+
+**Location:** `Blazor/Services/BlazorCircuitHandler.cs`
+
+```csharp
+// CircuitHandler.OnCircuitOpenedAsync
+_metrics.CircuitOpened(); // +1 opened_total, +1 active
+
+// CircuitHandler.OnCircuitClosedAsync
+_metrics.CircuitClosed(); // -1 active
+```
+
+Unlike every other integration point on this page, this one is **not** driven by
+`ApiMetricsMiddleware` or any other HTTP middleware - a circuit's interactions after it opens are
+SignalR messages, not HTTP requests, so there is no request pipeline for middleware to sit in.
+See [Blazor Circuit Metrics](#blazor-circuit-metrics) above.
 
 #### Guild & User Counts
 

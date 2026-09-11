@@ -27,6 +27,7 @@ Quick reference catalog of all services in the Discord bot system. Organized by 
 - [Data & Repository Services](#data--repository-services)
 - [AI Assistant & Tools](#ai-assistant--tools)
 - [Configuration & Settings](#configuration--settings)
+- [Blazor Hosting](#blazor-hosting)
 - [Blazor Interop](#blazor-interop)
 - [Base Classes](#base-classes)
 - [Helpers & Utilities](#helpers--utilities)
@@ -411,6 +412,20 @@ Services for managing application configuration and options.
 | `ISettingsRepository` | Core Interfaces | Settings persistence layer |
 
 ---
+
+## Blazor Hosting
+
+Phase 1 of the Blazor port (`docs/plans/blazor-port-plan.md`): hosting foundation, auth plumbing
+and circuit observability for the Interactive Server Blazor Web App that coexists with Razor
+Pages under `src/DiscordBot.Bot/Blazor/`. See "Blazor components" in `patterns.md`.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `AddBlazorWeb` (extension method) | Bot/Extensions/BlazorServiceExtensions.cs | Registers Razor Components + Interactive Server, cascading auth state, and the services below; called from `Program.cs` next to `AddWebServices()` |
+| `RevalidatingIdentityAuthenticationStateProvider` | Bot/Blazor/Services | `AuthenticationStateProvider` (scoped); re-validates user existence/lockout/security-stamp every 30 minutes |
+| `CircuitClientInfoService` | Bot/Blazor/Services | Scoped per-circuit holder for IP/UA/circuit ID/correlation ID, since `HttpContext` is unavailable inside a running circuit |
+| `BlazorCircuitHandler` | Bot/Blazor/Services | `CircuitHandler` (scoped); logs circuit open/close and records `blazor.circuits.*` metrics |
+| `BlazorMetrics` | Bot/Metrics | `blazor.circuits.opened_total` counter and `blazor.circuits.active` gauge, registered alongside `BotMetrics`/`ApiMetrics` in `OpenTelemetryExtensions` |
 
 ## Blazor Interop
 
