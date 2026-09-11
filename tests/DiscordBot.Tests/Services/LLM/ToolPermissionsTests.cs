@@ -1,9 +1,11 @@
 using System.Text.Json;
+using DiscordBot.Agents.Abstractions;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
+using DiscordBot.Infrastructure.Services.LLM.Tools;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -12,9 +14,15 @@ namespace DiscordBot.Tests.Services.LLM;
 
 /// <summary>
 /// Unit tests for the caller-access seam: <see cref="ToolPermissions.MutationForbidden"/> and the
-/// <c>ToolContext.CanMutate</c> check inside the tools that write. This is the replacement for the
-/// deleted <c>ToolContext.UserRoles</c>, and it has to work before the first write tool ships.
+/// <c>ToolContext.CanMutate</c> check that gates the tools which write. This is the replacement for
+/// the deleted <c>ToolContext.UserRoles</c>, and it has to work before the first write tool ships.
 /// </summary>
+/// <remarks>
+/// The check itself moved with the memory tools' conversion to <see cref="IAgentTool"/>: it is no
+/// longer an <c>if</c> at the top of each write tool but a
+/// <see cref="IAgentTool.Mutation"/> declaration that <see cref="AgentToolProvider"/> enforces
+/// before the tool is entered. These tests go through the provider, which is where the gate now is.
+/// </remarks>
 public class ToolPermissionsTests
 {
     private const ulong UserId = 4242UL;
@@ -34,8 +42,15 @@ public class ToolPermissionsTests
         payload.GetProperty("message").GetString().Should().Contain("save notes");
     }
 
-    private static MemoryToolProvider BuildMemoryProvider(Mock<IDmAssistantNoteRepository> repository) =>
-        new(Mock.Of<ILogger<MemoryToolProvider>>(), repository.Object);
+    private static DmAgentToolProvider BuildMemoryProvider(Mock<IDmAssistantNoteRepository> repository) =>
+        new(
+            new IAgentTool[]
+            {
+                new SaveNoteTool(repository.Object, Mock.Of<ILogger<SaveNoteTool>>()),
+                new DeleteNoteTool(repository.Object, Mock.Of<ILogger<DeleteNoteTool>>()),
+                new ListNotesTool(repository.Object)
+            },
+            Mock.Of<ILogger<DmAgentToolProvider>>());
 
     private static JsonElement Json(string raw) => JsonDocument.Parse(raw).RootElement.Clone();
 

@@ -13,7 +13,9 @@ namespace DiscordBot.Agents;
 /// looks at <c>ToolExecutionResult.Success</c>, and expected failures are the majority of what is
 /// worth seeing in a trace. <see cref="Classify"/> is the convention that makes them countable:
 /// a top-level <c>error</c> string, or a top-level <c>success</c>/<c>available</c>/<c>found</c>
-/// flag that is false. New tools are expected to follow it - see the per-tool spec template.
+/// flag that is false. A tool that reports through <see cref="ToolResults"/> follows it by
+/// construction, which is the point of those helpers; one that hand-rolls its result has to follow
+/// it deliberately, or its failures are invisible here.
 /// </remarks>
 public static class ToolOutcomes
 {

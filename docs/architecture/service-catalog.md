@@ -420,11 +420,18 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `FilteredToolRegistry` | Agents | Decorator narrowing a registry to a named allow-list; refuses a call outside the set as well as hiding it, so a tool remembered from an earlier cached prefix cannot be invoked |
 | `IToolAccessResolver` | Core Interfaces/LLM | Resolves a guild's allowed tool set from `AssistantGuildSettings.EnabledTools`, falling back to the house default set |
 | `ToolAccessResolver` | Infrastructure/Services/LLM | Implementation over the settings repository and `IMemoryCache`; invalidated by `AssistantGuildSettingsService` on save |
-| `ToolCatalog` | Core/Models/Llm | Static name → category/label/description/scope table behind the settings checklist and the per-tool metrics table; an uncatalogued tool falls into a visible **Other** bucket |
-| `IToolProvider` | Agents/Abstractions | The contract a tool group implements; implementations live in Infrastructure and Bot, beside the domain services they call |
+| `ToolCatalog` | Core/Models/Llm | Static name → category/label/description/scope table behind the settings checklist and the per-tool metrics table; an uncatalogued tool falls into a visible **Other** bucket. Also **routes** an `IAgentTool` to its surface, so a tool without an entry is advertised nowhere |
+| `IToolProvider` | Agents/Abstractions | The contract a tool group implements; implementations live in Infrastructure and Bot, beside the domain services they call. Still right for tools that share expensive state; `IAgentTool` is the default for everything else |
+| `IAgentTool` | Agents/Abstractions | One tool, one file — definition plus `InvokeAsync`, with `Mutation` declaring a write. The authoring unit; no provider class and no DI line |
+| `AgentToolProvider` | Agents | The single adapter from a set of `IAgentTool`s to one `IToolProvider`, and where the `ToolContext.CanMutate` refusal happens (before the tool is entered) |
+| `AgentToolRegistration.AddAgentTools` | Agents | Scans the assemblies it is handed for `IAgentTool` implementations and registers each scoped via `TryAddEnumerable`, ordered by full type name; `[OptInTool("Key")]` types only when that flag is set |
+| `ToolInput` / `ToolResults` / `ToolJson` | Agents | Argument reading and schema building; the house result shapes (`Error`/`NotFound` satisfy `ToolOutcomes.Classify` by construction); the compact serializer settings |
+| `CataloguedAgentToolProvider` | Infrastructure/Services/LLM/Providers | Base for the two surfaces — keeps the scanned tools whose `ToolCatalog` scopes include its own, warns about an uncatalogued one, and refuses forbidden writes in this bot's voice |
+| `GuildAgentToolProvider` / `DmAgentToolProvider` | Infrastructure/Services/LLM/Providers | The guild and DM surfaces over individually authored tools, registered as `IToolProvider` and `IDmToolProvider` respectively |
 | `IPromptTemplate` | Agents/Abstractions | System prompt and context template |
 | `PromptTemplate` | Agents | Loads a template from disk (memory-cached) and renders `{{variable}}` substitutions |
 | `RatWatchToolProvider` | Bot/Services/LLM | RatWatch-specific tool provider for assistant |
+| `SaveNoteTool` / `SearchNotesTool` / `GetNoteTool` / `ListNotesTool` / `DeleteNoteTool` | Infrastructure/Services/LLM/Tools | The DM assistant's memory tools, the first conversion to `IAgentTool` (they replace `MemoryToolProvider` and `MemoryTools`) |
 | `RatWatchTools` | Infrastructure/Services/LLM | Tool implementations for RatWatch queries |
 | `UserGuildInfoToolProvider` | Bot/Services/LLM | Tool provider exposing get_user_profile, get_guild_info, and get_user_roles tools; resolves data from Discord client and database |
 | `ILlmModelCatalogService` | Core Interfaces/LLM | Local OpenRouter model catalog: refresh, filtered/sorted listing, and the enable/disable allowlist. A refresh never touches `IsEnabled` except the one-time first-ever-refresh bootstrap. |

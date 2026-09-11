@@ -457,6 +457,12 @@ assistant sets `CanMutate = true` unconditionally (it is owner-only already).
 
 ### 3.1 `IAgentTool` beside `IToolProvider` (F10)
 
+> **Shipped, with two changes.** `[DmOnlyTool]` was not built — `ToolCatalog.Scopes` already says
+> where a tool is advertised, so the catalogue routes instead — and the `CanMutate` check moved onto
+> the interface as a `string? Mutation`. See
+> [plans/agent-groundwork-overhaul.md §5.3a](../plans/agent-groundwork-overhaul.md) for the
+> reasoning, and `docs/architecture/patterns.md` § Agent Tool Authoring for the pattern as built.
+
 The goal is that a new tool is **one file and no DI edit**, without moving the eleven existing
 providers.
 

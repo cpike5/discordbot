@@ -28,9 +28,13 @@ A new service goes: interface in Core, implementation in Bot or Infrastructure,
 registration in the matching `*ServiceExtensions.cs`. Follow that split so Core
 stays framework-free.
 
-A new **tool** is not engine work: it implements `IToolProvider` from
-`DiscordBot.Agents.Abstractions` and lives in Infrastructure or Bot, next to the domain
-services it calls. Only the model-facing machinery itself belongs in `DiscordBot.Agents`.
+A new **tool** is not engine work: it is one file in Infrastructure or Bot, next to the domain
+services it calls. Implement `IAgentTool` from `DiscordBot.Agents.Abstractions`, put it in
+`Services/LLM/Tools/`, and add a `ToolCatalog` entry (`Core/Models/Llm/`) — the catalogue is what
+decides which assistant advertises it, so a tool without one reaches nothing. There is no DI edit:
+the assembly scan finds it. `IToolProvider` is still there and still right for a group of tools that
+share expensive state, but it is no longer the default. Only the model-facing machinery itself
+belongs in `DiscordBot.Agents`. See `docs/architecture/patterns.md` § Agent Tool Authoring.
 An assistant abstraction whose signature is made of engine types (`IAssistantContext`,
 `IAssistantMessagePipeline`, the context factories) lives in
 `Infrastructure/Abstractions/LLM/` rather than Core, because Core cannot see the engine.

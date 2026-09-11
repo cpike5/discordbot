@@ -4,12 +4,20 @@ using DiscordBot.Agents.Contracts;
 namespace DiscordBot.Infrastructure.Services.LLM;
 
 /// <summary>
-/// The house convention for a tool that writes: check <see cref="ToolContext.CanMutate"/> first,
-/// and refuse with <see cref="MutationForbidden"/> rather than with an error.
+/// The house refusal a tool returns when <see cref="ToolContext.CanMutate"/> is false.
 /// </summary>
 /// <remarks>
+/// <para>
 /// Lives here rather than in <c>DiscordBot.Agents</c> because the refusal is written in this bot's
 /// voice, and what a caller may change is this bot's policy. The engine only carries the flag.
+/// </para>
+/// <para>
+/// A tool authored as <c>IAgentTool</c> does not call this itself: it declares
+/// <c>IAgentTool.Mutation</c>, and the surface providers hand this method to
+/// <c>AgentToolProvider</c> as their refusal, which applies it before the tool is entered. The
+/// hand-written <c>IToolProvider</c>s still check <c>CanMutate</c> and call this at the top of each
+/// write.
+/// </para>
 /// </remarks>
 public static class ToolPermissions
 {

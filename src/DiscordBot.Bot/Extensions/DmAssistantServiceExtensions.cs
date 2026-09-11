@@ -8,6 +8,7 @@ using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
+using DiscordBot.Agents;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection.Extensions;
@@ -45,8 +46,15 @@ public static class DmAssistantServiceExtensions
         // Register DM tool provider repositories
         services.AddScoped<IDmAssistantNoteRepository, DmAssistantNoteRepository>();
 
-        // Register DM tool providers
-        services.AddScoped<IDmToolProvider, MemoryToolProvider>();
+        // Scan Infrastructure and Bot for IAgentTool implementations and register each one. Shared
+        // with AddAssistant via TryAddEnumerable, so whichever runs first wins and the other is a
+        // no-op; this extension does not depend on AddAssistant having run.
+        services.AddAgentTools(AgentToolAssemblies.All, configuration);
+
+        // Register DM tool providers. The memory tools are IAgentTool implementations now and reach
+        // the assistant through DmAgentToolProvider - the one adapter for individually authored
+        // tools - rather than through a provider of their own.
+        services.AddScoped<IDmToolProvider, DmAgentToolProvider>();
         services.AddScoped<IDmToolProvider, ConversationToolProvider>();
         services.AddScoped<IDmToolProvider, BotManagementToolProvider>();
         services.AddScoped<IDmToolProvider, DmModerationToolProvider>();

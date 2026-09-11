@@ -323,12 +323,6 @@ contract. (The predecessor `AnthropicLlmClient` never had a test.)
 - `ExecuteToolAsync_SearchAuditLogs_DelegatesToService`
 - `ExecuteToolAsync_UnknownTool_ReturnsError`
 
-#### MemoryToolProvider
-- `GetTools_ReturnsExpectedToolDefinitions`
-- `ExecuteToolAsync_SaveNote_Persists`
-- `ExecuteToolAsync_SearchNotes_ReturnsMatches`
-- `ExecuteToolAsync_DeleteNote_Removes`
-
 #### RatWatchToolProvider / RatWatchTools
 - `GetTools_ReturnsExpectedToolDefinitions`
 - `ExecuteToolAsync_GetActiveWatches_ReturnsData`
