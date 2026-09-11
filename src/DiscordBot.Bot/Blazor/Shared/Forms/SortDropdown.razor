@@ -1,0 +1,169 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Native rewrite of Pages/Shared/_SortDropdown.cshtml + its emitted per-instance <script> - open
+   state and keyboard nav (Arrow/Home/End/Escape) are component state and C# event handlers
+   instead. The AJAX mode (UseAjax/TargetSelector/PartialUrl, dispatching a "sortchange"
+   CustomEvent for ajax-sort.js to handle) and the plain page-navigation <a href> mode both have no
+   reason to survive - a Blazor caller re-renders its own list from ValueChanged instead, so every
+   option is a plain button now.
+
+   One behavior not reproduced: the JS version closes on any click outside the wrapper (a
+   document-level click listener). Blazor's FocusEventArgs carries no relatedTarget, so telling
+   "focus left the whole dropdown" apart from "focus moved from the toggle to one of its own
+   options" via onfocusout alone isn't reliable without JS interop, which the tier brief rules out
+   for this component. Escape, selecting an option, or the toggle button itself all close it;
+   clicking elsewhere on the page does not. *@
+
+<div class="relative" @attributes="AdditionalAttributes">
+    <button type="button"
+            id="@ToggleId"
+            class="flex items-center gap-2 px-3 py-1.5 text-sm bg-bg-tertiary border border-border-primary rounded-lg text-text-primary hover:bg-bg-hover focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors @Class"
+            aria-haspopup="listbox"
+            aria-expanded="@(_isOpen ? "true" : "false")"
+            @onclick="ToggleOpen"
+            @onkeydown="HandleToggleKeyDown"
+            @onkeydown:preventDefault="true">
+        <Icon Path="IconPaths.BarsArrowDown" Class="w-4 h-4 text-text-secondary" />
+        <span>@CurrentLabel</span>
+        <Icon Path="IconPaths.ChevronDown" Class="w-4 h-4 text-text-tertiary" />
+    </button>
+
+    @if (_isOpen)
+    {
+        <div id="@DropdownId"
+             class="absolute left-0 mt-1 w-40 bg-bg-tertiary border border-border-primary rounded-lg shadow-lg z-20"
+             role="listbox"
+             aria-labelledby="@ToggleId"
+             @onkeydown="HandleListKeyDown"
+             @onkeydown:preventDefault="true">
+            @for (var i = 0; i < Options.Count; i++)
+            {
+                var index = i;
+                var option = Options[i];
+                var isSelected = option.Value == Value;
+                var isLast = index == Options.Count - 1;
+                <button type="button"
+                        class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover @(isLast ? "rounded-b-lg" : "") @((isSelected || index == _focusIndex) ? "bg-bg-hover" : "") @(isSelected ? "font-medium" : "")"
+                        role="option"
+                        aria-selected="@(isSelected ? "true" : "false")"
+                        @onclick="() => Select(option)">
+                    <div class="flex items-center justify-between">
+                        <span>@option.Label</span>
+                        @if (isSelected)
+                        {
+                            <Icon Path="IconPaths.Check" Class="w-4 h-4 text-success" />
+                        }
+                    </div>
+                </button>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = "sortDropdown";
+    [Parameter] public List<SortOption> Options { get; set; } = new();
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+
+    /// <summary>Fallback button text when <see cref="Value"/> matches no <see cref="Options"/>
+    /// entry - _SortDropdown.cshtml hardcoded this to "Sort"; exposed here so a caller can change
+    /// it (e.g. "Sort by").</summary>
+    [Parameter] public string Label { get; set; } = "Sort";
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _isOpen;
+    private int _focusIndex = -1;
+
+    private string ToggleId => $"{Id}Toggle";
+    private string DropdownId => $"{Id}Menu";
+    private string CurrentLabel => Options.FirstOrDefault(o => o.Value == Value)?.Label ?? Label;
+
+    private void ToggleOpen()
+    {
+        if (_isOpen)
+        {
+            Close();
+        }
+        else
+        {
+            Open();
+        }
+    }
+
+    private void Open()
+    {
+        _isOpen = true;
+        _focusIndex = Options.FindIndex(o => o.Value == Value);
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+        _focusIndex = -1;
+    }
+
+    private void HandleToggleKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "Enter":
+            case " ":
+                ToggleOpen();
+                break;
+            case "ArrowDown":
+            case "ArrowUp":
+                if (!_isOpen)
+                {
+                    Open();
+                }
+                break;
+            case "Escape":
+                if (_isOpen)
+                {
+                    Close();
+                }
+                break;
+        }
+    }
+
+    private async Task HandleListKeyDown(KeyboardEventArgs e)
+    {
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _focusIndex = Math.Min(_focusIndex + 1, Options.Count - 1);
+                break;
+            case "ArrowUp":
+                _focusIndex = Math.Max(_focusIndex - 1, 0);
+                break;
+            case "Home":
+                _focusIndex = 0;
+                break;
+            case "End":
+                _focusIndex = Options.Count - 1;
+                break;
+            case "Enter":
+                if (_focusIndex >= 0 && _focusIndex < Options.Count)
+                {
+                    await Select(Options[_focusIndex]);
+                }
+                break;
+            case "Escape":
+                Close();
+                break;
+        }
+    }
+
+    private async Task Select(SortOption option)
+    {
+        Value = option.Value;
+        Close();
+        await ValueChanged.InvokeAsync(Value);
+    }
+}

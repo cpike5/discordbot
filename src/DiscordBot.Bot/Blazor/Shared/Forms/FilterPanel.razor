@@ -1,0 +1,92 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@* Replaces TagHelpers/FilterPanelTagHelper.cs (and folds in the orphaned FilterPanelViewModel it
+   never used - see docs/plans/blazor-port-inventory.md Part 3 §4). The tag helper's attribute
+   pairs become ordinary [Parameter]s; UseHiddenToggle (the tag helper's second, JS-driven toggle
+   strategy) is dropped - the default max-height/overflow-hidden strategy needs no JS at all once
+   the class swap is driven by component state instead of window.toggleFilterPanel(), so there is
+   no reason to keep the other strategy. Pure component state, no JS/interop. *@
+
+<div class="bg-bg-secondary border border-border-primary rounded-lg mb-6 @Class" @attributes="AdditionalAttributes">
+    @if (IsCollapsible)
+    {
+        <button type="button"
+                class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-bg-hover transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-border-focus"
+                aria-expanded="@(IsExpanded ? "true" : "false")"
+                aria-controls="@ContentId"
+                @onclick="ToggleExpanded">
+            @HeaderInner
+            <Icon Path="IconPaths.ChevronDown" Class="@ChevronClasses" />
+        </button>
+    }
+    else
+    {
+        <div class="flex items-center justify-between px-5 py-4">
+            @HeaderInner
+        </div>
+    }
+
+    <div id="@ContentId" class="@ContentClasses">
+        <div class="border-t border-border-primary p-5">
+            @ChildContent
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Title { get; set; } = "Filters";
+    [Parameter] public bool IsCollapsible { get; set; } = true;
+    [Parameter] public bool DefaultExpanded { get; set; }
+    [Parameter] public bool IsExpanded { get; set; }
+    [Parameter] public EventCallback<bool> IsExpandedChanged { get; set; }
+    [Parameter] public int? ActiveFilterCount { get; set; }
+
+    /// <summary>Id for the collapsible content region (<c>aria-controls</c> target) - defaults to
+    /// the tag helper's own default of "filterContent"; give each panel a distinct Id when more
+    /// than one appears on the same page.</summary>
+    [Parameter] public string Id { get; set; } = "filterContent";
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _seeded;
+
+    protected override void OnParametersSet()
+    {
+        // Seed IsExpanded from DefaultExpanded once, the same way Card.razor seeds IsExpanded -
+        // afterwards IsExpanded (bindable via IsExpandedChanged) is the sole source of truth.
+        if (!_seeded)
+        {
+            IsExpanded = DefaultExpanded;
+            _seeded = true;
+        }
+    }
+
+    private string ContentId => Id;
+
+    private RenderFragment HeaderInner => @<text>
+        <div class="flex items-center gap-3">
+            <Icon Path="IconPaths.Funnel" Class="w-5 h-5 text-text-secondary" />
+            <span class="text-lg font-semibold text-text-primary">@Title</span>
+            @if (ActiveFilterCount is > 0)
+            {
+                <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-accent-orange text-white">
+                    @(ActiveFilterCount == 1 ? "Active" : $"{ActiveFilterCount} active")
+                </span>
+            }
+        </div>
+    </text>;
+
+    private string ChevronClasses => "w-5 h-5 text-text-secondary transition-transform duration-200" + (IsExpanded ? "" : " -rotate-90");
+
+    private string ContentClasses => "overflow-hidden transition-all duration-200" + (IsExpanded ? " max-h-screen" : " max-h-0");
+
+    private async Task ToggleExpanded()
+    {
+        IsExpanded = !IsExpanded;
+        await IsExpandedChanged.InvokeAsync(IsExpanded);
+    }
+}

@@ -281,7 +281,22 @@ icon-constants class.
 
 ### Forms
 
-_Tier 2 — not yet built._
+| Component | From partial(s) | Key parameters |
+| --- | --- | --- |
+| `FormField` | wrapper markup shared by `_FormInput`/`_FormSelect` | `Label`, `For`, `HelpText`, `ValidationState`, `ValidationMessage`, `IsRequired`, `ChildContent`, `FooterContent`, `Class`, `AdditionalAttributes`; static `ComputeDescribedByIds` helper shared by every input below |
+| `TextInput` | `_FormInput` / `FormInputViewModel` | `Id` (required), `Name`, `Label`, `Type`, `Placeholder`, `HelpText`, `Size` (`InputSize`), `ValidationState`/`ValidationMessage`, `IsRequired`/`IsDisabled`/`IsReadOnly`, `IconLeft`/`IconRight`, `MaxLength` + `ShowCharacterCount`, `Value`/`ValueChanged`/`ValueExpression`, `Class`, `AdditionalAttributes` |
+| `TextArea` | (new — no source partial; see `TextArea.razor`'s file comment) | Same shape as `TextInput` plus `Rows` (default 4), minus `IconLeft`/`IconRight` |
+| `Select<TValue>` | `_FormSelect` / `FormSelectViewModel` | `Id` (required), `Name`, `Label`, `Placeholder`, `Options` (`List<SelectOption>`), `OptionGroups` (`List<SelectOptionGroup>`), `HelpText`, `Size`, `ValidationState`/`ValidationMessage`, `IsRequired`/`IsDisabled`, `AllowMultiple` + `SelectedValues`/`SelectedValuesChanged` (separate from `Value`/`ValueChanged`/`ValueExpression` - see the component's file comment on why multi-select doesn't reuse `TValue`), `Class`, `AdditionalAttributes` |
+| `Toggle` | `_FormToggle` / `FormToggleViewModel` | `Id` (required), `Name`, `Label`, `Description`, `IsDisabled`, `SettingToggle` (opt-in `data-setting-toggle="true"` for legacy JS), `Value`/`ValueChanged`/`ValueExpression`, `Class`, `AdditionalAttributes` |
+| `SettingField` | `Pages/Shared/_SettingField.cshtml` (model `Core.DTOs.SettingDto`) | `Setting` (required), `OnValueChanged` (`EventCallback<(string Key, string Value)>`) - dispatches to `Toggle`/`Select`/`TextInput` by `SettingDataType`, renders the "Restart Required" indicator via `Badge` |
+| `Autocomplete` | `_AutocompleteInput` / `AutocompleteInputViewModel` (native rewrite of `autocomplete.js`) | `Id` (required), `Label`, `Placeholder`, `SearchFunc` (required, `Func<string, CancellationToken, Task<IReadOnlyList<AutocompleteItem>>>` - no HTTP inside the component), `Value`/`ValueChanged`, `DisplayText`, `IsRequired`, `MinChars`, `DebounceMs`, `MaxResults`, `NoResultsMessage`, `HelpText`, `Class`, `AdditionalAttributes` |
+| `FilterPanel` | `TagHelpers/FilterPanelTagHelper.cs` (+ the orphaned `FilterPanelViewModel`) | `Title`, `IsCollapsible`, `DefaultExpanded`, `IsExpanded`/`IsExpandedChanged`, `ActiveFilterCount`, `Id` (content region id), `ChildContent`, `Class`, `AdditionalAttributes` |
+| `SortDropdown` | `Pages/Shared/_SortDropdown.cshtml` / `SortDropdownViewModel` (AJAX mode dropped) | `Id` (required), `Options` (`List<SortOption>`), `Value`/`ValueChanged`, `Label` (fallback button text), `Class`, `AdditionalAttributes` |
+| `DateRangeFilter` | date-range markup in `Pages/Commands/Index.cshtml` + `wwwroot/js/date-range-filter.js` | `Start`/`StartChanged`, `End`/`EndChanged` (`DateOnly?`), `OnChanged`, `Id`, `Class`, `AdditionalAttributes` - Today/7 days/30 days presets and Clear as buttons, no localStorage |
+
+`AutocompleteItem` (`Blazor/Shared/Forms/AutocompleteItem.cs`) is a `record(string Id, string Text, string? Description)` - the shape `Autocomplete.SearchFunc` returns.
+
+New icon paths (`Blazor/Shared/Icons/IconPaths.Forms.cs`): `ExclamationCircleOutline`, `Funnel`, `BarsArrowDown`, `Check`, `ArrowPath`, `User`, `SpeakerWave`, `Hashtag`.
 
 ### Navigation
 

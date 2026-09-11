@@ -1,0 +1,117 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Label/help/validation wrapper shared by every form input in this group, derived from the
+   wrapper markup in _FormInput.cshtml (the label, the three validation-state message blocks, and
+   the aria-describedby id scheme are identical across _FormInput/_FormSelect - this component is
+   that shared shell, with the actual control passed in as ChildContent). Inputs that need to add
+   something after the validation messages (TextInput's character count, an EditContext-sourced
+   <ValidationMessage/>) use FooterContent, rendered last inside the same wrapper div so it stays
+   part of the "space-y-1.5" stack the partials use. *@
+
+<div class="space-y-1.5 @Class" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@For" class="block text-sm font-medium text-text-primary">
+            @Label
+            @if (IsRequired)
+            {
+                <span class="text-error">*</span>
+            }
+        </label>
+    }
+
+    @ChildContent
+
+    @if (!string.IsNullOrEmpty(HelpText) && ValidationState == ValidationState.None)
+    {
+        <p id="@HelpTextId" class="text-xs text-text-secondary">@HelpText</p>
+    }
+
+    @if (ValidationState == ValidationState.Error && !string.IsNullOrEmpty(ValidationMessage))
+    {
+        <p id="@ErrorId" class="flex items-center gap-1.5 text-xs text-error" role="alert">
+            <Icon Path="IconPaths.ExclamationCircleOutline" Size="IconSize.SM" />
+            @ValidationMessage
+        </p>
+    }
+
+    @if (ValidationState == ValidationState.Success && !string.IsNullOrEmpty(ValidationMessage))
+    {
+        <p id="@SuccessId" class="flex items-center gap-1.5 text-xs text-success">
+            <Icon Path="IconPaths.CheckCircle" Size="IconSize.SM" />
+            @ValidationMessage
+        </p>
+    }
+
+    @if (ValidationState == ValidationState.Warning && !string.IsNullOrEmpty(ValidationMessage))
+    {
+        <p id="@WarningId" class="flex items-center gap-1.5 text-xs text-warning" role="alert">
+            <Icon Path="IconPaths.ExclamationTriangle" Size="IconSize.SM" />
+            @ValidationMessage
+        </p>
+    }
+
+    @FooterContent
+</div>
+
+@code {
+    [Parameter] public string? Label { get; set; }
+
+    /// <summary>The wrapped control's <c>id</c> - used for the <c>&lt;label for&gt;</c> and to
+    /// derive the help/error/success/warning message ids (see <see cref="ComputeDescribedByIds"/>).</summary>
+    [Parameter] public string? For { get; set; }
+
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public ValidationState ValidationState { get; set; } = ValidationState.None;
+    [Parameter] public string? ValidationMessage { get; set; }
+    [Parameter] public bool IsRequired { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Rendered last, inside the wrapper - for content an input needs to show after the
+    /// validation messages (a character count, an EditContext-sourced &lt;ValidationMessage/&gt;).</summary>
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string HelpTextId => $"{For}-help";
+    private string ErrorId => $"{For}-error";
+    private string SuccessId => $"{For}-success";
+    private string WarningId => $"{For}-warning";
+
+    /// <summary>
+    /// The <c>aria-describedby</c> value _FormInput.cshtml computes for its &lt;input&gt; - exposed
+    /// so TextInput/TextArea/Select/Autocomplete can apply the same value to the control they pass
+    /// as <see cref="ChildContent"/>, without duplicating the id-selection rules in each of them.
+    /// </summary>
+    public static string? ComputeDescribedByIds(string? id, string? helpText, ValidationState state, string? message)
+    {
+        if (string.IsNullOrEmpty(id))
+        {
+            return null;
+        }
+
+        var ids = new List<string>();
+        if (!string.IsNullOrEmpty(helpText) && state == ValidationState.None)
+        {
+            ids.Add($"{id}-help");
+        }
+        if (state == ValidationState.Error && !string.IsNullOrEmpty(message))
+        {
+            ids.Add($"{id}-error");
+        }
+        if (state == ValidationState.Success && !string.IsNullOrEmpty(message))
+        {
+            ids.Add($"{id}-success");
+        }
+        if (state == ValidationState.Warning && !string.IsNullOrEmpty(message))
+        {
+            ids.Add($"{id}-warning");
+        }
+
+        return ids.Count > 0 ? string.Join(" ", ids) : null;
+    }
+}

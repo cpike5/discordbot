@@ -1,0 +1,122 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from the date-range markup inside the "Filter Panel" block of Pages/Commands/Index.cshtml
+   (the quick-preset buttons + Start/End <input type="date"> grid) and wwwroot/js/date-range-filter.js
+   (setPreset/detectActivePreset/clearFiltersAndReload). This is only that inner date-range piece,
+   not the whole collapsible panel around it - a page composes it inside <FilterPanel> itself, the
+   same way Commands/Index.cshtml nests the equivalent markup inside its own filter-panel shell.
+   No localStorage here (the JS module's filter-panel-expanded persistence) - the tier brief leaves
+   that decision to the page. *@
+
+<div class="@Class" @attributes="AdditionalAttributes">
+    <div class="mb-4">
+        <label class="block text-sm font-medium text-text-primary mb-2">Quick Date Range</label>
+        <div class="flex flex-wrap gap-2">
+            <button type="button" class="@PresetClass(Preset.Today)" @onclick="() => ApplyPreset(Preset.Today)">Today</button>
+            <button type="button" class="@PresetClass(Preset.Last7Days)" @onclick="() => ApplyPreset(Preset.Last7Days)">Last 7 Days</button>
+            <button type="button" class="@PresetClass(Preset.Last30Days)" @onclick="() => ApplyPreset(Preset.Last30Days)">Last 30 Days</button>
+        </div>
+    </div>
+
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+        <div>
+            <label for="@StartId" class="block text-sm font-medium text-text-primary mb-1">Start Date</label>
+            <input type="date" id="@StartId" value="@FormatDate(Start)" @onchange="HandleStartChanged"
+                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+        </div>
+        <div>
+            <label for="@EndId" class="block text-sm font-medium text-text-primary mb-1">End Date</label>
+            <input type="date" id="@EndId" value="@FormatDate(End)" @onchange="HandleEndChanged"
+                   class="w-full px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors" />
+        </div>
+    </div>
+
+    @if (Start.HasValue || End.HasValue)
+    {
+        <Button Text="Clear" Variant="ButtonVariant.Secondary" IconLeft="IconPaths.XMark" OnClick="HandleClear" />
+    }
+</div>
+
+@code {
+    private enum Preset { Today, Last7Days, Last30Days }
+
+    [Parameter] public DateOnly? Start { get; set; }
+    [Parameter] public EventCallback<DateOnly?> StartChanged { get; set; }
+    [Parameter] public DateOnly? End { get; set; }
+    [Parameter] public EventCallback<DateOnly?> EndChanged { get; set; }
+
+    /// <summary>Fires after Start and/or End changes for any reason (typing a date, a preset, or
+    /// Clear) - mirrors preserveHashAndSubmit()/clearFiltersAndReload() in date-range-filter.js,
+    /// which both end in "reload the results with the new filters" regardless of which control
+    /// triggered it.</summary>
+    [Parameter] public EventCallback OnChanged { get; set; }
+
+    [Parameter] public string Id { get; set; } = "dateRangeFilter";
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string StartId => $"{Id}-start";
+    private string EndId => $"{Id}-end";
+
+    private static string? FormatDate(DateOnly? date) => date?.ToString("yyyy-MM-dd");
+
+    private async Task HandleStartChanged(ChangeEventArgs e)
+    {
+        Start = DateOnly.TryParse(e.Value?.ToString(), out var parsed) ? parsed : null;
+        await StartChanged.InvokeAsync(Start);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task HandleEndChanged(ChangeEventArgs e)
+    {
+        End = DateOnly.TryParse(e.Value?.ToString(), out var parsed) ? parsed : null;
+        await EndChanged.InvokeAsync(End);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task ApplyPreset(Preset preset)
+    {
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        (Start, End) = preset switch
+        {
+            Preset.Today => (today, today),
+            Preset.Last7Days => (today.AddDays(-7), today),
+            _ => (today.AddDays(-30), today)
+        };
+        await StartChanged.InvokeAsync(Start);
+        await EndChanged.InvokeAsync(End);
+        await OnChanged.InvokeAsync();
+    }
+
+    private async Task HandleClear()
+    {
+        Start = null;
+        End = null;
+        await StartChanged.InvokeAsync(null);
+        await EndChanged.InvokeAsync(null);
+        await OnChanged.InvokeAsync();
+    }
+
+    private bool IsPresetActive(Preset preset)
+    {
+        if (Start is null || End is null)
+        {
+            return false;
+        }
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        return preset switch
+        {
+            Preset.Today => Start == today && End == today,
+            Preset.Last7Days => Start == today.AddDays(-7) && End == today,
+            _ => Start == today.AddDays(-30) && End == today
+        };
+    }
+
+    private string PresetClass(Preset preset) => IsPresetActive(preset)
+        ? "px-4 py-2 text-sm font-medium rounded-lg transition-colors border bg-accent-blue text-white border-accent-blue"
+        : "px-4 py-2 text-sm font-medium rounded-lg transition-colors border bg-bg-tertiary text-text-secondary border-border-primary hover:bg-bg-hover";
+}
