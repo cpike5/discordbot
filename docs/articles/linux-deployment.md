@@ -147,7 +147,7 @@ You can either build on the server or build locally and copy the published outpu
 ### Install .NET SDK (for building)
 
 ```bash
-sudo apt install -y dotnet-sdk-8.0
+sudo apt install -y dotnet-sdk-10.0
 ```
 
 ### Clone and Build

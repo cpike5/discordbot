@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Tracing;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Services;
 
@@ -24,6 +25,7 @@ public class BotStatusBroadcastService : MonitoredBackgroundService
     private static readonly TimeSpan BroadcastInterval = TimeSpan.FromSeconds(30);
 
     private readonly IBotStatusBroadcaster _botStatusBroadcaster;
+    private readonly BotConfiguration _botConfiguration;
 
     /// <inheritdoc/>
     public override string ServiceName => "Bot Status Broadcast Service";
@@ -38,19 +40,32 @@ public class BotStatusBroadcastService : MonitoredBackgroundService
     /// </summary>
     /// <param name="serviceProvider">The service provider for dependency resolution.</param>
     /// <param name="botStatusBroadcaster">The broadcaster whose <c>BroadcastStatusAsync</c> builds and sends the status payload.</param>
+    /// <param name="botConfiguration">Bot configuration, checked for <see cref="BotConfiguration.Enabled"/> web-only mode.</param>
     /// <param name="logger">The logger instance.</param>
     public BotStatusBroadcastService(
         IServiceProvider serviceProvider,
         IBotStatusBroadcaster botStatusBroadcaster,
+        IOptions<BotConfiguration> botConfiguration,
         ILogger<BotStatusBroadcastService> logger)
         : base(serviceProvider, logger)
     {
         _botStatusBroadcaster = botStatusBroadcaster;
+        _botConfiguration = botConfiguration.Value;
     }
 
     /// <inheritdoc/>
     protected override async Task ExecuteMonitoredAsync(CancellationToken stoppingToken)
     {
+        // Web-only mode (Discord:Enabled=false): there is no gateway connection, so bot status
+        // never changes and there is nothing meaningful to broadcast. Log once and return
+        // instead of ticking a 30-second broadcast loop for the life of the process.
+        if (!_botConfiguration.Enabled)
+        {
+            _logger.LogInformation(
+                "Bot status broadcast service not started: Discord is disabled (web-only mode)");
+            return;
+        }
+
         _logger.LogInformation(
             "Bot status broadcast service started. Interval: {IntervalSeconds}s",
             BroadcastInterval.TotalSeconds);

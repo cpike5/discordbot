@@ -2,6 +2,7 @@ using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 
 namespace DiscordBot.Tests.Services;
@@ -28,6 +29,7 @@ public class BotStatusBroadcastServiceTests
         _service = new BotStatusBroadcastService(
             _mockServiceProvider.Object,
             _mockBotStatusBroadcaster.Object,
+            Options.Create(new BotConfiguration { Enabled = true }),
             _mockLogger.Object);
     }
 
@@ -58,6 +60,30 @@ public class BotStatusBroadcastServiceTests
 
         // Assert
         _mockBotStatusBroadcaster.Verify(x => x.BroadcastStatusAsync(), Times.Exactly(3));
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenDiscordDisabled_ShouldNotBroadcast()
+    {
+        // Arrange - web-only mode (Discord:Enabled=false): no gateway connection, so bot
+        // status never changes and the service should log once and return instead of ticking
+        // the 30-second broadcast loop.
+        var service = new BotStatusBroadcastService(
+            _mockServiceProvider.Object,
+            _mockBotStatusBroadcaster.Object,
+            Options.Create(new BotConfiguration { Enabled = false }),
+            _mockLogger.Object);
+        using var cts = new CancellationTokenSource();
+
+        // Act - start and stop; StopAsync awaits the (already-returned) execute task, so this
+        // is deterministic rather than racing a background thread.
+        await service.StartAsync(cts.Token);
+        cts.Cancel();
+        await service.StopAsync(CancellationToken.None);
+
+        // Assert
+        _mockBotStatusBroadcaster.Verify(x => x.BroadcastStatusAsync(), Times.Never,
+            "a disabled bot should never broadcast status");
     }
 
     [Fact]
