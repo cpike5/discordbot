@@ -18,19 +18,28 @@ public class NotXService : INotXService
     private readonly IFxTwitterClient _fxTwitterClient;
     private readonly DiscordSocketClient _client;
     private readonly NotXOptions _options;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<NotXService> _logger;
+
+    /// <summary>
+    /// Application-settings key for the hot-swappable global toggle on the portal's
+    /// Features tab. Absent row means enabled.
+    /// </summary>
+    internal const string GlobalEnabledSettingKey = "Features:NotXEnabled";
 
     public NotXService(
         INotXGuildSettingsRepository repository,
         IFxTwitterClient fxTwitterClient,
         DiscordSocketClient client,
         IOptions<NotXOptions> options,
+        ISettingsService settingsService,
         ILogger<NotXService> logger)
     {
         _repository = repository;
         _fxTwitterClient = fxTwitterClient;
         _client = client;
         _options = options.Value;
+        _settingsService = settingsService;
         _logger = logger;
     }
 
@@ -42,14 +51,27 @@ public class NotXService : INotXService
         string tweetUrl,
         bool ignoreSettingsGate = false)
     {
-        // Step 0 — Global kill switch. Checked here as well as at the handler and command
-        // registration so no entry point can post while the feature is off in configuration;
-        // it deliberately outranks ignoreSettingsGate.
+        // Step 0 — Global kill switches, checked here as well as at the handler, the command
+        // preconditions and command registration so no entry point can post while the
+        // feature is off globally. Both deliberately outrank ignoreSettingsGate, so the
+        // manual context-menu fetch cannot bypass them either.
         if (!_options.Enabled)
         {
             _logger.LogDebug(
                 "not-X is disabled in configuration; skipping tweet URL '{TweetUrl}' for guild {GuildId}",
                 tweetUrl, guildId);
+            return false;
+        }
+
+        // Hot-swappable portal toggle; an absent setting row means enabled.
+        var isGloballyEnabled = await _settingsService
+            .GetSettingValueAsync<bool?>(GlobalEnabledSettingKey) ?? true;
+
+        if (!isGloballyEnabled)
+        {
+            _logger.LogDebug(
+                "not-X is disabled by the global {SettingKey} setting; skipping tweet URL '{TweetUrl}' for guild {GuildId}",
+                GlobalEnabledSettingKey, tweetUrl, guildId);
             return false;
         }
 

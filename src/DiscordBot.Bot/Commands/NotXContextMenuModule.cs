@@ -1,6 +1,7 @@
 using Discord;
 using Discord.Interactions;
 using DiscordBot.Bot.Helpers;
+using DiscordBot.Bot.Preconditions;
 using DiscordBot.Bot.Services.NotX;
 using DiscordBot.Core.Interfaces;
 
@@ -12,6 +13,7 @@ namespace DiscordBot.Bot.Commands;
 /// cannot be registered inside a <see cref="GroupAttribute"/>-decorated module.
 /// </summary>
 [RequireContext(ContextType.Guild)]
+[RequireNotXEnabled]
 public class NotXContextMenuModule : InteractionModuleBase<SocketInteractionContext>
 {
     private readonly INotXService _notXService;

@@ -22,6 +22,7 @@ public class NotXServiceTests : IDisposable
     private readonly DiscordSocketClient _client;
     private readonly Mock<INotXGuildSettingsRepository> _mockRepository;
     private readonly Mock<IFxTwitterClient> _mockFxTwitterClient;
+    private readonly Mock<ISettingsService> _mockSettingsService;
 
     private const ulong GuildId = 111111111111111111UL;
     private const ulong ChannelId = 222222222222222222UL;
@@ -36,6 +37,13 @@ public class NotXServiceTests : IDisposable
         });
         _mockRepository = new Mock<INotXGuildSettingsRepository>();
         _mockFxTwitterClient = new Mock<IFxTwitterClient>();
+        _mockSettingsService = new Mock<ISettingsService>();
+
+        // Default: the portal's Features toggle is on, so only the case under test gates.
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                NotXService.GlobalEnabledSettingKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(true);
     }
 
     public void Dispose() => _client.Dispose();
@@ -47,6 +55,7 @@ public class NotXServiceTests : IDisposable
             _mockFxTwitterClient.Object,
             _client,
             Options.Create(new NotXOptions { Enabled = enabled }),
+            _mockSettingsService.Object,
             Mock.Of<ILogger<NotXService>>());
     }
 
@@ -91,6 +100,81 @@ public class NotXServiceTests : IDisposable
         result.Should().BeFalse();
         _mockFxTwitterClient.Verify(
             c => c.FetchTweetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessTweetAsync_WhenGlobalSettingIsDisabled_ShouldReturnFalseWithoutFetching()
+    {
+        // The portal's Features tab writes this setting; it takes effect with no restart.
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                NotXService.GlobalEnabledSettingKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var service = CreateService(enabled: true);
+
+        var result = await service.ProcessTweetAsync(GuildId, ChannelId, MessageId, TweetUrl);
+
+        result.Should().BeFalse();
+        _mockRepository.Verify(
+            r => r.GetByGuildIdAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+        _mockFxTwitterClient.Verify(
+            c => c.FetchTweetAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task ProcessTweetAsync_WhenGlobalSettingIsDisabled_ShouldOutrankIgnoreSettingsGate()
+    {
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                NotXService.GlobalEnabledSettingKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var service = CreateService(enabled: true);
+
+        var result = await service.ProcessTweetAsync(
+            GuildId, ChannelId, MessageId, TweetUrl, ignoreSettingsGate: true);
+
+        result.Should().BeFalse("the manual context-menu fetch must not bypass a global off switch");
+    }
+
+    [Fact]
+    public async Task ProcessTweetAsync_WhenGlobalSettingRowIsAbsent_ShouldTreatFeatureAsEnabled()
+    {
+        // A null setting value means "no row saved yet" and must default to enabled, matching
+        // how Features:AudioEnabled and Features:RatWatchEnabled are read elsewhere.
+        _mockSettingsService
+            .Setup(s => s.GetSettingValueAsync<bool?>(
+                NotXService.GlobalEnabledSettingKey, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((bool?)null);
+        _mockRepository
+            .Setup(r => r.GetByGuildIdAsync(GuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new NotXGuildSettings { GuildId = GuildId, IsEnabled = false });
+
+        var service = CreateService(enabled: true);
+
+        await service.ProcessTweetAsync(GuildId, ChannelId, MessageId, TweetUrl);
+
+        // Reaching the per-guild lookup proves the absent row did not gate the request.
+        _mockRepository.Verify(
+            r => r.GetByGuildIdAsync(GuildId, It.IsAny<CancellationToken>()),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ProcessTweetAsync_WhenDisabledInConfiguration_ShouldNotEvenReadTheGlobalSetting()
+    {
+        // The config switch is the outermost gate, so it short-circuits before the settings
+        // lookup — a disabled deployment does no settings work on the message hot path.
+        var service = CreateService(enabled: false);
+
+        await service.ProcessTweetAsync(GuildId, ChannelId, MessageId, TweetUrl);
+
+        _mockSettingsService.Verify(
+            s => s.GetSettingValueAsync<bool?>(It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Never);
     }
 

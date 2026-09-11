@@ -412,11 +412,29 @@ enforce it, so no entry point can post while it is off:
    settings or calling fxtwitter. This outranks `ignoreSettingsGate`, so even a manual
    context-menu invocation cannot post.
 
-Because these modules are not in the `CommandModuleConfigurations` seed list
-(`CommandModuleConfigurationService.DefaultModules`), they have no admin-portal toggle —
-`NotX:Enabled` is the only global switch. It is read through `IOptions<T>`, which this
-project does not reload, so a change needs a process restart; the restart is required
-anyway for Discord to pick up the changed command set.
+It is read through `IOptions<T>`, which this project does not reload, so a change needs a
+process restart; the restart is required anyway for Discord to pick up the changed
+command set.
+
+### Disabling from the admin portal
+
+Two portal switches exist alongside the config one:
+
+- **Settings → Features → "not-X Tweet Previews"** writes `Features:NotXEnabled`. It takes
+  effect on the next message and next command with no restart, enforced by
+  `RequireNotXEnabledAttribute` and by `NotXService.ProcessTweetAsync`. The `/notx`
+  commands stay registered and reply "disabled by an administrator".
+- **Settings → Commands → "not-X"** toggles the `NotXCommandModule` row in
+  `CommandModuleConfigurations`. Like every other module toggle it needs a restart, and it
+  removes the commands from Discord. `NotXContextMenuModule` has no row of its own and
+  follows this toggle through `CompanionModuleParents` in
+  `SlashCommandRegistrationService`, so "Fetch Tweet" disappears with the slash commands
+  rather than being left behind.
+
+`RequireNotXEnabledAttribute` checks only the two global switches, never
+`NotXGuildSettings.IsEnabled` — the `/notx` commands are the per-guild configuration
+surface, so gating them on that flag would make `/notx enable` unreachable for a guild
+that had disabled itself.
 
 `NotXGuildSettings` rows are left untouched, so each guild's own configuration returns
 as it was when the feature is switched back on.

@@ -42,6 +42,19 @@ public class SlashCommandRegistrationService : IHostedService
         nameof(NotXContextMenuModule)
     ];
 
+    /// <summary>
+    /// Modules that have no database toggle of their own and follow another module's state.
+    /// The <c>*ComponentModule</c> convention below derives its parent by name; these cannot,
+    /// so the pairing is explicit. <see cref="NotXContextMenuModule"/> is listed because a
+    /// context menu command cannot be declared inside the <c>[Group]</c>-decorated
+    /// <see cref="NotXCommandModule"/>, yet the Commands tab presents not-X as one feature.
+    /// </summary>
+    private static readonly Dictionary<string, string> CompanionModuleParents =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            [nameof(NotXContextMenuModule)] = nameof(NotXCommandModule)
+        };
+
     public SlashCommandRegistrationService(
         DiscordSocketClient client,
         InteractionService interactionService,
@@ -80,6 +93,21 @@ public class SlashCommandRegistrationService : IHostedService
         }
 
         return disabled;
+    }
+
+    /// <summary>
+    /// Returns the module whose database toggle the given module follows, or null when the
+    /// module has a toggle of its own. Component modules follow the <c>*ComponentModule</c>
+    /// naming convention; everything else comes from <see cref="CompanionModuleParents"/>.
+    /// </summary>
+    internal static string? ResolveCompanionParentModule(string moduleName)
+    {
+        if (moduleName.EndsWith("ComponentModule", StringComparison.Ordinal))
+        {
+            return moduleName.Replace("ComponentModule", "Module");
+        }
+
+        return CompanionModuleParents.GetValueOrDefault(moduleName);
     }
 
     /// <summary>
@@ -150,17 +178,17 @@ public class SlashCommandRegistrationService : IHostedService
                 continue;
             }
 
-            // If this is a component module, check if its parent module is disabled
-            if (moduleName.EndsWith("ComponentModule", StringComparison.Ordinal))
+            // If this module follows another module's toggle, skip it when that parent is
+            // disabled. Component modules derive their parent by name; modules whose name
+            // does not follow that convention are mapped explicitly. Anything not skipped
+            // here falls through to the normal per-module lookups below, unchanged.
+            var parentModuleName = ResolveCompanionParentModule(moduleName);
+            if (parentModuleName is not null && disabledModuleNames.Contains(parentModuleName))
             {
-                var parentModuleName = moduleName.Replace("ComponentModule", "Module");
-                if (disabledModuleNames.Contains(parentModuleName))
-                {
-                    skippedModules.Add(moduleName);
-                    _logger.LogInformation("Skipped component module {ModuleName} because parent {ParentModuleName} is disabled",
-                        moduleName, parentModuleName);
-                    continue;
-                }
+                skippedModules.Add(moduleName);
+                _logger.LogInformation("Skipped module {ModuleName} because parent {ParentModuleName} is disabled",
+                    moduleName, parentModuleName);
+                continue;
             }
 
             // If we have no configuration for this module, default to enabled

@@ -264,6 +264,66 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
         disabled.Should().OnlyContain(name => discoverableModuleNames.Contains(name));
     }
 
+    [Theory]
+    [InlineData("RatWatchComponentModule", "RatWatchModule")]
+    [InlineData("SoundboardComponentModule", "SoundboardModule")]
+    public void ResolveCompanionParentModule_WithComponentModule_ShouldDeriveParentByName(
+        string moduleName, string expectedParent)
+    {
+        var result = SlashCommandRegistrationService.ResolveCompanionParentModule(moduleName);
+
+        result.Should().Be(expectedParent);
+    }
+
+    [Fact]
+    public void ResolveCompanionParentModule_WithNotXContextMenuModule_ShouldReturnNotXCommandModule()
+    {
+        // The Commands tab presents not-X as one feature with a single toggle, but the
+        // context menu command needs its own top-level module (it cannot sit inside a
+        // [Group]). Without this mapping, disabling not-X would leave "Fetch Tweet"
+        // registered and working.
+        var result = SlashCommandRegistrationService.ResolveCompanionParentModule(
+            nameof(DiscordBot.Bot.Commands.NotXContextMenuModule));
+
+        result.Should().Be(nameof(DiscordBot.Bot.Commands.NotXCommandModule));
+    }
+
+    [Fact]
+    public void ResolveCompanionParentModule_WithModuleOwningItsToggle_ShouldReturnNull()
+    {
+        // A null result routes the module to the normal database lookups, so any module with
+        // its own configuration row must not be mistaken for a companion.
+        SlashCommandRegistrationService
+            .ResolveCompanionParentModule(nameof(DiscordBot.Bot.Commands.NotXCommandModule))
+            .Should().BeNull();
+        SlashCommandRegistrationService
+            .ResolveCompanionParentModule(nameof(DiscordBot.Bot.Commands.AdminModule))
+            .Should().BeNull();
+    }
+
+    [Fact]
+    public void ResolveCompanionParentModule_ShouldNameParentsThatHaveADatabaseToggle()
+    {
+        // Every companion parent must be a module the Commands tab actually lists, otherwise
+        // the companion follows a toggle that can never be disabled. NotXCommandModule was
+        // missing from DefaultModules before this feature gained a UI switch, which is
+        // exactly the regression this guards.
+        var defaultModules = typeof(DiscordBot.Infrastructure.Services.CommandModuleConfigurationService)
+            .GetField("DefaultModules",
+                System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!
+            .GetValue(null);
+
+        var seededNames = ((System.Collections.IEnumerable)defaultModules!)
+            .Cast<object>()
+            .Select(d => (string)d.GetType().GetProperty("ModuleName")!.GetValue(d)!)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        var parent = SlashCommandRegistrationService.ResolveCompanionParentModule(
+            nameof(DiscordBot.Bot.Commands.NotXContextMenuModule))!;
+
+        seededNames.Should().Contain(parent);
+    }
+
     [Fact]
     public async Task RegisterCommandsAsync_WithUnstartedClient_ShouldLogErrorRatherThanThrow()
     {

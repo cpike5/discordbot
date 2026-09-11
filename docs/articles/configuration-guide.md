@@ -280,6 +280,10 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | `DmAssistant:Model` | AiModels | String | `""` | DM (owner) assistant's default model slug override. Same semantics and validation as above. |
 | `FeatureRequests:RequirementsGatheringModel` | AiModels | String | `""` | `/feature-request` requirements-gathering model slug override. Same semantics and validation as above. |
 
+The Features category also carries `Features:NotXEnabled` (Boolean, default `true`), the
+hot global toggle for not-X tweet previews. See the not-X example in section 5 for how it
+relates to the `NotX:Enabled` configuration switch and the Commands tab entry.
+
 ### Settings Categories and UI Tabs
 
 | Category | UI Tab | Authorization | Content |
@@ -418,22 +422,41 @@ Axis C: (GuildRatWatchSettings.IsEnabled exists but is not currently wired into 
 
 **not-X (Tweet Previews):**
 ```
-Axis A: NotX:Enabled == true in appsettings/environment?
-  └─ This feature's Axis A is configuration, not CommandModuleConfigurations: NotXCommandModule
-     and NotXContextMenuModule are not in the DefaultModules seed list, so they have no
-     database toggle. When NotX:Enabled is false, SlashCommandRegistrationService leaves both
-     modules out of discovery — because registration is a bulk overwrite, the /notx commands
-     and the "Fetch Tweet" context menu are removed from Discord on the next startup.
-Axis B: (No ApplicationSettings flag — the appsettings switch is the global one)
+Axis 0: NotX:Enabled == true in appsettings/environment?   (outermost, config-only)
+Axis A: NotXCommandModule enabled in CommandModuleConfigurations?
+  └─ NotXContextMenuModule has no row of its own and follows NotXCommandModule's toggle,
+     via CompanionModuleParents in SlashCommandRegistrationService
+Axis B: ISettingsService → "Features:NotXEnabled" == true?
 Axis C: NotXGuildSettings.IsEnabled == true?
   └─ Bonus: NotXGuildSettings monitored channels (empty = all channels), SensitiveOnly, OutputChannelId
 ```
 
-`NotX:Enabled` is a hard kill switch, not just a registration filter: `NotXMessageHandler`
-ignores every message while it is false, and `NotXService.ProcessTweetAsync` refuses to post
-even when called with `ignoreSettingsGate: true`. Changing it requires a restart (both to
-re-register the commands and because `IOptions<T>` is not reloaded — see Reload Behavior).
-Per-guild settings are preserved and take effect again once it is switched back on.
+not-X has an extra outermost axis the other features do not: the `NotX:Enabled`
+configuration switch. Use it to turn the feature off without database access; use the
+Features tab (`Features:NotXEnabled`) for a hot toggle that needs no restart.
+
+| Switch | Where | Restart needed | Commands removed from Discord |
+|--------|-------|----------------|-------------------------------|
+| `NotX:Enabled` | appsettings / env / user secrets | Yes | Yes |
+| Commands tab (`NotXCommandModule`) | Admin portal → Settings → Commands | Yes | Yes |
+| Features tab (`Features:NotXEnabled`) | Admin portal → Settings → Features | No | No — commands reply "disabled by an administrator" |
+| `/notx disable` | Discord, per guild | No | No |
+
+Both global switches are enforced at every entry point, not just at registration:
+`NotXMessageHandler` ignores messages while `NotX:Enabled` is false, and
+`NotXService.ProcessTweetAsync` refuses to post under either switch — deliberately
+outranking `ignoreSettingsGate`, so the "Fetch Tweet" context menu cannot bypass them.
+`RequireNotXEnabledAttribute` guards the commands themselves.
+
+`NotX:Enabled` needs a restart both to re-register the command set and because
+`IOptions<T>` is not reloaded here (see Reload Behavior). Per-guild `NotXGuildSettings`
+rows are preserved by all of the above and apply again once the feature is switched
+back on.
+
+`RequireNotXEnabledAttribute` checks only the two global switches, not
+`NotXGuildSettings.IsEnabled`, because the `/notx` commands *are* the per-guild
+configuration surface — gating them on the per-guild flag would make `/notx enable`
+impossible to run once a guild had disabled itself.
 
 **Guild-Level Kill Switch:**
 

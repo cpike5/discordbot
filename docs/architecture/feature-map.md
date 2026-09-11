@@ -313,11 +313,12 @@ Automatic or manual preview embeds for X/Twitter links, using the fxtwitter API 
 |--------|------------|
 | **Discord Commands** | `/notx enable`, `/notx disable`, `/notx status`, `/notx sensitive-only`, `/notx channel set`, `/notx channel clear`, `/notx monitor add`, `/notx monitor remove`, `/notx monitor clear` (NotXCommandModule); `Fetch Tweet` context menu (NotXContextMenuModule) |
 | **Handlers** | `NotXMessageHandler` (auto-detects tweet URLs in messages) |
+| **Preconditions** | `RequireNotXEnabled` (global config + `Features:NotXEnabled`; per-guild state deliberately excluded) |
 | **Services** | `INotXService`, `FxTwitterClient`, `NotXEmbedBuilder`, `TweetUrlExtractor` |
 | **Database Entities** | `NotXGuildSettings` |
-| **Configuration** | `NotXOptions` (`NotX` section) — `Enabled` is a global kill switch that also deregisters `/notx` and the `Fetch Tweet` context menu |
+| **Configuration** | `NotXOptions` (`NotX` section) — `Enabled` is a config kill switch that also deregisters `/notx` and the `Fetch Tweet` context menu; `Features:NotXEnabled` (Features tab) is the hot global toggle; `NotXCommandModule` (Commands tab) toggles registration |
 | **External Services** | fxtwitter API (tweet metadata and media) |
-| **Key Features** | Auto-detect tweet URLs, sensitive-only mode, output channel routing, monitored channel filtering, context menu manual fetch, guild-level kill-switch, global config kill-switch (`NotX:Enabled`) |
+| **Key Features** | Auto-detect tweet URLs, sensitive-only mode, output channel routing, monitored channel filtering, context menu manual fetch, guild-level kill-switch, global portal toggle, config kill-switch (`NotX:Enabled`) |
 | **Rate Limiting** | 5 commands per 60 seconds |
 
 **Architecture Flow**:
