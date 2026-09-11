@@ -55,6 +55,9 @@ dotnet test DiscordBot.sln                  # ~3,600 tests, ~1 min
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 ```
 
+`tests/DiscordBot.ComponentTests` (bUnit, wired into `DiscordBot.sln`) covers the `Blazor/` tree
+component-by-component — see "Component (bUnit) Tests" in `docs/articles/testing-guide.md`.
+
 CI (`.github/workflows/ci.yml`) runs restore, build in Release, and the full test
 suite on every PR to `main`. Both must be green before you push.
 
