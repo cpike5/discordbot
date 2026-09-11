@@ -1,10 +1,20 @@
 name: CI
 
+# Documentation-only changes skip CI: `paths-ignore` fires only when *every*
+# changed file matches, so a PR that touches docs and code still builds.
 on:
   push:
     branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.claude/**'
   pull_request:
     branches: [ main ]
+    paths-ignore:
+      - 'docs/**'
+      - '*.md'
+      - '.claude/**'
 
 env:
   DOTNET_VERSION: '8.0.x'
