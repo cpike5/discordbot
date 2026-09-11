@@ -35,6 +35,20 @@ public interface IDashboardEventBus
         where TEvent : GuildScopedEvent;
 
     /// <summary>
+    /// Subscribes to events of type <typeparamref name="TEvent"/> for one user only, mirroring
+    /// <c>Clients.User(userId)</c> SignalR delivery. Equivalent to
+    /// <see cref="Subscribe{TEvent}(Func{TEvent, CancellationToken, Task})"/> with an
+    /// <c>evt.UserId == userId</c> check in the handler, so a notification consumer cannot
+    /// forget the filter and receive every user's events.
+    /// </summary>
+    /// <typeparam name="TEvent">The user-scoped event type to subscribe to.</typeparam>
+    /// <param name="userId">The ASP.NET Identity user ID to filter to.</param>
+    /// <param name="handler">Invoked only for events whose <see cref="UserScopedEvent.UserId"/> matches.</param>
+    /// <returns>A disposable that removes the subscription.</returns>
+    IDisposable Subscribe<TEvent>(string userId, Func<TEvent, CancellationToken, Task> handler)
+        where TEvent : UserScopedEvent;
+
+    /// <summary>
     /// Publishes an event to every current subscriber of its exact type. Subscribers are invoked
     /// concurrently; a throwing or disposed subscriber does not affect this call or any other
     /// subscriber.
@@ -43,5 +57,16 @@ public interface IDashboardEventBus
     /// <param name="evt">The event instance.</param>
     /// <param name="ct">Cancellation token passed through to subscriber handlers.</param>
     Task PublishAsync<TEvent>(TEvent evt, CancellationToken ct = default)
+        where TEvent : IDashboardEvent;
+
+    /// <summary>
+    /// Reports whether at least one subscriber is currently registered for
+    /// <typeparamref name="TEvent"/>. Intended for a broadcaster to decide whether an expensive
+    /// metrics collection is worth doing when no SignalR clients are connected either — publish
+    /// still happens whenever this or the SignalR group count is non-zero, so subscribers are
+    /// never silently skipped.
+    /// </summary>
+    /// <typeparam name="TEvent">The event type to check.</typeparam>
+    bool HasSubscribers<TEvent>()
         where TEvent : IDashboardEvent;
 }

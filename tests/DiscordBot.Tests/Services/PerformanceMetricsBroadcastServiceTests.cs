@@ -300,4 +300,98 @@ public class PerformanceMetricsBroadcastServiceTests
         // Assert
         received.Should().NotBeNull();
     }
+
+    [Fact]
+    public async Task BroadcastHealthMetricsAsync_WithZeroGroupClients_StillPublishesToEventBusSubscriber()
+    {
+        // Arrange - no SignalR clients in the group, but a Blazor circuit is subscribed via the
+        // event bus. This is the scenario the fix targets: a Blazor circuit never joins the
+        // SignalR group, so gating the whole broadcast on group count silently starved it.
+        _mockSubscriptionTracker.Setup(x => x.PerformanceGroupClientCount).Returns(0);
+
+        var mockClients = new Mock<IHubClients>();
+        var mockClientProxy = new Mock<IClientProxy>();
+        mockClients.Setup(x => x.Group(It.IsAny<string>())).Returns(mockClientProxy.Object);
+        _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
+
+        var service = CreateService();
+
+        RealtimeEvents.HealthMetricsUpdatedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.HealthMetricsUpdatedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await service.BroadcastHealthMetricsAsync(CancellationToken.None);
+
+        // Assert - published to the event bus even though the SignalR group is empty, and the
+        // SignalR group send itself is skipped since no client would receive it.
+        received.Should().NotBeNull();
+        mockClientProxy.Verify(
+            x => x.SendCoreAsync("HealthMetricsUpdate", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Never,
+            "the SignalR send should still be skipped when the group has no clients");
+    }
+
+    [Fact]
+    public async Task BroadcastCommandPerformanceAsync_WithZeroGroupClients_StillPublishesToEventBusSubscriber()
+    {
+        // Arrange
+        _mockSubscriptionTracker.Setup(x => x.PerformanceGroupClientCount).Returns(0);
+
+        var mockClients = new Mock<IHubClients>();
+        var mockClientProxy = new Mock<IClientProxy>();
+        mockClients.Setup(x => x.Group(It.IsAny<string>())).Returns(mockClientProxy.Object);
+        _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
+
+        var service = CreateService();
+
+        RealtimeEvents.CommandPerformanceUpdatedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.CommandPerformanceUpdatedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await service.BroadcastCommandPerformanceAsync(CancellationToken.None);
+
+        // Assert
+        received.Should().NotBeNull();
+        mockClientProxy.Verify(
+            x => x.SendCoreAsync("CommandPerformanceUpdate", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task BroadcastSystemMetricsAsync_WithZeroGroupClients_StillPublishesToEventBusSubscriber()
+    {
+        // Arrange
+        _mockSubscriptionTracker.Setup(x => x.SystemHealthGroupClientCount).Returns(0);
+
+        var mockClients = new Mock<IHubClients>();
+        var mockClientProxy = new Mock<IClientProxy>();
+        mockClients.Setup(x => x.Group(It.IsAny<string>())).Returns(mockClientProxy.Object);
+        _mockHubContext.Setup(x => x.Clients).Returns(mockClients.Object);
+
+        var service = CreateService();
+
+        RealtimeEvents.SystemMetricsUpdatedEvent? received = null;
+        using var subscription = _eventBus.Subscribe<RealtimeEvents.SystemMetricsUpdatedEvent>((evt, _) =>
+        {
+            received = evt;
+            return Task.CompletedTask;
+        });
+
+        // Act
+        await service.BroadcastSystemMetricsAsync(CancellationToken.None);
+
+        // Assert
+        received.Should().NotBeNull();
+        mockClientProxy.Verify(
+            x => x.SendCoreAsync("SystemMetricsUpdate", It.IsAny<object[]>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }

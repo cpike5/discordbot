@@ -41,6 +41,23 @@ public sealed class DashboardEventBus : IDashboardEventBus
     }
 
     /// <inheritdoc/>
+    public IDisposable Subscribe<TEvent>(string userId, Func<TEvent, CancellationToken, Task> handler)
+        where TEvent : UserScopedEvent
+    {
+        ArgumentNullException.ThrowIfNull(userId);
+        ArgumentNullException.ThrowIfNull(handler);
+
+        return Subscribe<TEvent>((evt, ct) => evt.UserId == userId ? handler(evt, ct) : Task.CompletedTask);
+    }
+
+    /// <inheritdoc/>
+    public bool HasSubscribers<TEvent>()
+        where TEvent : IDashboardEvent
+    {
+        return _subscribers.TryGetValue(typeof(TEvent), out var bucket) && !bucket.IsEmpty;
+    }
+
+    /// <inheritdoc/>
     public async Task PublishAsync<TEvent>(TEvent evt, CancellationToken ct = default)
         where TEvent : IDashboardEvent
     {
