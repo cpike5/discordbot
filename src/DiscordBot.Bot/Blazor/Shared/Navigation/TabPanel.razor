@@ -1,0 +1,29 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@* Child of a Mode="TabGroupMode.InPage" TabGroup: <TabGroup><TabPanel Id="x">...</TabPanel></TabGroup>.
+   Reads the parent via the CascadingValue TabGroup establishes around its ChildContent and renders
+   only when its Id matches the group's ActiveTabId - a native Blazor re-render replacing the
+   legacy [data-nav-panel-for]/[hidden] DOM-toggling both source partials relied on JS for. *@
+
+@if (IsActive)
+{
+    <div id="@PanelElementId" role="tabpanel" aria-labelledby="@TabElementId" class="@Class" @attributes="AdditionalAttributes">
+        @ChildContent
+    </div>
+}
+
+@code {
+    [CascadingParameter] private TabGroup? Group { get; set; }
+
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string GroupId => Group?.EffectiveId ?? "tabGroup";
+    private bool IsActive => Group is not null && Group.ActiveTabId == Id;
+    private string PanelElementId => $"{GroupId}-panel-{Id}";
+    private string TabElementId => $"{GroupId}-tab-{Id}";
+}

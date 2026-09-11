@@ -1,0 +1,253 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Components.Sections
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Services
+@using DiscordBot.Bot.ViewModels.Components
+@inject IToastService ToastService
+@inject ILoadingState LoadingState
+
+@* Non-routable showcase section for Tier 3 (Navigation & Overlays), mirroring the modal/tab/
+   pagination demos on Pages/Components.cshtml today (docs/articles/blazor-components.md
+   "Component contract", point 10). *@
+
+<div class="space-y-8" data-testid="nav-overlays-showcase">
+    <!-- TabGroup: InPage mode -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-tabgroup-inpage">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">TabGroup - InPage mode</h3>
+            <p class="text-sm text-text-secondary mt-1">Buttons switch which TabPanel child renders. Arrow/Home/End roving tabindex.</p>
+        </div>
+        <div class="p-6">
+            <TabGroup Tabs="_inPageTabs" @bind-ActiveTabId="_inPageActiveTab" Mode="TabGroupMode.InPage" StyleVariant="TabStyleVariant.Underline" AriaLabel="Showcase tabs">
+                <TabPanel Id="overview"><p class="text-sm text-text-secondary" data-testid="panel-overview">Overview panel content.</p></TabPanel>
+                <TabPanel Id="activity"><p class="text-sm text-text-secondary" data-testid="panel-activity">Activity panel content.</p></TabPanel>
+                <TabPanel Id="settings"><p class="text-sm text-text-secondary" data-testid="panel-settings">Settings panel content (disabled tab).</p></TabPanel>
+            </TabGroup>
+        </div>
+    </section>
+
+    <!-- TabGroup: Navigation mode -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-tabgroup-navigation">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">TabGroup - Navigation mode</h3>
+            <p class="text-sm text-text-secondary mt-1">Tabs are NavLinks with badges and a Pills style.</p>
+        </div>
+        <div class="p-6">
+            <TabGroup Tabs="_navTabs" ActiveTabId="overview" Mode="TabGroupMode.Navigation" StyleVariant="TabStyleVariant.Pills" AriaLabel="Showcase navigation tabs" />
+        </div>
+    </section>
+
+    <!-- Modal -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-modal">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Modal</h3>
+        </div>
+        <div class="p-6">
+            <Button Text="Open modal" Variant="ButtonVariant.Secondary" OnClick="() => _modalOpen = true" />
+            <Modal Id="showcase-modal" Title="Example Modal" @bind-IsOpen="_modalOpen">
+                <ChildContent><p class="text-sm text-text-secondary">Generic modal content goes here.</p></ChildContent>
+                <FooterContent>
+                    <Button Text="Close" Variant="ButtonVariant.Secondary" OnClick="() => _modalOpen = false" />
+                </FooterContent>
+            </Modal>
+        </div>
+    </section>
+
+    <!-- ConfirmModal -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-confirm-modal">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">ConfirmModal</h3>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="flex flex-wrap gap-3">
+                <Button Text="Delete item" Variant="ButtonVariant.Danger" OnClick="ShowPlainConfirm" />
+                <Button Text="Delete server" Variant="ButtonVariant.Danger" OnClick="ShowTypedConfirm" />
+            </div>
+            <p class="text-sm text-text-secondary" data-testid="confirm-result">Last result: @(_lastConfirmResult?.ToString() ?? "none")</p>
+
+            <ConfirmModal @ref="_plainConfirm" Id="showcase-confirm-plain" Title="Delete item?" Message="This cannot be undone." Variant="ConfirmationVariant.Danger" ConfirmText="Delete" />
+            <ConfirmModal @ref="_typedConfirm" Id="showcase-confirm-typed" Title="Delete server?" Message="Type the server name to confirm." Variant="ConfirmationVariant.Danger" ConfirmText="Delete Server" RequiredText="my-server" InputLabel="Server name" />
+        </div>
+    </section>
+
+    <!-- ToastHost -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-toasts">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Toasts</h3>
+        </div>
+        <div class="p-6 flex flex-wrap gap-3">
+            <Button Text="Success" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Success("Saved successfully.")' />
+            <Button Text="Info" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Info("New features available.")' />
+            <Button Text="Warning" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Warning("Rate limit approaching.")' />
+            <Button Text="Error" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Error("Something went wrong.", "Error")' />
+        </div>
+        <ToastHost />
+    </section>
+
+    <!-- LoadingOverlay -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-loading-overlay">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">LoadingOverlay</h3>
+        </div>
+        <div class="p-6">
+            <Button Text="Trigger 2s loading" Variant="ButtonVariant.Secondary" OnClick="TriggerLoadingAsync" />
+        </div>
+        <LoadingOverlay Message="Loading example..." />
+    </section>
+
+    <!-- PreviewPopover -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-preview-popover">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">PreviewPopover</h3>
+            <p class="text-sm text-text-secondary mt-1">Hover, focus, or click either trigger. Loaders here are fake/simulated.</p>
+        </div>
+        <div class="p-6 flex flex-wrap gap-6">
+            <PreviewPopover TModel="UserPreviewViewModel" Kind="PreviewKind.User" Id="123" Loader="LoadFakeUserAsync">
+                <ChildContent>
+                    <span class="text-sm font-medium text-accent-blue cursor-pointer underline" data-testid="user-preview-trigger">@@exampleuser</span>
+                </ChildContent>
+                <ContentTemplate Context="user">
+                    <UserPreviewPopoverContent Model="user" />
+                </ContentTemplate>
+            </PreviewPopover>
+            <PreviewPopover TModel="GuildPreviewViewModel" Kind="PreviewKind.Guild" Id="456" Loader="LoadFakeGuildAsync">
+                <ChildContent>
+                    <span class="text-sm font-medium text-accent-blue cursor-pointer underline" data-testid="guild-preview-trigger">Example Guild</span>
+                </ChildContent>
+                <ContentTemplate Context="guild">
+                    <GuildPreviewPopoverContent Model="guild" />
+                </ContentTemplate>
+            </PreviewPopover>
+        </div>
+    </section>
+
+    <!-- GuildContextSelector -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-guild-selector">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">GuildContextSelector</h3>
+        </div>
+        <div class="p-6 flex flex-wrap gap-6 items-center">
+            <div>
+                <p class="text-xs text-text-tertiary mb-2">Single guild</p>
+                <GuildContextSelector RouteTemplate="/Guilds/{guildId}" Guilds="_singleGuild" />
+            </div>
+            <div>
+                <p class="text-xs text-text-tertiary mb-2">Multiple guilds</p>
+                <GuildContextSelector RouteTemplate="/Guilds/{guildId}" Guilds="_multipleGuilds" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Highlight -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-highlight">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Highlight</h3>
+        </div>
+        <div class="p-6 space-y-2 text-sm text-text-secondary">
+            <p data-testid="highlight-basic"><Highlight Text="The quick brown fox jumps over the lazy dog" SearchTerm="fox" /></p>
+            <p data-testid="highlight-truncated"><Highlight Text="A very long sentence used to demonstrate truncate-and-highlight behavior with a search term buried near the end of it" SearchTerm="buried" MaxLength="40" ShowContext="true" /></p>
+        </div>
+    </section>
+
+    <!-- RestartBanner -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-restart-banner">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">RestartBanner</h3>
+            <p class="text-sm text-text-secondary mt-1">Only visible to admins (AuthorizeView Policy="RequireAdmin").</p>
+        </div>
+        <div class="p-6">
+            <RestartBanner OnOpenBotControl="() => _restartBannerClicked = true" />
+            <p class="text-xs text-text-tertiary" data-testid="restart-banner-clicked">Clicked: @_restartBannerClicked</p>
+        </div>
+    </section>
+</div>
+
+@code {
+    private readonly IReadOnlyList<TabItem> _inPageTabs =
+    [
+        new() { Id = "overview", Label = "Overview", IconPath = IconPaths.InformationCircle },
+        new() { Id = "activity", Label = "Activity", BadgeCount = 3, BadgeVariant = TabBadgeVariant.Info },
+        new() { Id = "settings", Label = "Settings", Disabled = true }
+    ];
+
+    private readonly IReadOnlyList<TabItem> _navTabs =
+    [
+        new() { Id = "overview", Label = "Overview", Href = "#overview" },
+        new() { Id = "members", Label = "Members", Href = "#members", BadgeCount = 12, BadgeVariant = TabBadgeVariant.Success },
+        new() { Id = "logs", Label = "Logs", Href = "#logs", Subtitle = "Last 24h" }
+    ];
+
+    private readonly IReadOnlyList<GuildSelectorItem> _singleGuild =
+    [
+        new() { GuildId = "1", GuildName = "Solo Guild" }
+    ];
+
+    private readonly IReadOnlyList<GuildSelectorItem> _multipleGuilds =
+    [
+        new() { GuildId = "1", GuildName = "Alpha Guild" },
+        new() { GuildId = "2", GuildName = "Beta Guild" },
+        new() { GuildId = "3", GuildName = "Gamma Guild" }
+    ];
+
+    private string? _inPageActiveTab = "overview";
+    private bool _modalOpen;
+    private bool _restartBannerClicked;
+    private bool? _lastConfirmResult;
+
+    private ConfirmModal? _plainConfirm;
+    private ConfirmModal? _typedConfirm;
+
+    private async Task ShowPlainConfirm()
+    {
+        if (_plainConfirm is null) return;
+        _lastConfirmResult = await _plainConfirm.ShowAsync();
+    }
+
+    private async Task ShowTypedConfirm()
+    {
+        if (_typedConfirm is null) return;
+        _lastConfirmResult = await _typedConfirm.ShowAsync();
+    }
+
+    private async Task TriggerLoadingAsync()
+    {
+        using (LoadingState.Begin("Loading example..."))
+        {
+            await Task.Delay(2000);
+        }
+    }
+
+    // Fake loaders standing in for a real Loader (Func<Task<TModel?>>) that would call a
+    // controller/service - PreviewPopover itself never does that (see its top-of-file doc).
+    private static async Task<UserPreviewViewModel?> LoadFakeUserAsync()
+    {
+        await Task.Delay(400);
+        return new UserPreviewViewModel
+        {
+            UserId = 123,
+            Username = "exampleuser",
+            DisplayName = "Example User",
+            MemberSince = DateTime.UtcNow.AddYears(-1),
+            Roles = ["Moderator", "Verified"],
+            IsVerified = true,
+            ProfileUrl = "#"
+        };
+    }
+
+    private static async Task<GuildPreviewViewModel?> LoadFakeGuildAsync()
+    {
+        await Task.Delay(400);
+        return new GuildPreviewViewModel
+        {
+            GuildId = 456,
+            Name = "Example Guild",
+            MemberCount = 4820,
+            OnlineMemberCount = 612,
+            OwnerUsername = "guildowner",
+            BotJoinedAt = DateTime.UtcNow.AddMonths(-6),
+            ActiveFeatures = ["Moderation", "Welcome"],
+            IsActive = true,
+            DetailsUrl = "#",
+            SettingsUrl = "#"
+        };
+    }
+}

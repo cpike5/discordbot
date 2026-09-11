@@ -1,0 +1,45 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@* Ported from _RestartBanner.cshtml - <authorize policy="RequireAdmin"> becomes <AuthorizeView
+   Policy="RequireAdmin">. The "go to Bot Control" link's onclick="window.settingsManager?.
+   switchTab('BotControl')" JS handoff becomes OnOpenBotControl, an EventCallback the hosting page
+   wires to its own settings-tab state instead of a global. *@
+
+<AuthorizeView Policy="RequireAdmin">
+    <Authorized>
+        <div class="mb-6 bg-warning/10 border-2 border-warning rounded-lg p-4 @Class" @attributes="AdditionalAttributes">
+            <div class="flex items-start gap-3">
+                <div class="flex-shrink-0">
+                    <Icon Path="IconPaths.ExclamationTriangle" Class="w-6 h-6 text-warning" />
+                </div>
+                <div class="flex-1">
+                    <h3 class="text-base font-semibold text-warning mb-1">Restart Required</h3>
+                    <p class="text-sm text-text-primary mb-3">
+                        You have made changes to settings that require a bot restart to take effect.
+                        Please go to the Bot Control tab in Settings to restart the bot.
+                    </p>
+                    <a href="/Admin/Settings"
+                       class="inline-flex items-center gap-2 px-4 py-2 bg-warning hover:bg-warning-hover active:bg-warning-active text-text-inverse font-semibold text-sm rounded-lg transition-colors"
+                       @onclick="HandleClick" @onclick:preventDefault="OnOpenBotControl.HasDelegate">
+                        <Icon Path="IconPaths.ArrowPath" Class="w-4 h-4" />
+                        Go to Bot Control
+                    </a>
+                </div>
+            </div>
+        </div>
+    </Authorized>
+</AuthorizeView>
+
+@code {
+    /// <summary>Invoked instead of navigating, when a caller wants to switch the hosting page's
+    /// own Settings tabs to "Bot Control" rather than a full navigation to /Admin/Settings (the
+    /// Blazor-native replacement for <c>window.settingsManager?.switchTab('BotControl')</c>). When
+    /// no delegate is attached, the link navigates to /Admin/Settings normally.</summary>
+    [Parameter] public EventCallback OnOpenBotControl { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task HandleClick() => OnOpenBotControl.HasDelegate ? OnOpenBotControl.InvokeAsync() : Task.CompletedTask;
+}

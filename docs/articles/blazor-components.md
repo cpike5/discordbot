@@ -278,6 +278,7 @@ icon-constants class.
 | `HeroMetricCard` | `_HeroMetricCard` / `HeroMetricCardViewModel` | `Title`, `Value`, `TrendValue`/`TrendDirection` (`TrendDirection`)/`TrendLabel`, `AccentColor` (`CardAccent`), `IconContent` (`RenderFragment`, raw inner `<svg>` content) or `IconPath` (single-path convenience, through `<Icon>`), `ShowSparkline` + `SparklineData`, `DataAttribute` (still emits a bare `data-*` attribute on the value element for the legacy realtime JS), `Id`, `Class`, `AdditionalAttributes` |
 | `GuildStatsCard` | `_GuildStatsCard` (model: Pages-namespace `GuildStatsViewModel`, taken here as three primitive values) | `TotalGuilds`, `ActiveGuilds`, `InactiveGuilds`, `Class`, `AdditionalAttributes` |
 | `DashboardWidget` | `_DashboardWidget` / `DashboardWidgetViewModel` | `Title`, `Subtitle`, `DetailUrl`/`DetailLinkText`, `IconPath`, `IsEnabled` + `EnabledLabel`/`DisabledLabel`, `ChildContent` (body) or `EmptyState` (`EmptyStateViewModel`, mapped onto `<EmptyState>`) or `EmptyContent` (`RenderFragment`) — precedence `ChildContent` > `EmptyContent` > `EmptyState`, `ColSpan` (1\|2), `HeaderActions` (`List<WidgetHeaderAction>`), `Class`, `AdditionalAttributes` |
+| `Highlight` | `HighlightTagHelper` (`Helpers/TextHighlightHelper`) | `Text`, `SearchTerm`, `MaxLength`, `ShowContext`, `Class`, `AdditionalAttributes` |
 
 ### Forms
 
@@ -306,10 +307,21 @@ New icon paths (`Blazor/Shared/Icons/IconPaths.Forms.cs`): `ExclamationCircleOut
 | `PageHeader` | `_CommandHeader` / `CommandHeaderViewModel` | `Title`, `Subtitle`, `Actions` (`RenderFragment`, new — the partial had no actions slot), `Class`, `AdditionalAttributes` |
 | `GuildHeader` | `_GuildHeader` / `GuildHeaderViewModel` | `GuildId` (`string`), `Name`, `IconUrl`, `PageTitle`/`PageDescription`, `Actions` (`List<HeaderAction>`, reused from the view model), `StatusBadge` (`BadgeViewModel`, rendered through the Tier 1a `<Badge>`), `Class`, `AdditionalAttributes` |
 | `Pagination` | `_Pagination` / `PaginationViewModel` | `CurrentPage`/`TotalPages`/`TotalItems`/`PageSize`, `PageSizeOptions`, `Style` (`PaginationStyle`), `ShowPageSizeSelector`/`ShowItemCount`/`ShowFirstLast`, `BaseUrl` (link mode — builds `<a href>` like the partial) or, when `null`, callback mode (`<button>`s) via `OnPageChanged`/`OnPageSizeChanged` (`EventCallback<int>`), `PageParameterName`/`PageSizeParameterName`, `Class`, `AdditionalAttributes` — the page-size `<select onchange="location.href=...">` becomes `NavigationManager.NavigateTo` in link mode |
+| `TabGroup` | `_NavTabs` + `_TabPanel` / `NavTabsViewModel` + `TabPanelViewModel` | `Tabs` (`IReadOnlyList<TabItem>`), `ActiveTabId` (two-way), `StyleVariant` (`TabStyleVariant`), `Mode` (`TabGroupMode`: InPage/Navigation — AJAX dropped), `Compact`, `AriaLabel`, `ChildContent` (InPage mode's `TabPanel` children), `Id`, `Class`, `AdditionalAttributes`. `TabItem` (record): `Id`, `Label`, `ShortLabel`, `Href`, `IconPath`, `BadgeCount`/`BadgeVariant`, `Subtitle`, `Disabled`. |
+| `TabPanel` | (child of `TabGroup`, Mode=InPage) | `Id`, `ChildContent`, `Class`, `AdditionalAttributes` — reads the parent `TabGroup` via cascading value, renders only when `Id == ActiveTabId` |
+| `GuildContextSelector` | `_GuildContextSelector` / `GuildContextSelectorViewModel` | `RouteTemplate`, `Guilds` (`IReadOnlyList<GuildSelectorItem>`), `Class`, `AdditionalAttributes` |
 
 ### Overlays
 
-_Tier 3 — not yet built._
+| Component | From partial(s) | Key parameters |
+| --- | --- | --- |
+| `Modal` | `_ConfirmationModal` (generic dialog shell) | `Id`, `Title`, `ChildContent`, `FooterContent`, `Size` (`ModalSize`), `IsOpen` (two-way), `OnClosed`, `ReturnFocusTo`, `Class`, `AdditionalAttributes` |
+| `ConfirmModal` | `_ConfirmationModal` + `_TypedConfirmationModal` / `ConfirmationModalViewModel` + `TypedConfirmationModalViewModel` | `Id`, `Title`, `Message`/`MessageContent`, `ConfirmText`, `CancelText`, `Variant` (`ConfirmationVariant`), `CustomIconPath`, `RequiredText` + `InputLabel` (typed-confirmation mode), `OnConfirm`, `OnCancel`, and an awaitable `Task<bool> ShowAsync()` (via `@ref`) — built on `Modal` |
+| `ToastHost` | `_ToastContainer` (root, top-right) + `_ToastContainer` (Components/, bottom-right) / `IToastService` | `Class`, `AdditionalAttributes` — subscribes to `IToastService.Changed`, renders `IToastService.Toasts` |
+| `LoadingOverlay` | `_PageLoadingOverlay` / `PageLoadingOverlayViewModel` + `ILoadingState` | `Variant` (`SpinnerVariant`), `Size` (`SpinnerSize`), `Message`, `SubMessage`, `OnCancel`, `CancelText`, `AdditionalAttributes` — subscribes to `ILoadingState.Changed` |
+| `PreviewPopover<TModel>` | `_UserPreviewPopup` + `_GuildPreviewPopup` + `_PreviewPopupLoading` + `_PreviewPopupError` | `Kind` (`PreviewKind`), `Id`, `GuildId`, `Loader` (`Func<Task<TModel?>>`), `ContentTemplate` (`RenderFragment<TModel>`), `ChildContent` (trigger), `Placement` (`PopoverPlacement`), `Class`, `AdditionalAttributes` — the caller supplies `Loader`, this component never calls a controller/service itself |
+| `UserPreviewPopoverContent` | `_UserPreviewPopup` / `UserPreviewViewModel` | `Model` |
+| `GuildPreviewPopoverContent` | `_GuildPreviewPopup` / `GuildPreviewViewModel` | `Model` |
 
 ### Widgets
 
@@ -327,6 +339,7 @@ _Tier 3 — not yet built._
 | `CommandStatsCard` | `_CommandStatsCard` + `command-stats-chart.js` / (Pages) `CommandStatsViewModel` | `TopCommands`, `TotalCommands`, `TimeRangeHours`, `OnTimeRangeChanged`, `Class`, `AdditionalAttributes` | none (presentation only); renders through `<Chart>` |
 | `Chart` | (new — generic Chart.js wrapper) | `Type` (required), `Data` (required), `Options`, `Height`, `Class`, `AdditionalAttributes` | none; owns `ChartInterop` create/update (on `Data`/`Options` reference change)/destroy |
 | `VoiceChannelPanel` | `_VoiceChannelPanel` + `voice-channel-panel.js` / `VoiceChannelPanelViewModel` + `VoiceChannelInfo`/`NowPlayingInfo`/`QueueItemInfo` | `GuildId` (string, required), `IsCompact`, `ShowNowPlaying`, `ShowProgress`, `AvailableChannels`, `Queue` (caller-seeded, like `ActivityFeed.Items` — not part of `AudioStatusDto`), `OnJoined`/`OnLeft`/`OnStopped`/`OnSkipped` | `IDashboardAudioStatusService.GetCurrentAudioStatus` initial; `AudioConnectedEvent`/`AudioDisconnectedEvent`/`PlaybackStartedEvent`/`PlaybackProgressEvent`/`PlaybackFinishedEvent`/`QueueUpdatedEvent`/`VoiceChannelMemberCountUpdatedEvent` live, all guild-scoped; join/leave/stop/skip call `IAudioService`/`IPlaybackService` directly |
+| `RestartBanner` | `_RestartBanner` (`<authorize policy="RequireAdmin">`) | `OnOpenBotControl`, `Class`, `AdditionalAttributes` — wrapped in `<AuthorizeView Policy="RequireAdmin">`
 
 Tier 1b (`StatusIndicator`, `HeroMetricCard`, `DashboardWidget`) and Tier 3 (`TabGroup`, `Modal`)
 were being built in parallel and hadn't landed when this tier shipped — `BotStatusCard`
