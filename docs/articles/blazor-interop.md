@@ -52,10 +52,16 @@ integration.
 ## Disposal
 
 Every wrapper implements `IAsyncDisposable`. Disposing it disposes the imported
-`IJSObjectReference`, swallowing `JSDisconnectedException` (the circuit is already gone by
-the time cleanup runs, so there's nothing left to tell the client). If a component injects
-a wrapper directly from DI (rather than owning an instance itself), it does not need to
-dispose it — the scoped container does that when the circuit ends.
+`IJSObjectReference`, swallowing `JSDisconnectedException`, `OperationCanceledException` and
+`ObjectDisposedException` (the circuit is already gone by the time cleanup runs, so there's
+nothing left to tell the client). If a component injects a wrapper directly from DI (rather
+than owning an instance itself), it does not need to dispose it — the scoped container does
+that when the circuit ends.
+
+A failed module import is **not** cached: the wrapper's internal module task is cleared as
+soon as the `import()` call rejects, so the next call to any method on that wrapper retries
+the import instead of forever awaiting (and `DisposeAsync` forever rethrowing) the same
+faulted task. `DisposeAsync` only ever awaits a module task that completed successfully.
 
 Methods that register a JS-side listener return a numeric handle and must be paired with a
 release call, or the listener leaks for the life of the circuit:
@@ -100,6 +106,30 @@ public sealed partial class MyComponent : ComponentBase, IAsyncDisposable
     }
 }
 ```
+
+### `releaseAll()` — last-resort JS-side cleanup
+
+A component's own dispose path is the primary way listeners above get released, but it never
+runs when the circuit goes away without an orderly `DisposeAsync` — a dropped connection, a
+crashed circuit, a browser tab closed outright. `browser.js` and `audio.js` each export a
+`releaseAll()` that clears every handle they are still tracking (focus traps, matchMedia
+watchers and click-outside listeners in `browser.js`; the shared preview `Audio`, drop zones
+and any dropped-but-never-uploaded `File` objects in `audio.js`) and is safe to call with
+nothing registered. Neither module exposes it through the C# wrapper — it is wired up once,
+at module load, on two hooks so it fires without any component's help:
+
+- `Blazor.addEventListener('enhancedload', releaseAll)` — Blazor Web's enhanced navigation
+  swaps the page without a full reload, so a component's `DisposeAsync` may not run for
+  elements it registered listeners on.
+- `window.addEventListener('pagehide', releaseAll)` — the reliable fallback for circuit loss.
+  Blazor Server has no client-side "circuit down" DOM event; `pagehide` always fires before
+  the page/tab goes away, unlike `beforeunload`, which some browsers skip on a fast or
+  backward navigation.
+
+`charts.js` needs no equivalent: `ChartInterop` handles are chart instances, not raw DOM
+listeners, and `destroyAll()` already exists as the equivalent last resort for a layout to
+call explicitly — it isn't auto-wired to these hooks since a component may legitimately want
+its chart to survive an enhanced navigation within the same page.
 
 ## Discord snowflakes cross interop as strings
 
@@ -241,21 +271,33 @@ Task InsertAtSelectionAsync(ElementReference textarea, string text);
 
 - **C#** (`tests/DiscordBot.Tests/Blazor/Interop/`): Moq-based tests per wrapper assert the
   exact module path passed to `IJSRuntime.InvokeAsync<IJSObjectReference>("import", ...)`,
-  the JS identifier and arguments passed to each `IJSObjectReference.InvokeAsync` call, and
-  that `DisposeAsync` swallows `JSDisconnectedException` without importing the module first
-  (nothing to dispose) and after (disposes the module reference). Generic void-returning JS
-  calls (`InvokeVoidAsync`, which instantiates the framework-internal `IJSVoidResult` type
-  parameter) are verified with Moq's `It.IsAnyType` matcher rather than naming that type.
-- **JS** (`wwwroot/js/__tests__/blazor-charts.test.js`, `blazor-browser.test.js`): `node --test`
-  covers the pure parts only — `charts.js`'s `buildDefaultOptions`/`buildPalette` (a
-  `cssVarGetter` function stands in for reading `document.documentElement`, so no DOM is
-  needed) and `browser.js`'s `resolveTimeZone` (a stubbed `Intl`) and the `storageGet/Set/Remove`
-  trio (a stubbed `window.localStorage`, including the throw-and-report-false/null path).
-  `wwwroot/js/blazor/package.json` sets `"type": "module"` for this one directory only, so
-  Node treats these ES modules correctly via dynamic `import()` from the otherwise-CommonJS
-  `wwwroot/js/__tests__/*.test.js` suite; it has no effect on the browser, which already
-  treats a dynamically-imported script as a module regardless of file extension.
-  `npm test` (in `src/DiscordBot.Bot`) runs the whole `__tests__` suite.
+  the JS identifier and arguments passed to each `IJSObjectReference.InvokeAsync` call, that
+  `DisposeAsync` swallows `JSDisconnectedException`/`OperationCanceledException`/
+  `ObjectDisposedException` without importing the module first (nothing to dispose) and after
+  (disposes the module reference), and the faulted-import path — a failed `import()` is not
+  cached, so the next call retries, and `DisposeAsync` after a failed import does not rethrow
+  the import failure. Generic void-returning JS calls (`InvokeVoidAsync`, which instantiates
+  the framework-internal `IJSVoidResult` type parameter) are verified with Moq's
+  `It.IsAnyType` matcher rather than naming that type.
+- **JS** (`wwwroot/js/__tests__/blazor-charts.test.js`, `blazor-browser.test.js`,
+  `blazor-audio.test.js`): `node --test` covers the pure parts only — `charts.js`'s
+  `buildDefaultOptions`/`buildPalette` (a `cssVarGetter` function stands in for reading
+  `document.documentElement`, so no DOM is needed) and `mergeDeep` (exported solely for this,
+  including its `__proto__`/`constructor`/`prototype` merge guard); `browser.js`'s
+  `resolveTimeZone` (a stubbed `Intl`), the `storageGet/Set/Remove` trio (a stubbed
+  `window.localStorage`, including the throw-and-report-false/null path), and `releaseAll`
+  (with `window`/`document` stubbed just enough for `trapFocus`/`matchMedia`/`onClickOutside`
+  to register, since none of the three need a real DOM); and `audio.js`'s `releaseAll` (drop
+  zones and dropped files only — everything else in that module drives real
+  `Audio`/`XMLHttpRequest`/`FormData` APIs Node has no equivalent for, so it stays covered by
+  the C# tests plus review). There is deliberately no `package.json` under `wwwroot/js/blazor/`
+  or anywhere else under `wwwroot/` — wwwroot is served as static files, so a `package.json`
+  there would be publicly fetchable. Instead the `"test"` npm script
+  (`src/DiscordBot.Bot/package.json`) passes Node's `--experimental-detect-module` flag, which
+  makes `node --test`'s dynamic `import()` of a `.js` file with no `"type": "module"` ancestor
+  sniff its syntax and parse it as an ES module anyway; this has no effect on the browser,
+  which already treats a dynamically-imported script as a module regardless of file extension
+  or any `package.json`. `npm test` (in `src/DiscordBot.Bot`) runs the whole `__tests__` suite.
 
 ## Vendoring Chart.js
 

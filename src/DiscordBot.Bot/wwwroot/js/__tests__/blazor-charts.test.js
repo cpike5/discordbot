@@ -1,8 +1,10 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 
-// charts.js is an ES module (see wwwroot/js/blazor/package.json); dynamic
-// import() works from this CommonJS test file regardless.
+// charts.js uses ES module syntax with no "type": "module" package.json above
+// it (there is deliberately none under wwwroot - it is publicly served); the
+// "test" script's `--experimental-detect-module` flag is what lets Node's
+// dynamic import() parse it as ESM from this CommonJS test file regardless.
 const chartsModulePromise = import('../blazor/charts.js');
 
 test('buildDefaultOptions reads every color from the supplied CSS var getter', async () => {
@@ -82,4 +84,29 @@ test('buildPalette falls back to hardcoded Graphite colors when unset', async ()
 
     assert.equal(palette.primary, '#3d9ad6');
     assert.equal(palette.secondary, '#e6602b');
+});
+
+test('mergeDeep deep-merges nested objects without mutating either input', async () => {
+    const { mergeDeep } = await chartsModulePromise;
+
+    const base = { plugins: { legend: { display: true }, tooltip: { enabled: true } } };
+    const override = { plugins: { legend: { display: false } } };
+
+    const merged = mergeDeep(base, override);
+
+    assert.equal(merged.plugins.legend.display, false);
+    assert.equal(merged.plugins.tooltip.enabled, true, 'a key absent from override survives from base');
+    assert.equal(base.plugins.legend.display, true, 'base must not be mutated');
+});
+
+test('mergeDeep ignores __proto__/constructor/prototype keys in override', async () => {
+    const { mergeDeep } = await chartsModulePromise;
+
+    const maliciousOverride = JSON.parse('{"__proto__": {"polluted": true}, "constructor": {"polluted": true}, "prototype": {"polluted": true}, "safe": 1}');
+
+    const merged = mergeDeep({}, maliciousOverride);
+
+    assert.equal(merged.safe, 1);
+    assert.equal({}.polluted, undefined, 'Object.prototype must not have been polluted');
+    assert.equal(Object.prototype.polluted, undefined);
 });

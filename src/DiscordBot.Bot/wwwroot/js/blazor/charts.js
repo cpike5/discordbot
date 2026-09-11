@@ -106,6 +106,14 @@ function loadChartJs() {
         chartJsPromise = new Promise((resolve, reject) => {
             const existing = document.querySelector(`script[src="${CHART_SRC}"]`);
             if (existing) {
+                // A tag we (or an earlier call) injected may have already fired its `load`
+                // event by the time we get here - `data-loaded` is set below right when that
+                // happens, so check it before subscribing to an event that will never fire
+                // again and would otherwise hang this promise forever.
+                if (existing.dataset.loaded === 'true') {
+                    resolve(window.Chart);
+                    return;
+                }
                 existing.addEventListener('load', () => resolve(window.Chart));
                 existing.addEventListener('error', () => reject(new Error('Failed to load Chart.js from ' + CHART_SRC)));
                 return;
@@ -114,7 +122,10 @@ function loadChartJs() {
             const script = document.createElement('script');
             script.src = CHART_SRC;
             script.async = true;
-            script.addEventListener('load', () => resolve(window.Chart));
+            script.addEventListener('load', () => {
+                script.dataset.loaded = 'true';
+                resolve(window.Chart);
+            });
             script.addEventListener('error', () => reject(new Error('Failed to load Chart.js from ' + CHART_SRC)));
             document.head.appendChild(script);
         });
@@ -123,9 +134,27 @@ function loadChartJs() {
     return chartJsPromise;
 }
 
-function mergeDeep(base, override) {
+const UNSAFE_MERGE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
+/**
+ * Deep-merges `override` onto `base`, returning a new object; neither input is
+ * mutated. Exported (alongside {@link buildDefaultOptions}/{@link buildPalette})
+ * purely so its prototype-pollution guard is testable without a DOM - see
+ * `wwwroot/js/__tests__/blazor-charts.test.js`.
+ *
+ * @param {object} [base]
+ * @param {object} [override]
+ * @returns {object}
+ */
+export function mergeDeep(base, override) {
     const result = { ...(base || {}) };
     for (const key of Object.keys(override || {})) {
+        // Config objects here ultimately come from .NET-serialized JSON handed across the
+        // interop boundary; refuse to merge a key that could pollute the object/Object
+        // prototype rather than trusting the caller never sends one.
+        if (UNSAFE_MERGE_KEYS.has(key)) {
+            continue;
+        }
         const value = override[key];
         if (value && typeof value === 'object' && !Array.isArray(value)) {
             result[key] = mergeDeep(base ? base[key] : undefined, value);

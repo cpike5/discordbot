@@ -7,7 +7,7 @@
     "build:css": "tailwindcss -i ./wwwroot/css/site.css -o ./wwwroot/css/app.css --minify",
     "build": "npm run build:vendor && npm run build:css",
     "watch:css": "tailwindcss -i ./wwwroot/css/site.css -o ./wwwroot/css/app.css --watch",
-    "test": "node --test wwwroot/js/__tests__/*.test.js"
+    "test": "node --experimental-detect-module --test wwwroot/js/__tests__/*.test.js"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.16",

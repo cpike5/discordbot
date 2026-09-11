@@ -289,6 +289,48 @@ export function offClickOutside(handle) {
 }
 
 // ---------------------------------------------------------------------------
+// Release-all — last-resort cleanup for a circuit that goes away without
+// every component getting a chance to call its own release method (a lost
+// connection, a crashed circuit). Registered below on the Blazor
+// enhanced-navigation and page-unload hooks so listeners registered by this
+// module never outlive the circuit that created them.
+// ---------------------------------------------------------------------------
+
+/**
+ * Releases every focus trap, matchMedia watcher and click-outside listener
+ * this module is currently tracking. Safe to call with nothing registered.
+ * Exported for the Blazor lifecycle hooks below and for a component/layout
+ * that wants an explicit last-resort cleanup of its own.
+ */
+export function releaseAll() {
+    for (const handle of Array.from(focusTraps.keys())) {
+        releaseFocus(handle);
+    }
+    for (const handle of Array.from(mediaWatchers.keys())) {
+        unwatchMedia(handle);
+    }
+    for (const handle of Array.from(clickOutsideHandlers.keys())) {
+        offClickOutside(handle);
+    }
+}
+
+if (typeof window !== 'undefined') {
+    // Enhanced navigation swaps the page without a full reload, so a
+    // component's own DisposeAsync may never run for the elements it
+    // registered listeners on; releaseAll on every enhanced navigation keeps
+    // those from accumulating for the life of the circuit.
+    if (window.Blazor && typeof window.Blazor.addEventListener === 'function') {
+        window.Blazor.addEventListener('enhancedload', releaseAll);
+    }
+    // pagehide is the reliable fallback for circuit loss (tab close, network
+    // drop, crash): Blazor Server has no client-side "circuit down" DOM
+    // event, but pagehide always fires before the page/tab actually goes
+    // away, unlike beforeunload which some browsers skip on a fast/backward
+    // navigation.
+    window.addEventListener('pagehide', releaseAll);
+}
+
+// ---------------------------------------------------------------------------
 // Textarea selection — ports _EmphasisToolbar.cshtml's inline script
 // ---------------------------------------------------------------------------
 

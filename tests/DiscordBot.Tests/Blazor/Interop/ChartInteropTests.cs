@@ -153,4 +153,79 @@ public class ChartInteropTests
 
         Assert.Null(exception);
     }
+
+    [Fact]
+    public async Task DisposeAsync_SwallowsOperationCanceledException()
+    {
+        var (_, module, sut) = CreateSut();
+        await sut.CreateAsync(default, new { });
+        module
+            .Setup(m => m.DisposeAsync())
+            .Returns(() => ValueTask.FromException(new OperationCanceledException()));
+
+        var exception = await Record.ExceptionAsync(() => sut.DisposeAsync().AsTask());
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_SwallowsObjectDisposedException()
+    {
+        var (_, module, sut) = CreateSut();
+        await sut.CreateAsync(default, new { });
+        module
+            .Setup(m => m.DisposeAsync())
+            .Returns(() => ValueTask.FromException(new ObjectDisposedException(nameof(IJSObjectReference))));
+
+        var exception = await Record.ExceptionAsync(() => sut.DisposeAsync().AsTask());
+
+        Assert.Null(exception);
+    }
+
+    [Fact]
+    public async Task ModuleImport_WhenItFails_IsNotCachedForever_AndRetriesOnNextCall()
+    {
+        var jsRuntimeMock = new Mock<IJSRuntime>();
+        var callCount = 0;
+        jsRuntimeMock
+            .Setup(js => js.InvokeAsync<IJSObjectReference>(
+                "import",
+                It.Is<object?[]>(args => args.Length == 1 && (string)args[0]! == ModulePath)))
+            .Returns(() =>
+            {
+                callCount++;
+                return callCount == 1
+                    ? ValueTask.FromException<IJSObjectReference>(new JSException("boom"))
+                    : ValueTask.FromResult(Mock.Of<IJSObjectReference>());
+            });
+
+        var sut = new ChartInterop(jsRuntimeMock.Object);
+
+        // First call: the import fails.
+        await Assert.ThrowsAsync<JSException>(() => sut.CreateAsync(default, new { }));
+
+        // Second call: it should retry the import rather than re-awaiting the same faulted task.
+        var exception = await Record.ExceptionAsync(() => sut.CreateAsync(default, new { }));
+
+        Assert.Null(exception);
+        Assert.Equal(2, callCount);
+    }
+
+    [Fact]
+    public async Task DisposeAsync_AfterFailedImport_DoesNotRethrowTheImportFailure()
+    {
+        var jsRuntimeMock = new Mock<IJSRuntime>();
+        jsRuntimeMock
+            .Setup(js => js.InvokeAsync<IJSObjectReference>(
+                "import",
+                It.Is<object?[]>(args => args.Length == 1 && (string)args[0]! == ModulePath)))
+            .Returns(() => ValueTask.FromException<IJSObjectReference>(new JSException("boom")));
+
+        var sut = new ChartInterop(jsRuntimeMock.Object);
+        await Assert.ThrowsAsync<JSException>(() => sut.CreateAsync(default, new { }));
+
+        var exception = await Record.ExceptionAsync(() => sut.DisposeAsync().AsTask());
+
+        Assert.Null(exception);
+    }
 }

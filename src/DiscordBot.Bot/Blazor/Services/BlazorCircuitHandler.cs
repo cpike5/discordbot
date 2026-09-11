@@ -22,7 +22,6 @@ public sealed class BlazorCircuitHandler(
     BlazorMetrics metrics) : CircuitHandler
 {
     private string? _userId;
-    private IDisposable? _correlationLogContext;
 
     /// <inheritdoc />
     public override Task OnCircuitOpenedAsync(Circuit circuit, CancellationToken cancellationToken)
@@ -61,20 +60,21 @@ public sealed class BlazorCircuitHandler(
 
         clientInfo.Populate(remoteIp, userAgent, circuitId, correlationId);
 
-        // Best-effort ambient correlation for anything logged directly from this handler's own
-        // async flow (including the "circuit opened"/"closed" lines below). Later UI events on
-        // the circuit are dispatched through the renderer's own execution context, so this push
-        // is not a guarantee that every subsequent component log carries it - components that
-        // need the correlation ID reliably should read it from CircuitClientInfoService instead.
-        _correlationLogContext = LogContext.PushProperty("CorrelationId", correlationId);
-
         metrics.CircuitOpened();
 
-        logger.LogInformation(
-            "Blazor circuit opened. UserId: {UserId}, CircuitId: {CircuitId}, CorrelationId: {CorrelationId}",
-            _userId ?? "anonymous",
-            circuitId,
-            correlationId);
+        // Scoped to this one log call only - OnCircuitOpenedAsync and OnCircuitClosedAsync are
+        // different async flows (there is no single ambient context spanning a circuit's whole
+        // life), so a PushProperty here that outlived the call would scope nothing meaningful
+        // and could clobber another flow's enricher stack. A component that needs the
+        // correlation ID reliably reads it from CircuitClientInfoService instead.
+        using (LogContext.PushProperty("CorrelationId", correlationId))
+        {
+            logger.LogInformation(
+                "Blazor circuit opened. UserId: {UserId}, CircuitId: {CircuitId}, CorrelationId: {CorrelationId}",
+                _userId ?? "anonymous",
+                circuitId,
+                correlationId);
+        }
     }
 
     /// <summary>
@@ -84,14 +84,14 @@ public sealed class BlazorCircuitHandler(
     {
         metrics.CircuitClosed();
 
-        logger.LogInformation(
-            "Blazor circuit closed. UserId: {UserId}, CircuitId: {CircuitId}, CorrelationId: {CorrelationId}",
-            _userId ?? "anonymous",
-            circuitId,
-            clientInfo.CorrelationId);
-
-        _correlationLogContext?.Dispose();
-        _correlationLogContext = null;
+        using (LogContext.PushProperty("CorrelationId", clientInfo.CorrelationId))
+        {
+            logger.LogInformation(
+                "Blazor circuit closed. UserId: {UserId}, CircuitId: {CircuitId}, CorrelationId: {CorrelationId}",
+                _userId ?? "anonymous",
+                circuitId,
+                clientInfo.CorrelationId);
+        }
     }
 
     private static string GenerateCorrelationId() => Guid.NewGuid().ToString("N")[..16];

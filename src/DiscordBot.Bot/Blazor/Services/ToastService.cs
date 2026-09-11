@@ -35,21 +35,13 @@ public sealed class ToastService : IToastService, IDisposable
 
         var effectiveDuration = duration ?? DefaultDuration(level);
         var toastMessage = new ToastMessage(Guid.NewGuid(), level, message, title, DateTimeOffset.UtcNow, effectiveDuration);
-
-        Timer? timer = null;
-        if (effectiveDuration is { } d && d > TimeSpan.Zero)
-        {
-            // Captures toastMessage.Id, not `this` beyond the delegate scope, so the timer alone
-            // can't keep the service alive past Dispose.
-            timer = new Timer(_ => Dismiss(toastMessage.Id), state: null, dueTime: d, period: Timeout.InfiniteTimeSpan);
-        }
+        var entry = new Entry(toastMessage);
 
         List<Entry>? evicted = null;
         lock (_lock)
         {
             if (_disposed)
             {
-                timer?.Dispose();
                 return;
             }
 
@@ -60,14 +52,24 @@ public sealed class ToastService : IToastService, IDisposable
                 _entries.RemoveAt(0);
             }
 
-            _entries.Add(new Entry(toastMessage, timer));
+            _entries.Add(entry);
+
+            // Start the timer only once the entry is visible in _entries, still under the same
+            // lock: a very short duration must never let the timer's Dismiss callback run - and
+            // find nothing to remove - before the entry it targets has been added.
+            if (effectiveDuration is { } d && d > TimeSpan.Zero)
+            {
+                // Captures toastMessage.Id, not `this` beyond the delegate scope, so the timer
+                // alone can't keep the service alive past Dispose.
+                entry.Timer = new Timer(_ => Dismiss(toastMessage.Id), state: null, dueTime: d, period: Timeout.InfiniteTimeSpan);
+            }
         }
 
         if (evicted is not null)
         {
-            foreach (var entry in evicted)
+            foreach (var evictedEntry in evicted)
             {
-                entry.Timer?.Dispose();
+                evictedEntry.Timer?.Dispose();
             }
         }
 
@@ -140,5 +142,15 @@ public sealed class ToastService : IToastService, IDisposable
         _ => TimeSpan.FromSeconds(5)
     };
 
-    private sealed record Entry(ToastMessage Message, Timer? Timer);
+    private sealed class Entry(ToastMessage message)
+    {
+        public ToastMessage Message { get; } = message;
+
+        /// <summary>
+        /// Set once, under the service's lock, immediately after this entry is added to the
+        /// entry list in <see cref="ToastService.Show"/> - never before, so the auto-dismiss
+        /// callback can never run against an entry the list does not contain yet.
+        /// </summary>
+        public Timer? Timer { get; set; }
+    }
 }
