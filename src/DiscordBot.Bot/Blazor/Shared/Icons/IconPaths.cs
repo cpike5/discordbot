@@ -15,7 +15,7 @@ namespace DiscordBot.Bot.Blazor.Shared;
 /// stroke-outline family these paths belong to, so <c>Badge.razor</c> reproduces that markup
 /// literally instead of going through <see cref="Icon"/>/<see cref="IconPaths"/>.
 /// </remarks>
-public static class IconPaths
+public static partial class IconPaths
 {
     // ---- Generic ------------------------------------------------------------------------------
 
