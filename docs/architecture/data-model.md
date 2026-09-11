@@ -54,6 +54,12 @@ erDiagram
 
     USER_GUILD_ACCESS ||--|| GUILD : references
 
+    CURRENCY ||--o{ WALLET : issues
+    CURRENCY ||--o{ MINT_AUTHORITY : grants
+    CURRENCY ||--o{ PRICE_ENTRY : prices
+    WALLET ||--o{ LEDGER_TRANSACTION : records
+    USER ||--o{ WALLET : holds
+
     LLM_MODEL {
     }
 ```
@@ -301,6 +307,33 @@ erDiagram
 - Indexed on `(UserId, Timestamp)`, `(GuildId, Timestamp)`, `(Mode, Timestamp)`, `(Model, Timestamp)` for the grouped dashboard queries and retention cleanup.
 - Retention/purge/export for this table are owned by a separate work item building on `ILlmUsageRepository.DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` - not yet wired into `Assistant:Privacy:InteractionLogRetentionDays` cleanup, `UserPurgeService`, or `UserDataExportService` as of this entity's introduction.
 
+### 19. Virtual Currency (Currency, Wallet, LedgerTransaction, MintAuthority, PriceEntry)
+
+| Entity | Purpose | Key Fields | Relationships |
+|--------|---------|-----------|-----------------|
+| **Currency** | A named unit of account scoped to one guild or to the whole bot, carrying its own rules. Never deleted, only deactivated | `Id` (Guid, PK), `Scope` (enum `CurrencyScope`: `Global`/`Guild`), `GuildId` (nullable - set only when `Scope = Guild`), `Name` (string, 64), `Symbol` (string, 16), `IsTransferable`, `AllowNegative`, `DebtFloor` (nullable long, stored negative, required when `AllowNegative`), `IncomeAmount`/`IncomeInterval` (groundwork only, nothing reads them), `IsActive`, `CreatedById`, `CreatedAt` | Has many Wallet (RESTRICT), MintAuthority (CASCADE), PriceEntry (RESTRICT) |
+| **Wallet** | One user's holding in one currency. `CachedBalance` is a cache of the wallet's ledger rows | `Id` (Guid, PK), `CurrencyId` (FK), `UserId`, `CachedBalance` (long), `CreatedAt` | Belongs to Currency; has many LedgerTransaction (RESTRICT) |
+| **LedgerTransaction** | One immutable balance change. Rows are never updated or deleted; they are the record | `Id` (long, PK), `WalletId` (FK), `Type` (enum `LedgerTransactionType`: `Mint`/`TransferIn`/`TransferOut`/`Spend`/`Refund`/`Fine`/`Adjustment`), `Source` (enum `LedgerSource`: `Manual`/`Income`/`Award`/`System`), `Amount` (signed long), `BalanceAfter` (long), `Reason` (nullable, 512), `FeatureKey` (nullable, 128), `IdempotencyKey` (string, 128, **unique**), `ReferenceTransactionId` (nullable long, no FK), `ModerationCaseId` (nullable Guid, no FK), `ActorId` (nullable - null for the system principal), `CorrelationId` (nullable, 100), `CreatedAt` | Belongs to Wallet; points at another LedgerTransaction logically |
+| **MintAuthority** | A grant letting one principal create units of a currency | `Id` (Guid, PK), `CurrencyId` (FK), `PrincipalType` (enum `MintPrincipalType`: `User`/`Role`/`System`), `PrincipalId` (nullable - user or role snowflake, null for `System`), `GrantedById`, `GrantedAt` | Belongs to Currency (CASCADE) |
+| **PriceEntry** | The price of one feature in one guild. No active entry means the feature is free | `Id` (Guid, PK), `FeatureKey` (string, 128, shaped `{area}:{identifier}`), `GuildId` (nullable - null applies everywhere), `CurrencyId` (FK), `Amount` (long, > 0), `ExemptRoleIds` (`List<ulong>` stored as a JSON string with a value converter and comparer, as `CommandRoleRestriction.AllowedRoleIds` is), `IsActive`, `UpdatedById`, `UpdatedAt` | Belongs to Currency (RESTRICT) |
+
+**Unique indexes:** `Wallets(CurrencyId, UserId)`, `LedgerTransactions(IdempotencyKey)`,
+`PriceEntries(FeatureKey, GuildId)`, `Currencies(Scope, GuildId, Name)`.
+**Supporting indexes:** `LedgerTransactions(WalletId, CreatedAt)`,
+`LedgerTransactions(ReferenceTransactionId)`, `Wallets(CurrencyId, CachedBalance)` for debtor and
+leaderboard sorts, `Wallets(UserId)`, `Currencies(GuildId)`, `PriceEntries(GuildId)`,
+`MintAuthorities(CurrencyId, PrincipalType, PrincipalId)`.
+
+**Notes:**
+- **`ILedgerRepository.AppendAsync` is the single write path.** In one transaction it checks the idempotency key, locks the wallet row, stamps `BalanceAfter`, inserts the row, and moves `CachedBalance`. Nothing else in the system writes `CachedBalance`, which is what keeps the cache equal to the sum of the rows. A duplicate idempotency key writes nothing and returns the existing row, so a retried spend, mint, or refund can never charge twice.
+- **Row locking is provider-specific and stays inside the repository.** PostgreSQL takes `SELECT ... FOR UPDATE` on the wallet row; SQLite has no row locks, so the repository issues a no-op write against the wallet first, which promotes the transaction to a write transaction before it reads the balance. `AppendPairAsync` (a transfer) locks both wallets in id order so two transfers running in opposite directions cannot deadlock.
+- **The two halves of a transfer are written by `AppendPairAsync` in one transaction** and each carries the other's id in `ReferenceTransactionId`. That mutual reference is why `ReferenceTransactionId` has an index but **no foreign key**: neither provider can express a non-deferrable circular FK.
+- `ModerationCaseId` is also a plain column with no FK - a fine's link to its mod case is informational and must not make the case undeletable.
+- **Nullable columns in the unique indexes.** Both providers treat NULLs in a unique index as distinct, so `Currencies(Scope, GuildId, Name)` constrains guild currencies only and `PriceEntries(FeatureKey, GuildId)` constrains per-guild entries only. Uniqueness for global currencies (case-insensitive) and for the "applies everywhere" price entries is enforced by `ICurrencyService` instead.
+- **Balance rules live in `IWalletService`, not the repository.** Mint, `TransferIn`, and `Refund` move a balance up from anywhere including debt; `Spend` and `TransferOut` need the balance to cover the amount and are refused outright while it is below zero; `Fine` is the only operation that may cross zero, clamping at zero or at `DebtFloor` and reporting the clamp; `Adjustment` may move either way but must reference an existing row and carry a reason. A deactivated currency refuses everything except reading.
+- **Reconcile:** `ICurrencyService.ReconcileAsync` compares every wallet's `CachedBalance` against the sum of its rows and returns only the wallets that disagree.
+- Ledger rows are **not subject to any retention job**. They are the record.
+
 ## Cascading Behavior & Constraints
 
 ### Guild Deletion
@@ -381,6 +414,12 @@ Three tables support correlation IDs for distributed tracing:
 - `AuditLog`: `Timestamp`, `GuildId`, `Category`, `Action`
 - `RatWatch`: `ScheduledAt`, `Status`, `GuildId`
 - `ModerationCase`: `GuildId`, `TargetUserId`, `CreatedAt`
+
+**Virtual currency tables have indexes on:**
+- `Wallet`: `(CurrencyId, UserId)` (unique), `(CurrencyId, CachedBalance)`, `UserId`
+- `LedgerTransaction`: `IdempotencyKey` (unique), `(WalletId, CreatedAt)`, `ReferenceTransactionId`
+- `Currency`: `(Scope, GuildId, Name)` (unique), `GuildId`
+- `PriceEntry`: `(FeatureKey, GuildId)` (unique), `GuildId`
 
 **Identity tables have indexes on:**
 - `ApplicationUser`: `DiscordUserId` (unique), `Email` (unique), `IsActive`

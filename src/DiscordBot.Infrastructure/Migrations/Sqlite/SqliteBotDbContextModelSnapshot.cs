@@ -682,6 +682,70 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.ToTable("ConnectionEvents");
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.Currency", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("AllowNegative")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(false);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CreatedById")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("DebtFloor")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("IncomeAmount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("IncomeInterval")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("IsTransferable")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Scope")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Symbol")
+                        .IsRequired()
+                        .HasMaxLength(16)
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GuildId")
+                        .HasDatabaseName("IX_Currencies_GuildId");
+
+                    b.HasIndex("Scope", "GuildId", "Name")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Currencies_Scope_GuildId_Name");
+
+                    b.ToTable("Currencies", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.DiscordOAuthToken", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1462,6 +1526,71 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.ToTable("GuildTtsSettings", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.LedgerTransaction", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("ActorId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("BalanceAfter")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("CorrelationId")
+                        .HasMaxLength(100)
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FeatureKey")
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("IdempotencyKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("ModerationCaseId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Reason")
+                        .HasMaxLength(512)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("ReferenceTransactionId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Source")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Type")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("WalletId")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("IdempotencyKey")
+                        .IsUnique()
+                        .HasDatabaseName("IX_LedgerTransactions_IdempotencyKey");
+
+                    b.HasIndex("ReferenceTransactionId")
+                        .HasDatabaseName("IX_LedgerTransactions_ReferenceTransactionId");
+
+                    b.HasIndex("WalletId", "CreatedAt")
+                        .HasDatabaseName("IX_LedgerTransactions_WalletId_CreatedAt");
+
+                    b.ToTable("LedgerTransactions", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.LlmModel", b =>
                 {
                     b.Property<string>("Id")
@@ -1855,6 +1984,35 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.ToTable("MetricSnapshots", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.MintAuthority", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("GrantedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("GrantedById")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("PrincipalId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PrincipalType")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrencyId", "PrincipalType", "PrincipalId")
+                        .HasDatabaseName("IX_MintAuthorities_CurrencyId_PrincipalType_PrincipalId");
+
+                    b.ToTable("MintAuthorities", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.ModNote", b =>
                 {
                     b.Property<Guid>("Id")
@@ -2158,6 +2316,55 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .HasDatabaseName("IX_PerformanceIncidents_Severity_Status");
 
                     b.ToTable("PerformanceIncidents", (string)null);
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.PriceEntry", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("Amount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ExemptRoleIds")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("FeatureKey")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("GuildId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsActive")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UpdatedById")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CurrencyId");
+
+                    b.HasIndex("GuildId")
+                        .HasDatabaseName("IX_PriceEntries_GuildId");
+
+                    b.HasIndex("FeatureKey", "GuildId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_PriceEntries_FeatureKey_GuildId");
+
+                    b.ToTable("PriceEntries", (string)null);
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.RatRecord", b =>
@@ -3241,6 +3448,41 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.ToTable("VoxMessageHistory", (string)null);
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.Wallet", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("CachedBalance")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER")
+                        .HasDefaultValue(0L);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("CurrencyId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("UserId")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Wallets_UserId");
+
+                    b.HasIndex("CurrencyId", "CachedBalance")
+                        .HasDatabaseName("IX_Wallets_CurrencyId_CachedBalance");
+
+                    b.HasIndex("CurrencyId", "UserId")
+                        .IsUnique()
+                        .HasDatabaseName("IX_Wallets_CurrencyId_UserId");
+
+                    b.ToTable("Wallets", (string)null);
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.Watchlist", b =>
                 {
                     b.Property<Guid>("Id")
@@ -3706,6 +3948,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("Guild");
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.LedgerTransaction", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Wallet", "Wallet")
+                        .WithMany("Transactions")
+                        .HasForeignKey("WalletId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Wallet");
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.MemberActivitySnapshot", b =>
                 {
                     b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
@@ -3741,6 +3994,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("Guild");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.MintAuthority", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Currency", "Currency")
+                        .WithMany("MintAuthorities")
+                        .HasForeignKey("CurrencyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Currency");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.ModNote", b =>
@@ -3792,6 +4056,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                         .IsRequired();
 
                     b.Navigation("Guild");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.PriceEntry", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Currency", "Currency")
+                        .WithMany()
+                        .HasForeignKey("CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Currency");
                 });
 
             modelBuilder.Entity("DiscordBot.Core.Entities.RatRecord", b =>
@@ -4051,6 +4326,17 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("Guild");
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.Wallet", b =>
+                {
+                    b.HasOne("DiscordBot.Core.Entities.Currency", "Currency")
+                        .WithMany("Wallets")
+                        .HasForeignKey("CurrencyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Currency");
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.Watchlist", b =>
                 {
                     b.HasOne("DiscordBot.Core.Entities.Guild", "Guild")
@@ -4129,6 +4415,13 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("DiscordOAuthToken");
                 });
 
+            modelBuilder.Entity("DiscordBot.Core.Entities.Currency", b =>
+                {
+                    b.Navigation("MintAuthorities");
+
+                    b.Navigation("Wallets");
+                });
+
             modelBuilder.Entity("DiscordBot.Core.Entities.Guild", b =>
                 {
                     b.Navigation("CommandLogs");
@@ -4172,6 +4465,11 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
                     b.Navigation("GuildMemberships");
 
                     b.Navigation("MessageLogs");
+                });
+
+            modelBuilder.Entity("DiscordBot.Core.Entities.Wallet", b =>
+                {
+                    b.Navigation("Transactions");
                 });
 #pragma warning restore 612, 618
         }

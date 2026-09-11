@@ -87,6 +87,12 @@ public class BotDbContext : IdentityDbContext<ApplicationUser>
 
     public DbSet<LlmUsageRecord> LlmUsageRecords => Set<LlmUsageRecord>();
 
+    public DbSet<Currency> Currencies => Set<Currency>();
+    public DbSet<Wallet> Wallets => Set<Wallet>();
+    public DbSet<LedgerTransaction> LedgerTransactions => Set<LedgerTransaction>();
+    public DbSet<MintAuthority> MintAuthorities => Set<MintAuthority>();
+    public DbSet<PriceEntry> PriceEntries => Set<PriceEntry>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // IMPORTANT: Call base first to configure Identity tables
