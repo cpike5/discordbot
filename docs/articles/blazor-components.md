@@ -141,7 +141,7 @@ caller to stop rendering it:
         {
             <button type="button" class="p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss"
                     @onclick="HandleDismiss">
-                <Icon Path="IconPaths.XMark" Size="IconSize.MD" />
+                <Icon Path="@IconPaths.XMark" Size="IconSize.MD" />
             </button>
         }
     </div>
@@ -232,7 +232,7 @@ both sides separately (full rationale for each pair is in `blazor-port-inventory
 | --- | --- | --- |
 | `Card` | `_Card` + `_EnhancedCard` | One component; `Accent="CardAccent.None"` (default) renders the plain `.card` markup, any other `Accent` renders the `.card-enhanced` markup with the gradient top border, `HoverLift`/`CompactPadding` (enhanced-only concepts) apply only on that path. |
 | `TabGroup` | `_NavTabs` + `_TabPanel` | One component with an in-page mode (conditional rendering, no JS) and a navigation mode (`NavLink`); the AJAX partial-swap mode both partials support is dropped — there is no reason to fetch and inject another route's HTML from inside a Blazor circuit. |
-| `ConfirmModal` | `_ConfirmationModal` + `_TypedConfirmationModal` | One component; `RequiredText` (unset by default) turns on the typed-confirmation behavior — `CanConfirm` becomes `RequiredText is null || Input == RequiredText` instead of a second component. |
+| `ConfirmModal` | `_ConfirmationModal` + `_TypedConfirmationModal` | One component; `RequiredText` (unset by default) turns on the typed-confirmation behavior — `CanConfirm` becomes `RequiredText is null \|\| Input == RequiredText` instead of a second component. |
 | `ActivityFeed` | `_ActivityFeed` + `_ActivityFeedTimeline` | One component that owns a `List<ActivityItem>` and appends from its own event-bus subscription — the `<template>`-cloning / SignalR-hub-script pattern both partials rely on has no reason to survive; a native Blazor re-render replaces it entirely. |
 | `Breadcrumb` | `_Breadcrumb` (root) + `_GuildBreadcrumb` + `_CommandBreadcrumb` | One component taking a typed `IReadOnlyList<BreadcrumbItem>`; the root partial's untyped `ViewData["Breadcrumbs"]` tuple list and `_CommandBreadcrumb`'s hardcoded 3-tab special case both go away — callers build the list explicitly. |
 | `Toggle` | `_FormToggle` (Forms tier) + the settings-page toggle | One `<InputCheckbox>`-style component; the `data-setting-toggle` DOM-scanning dirty-tracking convention becomes explicit component/`EditContext` state. |
@@ -297,7 +297,7 @@ icon-constants class.
 
 `AutocompleteItem` (`Blazor/Shared/Forms/AutocompleteItem.cs`) is a `record(string Id, string Text, string? Description)` - the shape `Autocomplete.SearchFunc` returns.
 
-New icon paths (`Blazor/Shared/Icons/IconPaths.Forms.cs`): `ExclamationCircleOutline`, `Funnel`, `BarsArrowDown`, `Check`, `ArrowPath`, `User`, `SpeakerWave`, `Hashtag`.
+Icon paths this tier added (now in the merged `Icons/IconPaths.cs`, see "Icons" above): `ExclamationCircleOutline`, `Funnel`, `BarsArrowDown`, `Check`, `ArrowPath`, `User`, `SpeakerWave`, `Hashtag`.
 
 ### Navigation
 
@@ -339,15 +339,17 @@ New icon paths (`Blazor/Shared/Icons/IconPaths.Forms.cs`): `ExclamationCircleOut
 | `CommandStatsCard` | `_CommandStatsCard` + `command-stats-chart.js` / (Pages) `CommandStatsViewModel` | `TopCommands`, `TotalCommands`, `TimeRangeHours`, `OnTimeRangeChanged`, `Class`, `AdditionalAttributes` | none (presentation only); renders through `<Chart>` |
 | `Chart` | (new — generic Chart.js wrapper) | `Type` (required), `Data` (required), `Options`, `Height`, `Class`, `AdditionalAttributes` | none; owns `ChartInterop` create/update (on `Data`/`Options` reference change)/destroy |
 | `VoiceChannelPanel` | `_VoiceChannelPanel` + `voice-channel-panel.js` / `VoiceChannelPanelViewModel` + `VoiceChannelInfo`/`NowPlayingInfo`/`QueueItemInfo` | `GuildId` (string, required), `IsCompact`, `ShowNowPlaying`, `ShowProgress`, `AvailableChannels`, `Queue` (caller-seeded, like `ActivityFeed.Items` — not part of `AudioStatusDto`), `OnJoined`/`OnLeft`/`OnStopped`/`OnSkipped` | `IDashboardAudioStatusService.GetCurrentAudioStatus` initial; `AudioConnectedEvent`/`AudioDisconnectedEvent`/`PlaybackStartedEvent`/`PlaybackProgressEvent`/`PlaybackFinishedEvent`/`QueueUpdatedEvent`/`VoiceChannelMemberCountUpdatedEvent` live, all guild-scoped; join/leave/stop/skip call `IAudioService`/`IPlaybackService` directly |
-| `RestartBanner` | `_RestartBanner` (`<authorize policy="RequireAdmin">`) | `OnOpenBotControl`, `Class`, `AdditionalAttributes` — wrapped in `<AuthorizeView Policy="RequireAdmin">`
+| `RestartBanner` | `_RestartBanner` (`<authorize policy="RequireAdmin">`) | `OnOpenBotControl`, `Class`, `AdditionalAttributes` | none (presentation only) — wrapped in `<AuthorizeView Policy="RequireAdmin">` |
 
 Tier 1b (`StatusIndicator`, `HeroMetricCard`, `DashboardWidget`) and Tier 3 (`TabGroup`, `Modal`)
 were being built in parallel and hadn't landed when this tier shipped — `BotStatusCard`
 reproduces `_StatusIndicator.cshtml`'s markup inline as a documented fallback (see the component's
-file header) rather than depending on either; no other Tier 4 component needed them. Every
-component ships an `IconPaths.Widgets.cs` partial-class addition rather than a second icon file;
-a handful of *filled* (non stroke-outline) icons specific to `VoiceChannelPanel`/`RecentActivityCard`
-stay as literal inline `<svg>` per the same exception `Badge.razor` documents.
+file header) rather than depending on either; no other Tier 4 component needed them. Icon paths
+this tier added now live in the single merged `Icons/IconPaths.cs` (see "Icons" above — it was
+briefly a per-tier `IconPaths.Widgets.cs` partial file during parallel development, merged back at
+the end of Phase 2); a handful of *filled* (non stroke-outline) icons specific to
+`VoiceChannelPanel`/`RecentActivityCard` stay as literal inline `<svg>` per the same exception
+`Badge.razor` documents.
 
 ### Tts
 
@@ -361,4 +363,81 @@ stay as literal inline `<svg>` per the same exception `Badge.razor` documents.
 | `EmphasisToolbar` | `_EmphasisToolbar` / `EmphasisToolbarViewModel` + `ssml-markers.js` | `TextareaRef` (`ElementReference`), `TextareaId` (informational only), `Value`/`ValueChanged`, `ShowKeyboardShortcuts`, `EmphasisSupported`, `Class`, `AdditionalAttributes`. A format action reads the live selection via `BrowserInterop.GetSelectionAsync`, computes the replacement with `SsmlMarkers` (the C# port of `ssml-markers.js`, plus the insertion helpers from the partial's `applyFormatting`), and writes it back with `SetSelectionAsync`/`InsertAtSelectionAsync`. Floating position is CSS (`position: absolute` under a `position: relative` wrapper the caller places around the textarea + toolbar), not a JS `getBoundingClientRect` computation; the global Ctrl+B/Ctrl+E textarea shortcuts are not auto-wired (this component doesn't own the textarea) but `HandleShortcutAsync` is exposed publicly for a host page to forward them. |
 | `PauseModal` | `_PauseModal` / `PauseModalViewModel` | `Title`, `MinDuration`, `MaxDuration`, `Step`, `DefaultDuration`, `InsertText`, `CancelText`, `OnInsert` (`EventCallback<int>`), `Class`, `AdditionalAttributes`, plus an awaitable `Task<int?> ShowAsync()` (resolves with the chosen duration, or `null` on cancel) replacing `window.pauseModal.open/close/insert`. The slider gradient-fill percentage is computed in C# and set via inline `style` (not a colour, so allowed under the no-inline-color rule). Markup is kept structurally consistent with `_ConfirmationModal.cshtml` rather than depending on Tier 3's `ConfirmModal`, pending a later consolidation. |
 
-`IconPaths.Tts.cs` adds `Check`, `FaceSmile`, `HandRaised`, `FaceFrown`, `Fire`, `SpeakerXMark`, `SpeakerWave`, `Newspaper`, `Megaphone`, `ComputerDesktop`, `Microphone`, `Star`, `PlusOutline`, `AdjustmentsHorizontal`, `BoltOutline`, `Bolt`, `Pause`, `Calendar`, `DocumentDuplicate`.
+This tier added the icon paths `Check`, `FaceSmile`, `HandRaised`, `FaceFrown`, `Fire`,
+`SpeakerXMark`, `SpeakerWave`, `Newspaper`, `Megaphone`, `ComputerDesktop`, `Microphone`, `Star`,
+`PlusOutline`, `AdjustmentsHorizontal`, `BoltOutline`, `Bolt`, `Pause`, `Calendar`,
+`DocumentDuplicate` (now in the merged `Icons/IconPaths.cs`, see "Icons" above). Four of them —
+`Check`, `SpeakerWave`, `Microphone`, `Pause` — collided by name with a different-revision path an
+earlier tier had already added for a different partial; see "Status" below for how each was
+resolved.
+
+## Status
+
+Phase 2 (`docs/plans/blazor-port-plan.md` §5 "Phase 2") is complete: all five tiers above shipped,
+`/components` replaced `Pages/Components.cshtml` as the permanent showcase route, and every one of
+the 56 partials the phase inventoried has a Blazor equivalent or a documented merge target in the
+tables above.
+
+**Tier 1a (Primitives + Icon).** `Icon`/`IconPaths` plus Button, Badge, Alert, Card, Skeleton,
+SkeletonCard, LoadingSpinner, EmptyState, Kbd. No deviations beyond the icon-constant merge
+resolutions below.
+
+**Tier 1b (Status & headers).** StatusIndicator, StatusBadge, SeverityBadge, RuleTypeIcon,
+HeroMetricCard, GuildStatsCard, DashboardWidget, Breadcrumb, PageHeader, GuildHeader, Pagination.
+No deviations.
+
+**Tier 2 (Forms).** FormField, TextInput, TextArea, Select, Toggle, SettingField, Autocomplete,
+FilterPanel, SortDropdown, DateRangeFilter. `SortDropdown`'s legacy click-outside-to-close (a
+document-level listener) has no Blazor equivalent without interop the tier's brief ruled out —
+documented as a fidelity deviation in the component's own header; only Escape, selecting an
+option, or the toggle button close it now.
+
+**Tier 3 (Navigation & overlays).** TabGroup, TabPanel, Modal, ConfirmModal, ToastHost,
+LoadingOverlay, PreviewPopover (+ its User/Guild content components), GuildContextSelector,
+Highlight, RestartBanner. Two documented fidelity deviations: `TabGroup`'s arrow-key roving focus
+works only in `Mode=InPage` (`NavLink`, used by `Mode=Navigation`, exposes no `ElementReference` to
+focus imperatively); `PreviewPopover`'s CSS-only positioning has no automatic flip when a fixed
+placement would overflow the viewport, unlike `preview-popup.js`'s
+`getBoundingClientRect`-based `positionPopup()`.
+
+**Tier 4 (Live widgets).** BotStatusBanner, BotStatusCard, ConnectionStatus, ActivityFeed,
+NotificationBell, QuickActionsCard, ConnectedServersWidget, AuditLogCard, RecentActivityCard,
+CommandStatsCard, Chart, VoiceChannelPanel, RestartBanner (icons). Landed before Tier 1b/3 did, so
+`BotStatusCard` reproduces `_StatusIndicator.cshtml`'s markup inline as a documented fallback
+rather than depending on either. `CommandStatsCard`'s chart tooltip loses the legacy
+percentage-label callback (a JS closure can't cross the `IJSRuntime` JSON boundary) — Chart.js's
+default tooltip is used instead, with the percentage still visible above the chart. `Chart` itself
+gained a runtime-robustness fallback in Phase 2 step 4: a `JSException` from a missing vendored
+`chart.umd.js` (e.g. under `-p:SkipTailwind=true`, which skips the npm `build:vendor` step) is now
+caught and rendered as a small "Chart unavailable" panel instead of crashing the whole circuit.
+
+**Tier 5 (TTS authoring).** VoiceSelector, StyleSelector, PresetBar, ModeSwitcher, SsmlPreview,
+EmphasisToolbar, PauseModal. `PresetBar` replaces `window.prompt()`/`window.confirm()` (no Blazor
+equivalent) with an inline name field and a two-click delete confirm. `EmphasisToolbar`'s global
+Ctrl+B/Ctrl+E textarea shortcuts are not auto-wired, since the component doesn't own the host
+page's `<textarea>`; `HandleShortcutAsync` is exposed publicly for a host page to forward them.
+
+**IconPaths merge (step 1 of the phase's last PR wave).** The five tiers built `IconPaths` as
+per-tier `partial class` files in parallel; merging them back into one `Icons/IconPaths.cs` (see
+"Icons" above) surfaced nine `CS0102` duplicate-member errors from nine name collisions. Five were
+byte-identical across tiers and merged trivially (`ArrowPath`, `ExclamationCircleOutline`,
+`ChevronRight`, and one of the two `Check` collisions). The other four had two tiers rendering the
+same Heroicon concept from two different Heroicons revisions; each was resolved by keeping
+whichever candidate verifies byte-for-byte against the currently published Heroicons 24x24 outline
+SVG (`github.com/tailwindlabs/heroicons`, `optimized/24/outline/*.svg`) and leaving a "Fidelity
+deviation" note in the header of every component that previously rendered the dropped variant:
+
+| Constant | Kept (matches published Heroicons) | Dropped, now renders the kept shape |
+| --- | --- | --- |
+| `Check` | Tier 5's v2 checkmark (`VoiceSelector`, `PresetBar`) | Tier 2/4's v1 checkmark (`SortDropdown`, `NotificationBell`) |
+| `ShieldCheck` | Tier 1b's v2 shield-check (`RuleTypeIcon`) | Tier 4's v1 shield-check (`BotStatusBanner`, `NotificationBell`) |
+| `SpeakerWave` | Tier 5's v2 speaker (`StyleSelector`, `PresetBar`) | Tier 2's v1 speaker (unused by any component today) |
+| `Microphone` | Tier 5's v2 microphone (`PresetBar`, `ModeSwitcher`) | Tier 4's v1 microphone (`VoiceChannelPanel`) |
+| `Pause` | Tier 4's bars-only fragment of the real Heroicons v1 `pause-circle` (`ActivityFeed`) | Tier 5's non-canonical coordinates (`EmphasisToolbar`) — matched no published Heroicons revision |
+
+**Test count.** `tests/DiscordBot.ComponentTests` (bUnit) covers this library at 566 tests as of
+the end of Phase 2, including the two `IconPathsUsageGuardTests` regression guards (a static sweep
+of every `.razor` file for an unguarded `IconPaths.X` literal, and a dynamic render sweep of the
+six showcase sections) and `ComponentsPageTests` for the `/components` route itself.
+`tests/DiscordBot.E2E` adds one Playwright test exercising `/components`'s toast and confirm-modal
+demos end to end, alongside the existing Phase 1 smoke/probe coverage.
