@@ -479,6 +479,7 @@ public class AssistantMessagePipelineTests
             messageId: 1,
             rateLimit: 5,
             question: "question",
+            callerCanMutate: false,
             toolRegistry: null,
             mockGuildService.Object,
             mockPromptTemplate.Object,
@@ -542,7 +543,7 @@ public class AssistantMessagePipelineTests
 
         var context = new GuildAssistantContext(
             TestGuildId, channelId: 1, TestUserId, messageId: 1, rateLimit: 5, question: "q",
-            toolRegistry: null, mockGuildService.Object, mockPromptTemplate.Object,
+            callerCanMutate: false, toolRegistry: null, mockGuildService.Object, mockPromptTemplate.Object,
             Mock.Of<IAssistantUsageMetricsRepository>(), mockInteractionLogRepo.Object,
             options, Mock.Of<ILogger>(), "test/model", resolvedPricing: null, usageRecorder: mockRecorder.Object);
 
@@ -577,7 +578,7 @@ public class AssistantMessagePipelineTests
 
         var context = new GuildAssistantContext(
             TestGuildId, channelId: 1, TestUserId, messageId: 1, rateLimit: 5, question: "q",
-            toolRegistry: null, mockGuildService.Object, mockPromptTemplate.Object,
+            callerCanMutate: false, toolRegistry: null, mockGuildService.Object, mockPromptTemplate.Object,
             Mock.Of<IAssistantUsageMetricsRepository>(), mockInteractionLogRepo.Object,
             options, Mock.Of<ILogger>(), "test/model", resolvedPricing: null, usageRecorder: mockRecorder.Object);
 

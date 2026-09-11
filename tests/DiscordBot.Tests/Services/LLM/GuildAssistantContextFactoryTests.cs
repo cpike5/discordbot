@@ -181,6 +181,32 @@ public class GuildAssistantContextFactoryTests
             r => r.ResolveAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task CreateAsync_PutsTheCallersWriteAccessOnTheToolContext(bool callerCanMutate)
+    {
+        var factory = BuildFactory(StubModelResolver());
+
+        var context = await factory.CreateAsync(
+            guildId: 42, channelId: 2, userId: 3, messageId: 4, rateLimit: 5, question: "hi",
+            callerCanMutate: callerCanMutate);
+
+        context.ExecutionContext.CanMutate.Should().Be(callerCanMutate);
+    }
+
+    [Fact]
+    public async Task CreateAsync_DefaultsToReadOnly_WhenTheCallerWasNeverAssessed()
+    {
+        // The safe default has to be the one you get by forgetting the argument.
+        var factory = BuildFactory(StubModelResolver());
+
+        var context = await factory.CreateAsync(
+            guildId: 42, channelId: 2, userId: 3, messageId: 4, rateLimit: 5, question: "hi");
+
+        context.ExecutionContext.CanMutate.Should().BeFalse();
+    }
+
     private static ILlmModelResolver StubModelResolver()
     {
         var mock = new Mock<ILlmModelResolver>();

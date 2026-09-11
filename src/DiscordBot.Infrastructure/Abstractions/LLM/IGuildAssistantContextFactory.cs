@@ -11,6 +11,11 @@ public interface IGuildAssistantContextFactory
     /// Builds the context, resolving the guild assistant's effective model slug (see
     /// <see cref="ILlmModelResolver"/>) as part of the build - hence async.
     /// </summary>
+    /// <param name="callerCanMutate">
+    /// Whether this caller may use tools that create or change data, decided from their Discord
+    /// permissions by the host. Lands on <c>ToolContext.CanMutate</c>; defaults to false so a
+    /// caller that was never assessed gets read-only access rather than the other way round.
+    /// </param>
     Task<IAssistantContext> CreateAsync(
         ulong guildId,
         ulong channelId,
@@ -18,5 +23,6 @@ public interface IGuildAssistantContextFactory
         ulong messageId,
         int rateLimit,
         string question,
+        bool callerCanMutate = false,
         CancellationToken cancellationToken = default);
 }

@@ -32,6 +32,25 @@ public class AssistantMessageHandler
     }
 
     /// <summary>
+    /// Whether this caller may use assistant tools that create or change data.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Deliberately narrow: a caller may write only if Discord already lets them change the server
+    /// (Manage Server or Administrator). Broadening this later is a one-line change and a decision
+    /// someone can make with a specific write tool in front of them; starting broad and narrowing
+    /// after a tool has shipped is not.
+    /// </para>
+    /// <para>
+    /// Decided here because this is the only layer with a Discord client — Infrastructure has no
+    /// Discord.NET reference, and the flag it carries is a plain bool for exactly that reason.
+    /// </para>
+    /// </remarks>
+    private static bool CallerCanMutate(SocketUser author) =>
+        author is SocketGuildUser member
+        && (member.GuildPermissions.ManageGuild || member.GuildPermissions.Administrator);
+
+    /// <summary>
     /// Handles the MessageReceived event from DiscordSocketClient.
     /// Detects bot mentions and delegates to the AssistantService for processing.
     /// </summary>
@@ -185,7 +204,8 @@ public class AssistantMessageHandler
             {
                 // Process question
                 var result = await assistantService.AskQuestionAsync(
-                    guildId, channelId, userId, messageId, question);
+                    guildId, channelId, userId, messageId, question,
+                    CallerCanMutate(message.Author));
 
                 activity?.SetTag("assistant.success", result.Success);
                 activity?.SetTag("assistant.input_tokens", result.InputTokens);

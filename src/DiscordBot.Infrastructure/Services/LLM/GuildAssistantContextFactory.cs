@@ -56,6 +56,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         ulong messageId,
         int rateLimit,
         string question,
+        bool callerCanMutate = false,
         CancellationToken cancellationToken = default)
     {
         var resolved = await _modelResolver.ResolveAsync(LlmMode.GuildAssistant, cancellationToken);
@@ -77,6 +78,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             messageId,
             rateLimit,
             question,
+            callerCanMutate,
             registry,
             _guildService,
             _promptTemplate,

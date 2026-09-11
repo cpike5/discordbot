@@ -7,8 +7,12 @@ first — the finding IDs (F1…F13) are shared.
 **Status**: partially implemented. §1.1, §1.4, §1.5, §1.6 and §1.7a/b shipped as Phase 2 of the
 groundwork overhaul, in `DiscordBot.Agents` rather than `DiscordBot.Infrastructure` — see
 [§5.1a of the plan](../plans/agent-groundwork-overhaul.md) for the corrections that came out of
-doing it. §1.3 (F13, the documentation path containment) is still unshipped and still wants its own
-PR. §1.7c wants a probe against live traffic before anyone builds it. Everything else here is
+doing it. **§2.1–§2.4 shipped as Phase 3**; [§5.2a of the plan](../plans/agent-groundwork-overhaul.md)
+records where the sequencing bent, and three specifics below are corrected by what doing it found:
+§2.2 had to ship *with* §2.1 rather than after it, §2.3's spans use the engine's own
+`ActivitySource` and `IToolRegistry` gained `FindProviderName` to tag them, and §2.4 took option B.
+§1.3 (F13, the documentation path containment) is still unshipped and still wants its own PR.
+§1.7c wants a probe against live traffic before anyone builds it. Everything else here is
 proposed.
 
 **Sequencing note.** [plans/agent-groundwork-overhaul.md](../plans/agent-groundwork-overhaul.md)

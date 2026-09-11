@@ -26,6 +26,24 @@ public class ToolContext
     public ulong MessageId { get; set; }
 
     /// <summary>
+    /// Whether the caller may perform actions that create or change data.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Consulted <em>inside</em> a mutating tool rather than used to filter the advertised tool
+    /// list. Filtering per user would give every permission level its own prompt-cache prefix, and
+    /// the tool array is the most expensive thing to fragment — it serializes at position 0 of the
+    /// request, ahead of everything else. Per-<em>guild</em> filtering is a different matter and is
+    /// done at the registry boundary; see <c>FilteredToolRegistry</c>.
+    /// </para>
+    /// <para>
+    /// Defaults to false, so a tool that forgets the check is the only way a caller gets
+    /// unintended write access — never an unpopulated context.
+    /// </para>
+    /// </remarks>
+    public bool CanMutate { get; set; }
+
+    /// <summary>
     /// Open-ended, application-specific state for this run, keyed by string. The engine never reads
     /// it; it exists so the hosting application can hand its own tools context the engine has no
     /// concept of, without the contract growing an app-specific property per feature.

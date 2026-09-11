@@ -41,6 +41,7 @@ public class GuildAssistantContext : IAssistantContext
         ulong messageId,
         int rateLimit,
         string question,
+        bool callerCanMutate,
         IToolRegistry? toolRegistry,
         IGuildService guildService,
         IPromptTemplate promptTemplate,
@@ -74,7 +75,8 @@ public class GuildAssistantContext : IAssistantContext
             UserId = userId,
             GuildId = guildId,
             ChannelId = channelId,
-            MessageId = messageId
+            MessageId = messageId,
+            CanMutate = callerCanMutate
         };
     }
 

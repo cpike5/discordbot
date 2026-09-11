@@ -1,5 +1,6 @@
 using System.Text.Json;
 using DiscordBot.Agents.Contracts;
+using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Agents.Abstractions;
@@ -78,6 +79,11 @@ public class FeatureRequestToolProvider : IToolProvider
     {
         if (!toolName.Equals(ToolName, StringComparison.OrdinalIgnoreCase))
             throw new NotSupportedException($"Tool '{toolName}' is not supported by {Name} provider.");
+
+        if (!context.CanMutate)
+        {
+            return ToolPermissions.MutationForbidden("file a feature request");
+        }
 
         try
         {

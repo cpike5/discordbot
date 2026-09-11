@@ -10,9 +10,9 @@ as the detail.
 | [specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md) | The code shape of each enhancement — option keys, interfaces, migrations, tests. Sections referenced below as *impl §x.y*. |
 | **This document** | The extraction, and the order the whole overhaul runs in. |
 
-**Status**: Phase 0 and Phase 1 are implemented — see §4.3a for where the manifest needed
-correcting. Phases 2–6 remain proposed. F13 (impl §1.3) has not shipped yet; it is still meant to
-go out as its own PR.
+**Status**: Phases 0, 1, 2 and 3 are implemented — see §4.3a and §5.1a for where the manifest and
+the spec needed correcting, and §5.2a for what Phase 3 shipped. Phases 4–6 remain proposed. F13
+(impl §1.3) has not shipped yet; it is still meant to go out as its own PR.
 
 ---
 
@@ -346,6 +346,30 @@ Mostly application-side, which is the right answer and is now visible in the dif
 Four migrations in this phase. CI is SQLite-only, so each needs a manual `database update` against
 a scratch Postgres, recorded in the PR.
 
+#### 5.2a What shipped, and where the sequencing bent
+
+All four sections are done. Three notes for later phases:
+
+- **§2.1 and §2.2 shipped as one commit, not two.** The plan sequenced the allow-list (PR 8) ahead
+  of the registry cleanup (PR 9), but `FilteredToolRegistry` has to implement `IToolRegistry`, so
+  writing it before the cleanup means writing `EnableProvider`/`DisableProvider` delegations and
+  deleting them one commit later. The cleanup is the mechanism the decorator replaces, not a tidy-up
+  beside it, so the two went together. The `enabled` parameter came off `RegisterProvider` with them
+  — one production call site, and it never passed it.
+- **`IToolRegistry` gained a method while losing two.** `FindProviderName(toolName)` attributes a
+  tool to its provider without executing it, which §2.3's span tag needs. It is the same first-match
+  walk `ExecuteToolAsync` does, so the two cannot disagree.
+- **§2.3's `failed_result` convention is now load-bearing, and it is `ToolOutcomes.Classify`.** A
+  top-level `error` string, or a false top-level `success`/`available`/`found` flag. §4.1's per-tool
+  spec template must require it: a tool that reports an expected failure some other way is invisible
+  in the traces, and expected failures are the majority of what is worth seeing. Phase 4's
+  `IAgentTool` helpers (`ToolResults`) are the natural place to make the convention the default
+  rather than a rule.
+- **A catalogue entry is now part of adding a tool.** `ToolCatalog` (`Core/Models/Llm/`) maps name →
+  category, label, description, scope, default-on. A tool missing from it still works and still
+  appears — in an **Other** bucket — but is absent from the settings checklist and therefore not in
+  the house default set. Phase 4's conversion PR and Phase 6's contract test should both check it.
+
 ### Phase 4 — Tool authoring model (impl §3.1)
 
 `IAgentTool`, the assembly scan, `AgentToolProvider`, and the `ToolInput` / `ToolResults` /
@@ -385,8 +409,8 @@ tools, not the library's — it is asserting house conventions, which are an app
 | 5 | 2 | Budget wrap-up + `MaxToolRounds` rename | medium — changes a user-visible failure mode |
 | 6 | 2 | Cache order + TTL; probe and then (maybe) the rolling breakpoint | low / medium |
 | 7 | — | Section-aware documentation tool (§1.2) — parallel with 4–6 | low |
-| 8 | 3 | Per-guild allow-list + `FilteredToolRegistry` + settings UI | medium — 2 migrations |
-| 9 | 3 | Registry cleanup + tool telemetry + `ToolNames` | low — 2 migrations |
+| 8 | 3 | Per-guild allow-list + `FilteredToolRegistry` + settings UI + registry cleanup | medium — 2 migrations |
+| 9 | 3 | Tool telemetry + `ToolNames` + metrics table | low — 2 migrations |
 | 10 | 3 | Caller access | low — blocks write tools until done |
 | 11 | 4 | `IAgentTool` + helpers + one conversion | medium |
 | 12 | 5 | Skills | high — largest design surface |

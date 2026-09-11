@@ -17,6 +17,13 @@ public interface IAssistantService
     /// <param name="userId">Discord user ID who asked the question.</param>
     /// <param name="messageId">Discord message ID of the question.</param>
     /// <param name="question">The user's question text.</param>
+    /// <param name="callerCanMutate">
+    /// Whether this caller may use tools that create or change data. Decided by the caller from the
+    /// user's Discord permissions — this layer has no Discord client — and consulted inside a
+    /// mutating tool rather than used to filter the advertised tool list, which would fragment the
+    /// prompt cache per permission level. Defaults to false: a caller that was never assessed gets
+    /// read-only access.
+    /// </param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Result containing Claude's response and metadata.</returns>
     Task<AssistantResponseResult> AskQuestionAsync(
@@ -25,6 +32,7 @@ public interface IAssistantService
         ulong userId,
         ulong messageId,
         string question,
+        bool callerCanMutate = false,
         CancellationToken cancellationToken = default);
 
     /// <summary>
