@@ -119,4 +119,33 @@ see [Soundboard](soundboard.md#pricing-sounds).
 Members holding one of a price entry's exempt roles pay nothing. A wallet in
 debt is refused regardless of the price.
 
-The admin page for setting prices ships with the portal currency pages.
+## In the portal
+
+Everything the commands do, plus the things that need a screen: reading a whole
+ledger, seeing who is in debt, and setting prices.
+
+| Page | Who | What it is for |
+| --- | --- | --- |
+| **Server → Currency** (`/Guilds/{guildId}/Currency`) | Guild admin | The guild's currencies with holder, circulation and debtor totals. Create one, edit its rules, deactivate it, and manage its mint authorities. Bot-wide currencies are listed underneath for reference. |
+| **Currency → a currency** (`/Guilds/{guildId}/Currency/{currencyId}`) | Guild admin; moderators read-only plus fining | Every holder sorted by balance with debtors marked, and the full ledger for whoever you pick. Mint, fine, and adjust live here, as does the reconcile check. |
+| **Currency → Prices** (`/Guilds/{guildId}/Currency/Prices`) | Guild admin | Every sound in the guild with its price, the currency it is charged in, and the roles that pay nothing. Search, filter by priced or free, and make a sound free again in one click. |
+| **Admin → Currency** (`/Admin/Currency`) | Bot owner | Bot-wide currencies, including the credit that will back paid features. Same wallet and ledger views, across every guild. |
+
+Three things worth knowing before you go looking for them:
+
+- **Minting is not an admin permission.** Being able to administer a currency and
+  being allowed to create units of it are separate: the Mint button only appears
+  for someone on the currency's mint authority list, and the API refuses anyone
+  else even if they are a guild administrator.
+- **Fines are guild-only.** A bot-wide currency has no fine action at all, and a
+  moderator cannot fine themselves or a guild administrator.
+- **Adjustments are the only repair tool.** A ledger row is never edited or
+  deleted; an adjustment writes a signed correction that references the row it
+  fixes, carries a reason, and is audited. The reconcile check on a currency's
+  page reports any wallet whose cached balance disagrees with the sum of its
+  rows — an empty result is the expected one.
+
+With `Currency:Enabled` set to false, none of these pages exist: the services are
+never registered and the routes answer 404. With the feature registered but the
+runtime switch `Features:CurrencyEnabled` turned off in Settings, the pages stay
+available and say so — prices are kept but nothing is charged.

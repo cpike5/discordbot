@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace DiscordBot.Core.DTOs;
 
 /// <summary>
@@ -18,9 +20,11 @@ public record WalletDto
     public string CurrencySymbol { get; init; } = string.Empty;
 
     /// <summary>Owning guild of the currency, or null when it is global.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? GuildId { get; init; }
 
     /// <summary>Discord user snowflake ID of the holder.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong UserId { get; init; }
 
     /// <summary>Current balance.</summary>
@@ -42,6 +46,7 @@ public record WalletReconciliationDto
     public Guid WalletId { get; init; }
 
     /// <summary>Discord user snowflake ID of the holder.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong UserId { get; init; }
 
     /// <summary>The balance stored on the wallet row.</summary>

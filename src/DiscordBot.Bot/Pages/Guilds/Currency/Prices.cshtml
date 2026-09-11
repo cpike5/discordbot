@@ -1,0 +1,274 @@
+@page "/Guilds/{guildId:long}/Currency/Prices"
+@model DiscordBot.Bot.Pages.Guilds.Currency.PricesModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    ViewData["Title"] = $"Prices - {Model.ViewModel.GuildName}";
+    Layout = "_GuildLayout";
+
+    // Serialized here rather than built inline in the script block: the page script needs the
+    // symbol to repaint a row after a save, and a currency symbol is arbitrary user text.
+    var currenciesJson = System.Text.Json.JsonSerializer.Serialize(
+        Model.ViewModel.Currencies.Select(c => new { id = c.Id.ToString(), symbol = c.Symbol }));
+}
+
+<partial name="Shared/Components/_TabPanel" model='new TabPanelViewModel {
+    Id = "currencyTabs",
+    StyleVariant = TabStyleVariant.Pills,
+    NavigationMode = TabNavigationMode.PageNavigation,
+    Tabs = new List<TabItemViewModel>
+    {
+        new() {
+            Id = "currencies",
+            Label = "Currencies",
+            Href = $"/Guilds/{Model.ViewModel.GuildId}/Currency",
+            IconPathOutline = "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+        },
+        new() {
+            Id = "prices",
+            Label = "Prices",
+            Href = $"/Guilds/{Model.ViewModel.GuildId}/Currency/Prices",
+            BadgeCount = Model.ViewModel.PricedCount,
+            BadgeVariant = TabBadgeVariant.Warning,
+            IconPathOutline = "M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 10V5a2 2 0 012-2z"
+        }
+    },
+    ActiveTabId = "prices",
+    AriaLabel = "Currency sections"
+}' />
+
+@if (Model.ViewModel.Currencies.Count == 0)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+            Variant = AlertVariant.Info,
+            Title = "No currencies to charge",
+            Message = "Create a currency before pricing anything. Until then every sound stays free."
+        }' />
+    </div>
+}
+else if (Model.IsCurrencyRuntimeDisabled)
+{
+    <div class="mb-6">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+            Variant = AlertVariant.Warning,
+            Title = "Currency Features Disabled",
+            Message = "Currency features are switched off globally, so these prices are not being charged and no badge is shown in the member portal. They take effect again when an administrator re-enables the feature in Settings."
+        }' />
+    </div>
+}
+
+<div class="flex flex-wrap items-end justify-between gap-3 mb-4">
+    <div>
+        <h2 class="text-lg font-semibold text-text-primary">Soundboard Prices</h2>
+        <p class="text-sm text-text-secondary">
+            @Model.ViewModel.PricedCount of @Model.ViewModel.Sounds.Count sound(s) cost something. A sound without a price plays free,
+            and a member whose balance is below zero cannot play a priced one at all.
+        </p>
+    </div>
+    <div class="flex items-center gap-2">
+        <label class="sr-only" for="price-search">Search sounds</label>
+        <input type="search" id="price-search" placeholder="Search sounds…"
+               class="px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
+        <label class="sr-only" for="price-filter">Filter</label>
+        <select id="price-filter"
+                class="px-3 py-2 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue">
+            <option value="all">All sounds</option>
+            <option value="priced">Priced only</option>
+            <option value="free">Free only</option>
+        </select>
+    </div>
+</div>
+
+@if (Model.ViewModel.Sounds.Count == 0)
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-8">
+        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+            Title = "No sounds to price",
+            Description = "Upload sounds on the Audio page and they will appear here, ready to be priced.",
+            PrimaryActionText = "Go to Audio",
+            PrimaryActionUrl = $"/Guilds/Soundboard/{Model.ViewModel.GuildId}"
+        }' />
+    </div>
+}
+else
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-x-auto mb-8">
+        <table class="min-w-full text-sm">
+            <thead>
+                <tr class="border-b border-border-primary">
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Sound</th>
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Length</th>
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Plays</th>
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Price</th>
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Exempt roles</th>
+                    <th scope="col" class="text-right px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Actions</th>
+                </tr>
+            </thead>
+            <tbody id="price-rows">
+                @foreach (var row in Model.ViewModel.Sounds)
+                {
+                    <tr class="border-b border-border-primary last:border-0"
+                        data-price-row="@row.FeatureKey"
+                        data-sound-name="@row.SoundName"
+                        data-priced="@row.IsPriced.ToString().ToLowerInvariant()"
+                        data-currency-id="@(row.Price?.CurrencyId.ToString() ?? string.Empty)"
+                        data-amount="@(row.Price?.Amount.ToString() ?? string.Empty)"
+                        data-exempt-roles="@(row.Price == null ? string.Empty : string.Join(",", row.Price.ExemptRoleIds))">
+                        <td class="px-4 py-3">
+                            <span class="block text-text-primary">@row.SoundName</span>
+                            <span class="block text-xs text-text-tertiary font-mono">@row.FeatureKey</span>
+                        </td>
+                        <td class="px-4 py-3 text-text-secondary whitespace-nowrap">
+                            @(row.DurationSeconds.HasValue ? $"{row.DurationSeconds.Value:F1}s" : "—")
+                        </td>
+                        <td class="px-4 py-3 text-text-secondary">@row.PlayCount.ToString("N0")</td>
+                        <td class="px-4 py-3" data-price-cell>
+                            @if (row.IsPriced)
+                            {
+                                <span class="px-2 py-0.5 text-xs font-medium rounded-full bg-accent-orange/10 text-accent-orange border border-accent-orange/40">
+                                    @row.Price!.Amount.ToString("N0") @row.Price.CurrencySymbol
+                                </span>
+                            }
+                            else
+                            {
+                                <span class="text-text-tertiary">Free</span>
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-text-secondary" data-exempt-cell>
+                            @if (row.IsPriced && row.Price!.ExemptRoleIds.Count > 0)
+                            {
+                                @($"{row.Price.ExemptRoleIds.Count} role(s)")
+                            }
+                            else
+                            {
+                                <span class="text-text-tertiary">—</span>
+                            }
+                        </td>
+                        <td class="px-4 py-3 text-right whitespace-nowrap">
+                            <button type="button" data-price-action="edit" data-feature-key="@row.FeatureKey"
+                                    class="px-3 py-1.5 text-xs font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors"
+                                    @(Model.ViewModel.Currencies.Count == 0 ? "disabled" : "")>
+                                @(row.IsPriced ? "Edit price" : "Set price")
+                            </button>
+                            @if (row.IsPriced)
+                            {
+                                <button type="button" data-price-action="remove" data-feature-key="@row.FeatureKey"
+                                        class="px-3 py-1.5 text-xs font-medium text-error border border-error/40 rounded-md hover:bg-error/10 transition-colors ml-1">
+                                    Make free
+                                </button>
+                            }
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@if (Model.ViewModel.OtherPrices.Count > 0)
+{
+    <div class="mb-4">
+        <h2 class="text-lg font-semibold text-text-primary">Other Priced Features</h2>
+        <p class="text-sm text-text-secondary">Prices that apply here but are not one of this server's sounds — a bot-wide entry, or a feature from another area.</p>
+    </div>
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-x-auto">
+        <table class="min-w-full text-sm">
+            <thead>
+                <tr class="border-b border-border-primary">
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Feature</th>
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Price</th>
+                    <th scope="col" class="text-left px-4 py-3 text-xs font-medium uppercase tracking-wide text-text-tertiary">Applies</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var price in Model.ViewModel.OtherPrices)
+                {
+                    <tr class="border-b border-border-primary last:border-0">
+                        <td class="px-4 py-3 text-text-primary font-mono text-xs">@price.FeatureKey</td>
+                        <td class="px-4 py-3 text-text-secondary">@price.Amount.ToString("N0") @price.CurrencySymbol</td>
+                        <td class="px-4 py-3 text-text-secondary">@(price.GuildId.HasValue ? "This server" : "Everywhere")</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+<!-- Price editor modal -->
+<div id="price-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" role="dialog" aria-modal="true" aria-labelledby="price-modal-title">
+    <div class="bg-bg-secondary border border-border-primary rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-border-primary">
+            <h3 id="price-modal-title" class="text-base font-semibold text-text-primary">Set price</h3>
+            <button type="button" data-price-action="close" class="text-text-tertiary hover:text-text-primary" aria-label="Close">
+                <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <form id="price-form" class="px-5 py-4 space-y-4" novalidate>
+            <p id="price-modal-subject" class="text-sm text-text-secondary"></p>
+            <div id="price-form-error" class="hidden text-sm text-error bg-error/10 border border-error/40 rounded-md px-3 py-2"></div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                    <label for="price-currency" class="block text-sm font-medium text-text-secondary mb-1">Currency</label>
+                    <select id="price-currency"
+                            class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue">
+                        @foreach (var currency in Model.ViewModel.Currencies)
+                        {
+                            <option value="@currency.Id">@currency.Symbol @currency.Name</option>
+                        }
+                    </select>
+                </div>
+                <div>
+                    <label for="price-amount" class="block text-sm font-medium text-text-secondary mb-1">Price</label>
+                    <input type="number" id="price-amount" min="1" step="1"
+                           class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
+                </div>
+            </div>
+
+            <div>
+                <span class="block text-sm font-medium text-text-secondary mb-1">Exempt roles</span>
+                <p class="text-xs text-text-tertiary mb-2">Members holding any of these roles play this sound for nothing.</p>
+                @if (Model.ViewModel.Roles.Count == 0)
+                {
+                    <p class="text-sm text-text-tertiary">No roles are available for this server.</p>
+                }
+                else
+                {
+                    <div class="max-h-40 overflow-y-auto border border-border-primary rounded-md divide-y divide-border-primary">
+                        @foreach (var role in Model.ViewModel.Roles)
+                        {
+                            <label class="flex items-center gap-2 px-3 py-2 cursor-pointer hover:bg-bg-hover transition-colors">
+                                <input type="checkbox" data-exempt-role value="@role.Id"
+                                       class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" />
+                                <span class="text-sm text-text-primary">@role.Name</span>
+                            </label>
+                        }
+                    </div>
+                }
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button type="button" data-price-action="close"
+                        class="px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                    Cancel
+                </button>
+                <button type="submit" id="price-save"
+                        class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                    Save price
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    <script>
+        window.currencyPrices = {
+            guildId: '@Model.ViewModel.GuildId',
+            currencies: @Html.Raw(currenciesJson)
+        };
+    </script>
+    <script src="~/js/currency/currency-prices.js" asp-append-version="true"></script>
+}

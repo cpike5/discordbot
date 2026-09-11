@@ -1,3 +1,5 @@
+using DiscordBot.Bot.Authorization;
+using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services.Currency;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
@@ -43,6 +45,10 @@ public static class CurrencyServiceExtensions
         services.AddScoped<IWalletService, WalletService>();
         services.AddScoped<IChargeService, ChargeService>();
         services.AddScoped<IMintService, MintService>();
+
+        // Who may act on a currency in the portal. Guild-keyed routes use the GuildAccess policy;
+        // currency-keyed routes have no guild in the route, so they ask this instead.
+        services.AddScoped<ICurrencyAccessService, CurrencyAccessService>();
 
         // Holds are in-process and must outlive a request, so the store is a singleton. Losing
         // them on restart means a free play, never a double charge.

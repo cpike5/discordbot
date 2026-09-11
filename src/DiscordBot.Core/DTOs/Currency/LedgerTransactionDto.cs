@@ -1,4 +1,5 @@
 using DiscordBot.Core.Enums;
+using System.Text.Json.Serialization;
 
 namespace DiscordBot.Core.DTOs;
 
@@ -41,6 +42,7 @@ public record LedgerTransactionDto
     public Guid? ModerationCaseId { get; init; }
 
     /// <summary>Discord user who caused the row. Null for the system principal.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? ActorId { get; init; }
 
     /// <summary>Audit log correlation id, when one exists.</summary>

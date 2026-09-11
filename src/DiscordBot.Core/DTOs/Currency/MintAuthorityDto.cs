@@ -1,4 +1,5 @@
 using DiscordBot.Core.Enums;
+using System.Text.Json.Serialization;
 
 namespace DiscordBot.Core.DTOs;
 
@@ -17,9 +18,11 @@ public record MintAuthorityDto
     public MintPrincipalType PrincipalType { get; init; }
 
     /// <summary>Discord user or role snowflake ID. Null for the system principal.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong? PrincipalId { get; init; }
 
     /// <summary>Discord user snowflake ID of whoever granted this.</summary>
+    [JsonNumberHandling(JsonNumberHandling.WriteAsString | JsonNumberHandling.AllowReadingFromString)]
     public ulong GrantedById { get; init; }
 
     /// <summary>UTC grant timestamp.</summary>

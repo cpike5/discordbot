@@ -119,6 +119,25 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/autocomplete/guilds` | GET | Search guilds by name |
 | `/api/autocomplete/channels` | GET | Search channels by name within a guild |
 | `/api/autocomplete/commands` | GET | Search registered commands by name |
+| `/api/guilds/{guildId}/currencies` | GET | Currencies usable in a guild (its own plus the globals) |
+| `/api/guilds/{guildId}/currencies` | POST | Create a guild currency |
+| `/api/currencies/{id}` | PUT | Change a currency's rules |
+| `/api/currencies/{id}/deactivate` | POST | Freeze a currency (never deleted) |
+| `/api/currencies/{id}/mint-authorities` | GET | List who may mint a currency |
+| `/api/currencies/{id}/mint-authorities` | POST | Grant mint authority (user, role, or system) |
+| `/api/currencies/{id}/mint-authorities/{authorityId}` | DELETE | Revoke a mint authority grant |
+| `/api/currencies/{id}/wallets` | GET | Holders of a currency, highest balance first |
+| `/api/currencies/{id}/mint` | POST | Create units and credit them to a wallet |
+| `/api/currencies/{id}/fine` | POST | Fine a member (guild currencies only) |
+| `/api/currencies/{id}/reconcile` | GET | Wallets whose cached balance differs from their ledger sum |
+| `/api/wallets/{id}/ledger` | GET | One page of a wallet's history |
+| `/api/ledger/{txId}/adjust` | POST | Write a signed correction against a ledger row |
+| `/api/guilds/{guildId}/prices` | GET | Every price that applies in a guild |
+| `/api/guilds/{guildId}/prices/{featureKey}` | GET | The active price of one feature |
+| `/api/guilds/{guildId}/prices/{featureKey}` | PUT | Set the price of one feature |
+| `/api/guilds/{guildId}/prices/{featureKey}` | DELETE | Make a feature free again |
+| `/api/admin/currencies` | GET | Bot-wide currencies (SuperAdmin) |
+| `/api/admin/currencies` | POST | Create a bot-wide currency (SuperAdmin) |
 | `/api/theme/available` | GET | List all active themes |
 | `/api/theme/current` | GET | Get user's current effective theme |
 | `/api/theme/user` | POST | Set user's theme preference |
@@ -5985,6 +6004,191 @@ Paged raw ledger rows, newest first — backs the per-user drill-down panel on `
   "pageSize": 50
 }
 ```
+
+---
+
+## Virtual Currency Endpoints
+
+The portal half of the virtual currency feature: currencies and their rules, wallets and the
+ledger, and what a feature costs. Every write goes through the same services the Discord commands
+use, so the balance rules and the audit rows are identical whichever surface issued them.
+
+**Feature switch.** These routes exist only when `Currency:Enabled` is true. With the feature off
+the services are never registered and every route answers **404**, which is the documented rollback
+path.
+
+**Authorization.** Routes carrying a `{guildId}` use the usual portal role policy plus
+`GuildAccess`. Routes keyed by currency id cannot — the guild is a property of the currency, not of
+the route — so they resolve the scope through `ICurrencyAccessService`:
+
+| Level | Who | May |
+|-------|-----|-----|
+| `Administer` | SuperAdmin (any currency); Admin with Discord Administrator in the currency's guild | Edit rules, deactivate, manage mint authorities, adjust rows, reconcile |
+| `Moderate` | Moderator in the currency's guild | Read, and fine |
+| `Read` | Viewer (or an Admin without Discord Administrator) who is a member of the currency's guild | Read wallets and ledgers |
+| `None` | Everyone else — no portal role, not a member of the guild, or any non-SuperAdmin on a global currency | Nothing; the route answers 404 rather than confirming the id exists |
+
+Being allowed to *administer* a currency does not allow *minting* it: mint is gated by the
+currency's own authority list, and a caller who is not on it gets **403** with
+`errorCode: "NotAuthorizedToMint"`.
+
+**Errors.** A refused operation returns the standard `ApiErrorDto` with `errorCode` set to the
+`CurrencyErrors` code (`InsufficientFunds`, `InDebt`, `CurrencyInactive`, `PriceScopeMismatch`,
+`FineRequiresGuildCurrency`, …) and `detail` set to a sentence the portal shows as-is. Codes map to
+404 (not found), 403 (not allowed), and 422 (everything else).
+
+**Snowflakes are strings.** Discord user and role IDs are serialized as JSON strings and accepted
+as strings, because a snowflake is larger than `Number.MAX_SAFE_INTEGER` and would silently lose
+its last digits as a JavaScript number.
+
+### Currencies
+
+#### GET /api/guilds/{guildId}/currencies
+
+Currencies usable in a guild: the guild's own plus every global one. Query: `includeInactive`
+(default false). Requires Viewer + `GuildAccess`.
+
+#### POST /api/guilds/{guildId}/currencies
+
+Creates a currency owned by the guild; the creator becomes its first mint authority. Scope and
+guild come from the route, so a body naming another guild cannot reach it. Requires Admin +
+`GuildAccess`.
+
+```json
+{
+  "name": "Rat Coin",
+  "symbol": "🪙",
+  "isTransferable": true,
+  "allowNegative": true,
+  "debtFloor": -100
+}
+```
+
+#### PUT /api/currencies/{id}
+
+Changes rules. Null members are left alone; scope, guild and creator are fixed. Needs `Administer`.
+
+#### POST /api/currencies/{id}/deactivate
+
+Freezes the currency: no mint, spend, transfer, or fine afterwards, and history stays readable.
+Currencies are never deleted. Needs `Administer`.
+
+#### GET / POST /api/currencies/{id}/mint-authorities
+
+Lists or grants the principals allowed to mint. `principalType` is `0` User, `1` Role, `2` System
+(the principal a background job mints as; it carries no `principalId`). Needs `Administer`.
+
+```json
+{ "principalType": 1, "principalId": "987654321098765432" }
+```
+
+#### DELETE /api/currencies/{id}/mint-authorities/{authorityId}
+
+Revokes a grant. The grant must belong to the currency in the route, so revoking through a currency
+you administer cannot reach a grant on one you do not. Needs `Administer`.
+
+#### GET /api/currencies/{id}/reconcile
+
+Returns only the wallets whose cached balance disagrees with the sum of their ledger rows; an empty
+array means the currency reconciles. Needs `Administer`.
+
+#### GET / POST /api/admin/currencies
+
+Lists or creates bot-wide currencies, including the credit that backs paid features. SuperAdmin
+only.
+
+### Wallets and the ledger
+
+#### GET /api/currencies/{id}/wallets
+
+Holders of one currency, highest balance first, with the display names resolved for rendering.
+Query: `debtorsOnly`. Needs `Read`.
+
+```json
+[
+  {
+    "walletId": "0f8c…",
+    "userId": "123456789012345678",
+    "username": "ratfan",
+    "avatarUrl": null,
+    "balance": -40,
+    "isInDebt": true
+  }
+]
+```
+
+#### GET /api/wallets/{id}/ledger
+
+One page of a wallet's history, newest first. Query: `page` (default 1), `pageSize` (default 20,
+capped at 100). Needs `Read` on the wallet's currency — **or** to be the wallet's own holder, who
+may always read their own rows.
+
+#### POST /api/currencies/{id}/mint
+
+Creates units and credits them to a wallet. Requires `Read` to see the currency and a mint
+authority grant to actually mint; the reason is required and is what the audit log records.
+
+```json
+{ "userId": "123456789012345678", "amount": 25, "reason": "weekly payout" }
+```
+
+#### POST /api/currencies/{id}/fine
+
+Takes units from a member. Guild currencies only. A fine stops at zero, or at the currency's debt
+floor when it allows debt, and the response's `clampedAmount` says when it was reduced. `openCase`
+opens a `Note` moderation case carrying the reason and links it to the ledger row; a failure to
+open the case does not stop the fine. Needs `Moderate`. A moderator cannot fine themselves or an
+administrator.
+
+```json
+{ "userId": "123456789012345678", "amount": 10, "reason": "mic spam", "openCase": true }
+```
+
+#### POST /api/ledger/{txId}/adjust
+
+Writes a signed correction against the same wallet, referencing the row named in the route. The
+only way to fix a mistake, and it is audited. Needs `Administer` on the wallet's currency.
+
+```json
+{ "amount": -5, "reason": "charged twice for the same play" }
+```
+
+### Prices
+
+A feature with no active entry is free, so these routes create, replace, or deactivate exactly one
+entry at a time. All require Admin + `GuildAccess`.
+
+The `{featureKey}` is the whole contract with the charge seam: the key a price is saved under has
+to be the key the priced feature asks for. Keys are `{area}:{identifier}` and callers build them
+with `CurrencyFeatureKeys` — soundboard playback is `soundboard:{soundId}`.
+
+#### GET /api/guilds/{guildId}/prices
+
+Every price that applies in the guild, including the entries that apply everywhere.
+
+#### GET /api/guilds/{guildId}/prices/{featureKey}
+
+The active price for one feature, or **404** when the feature is free there.
+
+#### PUT /api/guilds/{guildId}/prices/{featureKey}
+
+Sets the price, replacing any existing entry for the same key. A guild currency may only price
+features in its own guild; otherwise the response is 422 with
+`errorCode: "PriceScopeMismatch"`.
+
+```json
+{
+  "currencyId": "8d3b…",
+  "amount": 5,
+  "exemptRoleIds": ["987654321098765432"],
+  "isActive": true
+}
+```
+
+#### DELETE /api/guilds/{guildId}/prices/{featureKey}
+
+Makes the feature free again. The entry is deactivated rather than deleted, so its exempt roles
+survive a price being turned off and on. **404** when the feature was already free.
 
 ---
 

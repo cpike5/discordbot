@@ -24,6 +24,7 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - **Data Cards:** `_AuditLogCard`, `_CommandStatsCard`
 - **Input:** `_AutocompleteInput`
 - **Previews:** `_GuildPreviewPopup`
+- **Currency:** `_CurrencyWalletPanel` — holder list + ledger + the mint/fine/adjust modal for one currency, filled by `wwwroot/js/currency/currency-wallets.js`. `CanMint`/`CanFine`/`CanAdminister` decide which actions render at all; `window.CurrencyWallets.setCurrency(id, symbol)` repoints it (the bot-wide page starts with none selected).
 - **Showcase:** `Components.cshtml` — living reference, keep updated when adding components
 
 ### Layouts
@@ -70,6 +71,14 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 
 When adding a new section/tab to Settings or the Performance dashboard, or a new widget to Guild Details, add the data-fetch to the matching aggregator/section service (with a unit test covering happy path + one failure path) rather than back into the page model.
 
+### Virtual Currency Portal (PR 5)
+- **Pages:** `Pages/Guilds/Currency/{Index,Details,Prices}.cshtml` (routes `/Guilds/{guildId}/Currency`, `.../Currency/{currencyId}`, `.../Currency/Prices`) and `Pages/Admin/Currency/Index.cshtml` (`/Admin/Currency`, SuperAdmin). Guild pages inherit `GuildPageModelBase`; nav tab id `currency` (order 7) in `GuildNavigationConfig`.
+- **Controllers:** `CurrenciesController`, `WalletsController`, `PricesController`, all on `CurrencyControllerBase` (feature-off 404, `CurrencyErrors` → HTTP status with `errorCode` on the body, and `ResolveCurrencyAsync`, which loads the currency and checks access in one step).
+- **Feature switch:** the currency services are registered only when `Currency:Enabled` is true, so every currency page model and controller takes them as **optional constructor arguments defaulting to null** and answers 404 when they are absent. Do not "fix" that by making them required — the DI container has nothing to give.
+- **Authorization:** `GuildAccess` only works where the route carries a `guildId`. Currency-keyed routes ask `ICurrencyAccessService` (`Bot/Authorization/CurrencyAccessService`) instead: None / Read / Moderate / Administer. A currency the caller cannot see answers 404, not 403. The detail page asks the same seam for its button flags, so the UI and the API cannot drift apart.
+- **Feature keys:** the Prices page writes entries under `CurrencyFeatureKeys.Soundboard(soundId)`. The charge seam and the portal price badge look a sound up by that exact string, so the page renders the key onto the row and the script sends it back untouched — never rebuild a key in JavaScript.
+- **Page scripts:** `wwwroot/js/currency/` — `currency-manage.js` (create/edit/deactivate/authorities, shared by both list pages), `currency-wallets.js`, `currency-prices.js`, `currency-reconcile.js`. All talk to the API through `window.ApiClient`.
+
 ### Design System ("Graphite", v2.0 — `docs/articles/design-system.md`)
 - **Tokens live in `wwwroot/css/site.css`**; `tailwind.config.js` only maps utilities onto them. Every colour has an RGB triplet (`--color-x-rgb`) so `bg-success/20` follows the theme. Never hard-code hex — use `var(--color-…)` in CSS/`<style>` blocks and the token classes in markup.
 - **Accents have jobs**: ember (`accent-orange`) = selected/active/primary; signal blue (`accent-blue`) = links/info/focus. Semantic colours are soft tints (12% fill + hairline) except on buttons.
@@ -100,4 +109,5 @@ Loaded globally in `_Layout.cshtml`:
 - **Tailwind purge:** Ensure dynamically generated classes are in Tailwind content config
 - **Partial-view endpoints** (fetched by page JS) return HTML fragments, not full pages — don't include layout
 - **Portal pages** use `_PortalLayout` — don't mix admin and portal layouts
+- **Currency DTO snowflakes** (`WalletDto.UserId`, `PriceEntryDto.ExemptRoleIds`, `MintAuthorityDto.PrincipalId`, …) carry `[JsonNumberHandling(WriteAsString | AllowReadingFromString)]` so they cross into JavaScript as strings. Keep that attribute on any new ID field a page script touches.
 - **Form patterns:** Follow conventions in `form-implementation-standards.md` — validation, error display, CSRF tokens

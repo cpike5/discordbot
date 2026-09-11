@@ -306,9 +306,10 @@ Ledger-backed virtual currency. Authorized people create currencies scoped to a 
 | **Discord Commands** | `/wallet balance`, `/wallet history`, `/wallet pay`, `/wallet mint`, `/wallet fine` (WalletModule, WalletComponentModule); `/currency create`, `/currency list` (CurrencyModule) |
 | **Services** | `ICurrencyService`, `IWalletService`, `IMintService`, `IChargeService`, `IChargeHoldStore` |
 | **Repositories** | `ICurrencyRepository`, `IWalletRepository`, `ILedgerRepository`, `IPriceRepository`, `IMintAuthorityRepository` |
-| **UI Pages** | Portal soundboard price badges; portal currency pages (planned, PR 5) |
+| **UI Pages** | `/Guilds/{guildId}/Currency` (list, create, rules, mint authorities), `/Guilds/{guildId}/Currency/{currencyId}` (wallets, ledger, mint/fine/adjust, reconcile), `/Guilds/{guildId}/Currency/Prices` (soundboard prices), `/Admin/Currency` (bot-wide currencies); portal soundboard price badges |
 | **Database Entities** | `Currency`, `Wallet`, `LedgerTransaction`, `MintAuthority`, `PriceEntry` |
 | **Configuration** | `Currency:Enabled`, `HoldExpirySeconds`, `MaxTransferPerMinute`, `DefaultDebtFloor`, `HistoryPageSize` |
+| **API Controllers** | `CurrenciesController`, `WalletsController`, `PricesController` (all on `CurrencyControllerBase`) |
 | **Key Features** | Append-only ledger with idempotency keys, cached balances, mint authorities (user/role/system), hold-commit-release charging for priced features, fines clamped at zero or a debt floor, transfer confirmation and history pagination buttons |
 
 **Autocomplete**: `CurrencyAutocompleteHandler` suggests the currencies visible in the guild — the guild's own plus the active globals — and sends the currency ID as the value.
@@ -316,7 +317,19 @@ Ledger-backed virtual currency. Authorized people create currencies scoped to a 
 **Preconditions**: `[RequireGuildActive]`, `[RequireCurrencyEnabled]`; `/wallet fine` adds `[RequireModerator]`, `/currency create` requires Discord Administrator, `/wallet pay` carries `[RateLimitTransfers]`.
 
 **Priced features**: soundboard playback (`soundboard:{soundId}`) is the first and, so far, only
-consumer of `IChargeService`. See the Soundboard section above.
+consumer of `IChargeService`. See the Soundboard section above. The Prices page writes its entries
+under the key `CurrencyFeatureKeys.Soundboard(soundId)` builds, which is the same string the charge
+seam and the price badge look a sound up by — a key assembled any other way saves a price nothing
+charges.
+
+**Portal authorization**: guild-keyed API routes use the `GuildAccess` policy. Routes keyed by
+currency id cannot (the guild is a property of the currency, not the route), so they resolve the
+scope through `ICurrencyAccessService` / `CurrencyAccessService`: SuperAdmin administers
+everything, a guild admin with Discord Administrator administers their own guild's currencies,
+moderators may fine, Viewers (and an Admin without the Discord permission) read. A guild member
+with no portal role gets nothing from these routes — except their own wallet's ledger, which its
+holder may always read. The detail page asks the same seam, so the buttons
+it renders and the calls the API accepts cannot drift apart.
 
 **User guide**: `docs/articles/virtual-currency.md`. **Spec**: `docs/specs/virtual-currency-spec.md`.
 
