@@ -19,7 +19,7 @@ bot *this* bot stays in Infrastructure and Bot, which reference the engine.
 - **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IPromptTemplate`
 - **`Agents/Contracts/`:** `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Definition/Result`, `LlmUsage`, `AgentContext`/`AgentRunResult` (`AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext`/`ToolExecutionResult`, and `Contracts/Enums/` `LlmRole`, `LlmStopReason`
 - **`Agents/Configuration/`:** `OpenRouterOptions`
-- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `ToolResultLimiter`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
+- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `FilteredToolRegistry`, `ToolResultLimiter`, `ToolOutcomes`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
 - **`Agents/OpenRouter/`:** `OpenRouterLlmClient` (owned typed `HttpClient`, no SDK), `OpenRouterMessageMapper`, `ChatCompletionRequest`/`ChatCompletionResponse` wire records, `OpenRouterParameterSupportCache`
 
 #### Loop guard rails (Phase 2 hardening)
@@ -60,20 +60,60 @@ registration order would change silently under a reshuffle and invalidate every 
 it, at correct answers and ~10x the price. The system-prompt breakpoint's TTL comes from
 `OpenRouter:PromptCacheTtl` (default `"1h"`, empty = the provider's 5m).
 
+#### Governance (Phase 3)
+
+- **`IToolRegistry` has no enable/disable.** `EnableProvider`/`DisableProvider` and
+  `ProviderEntry.IsEnabled` were never called and are gone; `GetEnabledTools()` means "every
+  registered tool", which is what it always effectively meant. Scoping is a decorator now:
+  `FilteredToolRegistry` wraps a registry with an allow-list, filters `GetEnabledTools()` (re-sorting
+  after, because tool order is part of the cached prefix) and **also refuses an out-of-set call** —
+  a model that saw the tool in an earlier cached prefix will sometimes call it anyway.
+  `FindProviderName(toolName)` attributes a tool without executing it, for the span below.
+- **The guild allow-list is per guild, on purpose.** `AssistantGuildSettings.EnabledTools` (JSON
+  array, `"[]"` = the house default set, never "no tools") → `IToolAccessResolver` →
+  `GuildAssistantContextFactory` wraps the registry once per run. The unit is the guild because a
+  guild's tool array is shared by all its callers, so this still leaves one prompt-cache prefix per
+  guild. Per-*user* filtering would give every permission level its own prefix — which is why
+  caller permission is `ToolContext.CanMutate`, checked inside a tool, instead.
+- **`ToolContext.CanMutate`** is the replacement for the deleted `UserRoles`. Defaults to `false`,
+  so an unpopulated context is read-only. The guild side takes it from the caller's Discord
+  permissions in `AssistantMessageHandler.CallerCanMutate` (Manage Server or Administrator — the
+  Bot layer is the only one with a Discord client, which is why it travels as a plain `bool`
+  through `IAssistantService.AskQuestionAsync` → `IGuildAssistantContextFactory.CreateAsync`); the
+  DM assistant and the feature-request conversation set it unconditionally. A write tool checks it
+  first and returns `ToolPermissions.MutationForbidden(action)` — a *successful* result carrying a
+  directive, same reasoning as the duplicate refusal.
+- **Per-tool spans.** Every tool call gets `agent.tool {name}` on `AgentsActivitySource`, tagged
+  `gen_ai.tool.name`, `gen_ai.tool.call.id`, `bot.tool.provider`, `bot.tool.result_chars` (measured
+  after the cap — that is what the run pays for) and `bot.tool.outcome` ∈ `ok` / `failed_result` /
+  `timeout` / `repeated_call` / `error` / `unknown_tool`. Refused duplicates and unknown tools get
+  spans too; nothing runs in either case, which is exactly why they are worth seeing.
+  **`failed_result` is the important one:** house style returns an expected failure as a
+  *successful* result, so `ToolOutcomes.Classify` reads a top-level `error` string or a false
+  `success`/`available`/`found` flag off the payload. Follow that convention in a new tool or its
+  failures are invisible. Only `error` and `unknown_tool` set span status to Error — a timeout, a
+  refused repeat and an expected failure are normal traffic and must not inflate the error rate.
+- **`AssistantInteractionLog.ToolNames`** (comma-joined, 512 chars, truncated at a whole name)
+  backs the metrics page's per-tool table, so it works with no trace backend deployed. The page
+  pairs it with `ToolCatalog` so a tool that was never called still gets a row.
+
 Two contract details the boundary forced:
 - **`AgentContext.RunKind` is a plain `string?`**, not `LlmMode`. `LlmMode` is application taxonomy and stays in Core; the engine carries the label for correlation only and never switches on it. The pipeline populates it from `IAssistantContext.Mode`.
-- **`ToolContext` has no `UserRoles` and no `ActiveGuildId`.** `UserRoles` was never populated or read and is gone. "Active guild" is a DM-assistant concept and now rides in `ToolContext.Items`, an open-ended `Dictionary<string, object?>` the app owns; read and write it through `DmToolContextExtensions.GetActiveGuildId()`/`SetActiveGuildId()` (`Infrastructure/Services/LLM/`), never by spelling the key inline.
+- **`ToolContext` has no `UserRoles` and no `ActiveGuildId`.** `UserRoles` was never populated or read and is gone; `CanMutate` is its replacement (above). "Active guild" is a DM-assistant concept and now rides in `ToolContext.Items`, an open-ended `Dictionary<string, object?>` the app owns; read and write it through `DmToolContextExtensions.GetActiveGuildId()`/`SetActiveGuildId()` (`Infrastructure/Services/LLM/`), never by spelling the key inline.
 
 ### Core (`Core/Interfaces/LLM/`, `Core/DTOs/Llm/Reporting/`)
-- **Interfaces:** `IAssistantService`, `ILlmModelCatalogService`, `IOpenRouterModelCatalogClient`, `ILlmModelRepository`, `ILlmModelResolver` (per-mode default resolution, see below), `ILlmUsageRepository` (usage ledger grouped queries — `Core/Interfaces/ILlmUsageRepository.cs`), `ILlmUsageRecorder` (non-blocking ledger write path — `Core/Interfaces/LLM/ILlmUsageRecorder.cs`)
+- **Interfaces:** `IAssistantService`, `IToolAccessResolver` (per-guild tool allow-list), `ILlmModelCatalogService`, `IOpenRouterModelCatalogClient`, `ILlmModelRepository`, `ILlmModelResolver` (per-mode default resolution, see below), `ILlmUsageRepository` (usage ledger grouped queries — `Core/Interfaces/ILlmUsageRepository.cs`), `ILlmUsageRecorder` (non-blocking ledger write path — `Core/Interfaces/LLM/ILlmUsageRecorder.cs`)
 - **DTOs (reporting only — the engine contracts are in `DiscordBot.Agents`):** `LlmModelCatalogFilter`, `LlmCatalogModel`, `LlmCatalogRefreshResult`, `LlmModelEnableResult`, `LlmModelDto`/`LlmModelListResponseDto`/`LlmModeDefaultDto` (portal-facing, `Core/DTOs/Llm/Reporting/LlmModelDto.cs`), `LlmResolvedModel`/`LlmCatalogPricing`/`LlmModelResolutionSource` (`Core/DTOs/Llm/Reporting/LlmResolvedModel.cs`), `LlmUsageQuery`/`LlmUsageTotals`/`LlmUsageByUser`/`LlmUsageByModel`/`LlmUsageByMode`/`LlmUsageByDay`/`LlmUsagePagedRecords` (`Core/DTOs/Llm/Reporting/LlmUsage*.cs`), `AssistantPipelineResult.Model`/`.UsageRecord`
-- **Entities:** `AssistantGuildSettings`, `AssistantInteractionLog` (has a nullable `Model` column), `DmAssistantInteractionLog` (same), `AssistantUsageMetrics`, `LlmModel` (local OpenRouter catalog row, PK = slug), `LlmUsageRecord` (usage ledger — one row per user message across every `LlmMode`; see "Usage Ledger" below)
+- **Models:** `ToolCatalog`/`ToolCatalogEntry` (`Core/Models/Llm/`) — the human-facing tool table (category, label, description, `ToolScopes`, default-on) behind the settings checklist and the metrics table; `ToolCatalog.Describe` synthesises an **Other** entry for an uncatalogued tool rather than dropping it. Add a new tool here when you add it to a provider.
+- **Entities:** `AssistantGuildSettings` (has an `EnabledTools` JSON column), `AssistantInteractionLog` (has nullable `Model` and `ToolNames` columns), `DmAssistantInteractionLog` (same), `AssistantUsageMetrics`, `LlmModel` (local OpenRouter catalog row, PK = slug), `LlmUsageRecord` (usage ledger — one row per user message across every `LlmMode`; see "Usage Ledger" below)
 - **Config:** `AssistantOptions`, `LlmOptions` (`Llm:CatalogRefreshHours`, `Llm:CatalogRefreshInitialDelayMinutes`, `Llm:UsageQueueCapacity`, `Llm:RetentionSweepIntervalHours`, `Llm:RetentionBatchSize`, `Llm:RetentionSweepInitialDelayMinutes`)
 - **Enums:** `LlmMode` (`GuildAssistant`/`DmAssistant`/`FeatureRequests`) with its `LlmModeSettings` static helper (`KeyFor`, `LabelFor`, `All`) — `Core/Enums/LlmMode.cs`; `LlmCostSource` (`Billed`/`Estimated`) — `Core/Enums/LlmCostSource.cs`
 
 ### Infrastructure (`Infrastructure/Services/LLM/`)
 - `Abstractions/LLM/` — the assistant abstractions whose signatures are made of engine types, and which therefore cannot live in Core: `IAssistantContext`, `IAssistantMessagePipeline`, `IDmToolProvider`, `IGuildAssistantContextFactory`, `IDmAssistantContextFactory`
 - `DmToolContextExtensions` — typed access to the DM assistant's entries in `ToolContext.Items`
+- `ToolAccessResolver` — resolves a guild's allowed tool set (saved allow-list, else the house default), cached per guild and invalidated by `AssistantGuildSettingsService.UpdateSettingsAsync`, the single point every settings write goes through
+- `ToolPermissions.MutationForbidden` — the shared refusal a write tool returns when `ToolContext.CanMutate` is false. Lives here, not in Agents: the wording is this bot's voice and the policy is this bot's.
 - `LlmModelCatalogService` — Local model catalog: refresh (upsert by slug), filtered/sorted listing, enable/disable allowlist. Audited (`AuditLogCategory.Configuration`).
 - `OpenRouter/OpenRouterModelCatalogClient` — **Second, separate** typed `HttpClient` against OpenRouter's `GET /models` (not `OpenRouterLlmClient`, which only does chat completions); same auth/attribution headers, no retry loop
 - `Data/Repositories/LlmModelRepository` — `LlmModel` persistence (filtered query, enabled list, last-refresh, mark-unavailable)
@@ -167,6 +207,13 @@ other per-user tables, but that's for a future PR to decide.
 2. Create provider implementing `IToolProvider` in `Infrastructure/Services/LLM/Providers/` or `Bot/Services/LLM/Providers/`
 3. Register in DI — ToolRegistry discovers it automatically
 4. Define tool schemas (name, description, parameters) in the provider
+5. Add an entry to `ToolCatalog` (`Core/Models/Llm/`) with its category, label, description and
+   `ToolScopes`. Without one the tool still works, but it lands in the **Other** bucket, is absent
+   from the guild settings checklist, and is therefore not in the house default set.
+6. If it writes anything, check `context.CanMutate` first and return
+   `ToolPermissions.MutationForbidden(...)` when it is false.
+7. Report an expected failure as a *successful* result carrying a top-level `error` string or a
+   false `success`/`available`/`found` flag, so `ToolOutcomes.Classify` can count it.
 
 ## Gotchas
 

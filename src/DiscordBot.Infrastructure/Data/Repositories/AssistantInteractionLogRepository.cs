@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -70,6 +71,70 @@ public class AssistantInteractionLogRepository : Repository<AssistantInteraction
             logs.Count, userId);
 
         return logs;
+    }
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<AssistantToolUsage>> GetToolUsageAsync(
+        ulong guildId,
+        DateTime from,
+        DateTime to,
+        CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug(
+            "Aggregating tool usage for guild {GuildId} between {From} and {To}",
+            guildId, from, to);
+
+        // Narrow projection: only rows that actually named a tool, and only the three columns the
+        // aggregate needs. The comma-split happens client-side because the column is a joined string
+        // and neither provider has a portable split function.
+        var rows = await DbSet
+            .AsNoTracking()
+            .Where(l => l.GuildId == guildId
+                && l.Timestamp >= from
+                && l.Timestamp <= to
+                && l.ToolNames != null
+                && l.ToolNames != "")
+            .Select(l => new { l.ToolNames, l.Timestamp, l.Success })
+            .ToListAsync(cancellationToken);
+
+        var accumulator = new Dictionary<string, (int Calls, int Interactions, int Failed, DateTime LastUsed)>(
+            StringComparer.OrdinalIgnoreCase);
+
+        foreach (var row in rows)
+        {
+            var names = row.ToolNames!
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            // One interaction can call the same tool several times: every call counts towards Calls,
+            // but the interaction counts once, so "18 calls across 3 questions" stays readable.
+            var seenInThisInteraction = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            foreach (var name in names)
+            {
+                accumulator.TryGetValue(name, out var current);
+
+                var firstHere = seenInThisInteraction.Add(name);
+
+                accumulator[name] = (
+                    current.Calls + 1,
+                    current.Interactions + (firstHere ? 1 : 0),
+                    current.Failed + (firstHere && !row.Success ? 1 : 0),
+                    row.Timestamp > current.LastUsed ? row.Timestamp : current.LastUsed);
+            }
+        }
+
+        var usage = accumulator
+            .Select(kvp => new AssistantToolUsage(
+                kvp.Key, kvp.Value.Calls, kvp.Value.Interactions, kvp.Value.Failed, kvp.Value.LastUsed))
+            .OrderByDescending(u => u.Calls)
+            .ThenBy(u => u.ToolName, StringComparer.Ordinal)
+            .ToList();
+
+        _logger.LogDebug(
+            "Aggregated {ToolCount} distinct tools from {RowCount} interactions for guild {GuildId}",
+            usage.Count, rows.Count, guildId);
+
+        return usage;
     }
 
     /// <inheritdoc />

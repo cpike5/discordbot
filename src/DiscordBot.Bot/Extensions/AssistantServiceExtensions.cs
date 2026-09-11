@@ -64,6 +64,11 @@ public static class AssistantServiceExtensions
         services.AddScoped<IAssistantGuildSettingsRepository, AssistantGuildSettingsRepository>();
         services.AddScoped<AssistantGuildSettingsRepository>();
 
+        // Register the per-guild tool allow-list resolver ungated: it reads the settings row and the
+        // static tool catalogue, needs no API key, and the settings service below depends on it to
+        // drop its cache on save.
+        services.AddScoped<IToolAccessResolver, ToolAccessResolver>();
+
         // Register assistant guild settings service (always needed for admin UI)
         services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
 

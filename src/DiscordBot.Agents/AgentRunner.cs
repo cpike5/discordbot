@@ -298,10 +298,19 @@ public class AgentRunner : IAgentRunner
 
                     foreach (var toolCall in response.ToolCalls)
                     {
+                        // One span per call, including the ones that never enter a tool: a refused
+                        // repeat and an unknown tool are exactly the things worth seeing in a trace.
+                        using var toolActivity = AgentsActivitySource.StartToolActivity(
+                            toolCall.Name,
+                            toolCall.Id,
+                            context.ToolRegistry.FindProviderName(toolCall.Name));
+
                         if (IsRefusedAsDuplicate(toolCall, context, duplicateCallCounts, out var refusal))
                         {
                             // The tool is never entered, so this is not counted as a tool call and
                             // does not reach ToolNames: nothing ran.
+                            AgentsActivitySource.SetToolOutcome(
+                                toolActivity, ToolOutcomes.RepeatedCall, MeasureJson(refusal.Content));
                             toolResults.Add(refusal);
                             continue;
                         }
@@ -316,7 +325,7 @@ public class AgentRunner : IAgentRunner
 
                         try
                         {
-                            var executionResult = await ExecuteWithDeadlineAsync(
+                            var (executionResult, timedOut) = await ExecuteWithDeadlineAsync(
                                 toolCall, context, cancellationToken);
 
                             // Convert ToolExecutionResult to LlmToolResult
@@ -345,6 +354,20 @@ public class AgentRunner : IAgentRunner
                             // Cap before the result enters history: it is re-sent on every later
                             // iteration, so an oversized one is paid for again each time.
                             contentElement = ToolResultLimiter.Cap(contentElement, context.MaxToolResultChars);
+
+                            // Measured on the capped payload, because that is what the run pays for.
+                            // The outcome reads the result rather than only ToolExecutionResult.Success:
+                            // house style returns an expected failure as a successful result, and those
+                            // are the majority of what is worth counting.
+                            AgentsActivitySource.SetToolOutcome(
+                                toolActivity,
+                                timedOut
+                                    ? ToolOutcomes.Timeout
+                                    : executionResult.Success
+                                        ? ToolOutcomes.Classify(contentElement)
+                                        : ToolOutcomes.Error,
+                                MeasureJson(contentElement),
+                                timedOut ? $"{context.ToolExecutionTimeoutMs}ms" : null);
 
                             toolResults.Add(new LlmToolResult
                             {
@@ -390,10 +413,21 @@ public class AgentRunner : IAgentRunner
                                 error = $"Tool execution exception: {ex.Message}"
                             });
 
+                            errorElement = ToolResultLimiter.Cap(errorElement, context.MaxToolResultChars);
+
+                            // A tool the registry does not own is a different fault from a tool that
+                            // threw: the first says the advertised list and the allow-list disagree,
+                            // the second says the tool is broken.
+                            AgentsActivitySource.SetToolOutcome(
+                                toolActivity,
+                                ex is NotSupportedException ? ToolOutcomes.UnknownTool : ToolOutcomes.Error,
+                                MeasureJson(errorElement),
+                                ex.GetType().Name);
+
                             toolResults.Add(new LlmToolResult
                             {
                                 ToolCallId = toolCall.Id,
-                                Content = ToolResultLimiter.Cap(errorElement, context.MaxToolResultChars),
+                                Content = errorElement,
                                 IsError = true
                             });
                         }
@@ -512,6 +546,24 @@ public class AgentRunner : IAgentRunner
     }
 
     /// <summary>
+    /// Serialized length of a tool result, for <c>bot.tool.result_chars</c>. Measured on what
+    /// actually enters conversation history, which is what the run pays for on every later
+    /// iteration.
+    /// </summary>
+    private static int MeasureJson(JsonElement content)
+    {
+        try
+        {
+            return content.GetRawText().Length;
+        }
+        catch
+        {
+            // Telemetry must never be the thing that fails a tool call.
+            return 0;
+        }
+    }
+
+    /// <summary>
     /// Runs one tool under its own deadline, converting an expired deadline into a directive error
     /// result rather than letting it cancel the run.
     /// </summary>
@@ -520,7 +572,7 @@ public class AgentRunner : IAgentRunner
     /// expiring, the host shutting down) must still propagate as cancellation and not be laundered
     /// into a tool result.
     /// </remarks>
-    private async Task<ToolExecutionResult> ExecuteWithDeadlineAsync(
+    private async Task<(ToolExecutionResult Result, bool TimedOut)> ExecuteWithDeadlineAsync(
         LlmToolCall toolCall,
         AgentContext context,
         CancellationToken cancellationToken)
@@ -533,11 +585,13 @@ public class AgentRunner : IAgentRunner
 
         try
         {
-            return await context.ToolRegistry!.ExecuteToolAsync(
+            var result = await context.ToolRegistry!.ExecuteToolAsync(
                 toolCall.Name,
                 toolCall.Input,
                 context.ExecutionContext,
                 toolCts.Token);
+
+            return (result, false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
@@ -546,9 +600,11 @@ public class AgentRunner : IAgentRunner
                 toolCall.Name,
                 context.ToolExecutionTimeoutMs);
 
-            return ToolExecutionResult.CreateError(
+            // Reported separately from the result so the span can tell a timeout from a tool that
+            // failed on its own terms; the model still just sees a directive error result.
+            return (ToolExecutionResult.CreateError(
                 $"Tool '{toolCall.Name}' timed out after {context.ToolExecutionTimeoutMs}ms. " +
-                "Do not retry it; answer with what you have or try a different approach.");
+                "Do not retry it; answer with what you have or try a different approach."), true);
         }
     }
 

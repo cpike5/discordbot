@@ -70,6 +70,11 @@ public class ConversationToolProvider : IDmToolProvider
     private async Task<ToolExecutionResult> ExecuteClearConversationAsync(
         ToolContext context, CancellationToken cancellationToken)
     {
+        if (!context.CanMutate)
+        {
+            return ToolPermissions.MutationForbidden("clear the conversation history");
+        }
+
         // Get a reasonable count before clearing (max conversation window is typically ~20)
         var messages = await _messageRepository.GetRecentByUserAsync(
             context.UserId, 1000, cancellationToken);

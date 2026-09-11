@@ -6,13 +6,17 @@ using Microsoft.Extensions.Logging;
 namespace DiscordBot.Agents;
 
 /// <summary>
-/// Central registry for managing tool providers with enable/disable capability.
-/// Routes tool execution to the appropriate provider.
+/// Central registry of tool providers. Routes a tool call to the provider that owns the tool.
 /// </summary>
+/// <remarks>
+/// Every registered provider's tools are advertised. Narrowing that for a particular run is
+/// <see cref="FilteredToolRegistry"/>'s job, not this type's: the registry answers "who owns this
+/// tool", and the decorator answers "may this run use it".
+/// </remarks>
 public class ToolRegistry : IToolRegistry
 {
     private readonly ILogger<ToolRegistry> _logger;
-    private readonly Dictionary<string, ProviderEntry> _providers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, IToolProvider> _providers = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _lock = new();
 
     /// <summary>
@@ -32,7 +36,7 @@ public class ToolRegistry : IToolRegistry
     }
 
     /// <inheritdoc />
-    public void RegisterProvider(IToolProvider provider, bool enabled = true)
+    public void RegisterProvider(IToolProvider provider)
     {
         ArgumentNullException.ThrowIfNull(provider);
 
@@ -46,60 +50,13 @@ public class ToolRegistry : IToolRegistry
                 return;
             }
 
-            _providers[provider.Name] = new ProviderEntry(provider, enabled);
+            _providers[provider.Name] = provider;
 
             _logger.LogInformation(
-                "Registered tool provider {ProviderName} ({Description}) with {ToolCount} tools. Enabled: {Enabled}",
+                "Registered tool provider {ProviderName} ({Description}) with {ToolCount} tools",
                 provider.Name,
                 provider.Description,
-                provider.GetTools().Count(),
-                enabled);
-        }
-    }
-
-    /// <inheritdoc />
-    public void EnableProvider(string providerName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(providerName);
-
-        lock (_lock)
-        {
-            if (!_providers.TryGetValue(providerName, out var entry))
-            {
-                throw new InvalidOperationException($"Provider '{providerName}' not found in registry");
-            }
-
-            if (entry.IsEnabled)
-            {
-                _logger.LogDebug("Provider {ProviderName} is already enabled", providerName);
-                return;
-            }
-
-            entry.IsEnabled = true;
-            _logger.LogInformation("Enabled tool provider {ProviderName}", providerName);
-        }
-    }
-
-    /// <inheritdoc />
-    public void DisableProvider(string providerName)
-    {
-        ArgumentException.ThrowIfNullOrWhiteSpace(providerName);
-
-        lock (_lock)
-        {
-            if (!_providers.TryGetValue(providerName, out var entry))
-            {
-                throw new InvalidOperationException($"Provider '{providerName}' not found in registry");
-            }
-
-            if (!entry.IsEnabled)
-            {
-                _logger.LogDebug("Provider {ProviderName} is already disabled", providerName);
-                return;
-            }
-
-            entry.IsEnabled = false;
-            _logger.LogInformation("Disabled tool provider {ProviderName}", providerName);
+                provider.GetTools().Count());
         }
     }
 
@@ -114,17 +71,30 @@ public class ToolRegistry : IToolRegistry
             // change that order silently, with correct answers and a tenfold price rise as the
             // only symptom.
             var tools = _providers.Values
-                .Where(e => e.IsEnabled)
-                .SelectMany(e => e.Provider.GetTools())
+                .SelectMany(p => p.GetTools())
                 .OrderBy(t => t.Name, StringComparer.Ordinal)
                 .ToList();
 
             _logger.LogDebug(
-                "Retrieved {ToolCount} tools from {ProviderCount} enabled providers",
+                "Retrieved {ToolCount} tools from {ProviderCount} registered providers",
                 tools.Count,
-                _providers.Values.Count(e => e.IsEnabled));
+                _providers.Count);
 
             return tools;
+        }
+    }
+
+    /// <inheritdoc />
+    public string? FindProviderName(string toolName)
+    {
+        if (string.IsNullOrWhiteSpace(toolName))
+        {
+            return null;
+        }
+
+        lock (_lock)
+        {
+            return FindProviderCore(toolName)?.Name;
         }
     }
 
@@ -144,28 +114,20 @@ public class ToolRegistry : IToolRegistry
             context.UserId,
             context.GuildId);
 
-        // Find the first enabled provider that has this tool
-        IToolProvider? targetProvider = null;
+        // Find the first registered provider that owns this tool
+        IToolProvider? targetProvider;
 
         lock (_lock)
         {
-            foreach (var entry in _providers.Values.Where(e => e.IsEnabled))
-            {
-                if (entry.Provider.GetTools().Any(t =>
-                    t.Name.Equals(toolName, StringComparison.OrdinalIgnoreCase)))
-                {
-                    targetProvider = entry.Provider;
-                    break;
-                }
-            }
+            targetProvider = FindProviderCore(toolName);
         }
 
         if (targetProvider == null)
         {
             _logger.LogWarning(
-                "Tool {ToolName} not found in any enabled provider",
+                "Tool {ToolName} not found in any registered provider",
                 toolName);
-            throw new NotSupportedException($"Tool '{toolName}' not found in any enabled provider");
+            throw new NotSupportedException($"Tool '{toolName}' not found in any registered provider");
         }
 
         _logger.LogDebug(
@@ -207,6 +169,24 @@ public class ToolRegistry : IToolRegistry
     }
 
     /// <summary>
+    /// The first registered provider advertising <paramref name="toolName"/>, or null.
+    /// Callers hold <c>_lock</c>.
+    /// </summary>
+    private IToolProvider? FindProviderCore(string toolName)
+    {
+        foreach (var provider in _providers.Values)
+        {
+            if (provider.GetTools().Any(t =>
+                t.Name.Equals(toolName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return provider;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
     /// Gets the names of all registered providers.
     /// </summary>
     /// <returns>Collection of provider names.</returns>
@@ -228,34 +208,6 @@ public class ToolRegistry : IToolRegistry
         lock (_lock)
         {
             return _providers.ContainsKey(providerName);
-        }
-    }
-
-    /// <summary>
-    /// Checks if a provider is enabled.
-    /// </summary>
-    /// <param name="providerName">Name of the provider to check.</param>
-    /// <returns>True if the provider is enabled, false if disabled or not registered.</returns>
-    public bool IsProviderEnabled(string providerName)
-    {
-        lock (_lock)
-        {
-            return _providers.TryGetValue(providerName, out var entry) && entry.IsEnabled;
-        }
-    }
-
-    /// <summary>
-    /// Internal class to track provider registration state.
-    /// </summary>
-    private class ProviderEntry
-    {
-        public IToolProvider Provider { get; }
-        public bool IsEnabled { get; set; }
-
-        public ProviderEntry(IToolProvider provider, bool isEnabled)
-        {
-            Provider = provider;
-            IsEnabled = isEnabled;
         }
     }
 }

@@ -30,6 +30,14 @@ public class AssistantGuildSettings
     public int? RateLimitOverride { get; set; }
 
     /// <summary>
+    /// Tool names this guild's assistant may use, as a JSON array. An empty array means the house
+    /// default set (every tool the catalogue does not mark opt-in). Stored as JSON for the same
+    /// reason <see cref="AllowedChannelIds"/> is: it keeps one row per guild and needs no join, and
+    /// it avoids a provider-specific collection mapping.
+    /// </summary>
+    public string EnabledTools { get; set; } = "[]";
+
+    /// <summary>
     /// Timestamp when these settings were created (UTC).
     /// </summary>
     public DateTime CreatedAt { get; set; }
@@ -69,5 +77,33 @@ public class AssistantGuildSettings
     public void SetAllowedChannelIdsList(List<ulong> channelIds)
     {
         AllowedChannelIds = System.Text.Json.JsonSerializer.Serialize(channelIds ?? new List<ulong>());
+    }
+
+    /// <summary>
+    /// Helper to deserialize <see cref="EnabledTools"/> from JSON. An empty list means "use the
+    /// house default set" - it is not "no tools".
+    /// </summary>
+    public List<string> GetEnabledToolsList()
+    {
+        if (string.IsNullOrWhiteSpace(EnabledTools) || EnabledTools == "[]")
+            return new List<string>();
+
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<List<string>>(EnabledTools)
+                ?? new List<string>();
+        }
+        catch
+        {
+            return new List<string>();
+        }
+    }
+
+    /// <summary>
+    /// Helper to serialize <see cref="EnabledTools"/> to JSON.
+    /// </summary>
+    public void SetEnabledToolsList(List<string> toolNames)
+    {
+        EnabledTools = System.Text.Json.JsonSerializer.Serialize(toolNames ?? new List<string>());
     }
 }

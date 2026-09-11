@@ -205,6 +205,78 @@
         }
     </div>
 
+    <!-- Tool Usage -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mt-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Tool Usage</h3>
+            <p class="text-sm text-text-secondary mt-1">
+                Which tools the assistant actually reached for over the last 30 days. Every tool this
+                server allows is listed, including the ones that were never called.
+            </p>
+        </div>
+
+        @if (!Model.HasToolUsageData)
+        {
+            <div class="px-6 py-4 border-b border-border-primary text-sm text-text-secondary">
+                No tool names recorded yet in this window. Interactions logged before tool names were
+                stored carry none, so this fills in as new questions come through.
+            </div>
+        }
+
+        <div class="overflow-x-auto hidden md:block">
+            <table class="min-w-full divide-y divide-border-primary">
+                <thead class="bg-bg-tertiary">
+                    <tr>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Tool</th>
+                        <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Category</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Calls</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Questions</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Failure Rate</th>
+                        <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Last Used</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-border-primary">
+                    @foreach (var tool in Model.ToolUsage)
+                    {
+                        <tr class="hover:bg-bg-tertiary/50 transition-colors @(tool.Calls == 0 ? "opacity-60" : "")">
+                            <td class="px-6 py-3 whitespace-nowrap">
+                                <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
+                                <span class="block text-xs text-text-tertiary font-mono">@tool.ToolName</span>
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-sm text-text-secondary">@tool.Category</td>
+                            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-primary">@tool.Calls.ToString("N0")</td>
+                            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-secondary">@tool.Interactions.ToString("N0")</td>
+                            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-secondary">
+                                @(tool.Calls == 0 ? "—" : tool.FailureRate.ToString("F1") + "%")
+                            </td>
+                            <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-tertiary">
+                                @(tool.LastUsed.HasValue ? tool.LastUsed.Value.ToString("yyyy-MM-dd HH:mm") + " UTC" : "Never")
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="md:hidden divide-y divide-border-primary">
+            @foreach (var tool in Model.ToolUsage)
+            {
+                <div class="p-4 @(tool.Calls == 0 ? "opacity-60" : "")">
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
+                        <span class="text-sm font-semibold text-accent-orange">@tool.Calls.ToString("N0")</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div><span class="text-text-tertiary block">Category</span><span class="text-text-primary font-medium">@tool.Category</span></div>
+                        <div><span class="text-text-tertiary block">Questions</span><span class="text-text-primary font-medium">@tool.Interactions</span></div>
+                        <div><span class="text-text-tertiary block">Failure rate</span><span class="text-text-primary font-medium">@(tool.Calls == 0 ? "—" : tool.FailureRate.ToString("F1") + "%")</span></div>
+                        <div><span class="text-text-tertiary block">Last used</span><span class="text-text-primary font-medium">@(tool.LastUsed.HasValue ? tool.LastUsed.Value.ToString("yyyy-MM-dd") : "Never")</span></div>
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+
     <!-- Cost by User -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-border-primary">

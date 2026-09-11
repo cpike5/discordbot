@@ -35,6 +35,7 @@ public class AssistantServiceTests
     private readonly Mock<ILogger<AssistantService>> _mockLogger;
     private readonly Mock<IAgentRunner> _mockAgentRunner;
     private readonly Mock<IToolRegistry> _mockToolRegistry;
+    private readonly Mock<IToolAccessResolver> _mockToolAccessResolver;
     private readonly Mock<IPromptTemplate> _mockPromptTemplate;
     private readonly Mock<IConsentService> _mockConsentService;
     private readonly Mock<IGuildService> _mockGuildService;
@@ -60,6 +61,10 @@ public class AssistantServiceTests
         _mockLogger = new Mock<ILogger<AssistantService>>();
         _mockAgentRunner = new Mock<IAgentRunner>();
         _mockToolRegistry = new Mock<IToolRegistry>();
+        _mockToolAccessResolver = new Mock<IToolAccessResolver>();
+        _mockToolAccessResolver
+            .Setup(r => r.ResolveAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((IReadOnlySet<string>)new HashSet<string>(StringComparer.OrdinalIgnoreCase));
         _mockPromptTemplate = new Mock<IPromptTemplate>();
         _mockConsentService = new Mock<IConsentService>();
         _mockGuildService = new Mock<IGuildService>();
@@ -164,6 +169,7 @@ public class AssistantServiceTests
             _mockMetricsRepository.Object,
             _mockInteractionLogRepository.Object,
             _mockModelResolver.Object,
+            _mockToolAccessResolver.Object,
             Mock.Of<ILogger<GuildAssistantContext>>(),
             options,
             Mock.Of<ILlmUsageRecorder>());

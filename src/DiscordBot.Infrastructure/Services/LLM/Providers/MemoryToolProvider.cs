@@ -74,6 +74,11 @@ public class MemoryToolProvider : IDmToolProvider
     private async Task<ToolExecutionResult> ExecuteSaveNoteAsync(
         JsonElement input, ToolContext context, CancellationToken cancellationToken)
     {
+        if (!context.CanMutate)
+        {
+            return ToolPermissions.MutationForbidden("save notes");
+        }
+
         if (!input.TryGetProperty("content", out var contentElement))
         {
             return ToolExecutionResult.CreateError("Missing required parameter: content");
@@ -214,6 +219,11 @@ public class MemoryToolProvider : IDmToolProvider
     private async Task<ToolExecutionResult> ExecuteDeleteNoteAsync(
         JsonElement input, ToolContext context, CancellationToken cancellationToken)
     {
+        if (!context.CanMutate)
+        {
+            return ToolPermissions.MutationForbidden("delete notes");
+        }
+
         if (!input.TryGetProperty("note_id", out var noteIdElement))
         {
             return ToolExecutionResult.CreateError("Missing required parameter: note_id");

@@ -71,6 +71,7 @@ public class AssistantService : IAssistantService
         ulong userId,
         ulong messageId,
         string question,
+        bool callerCanMutate = false,
         CancellationToken cancellationToken = default)
     {
         var stopwatch = Stopwatch.StartNew();
@@ -113,7 +114,7 @@ public class AssistantService : IAssistantService
 
             var rateLimit = await _accessGate.GetRateLimitAsync(guildId, cancellationToken);
             context = await _contextFactory.CreateAsync(
-                guildId, channelId, userId, messageId, rateLimit, question, cancellationToken);
+                guildId, channelId, userId, messageId, rateLimit, question, callerCanMutate, cancellationToken);
 
             var rateLimitResult = await _rateLimiter.CheckAsync(
                 context.RateLimitCacheKeyPrefix,

@@ -31,6 +31,11 @@ public class AssistantGuildSettingsConfiguration : IEntityTypeConfiguration<Assi
             .IsRequired()
             .HasDefaultValue("[]");
 
+        // String property for JSON array of enabled tool names ("[]" = house default set)
+        builder.Property(s => s.EnabledTools)
+            .IsRequired()
+            .HasDefaultValue("[]");
+
         // Nullable integer for rate limit override
         builder.Property(s => s.RateLimitOverride);
 

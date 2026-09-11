@@ -54,6 +54,10 @@ public class AssistantInteractionLogConfiguration : IEntityTypeConfiguration<Ass
         builder.Property(l => l.Model)
             .HasMaxLength(200);
 
+        // Matches the DmAssistantInteractionLog precedent: comma-joined names, capped, nullable.
+        builder.Property(l => l.ToolNames)
+            .HasMaxLength(512);
+
         // Integer properties with defaults
         builder.Property(l => l.InputTokens)
             .IsRequired()

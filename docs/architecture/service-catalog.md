@@ -417,6 +417,10 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `OpenRouterMessageMapper` | Agents/OpenRouter | Maps `Llm*` DTOs to and from the OpenAI-compatible wire shape |
 | `IToolRegistry` | Agents/Abstractions | Available tools registry |
 | `ToolRegistry` | Agents | Default registry — aggregates the registered `IToolProvider`s and dispatches a call to the owning provider |
+| `FilteredToolRegistry` | Agents | Decorator narrowing a registry to a named allow-list; refuses a call outside the set as well as hiding it, so a tool remembered from an earlier cached prefix cannot be invoked |
+| `IToolAccessResolver` | Core Interfaces/LLM | Resolves a guild's allowed tool set from `AssistantGuildSettings.EnabledTools`, falling back to the house default set |
+| `ToolAccessResolver` | Infrastructure/Services/LLM | Implementation over the settings repository and `IMemoryCache`; invalidated by `AssistantGuildSettingsService` on save |
+| `ToolCatalog` | Core/Models/Llm | Static name → category/label/description/scope table behind the settings checklist and the per-tool metrics table; an uncatalogued tool falls into a visible **Other** bucket |
 | `IToolProvider` | Agents/Abstractions | The contract a tool group implements; implementations live in Infrastructure and Bot, beside the domain services they call |
 | `IPromptTemplate` | Agents/Abstractions | System prompt and context template |
 | `PromptTemplate` | Agents | Loads a template from disk (memory-cached) and renders `{{variable}}` substitutions |

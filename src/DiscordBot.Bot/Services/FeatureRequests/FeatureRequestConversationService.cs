@@ -231,7 +231,10 @@ public class FeatureRequestConversationService
                 ExecutionContext = new ToolContext
                 {
                     UserId = userId,
-                    GuildId = guildId
+                    GuildId = guildId,
+                    // Filing a feature request is the whole point of this conversation, and any
+                    // member who can start one may finish it.
+                    CanMutate = true
                 },
                 ConversationHistory = state.ConversationHistory.Count > 0
                     ? state.ConversationHistory.Select(ToLlmMessage).ToList()

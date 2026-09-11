@@ -149,6 +149,11 @@ If you ask about private data, the assistant will politely decline and suggest c
 **Features:**
 - **Enable/Disable** - Toggle the assistant feature for the guild
 - **Allowed Channels** - Restrict the assistant to specific channels (empty list = all channels allowed)
+- **Tool Access** - Tick which tools the assistant may use in this server, grouped by category.
+  Fewer tools means cheaper, faster answers, and a tool the assistant cannot see is one it cannot
+  call. **Selecting nothing means the default set**, not "no tools" — the page says so, and shows
+  the default ticked. The choice applies to every caller in the server, which is what keeps it from
+  fragmenting the prompt cache.
 - **Rate Limit Override** - Set a custom questions-per-window limit for your guild (leave blank to use global default)
 - **Save** - Apply changes and return to page
 
@@ -182,8 +187,14 @@ If you ask about private data, the assistant will politely decline and suggest c
   usage ledger (see below) rather than the daily aggregates above, since those carry no per-user
   breakdown
 
+- **Tool Usage:** Per-tool calls, questions, failure rate and last-used over the same 30-day
+  window, counted from the interaction log's tool names. Every tool this server allows is listed
+  **including the ones that were never called** — "which of my tools has never been used" is the
+  first question worth answering, and only the zeroes answer it.
+
 **Use Cases:**
 - Monitor usage trends
+- Retire or re-enable tools based on what the assistant actually reaches for
 - Track API costs against budget
 - Identify peak usage periods
 - Optimize caching strategy based on cache hit rates
@@ -518,9 +529,25 @@ Because OpenRouter fronts many providers, switching models is a configuration ch
   - `get_user_roles` - List user's roles in guild
 
 **Tool Registry:**
-- Centralized management of all providers
-- Enable/disable providers at runtime
-- Routes tool calls to appropriate provider
+- Holds every registered provider and routes a tool call to the one that owns it
+- Advertises tools sorted by name, because their order is part of the prompt-cache prefix
+
+**Tool Access:**
+- `FilteredToolRegistry` narrows a registry to a guild's allow-list, resolved by
+  `IToolAccessResolver` from `AssistantGuildSettings.EnabledTools` (empty = the house default set)
+- It refuses a call to a tool outside the set as well as hiding it, because a model that saw the
+  tool in an earlier cached prefix will sometimes call it anyway
+- Per-caller permission is separate: `ToolContext.CanMutate` is checked *inside* a tool that
+  writes, rather than used to filter the advertised list, which would give every permission level
+  its own prompt-cache prefix. In a guild it is set from the caller's Discord permissions (Manage
+  Server or Administrator); in DMs, which are owner-only, it is always true.
+
+**Tool Telemetry:**
+- Every tool call emits an `agent.tool {name}` span on the `DiscordBot.Agents` source, tagged with
+  the tool name, call id, owning provider, result size and an outcome — `ok`, `failed_result`,
+  `timeout`, `repeated_call`, `error` or `unknown_tool`
+- The tools a question used are also stored on its interaction log row, which is what the metrics
+  page's Tool Usage table counts, so it works whether or not a trace backend is deployed
 
 ### Agentic Loop
 

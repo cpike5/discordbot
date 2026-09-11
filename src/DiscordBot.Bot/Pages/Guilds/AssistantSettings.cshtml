@@ -117,6 +117,58 @@
                         </p>
                     </div>
 
+                    <!-- Tool Access -->
+                    <div>
+                        <label class="block text-sm font-medium text-text-primary mb-2">Tool Access</label>
+                        <p class="text-xs text-text-secondary mb-3">
+                            Choose which tools the assistant may use in this server. Fewer tools means cheaper,
+                            faster answers; a tool the assistant cannot see is one it cannot call.
+                        </p>
+
+                        @if (Model.UsingDefaultToolSet)
+                        {
+                            <div class="mb-3">
+                                @{
+                                    var defaultToolsAlert = new AlertViewModel {
+                                        Variant = AlertVariant.Info,
+                                        Message = "No tools selected - this server uses the default set, shown ticked below. Saving the page as-is keeps that default."
+                                    };
+                                }
+                                <partial name="Shared/Components/_Alert" model="defaultToolsAlert" />
+                            </div>
+                        }
+
+                        <div class="max-h-80 overflow-y-auto border border-border-primary rounded-md bg-bg-primary">
+                            @foreach (var category in Model.ToolCategories)
+                            {
+                                <div class="border-b border-border-secondary last:border-b-0">
+                                    <div class="px-4 py-2 bg-bg-tertiary/40">
+                                        <span class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">@category.Category</span>
+                                    </div>
+                                    @foreach (var tool in category.Tools)
+                                    {
+                                        <label class="flex items-start gap-3 px-4 py-2.5 hover:bg-bg-hover cursor-pointer">
+                                            <input type="checkbox"
+                                                   name="Input.EnabledTools"
+                                                   value="@tool.Name"
+                                                   checked="@tool.IsSelected"
+                                                   class="mt-0.5 w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange focus:ring-offset-bg-primary" />
+                                            <span class="min-w-0">
+                                                <span class="block text-sm text-text-primary">@tool.DisplayName</span>
+                                                <span class="block text-xs text-text-secondary">@tool.Description</span>
+                                                <code class="block mt-0.5 text-xs text-text-tertiary font-mono">@tool.Name</code>
+                                            </span>
+                                        </label>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <p class="text-xs text-text-tertiary mt-2">
+                            @Model.ToolCategories.Sum(c => c.Tools.Count(t => t.IsSelected)) of @Model.ToolCategories.Sum(c => c.Tools.Count) tools selected.
+                            Clearing every box restores the default set.
+                        </p>
+                    </div>
+
                     <!-- Rate Limit Override -->
                     <div>
                         <label for="Input_RateLimitOverride" class="block text-sm font-medium text-text-primary mb-2">Rate Limit Override</label>

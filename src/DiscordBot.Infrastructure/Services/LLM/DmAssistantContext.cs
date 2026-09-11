@@ -59,7 +59,9 @@ public class DmAssistantContext : IAssistantContext
         _resolvedPricing = resolvedPricing;
         _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
 
-        ExecutionContext = new ToolContext { UserId = userId };
+        // The DM assistant is owner-only — access is decided before a message ever reaches here,
+        // so there is no narrower permission left to express.
+        ExecutionContext = new ToolContext { UserId = userId, CanMutate = true };
         ExecutionContext.SetActiveGuildId(activeGuildId);
     }
 
