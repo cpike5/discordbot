@@ -48,6 +48,7 @@ public class CommandModuleConfigurationService : ICommandModuleConfigurationServ
         new("RatWatchModule", "Rat Watch", "Rat Watch accountability feature", "Features", true),
         new("ReminderModule", "Reminders", "Personal reminder commands", "Features", true),
         new("PrivacyModule", "Privacy", "User data privacy and GDPR deletion commands", "Features", true),
+        new("NotXCommandModule", "not-X", "X/Twitter link preview commands, including the \"Fetch Tweet\" context menu", "Features", true),
         new("WalletModule", "Wallet", "Virtual currency balances, history, payments, mints and fines", "Features", true),
         new("CurrencyModule", "Currency", "Create and list virtual currencies for this server", "Features", true),
 

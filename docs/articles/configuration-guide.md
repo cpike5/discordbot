@@ -190,6 +190,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 | `AutoModerationOptions` | `AutoModeration` | `ModerationServiceExtensions` | `DetectionCacheExpiryMinutes`, `FlaggedEventRetentionDays` |
 | `RatWatchOptions` | `RatWatch` | `RatWatchServiceExtensions` | `CheckIntervalSeconds` (30), `DefaultVotingDurationMinutes` (5) |
 | `CurrencyOptions` | `Currency` | `CurrencyServiceExtensions` | `Enabled` (true), `HoldExpirySeconds` (120), `MaxTransferPerMinute` (5), `DefaultDebtFloor` (-100), `HistoryPageSize` (10) |
+| `NotXOptions` | `NotX` | `NotXServiceExtensions` | `Enabled` (true), `RequestTimeoutSeconds` (5), `MaxResponseBytes` (262144), `UserAgent` |
 
 #### Data Retention / Logging
 
@@ -278,6 +279,10 @@ The service is a **Singleton** to maintain the `IsRestartPending` flag and `Sett
 | `Assistant:Sampling:Model` | AiModels | String | `""` | Guild assistant's default OpenRouter model slug override. Reuses the guild assistant's historical config key, so a non-empty DB row here shadows `appsettings`/environment the same way as any other setting; `""` means "use the configured value" and is resolved by `ILlmModelResolver`. Save-time validated (when non-empty): the slug must be in the local catalog, `IsEnabled`, and `SupportsTools`. |
 | `DmAssistant:Model` | AiModels | String | `""` | DM (owner) assistant's default model slug override. Same semantics and validation as above. |
 | `FeatureRequests:RequirementsGatheringModel` | AiModels | String | `""` | `/feature-request` requirements-gathering model slug override. Same semantics and validation as above. |
+
+The Features category also carries `Features:NotXEnabled` (Boolean, default `true`), the
+hot global toggle for not-X tweet previews. See the not-X example in section 5 for how it
+relates to the `NotX:Enabled` configuration switch and the Commands tab entry.
 
 ### Settings Categories and UI Tabs
 
@@ -414,6 +419,44 @@ Axis A: RatWatchModule enabled in CommandModuleConfigurations?
 Axis B: ISettingsService → "Features:RatWatchEnabled" == true?
 Axis C: (GuildRatWatchSettings.IsEnabled exists but is not currently wired into the precondition)
 ```
+
+**not-X (Tweet Previews):**
+```
+Axis 0: NotX:Enabled == true in appsettings/environment?   (outermost, config-only)
+Axis A: NotXCommandModule enabled in CommandModuleConfigurations?
+  └─ NotXContextMenuModule has no row of its own and follows NotXCommandModule's toggle,
+     via CompanionModuleParents in SlashCommandRegistrationService
+Axis B: ISettingsService → "Features:NotXEnabled" == true?
+Axis C: NotXGuildSettings.IsEnabled == true?
+  └─ Bonus: NotXGuildSettings monitored channels (empty = all channels), SensitiveOnly, OutputChannelId
+```
+
+not-X has an extra outermost axis the other features do not: the `NotX:Enabled`
+configuration switch. Use it to turn the feature off without database access; use the
+Features tab (`Features:NotXEnabled`) for a hot toggle that needs no restart.
+
+| Switch | Where | Restart needed | Commands removed from Discord |
+|--------|-------|----------------|-------------------------------|
+| `NotX:Enabled` | appsettings / env / user secrets | Yes | Yes |
+| Commands tab (`NotXCommandModule`) | Admin portal → Settings → Commands | Yes | Yes |
+| Features tab (`Features:NotXEnabled`) | Admin portal → Settings → Features | No | No — commands reply "disabled by an administrator" |
+| `/notx disable` | Discord, per guild | No | No |
+
+Both global switches are enforced at every entry point, not just at registration:
+`NotXMessageHandler` ignores messages while `NotX:Enabled` is false, and
+`NotXService.ProcessTweetAsync` refuses to post under either switch — deliberately
+outranking `ignoreSettingsGate`, so the "Fetch Tweet" context menu cannot bypass them.
+`RequireNotXEnabledAttribute` guards the commands themselves.
+
+`NotX:Enabled` needs a restart both to re-register the command set and because
+`IOptions<T>` is not reloaded here (see Reload Behavior). Per-guild `NotXGuildSettings`
+rows are preserved by all of the above and apply again once the feature is switched
+back on.
+
+`RequireNotXEnabledAttribute` checks only the two global switches, not
+`NotXGuildSettings.IsEnabled`, because the `/notx` commands *are* the per-guild
+configuration surface — gating them on the per-guild flag would make `/notx enable`
+impossible to run once a guild had disabled itself.
 
 **Guild-Level Kill Switch:**
 

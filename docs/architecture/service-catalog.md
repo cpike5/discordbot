@@ -125,12 +125,12 @@ Services for automatic and manual X/Twitter link preview embeds via the fxtwitte
 | Service | Location | Purpose |
 |---------|----------|---------|
 | `INotXService` | Core Interfaces | Orchestrates tweet processing: settings gate, fetch, embed, post |
-| `NotXService` | Bot/Services/NotX | Implements tweet processing pipeline with guild settings checks |
+| `NotXService` | Bot/Services/NotX | Implements tweet processing pipeline with guild settings checks; refuses to post when `NotX:Enabled` or `Features:NotXEnabled` is false, including for manual context-menu fetches |
 | `IFxTwitterClient` | Core Interfaces | HTTP client contract for fxtwitter API calls |
 | `FxTwitterClient` | Bot/Services/NotX | Fetches tweet metadata and media from fxtwitter API with configurable timeout and response size limits |
 | `NotXEmbedBuilder` | Bot/Services/NotX | Static helper building Discord embeds from tweet data |
 | `TweetUrlExtractor` | Bot/Services/NotX | Static helper parsing X/Twitter URLs from message content |
-| `NotXMessageHandler` | Bot/Handlers | Auto-detects tweet URLs in incoming messages and routes to `INotXService` |
+| `NotXMessageHandler` | Bot/Handlers | Auto-detects tweet URLs in incoming messages and routes to `INotXService`; ignores all messages when `NotX:Enabled` is false |
 
 ---
 
