@@ -31,7 +31,7 @@
     @if (ValidationState == ValidationState.Error && !string.IsNullOrEmpty(ValidationMessage))
     {
         <p id="@ErrorId" class="flex items-center gap-1.5 text-xs text-error" role="alert">
-            <Icon Path="IconPaths.ExclamationCircleOutline" Size="IconSize.SM" />
+            <Icon Path="@IconPaths.ExclamationCircleOutline" Size="IconSize.SM" />
             @ValidationMessage
         </p>
     }
@@ -39,7 +39,7 @@
     @if (ValidationState == ValidationState.Success && !string.IsNullOrEmpty(ValidationMessage))
     {
         <p id="@SuccessId" class="flex items-center gap-1.5 text-xs text-success">
-            <Icon Path="IconPaths.CheckCircle" Size="IconSize.SM" />
+            <Icon Path="@IconPaths.CheckCircle" Size="IconSize.SM" />
             @ValidationMessage
         </p>
     }
@@ -47,7 +47,7 @@
     @if (ValidationState == ValidationState.Warning && !string.IsNullOrEmpty(ValidationMessage))
     {
         <p id="@WarningId" class="flex items-center gap-1.5 text-xs text-warning" role="alert">
-            <Icon Path="IconPaths.ExclamationTriangle" Size="IconSize.SM" />
+            <Icon Path="@IconPaths.ExclamationTriangle" Size="IconSize.SM" />
             @ValidationMessage
         </p>
     }

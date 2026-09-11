@@ -50,11 +50,11 @@
             aria-controls="voice-panel-collapsible-body"
             @onclick="() => _mobileExpanded = !_mobileExpanded">
         <div class="voice-panel-mobile-toggle-left">
-            <Icon Path="IconPaths.Microphone" Class="voice-panel-mobile-toggle-icon" />
+            <Icon Path="@IconPaths.Microphone" Class="voice-panel-mobile-toggle-icon" />
             <span class="voice-panel-mobile-toggle-label">Voice Channel</span>
             <span class="voice-panel-mobile-status @(IsConnected ? "connected" : "disconnected")">@StatusText</span>
         </div>
-        <Icon Path="IconPaths.ChevronDown" Class="@("voice-panel-mobile-chevron" + (_mobileExpanded ? " expanded" : ""))" />
+        <Icon Path="@IconPaths.ChevronDown" Class="@("voice-panel-mobile-chevron" + (_mobileExpanded ? " expanded" : ""))" />
     </button>
 
     <div id="voice-panel-collapsible-body" class="voice-panel-collapsible-body @(_mobileExpanded ? "expanded" : "")">
@@ -70,7 +70,7 @@
             @if (IsConnected && !string.IsNullOrEmpty(ConnectedChannelName))
             {
                 <p class="text-sm text-text-secondary flex items-center gap-2">
-                    <Icon Path="IconPaths.Microphone" Class="w-4 h-4 text-text-tertiary" />
+                    <Icon Path="@IconPaths.Microphone" Class="w-4 h-4 text-text-tertiary" />
                     <span>@ConnectedChannelName</span>
                     <span class="text-text-tertiary">(@(ChannelMemberCount ?? 0) members)</span>
                 </p>
@@ -93,7 +93,7 @@
                 <button id="leave-channel-btn" type="button"
                         class="@(IsConnected ? "" : "hidden") px-3 py-1.5 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
                         title="Leave voice channel" disabled="@_isBusy" @onclick="LeaveAsync">
-                    <Icon Path="IconPaths.ArrowRightOnRectangle" Class="w-4 h-4" />
+                    <Icon Path="@IconPaths.ArrowRightOnRectangle" Class="w-4 h-4" />
                     Leave
                 </button>
             </div>
@@ -145,7 +145,7 @@
             @if (Queue.Count == 0)
             {
                 <div class="text-center py-4">
-                    <Icon Path="IconPaths.QueueListEmpty" Class="w-8 h-8 text-text-tertiary mx-auto mb-2" StrokeWidth="1.5" />
+                    <Icon Path="@IconPaths.QueueListEmpty" Class="w-8 h-8 text-text-tertiary mx-auto mb-2" StrokeWidth="1.5" />
                     <p class="text-sm text-text-tertiary">No sounds in queue</p>
                 </div>
             }

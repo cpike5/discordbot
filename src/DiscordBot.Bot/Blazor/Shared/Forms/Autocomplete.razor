@@ -61,7 +61,7 @@
         @if (!string.IsNullOrEmpty(Value))
         {
             <button type="button" class="autocomplete-clear" aria-label="Clear selection" @onmousedown:preventDefault="true" @onclick="HandleClear">
-                <Icon Path="IconPaths.XMark" Class="w-4 h-4" />
+                <Icon Path="@IconPaths.XMark" Class="w-4 h-4" />
             </button>
         }
 
@@ -90,7 +90,7 @@
                              @onmousedown="() => SelectItem(item)"
                              @onmouseover="() => _selectedIndex = index">
                             <span class="autocomplete-item-icon autocomplete-icon-default">
-                                <Icon Path="IconPaths.User" Class="w-4 h-4" />
+                                <Icon Path="@IconPaths.User" Class="w-4 h-4" />
                             </span>
                             <span class="autocomplete-item-text">@item.Text</span>
                             @if (!string.IsNullOrEmpty(item.Description))

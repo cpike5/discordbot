@@ -41,7 +41,7 @@
                 </div>
             </div>
             <button type="button" class="toast-close" aria-label="Dismiss notification" @onclick="() => ToastService.Dismiss(toast.Id)">
-                <Icon Path="IconPaths.XMark" Class="w-4 h-4" />
+                <Icon Path="@IconPaths.XMark" Class="w-4 h-4" />
             </button>
             @if (toast.Duration is { } duration && duration > TimeSpan.Zero)
             {
@@ -101,10 +101,10 @@
 
     private static RenderFragment IconMarkup(Services.ToastLevel level) => level switch
     {
-        Services.ToastLevel.Success => @<Icon Path="IconPaths.CheckCircle" Class="w-5 h-5" />,
-        Services.ToastLevel.Warning => @<Icon Path="IconPaths.ExclamationTriangle" Class="w-5 h-5" />,
-        Services.ToastLevel.Error => @<Icon Path="IconPaths.XCircle" Class="w-5 h-5" />,
-        _ => @<Icon Path="IconPaths.InformationCircle" Class="w-5 h-5" />
+        Services.ToastLevel.Success => @<Icon Path="@IconPaths.CheckCircle" Class="w-5 h-5" />,
+        Services.ToastLevel.Warning => @<Icon Path="@IconPaths.ExclamationTriangle" Class="w-5 h-5" />,
+        Services.ToastLevel.Error => @<Icon Path="@IconPaths.XCircle" Class="w-5 h-5" />,
+        _ => @<Icon Path="@IconPaths.InformationCircle" Class="w-5 h-5" />
     };
 
     public void Dispose() => ToastService.Changed -= HandleChanged;

@@ -126,6 +126,9 @@ public static class IconPaths
     /// <summary>Heroicon <c>envelope-open</c>. Per-item "mark as read" notification action.</summary>
     public const string EnvelopeOpen = "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z";
 
+    /// <summary>Heroicon <c>eye</c> (single <c>&lt;path&gt;</c> combining the icon's two subpaths - safe because both share the same stroke/no-fill styling). Connected Servers "view details" action.</summary>
+    public const string Eye = "M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z";
+
     /// <summary>Heroicon <c>exclamation-circle</c> (v2 coordinates). <see cref="EmptyStateType.Error"/>.</summary>
     public const string ExclamationCircle = "M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z";
 

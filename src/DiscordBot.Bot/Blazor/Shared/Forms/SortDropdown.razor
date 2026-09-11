@@ -30,9 +30,9 @@
             @onclick="ToggleOpen"
             @onkeydown="HandleToggleKeyDown"
             @onkeydown:preventDefault="true">
-        <Icon Path="IconPaths.BarsArrowDown" Class="w-4 h-4 text-text-secondary" />
+        <Icon Path="@IconPaths.BarsArrowDown" Class="w-4 h-4 text-text-secondary" />
         <span>@CurrentLabel</span>
-        <Icon Path="IconPaths.ChevronDown" Class="w-4 h-4 text-text-tertiary" />
+        <Icon Path="@IconPaths.ChevronDown" Class="w-4 h-4 text-text-tertiary" />
     </button>
 
     @if (_isOpen)
@@ -58,7 +58,7 @@
                         <span>@option.Label</span>
                         @if (isSelected)
                         {
-                            <Icon Path="IconPaths.Check" Class="w-4 h-4 text-success" />
+                            <Icon Path="@IconPaths.Check" Class="w-4 h-4 text-success" />
                         }
                     </div>
                 </button>
