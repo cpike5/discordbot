@@ -1,0 +1,26 @@
+@page "/blazor-smoke"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+
+@*
+    Temporary Phase 1 smoke-test page (plan §5 Phase 1, deliverable 7). Proves, end to end, that
+    the Blazor hosting foundation, auth plumbing and per-page interactivity all actually work:
+    - RequireAdmin authorization on a routable component (an unauthenticated request must
+      redirect to /Account/Login, not 404/500).
+    - An Interactive Server circuit opens and its counter button actually updates the DOM.
+    Deleted once the real probe page (/blazor-probe, plan §5 Phase 1 deliverable 7, landing in a
+    later wave once the event bus / toast / theme interop / chart pieces exist) replaces it.
+*@
+
+<PageTitle>Blazor Smoke Test</PageTitle>
+
+<h1>Blazor Smoke Test</h1>
+
+<p role="status">Current count: @_count</p>
+<button class="btn btn-primary" @onclick="Increment">Click me</button>
+
+@code {
+    private int _count;
+
+    private void Increment() => _count++;
+}

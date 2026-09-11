@@ -1,0 +1,21 @@
+@* Rendered by Routes.razor's <NotAuthorized> when the user isn't signed in at all (an
+   authenticated-but-forbidden user gets the plain "access denied" message next to this
+   instead - see Routes.razor). Forces a full page load rather than a client-side
+   navigation: the SPA-style NavigateTo can't complete the round trip through the cookie
+   auth middleware that Login needs. *@
+@inject NavigationManager Navigation
+
+@code {
+    protected override void OnInitialized()
+    {
+        // A path relative to the app base, always starting with "/", so it matches what the
+        // existing Account/Login page passes to LocalRedirect (an absolute URL here would make
+        // that throw).
+        var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
+        var returnUrl = "/" + relativePath;
+
+        Navigation.NavigateTo(
+            $"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}",
+            forceLoad: true);
+    }
+}
