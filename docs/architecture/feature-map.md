@@ -10,7 +10,7 @@ This document maps all major features to their supporting components: Discord co
 
 1. [Audio Features](#audio-features) - Soundboard, VOX, TTS, Audio Moderation Log, User Preferences
 2. [Moderation Features](#moderation-features) - Warnings, bans, notes, watchlist
-3. [Community Features](#community-features) - Reminders, Rat Watch, Scheduled Messages, Not-X, Feature Requests
+3. [Community Features](#community-features) - Reminders, Rat Watch, Virtual Currency, Scheduled Messages, Not-X, Feature Requests
 4. [Administrative Features](#administrative-features) - Guild management, settings, monitoring, verification
 5. [System Features](#system-features) - Authentication, logging, notifications, activity tracking, DM assistant
 
@@ -284,6 +284,28 @@ Community-driven accountability system where users flag suspicious messages for 
 6. Results tallied and recorded
 
 **Preconditions**: `[RequireGuildActive]`, `[RequireRatWatchEnabled]`
+
+---
+
+### Virtual Currency
+
+Ledger-backed virtual currency. Authorized people create currencies scoped to a guild or to the whole bot, mint units into wallets, and price bot features so that using them spends currency. Users hold one wallet per currency, can pay each other, and can be fined by moderators into debt.
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Commands** | `/wallet balance`, `/wallet history`, `/wallet pay`, `/wallet mint`, `/wallet fine` (WalletModule, WalletComponentModule); `/currency create`, `/currency list` (CurrencyModule) |
+| **Services** | `ICurrencyService`, `IWalletService`, `IMintService`, `IChargeService`, `IChargeHoldStore` |
+| **Repositories** | `ICurrencyRepository`, `IWalletRepository`, `ILedgerRepository`, `IPriceRepository`, `IMintAuthorityRepository` |
+| **UI Pages** | Portal currency pages (planned, PR 5) |
+| **Database Entities** | `Currency`, `Wallet`, `LedgerTransaction`, `MintAuthority`, `PriceEntry` |
+| **Configuration** | `Currency:Enabled`, `HoldExpirySeconds`, `MaxTransferPerMinute`, `DefaultDebtFloor`, `HistoryPageSize` |
+| **Key Features** | Append-only ledger with idempotency keys, cached balances, mint authorities (user/role/system), hold-commit-release charging for priced features, fines clamped at zero or a debt floor, transfer confirmation and history pagination buttons |
+
+**Autocomplete**: `CurrencyAutocompleteHandler` suggests the currencies visible in the guild — the guild's own plus the active globals — and sends the currency ID as the value.
+
+**Preconditions**: `[RequireGuildActive]`, `[RequireCurrencyEnabled]`; `/wallet fine` adds `[RequireModerator]`, `/currency create` requires Discord Administrator, `/wallet pay` carries `[RateLimitTransfers]`.
+
+**User guide**: `docs/articles/virtual-currency.md`. **Spec**: `docs/specs/virtual-currency-spec.md`.
 
 ---
 

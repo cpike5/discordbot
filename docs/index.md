@@ -20,6 +20,7 @@ Welcome to the Discord Bot Management System documentation. This site provides c
 
 ### Bot Commands
 - [Admin Commands](articles/admin-commands.md) - Slash command reference
+- [Virtual Currency](articles/virtual-currency.md) - Wallets, payments, mints and fines
 
 ### Design
 - [Design System](articles/design-system.md) - UI design tokens and components
