@@ -78,6 +78,14 @@ public class AssistantInteractionLog
     public int ToolCalls { get; set; } = 0;
 
     /// <summary>
+    /// Which tools ran, comma-joined in call order and capped at 512 characters. Null when no tool
+    /// ran, and for rows logged before this column existed. The pipeline has always computed these
+    /// names and then dropped them; storing them is what makes "which of my tools has never been
+    /// called" answerable from the log alone.
+    /// </summary>
+    public string? ToolNames { get; set; }
+
+    /// <summary>
     /// Total response latency in milliseconds.
     /// </summary>
     public int LatencyMs { get; set; } = 0;

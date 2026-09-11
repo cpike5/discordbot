@@ -2,7 +2,9 @@ using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Models.Llm;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DiscordBot.Core.DTOs.Llm.Reporting;
@@ -21,6 +23,7 @@ public class AssistantMetricsModel : GuildPageModelBase
 
     private readonly IAssistantService _assistantService;
     private readonly IGuildService _guildService;
+    private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly ILlmUsageRepository _usageRepository;
     private readonly IDiscordUserResolver _userResolver;
     private readonly ILogger<AssistantMetricsModel> _logger;
@@ -28,12 +31,14 @@ public class AssistantMetricsModel : GuildPageModelBase
     public AssistantMetricsModel(
         IAssistantService assistantService,
         IGuildService guildService,
+        IAssistantInteractionLogRepository interactionLogRepository,
         ILlmUsageRepository usageRepository,
         IDiscordUserResolver userResolver,
         ILogger<AssistantMetricsModel> logger)
     {
         _assistantService = assistantService;
         _guildService = guildService;
+        _interactionLogRepository = interactionLogRepository;
         _usageRepository = usageRepository;
         _userResolver = userResolver;
         _logger = logger;
@@ -108,6 +113,32 @@ public class AssistantMetricsModel : GuildPageModelBase
     public IReadOnlyList<LlmUsageByUserDto> CostByUser { get; set; } = Array.Empty<LlmUsageByUserDto>();
 
     /// <summary>
+    /// Per-tool usage over the same 30-day window, including tools that were never called - "which
+    /// of my tools has never been used" is the first question worth answering, and it is only
+    /// answerable if the zeroes are shown.
+    /// </summary>
+    public IReadOnlyList<ToolUsageRow> ToolUsage { get; set; } = Array.Empty<ToolUsageRow>();
+
+    /// <summary>
+    /// Whether any interaction in the window recorded tool names at all. Rows logged before the
+    /// <c>ToolNames</c> column existed carry none, so an established guild can legitimately show an
+    /// all-zero table for a while.
+    /// </summary>
+    public bool HasToolUsageData { get; set; }
+
+    /// <summary>One row of the per-tool usage table.</summary>
+    public class ToolUsageRow
+    {
+        public string ToolName { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public int Calls { get; set; }
+        public int Interactions { get; set; }
+        public double FailureRate { get; set; }
+        public DateTime? LastUsed { get; set; }
+    }
+
+    /// <summary>
     /// View model for guild display.
     /// </summary>
     public class GuildViewModel
@@ -142,6 +173,11 @@ public class AssistantMetricsModel : GuildPageModelBase
 
         Metrics = (await _assistantService.GetUsageMetricsRangeAsync(
             GuildId, startDate, endDate, cancellationToken)).ToList();
+
+        var toolUsage = await _interactionLogRepository.GetToolUsageAsync(
+            GuildId, startDate, endDate.AddDays(1).AddTicks(-1), cancellationToken);
+        ToolUsage = BuildToolUsageRows(toolUsage);
+        HasToolUsageData = toolUsage.Count > 0;
 
         var usageQuery = new LlmUsageQuery
         {
@@ -210,5 +246,48 @@ public class AssistantMetricsModel : GuildPageModelBase
         Navigation = BuildNavigation(guild.Id, "assistant");
 
         return Page();
+    }
+
+    /// <summary>
+    /// Pairs the aggregate with the tool catalogue so every guild-scoped tool gets a row, called or
+    /// not, and so a tool that has been renamed or removed still shows its history under the
+    /// catalogue's <c>Other</c> bucket rather than vanishing.
+    /// </summary>
+    private static List<ToolUsageRow> BuildToolUsageRows(IReadOnlyList<AssistantToolUsage> usage)
+    {
+        var byName = usage.ToDictionary(u => u.ToolName, StringComparer.OrdinalIgnoreCase);
+
+        var rows = ToolCatalog.ForScope(ToolScopes.Guild)
+            .Select(entry => BuildRow(entry.Name, byName.GetValueOrDefault(entry.Name)))
+            .ToList();
+
+        // Anything logged that the catalogue does not know - a removed or renamed tool - is still
+        // real usage and is shown rather than dropped.
+        rows.AddRange(usage
+            .Where(u => !ToolCatalog.IsCatalogued(u.ToolName))
+            .Select(u => BuildRow(u.ToolName, u)));
+
+        return rows
+            .OrderByDescending(r => r.Calls)
+            .ThenBy(r => r.DisplayName, StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private static ToolUsageRow BuildRow(string toolName, AssistantToolUsage? usage)
+    {
+        var entry = ToolCatalog.Describe(toolName);
+
+        return new ToolUsageRow
+        {
+            ToolName = toolName,
+            DisplayName = entry.DisplayName,
+            Category = entry.Category,
+            Calls = usage?.Calls ?? 0,
+            Interactions = usage?.Interactions ?? 0,
+            FailureRate = usage is { Interactions: > 0 }
+                ? (double)usage.FailedInteractions / usage.Interactions * 100
+                : 0,
+            LastUsed = usage?.LastUsed
+        };
     }
 }

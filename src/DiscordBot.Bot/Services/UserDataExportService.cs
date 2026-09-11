@@ -580,6 +580,7 @@ public class UserDataExportService : IUserDataExportService
                 l.CacheCreationTokens,
                 l.CacheHit,
                 l.ToolCalls,
+                l.ToolNames,
                 l.LatencyMs,
                 l.Success,
                 l.ErrorMessage,

@@ -1,3 +1,4 @@
+using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Core.Entities;
 
 namespace DiscordBot.Core.Interfaces;
@@ -32,6 +33,28 @@ public interface IAssistantInteractionLogRepository : IRepository<AssistantInter
     Task<IEnumerable<AssistantInteractionLog>> GetRecentByUserAsync(
         ulong userId,
         int limit,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Counts tool usage for a guild over a window, from the comma-joined
+    /// <see cref="AssistantInteractionLog.ToolNames"/> column.
+    /// </summary>
+    /// <remarks>
+    /// The column is a joined string rather than a join table, so the split and the grouping happen
+    /// in memory over a narrow projection of the window's rows. That is deliberate: it needs no
+    /// provider-specific string function and no second table, and a guild's 30-day window is a few
+    /// thousand rows at most. A tool that was never called simply has no row here - the caller pairs
+    /// this with the tool catalogue to show the zeroes, which is the question worth answering.
+    /// </remarks>
+    /// <param name="guildId">Discord guild ID.</param>
+    /// <param name="from">Start of the window, inclusive (UTC).</param>
+    /// <param name="to">End of the window, inclusive (UTC).</param>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>One row per tool that was called, ordered by call count descending.</returns>
+    Task<IReadOnlyList<AssistantToolUsage>> GetToolUsageAsync(
+        ulong guildId,
+        DateTime from,
+        DateTime to,
         CancellationToken cancellationToken = default);
 
     /// <summary>

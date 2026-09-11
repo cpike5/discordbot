@@ -85,6 +85,20 @@ public class ToolRegistry : IToolRegistry
     }
 
     /// <inheritdoc />
+    public string? FindProviderName(string toolName)
+    {
+        if (string.IsNullOrWhiteSpace(toolName))
+        {
+            return null;
+        }
+
+        lock (_lock)
+        {
+            return FindProviderCore(toolName)?.Name;
+        }
+    }
+
+    /// <inheritdoc />
     public async Task<ToolExecutionResult> ExecuteToolAsync(
         string toolName,
         JsonElement input,
@@ -101,19 +115,11 @@ public class ToolRegistry : IToolRegistry
             context.GuildId);
 
         // Find the first registered provider that owns this tool
-        IToolProvider? targetProvider = null;
+        IToolProvider? targetProvider;
 
         lock (_lock)
         {
-            foreach (var provider in _providers.Values)
-            {
-                if (provider.GetTools().Any(t =>
-                    t.Name.Equals(toolName, StringComparison.OrdinalIgnoreCase)))
-                {
-                    targetProvider = provider;
-                    break;
-                }
-            }
+            targetProvider = FindProviderCore(toolName);
         }
 
         if (targetProvider == null)
@@ -160,6 +166,24 @@ public class ToolRegistry : IToolRegistry
 
             return ToolExecutionResult.CreateError($"Tool execution failed: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// The first registered provider advertising <paramref name="toolName"/>, or null.
+    /// Callers hold <c>_lock</c>.
+    /// </summary>
+    private IToolProvider? FindProviderCore(string toolName)
+    {
+        foreach (var provider in _providers.Values)
+        {
+            if (provider.GetTools().Any(t =>
+                t.Name.Equals(toolName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return provider;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>

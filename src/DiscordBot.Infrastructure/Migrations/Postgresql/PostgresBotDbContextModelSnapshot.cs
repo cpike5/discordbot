@@ -281,6 +281,10 @@ namespace DiscordBot.Infrastructure.Migrations.Postgresql
                         .HasColumnType("integer")
                         .HasDefaultValue(0);
 
+                    b.Property<string>("ToolNames")
+                        .HasMaxLength(512)
+                        .HasColumnType("character varying(512)");
+
                     b.Property<long>("UserId")
                         .HasColumnType("bigint");
 

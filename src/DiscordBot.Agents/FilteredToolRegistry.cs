@@ -60,6 +60,12 @@ public class FilteredToolRegistry : IToolRegistry
             .ToList();
 
     /// <inheritdoc />
+    public string? FindProviderName(string toolName) =>
+        !string.IsNullOrWhiteSpace(toolName) && _allowed.Contains(toolName)
+            ? _inner.FindProviderName(toolName)
+            : null;
+
+    /// <inheritdoc />
     public Task<ToolExecutionResult> ExecuteToolAsync(
         string toolName,
         JsonElement input,

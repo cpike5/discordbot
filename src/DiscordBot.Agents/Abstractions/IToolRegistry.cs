@@ -26,6 +26,18 @@ public interface IToolRegistry
     IEnumerable<LlmToolDefinition> GetEnabledTools();
 
     /// <summary>
+    /// The name of the provider that owns <paramref name="toolName"/>, or null when no registered
+    /// provider does (or this scope is not allowed the tool).
+    /// </summary>
+    /// <remarks>
+    /// Exists so a caller can attribute a tool to its provider without executing it - the loop tags
+    /// its per-tool span with it. Resolution is the same first-match walk
+    /// <see cref="ExecuteToolAsync"/> does, so the two never disagree.
+    /// </remarks>
+    /// <param name="toolName">Name of the tool to attribute.</param>
+    string? FindProviderName(string toolName);
+
+    /// <summary>
     /// Executes a tool through the provider that owns it.
     /// </summary>
     /// <param name="toolName">Name of the tool to execute.</param>

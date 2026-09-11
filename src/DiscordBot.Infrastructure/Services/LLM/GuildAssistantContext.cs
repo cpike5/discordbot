@@ -155,6 +155,40 @@ public class GuildAssistantContext : IAssistantContext
         return $"{_guildId}\n{guildName}\n---\n{rawMessage}";
     }
 
+    /// <summary>Column width of <c>AssistantInteractionLog.ToolNames</c>.</summary>
+    private const int MaxToolNamesChars = 512;
+
+    /// <summary>
+    /// Comma-joins the tools a run called, within the column's width.
+    /// </summary>
+    /// <remarks>
+    /// Truncation stops at a whole name rather than mid-word: the per-tool metrics table splits this
+    /// column on the comma, and half a name would be counted as a tool that does not exist. A run
+    /// that calls more tools than fit is far past the round budget anyway.
+    /// </remarks>
+    private static string? JoinToolNames(IReadOnlyList<string> toolNames)
+    {
+        if (toolNames.Count == 0)
+        {
+            return null;
+        }
+
+        var joined = new System.Text.StringBuilder();
+
+        foreach (var name in toolNames)
+        {
+            var addition = joined.Length == 0 ? name : ", " + name;
+            if (joined.Length + addition.Length > MaxToolNamesChars)
+            {
+                break;
+            }
+
+            joined.Append(addition);
+        }
+
+        return joined.Length > 0 ? joined.ToString() : null;
+    }
+
     /// <inheritdoc />
     public async Task RecordUsageAsync(string inputMessage, AssistantPipelineResult result, CancellationToken cancellationToken)
     {
@@ -204,6 +238,7 @@ public class GuildAssistantContext : IAssistantContext
                     CacheCreationTokens = result.CacheCreationTokens,
                     CacheHit = result.CacheHit,
                     ToolCalls = result.ToolCalls,
+                    ToolNames = JoinToolNames(result.ToolNames),
                     LatencyMs = result.LatencyMs,
                     Success = result.Success,
                     ErrorMessage = result.ErrorMessage,

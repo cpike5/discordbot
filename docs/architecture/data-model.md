@@ -245,7 +245,7 @@ erDiagram
 | Entity | Purpose | Key Fields | Relationships |
 |--------|---------|-----------|-----------------|
 | **AssistantUsageMetrics** | Aggregated daily AI usage per guild | `Id` (long, PK), `GuildId`, `Date` (UTC date), `TotalQuestions`, `TotalInputTokens`, `TotalOutputTokens`, `TotalCachedTokens`, `TotalCacheWriteTokens`, `TotalCacheHits`, `TotalCacheMisses`, `TotalToolCalls`, `EstimatedCostUsd`, `FailedRequests`, `AverageLatencyMs`, `UpdatedAt` | Belongs to Guild |
-| **AssistantInteractionLog** | Per-interaction detail log for debugging and audit | `Id` (long, PK), `Timestamp`, `UserId`, `GuildId`, `ChannelId`, `MessageId`, `Question`, `Response` (nullable), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheCreationTokens`, `CacheHit`, `ToolCalls`, `LatencyMs`, `Success`, `ErrorMessage` (nullable), `EstimatedCostUsd`, `Model` (nullable, OpenRouter slug that answered) | References User, Guild |
+| **AssistantInteractionLog** | Per-interaction detail log for debugging and audit | `Id` (long, PK), `Timestamp`, `UserId`, `GuildId`, `ChannelId`, `MessageId`, `Question`, `Response` (nullable), `InputTokens`, `OutputTokens`, `CachedTokens`, `CacheCreationTokens`, `CacheHit`, `ToolCalls`, `ToolNames` (nullable, comma-joined, 512 chars), `LatencyMs`, `Success`, `ErrorMessage` (nullable), `EstimatedCostUsd`, `Model` (nullable, OpenRouter slug that answered) | References User, Guild |
 
 **Notes:**
 - `AssistantUsageMetrics` is aggregated per guild per calendar day; updated by the AI assistant service on each interaction.
