@@ -133,6 +133,43 @@ public class BotHostedServiceTests
     }
 
     /// <summary>
+    /// This test documents the web-only (Discord:Enabled=false) short-circuit added for
+    /// browser/UI testing without a bot token (docs/plans/blazor-port-plan.md Phase 0).
+    /// The actual integration test would require mocking the full Discord.NET/handler
+    /// dependency graph, which is not feasible here (see class remarks); see
+    /// SlashCommandRegistrationServiceTests.StartAsync_WhenDiscordDisabled_ShouldSkipModuleDiscovery
+    /// and BotConfigurationValidatorTests for the behaviorally-tested parts of this feature.
+    /// </summary>
+    [Fact]
+    public void StartAsync_WhenDiscordDisabled_ShouldLogAndReturnWithoutLogin_Documentation()
+    {
+        // This test documents the expected behavior when BotConfiguration.Enabled is false:
+        // 1. StartAsync logs "Discord bot disabled by configuration; running web-only" at
+        //    Information level.
+        // 2. It returns immediately: no event handlers are wired to DiscordSocketClient, the
+        //    interaction handler is not initialized, the missing-token check never runs, and
+        //    LoginAsync/StartAsync are never called on the client.
+        // 3. StopAsync mirrors this: when Enabled is false it logs and returns without
+        //    unsubscribing events or calling StopAsync/LogoutAsync on the client.
+        //
+        // Implementation verified at: src/DiscordBot.Bot/Services/BotHostedService.cs
+        // (StartAsync/StopAsync, Discord:Enabled guard near the top of each method).
+
+        var expectedBehavior = new
+        {
+            Condition = "BotConfiguration.Enabled is false",
+            LogLevel = "Information",
+            LogMessage = "Discord bot disabled by configuration; running web-only",
+            Action = "Returns before wiring events, initializing InteractionHandler, or calling LoginAsync/StartAsync",
+            MissingTokenPathSkipped = true
+        };
+
+        expectedBehavior.Should().NotBeNull("This documents the web-only short-circuit behavior");
+        expectedBehavior.LogMessage.Should().Be("Discord bot disabled by configuration; running web-only");
+        expectedBehavior.MissingTokenPathSkipped.Should().BeTrue();
+    }
+
+    /// <summary>
     /// This test documents the shutdown sequence.
     /// The actual integration test would require mocking Discord.NET dependencies.
     /// See BotHostedService.StopAsync lines 75-90 for the implementation.

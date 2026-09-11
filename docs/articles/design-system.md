@@ -1,7 +1,7 @@
 # Discord Bot Admin UI - Design System
 
 **Version:** 2.0 ("Graphite")
-**Last Updated:** 2026-09-02
+**Last Updated:** 2026-09-10
 **Target Framework:** ASP.NET Core Razor Pages + Tailwind CSS 3.4
 
 ---
@@ -11,6 +11,10 @@
 Version 2.0 is a complete visual overhaul. The admin UI is styled as an **instrument panel**: a cool graphite canvas, hairline rules instead of heavy borders, one ember accent that marks everything *selected* or *primary*, a quieter signal blue reserved for links and information, and monospaced numerals for anything that is measured. The sidebar is a full-height rail; the top bar starts where the rail ends.
 
 Everything is driven by CSS custom properties in `src/DiscordBot.Bot/wwwroot/css/site.css`. Tailwind utilities map onto those properties (`tailwind.config.js`), so a page written with `bg-bg-secondary border-border-primary` and a page written with `.card` render identically and both follow the active theme.
+
+### Baseline for the Blazor port
+
+Graphite v2, as defined in `site.css`, is the fixed design baseline for the [Blazor migration](../plans/blazor-port-plan.md). The Blazor component library is built directly from the tokens and component patterns documented here, and no major design changes are planned before that migration completes. Until then, any visual change is a token edit in `site.css` (plus the matching correction in this document) rather than a redesign.
 
 ### Design Principles
 
@@ -89,31 +93,31 @@ See *Rules, washes and depth* above — borders are alpha hairlines so they cann
 
 ### Theme System
 
-The application supports multiple UI themes with CSS custom property overrides. The default theme is **Discord Dark**, with **Purple Dusk** as an alternative light theme.
+The application supports multiple UI themes with CSS custom property overrides. The default theme is **Graphite**, with **Purple Dusk** as an alternative light theme.
 
 #### Theme Architecture
 
 Themes work through CSS custom property overrides on the `html` element using the `data-theme` attribute:
 
 ```css
-/* Default theme (Discord Dark) - defined in :root */
+/* Default theme (Graphite) - defined in :root */
 :root {
-  --color-bg-primary: #1d2022;
+  --color-bg-primary: #0f1114;
   /* ... other variables */
 }
 
 /* Theme overrides applied via data-theme attribute */
 [data-theme="purple-dusk"] {
-  --color-bg-primary: #E8E3DF;
+  --color-bg-primary: #ebe6e2;
   /* ... theme-specific overrides */
 }
 ```
 
 **Theme Resolution Hierarchy:**
 1. **User Preference** - Explicit user selection stored in database
-2. **Cookie** - Client-side preference for anonymous users
+2. **Cookie** - Client-side preference (`theme-preference` cookie) for anonymous users and as a fallback for signed-in users
 3. **Admin Default** - System-wide default configured by SuperAdmin
-4. **System Default** - Fallback to Discord Dark theme
+4. **System Default** - Fallback to the Graphite theme
 
 #### Purple Dusk Theme
 
@@ -123,19 +127,20 @@ A warm, light theme with beige backgrounds and purple/pink accent colors. Design
 
 | Variable | Hex Value | HSL | Usage |
 |----------|-----------|-----|-------|
-| `--color-bg-primary` | #E8E3DF | 30°, 16%, 89% | Main background |
-| `--color-bg-secondary` | #DAD4D0 | 24°, 14%, 84% | Cards, panels |
-| `--color-bg-tertiary` | #CCC5C0 | 25°, 12%, 78% | Elevated elements |
-| `--color-bg-hover` | #C0B8B2 | 24°, 13%, 72% | Hover states |
+| `--color-bg-primary` | #EBE6E2 | 27°, 18%, 90% | Main background |
+| `--color-bg-secondary` | #F6F3F0 | 30°, 25%, 95% | Cards, panels |
+| `--color-bg-tertiary` | #E2DCD7 | 27°, 16%, 86% | Elevated elements |
+| `--color-bg-hover` | #D7CFC9 | 26°, 15%, 82% | Hover states |
+| `--color-bg-inset` | #FBF9F8 | 20°, 27%, 98% | Text inputs and other inset wells |
 
 ##### Text Colors
 
 | Variable | Hex Value | HSL | Usage |
 |----------|-----------|-----|-------|
-| `--color-text-primary` | #4F214A | 305°, 41%, 22% | Primary text |
-| `--color-text-secondary` | #614978 | 274°, 24%, 38% | Secondary text |
-| `--color-text-tertiary` | #887A99 | 269°, 14%, 54% | Muted text |
-| `--color-text-placeholder` | #9A8DA8 | 266°, 15%, 61% | Placeholder text |
+| `--color-text-primary` | #3F1A3B | 306°, 42%, 17% | Primary text |
+| `--color-text-secondary` | #5D4672 | 271°, 24%, 36% | Secondary text |
+| `--color-text-tertiary` | #857793 | 270°, 11%, 52% | Muted text |
+| `--color-text-placeholder` | #9A8DA8 | 269°, 13%, 61% | Placeholder text |
 
 ##### Purple Accent (Primary)
 
@@ -143,10 +148,10 @@ Maps to `accent-orange` CSS classes for seamless theme switching.
 
 | Variable | Hex Value | HSL | Usage |
 |----------|-----------|-----|-------|
-| `--color-accent-orange` | #614978 | 274°, 24%, 38% | Primary actions |
-| `--color-accent-orange-hover` | #7A5C8F | 270°, 22%, 46% | Hover state |
-| `--color-accent-orange-active` | #4F214A | 305°, 41%, 22% | Active state |
-| `--color-accent-orange-muted` | rgba(97, 73, 120, 0.2) | — | Subtle backgrounds |
+| `--color-accent-orange` | #614978 | 271°, 24%, 38% | Primary actions |
+| `--color-accent-orange-hover` | #7A5C8F | 275°, 22%, 46% | Hover state |
+| `--color-accent-orange-active` | #4F214A | 307°, 41%, 22% | Active state |
+| `--color-accent-orange-muted` | rgba(97, 73, 120, 0.16) | — | Subtle backgrounds |
 
 ##### Pink Accent (Secondary)
 
@@ -154,34 +159,34 @@ Maps to `accent-blue` CSS classes for seamless theme switching.
 
 | Variable | Hex Value | HSL | Usage |
 |----------|-----------|-----|-------|
-| `--color-accent-blue` | #D5345B | 347°, 67%, 52% | Secondary actions |
-| `--color-accent-blue-hover` | #E5476D | 347°, 74%, 59% | Hover state |
-| `--color-accent-blue-active` | #B82A4D | 347°, 63%, 44% | Active state |
-| `--color-accent-blue-muted` | rgba(213, 52, 91, 0.2) | — | Subtle backgrounds |
+| `--color-accent-blue` | #C9305A | 344°, 61%, 49% | Secondary actions |
+| `--color-accent-blue-hover` | #E5476D | 346°, 75%, 59% | Hover state |
+| `--color-accent-blue-active` | #B82A4D | 345°, 63%, 44% | Active state |
+| `--color-accent-blue-muted` | rgba(201, 48, 90, 0.14) | — | Subtle backgrounds |
 
 ##### Semantic Colors (Adjusted for Light Background)
 
 | Color | Hex Value | Purpose |
 |-------|-----------|---------|
 | Success | #059669 | Darker green for contrast |
-| Warning | #D97706 | Darker amber for contrast |
+| Warning | #C2410C | Darker amber for contrast |
 | Error | #DC2626 | Darker red for contrast |
-| Info | #0891B2 | Darker cyan for contrast |
+| Info | #0E7490 | Darker cyan for contrast |
 
 ##### Border Colors
 
-| Variable | Hex Value | Usage |
-|----------|-----------|-------|
-| `--color-border-primary` | #C0B8B2 | Default borders |
-| `--color-border-secondary` | #DAD4D0 | Subtle dividers |
+| Variable | Value | Usage |
+|----------|-------|-------|
+| `--color-border-primary` | rgba(63, 26, 59, 0.14) | Default borders |
+| `--color-border-secondary` | rgba(63, 26, 59, 0.08) | Subtle dividers |
 | `--color-border-focus` | #614978 | Focus rings |
 
 ##### Glass Effect Overrides
 
 | Variable | Value | Usage |
 |----------|-------|-------|
-| `--color-glass-bg` | rgba(218, 212, 208, 0.6) | Glass background |
-| `--color-glass-border` | rgba(192, 184, 178, 0.8) | Glass border |
+| `--color-glass-bg` | rgba(246, 243, 240, 0.6) | Glass background |
+| `--color-glass-border` | rgba(63, 26, 59, 0.18) | Glass border |
 
 #### Contrast Requirements
 
@@ -283,62 +288,67 @@ All three are loaded from Google Fonts in every layout (and in the standalone pa
 
 #### Headings
 
+The two largest sizes are fluid (`clamp()`), scaling with viewport width between the two bounds shown; `h3`–`h6` are fixed. Defined in `tailwind.config.js` (`theme.extend.fontSize`), not as static classes in `site.css`.
+
 ```css
 /* Display - For hero sections, large headings */
 .text-display {
-  font-size: 3rem;        /* 48px */
+  font-size: clamp(2.25rem, 1.6rem + 2.2vw, 3.25rem);   /* 36px -> 52px */
+  line-height: 1.02;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: var(--color-text-primary);
+}
+
+/* H1 - Page titles */
+.text-h1 {
+  font-size: clamp(1.625rem, 1.3rem + 1.1vw, 2.125rem); /* 26px -> 34px */
   line-height: 1.1;
   font-weight: 700;
   letter-spacing: -0.02em;
   color: var(--color-text-primary);
 }
 
-/* H1 - Page titles */
-.text-h1 {
-  font-size: 2.25rem;     /* 36px */
-  line-height: 1.2;
+/* H2 - Section titles */
+.text-h2 {
+  font-size: clamp(1.375rem, 1.15rem + 0.8vw, 1.75rem); /* 22px -> 28px */
+  line-height: 1.15;
   font-weight: 700;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
   color: var(--color-text-primary);
 }
 
-/* H2 - Section titles */
-.text-h2 {
-  font-size: 1.875rem;    /* 30px */
+/* H3 - Subsection titles */
+.text-h3 {
+  font-size: 1.375rem;    /* 22px */
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  color: var(--color-text-primary);
+}
+
+/* H4 - Card titles, component headers */
+.text-h4 {
+  font-size: 1.125rem;    /* 18px */
   line-height: 1.3;
   font-weight: 600;
   letter-spacing: -0.01em;
   color: var(--color-text-primary);
 }
 
-/* H3 - Subsection titles */
-.text-h3 {
-  font-size: 1.5rem;      /* 24px */
-  line-height: 1.35;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
-/* H4 - Card titles, component headers */
-.text-h4 {
-  font-size: 1.25rem;     /* 20px */
-  line-height: 1.4;
-  font-weight: 600;
-  color: var(--color-text-primary);
-}
-
 /* H5 - Small section headers */
 .text-h5 {
-  font-size: 1.125rem;    /* 18px */
-  line-height: 1.4;
+  font-size: 1rem;        /* 16px */
+  line-height: 1.35;
   font-weight: 600;
+  letter-spacing: -0.005em;
   color: var(--color-text-primary);
 }
 
 /* H6 - Label headers */
 .text-h6 {
-  font-size: 1rem;        /* 16px */
-  line-height: 1.5;
+  font-size: 0.875rem;    /* 14px */
+  line-height: 1.4;
   font-weight: 600;
   color: var(--color-text-primary);
 }
@@ -397,7 +407,7 @@ All three are loaded from Google Fonts in every layout (and in the standalone pa
 .text-blue { color: var(--color-accent-blue); }
 
 /* Monospace */
-.font-mono { font-family: var(--font-family-mono); }
+.font-mono { font-family: var(--font-mono); }
 ```
 
 ---
@@ -532,6 +542,8 @@ Page headers use the `.page-header` pattern:
 ```
 
 ## 4. Component Guidelines
+
+> **Note — these samples predate Graphite v2.** The HTML/CSS code blocks below still use literal hex values from an earlier palette and have not been rewritten for this pass. They are **not** the source of truth for component markup: that's the shipped partials in `src/DiscordBot.Bot/Pages/Shared/Components/` and the `@layer components` classes in `site.css`. The Blazor component library (`docs/plans/blazor-port-plan.md` §4.6) must be derived from those partials, not from the samples in this section.
 
 ### Buttons
 
@@ -3566,34 +3578,37 @@ Users with `prefers-reduced-motion` preference see static loading states:
 
 ### Icon Sizing Guidelines
 
-```css
-/* Icon size utilities */
-.icon-xs { width: 1rem; height: 1rem; }      /* 16px - inline with small text */
-.icon-sm { width: 1.25rem; height: 1.25rem; } /* 20px - inline with body text */
-.icon-md { width: 1.5rem; height: 1.5rem; }   /* 24px - buttons, navigation */
-.icon-lg { width: 2rem; height: 2rem; }       /* 32px - section headers */
-.icon-xl { width: 2.5rem; height: 2.5rem; }   /* 40px - feature highlights */
-```
+There are no `.icon-xs`…`.icon-xl` classes in `site.css`. Icons are sized with raw Tailwind width/height utilities, the same way the button examples in §4 do it (`class="w-4 h-4"`):
+
+| Tailwind classes | Size | Use |
+|-------------------|------|-----|
+| `w-4 h-4` | 1rem / 16px | Inline with small text |
+| `w-5 h-5` | 1.25rem / 20px | Inline with body text |
+| `w-6 h-6` | 1.5rem / 24px | Buttons, navigation |
+| `w-8 h-8` | 2rem / 32px | Section headers |
+| `w-10 h-10` | 2.5rem / 40px | Feature highlights |
 
 ### Icon Color Utilities
 
-```css
-.icon-primary { color: #d7d3d0; }
-.icon-secondary { color: #a8a5a3; }
-.icon-tertiary { color: #7a7876; }
-.icon-orange { color: #cb4e1b; }
-.icon-blue { color: #098ecf; }
-.icon-success { color: #10b981; }
-.icon-warning { color: #f59e0b; }
-.icon-error { color: #ef4444; }
-```
+There are no `.icon-primary`/`.icon-orange`/etc. classes either — the same is true here: colour an icon with the regular text-colour utilities that `tailwind.config.js` already generates from the design tokens.
+
+| Tailwind class | Token |
+|----------------|-------|
+| `text-text-primary` | `--color-text-primary` |
+| `text-text-secondary` | `--color-text-secondary` |
+| `text-text-tertiary` | `--color-text-tertiary` |
+| `text-accent-orange` | `--color-accent-orange` |
+| `text-accent-blue` | `--color-accent-blue` |
+| `text-success` | `--color-success` |
+| `text-warning` | `--color-warning` |
+| `text-error` | `--color-error` |
 
 ### Common Icon Usage
 
 ```html
 <!-- Button with icon -->
 <button class="btn btn-primary">
-  <svg class="icon-sm" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M12 4v16m8-8H4" />
   </svg>
@@ -3602,7 +3617,7 @@ Users with `prefers-reduced-motion` preference see static loading states:
 
 <!-- Navigation with icon -->
 <a href="#" class="sidebar-link">
-  <svg class="icon-md" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+  <svg class="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
           d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
   </svg>
@@ -3611,7 +3626,7 @@ Users with `prefers-reduced-motion` preference see static loading states:
 
 <!-- Status indicator with icon -->
 <div class="flex items-center gap-2">
-  <svg class="icon-sm icon-success" fill="currentColor" viewBox="0 0 20 20">
+  <svg class="w-5 h-5 text-success" fill="currentColor" viewBox="0 0 20 20">
     <path fill-rule="evenodd"
           d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z"
           clip-rule="evenodd" />
@@ -3630,14 +3645,14 @@ Users with `prefers-reduced-motion` preference see static loading states:
 ```html
 <!-- Icon-only button (accessible) -->
 <button class="btn btn-icon" aria-label="Settings">
-  <svg aria-hidden="true" class="icon-md">
+  <svg aria-hidden="true" class="w-6 h-6">
     <!-- icon path -->
   </svg>
 </button>
 
 <!-- Decorative icon (skip from screen reader) -->
 <div>
-  <svg aria-hidden="true" class="icon-sm icon-blue">
+  <svg aria-hidden="true" class="w-5 h-5 text-accent-blue">
     <!-- icon path -->
   </svg>
   <span>User Settings</span>
@@ -4209,6 +4224,11 @@ Start with mobile styles, then enhance for larger screens:
 ---
 
 ## Changelog
+
+### Documentation accuracy pass (2026-09-10)
+- No design change. Corrected this document to match the Graphite v2 tokens actually shipped in `site.css`: the default theme is named "Graphite" throughout (was still "Discord Dark" in places), the Purple Dusk colour tables now match `[data-theme="purple-dusk"]` in `site.css`, the heading type scale now matches the `clamp()` values in `tailwind.config.js`, and the Icon Usage section no longer documents `.icon-*` classes that do not exist in any stylesheet — it now points at the raw Tailwind utilities (`w-4 h-4`, `text-accent-orange`, etc.) that the codebase actually uses.
+- Added the "Baseline for the Blazor port" note: Graphite v2 is frozen as the design baseline for `docs/plans/blazor-port-plan.md` until that migration completes.
+- Known gap: the §4 "Component Guidelines" code samples still use pre-v2 literal hex values and were not rewritten in this pass — flagged with an admonition pointing to the shipped partials and `site.css` as the actual source of truth.
 
 ### Version 2.0 (2026-09-02) — "Graphite"
 - Complete visual overhaul: graphite canvas, hairline rules, ember as the single selection/primary accent, signal blue demoted to links and information.

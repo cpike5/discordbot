@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Realtime;
+using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
@@ -10,13 +12,17 @@ using static DiscordBot.Core.Interfaces.GatewayConnectionState;
 namespace DiscordBot.Bot.Services;
 
 /// <summary>
-/// Background service that collects and broadcasts performance metrics to subscribed SignalR clients.
-/// Broadcasts health metrics, command performance, and system metrics at configurable intervals.
-/// Only broadcasts when clients are subscribed to the relevant groups.
+/// Background service that collects and broadcasts performance metrics to subscribed SignalR clients
+/// and to <see cref="IDashboardEventBus"/> subscribers (e.g. Blazor circuits, which never join a
+/// SignalR group). Broadcasts health metrics, command performance, and system metrics at
+/// configurable intervals. Collection and the event bus publish always run when either the
+/// SignalR group or the event bus has a subscriber; only the SignalR send is gated by the
+/// group's client count.
 /// </summary>
 public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 {
     private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IDashboardEventBus _eventBus;
     private readonly IPerformanceSubscriptionTracker _subscriptionTracker;
     private readonly ILatencyHistoryService _latencyHistoryService;
     private readonly IConnectionStateService _connectionStateService;
@@ -38,6 +44,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
     public PerformanceMetricsBroadcastService(
         IServiceProvider serviceProvider,
         IHubContext<DashboardHub> hubContext,
+        IDashboardEventBus eventBus,
         IPerformanceSubscriptionTracker subscriptionTracker,
         ILatencyHistoryService latencyHistoryService,
         IConnectionStateService connectionStateService,
@@ -51,6 +58,7 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         : base(serviceProvider, logger)
     {
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _subscriptionTracker = subscriptionTracker;
         _latencyHistoryService = latencyHistoryService;
         _connectionStateService = connectionStateService;
@@ -233,8 +241,12 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 
     internal async Task BroadcastHealthMetricsAsync(CancellationToken stoppingToken)
     {
-        // Skip if no clients are subscribed
-        if (_subscriptionTracker.PerformanceGroupClientCount == 0)
+        var groupClientCount = _subscriptionTracker.PerformanceGroupClientCount;
+
+        // Skip only when nothing at all would receive this: no SignalR clients in the group and
+        // no in-process event bus subscriber. Never gate on the group count alone - a Blazor
+        // circuit subscribes via IDashboardEventBus without ever joining the SignalR group.
+        if (groupClientCount == 0 && !_eventBus.HasSubscribers<HealthMetricsUpdatedEvent>())
         {
             _logger.LogTrace("Skipping health metrics broadcast - no subscribers");
             return;
@@ -248,13 +260,18 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         {
             var metrics = CollectHealthMetrics();
 
-            await _hubContext.Clients
-                .Group(DashboardHub.PerformanceGroupName)
-                .SendAsync("HealthMetricsUpdate", metrics, stoppingToken);
+            if (groupClientCount > 0)
+            {
+                await _hubContext.Clients
+                    .Group(DashboardHub.PerformanceGroupName)
+                    .SendAsync("HealthMetricsUpdate", metrics, stoppingToken);
+            }
+
+            await _eventBus.PublishAsync(new HealthMetricsUpdatedEvent { Metrics = metrics }, stoppingToken);
 
             _logger.LogDebug(
                 "Broadcast health metrics to {ClientCount} clients: Latency={LatencyMs}ms, Memory={MemoryMB}MB",
-                _subscriptionTracker.PerformanceGroupClientCount,
+                groupClientCount,
                 metrics.LatencyMs,
                 metrics.WorkingSetMB);
 
@@ -269,8 +286,12 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 
     internal async Task BroadcastCommandPerformanceAsync(CancellationToken stoppingToken)
     {
-        // Skip if no clients are subscribed
-        if (_subscriptionTracker.PerformanceGroupClientCount == 0)
+        var groupClientCount = _subscriptionTracker.PerformanceGroupClientCount;
+
+        // Skip only when nothing at all would receive this: no SignalR clients in the group and
+        // no in-process event bus subscriber. Never gate on the group count alone - a Blazor
+        // circuit subscribes via IDashboardEventBus without ever joining the SignalR group.
+        if (groupClientCount == 0 && !_eventBus.HasSubscribers<CommandPerformanceUpdatedEvent>())
         {
             _logger.LogTrace("Skipping command performance broadcast - no subscribers");
             return;
@@ -284,13 +305,18 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         {
             var metrics = await CollectCommandMetricsAsync();
 
-            await _hubContext.Clients
-                .Group(DashboardHub.PerformanceGroupName)
-                .SendAsync("CommandPerformanceUpdate", metrics, stoppingToken);
+            if (groupClientCount > 0)
+            {
+                await _hubContext.Clients
+                    .Group(DashboardHub.PerformanceGroupName)
+                    .SendAsync("CommandPerformanceUpdate", metrics, stoppingToken);
+            }
+
+            await _eventBus.PublishAsync(new CommandPerformanceUpdatedEvent { Metrics = metrics }, stoppingToken);
 
             _logger.LogDebug(
                 "Broadcast command performance to {ClientCount} clients: Total={TotalCommands}, AvgMs={AvgMs}",
-                _subscriptionTracker.PerformanceGroupClientCount,
+                groupClientCount,
                 metrics.TotalCommands24h,
                 metrics.AvgResponseTimeMs);
 
@@ -305,8 +331,12 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
 
     internal async Task BroadcastSystemMetricsAsync(CancellationToken stoppingToken)
     {
-        // Skip if no clients are subscribed
-        if (_subscriptionTracker.SystemHealthGroupClientCount == 0)
+        var groupClientCount = _subscriptionTracker.SystemHealthGroupClientCount;
+
+        // Skip only when nothing at all would receive this: no SignalR clients in the group and
+        // no in-process event bus subscriber. Never gate on the group count alone - a Blazor
+        // circuit subscribes via IDashboardEventBus without ever joining the SignalR group.
+        if (groupClientCount == 0 && !_eventBus.HasSubscribers<SystemMetricsUpdatedEvent>())
         {
             _logger.LogTrace("Skipping system metrics broadcast - no subscribers");
             return;
@@ -320,13 +350,18 @@ public class PerformanceMetricsBroadcastService : MonitoredBackgroundService
         {
             var metrics = CollectSystemMetrics();
 
-            await _hubContext.Clients
-                .Group(DashboardHub.SystemHealthGroupName)
-                .SendAsync("SystemMetricsUpdate", metrics, stoppingToken);
+            if (groupClientCount > 0)
+            {
+                await _hubContext.Clients
+                    .Group(DashboardHub.SystemHealthGroupName)
+                    .SendAsync("SystemMetricsUpdate", metrics, stoppingToken);
+            }
+
+            await _eventBus.PublishAsync(new SystemMetricsUpdatedEvent { Metrics = metrics }, stoppingToken);
 
             _logger.LogDebug(
                 "Broadcast system metrics to {ClientCount} clients: AvgQueryMs={AvgQueryMs}, TotalQueries={TotalQueries}",
-                _subscriptionTracker.SystemHealthGroupClientCount,
+                groupClientCount,
                 metrics.AvgQueryTimeMs,
                 metrics.TotalQueries);
 

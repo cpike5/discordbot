@@ -192,8 +192,8 @@ Bot (Application/UI)
 │   ├── GET /api/alerts/summary
 │   ├── GET /api/alerts/frequency
 │   └── GET /api/alerts/auto-recovery
-├── Alerts Page (UI)
-│   └── /Admin/Performance/Alerts.cshtml
+├── Alerts Page (UI, now the Alerts tab of the unified dashboard: /Admin/Performance#alerts)
+│   └── /Admin/Performance/Tabs/_AlertsTab.cshtml
 └── Alerts Configuration Tab
     └── /Admin/Performance/Tabs/_AlertsTab.cshtml
 ```
@@ -367,7 +367,7 @@ The `AlertMonitoringService` monitors 8 performance metrics across different sub
    └─ Continue monitoring at next interval
 
 5. ADMIN ACKNOWLEDGMENT PHASE
-   ├─ Admin visits /Admin/Performance/Alerts page
+   ├─ Admin visits /Admin/Performance#alerts (Alerts tab)
    ├─ Views incident details
    ├─ Clicks "Acknowledge" button
    │  └─ Sends POST /api/alerts/incidents/{id}/acknowledge
@@ -430,8 +430,15 @@ public interface IPerformanceNotifier
 
 #### Client Implementation
 
+> **Note:** `wwwroot/js/performance/alerts-realtime.js` (below) was not loaded by
+> the Alerts tab of the unified `/Admin/Performance` dashboard and was removed as
+> dead code in the Phase 0 UI cleanup. The `OnAlert*` handlers it implemented have
+> no current equivalent wired into `Tabs/_AlertsTab.cshtml` — live incident push
+> updates on that tab are not currently implemented; this is a known gap, not a
+> relocation.
+
 ```javascript
-// In wwwroot/js/performance/alerts-realtime.js
+// Formerly in wwwroot/js/performance/alerts-realtime.js (removed, Phase 0 cleanup)
 connection.on("OnAlertTriggered", (incident) => {
     // Add incident to UI list
     // Play notification sound
@@ -489,7 +496,7 @@ if (incident.Severity >= AlertSeverity.Warning) {
                 NotificationType.PerformanceAlert,
                 title: $"{incident.MetricName} {incident.Severity}",
                 message: incident.Message,
-                linkUrl: "/Admin/Performance/Alerts",
+                linkUrl: "/Admin/Performance#alerts",
                 relatedEntityType: "PerformanceIncident",
                 relatedEntityId: incident.Id.ToString(),
                 deduplicationWindow: deduplicationWindow);
@@ -984,10 +991,10 @@ ORDER BY ResolvedAt DESC;
 
 ### Alerts Page
 
-**Route:** `/Admin/Performance/Alerts`
+**Route:** `/Admin/Performance#alerts` — the standalone `/Admin/Performance/Alerts` page was retired in favor of the Alerts tab on the unified dashboard; the old URL now permanently redirects here.
 **Authorization:** Requires `Admin` or `SuperAdmin` role
-**Page Model:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\Performance\Alerts.cshtml.cs`
-**View:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\Performance\Alerts.cshtml`
+**Page Model:** `src/DiscordBot.Bot/Pages/Admin/Performance/Index.cshtml.cs`
+**View:** `src/DiscordBot.Bot/Pages/Admin/Performance/Tabs/_AlertsTab.cshtml`
 
 #### Features
 
@@ -1063,7 +1070,9 @@ Threshold management interface:
 
 ### Real-Time JavaScript Integration
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\wwwroot\js\performance\alerts-realtime.js`
+**Location:** Formerly `wwwroot/js/performance/alerts-realtime.js`; removed as dead
+code in the Phase 0 UI cleanup (unused by the current Alerts tab). See the note
+under "Client Implementation" above.
 
 ```javascript
 // Connect to DashboardHub
@@ -1138,7 +1147,7 @@ Alert configurations come pre-seeded during database initialization:
 
 Admins can modify thresholds via the web UI without restarting the application:
 
-1. Navigate to `/Admin/Performance/Alerts` → Configuration tab
+1. Navigate to `/Admin/Performance#alerts` → Configuration tab
 2. Adjust Warning/Critical threshold values
 3. Click Save
 4. Changes take effect immediately
@@ -1459,7 +1468,7 @@ public async Task UpdateConfiguration_RejectsCriticalLessThanWarning()
 4. Metric name mismatch between monitor and config
 
 **Solutions:**
-- Check `/Admin/Performance/Alerts` → Configuration tab
+- Check `/Admin/Performance#alerts` → Configuration tab
 - Verify thresholds are correct: Warning < Critical
 - Review application logs for `AlertMonitoringService` startup
 - Confirm metric name matches exactly (case-sensitive)

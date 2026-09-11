@@ -1,0 +1,34 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Core.Enums
+
+@* Ported from _RuleTypeIcon.cshtml, whose "model" is the Core RuleType enum directly - no
+   ViewModel wrapper. The source partial renders a raw <svg title="..."> (a plain HTML tooltip
+   attribute, no aria-hidden either way); routing it through <Icon Title="..."> instead renders an
+   equivalent <title> child and aria-hidden="false" - see docs/articles/blazor-components.md
+   "Component contract", point 9 (a tooltip-only icon with no adjacent text is exactly the case
+   Icon's Title parameter exists for). *@
+
+<Icon Path="@IconPath" Class="@Merge($"w-5 h-5 {ColorClass}")" Title="@Title" AdditionalAttributes="AdditionalAttributes" />
+
+@code {
+    [Parameter] public RuleType RuleType { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private (string IconPath, string ColorClass, string Title) Info => RuleType switch
+    {
+        RuleType.Spam => (IconPaths.ExclamationCircleOutline, "text-warning", "Spam Detection"),
+        RuleType.Content => (IconPaths.ExclamationTriangle, "text-error", "Content Filter"),
+        RuleType.Raid => (IconPaths.ShieldCheck, "text-accent-blue", "Raid Protection"),
+        _ => (IconPaths.QuestionMarkCircle, "text-text-tertiary", "Unknown Rule")
+    };
+
+    private string IconPath => Info.IconPath;
+    private string ColorClass => Info.ColorClass;
+    private string Title => Info.Title;
+
+    private string Merge(string baseClasses) => string.Join(" ", new[] { baseClasses, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+}

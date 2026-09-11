@@ -3,7 +3,7 @@
 **Version:** 1.0
 **Date:** 2026-02-03
 **Status:** Design
-**Target Framework:** .NET 8, System.Diagnostics.Metrics, OpenTelemetry
+**Target Framework:** .NET 10, System.Diagnostics.Metrics, OpenTelemetry
 
 ---
 

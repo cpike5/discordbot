@@ -1,0 +1,153 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Interop
+@implements IAsyncDisposable
+@inject BrowserInterop BrowserInterop
+
+@*
+    Generic dialog shell, structured after _ConfirmationModal.cshtml's backdrop + centered panel
+    markup but with role="dialog" (not "alertdialog" - that's ConfirmModal's concern, since it
+    represents an urgent confirmation, not every dialog built on this) and typed Title/ChildContent
+    /FooterContent slots instead of a fixed icon+message+form layout. ConfirmModal is built on top
+    of this, supplying that icon+message content itself.
+
+    Interop: BrowserInterop.TrapFocusAsync on open (released via ReleaseFocusAsync on close and in
+    DisposeAsync) - mirrors quick-actions.js's focus trap for _ConfirmationModal. "Restore focus to
+    the opener" needs the DOM's document.activeElement at open time, which the documented
+    BrowserInterop surface (docs/articles/blazor-interop.md) has no primitive to capture generically
+    (JS interop can't hand an arbitrary DOM element back as an ElementReference); the optional
+    ReturnFocusTo parameter is the workaround - a caller that already holds an ElementReference to
+    its trigger (e.g. a plain button it put @ref on) can pass it, and Modal calls .FocusAsync() on
+    it when closing. When omitted, focus is left wherever the browser puts it (documented as a
+    fidelity deviation in docs/articles/blazor-components.md's Overlays row).
+*@
+
+@if (IsOpen)
+{
+    <div id="@Id" class="fixed inset-0 z-[var(--z-modal)]" role="dialog" aria-modal="true"
+         aria-labelledby="@TitleId" @attributes="AdditionalAttributes">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" @onclick="HandleBackdropClick" aria-hidden="true"></div>
+
+        <div class="fixed inset-0 flex items-center justify-center p-4" @onkeydown="HandleKeyDown">
+            <div @ref="_dialogRef" tabindex="-1" class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl @SizeClass w-full @Class" role="document">
+                @if (!string.IsNullOrEmpty(Title))
+                {
+                    <div class="p-6 pb-0">
+                        <h3 id="@TitleId" class="text-lg font-semibold text-text-primary">@Title</h3>
+                    </div>
+                }
+                <div class="p-6">
+                    @ChildContent
+                </div>
+                @if (FooterContent is not null)
+                {
+                    <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                        @FooterContent
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public string? Title { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public RenderFragment? FooterContent { get; set; }
+    [Parameter] public ModalSize Size { get; set; } = ModalSize.Medium;
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public EventCallback<bool> IsOpenChanged { get; set; }
+    [Parameter] public EventCallback OnClosed { get; set; }
+
+    /// <summary>Optional element to return keyboard focus to when this modal closes - see the
+    /// component's top-of-file doc comment.</summary>
+    [Parameter] public ElementReference? ReturnFocusTo { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>Id of the &lt;h3&gt; title element, for <c>aria-labelledby</c>. Public so
+    /// ConfirmModal (and any other consumer rendering its own heading into ChildContent instead of
+    /// using <see cref="Title"/>) can point its own element at the same id.</summary>
+    public string TitleId => $"{Id}Title";
+
+    private ElementReference _dialogRef;
+    private int? _focusTrapHandle;
+    private bool _wasOpen;
+
+    private string SizeClass => Size switch
+    {
+        ModalSize.Small => "max-w-sm",
+        ModalSize.Large => "max-w-lg",
+        ModalSize.XLarge => "max-w-2xl",
+        _ => "max-w-md"
+    };
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (IsOpen && !_wasOpen)
+        {
+            // Focus the dialog itself first (tabindex="-1" makes it programmatically focusable) so
+            // Escape still reaches HandleKeyDown even when the dialog has no focusable child -
+            // trapFocus's own JS only moves focus to focusable[0] when that list is non-empty, and
+            // otherwise leaves focus wherever it already was (this call).
+            await _dialogRef.FocusAsync();
+            _focusTrapHandle = await BrowserInterop.TrapFocusAsync(_dialogRef);
+        }
+        else if (!IsOpen && _wasOpen)
+        {
+            await ReleaseTrapAsync();
+        }
+
+        _wasOpen = IsOpen;
+    }
+
+    private async Task ReleaseTrapAsync()
+    {
+        if (_focusTrapHandle is { } handle)
+        {
+            _focusTrapHandle = null;
+            await BrowserInterop.ReleaseFocusAsync(handle);
+        }
+
+        if (ReturnFocusTo is { } trigger)
+        {
+            await trigger.FocusAsync();
+        }
+    }
+
+    private async Task Close()
+    {
+        if (!IsOpen)
+        {
+            return;
+        }
+
+        IsOpen = false;
+        await IsOpenChanged.InvokeAsync(false);
+        await OnClosed.InvokeAsync();
+    }
+
+    private Task HandleBackdropClick() => Close();
+
+    private Task HandleKeyDown(KeyboardEventArgs e) => e.Key == "Escape" ? Close() : Task.CompletedTask;
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            await ReleaseTrapAsync();
+        }
+        catch (JSDisconnectedException)
+        {
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (ObjectDisposedException)
+        {
+        }
+    }
+}

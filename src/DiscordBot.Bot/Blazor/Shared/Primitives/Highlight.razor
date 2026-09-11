@@ -1,0 +1,28 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Helpers
+
+@* Replaces HighlightTagHelper (<highlight text="..." search-term="..." max-length="" show-context="" />)
+   per docs/articles/blazor-components.md "Consolidations" - same underlying TextHighlightHelper,
+   which HTML-encodes Text before wrapping matches in <mark>, so the MarkupString below is safe:
+   it is never raw, unescaped user input, it is that helper's already-escaped output (see
+   TextHighlightHelper's own XML doc, "All methods are XSS-safe"). *@
+
+<span class="@Class" @attributes="AdditionalAttributes">@((MarkupString)HighlightedHtml)</span>
+
+@code {
+    [Parameter] public string? Text { get; set; }
+    [Parameter] public string? SearchTerm { get; set; }
+    [Parameter] public int? MaxLength { get; set; }
+    [Parameter] public bool ShowContext { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string HighlightedHtml => MaxLength switch
+    {
+        { } max when ShowContext => TextHighlightHelper.HighlightWithContext(Text, SearchTerm, max),
+        { } max => TextHighlightHelper.TruncateAndHighlight(Text, SearchTerm, max),
+        _ => TextHighlightHelper.HighlightMatches(Text, SearchTerm)
+    };
+}

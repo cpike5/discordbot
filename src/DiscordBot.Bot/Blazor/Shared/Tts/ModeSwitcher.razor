@@ -1,0 +1,174 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Interop
+@using DiscordBot.Bot.ViewModels.Components
+@inject BrowserInterop BrowserInterop
+
+@*
+    Ported from _ModeSwitcher.cshtml. localStorage persistence (key "tts_mode_preference") goes
+    through BrowserInterop per docs/articles/blazor-interop.md - read once in OnAfterRenderAsync
+    (guarded by firstRender, since interop cannot run during prerendering), written on every
+    change. Everything else (segmented-control classes, ARIA tab state, keyboard nav) is plain
+    Tailwind + component state, same as the source partial.
+*@
+
+<div class="flex gap-2 bg-bg-tertiary p-1 rounded-lg tts-mode-switcher @Class"
+     role="tablist" aria-label="TTS mode selection" @attributes="AdditionalAttributes">
+
+    @foreach (var mode in Enum.GetValues<TtsMode>())
+    {
+        var isActive = mode == Value;
+
+        <button type="button"
+                class="flex-1 flex items-center justify-center gap-2 px-4 py-2 rounded-md font-semibold text-sm transition-all duration-200 @(isActive ? "bg-accent-orange text-white shadow-md" : "bg-bg-tertiary text-text-secondary hover:text-text-primary")"
+                role="tab"
+                aria-selected="@(isActive ? "true" : "false")"
+                tabindex="@(isActive ? "0" : "-1")"
+                @ref="_buttonRefs[(int)mode]"
+                @onclick="() => SelectModeAsync(mode, persist: true)"
+                @onkeydown="HandleKeyDownAsync">
+            <Icon Path="@ModeIconPath(mode)" Class="w-4 h-4 flex-shrink-0" />
+            <span>@ModeLabel(mode)</span>
+        </button>
+    }
+</div>
+
+@code {
+    private const string StorageKey = "tts_mode_preference";
+
+    [Parameter] public TtsMode Value { get; set; } = TtsMode.Standard;
+    [Parameter] public EventCallback<TtsMode> ValueChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly ElementReference[] _buttonRefs = new ElementReference[Enum.GetValues<TtsMode>().Length];
+
+    /// <summary>Consumed at the end of <see cref="OnAfterRenderAsync"/> once the render it depends
+    /// on has committed - see VoiceSelector.razor's identically-named field for why this replaces
+    /// a fire-and-forget <c>await Task.Yield(); await elementRef.FocusAsync();</c>.</summary>
+    private TtsMode? _pendingFocus;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            string? saved;
+            try
+            {
+                saved = await BrowserInterop.StorageGetAsync(StorageKey);
+            }
+            catch (JSException)
+            {
+                saved = null;
+            }
+
+            if (saved is not null && TryParseMode(saved, out var savedMode) && savedMode != Value)
+            {
+                await SelectModeAsync(savedMode, persist: false);
+            }
+        }
+
+        if (_pendingFocus is { } mode)
+        {
+            _pendingFocus = null;
+            try
+            {
+                await _buttonRefs[(int)mode].FocusAsync();
+            }
+            catch (Exception)
+            {
+                // Best-effort: focusing is a UX nicety, not correctness.
+            }
+        }
+    }
+
+    private static bool TryParseMode(string value, out TtsMode mode)
+    {
+        foreach (var candidate in Enum.GetValues<TtsMode>())
+        {
+            if (string.Equals(ModeValue(candidate), value, StringComparison.Ordinal))
+            {
+                mode = candidate;
+                return true;
+            }
+        }
+
+        mode = default;
+        return false;
+    }
+
+    private async Task SelectModeAsync(TtsMode mode, bool persist)
+    {
+        if (persist)
+        {
+            try
+            {
+                await BrowserInterop.StorageSetAsync(StorageKey, ModeValue(mode));
+            }
+            catch (JSException)
+            {
+            }
+        }
+
+        await ValueChanged.InvokeAsync(mode);
+    }
+
+    private async Task HandleKeyDownAsync(KeyboardEventArgs e)
+    {
+        var modes = Enum.GetValues<TtsMode>();
+        var currentIndex = Array.IndexOf(modes, Value);
+        int newIndex;
+
+        switch (e.Key)
+        {
+            case "ArrowRight" or "ArrowDown":
+                newIndex = (currentIndex + 1) % modes.Length;
+                break;
+            case "ArrowLeft" or "ArrowUp":
+                newIndex = (currentIndex - 1 + modes.Length) % modes.Length;
+                break;
+            case "Home":
+                newIndex = 0;
+                break;
+            case "End":
+                newIndex = modes.Length - 1;
+                break;
+            default:
+                return;
+        }
+
+        if (newIndex == currentIndex)
+        {
+            return;
+        }
+
+        var newMode = modes[newIndex];
+        await SelectModeAsync(newMode, persist: true);
+        _pendingFocus = newMode;
+    }
+
+    private static string ModeLabel(TtsMode mode) => mode switch
+    {
+        TtsMode.Simple => "Simple",
+        TtsMode.Standard => "Standard",
+        TtsMode.Pro => "Pro",
+        _ => mode.ToString()
+    };
+
+    private static string ModeValue(TtsMode mode) => mode switch
+    {
+        TtsMode.Simple => "simple",
+        TtsMode.Standard => "standard",
+        TtsMode.Pro => "pro",
+        _ => mode.ToString().ToLowerInvariant()
+    };
+
+    private static string ModeIconPath(TtsMode mode) => mode switch
+    {
+        TtsMode.Simple => IconPaths.Microphone,
+        TtsMode.Standard => IconPaths.AdjustmentsHorizontal,
+        TtsMode.Pro => IconPaths.BoltOutline,
+        _ => IconPaths.Microphone
+    };
+}

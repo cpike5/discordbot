@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Services.Realtime;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -23,6 +24,11 @@ public static class SignalRServiceExtensions
             options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
             options.HandshakeTimeout = TimeSpan.FromSeconds(15);
         });
+
+        // In-process event bus every dashboard broadcaster dual-publishes to alongside the hub
+        // send, so Blazor components can subscribe without a SignalR client connection.
+        // See docs/articles/signalr-realtime.md, "In-process event bus".
+        services.AddSingleton<IDashboardEventBus, DashboardEventBus>();
 
         return services;
     }

@@ -1,0 +1,312 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@implements IDisposable
+
+@* Native rewrite of _AutocompleteInput.cshtml + wwwroot/js/autocomplete.js (see
+   docs/articles/blazor-components.md Tier 2 brief) - no AutocompleteManager, no fetch: the caller
+   supplies SearchFunc and this component owns debounce (Blazor/Common/Debouncer), keyboard nav,
+   ARIA and the live region itself, entirely in C#.
+
+   Fidelity notes vs. autocomplete.js:
+   - The JS module debounces the *visibility toggle* as well as the search call (100ms), to avoid
+     flicker on rapid focus/blur. This component only debounces the search call (DebounceMs) and
+     closes/opens synchronously - selecting a result uses @onmousedown:preventDefault (see below)
+     rather than a debounced blur, so there's no flicker to guard against.
+   - Closing on blur uses @onfocusout, per the tier brief ("do not use JS interop"). Each result
+     item sets @onmousedown:preventDefault so clicking it never blurs the input in the first place
+     (the same trick autocomplete.js's `mousedown` + `e.preventDefault()` listener uses) - so the
+     ordinary close-on-blur path only ever runs for an actual loss of focus (Tab, clicking
+     elsewhere), matching the JS version's behavior without needing its 100ms debounce workaround.
+   - Blazor's `@onkeydown:preventDefault` is a static, per-render flag - it cannot vary by which
+     key was actually pressed the way `e.preventDefault()` in the JS handler does. This component
+     sets it to true only while the listbox is open, which also suppresses the browser's default
+     Tab-navigation while open (the JS version does not preventDefault Tab). Practical effect: Tab
+     still closes the dropdown (see HandleKeyDown), it just does not also move focus in the same
+     keystroke while the dropdown happens to be open. *@
+
+<div class="space-y-1.5 @Class" @attributes="AdditionalAttributes">
+    @if (!string.IsNullOrEmpty(Label))
+    {
+        <label for="@Id" class="block text-sm font-medium text-text-primary">
+            @Label
+            @if (IsRequired)
+            {
+                <span class="text-error">*</span>
+            }
+        </label>
+    }
+
+    <div class="autocomplete-wrapper">
+        <input @ref="_inputRef"
+               type="text"
+               id="@Id"
+               class="form-input w-full @(_isLoading ? "autocomplete-loading" : "")"
+               placeholder="@(Placeholder ?? "Search...")"
+               autocomplete="off"
+               role="combobox"
+               aria-autocomplete="list"
+               aria-expanded="@(_isOpen ? "true" : "false")"
+               aria-haspopup="listbox"
+               aria-controls="@ListboxId"
+               aria-activedescendant="@(_isOpen && _selectedIndex >= 0 ? $"{Id}-option-{_selectedIndex}" : null)"
+               aria-required="@(IsRequired ? "true" : null)"
+               aria-describedby="@(!string.IsNullOrEmpty(HelpText) ? HelpTextId : null)"
+               value="@_displayText"
+               @oninput="HandleInput"
+               @onkeydown="HandleKeyDown"
+               @onkeydown:preventDefault="_isOpen"
+               @onfocus="HandleFocus"
+               @onfocusout="HandleFocusOut" />
+
+        @if (!string.IsNullOrEmpty(Value))
+        {
+            <button type="button" class="autocomplete-clear" aria-label="Clear selection" @onmousedown:preventDefault="true" @onclick="HandleClear">
+                <Icon Path="@IconPaths.XMark" Class="w-4 h-4" />
+            </button>
+        }
+
+        <div id="@ListboxId" class="autocomplete-dropdown @(_isOpen ? "active" : "")" role="listbox">
+            @if (_isOpen)
+            {
+                @if (_hasError)
+                {
+                    <div class="autocomplete-error">An error occurred. Please try again.</div>
+                }
+                else if (_results.Count == 0)
+                {
+                    <div class="autocomplete-no-results">@NoResultsMessage</div>
+                }
+                else
+                {
+                    @for (var i = 0; i < _results.Count; i++)
+                    {
+                        var index = i;
+                        var item = _results[i];
+                        <div class="autocomplete-item @(index == _selectedIndex ? "selected" : "")"
+                             role="option"
+                             id="@($"{Id}-option-{index}")"
+                             aria-selected="@(index == _selectedIndex ? "true" : "false")"
+                             @onmousedown:preventDefault="true"
+                             @onmousedown="() => SelectItem(item)"
+                             @onmouseover="() => _selectedIndex = index">
+                            <span class="autocomplete-item-icon autocomplete-icon-default">
+                                <Icon Path="@IconPaths.User" Class="w-4 h-4" />
+                            </span>
+                            <span class="autocomplete-item-text">@item.Text</span>
+                            @if (!string.IsNullOrEmpty(item.Description))
+                            {
+                                <span class="autocomplete-item-meta">@item.Description</span>
+                            }
+                        </div>
+                    }
+                }
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(HelpText))
+    {
+        <p id="@HelpTextId" class="text-xs text-text-secondary">@HelpText</p>
+    }
+
+    <div class="sr-only" aria-live="polite" aria-atomic="true">@_liveMessage</div>
+</div>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; }
+
+    /// <summary>Runs the search for a query the caller supplies - the component has no HTTP client
+    /// of its own (see docs/articles/blazor-components.md Tier 2 brief: "the caller supplies the
+    /// search; no HTTP inside the component"). Receives a token that is cancelled if a later
+    /// keystroke supersedes this search before it completes.</summary>
+    [Parameter, EditorRequired] public Func<string, CancellationToken, Task<IReadOnlyList<AutocompleteItem>>> SearchFunc { get; set; } = null!;
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+
+    /// <summary>Initial text shown in the search box (mirrors AutocompleteInputViewModel's
+    /// InitialDisplayText) - after that the component owns its own display text as the user types
+    /// and selects results, the same way the underlying JS module did.</summary>
+    [Parameter] public string? DisplayText { get; set; }
+
+    [Parameter] public bool IsRequired { get; set; }
+    [Parameter] public int MinChars { get; set; } = 2;
+    [Parameter] public int DebounceMs { get; set; } = 300;
+    [Parameter] public int MaxResults { get; set; } = 25;
+    [Parameter] public string NoResultsMessage { get; set; } = "No results found";
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private readonly Debouncer _debouncer = new();
+    private ElementReference _inputRef;
+    private string _displayText = string.Empty;
+    private string? _syncedValue;
+    private List<AutocompleteItem> _results = new();
+    private int _selectedIndex = -1;
+    private bool _isOpen;
+    private bool _isLoading;
+    private bool _hasError;
+    private string _liveMessage = string.Empty;
+
+    private string ListboxId => $"{Id}-listbox";
+    private string HelpTextId => $"{Id}-help";
+
+    protected override void OnInitialized()
+    {
+        _displayText = DisplayText ?? string.Empty;
+        _syncedValue = Value;
+    }
+
+    protected override void OnParametersSet()
+    {
+        // Resync only when Value changed from outside this component (e.g. the caller reset the
+        // bound form) - not after our own SelectItem/HandleClear already updated both Value and
+        // _syncedValue together, which would otherwise stomp on the display text the user is
+        // actively looking at.
+        if (Value != _syncedValue)
+        {
+            _syncedValue = Value;
+            _displayText = DisplayText ?? string.Empty;
+        }
+    }
+
+    private void HandleInput(ChangeEventArgs e)
+    {
+        var text = e.Value?.ToString() ?? string.Empty;
+        _displayText = text;
+        SetValue(null);
+
+        if (text.Trim().Length >= MinChars)
+        {
+            _debouncer.Debounce(TimeSpan.FromMilliseconds(DebounceMs), ct => SearchAsync(text.Trim(), ct));
+        }
+        else
+        {
+            Close();
+        }
+    }
+
+    private async Task SearchAsync(string term, CancellationToken ct)
+    {
+        _isLoading = true;
+        await InvokeAsync(StateHasChanged);
+
+        try
+        {
+            var results = await SearchFunc(term, ct);
+            if (ct.IsCancellationRequested)
+            {
+                return;
+            }
+
+            _results = results.Take(MaxResults).ToList();
+            _hasError = false;
+            _selectedIndex = -1;
+            _liveMessage = _results.Count == 0
+                ? NoResultsMessage
+                : $"{_results.Count} result{(_results.Count == 1 ? "" : "s")} available";
+            Open();
+        }
+        catch (OperationCanceledException)
+        {
+            // Superseded by a later keystroke. Expected.
+        }
+        catch
+        {
+            _results = new List<AutocompleteItem>();
+            _hasError = true;
+            Open();
+        }
+        finally
+        {
+            _isLoading = false;
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void HandleFocus()
+    {
+        if (_results.Count > 0 && _displayText.Length >= MinChars)
+        {
+            Open();
+        }
+    }
+
+    private void HandleFocusOut() => Close();
+
+    private async Task HandleKeyDown(KeyboardEventArgs e)
+    {
+        if (!_isOpen)
+        {
+            if (e.Key == "ArrowDown" && _results.Count > 0)
+            {
+                Open();
+            }
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                _selectedIndex = _selectedIndex < _results.Count - 1 ? _selectedIndex + 1 : 0;
+                break;
+            case "ArrowUp":
+                _selectedIndex = _selectedIndex > 0 ? _selectedIndex - 1 : _results.Count - 1;
+                break;
+            case "Enter":
+                if (_selectedIndex >= 0 && _selectedIndex < _results.Count)
+                {
+                    await SelectItem(_results[_selectedIndex]);
+                }
+                break;
+            case "Escape":
+                Close();
+                break;
+            case "Tab":
+                Close();
+                break;
+        }
+    }
+
+    private async Task SelectItem(AutocompleteItem item)
+    {
+        _displayText = item.Text;
+        SetValue(item.Id);
+        Close();
+        await ValueChanged.InvokeAsync(Value);
+    }
+
+    private async Task HandleClear()
+    {
+        _displayText = string.Empty;
+        _results = new List<AutocompleteItem>();
+        SetValue(null);
+        Close();
+        await ValueChanged.InvokeAsync(Value);
+        await _inputRef.FocusAsync();
+    }
+
+    private void SetValue(string? value)
+    {
+        Value = value;
+        _syncedValue = value;
+    }
+
+    private void Open()
+    {
+        _isOpen = true;
+    }
+
+    private void Close()
+    {
+        _isOpen = false;
+        _selectedIndex = -1;
+    }
+
+    public void Dispose() => _debouncer.Dispose();
+}

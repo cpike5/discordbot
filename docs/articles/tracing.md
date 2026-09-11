@@ -2,7 +2,7 @@
 
 **Version:** 1.1
 **Last Updated:** 2026-01-03
-**Target Framework:** .NET 8 with OpenTelemetry SDK
+**Target Framework:** .NET 10 with OpenTelemetry SDK
 
 ---
 
@@ -481,7 +481,39 @@ using (_logger.BeginScope(new Dictionary<string, object>
 }
 ```
 
-#### 3. Baggage Propagation
+#### 3. BlazorCircuitHandler (no per-interaction spans)
+
+Interactive Server circuit interactions are SignalR messages, not HTTP requests: they never pass
+through `CorrelationIdMiddleware`, so there is no per-interaction span/baggage/LogContext
+correlation like the two integration points above. `BlazorCircuitHandler`
+(`src/DiscordBot.Bot/Blazor/Services/BlazorCircuitHandler.cs`) only correlates at circuit
+open/close, once per circuit rather than once per interaction:
+
+```csharp
+// OnCircuitOpenedAsync - reuses the correlation ID of the HTTP request that
+// negotiated the circuit when one is present, otherwise generates a fresh one
+// the same way CorrelationIdMiddleware does
+var correlationId = httpContext?.GetCorrelationId() ?? GenerateCorrelationId();
+
+// Best-effort only: this LogContext push is not guaranteed to flow into every
+// later render/event on the circuit, since interactions are dispatched through
+// the renderer's own execution context rather than this handler's call. It
+// reliably covers logs emitted directly from the handler's own open/close
+// calls; anything else that needs the correlation ID reliably should read it
+// from the scoped CircuitClientInfoService instead.
+_correlationLogContext = LogContext.PushProperty("CorrelationId", correlationId);
+
+_logger.LogInformation(
+    "Blazor circuit opened. UserId: {UserId}, CircuitId: {CircuitId}, CorrelationId: {CorrelationId}",
+    userId, circuitId, correlationId);
+```
+
+There is no `Activity`/span created for the circuit or its interactions - `blazor.circuits.*`
+(see [metrics.md](metrics.md#blazor-circuit-metrics)) and the open/close log lines above are the
+entire observability surface for a circuit's lifetime today. A future phase could add a span per
+component event if per-interaction tracing turns out to be needed.
+
+#### 4. Baggage Propagation
 
 Correlation IDs are added as **baggage** to spans, allowing child spans to inherit the correlation ID:
 

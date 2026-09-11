@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 env:
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '10.0.x'
   NODE_VERSION: '20.x'
 
 jobs:
@@ -29,7 +29,7 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        cache-dependency-path: src/DiscordBot.Bot/package.json
+        cache-dependency-path: src/DiscordBot.Bot/package-lock.json
 
     - name: Display .NET version
       run: dotnet --version
@@ -80,3 +80,73 @@ jobs:
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "Build configuration: Release" >> $GITHUB_STEP_SUMMARY
         echo "Tests completed for commit: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+
+  e2e:
+    name: Browser (Playwright) Tests
+    runs-on: ubuntu-latest
+    # Runs after build-and-test and is a gate like every other job here: a failure in this job
+    # fails the overall workflow run. It is deterministic (a fixed Chromium build driving the
+    # app in web-only mode against a throwaway SQLite db, see docs/articles/testing-guide.md
+    # "Browser (Playwright) tests"), so there is no reason to let it fail silently.
+    needs: build-and-test
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: src/DiscordBot.Bot/package-lock.json
+
+    - name: Restore .NET dependencies
+      run: dotnet restore
+
+    - name: Install Node.js dependencies
+      run: npm ci
+      working-directory: src/DiscordBot.Bot
+
+    - name: Build frontend assets
+      # GitHub Actions sets CI=true, which disables the MSBuild Tailwind/vendor target (see
+      # CLAUDE.md "Tailwind") - without this the host under test boots with no
+      # wwwroot/css/app.css and no wwwroot/lib/chart.js.
+      run: npm run build
+      working-directory: src/DiscordBot.Bot
+
+    - name: Build solution
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Install Playwright Chromium
+      run: pwsh tests/DiscordBot.E2E/bin/Release/net10.0/playwright.ps1 install chromium --with-deps
+
+    - name: Run browser tests
+      run: E2E_ENABLED=1 dotnet test tests/DiscordBot.E2E --configuration Release --no-build --logger "trx" --logger "console;verbosity=detailed"
+
+    - name: Upload test results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-test-results
+        path: 'tests/DiscordBot.E2E/**/TestResults/*.trx'
+        retention-days: 30
+        if-no-files-found: ignore
+
+    - name: Upload host logs
+      # BotHostFixture writes host.log (the child DiscordBot.Bot process's stdout/stderr) under
+      # tests/DiscordBot.E2E/TestResults/e2e-<timestamp>/ and always keeps it - only the
+      # throwaway SQLite db and Data Protection key directory are deleted on dispose - see
+      # BotHostFixture.cs. This upload only runs on failure to avoid noise on green runs.
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: e2e-host-logs
+        path: tests/DiscordBot.E2E/TestResults/e2e-*/
+        retention-days: 30
+        if-no-files-found: ignore

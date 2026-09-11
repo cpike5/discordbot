@@ -430,6 +430,9 @@ api/*.yml
 
 # Tailwind CSS build output (regenerated on dotnet build)
 src/DiscordBot.Bot/wwwroot/css/app.css
+
+# Vendored JS libraries copied from node_modules (regenerated on dotnet build; see build:vendor)
+src/DiscordBot.Bot/wwwroot/lib/
 api/.manifest
 
 

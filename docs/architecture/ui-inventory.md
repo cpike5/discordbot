@@ -2,7 +2,7 @@
 
 **Version:** 1.0
 **Last Updated:** 2026-02-03
-**Target Framework:** .NET 8 Razor Pages with Tailwind CSS
+**Target Framework:** .NET 10 Razor Pages with Tailwind CSS
 
 ---
 
@@ -11,6 +11,34 @@
 This document provides a comprehensive inventory of all UI components, pages, and layouts in the Discord bot project. Use this as a quick reference to understand what UI building blocks exist without diving into the codebase.
 
 For detailed component documentation, see [Component API Usage Guide](../articles/component-api.md).
+
+---
+
+## Blazor Routes (Phase 1, temporary — retained through Phase 3)
+
+The Blazor port (`docs/plans/blazor-port-plan.md`) is under way alongside the Razor Pages
+below; see "Blazor components" in `patterns.md`. These routes exist only to prove the
+Phase 1 hosting foundation and are **not part of the permanent route surface** — but per
+`blazor-port-plan.md` §5 Phase 2's "Delivered" note, they are **retained past Phase 2**
+(superseding this table's earlier "deleted at the end of Phase 2" wording) since nothing in
+Phase 2 needed to touch them; they are deleted once Phase 4 replaces them with real nested
+pages that exercise the same hosting-foundation guarantees as a side effect of being real
+product pages.
+
+| Route | File | Purpose |
+|-------|------|---------|
+| `/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Minimal smoke test: `RequireAdmin` auth on a routable component plus one interactive counter button. |
+| `/admin/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Second `@page` route on the same component as `/blazor-smoke`, guarding a known .NET 10 regression where `blazor.web.js` resolved `_blazor/initializers` relative to a nested path instead of the app base, 404ing and leaving the circuit dead — see `tests/DiscordBot.E2E`. Both the flat and nested Playwright checks run against this one component. |
+| `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, and `BrowserInterop`/`CircuitClientInfoService`. Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and stays retained with the rest of this page — see the note above. |
+
+## Blazor Routes (Phase 2, permanent)
+
+Unlike the Phase 1 probe/smoke routes above, this route is a permanent part of the app — it
+replaces a Razor Page rather than proving the hosting foundation.
+
+| Route | File | Purpose |
+|-------|------|---------|
+| `/components` | `Blazor/Pages/Components/ComponentsPage.razor` | Component showcase / design-system reference, `RequireAdmin`-gated. Replaces the former Razor Page `Pages/Components.cshtml` (route `/Components` — ASP.NET Core endpoint routing matches both case-insensitively, so the sidebar's existing link keeps resolving). Composes the six tier showcase sections (`Blazor/Pages/Components/Sections/*Showcase.razor`) behind an anchor nav, plus a `ToastHost`/`LoadingOverlay` so their demos render into something. Renders under `EmptyLayout` (the real `MainLayout` shell lands in Phase 3). See "Blazor components" table below for every component it showcases. |
 
 ---
 
@@ -45,12 +73,10 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/admin/users/create` | `Pages/Admin/Users/Create.cshtml` | Create new user |
 | `/admin/users/edit/{id}` | `Pages/Admin/Users/Edit.cshtml` | Edit user details |
 | `/admin/users/{id}` | `Pages/Admin/Users/Details.cshtml` | User details view |
-| `/admin/audit-logs` | `Pages/Admin/AuditLogs/Index.cshtml` | Audit log viewer |
 | `/admin/audit-logs/{id}` | `Pages/Admin/AuditLogs/Details.cshtml` | Audit log entry details |
-| `/admin/message-logs` | `Pages/Admin/MessageLogs/Index.cshtml` | Message log viewer |
 | `/admin/message-logs/{id}` | `Pages/Admin/MessageLogs/Details.cshtml` | Message details |
 | `/admin/performance` | `Pages/Admin/Performance/Index.cshtml` | Performance metrics dashboard (tabbed) |
-| `/admin/logs` | `Pages/Admin/Logs/Index.cshtml` | System logs viewer |
+| `/admin/logs` | `Pages/Admin/Logs/Index.cshtml` | System logs viewer (Audit Logs and Message Logs tabs; `/admin/audit-logs` and `/admin/message-logs` permanently redirect here) |
 | `/admin/notifications` | `Pages/Admin/Notifications/Index.cshtml` | Notification center |
 | `/admin/bulk-purge` | `Pages/Admin/BulkPurge.cshtml` | Bulk user/data purge tool |
 | `/admin/user-purge` | `Pages/Admin/UserPurge.cshtml` | User purge utility |
@@ -245,6 +271,32 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 
 ---
 
+## Blazor Components
+
+The Phase 2 component library (`docs/plans/blazor-port-plan.md` §5 "Phase 2", complete) at
+`src/DiscordBot.Bot/Blazor/Shared/` — 62 components across 7 groups, each namespaced
+`DiscordBot.Bot.Blazor.Shared` regardless of which group subfolder it lives in. See
+`docs/articles/blazor-components.md` for parameters, source partials, and documented fidelity
+deviations per component, and the "Status" section there for what each tier delivered. This table
+supersedes the "Reusable Components" partials above one entry at a time as their consuming pages
+are ported in Phase 4 — until then both the partial and its Blazor equivalent exist.
+
+| Group | Components |
+| --- | --- |
+| **Icons** (1) | `Icon` (+ the `IconPaths` static class of named `d` path constants) |
+| **Primitives** (17) | `Alert`, `Badge`, `Button`, `Card`, `DashboardWidget`, `EmptyState`, `GuildStatsCard`, `HeroMetricCard`, `Highlight`, `Kbd`, `LoadingSpinner`, `RuleTypeIcon`, `SeverityBadge`, `Skeleton`, `SkeletonCard`, `StatusBadge`, `StatusIndicator` |
+| **Forms** (10) | `Autocomplete`, `DateRangeFilter`, `FilterPanel`, `FormField`, `Select`, `SettingField`, `SortDropdown`, `TextArea`, `TextInput`, `Toggle` |
+| **Navigation** (7) | `Breadcrumb`, `GuildContextSelector`, `GuildHeader`, `PageHeader`, `Pagination`, `TabGroup`, `TabPanel` |
+| **Overlays** (7) | `ConfirmModal`, `GuildPreviewPopoverContent`, `LoadingOverlay`, `Modal`, `PreviewPopover`, `ToastHost`, `UserPreviewPopoverContent` |
+| **Widgets** (13) | `ActivityFeed`, `AuditLogCard`, `BotStatusBanner`, `BotStatusCard`, `Chart`, `CommandStatsCard`, `ConnectedServersWidget`, `ConnectionStatus`, `NotificationBell`, `QuickActionsCard`, `RecentActivityCard`, `RestartBanner`, `VoiceChannelPanel` |
+| **Tts** (7) | `EmphasisToolbar`, `ModeSwitcher`, `PauseModal`, `PresetBar`, `SsmlPreview`, `StyleSelector`, `VoiceSelector` |
+
+Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Blazor/Shared/`
+(mirroring this same group structure); the full library plus the `/components` showcase page is
+566 tests as of the end of Phase 2 (`docs/articles/testing-guide.md` "Component (bUnit) tests").
+
+---
+
 ## Component Groups by Feature
 
 ### Admin Dashboard
@@ -321,9 +373,8 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 ### Logging & Analytics
 
 **Pages:**
-- `/admin/audit-logs` - Audit log viewer
+- `/admin/logs` - Unified log viewer (Audit Logs and Message Logs tabs; replaces the old `/admin/audit-logs` and `/admin/message-logs` list pages, which now redirect here)
 - `/admin/audit-logs/{id}` - Audit log details
-- `/admin/message-logs` - Message logs
 - `/admin/message-logs/{id}` - Message details
 - `/commands` - Command documentation
 - `/command-logs` - Command execution logs
@@ -371,11 +422,9 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 │   │   ├── Edit
 │   │   └── Details
 │   ├── AuditLogs
-│   │   ├── Index
-│   │   └── Details
+│   │   └── Details (Index redirects to Admin/Logs)
 │   ├── MessageLogs
-│   │   ├── Index
-│   │   └── Details
+│   │   └── Details (Index redirects to Admin/Logs)
 │   ├── Performance (tabbed)
 │   │   ├── Overview
 │   │   ├── Health
@@ -522,7 +571,7 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 When working on features, use these pages as entry points:
 
 - **Need to add a form?** Look at `/admin/users/create` or `/guild/{guildId}/edit`
-- **Need to display a list?** Look at `/admin/users` or `/admin/audit-logs`
+- **Need to display a list?** Look at `/admin/users` or `/admin/logs`
 - **Need tabbed navigation?** See `/admin/performance` or `/guild/{guildId}/analytics`
 - **Need modals/popups?** See `_MemberDetailModal.cshtml` or `_ConfirmationModal.cshtml`
 - **Need real-time status?** See `_StatusIndicator` and `_BotStatusCard`

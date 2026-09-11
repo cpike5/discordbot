@@ -1,0 +1,45 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@implements IDisposable
+@inject DiscordBot.Bot.Blazor.Services.ILoadingState LoadingState
+
+@* Ported from _PageLoadingOverlay.cshtml / PageLoadingOverlayViewModel, driven by ILoadingState
+   instead of loading-manager.js's id-targeted show()/hide(). Composes LoadingSpinner exactly as
+   the partial composed _LoadingSpinner (forced SpinnerColor.White). No interop - IsLoading/Message
+   come from the injected ILoadingState and its Changed event. *@
+
+@if (LoadingState.IsLoading)
+{
+    <div class="loading-overlay @Class" role="alert" aria-live="polite" aria-busy="true" @attributes="AdditionalAttributes">
+        <LoadingSpinner Variant="Variant" Size="Size" Message="@(LoadingState.Message ?? Message)" SubMessage="SubMessage" Color="DiscordBot.Bot.ViewModels.Components.SpinnerColor.White" />
+
+        @if (OnCancel.HasDelegate)
+        {
+            <button type="button" class="btn btn-secondary btn-sm mt-4" aria-label="@CancelText" @onclick="() => OnCancel.InvokeAsync()">
+                @CancelText
+            </button>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public DiscordBot.Bot.ViewModels.Components.SpinnerVariant Variant { get; set; } = DiscordBot.Bot.ViewModels.Components.SpinnerVariant.Simple;
+    [Parameter] public DiscordBot.Bot.ViewModels.Components.SpinnerSize Size { get; set; } = DiscordBot.Bot.ViewModels.Components.SpinnerSize.Large;
+
+    /// <summary>Fallback message shown when a loading scope was opened with no message of its
+    /// own (<c>ILoadingState.Begin(message: null)</c>) - mirrors the partial's default "Loading..."
+    /// text.</summary>
+    [Parameter] public string? Message { get; set; } = "Loading...";
+    [Parameter] public string? SubMessage { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    protected override void OnInitialized() => LoadingState.Changed += HandleChanged;
+
+    private void HandleChanged() => InvokeAsync(StateHasChanged);
+
+    public void Dispose() => LoadingState.Changed -= HandleChanged;
+}

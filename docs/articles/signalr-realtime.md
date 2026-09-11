@@ -124,15 +124,16 @@ const status = await DashboardHub.getCurrentStatus();
 console.log('Bot state:', status.connectionState);
 console.log('Guild count:', status.guildCount);
 console.log('Uptime:', status.uptime);
-console.log('Latency:', status.latency);
+console.log('Latency:', status.latencyMs);
 ```
 
 **BotStatusDto Properties:**
 - `connectionState` (string): Current Discord connection state (Connected, Connecting, Disconnected, etc.)
 - `guildCount` (int): Number of guilds the bot is currently in
 - `uptime` (TimeSpan): How long the bot has been running
-- `latency` (int?): Gateway latency in milliseconds (null if disconnected)
-- `isReady` (bool): Whether the bot is fully connected and ready
+- `latencyMs` (int): Gateway latency in milliseconds
+- `startTime` (DateTime): When the bot process started
+- `botUsername` (string): The bot's Discord username
 
 **Use Case:** Fetch initial bot status when the dashboard page loads, before real-time updates begin arriving.
 
@@ -146,7 +147,11 @@ Server-to-client events are pushed from the server to listening clients. Clients
 
 Broadcast to all connected clients when the bot's status changes (connection state, latency, guild count, etc.).
 
-**Event Data:** `BotStatusDto` object
+**Event Data:** `BotStatusUpdateDto` object - note this is a different (smaller) shape than
+the `BotStatusDto` returned by `GetCurrentStatus()`: it has `latency` where `GetCurrentStatus()`
+has `latencyMs`, and adds `timestamp`, but omits `startTime` and `botUsername`.
+Client code that handles both (e.g. to seed from `GetCurrentStatus()` and then apply pushed
+updates with the same function) should read `latencyMs ?? latency`.
 
 **JavaScript Example:**
 
@@ -163,9 +168,19 @@ DashboardHub.on('BotStatusUpdated', (status) => {
 - Bot connects to Discord
 - Bot disconnects from Discord
 - Guild count changes (bot joins/leaves guild)
-- Periodic status broadcasts (future implementation)
+- Periodic status broadcasts - `BotStatusBroadcastService` (`src/DiscordBot.Bot/Services/BotStatusBroadcastService.cs`)
+  re-broadcasts every 30 seconds via the same `IBotStatusBroadcaster.BroadcastStatusAsync()`
+  the connect/disconnect path uses, so latency/uptime on consumers now tick roughly every
+  30 seconds rather than only on connect/disconnect (plus whatever they fetch once via
+  `GetCurrentStatus()` on load).
 
 **Broadcast Scope:** All authenticated dashboard clients
+
+**Current Consumers:**
+- `wwwroot/js/dashboard-realtime.js` - updates the bot status banner on `/` (`Pages/Index.cshtml`)
+- `wwwroot/js/settings.js` - updates the Bot Control panel's status card on `/Admin/Settings`
+  (replaced a 5-second `/api/bot/status` polling loop with this push, seeded by one
+  `GetCurrentStatus()` invoke when the Bot Control tab is activated)
 
 ---
 
@@ -416,6 +431,122 @@ await _notifier.BroadcastToAllAsync(
         ScheduledAt = DateTime.UtcNow.AddMinutes(5)
     });
 ```
+
+---
+
+## In-process event bus
+
+Every one of the seven broadcaster services in this article (`DashboardNotifier`,
+`NotificationBroadcaster`, `PerformanceMetricsBroadcastService`, `PerformanceNotifier`,
+`DashboardUpdateService`, `AudioNotifier`, `BulkPurgeService`) **dual-publishes**: right after its
+`IHubContext<DashboardHub>...SendAsync(...)` call, it also publishes a typed event on
+`IDashboardEventBus`, an in-process pub/sub bus registered as a singleton in
+`Extensions/SignalRServiceExtensions.cs` (`Services/Realtime/DashboardEventBus.cs`). This exists so
+Blazor Server components (Phase 1 of the Blazor port, `docs/plans/blazor-port-plan.md` §4.3) can
+get the same real-time data a browser SignalR client gets today, without opening a SignalR
+connection from inside the same process that already has the data in memory. **The hub send is
+never replaced** — until `DashboardHub` itself is retired at the end of the port, both paths stay
+live side by side.
+
+### The bus API
+
+```csharp
+public interface IDashboardEventBus
+{
+    IDisposable Subscribe<TEvent>(Func<TEvent, CancellationToken, Task> handler)
+        where TEvent : IDashboardEvent;
+
+    IDisposable Subscribe<TEvent>(ulong guildId, Func<TEvent, CancellationToken, Task> handler)
+        where TEvent : GuildScopedEvent;
+
+    Task PublishAsync<TEvent>(TEvent evt, CancellationToken ct = default)
+        where TEvent : IDashboardEvent;
+}
+```
+
+Every event type lives under `Services/Realtime/Events/` and implements `IDashboardEvent`
+(`DateTimeOffset OccurredAt`). One record per SignalR push event, carrying the same DTO the hub
+already sends — no parallel payload shape. Events scoped the way the hub scopes delivery derive
+from a shared base so filtering is one line:
+
+- `GuildScopedEvent` (a `GuildId`) for anything sent to a `guild-{id}` / `guild-audio-{id}` group
+  (`AudioConnectedEvent`, `GuildActivityEvent`, `SoundUploadedEvent`, ...).
+- `UserScopedEvent` (a `UserId`) for anything sent via `Clients.User(userId)`
+  (`NotificationReceivedEvent`, `NotificationCountChangedEvent`, ...).
+- A plain `IDashboardEvent` for anything sent to `Clients.All` or a non-guild group like
+  `performance`, `system-health`, `alerts`, `bulk-purge`
+  (`HealthMetricsUpdatedEvent`, `AlertTriggeredEvent`, `BulkPurgeProgressEvent`, ...).
+
+### The dual-publish rule for any new broadcaster
+
+Adding a new SignalR push (or a new send in an existing broadcaster) means adding the matching
+bus publish in the same change:
+
+```csharp
+await _hubContext.Clients.Group(groupName).SendAsync("SomethingHappened", dto, cancellationToken);
+
+// Right after the hub send. Reuse `dto` — do not invent a second payload shape for the same data.
+await _eventBus.PublishAsync(new SomethingHappenedEvent { GuildId = guildId, Data = dto }, cancellationToken);
+```
+
+Keep the change minimal: inject `IDashboardEventBus` alongside the existing
+`IHubContext<DashboardHub>`, add one event record under `Services/Realtime/Events/`, and add one
+call right after the hub send. Do not touch `DashboardHub` itself for this — the hub's group
+membership and the bus's subscriber list are two independent delivery mechanisms over the same
+source event.
+
+### Subscribing from a Blazor component
+
+```csharp
+public partial class BotStatusCard : ComponentBase, IDisposable
+{
+    [Inject] private IDashboardEventBus EventBus { get; set; } = default!;
+
+    private IDisposable? _subscription;
+    private readonly Debouncer _debouncer = new();
+    private BotStatusUpdateDto? _status;
+
+    protected override void OnInitialized()
+    {
+        _subscription = EventBus.Subscribe<BotStatusBroadcastEvent>((evt, _) =>
+        {
+            _debouncer.Debounce(TimeSpan.FromSeconds(1), async ct =>
+            {
+                _status = evt.Status;
+                await InvokeAsync(StateHasChanged);
+            });
+            return Task.CompletedTask;
+        });
+        base.OnInitialized();
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}
+```
+
+Rules every subscriber follows:
+
+1. **Filter by guild.** For a `GuildScopedEvent`, use the guild-scoped `Subscribe` overload
+   (`EventBus.Subscribe<GuildActivityEvent>(guildId, handler)`) instead of subscribing to every
+   guild's events and checking `evt.GuildId == guildId` by hand.
+2. **Debounce/coalesce to ≤1 Hz re-render.** `PlaybackProgressEvent` and similar high-frequency
+   events can fire many times a second; wrap the re-render in `Blazor/Common/Debouncer.cs` (or
+   equivalent coalescing) so `StateHasChanged` runs at most once a second.
+3. **Unsubscribe in `Dispose`.** The handle `Subscribe` returns must be disposed when the
+   component is torn down, or the bus keeps a stale delegate closing over that component's state
+   forever. A handler that throws (e.g. because its component already disposed) is caught and
+   logged by the bus itself — see `DashboardEventBus.PublishAsync` — but disposing promptly still
+   matters to stop pointless work.
+4. **Call `InvokeAsync(StateHasChanged)`.** A bus handler runs on whatever thread published the
+   event (a background service's timer, a hub call, or another circuit's thread for a `Clients.All`
+   send), never automatically on the component's own synchronization context.
+
+See `docs/architecture/patterns.md`, "Real-time event bus" for the fuller pattern writeup, and
+`docs/architecture/service-catalog.md` for the bus and UI-service entries.
 
 ---
 

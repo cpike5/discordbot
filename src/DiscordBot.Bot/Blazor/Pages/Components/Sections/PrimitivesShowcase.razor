@@ -1,0 +1,304 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Components.Sections
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Non-routable showcase section for the Tier 1a primitives, mirroring what Pages/Components.cshtml
+   shows today for the same partials (docs/articles/blazor-components.md "Component contract",
+   point 10). A later agent composes the routable /components page from this and the sibling
+   *Showcase.razor files the other tiers add. *@
+
+<div class="space-y-8" data-testid="primitives-showcase">
+    <!-- Buttons -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-buttons">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Buttons</h3>
+            <p class="text-sm text-text-secondary mt-1">Interactive elements for user actions</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Button Variants</h4>
+                <div class="flex flex-wrap gap-3">
+                    <Button Text="Primary Button" Variant="ButtonVariant.Primary" />
+                    <Button Text="Secondary Button" Variant="ButtonVariant.Secondary" />
+                    <Button Text="Accent Button" Variant="ButtonVariant.Accent" />
+                    <Button Text="Danger Button" Variant="ButtonVariant.Danger" />
+                    <Button Text="Ghost Button" Variant="ButtonVariant.Ghost" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Button Sizes</h4>
+                <div class="flex flex-wrap items-center gap-3">
+                    <Button Text="Small Button" Size="ButtonSize.Small" />
+                    <Button Text="Medium Button" Size="ButtonSize.Medium" />
+                    <Button Text="Large Button" Size="ButtonSize.Large" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Icon Buttons</h4>
+                <div class="flex flex-wrap gap-3">
+                    <Button Text="Save" Variant="ButtonVariant.Primary" IconLeft="@IconPaths.CheckCircle" />
+                    <Button Text="Delete" Variant="ButtonVariant.Danger" IconLeft="@IconPaths.XMark" />
+                    <Button IsIconOnly="true" Variant="ButtonVariant.Ghost" IconLeft="@IconPaths.ChevronDown" AriaLabel="Settings" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Loading State</h4>
+                <div>
+                    <Button Text="Loading..." Variant="ButtonVariant.Primary" IsLoading="true" IsDisabled="true" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Link Button (Href)</h4>
+                <div>
+                    <Button Text="Go to Dashboard" Variant="ButtonVariant.Accent" Href="#" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Badges -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-badges">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Badges</h3>
+            <p class="text-sm text-text-secondary mt-1">Labels for status, categories, and tags</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Filled Style</h4>
+                <div class="flex flex-wrap gap-2">
+                    <Badge Text="Default" Variant="BadgeVariant.Default" Style="BadgeStyle.Filled" />
+                    <Badge Text="Orange" Variant="BadgeVariant.Orange" Style="BadgeStyle.Filled" />
+                    <Badge Text="Blue" Variant="BadgeVariant.Blue" Style="BadgeStyle.Filled" />
+                    <Badge Text="Success" Variant="BadgeVariant.Success" Style="BadgeStyle.Filled" />
+                    <Badge Text="Warning" Variant="BadgeVariant.Warning" Style="BadgeStyle.Filled" />
+                    <Badge Text="Error" Variant="BadgeVariant.Error" Style="BadgeStyle.Filled" />
+                    <Badge Text="Info" Variant="BadgeVariant.Info" Style="BadgeStyle.Filled" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Outline Style</h4>
+                <div class="flex flex-wrap gap-2">
+                    <Badge Text="Default" Variant="BadgeVariant.Default" Style="BadgeStyle.Outline" />
+                    <Badge Text="Orange" Variant="BadgeVariant.Orange" Style="BadgeStyle.Outline" />
+                    <Badge Text="Blue" Variant="BadgeVariant.Blue" Style="BadgeStyle.Outline" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Badge Sizes</h4>
+                <div class="flex flex-wrap items-center gap-2">
+                    <Badge Text="Small" Size="BadgeSize.Small" Variant="BadgeVariant.Orange" />
+                    <Badge Text="Medium" Size="BadgeSize.Medium" Variant="BadgeVariant.Orange" />
+                    <Badge Text="Large" Size="BadgeSize.Large" Variant="BadgeVariant.Orange" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Removable</h4>
+                <div class="flex flex-wrap gap-2">
+                    <Badge Text="Dismiss me" Variant="BadgeVariant.Blue" IsRemovable="true" OnRemove="@(() => _removedCount++)" />
+                    <span class="text-xs text-text-tertiary" data-testid="badge-removed-count">Removed: @_removedCount</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Alerts -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-alerts">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Alerts</h3>
+            <p class="text-sm text-text-secondary mt-1">Contextual feedback messages</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Alert Variants</h4>
+                <div class="space-y-4">
+                    <Alert Variant="AlertVariant.Info" Title="Information" Message="This is an informational alert. Use it to provide helpful tips or neutral information." />
+                    <Alert Variant="AlertVariant.Success" Title="Success!" Message="Your changes have been saved successfully. The bot configuration is now active." />
+                    <Alert Variant="AlertVariant.Warning" Title="Warning" Message="Your Discord token is about to expire. Please update it in the next 7 days." />
+                    <Alert Variant="AlertVariant.Error" Title="Error" Message="Failed to connect to Discord API. Please check your internet connection and try again." />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Dismissible Alerts (self-managed)</h4>
+                <div class="space-y-4">
+                    <Alert Variant="AlertVariant.Info" Message="This alert can be dismissed by clicking the X button." IsDismissible="true" />
+                    <Alert Variant="AlertVariant.Success" Title="Welcome!" Message="You've successfully logged into the Discord Bot Admin panel." IsDismissible="true" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Cards -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-cards">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Cards</h3>
+            <p class="text-sm text-text-secondary mt-1">Content containers with various styles</p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <Card Title="Default Card" Subtitle="Standard bordered card" Variant="CardVariant.Default">
+                        <p class="text-text-secondary">This is a default card with a title, subtitle, and body content.</p>
+                    </Card>
+                </div>
+                <div>
+                    <Card Title="Elevated Card" Subtitle="Card with shadow" Variant="CardVariant.Elevated">
+                        <p class="text-text-secondary">This card has a shadow to create depth and visual hierarchy.</p>
+                    </Card>
+                </div>
+                <div>
+                    <Card Title="Interactive Card" Variant="CardVariant.Elevated" IsInteractive="true" OnClick="@(() => _cardClicks++)">
+                        <p class="text-text-secondary">This card responds to hover states and can be clicked. Clicks: @_cardClicks</p>
+                    </Card>
+                </div>
+                <div>
+                    <Card Title="Collapsible Card" Variant="CardVariant.Default" IsCollapsible="true" @bind-IsExpanded="_collapsibleExpanded">
+                        <p class="text-text-secondary">This card can be expanded or collapsed. Expanded: @_collapsibleExpanded</p>
+                    </Card>
+                </div>
+                <div>
+                    <Card Title="Accent Card" Subtitle="Enhanced markup with a gradient top border" Accent="CardAccent.Orange">
+                        <p class="text-text-secondary">Accent != None renders the card-enhanced markup instead of the plain card.</p>
+                    </Card>
+                </div>
+                <div>
+                    <Card Title="Card with Header/Footer Slots" Accent="CardAccent.Blue" HeaderActions="@HeaderActionsContent" FooterContent="@FooterActions">
+                        <p class="text-text-secondary">HeaderActions and FooterContent are RenderFragment slots.</p>
+                    </Card>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skeletons -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-skeletons">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Skeletons</h3>
+            <p class="text-sm text-text-secondary mt-1">Loading placeholders</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Skeleton Types</h4>
+                <div class="flex flex-wrap items-end gap-4">
+                    <Skeleton Type="SkeletonType.Text" />
+                    <Skeleton Type="SkeletonType.Title" />
+                    <Skeleton Type="SkeletonType.Avatar" />
+                    <Skeleton Type="SkeletonType.AvatarSmall" />
+                    <Skeleton Type="SkeletonType.AvatarLarge" />
+                    <Skeleton Type="SkeletonType.Button" />
+                    <Skeleton Type="SkeletonType.Rectangle" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Skeleton Cards</h4>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <SkeletonCard Type="SkeletonCardType.Stats" ShowHeader="true" />
+                    <SkeletonCard Type="SkeletonCardType.Server" />
+                    <SkeletonCard Type="SkeletonCardType.Activity" />
+                    <SkeletonCard Type="SkeletonCardType.Table" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Loading Spinners -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-spinners">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Loading Spinners</h3>
+            <p class="text-sm text-text-secondary mt-1">Animated loading indicators</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Spinner Variants</h4>
+                <div class="flex flex-wrap gap-8">
+                    <LoadingSpinner Variant="SpinnerVariant.Simple" Color="SpinnerColor.Blue" />
+                    <LoadingSpinner Variant="SpinnerVariant.Dots" Color="SpinnerColor.Orange" />
+                    <LoadingSpinner Variant="SpinnerVariant.Pulse" Color="SpinnerColor.Blue" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Spinner Sizes</h4>
+                <div class="flex flex-wrap items-center gap-8">
+                    <LoadingSpinner Variant="SpinnerVariant.Simple" Size="SpinnerSize.Small" />
+                    <LoadingSpinner Variant="SpinnerVariant.Simple" Size="SpinnerSize.Medium" />
+                    <LoadingSpinner Variant="SpinnerVariant.Simple" Size="SpinnerSize.Large" />
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-3">With Message</h4>
+                <div>
+                    <LoadingSpinner Variant="SpinnerVariant.Pulse" Size="SpinnerSize.Medium" Message="Loading data..." SubMessage="Please wait while we fetch your information" />
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Empty States -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-empty-states">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Empty States</h3>
+            <p class="text-sm text-text-secondary mt-1">Helpful placeholders for empty content</p>
+        </div>
+        <div class="p-6 space-y-8">
+            <EmptyState Type="EmptyStateType.NoData" Title="No Commands Yet"
+                        Description="You haven't created any custom commands. Get started by creating your first command."
+                        PrimaryActionText="Create Command" PrimaryActionHref="#" />
+            <EmptyState Type="EmptyStateType.NoResults" Title="No Results Found"
+                        Description="We couldn't find any servers matching your search criteria. Try adjusting your filters."
+                        PrimaryActionText="Clear Filters" OnPrimaryAction="@(() => _emptyStateClicks++)"
+                        SecondaryActionText="View All" SecondaryActionHref="#" />
+            <EmptyState Type="EmptyStateType.FirstTime" Title="Welcome to Discord Bot Admin!"
+                        Description="Let's get you started by connecting your first Discord bot."
+                        PrimaryActionText="Start Setup" OnPrimaryAction="@(() => _emptyStateClicks++)" Size="EmptyStateSize.Large" />
+            <EmptyState Type="EmptyStateType.Error" Title="Failed to Load Data"
+                        Description="There was an error loading the requested information. Please try again later."
+                        PrimaryActionText="Retry" OnPrimaryAction="@(() => _emptyStateClicks++)" />
+            <EmptyState Type="EmptyStateType.NoPermission" Title="Access Denied"
+                        Description="You don't have permission to view this content. Contact your server administrator." Size="EmptyStateSize.Compact" />
+            <EmptyState Type="EmptyStateType.Offline" Title="No Connection"
+                        Description="Unable to reach the server. Check your network connection." />
+            <span class="text-xs text-text-tertiary" data-testid="empty-state-clicks">Primary action clicks: @_emptyStateClicks</span>
+        </div>
+    </section>
+
+    <!-- Kbd -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-kbd">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Kbd</h3>
+            <p class="text-sm text-text-secondary mt-1">Keyboard shortcut hints</p>
+        </div>
+        <div class="p-6">
+            <div class="flex items-center gap-2">
+                <Kbd>Ctrl</Kbd>
+                <span class="text-text-tertiary">+</span>
+                <Kbd>K</Kbd>
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private int _removedCount;
+    private int _cardClicks;
+    private bool _collapsibleExpanded = true;
+    private int _emptyStateClicks;
+
+    private RenderFragment HeaderActionsContent => @<text>
+        <Badge Text="Beta" Variant="BadgeVariant.Info" Size="BadgeSize.Small" />
+    </text>;
+
+    private RenderFragment FooterActions => @<text>
+        <Button Text="Cancel" Variant="ButtonVariant.Ghost" Size="ButtonSize.Small" />
+        <Button Text="Save" Variant="ButtonVariant.Primary" Size="ButtonSize.Small" />
+    </text>;
+}

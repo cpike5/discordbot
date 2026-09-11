@@ -47,10 +47,11 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
         return Task.CompletedTask;
     }
 
-    private SlashCommandRegistrationService CreateService(ulong? testGuildId)
+    private SlashCommandRegistrationService CreateService(ulong? testGuildId, bool enabled = true)
     {
         var config = Options.Create(new BotConfiguration
         {
+            Enabled = enabled,
             Token = "test-token",
             TestGuildId = testGuildId
         });
@@ -122,6 +123,20 @@ public class SlashCommandRegistrationServiceTests : IAsyncLifetime
 
         _mockCommandModuleConfigService.Verify(s => s.SyncModulesAsync(It.IsAny<CancellationToken>()), Times.Once);
         _mockCommandModuleConfigService.Verify(s => s.GetAllModulesAsync(It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task StartAsync_WhenDiscordDisabled_ShouldSkipModuleDiscovery()
+    {
+        var service = CreateService(testGuildId: null, enabled: false);
+
+        await service.StartAsync(CancellationToken.None);
+
+        _mockCommandModuleConfigService.Verify(s => s.SyncModulesAsync(It.IsAny<CancellationToken>()), Times.Never);
+        _mockCommandModuleConfigService.Verify(s => s.GetAllModulesAsync(It.IsAny<CancellationToken>()), Times.Never);
+
+        // StopAsync should be safe to call even though Ready was never wired in StartAsync.
+        await service.StopAsync(CancellationToken.None);
     }
 
     [Fact]

@@ -13,7 +13,9 @@
     var settingsActive = IsPage("/Admin/Settings");
     var llmUsageActive = IsPage("/Admin/LlmUsage");
     var usersActive = StartsWith("/Admin/Users");
-    var logsActive = StartsWith("/Admin/Logs") || StartsWith("/Admin/MessageLogs") || StartsWith("/Admin/AuditLogs");
+    // /Admin/MessageLogs and /Admin/AuditLogs (except their surviving Details pages) now
+    // redirect to /Admin/Logs, so only the Details routes need to be checked separately.
+    var logsActive = StartsWith("/Admin/Logs") || StartsWith("/Admin/MessageLogs/Details") || StartsWith("/Admin/AuditLogs/Details");
     var notificationsActive = StartsWith("/Admin/Notifications");
     var bulkPurgeActive = IsPage("/Admin/BulkPurge");
     var userPurgeActive = IsPage("/Admin/UserPurge");

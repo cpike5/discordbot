@@ -1,0 +1,185 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Models
+
+@*
+    Ported from _StyleSelector.cshtml. The inline script's async fetch('/api/portal/tts/voices/{voice}/capabilities')
+    becomes CapabilitiesLoader - a page-supplied Func so this component makes no HTTP calls itself
+    (docs/plans/blazor-port-inventory.md Part 3 §2.2) - run from OnParametersSetAsync when
+    SelectedVoice changes. The cross-component "notify EmphasisToolbar of emphasis support" global
+    function call (window.emphasisToolbar_updateCapability) becomes OnEmphasisSupportChanged, a
+    parent-owned callback instead of a global.
+*@
+
+<div class="style-selector @Class" @attributes="AdditionalAttributes">
+
+    <div class="style-selector__group">
+        <label class="style-selector__label">Speaking Style</label>
+        <div class="style-selector__select-wrapper">
+            <select class="style-selector__select"
+                    aria-label="Select speaking style"
+                    disabled="@_noStylesSupported"
+                    value="@Value"
+                    @onchange="HandleStyleChangeAsync">
+                @foreach (var style in AvailableStyles)
+                {
+                    <option value="@style.Value"
+                            title="@style.Example"
+                            disabled="@IsOptionDisabled(style)"
+                            selected="@(style.Value == Value)">
+                        @style.Label@(!string.IsNullOrEmpty(style.Description) ? $" - {style.Description}" : "")
+                    </option>
+                }
+            </select>
+            <div class="style-selector__select-icon">
+                @if (SelectedIconPath is { } iconPath)
+                {
+                    <Icon Path="@iconPath" Class="w-5 h-5" />
+                }
+            </div>
+        </div>
+        <p class="style-selector__help-text" title="Example phrase" role="status" aria-live="polite"
+           style="@(string.IsNullOrEmpty(Value) ? "display: none;" : "")">
+            @(SelectedStyleOption?.Example ?? "")
+        </p>
+        @if (_noStylesSupported)
+        {
+            <p class="style-selector__no-styles-message"><em>This voice does not support speaking styles.</em></p>
+        }
+    </div>
+
+    <div class="style-selector__group">
+        <label class="style-selector__label">Style Intensity</label>
+        <div class="style-selector__slider-wrapper">
+            <input type="range"
+                   class="style-selector__slider"
+                   min="0.5" max="2.0" step="0.1"
+                   value="@Intensity.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)"
+                   disabled="@string.IsNullOrEmpty(Value)"
+                   aria-label="Adjust style intensity"
+                   aria-valuemin="0.5" aria-valuemax="2.0"
+                   aria-valuenow="@Intensity.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)"
+                   @oninput="HandleIntensityInputAsync" />
+            <div class="style-selector__slider-labels">
+                <span class="style-selector__slider-label">Subtle</span>
+                <span class="style-selector__slider-label">Moderate</span>
+                <span class="style-selector__slider-label">Intense</span>
+            </div>
+        </div>
+        <div class="style-selector__intensity-value">
+            <span>@Intensity.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture)</span>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string SelectedVoice { get; set; } = string.Empty;
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public decimal Intensity { get; set; } = 1.0m;
+    [Parameter] public EventCallback<decimal> IntensityChanged { get; set; }
+    [Parameter] public IReadOnlyList<StyleOption> AvailableStyles { get; set; } = Array.Empty<StyleOption>();
+
+    /// <summary>Page-supplied replacement for the partial's
+    /// <c>fetch('/api/portal/tts/voices/{voice}/capabilities')</c> call - invoked from
+    /// <see cref="OnParametersSetAsync"/> whenever <see cref="SelectedVoice"/> changes. A
+    /// <see langword="null"/> return (lookup failed) leaves the current disabled-styles/emphasis
+    /// state alone, mirroring the original script's silent <c>catch</c>.</summary>
+    [Parameter] public Func<string, Task<VoiceCapabilities?>>? CapabilitiesLoader { get; set; }
+
+    /// <summary>Replaces the partial's <c>window.emphasisToolbar_updateCapability(bool)</c> global call.</summary>
+    [Parameter] public EventCallback<bool> OnEmphasisSupportChanged { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? _loadedForVoice;
+    private bool _noStylesSupported;
+    private HashSet<string> _supportedStyles = new();
+    private bool _hasCapabilities;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (SelectedVoice == _loadedForVoice)
+        {
+            return;
+        }
+
+        _loadedForVoice = SelectedVoice;
+
+        if (CapabilitiesLoader is null || string.IsNullOrEmpty(SelectedVoice))
+        {
+            return;
+        }
+
+        var capabilities = await CapabilitiesLoader(SelectedVoice);
+        if (capabilities is null)
+        {
+            return;
+        }
+
+        _hasCapabilities = true;
+        _supportedStyles = new HashSet<string>(capabilities.SupportedStyles, StringComparer.Ordinal);
+        _noStylesSupported = _supportedStyles.Count == 0;
+
+        if (_noStylesSupported)
+        {
+            if (!string.IsNullOrEmpty(Value))
+            {
+                await ValueChanged.InvokeAsync(string.Empty);
+            }
+        }
+        else if (!string.IsNullOrEmpty(Value) && !_supportedStyles.Contains(Value))
+        {
+            await ValueChanged.InvokeAsync(string.Empty);
+        }
+
+        await OnEmphasisSupportChanged.InvokeAsync(capabilities.SupportsEmphasis);
+    }
+
+    private bool IsOptionDisabled(StyleOption style)
+    {
+        if (string.IsNullOrEmpty(style.Value))
+        {
+            // "(None)" is always enabled, matching styleSelector_loadStyles.
+            return style.IsDisabled;
+        }
+
+        if (style.IsDisabled)
+        {
+            return true;
+        }
+
+        return _hasCapabilities && !_noStylesSupported && !_supportedStyles.Contains(style.Value);
+    }
+
+    private StyleOption? SelectedStyleOption => AvailableStyles.FirstOrDefault(s => s.Value == Value);
+
+    private string? SelectedIconPath => Value switch
+    {
+        "cheerful" => IconPaths.FaceSmile,
+        "excited" => IconPaths.Sparkles,
+        "friendly" => IconPaths.HandRaised,
+        "sad" => IconPaths.FaceFrown,
+        "angry" => IconPaths.Fire,
+        "whispering" => IconPaths.SpeakerXMark,
+        "shouting" => IconPaths.SpeakerWave,
+        "newscast" => IconPaths.Newspaper,
+        _ => null
+    };
+
+    private Task HandleStyleChangeAsync(ChangeEventArgs e)
+        => ValueChanged.InvokeAsync(e.Value?.ToString() ?? string.Empty);
+
+    private Task HandleIntensityInputAsync(ChangeEventArgs e)
+    {
+        if (decimal.TryParse(e.Value?.ToString(), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var value))
+        {
+            return IntensityChanged.InvokeAsync(value);
+        }
+
+        return Task.CompletedTask;
+    }
+}

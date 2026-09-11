@@ -5,7 +5,7 @@ human evaluating the project; this file is for you, today, with no prior context
 
 ## What this is
 
-A Discord bot with an admin web portal, in one .NET 8 process. The bot side is
+A Discord bot with an admin web portal, in one .NET 10 process. The bot side is
 Discord.NET slash commands, voice/audio (soundboard, TTS, VOX clips), moderation,
 reminders, scheduled messages, and an LLM-backed assistant. The web side is
 ASP.NET Core Razor Pages plus REST controllers, styled with Tailwind, with
@@ -55,6 +55,9 @@ dotnet test DiscordBot.sln                  # ~3,600 tests, ~1 min
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 ```
 
+`tests/DiscordBot.ComponentTests` (bUnit, wired into `DiscordBot.sln`) covers the `Blazor/` tree
+component-by-component — see "Component (bUnit) Tests" in `docs/articles/testing-guide.md`.
+
 CI (`.github/workflows/ci.yml`) runs restore, build in Release, and the full test
 suite on every PR to `main`. Both must be green before you push.
 
@@ -70,6 +73,12 @@ PostgreSQL test path, so a green test run says nothing about the Postgres
 provider or its migrations. Say so when you report on a change that touches
 them.
 
+**Browser (Playwright) tests.** `tests/DiscordBot.E2E` drives the real app with headless
+Chromium and is gated behind `E2E_ENABLED=1` (unset, every test reports Skipped, so the commands
+above stay green); Chromium is pre-installed in this repo's remote sessions at
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`. See `docs/articles/testing-guide.md` "Browser
+(Playwright) tests".
+
 **Background-service tests fail in a full run but pass alone** when something
 starves them. Two rules keep them green: never block a thread-pool thread on
 other pool threads (a `Barrier` inside `Parallel.For`, a `Thread.Sleep` loop in
@@ -82,8 +91,14 @@ has the details.
 
 ## Running it locally
 
-The process exits at startup if `Discord:Token` is not configured, so the web UI
-cannot be exercised without a bot token. Put secrets in User Secrets (ID
+The process exits at startup if `Discord:Token` is not configured. Set
+`Discord:Enabled` to `false` (e.g. `Discord__Enabled=false`) to run the web UI
+web-only, without a bot token or gateway connection — the bot logs a line and
+returns without logging in, slash commands aren't registered, and Discord OAuth
+login is hidden if `Discord:OAuth:ClientId`/`ClientSecret` aren't set too. Used
+for browser/UI (Playwright) testing and for running the admin portal without a
+bot; see `docs/articles/configuration-guide.md` ("Discord:Enabled (web-only
+mode)"). Put secrets in User Secrets (ID
 `7b84433c-c2a8-46db-a8bf-58786ea4f28e`), never in `appsettings*.json`:
 `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`,
 `OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`.
@@ -119,7 +134,20 @@ string (`Host=` or `Server=` means Postgres).
 
 Do not remove `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)`
 from startup. Without it, `DateTime` writes to `timestamp with time zone`
-columns throw.
+columns throw. For the same reason, `PostgresBotDbContext` overrides
+`ConfigureConventions` to pin every `DateTime`/`DateTime?` column to
+`timestamp without time zone` — Npgsql 10 otherwise defaults new columns to
+`timestamp with time zone`, which would drift from the existing schema.
+
+EF Core 10 makes `Migrate()`/`MigrateAsync()` throw `PendingModelChangesWarning`
+by default when the model doesn't match the last migration's snapshot, and
+`Program.cs` calls `MigrateAsync` at startup — so an unnoticed drift is a boot
+crash, not a silent mismatch. After any package upgrade that touches EF Core
+or a provider (Npgsql, Sqlite), run `dotnet ef migrations has-pending-model-changes`
+for **both** `SqliteBotDbContext` and `PostgresBotDbContext` before assuming
+the upgrade is done — provider convention changes (e.g. a default column-type
+mapping) can add pending changes to one provider's snapshot without affecting
+the other.
 
 ## Conventions
 
@@ -164,10 +192,16 @@ columns throw.
 - **Discord.NET is the official NuGet package** (`Discord.Net` 3.20.x). An older
   branch carried a local fork for a voice fix; if you see references to
   `local-packages/` or `3.19.0-fork`, they are stale.
-- **The UI is Razor Pages.** There is no Blazor in the project. Reusable UI is
-  partials under `Pages/Shared/Components/` with view models in
-  `ViewModels/Components/`; new pages are `.cshtml` plus `.cshtml.cs`, guild
-  pages inherit `GuildPageModelBase`.
+- **The UI is being ported from Razor Pages to Blazor.** Both coexist under
+  `src/DiscordBot.Bot/` until the port finishes: `Pages/` (Razor Pages, legacy,
+  being ported one cluster at a time) and `Blazor/` (new UI, Blazor Web App,
+  Interactive Server only, per-page interactivity). **New UI work goes in
+  `Blazor/`, not `Pages/`.** Legacy Razor Pages reusable UI is partials under
+  `Pages/Shared/Components/` with view models in `ViewModels/Components/`,
+  `.cshtml` plus `.cshtml.cs`, guild pages inheriting `GuildPageModelBase`; the
+  Blazor equivalent (component library, layouts) lands over `docs/plans/blazor-port-plan.md`
+  Phases 2-3. See "Blazor components" in `docs/architecture/patterns.md` for
+  hosting, auth-in-circuits and the `HttpContext`-is-prerender-only rule.
 - **Component interactions** (buttons, selects) are handled in separate
   `*ComponentModule` classes, with custom IDs built by `ComponentIdBuilder` and
   state kept in `IInteractionStateService` (expiry from `Caching:InteractionStateExpiryMinutes`). Putting handlers

@@ -50,6 +50,11 @@ This guide documents how to migrate from legacy tab implementations to the unifi
 
 ### Before (Old Implementation)
 
+> **Historical.** `performance-tabs.js`/`performance-tabs.css` below were later deleted
+> outright in the Phase 0 Performance-pages retirement (unrelated to this NavTabs
+> migration); the unified `/Admin/Performance` dashboard now ships as
+> `wwwroot/js/performance/dashboard.js`.
+
 ```csharp
 // PerformanceModel.cs
 public class PerformanceModel : PageModel
@@ -178,7 +183,7 @@ public class PerformanceModel : PageModel
 | ID-based div selectors | `data-nav-panel-for` attributes | Consistent, clearer intent |
 | Manual tab styling | Auto-styled via variant | Underline, Pills, or Bordered |
 | `performance-tabs.css` | `nav-tabs.css` | Shared stylesheet |
-| `performance-tabs.js` | `nav-tabs.js` | Shared JavaScript |
+| `performance-tabs.js` *(deleted; see note above)* | `nav-tabs.js` | Shared JavaScript |
 
 ### ViewModel Mapping
 
@@ -666,7 +671,7 @@ Once all pages are migrated, remove legacy components:
    - `audio-tabs.css`
 
 5. Delete old JavaScript (if not shared):
-   - `performance-tabs.js`
+   - ~~`performance-tabs.js`~~ ✅ Removed (Phase 0 Performance-pages retirement, unrelated to this migration)
    - `audio-tabs.js`
 
 6. Update documentation:

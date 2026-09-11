@@ -1,0 +1,50 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Merges Pages/Shared/_Breadcrumb.cshtml (root, untyped ViewData["Breadcrumbs"] tuple list),
+   Components/_GuildBreadcrumb.cshtml (GuildBreadcrumbViewModel) and
+   Components/_CommandBreadcrumb.cshtml (hardcoded 3-tab special case) into one typed component per
+   the consolidation in docs/articles/blazor-components.md - callers build the Items list
+   explicitly instead of stashing it in ViewData or hardcoding a 3-tab shape. Reuses BreadcrumbItem
+   from GuildBreadcrumbViewModel.cs rather than introducing a second breadcrumb-item type.
+   aria-current="page" on the last item is applied consistently (only the root partial had it;
+   see docs/articles/blazor-components.md "Component contract", point 9). *@
+
+@if (Items is { Count: > 0 })
+{
+    <nav aria-label="Breadcrumb" class="@Merge("mb-6")" @attributes="AdditionalAttributes">
+        <ol class="flex items-center gap-2 text-sm">
+            @for (var i = 0; i < Items.Count; i++)
+            {
+                var item = Items[i];
+                var isLast = i == Items.Count - 1;
+                <li class="flex items-center gap-2">
+                    @if (!item.IsCurrent && !string.IsNullOrEmpty(item.Url))
+                    {
+                        <a href="@item.Url" class="text-text-secondary hover:text-accent-blue transition-colors">@item.Label</a>
+                    }
+                    else
+                    {
+                        <span class="text-text-primary font-medium" aria-current="@(isLast ? "page" : null)">@item.Label</span>
+                    }
+
+                    @if (!isLast)
+                    {
+                        <Icon Path="@IconPaths.ChevronRight" Class="w-4 h-4 text-text-tertiary" />
+                    }
+                </li>
+            }
+        </ol>
+    </nav>
+}
+
+@code {
+    [Parameter, EditorRequired] public IReadOnlyList<BreadcrumbItem> Items { get; set; } = Array.Empty<BreadcrumbItem>();
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string Merge(string baseClasses) => string.Join(" ", new[] { baseClasses, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+}

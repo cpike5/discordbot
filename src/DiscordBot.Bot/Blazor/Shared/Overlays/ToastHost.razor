@@ -1,0 +1,111 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@implements IDisposable
+@inject DiscordBot.Bot.Blazor.Services.IToastService ToastService
+
+@*
+    Merges the two _ToastContainer.cshtml partials (root top-right, Components/ bottom-right) into
+    one component + IToastService per docs/articles/blazor-components.md "Consolidations" - the
+    top-right variant is canonical (this is the one every page gets via MainLayout). Markup/classes
+    from wwwroot/js/toast.js's createToast() and the root partial's container div; the TempData
+    flash-message bridge that partial had has no equivalent need now that a form action is an
+    EventCallback calling IToastService.Show directly in the same circuit rather than a full page
+    post. No interop - IToastService.Changed drives re-render, ToastService's own Timer drives
+    auto-dismiss.
+*@
+
+<div id="toastContainer"
+     class="fixed right-4 flex flex-col gap-2 pointer-events-none overflow-hidden @Class"
+     style="top: 80px; max-height: calc(100vh - 96px); z-index: var(--z-toast);"
+     role="region"
+     aria-label="Notifications"
+     @attributes="AdditionalAttributes">
+    <div class="sr-only" aria-live="polite" aria-atomic="true">@_announcement</div>
+
+    @foreach (var toast in ToastService.Toasts)
+    {
+        <div @key="toast.Id" class="@ToastClass(toast.Level)" role="alert" aria-live="polite">
+            <div class="toast-icon flex-shrink-0 mt-0.5">
+                @IconMarkup(toast.Level)
+            </div>
+            <div class="flex-1 min-w-0 flex items-start gap-2">
+                <div class="flex-1">
+                    @if (!string.IsNullOrEmpty(toast.Title))
+                    {
+                        <p class="text-sm font-semibold text-text-primary">@toast.Title</p>
+                        <p class="text-sm text-text-secondary mt-0.5">@toast.Message</p>
+                    }
+                    else
+                    {
+                        <p class="text-sm text-text-primary">@toast.Message</p>
+                    }
+                </div>
+            </div>
+            <button type="button" class="toast-close" aria-label="Dismiss notification" @onclick="() => ToastService.Dismiss(toast.Id)">
+                <Icon Path="@IconPaths.XMark" Class="w-4 h-4" />
+            </button>
+            @if (toast.Duration is { } duration && duration > TimeSpan.Zero)
+            {
+                <div class="toast-progress animating" style="animation-duration: @($"{duration.TotalMilliseconds}ms");"></div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? _announcement;
+    private Guid? _lastAnnouncedId;
+
+    protected override void OnInitialized() => ToastService.Changed += HandleChanged;
+
+    private void HandleChanged() => InvokeAsync(() =>
+    {
+        AnnounceNewest();
+        StateHasChanged();
+    });
+
+    // Mirrors toast.js's announce() - the newest toast (Toasts is oldest-first) gets read out by
+    // screen readers via the aria-live region, once each.
+    private void AnnounceNewest()
+    {
+        var newest = ToastService.Toasts.Count > 0 ? ToastService.Toasts[^1] : null;
+        if (newest is null || newest.Id == _lastAnnouncedId)
+        {
+            return;
+        }
+
+        _lastAnnouncedId = newest.Id;
+        var label = newest.Level switch
+        {
+            Services.ToastLevel.Success => "Success",
+            Services.ToastLevel.Warning => "Warning",
+            Services.ToastLevel.Error => "Error",
+            _ => "Information"
+        };
+        _announcement = string.IsNullOrEmpty(newest.Title)
+            ? $"{label}: {newest.Message}"
+            : $"{label}: {newest.Title}. {newest.Message}";
+    }
+
+    private static string ToastClass(Services.ToastLevel level) => level switch
+    {
+        Services.ToastLevel.Success => "toast toast-success",
+        Services.ToastLevel.Warning => "toast toast-warning",
+        Services.ToastLevel.Error => "toast toast-error",
+        _ => "toast toast-info"
+    };
+
+    private static RenderFragment IconMarkup(Services.ToastLevel level) => level switch
+    {
+        Services.ToastLevel.Success => @<Icon Path="@IconPaths.CheckCircle" Class="w-5 h-5" />,
+        Services.ToastLevel.Warning => @<Icon Path="@IconPaths.ExclamationTriangle" Class="w-5 h-5" />,
+        Services.ToastLevel.Error => @<Icon Path="@IconPaths.XCircle" Class="w-5 h-5" />,
+        _ => @<Icon Path="@IconPaths.InformationCircle" Class="w-5 h-5" />
+    };
+
+    public void Dispose() => ToastService.Changed -= HandleChanged;
+}

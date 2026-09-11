@@ -1,0 +1,418 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using System.Security.Claims
+@using DiscordBot.Bot.Blazor.Interop
+@using DiscordBot.Bot.Interfaces
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using Microsoft.AspNetCore.Components.Authorization
+@implements IAsyncDisposable
+@inject IDashboardNotificationQueryService NotificationQueryService
+@inject IDashboardEventBus EventBus
+@inject BrowserInterop BrowserInterop
+
+@*
+    Ported from the notification bell markup in Pages/Shared/_Navbar.cshtml plus
+    wwwroot/js/notification-bell.js's dropdown/render/keyboard logic (79 markup lines + 714 JS
+    lines, reproduced natively here - no SignalR client, no <template> cloning, no manual DOM
+    diffing). Data comes from the same services DashboardHub's GetNotificationSummary /
+    GetNotifications / MarkNotificationRead / MarkAllNotificationsRead / DismissNotification
+    delegate to (IDashboardNotificationQueryService), called directly - never through the hub.
+    Live updates use the user-scoped Subscribe overload with the current user's id from
+    AuthenticationStateProvider, matching Clients.User(userId) delivery.
+
+    Fidelity improvement: the legacy list makes every item focusable (tabindex="0") and lets
+    arrow keys move DOM focus among them, which is not a true ARIA roving-tabindex pattern. This
+    component implements the real thing (exactly one item at a time is tabindex="0", the rest are
+    "-1") per the task brief's explicit "roving tabindex" requirement.
+
+    Fidelity deviation: IconPaths.ShieldCheck (the "BotStatus" notification type icon) and
+    IconPaths.Check (the "mark all read" button) both now render the Heroicons v2 shapes rather
+    than the v1 shapes notification-bell.js/_Navbar.cshtml render inline, per the IconPaths merge
+    (docs/plans/blazor-port-plan.md §5 Phase 2 step 1) - both names collided with a v2 usage
+    elsewhere, and the v2 path is the one that verifies against the published Heroicons SVG.
+*@
+
+<div class="relative @Class" @attributes="AdditionalAttributes" @ref="_rootRef">
+    <button
+        type="button"
+        class="topbar-icon-btn"
+        aria-label="Notifications"
+        aria-expanded="@_isOpen.ToString().ToLowerInvariant()"
+        aria-haspopup="menu"
+        aria-controls="notificationDropdown"
+        @onclick="ToggleAsync">
+        <Icon Path="@IconPaths.Bell" StrokeWidth="1.75" />
+        <span class="notification-badge @(UnreadCount > 0 ? "" : "hidden")" aria-label="@($"{UnreadCount} unread notification{(UnreadCount == 1 ? "" : "s")}")">@BadgeText</span>
+    </button>
+
+    <div id="notificationDropdown" class="notification-dropdown @(_isOpen ? "active" : "")" role="menu" aria-label="Notifications menu" @onkeydown="HandleDropdownKeyDownAsync">
+        <div class="notification-dropdown-header">
+            <h3 class="text-sm font-semibold text-text-primary">Notifications</h3>
+            <button type="button" class="notification-mark-all-read" aria-label="Mark all as read" @onclick="MarkAllAsReadAsync">
+                <Icon Path="@IconPaths.Check" Class="w-4 h-4" />
+                <span>Mark all read</span>
+            </button>
+        </div>
+
+        <div id="notificationList" class="notification-list" role="list">
+            @if (_isLoading)
+            {
+                <div class="notification-loading">Loading notifications...</div>
+            }
+            else if (_notifications.Count == 0)
+            {
+                <div class="notification-empty">
+                    <Icon Path="@IconPaths.Bell" Class="w-12 h-12 text-text-tertiary opacity-50" StrokeWidth="1.5" />
+                    <p class="notification-empty-title">No notifications</p>
+                    <p class="notification-empty-message">You're all caught up!</p>
+                </div>
+            }
+            else
+            {
+                @for (var i = 0; i < _notifications.Count; i++)
+                {
+                    var index = i;
+                    var notification = _notifications[index];
+                    <div class="notification-item"
+                         role="listitem"
+                         data-notification-id="@notification.Id"
+                         data-read="@notification.IsRead.ToString().ToLowerInvariant()"
+                         tabindex="@(index == _focusedIndex ? "0" : "-1")"
+                         @ref="_itemRefs[index]"
+                         @onclick="() => HandleItemClickAsync(notification)"
+                         @onkeydown="e => HandleItemKeyDownAsync(e, notification)">
+                        <div class="notification-icon @IconClass(notification)">
+                            <Icon Path="@TypeIconPath(notification.Type)" StrokeWidth="2" />
+                        </div>
+                        <div class="notification-content">
+                            <p class="notification-title">@notification.Title</p>
+                            <p class="notification-message">@notification.Message</p>
+                            <div class="notification-meta">
+                                <span class="notification-timestamp" title="@notification.CreatedAt.ToString("O")">@notification.TimeAgo</span>
+                                <span class="notification-type-badge">@notification.TypeDisplay</span>
+                            </div>
+                        </div>
+                        <div class="notification-actions">
+                            @if (!notification.IsRead)
+                            {
+                                <button type="button" class="notification-action-btn" aria-label="Mark as read" title="Mark as read"
+                                        @onclick="() => MarkAsReadAsync(notification.Id)" @onclick:stopPropagation="true">
+                                    <Icon Path="@IconPaths.EnvelopeOpen" StrokeWidth="2" />
+                                </button>
+                            }
+                            <button type="button" class="notification-action-btn" aria-label="Dismiss notification" title="Dismiss"
+                                    @onclick="() => DismissAsync(notification.Id)" @onclick:stopPropagation="true">
+                                <Icon Path="@IconPaths.XMark" StrokeWidth="2" />
+                            </button>
+                        </div>
+                    </div>
+                }
+            }
+        </div>
+    </div>
+
+    <div class="sr-only" aria-live="polite" aria-atomic="true">@_announcement</div>
+</div>
+
+@code {
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private string? _userId;
+    private NotificationSummaryDto _summary = new();
+    private List<UserNotificationDto> _notifications = [];
+    private bool _isOpen;
+    private bool _hasLoaded;
+    private bool _isLoading;
+    private int _focusedIndex;
+    private string _announcement = string.Empty;
+    private ElementReference _rootRef;
+    private List<ElementReference> _itemRefs = [];
+    private DotNetObjectReference<NotificationBell>? _selfRef;
+    private int? _clickOutsideHandle;
+
+    private IDisposable? _receivedSubscription;
+    private IDisposable? _countSubscription;
+    private IDisposable? _markedReadSubscription;
+    private IDisposable? _allReadSubscription;
+
+    private int UnreadCount => _summary.TotalUnread;
+    private string BadgeText => UnreadCount > 99 ? "99+" : UnreadCount.ToString();
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask is not null)
+        {
+            var state = await AuthenticationStateTask;
+            _userId = state.User.FindFirstValue(ClaimTypes.NameIdentifier);
+        }
+
+        if (_userId is null)
+        {
+            return;
+        }
+
+        _summary = await NotificationQueryService.GetNotificationSummaryAsync(_userId, null);
+
+        _receivedSubscription = EventBus.Subscribe<NotificationReceivedEvent>(_userId, (evt, _) =>
+        {
+            SetNotifications(new[] { evt.Notification }.Concat(_notifications).Take(15).ToList());
+            _hasLoaded = true;
+            _announcement = $"New notification: {evt.Notification.Title}";
+            Debounced();
+            return Task.CompletedTask;
+        });
+
+        _countSubscription = EventBus.Subscribe<NotificationCountChangedEvent>(_userId, (evt, _) =>
+        {
+            _summary = evt.Summary;
+            Debounced();
+            return Task.CompletedTask;
+        });
+
+        _markedReadSubscription = EventBus.Subscribe<NotificationMarkedReadEvent>(_userId, (evt, _) =>
+        {
+            var index = _notifications.FindIndex(n => n.Id == evt.NotificationId);
+            if (index >= 0)
+            {
+                _notifications[index] = _notifications[index] with { IsRead = true };
+            }
+            Debounced();
+            return Task.CompletedTask;
+        });
+
+        _allReadSubscription = EventBus.Subscribe<AllNotificationsReadEvent>(_userId, (_, _) =>
+        {
+            SetNotifications(_notifications.Select(n => n with { IsRead = true }).ToList());
+            Debounced();
+            return Task.CompletedTask;
+        });
+    }
+
+    private readonly Debouncer _debouncer = new();
+
+    // Notification events are not inherently bursty like playback progress, but every bus
+    // subscriber in this component library debounces its re-render per patterns.md's "Real-time
+    // event bus" rule 2 - mutating state immediately above and only debouncing the render itself
+    // (never the mutation) keeps that rule without ever dropping a notification.
+    private void Debounced() => _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ => await InvokeAsync(StateHasChanged));
+
+    // @ref="_itemRefs[index]" needs the list pre-sized before the loop renders (a List<T>
+    // indexer is a valid @ref target, but only once the slot already exists).
+    private void SetNotifications(List<UserNotificationDto> value)
+    {
+        _notifications = value;
+        while (_itemRefs.Count < _notifications.Count)
+        {
+            _itemRefs.Add(default);
+        }
+    }
+
+    private async Task ToggleAsync()
+    {
+        if (_isOpen)
+        {
+            await CloseAsync();
+        }
+        else
+        {
+            await OpenAsync();
+        }
+    }
+
+    private async Task OpenAsync()
+    {
+        _isOpen = true;
+        _focusedIndex = 0;
+
+        if (!_hasLoaded && _userId is not null)
+        {
+            _isLoading = true;
+            StateHasChanged();
+            SetNotifications((await NotificationQueryService.GetNotificationsAsync(_userId, null, 15)).ToList());
+            _isLoading = false;
+            _hasLoaded = true;
+        }
+    }
+
+    private Task CloseAsync()
+    {
+        _isOpen = false;
+        return Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            _selfRef = DotNetObjectReference.Create(this);
+            _clickOutsideHandle = await BrowserInterop.OnClickOutsideAsync(_rootRef, _selfRef);
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnClickOutside()
+    {
+        if (_isOpen)
+        {
+            await CloseAsync();
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private async Task HandleDropdownKeyDownAsync(KeyboardEventArgs e)
+    {
+        if (_notifications.Count == 0)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case "ArrowDown":
+                await MoveFocusAsync(1);
+                break;
+            case "ArrowUp":
+                await MoveFocusAsync(-1);
+                break;
+            case "Escape":
+                await CloseAsync();
+                break;
+        }
+    }
+
+    private async Task MoveFocusAsync(int direction)
+    {
+        var next = _focusedIndex + direction;
+        if (next < 0) next = _notifications.Count - 1;
+        if (next >= _notifications.Count) next = 0;
+
+        _focusedIndex = next;
+        StateHasChanged();
+
+        if (next < _itemRefs.Count)
+        {
+            await BrowserInterop.FocusElementAsync(_itemRefs[next]);
+        }
+    }
+
+    private async Task HandleItemKeyDownAsync(KeyboardEventArgs e, UserNotificationDto notification)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            await HandleItemClickAsync(notification);
+        }
+    }
+
+    private async Task HandleItemClickAsync(UserNotificationDto notification)
+    {
+        await MarkAsReadAsync(notification.Id);
+    }
+
+    private async Task MarkAsReadAsync(Guid notificationId)
+    {
+        if (_userId is null)
+        {
+            return;
+        }
+
+        await NotificationQueryService.MarkNotificationReadAsync(_userId, null, notificationId);
+
+        var index = _notifications.FindIndex(n => n.Id == notificationId);
+        if (index >= 0)
+        {
+            _notifications[index] = _notifications[index] with { IsRead = true };
+        }
+
+        _summary = await NotificationQueryService.GetNotificationSummaryAsync(_userId, null);
+    }
+
+    private async Task MarkAllAsReadAsync()
+    {
+        if (_userId is null)
+        {
+            return;
+        }
+
+        await NotificationQueryService.MarkAllNotificationsReadAsync(_userId, null);
+        SetNotifications(_notifications.Select(n => n with { IsRead = true }).ToList());
+        _summary = _summary with { TotalUnread = 0 };
+    }
+
+    private async Task DismissAsync(Guid notificationId)
+    {
+        if (_userId is null)
+        {
+            return;
+        }
+
+        var wasUnread = _notifications.FirstOrDefault(n => n.Id == notificationId) is { IsRead: false };
+
+        await NotificationQueryService.DismissNotificationAsync(_userId, null, notificationId);
+        SetNotifications(_notifications.Where(n => n.Id != notificationId).ToList());
+
+        if (wasUnread)
+        {
+            _summary = await NotificationQueryService.GetNotificationSummaryAsync(_userId, null);
+        }
+    }
+
+    private static string IconClass(UserNotificationDto notification)
+    {
+        if (notification.Type == NotificationType.PerformanceAlert && notification.Severity.HasValue)
+        {
+            return notification.Severity.Value switch
+            {
+                AlertSeverity.Warning => "notification-icon-warning",
+                AlertSeverity.Critical => "notification-icon-critical",
+                _ => "notification-icon-info"
+            };
+        }
+
+        return notification.Type switch
+        {
+            NotificationType.PerformanceAlert => "notification-icon-critical",
+            NotificationType.BotStatus => "notification-icon-success",
+            NotificationType.GuildEvent => "notification-icon-guild",
+            NotificationType.CommandError => "notification-icon-command",
+            _ => "notification-icon-info"
+        };
+    }
+
+    private static string TypeIconPath(NotificationType type) => type switch
+    {
+        NotificationType.BotStatus => IconPaths.ShieldCheck,
+        NotificationType.GuildEvent => IconPaths.Users,
+        NotificationType.CommandError => IconPaths.CodeBracket,
+        _ => IconPaths.ExclamationTriangle
+    };
+
+    public async ValueTask DisposeAsync()
+    {
+        _receivedSubscription?.Dispose();
+        _countSubscription?.Dispose();
+        _markedReadSubscription?.Dispose();
+        _allReadSubscription?.Dispose();
+        _debouncer.Dispose();
+
+        if (_clickOutsideHandle is { } handle)
+        {
+            try
+            {
+                await BrowserInterop.OffClickOutsideAsync(handle);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
+        }
+
+        _selfRef?.Dispose();
+    }
+}

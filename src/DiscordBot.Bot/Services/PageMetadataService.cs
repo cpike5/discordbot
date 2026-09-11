@@ -319,7 +319,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Audit Logs",
-                Route = "/Admin/AuditLogs",
+                Route = "/Admin/Logs?tab=audit",
                 Description = "System audit trail and activity history",
                 Section = "Admin",
                 IconName = "clipboard-document-list",
@@ -339,7 +339,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Message Logs",
-                Route = "/Admin/MessageLogs",
+                Route = "/Admin/Logs?tab=messages",
                 Description = "Discord message history",
                 Section = "Admin",
                 IconName = "chat-bubble-left-right",

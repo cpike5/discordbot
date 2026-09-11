@@ -54,7 +54,7 @@ This guide covers installing and configuring **Jaeger** (distributed tracing) an
 │                                                                              │
 │  ┌────────────────────┐      ┌────────────────────┐                        │
 │  │   Discord Bot      │      │   Promtail         │                        │
-│  │   (.NET 8 App)     │      │   (Log Shipper)    │                        │
+│  │   (.NET 10 App)    │      │   (Log Shipper)    │                        │
 │  │                    │      │                    │                        │
 │  │  ┌──────────────┐  │      │  Reads:            │                        │
 │  │  │ OpenTelemetry│──┼──────┼─▶ /var/log/        │                        │

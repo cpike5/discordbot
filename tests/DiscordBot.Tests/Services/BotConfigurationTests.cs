@@ -18,6 +18,43 @@ public class BotConfigurationTests
         // Assert
         config.Token.Should().Be(string.Empty, "default token should be empty string");
         config.TestGuildId.Should().BeNull("TestGuildId should be null by default");
+        config.Enabled.Should().BeTrue("the Discord bot gateway should be enabled by default");
+    }
+
+    [Fact]
+    public void Enabled_ShouldBeSettable()
+    {
+        // Arrange
+        var config = new BotConfiguration();
+
+        // Act
+        config.Enabled = false;
+
+        // Assert
+        config.Enabled.Should().BeFalse("Enabled property should be settable");
+    }
+
+    [Fact]
+    public void Bind_WithEnabledFalseAndNoToken_ShouldLeaveTokenEmpty()
+    {
+        // Arrange
+        var configData = new Dictionary<string, string?>
+        {
+            { "Discord:Enabled", "false" }
+        };
+
+        var configuration = new ConfigurationBuilder()
+            .AddInMemoryCollection(configData)
+            .Build();
+
+        var botConfig = new BotConfiguration();
+
+        // Act
+        configuration.GetSection(BotConfiguration.SectionName).Bind(botConfig);
+
+        // Assert
+        botConfig.Enabled.Should().BeFalse("Enabled should be bound from configuration");
+        botConfig.Token.Should().Be(string.Empty, "Token is not required when running web-only");
     }
 
     [Fact]

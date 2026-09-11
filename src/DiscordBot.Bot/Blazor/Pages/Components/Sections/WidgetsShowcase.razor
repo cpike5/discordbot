@@ -1,0 +1,229 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Components.Sections
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Components.Enums
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+@using DiscordBot.Bot.Blazor.Shared
+@inject IDashboardEventBus EventBus
+
+@*
+    Tier 4 showcase section, mirroring PrimitivesShowcase.razor's shape (docs/articles/blazor-components.md
+    "Component contract", point 10). Live widgets (BotStatusBanner/Card, ConnectionStatus,
+    NotificationBell, VoiceChannelPanel) run against the real services - no Discord connection is
+    needed for any of them to render, since IBotService/IDashboardAudioStatusService/etc. all
+    return a well-formed "offline"/"empty" shape rather than throwing. Non-loading widgets
+    (ActivityFeed, QuickActionsCard, ConnectedServersWidget, AuditLogCard, RecentActivityCard,
+    CommandStatsCard, Chart) get sample data as parameters. The "Publish synthetic event" buttons
+    prove the bus subscriptions live by publishing through the real IDashboardEventBus - watch the
+    Bot Status / Live Activity / Notification bell / Voice panel widgets above update.
+*@
+
+<div class="space-y-8" data-testid="widgets-showcase">
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-live-events">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Live event bus</h3>
+            <p class="text-sm text-text-secondary mt-1">Publishes through the real IDashboardEventBus - the widgets below update from it, not from these buttons directly.</p>
+        </div>
+        <div class="p-6 flex flex-wrap gap-3">
+            <Button Text="Publish bot status" Variant="ButtonVariant.Secondary" OnClick="PublishBotStatusAsync" />
+            <Button Text="Publish command activity" Variant="ButtonVariant.Secondary" OnClick="PublishCommandActivityAsync" />
+            <Button Text="Publish guild activity" Variant="ButtonVariant.Secondary" OnClick="PublishGuildActivityAsync" />
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-bot-status">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Bot status</h3>
+            <p class="text-sm text-text-secondary mt-1">BotStatusBanner + BotStatusCard + ConnectionStatus - one IDashboardMetricsService.GetCurrentStatus call each, then live from the bus.</p>
+        </div>
+        <div class="p-6 space-y-4">
+            <BotStatusBanner />
+            <div class="flex flex-wrap items-start gap-4">
+                <div class="max-w-sm w-full"><BotStatusCard /></div>
+                <ConnectionStatus />
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-activity-feed">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Activity feed</h3>
+            <p class="text-sm text-text-secondary mt-1">Seeded with sample items, then appends from CommandExecutedEvent/GuildActivityEvent.</p>
+        </div>
+        <div class="p-6">
+            <div class="max-w-lg">
+                <ActivityFeed Items="_sampleActivity" ShowRefreshButton="true" OnRefresh="() => Task.CompletedTask" ViewAllUrl="#" MaxHeight="320px" />
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-notifications">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Notification bell</h3>
+            <p class="text-sm text-text-secondary mt-1">Same bell as the navbar - renders with zero unread when no user is signed in.</p>
+        </div>
+        <div class="p-6">
+            <NotificationBell />
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-quick-actions">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Quick actions</h3>
+        </div>
+        <div class="p-6">
+            <QuickActionsCard Actions="_sampleActions" UserIsAdmin="true" OnAction="HandleQuickActionAsync" OnConfirmRequested="HandleConfirmRequested" />
+            @if (!string.IsNullOrEmpty(_lastAction))
+            {
+                <p class="mt-3 text-sm text-text-secondary" data-testid="quick-action-result">Last action: @_lastAction</p>
+            }
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-connected-servers">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Connected servers</h3>
+        </div>
+        <div class="p-6">
+            <ConnectedServersWidget Servers="_sampleServers" TotalServerCount="12" />
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-audit-recent">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Audit log &amp; recent activity</h3>
+        </div>
+        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <AuditLogCard Logs="_sampleAuditLogs" />
+            <RecentActivityCard Activities="_sampleRecentActivity" OnRefresh="HandleRecentActivityRefreshAsync" />
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-command-stats">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Command usage chart</h3>
+        </div>
+        <div class="p-6">
+            <div class="max-w-xl">
+                <CommandStatsCard TopCommands="_sampleTopCommands" TotalCommands="482" TimeRangeHours="24" OnTimeRangeChanged="HandleTimeRangeChangedAsync" />
+            </div>
+        </div>
+    </section>
+
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-voice-panel">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Voice channel panel</h3>
+            <p class="text-sm text-text-secondary mt-1">Demo="true" seeds sample channels/queue so it renders without a real guild.</p>
+        </div>
+        <div class="p-6">
+            <div class="max-w-md">
+                <VoiceChannelPanel GuildId="123456789012345678" AvailableChannels="_sampleVoiceChannels" Queue="_sampleQueue" />
+            </div>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string? _lastAction;
+
+    private readonly List<ActivityFeedItemViewModel> _sampleActivity =
+    [
+        new() { Type = ActivityItemType.Success, Message = "/help executed by @alice", CommandText = "/help", Source = "Gaming Community", Timestamp = DateTime.UtcNow.AddMinutes(-2) },
+        new() { Type = ActivityItemType.Info, Message = "New member joined the server", Source = "Book Club", Timestamp = DateTime.UtcNow.AddMinutes(-9) },
+        new() { Type = ActivityItemType.Error, Message = "/play executed by @bob", CommandText = "/play", Source = "Music Lounge", Timestamp = DateTime.UtcNow.AddMinutes(-20) }
+    ];
+
+    private readonly List<QuickActionItemViewModel> _sampleActions =
+    [
+        new() { Id = "restart-bot", Label = "Restart Bot", IconPath = IconPaths.Refresh, Color = QuickActionColor.Warning, ActionType = QuickActionType.PostAction, Handler = "RestartBot", RequiresConfirmation = true, IsAdminOnly = true },
+        new() { Id = "sync-guilds", Label = "Sync Guilds", IconPath = IconPaths.Refresh, Color = QuickActionColor.Blue, ActionType = QuickActionType.PostAction, Handler = "SyncAllGuilds" },
+        new() { Id = "settings", Label = "Settings", IconPath = IconPaths.DocumentText, Color = QuickActionColor.Gray, ActionType = QuickActionType.Link, Href = "#" }
+    ];
+
+    private readonly List<ConnectedServerItemViewModel> _sampleServers =
+    [
+        new() { Id = 111, Name = "Gaming Community", Initials = "GC", AvatarGradient = "from-purple-500 to-pink-500", MemberCount = 1240, Status = ServerConnectionStatus.Online, CommandsToday = 58, DetailUrl = "#" },
+        new() { Id = 222, Name = "Book Club", Initials = "BC", AvatarGradient = "from-blue-500 to-cyan-500", MemberCount = 84, Status = ServerConnectionStatus.Idle, CommandsToday = 3, DetailUrl = "#" }
+    ];
+
+    private readonly List<AuditLogItem> _sampleAuditLogs =
+    [
+        new(1, DateTime.UtcNow.AddMinutes(-5), "5 min ago", AuditLogCategory.Configuration, "Configuration", IconPaths.DocumentText, AuditLogAction.SettingChanged, "Setting Changed", "admin", null, null, "Gaming Community", "admin changed settings")
+    ];
+
+    private readonly List<ActivityItem> _sampleRecentActivity =
+    [
+        new(Guid.NewGuid(), "/ban", "Gaming Community", "mod1", DateTime.UtcNow.AddMinutes(-3), "3 min ago", true, null),
+        new(Guid.NewGuid(), "/play", "Music Lounge", "user2", DateTime.UtcNow.AddMinutes(-15), "15 min ago", false, "Voice channel not found")
+    ];
+
+    private readonly List<CommandUsageStat> _sampleTopCommands =
+    [
+        new("/help", 182, 1),
+        new("/play", 121, 2),
+        new("/ban", 64, 3)
+    ];
+
+    private readonly List<VoiceChannelInfo> _sampleVoiceChannels =
+    [
+        new() { Id = 1, Name = "General", MemberCount = 4 },
+        new() { Id = 2, Name = "Music", MemberCount = 1 }
+    ];
+
+    private readonly List<QueueItemInfo> _sampleQueue =
+    [
+        new() { Position = 1, Name = "airhorn.mp3", DurationSeconds = 2 },
+        new() { Position = 2, Name = "applause.mp3", DurationSeconds = 4 }
+    ];
+
+    private Task PublishBotStatusAsync() => EventBus.PublishAsync(new BotStatusBroadcastEvent
+    {
+        Status = new BotStatusUpdateDto
+        {
+            ConnectionState = "Connected",
+            Latency = Random.Shared.Next(15, 150),
+            GuildCount = Random.Shared.Next(1, 40),
+            Uptime = TimeSpan.FromMinutes(Random.Shared.Next(1, 10_000)),
+            Timestamp = DateTime.UtcNow
+        }
+    });
+
+    private Task PublishCommandActivityAsync() => EventBus.PublishAsync(new CommandExecutedEvent
+    {
+        Update = new CommandExecutedUpdateDto
+        {
+            CommandName = "showcase",
+            Username = "demo-user",
+            GuildName = "Demo Guild",
+            Success = true,
+            Timestamp = DateTime.UtcNow
+        }
+    });
+
+    private Task PublishGuildActivityAsync() => EventBus.PublishAsync(new GuildActivityEvent
+    {
+        GuildId = 123456789012345678,
+        Update = new GuildActivityUpdateDto
+        {
+            GuildId = 123456789012345678,
+            GuildName = "Demo Guild",
+            EventType = "MemberJoined",
+            Timestamp = DateTime.UtcNow
+        }
+    });
+
+    private Task HandleQuickActionAsync(QuickActionItemViewModel action)
+    {
+        _lastAction = action.Label;
+        return Task.Delay(300);
+    }
+
+    private void HandleConfirmRequested(QuickActionItemViewModel action) => _lastAction = $"{action.Label} (confirmation requested)";
+
+    private async Task HandleRecentActivityRefreshAsync() => await Task.Delay(300);
+
+    private Task HandleTimeRangeChangedAsync(int? hours) => Task.CompletedTask;
+}

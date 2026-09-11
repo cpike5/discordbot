@@ -1,8 +1,10 @@
+using System.Reflection;
 using DiscordBot.Bot.Controllers;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Caching.Memory;
@@ -349,6 +351,71 @@ public class BotControllerTests
         stats.Timestamp.Should().BeOnOrBefore(afterCall);
         stats.BotStatus.Timestamp.Should().BeOnOrAfter(beforeCall);
         stats.BotStatus.Timestamp.Should().BeOnOrBefore(afterCall);
+    }
+
+    #endregion
+
+    #region Authorization Attribute Tests
+
+    [Fact]
+    public void Controller_ShouldHaveClassLevelRequireViewerPolicy()
+    {
+        // Assert - defense in depth: every action requires at least Viewer,
+        // even ones without their own [Authorize] attribute (e.g. GetStatus, GetConnectedGuilds).
+        var attribute = typeof(BotController).GetCustomAttribute<AuthorizeAttribute>();
+
+        attribute.Should().NotBeNull("BotController must declare a class-level authorization policy");
+        attribute!.Policy.Should().Be("RequireViewer");
+    }
+
+    [Theory]
+    [InlineData(nameof(BotController.Restart), "RequireSuperAdmin")]
+    [InlineData(nameof(BotController.Shutdown), "RequireSuperAdmin")]
+    [InlineData(nameof(BotController.GetDashboardStats), "RequireViewer")]
+    public void Action_ShouldRequireExpectedPolicy(string methodName, string expectedPolicy)
+    {
+        // Arrange
+        var method = typeof(BotController).GetMethod(methodName);
+        method.Should().NotBeNull($"{methodName} should exist on BotController");
+
+        // Act
+        var attribute = method!.GetCustomAttribute<AuthorizeAttribute>();
+
+        // Assert
+        attribute.Should().NotBeNull($"{methodName} should declare an [Authorize] attribute");
+        attribute!.Policy.Should().Be(expectedPolicy);
+    }
+
+    [Theory]
+    [InlineData(nameof(BotController.GetStatus))]
+    [InlineData(nameof(BotController.GetConnectedGuilds))]
+    public void ReadOnlyAction_WithNoOwnAttribute_FallsBackToClassLevelRequireViewer(string methodName)
+    {
+        // Arrange
+        var method = typeof(BotController).GetMethod(methodName);
+        method.Should().NotBeNull($"{methodName} should exist on BotController");
+
+        // Act
+        var actionAttribute = method!.GetCustomAttribute<AuthorizeAttribute>();
+        var classAttribute = typeof(BotController).GetCustomAttribute<AuthorizeAttribute>();
+
+        // Assert - no action-level override; the class-level RequireViewer policy governs it.
+        actionAttribute.Should().BeNull(
+            $"{methodName} relies on the class-level policy rather than its own [Authorize] attribute");
+        classAttribute.Should().NotBeNull();
+        classAttribute!.Policy.Should().Be("RequireViewer");
+    }
+
+    [Fact]
+    public void Restart_ShouldRequireSuperAdmin_NotAdmin()
+    {
+        // Restart was previously RequireAdmin; verify it was tightened to RequireSuperAdmin
+        // alongside Shutdown, since both are destructive bot-control operations.
+        var method = typeof(BotController).GetMethod(nameof(BotController.Restart));
+        var attribute = method!.GetCustomAttribute<AuthorizeAttribute>();
+
+        attribute.Should().NotBeNull();
+        attribute!.Policy.Should().Be("RequireSuperAdmin");
     }
 
     #endregion

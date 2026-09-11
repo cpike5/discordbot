@@ -75,6 +75,91 @@ The project uses the following testing stack:
 
 ---
 
+## Component (bUnit) Tests
+
+The Blazor port (`docs/plans/blazor-port-plan.md`) has its own test project,
+**`tests/DiscordBot.ComponentTests`** (`Microsoft.NET.Sdk.Razor`, wired into `DiscordBot.sln` so
+`dotnet test DiscordBot.sln` and CI pick it up automatically) — a separate project from
+`DiscordBot.Tests` because bUnit renders real component trees and needs its own DI container per
+test, which doesn't mix with `DiscordBot.Tests`' SQLite-in-memory `TestDbContextFactory` setup.
+It mirrors `src/DiscordBot.Bot/Blazor/` (`Blazor/Layout/`, `Blazor/Pages/Admin/`, ...). Uses
+**bUnit** (pinned to the latest stable release that targets `net10.0` — verify with
+`dotnet package search bunit --exact-match` before bumping; do not guess a version) alongside the
+same xUnit/FluentAssertions/Moq versions as `DiscordBot.Tests`.
+
+### Base class: `BlazorComponentTestContext`
+
+Every test class inherits `tests/DiscordBot.ComponentTests/TestHelpers/BlazorComponentTestContext.cs`,
+which extends **`Bunit.BunitContext`** — bUnit 2.10 marks the older `Bunit.TestContext` obsolete
+in favour of this rename — and in its constructor registers the same services `AddBlazorWeb`
+wires into the real host: `AddBlazorUiServices()` (`IToastService`/`ILoadingState`),
+`AddBlazorInterop()` (`ChartInterop`/`BrowserInterop`, resolved against bUnit's fake
+`IJSRuntime`), a real `DashboardEventBus` singleton (not mocked — subscribe/publish/debounce
+behavior is exactly what the event-bus tests exercise), and a scoped `CircuitClientInfoService`.
+It also sets `JSInterop.Mode = JSRuntimeMode.Loose` by default, and exposes an
+`AddAuthorizedAdmin(string userName = "admin")` helper.
+
+**Auth**: call `AddAuthorizedAdmin()` (or bUnit's own `this.AddAuthorization()` for a
+lower-level case) before rendering a component that reads
+`[CascadingParameter] Task<AuthenticationState>` — bUnit supplies that cascading value
+automatically once authorization is configured; no explicit
+`AddCascadingAuthenticationState()` is needed. Note the name: bUnit renamed the old
+`AddTestAuthorization()` to **`AddAuthorization()`** in v2 — don't go looking for the v1 name.
+
+**JS interop**: with `JSInterop.Mode = JSRuntimeMode.Loose` (the default here), an unconfigured
+call — including a dynamic `import` — returns a default value instead of throwing, which is
+enough for any interop call a component makes in `OnAfterRenderAsync` without per-test setup.
+To assert exactly which interop calls a component made (e.g. "imports the chart module, then
+calls `create`"), use `JSInterop.SetupModule("./js/blazor/charts.js")` and
+`.Setup<int>("create", invocation => true)` on the result, then assert on the handler's
+`.Invocations` and on `JSInterop.Invocations["import"]`.
+
+**Navigation**: bUnit's fake `NavigationManager` (`Bunit.TestDoubles.BunitNavigationManager`,
+resolved via `Services.GetRequiredService<NavigationManager>()`) records every navigation —
+including a `forceLoad: true` one — in its `.History` stack (latest first) rather than
+performing it, so a component like `RedirectToLogin` that forces a full page load can be tested
+by asserting on `navMan.History.First()` (`.Uri`, `.Options.ForceLoad`, `.State`).
+
+### The debouncer / `WaitForAssertion` pattern
+
+Components subscribed to `IDashboardEventBus` coalesce to at most one re-render per second via
+`Debouncer` (see "Real-time event bus" in `patterns.md`), so a test that publishes an event and
+then immediately asserts on the rendered markup is racing the debounce window. Publish through
+the same `IDashboardEventBus` instance the component resolved
+(`Services.GetRequiredService<IDashboardEventBus>()`), then assert with
+`cut.WaitForAssertion(() => ..., TimeSpan.FromSeconds(3))` rather than a fixed delay — it polls
+until the assertion passes or the timeout elapses, so it passes as soon as the debounced
+re-render lands instead of always waiting the full window. Use `WaitForState` for a boolean
+predicate instead of an assertion. Proving the *opposite* — that a disposed component's
+subscription no longer fires — has nothing to wait *for*, so a single bounded `await
+Task.Delay(...)` past the debounce window followed by an assertion is the right tool there (see
+`BlazorProbeTests.Dispose_UnsubscribesFromEverything_...`); that single await is not the
+wall-clock polling loop CLAUDE.md's thread-pool-starvation `ConfigureAwait(false)` rule targets.
+
+### The bUnit modal-await deadlock rule
+
+Never block synchronously on `InvokeAsync`/a rendered component's `Task` inside a test (`.Result`,
+`.Wait()`, `.GetAwaiter().GetResult()`) — bUnit's renderer needs the same thread to process the
+continuation, so blocking on it can deadlock. Click a button with `cut.Find(...).Click()` (which
+returns as soon as the handler's synchronous portion completes, not the whole awaited task) and
+observe the result with `WaitForAssertion`/`WaitForState`, never by awaiting-then-blocking on the
+click itself.
+
+### `IAsyncDisposable`-only services and xUnit's synchronous `Dispose()`
+
+`ChartInterop`/`BrowserInterop` implement only `IAsyncDisposable` (see `blazor-interop.md`,
+"Disposal"). xUnit v2 calls a test class's plain, synchronous `IDisposable.Dispose()` by
+default at the end of a test, and .NET's DI container refuses to synchronously dispose a scoped
+instance that implements only `IAsyncDisposable` — it throws `InvalidOperationException`.
+`BunitContext`'s own `Dispose()`/`DisposeAsync()` are both sealed, so this can't be fixed by
+overriding them. `BlazorComponentTestContext` instead implements `Xunit.IAsyncLifetime`
+(explicit interface implementation, `DisposeAsync() => base.DisposeAsync().AsTask()`), which
+makes xUnit await the container's real async dispose first; the later synchronous `Dispose()`
+call then finds the container already torn down and no-ops. Any new test project that renders
+components depending on an `IAsyncDisposable`-only service needs the same pattern.
+
+---
+
 ## Running Tests
 
 ### Run All Tests
@@ -989,6 +1074,108 @@ result.Timestamp.Should().Be(DateTime.UtcNow); // Often fails!
 // Use tolerance
 result.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(1));
 ```
+
+---
+
+## Browser (Playwright) Tests
+
+`tests/DiscordBot.E2E` drives the real, running application with headless Chromium via
+[Microsoft.Playwright](https://playwright.dev/dotnet/) 1.62.0. It is separate from
+`DiscordBot.Tests`: where the unit test project mocks everything below the class under test,
+this project boots the actual `DiscordBot.Bot.dll`, in web-only mode (`Discord:Enabled=false` -
+see CLAUDE.md "Running it locally"), and clicks through it in a browser. Use it for the one
+thing unit and component tests cannot see: that a page actually renders, an Interactive Server
+circuit actually boots, and a login actually redirects, in a real browser DOM. See
+`docs/plans/blazor-port-plan.md` §6 "Testing strategy" for how this fits alongside bUnit
+component tests (`tests/DiscordBot.ComponentTests`, once that project exists).
+
+### Running it
+
+The whole project is gated behind the `E2E_ENABLED` environment variable so a plain
+`dotnet test DiscordBot.sln` - and CI's own unit-test job - stay green on any machine without
+Chromium: without `E2E_ENABLED=1`, every test in the class reports **Skipped** (not failed),
+via `E2EFactAttribute`.
+
+```bash
+# Build first - the project assumes the solution is already built and does not build it itself.
+dotnet build DiscordBot.sln -p:SkipTailwind=true
+
+# Then run the suite:
+E2E_ENABLED=1 dotnet test tests/DiscordBot.E2E --no-build
+```
+
+Chromium must already be installed. In this repository's remote (web) sessions it is
+pre-installed at `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`
+(`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` is set, so do not run `playwright install` there) - the
+tests resolve Chromium's executable from, in order: `E2E_CHROMIUM_PATH` (an explicit override);
+then, under `$PLAYWRIGHT_BROWSERS_PATH`, a top-level `chromium` entry if one exists (this repo's
+remote sessions lay that out as a symlink straight to the executable, not a directory) or else
+the newest `chromium-<build>/chrome-linux/chrome` (or `headless_shell`) directory, the layout a
+plain `playwright install chromium` produces; then Playwright's own default resolution (e.g.
+after `pwsh tests/DiscordBot.E2E/bin/<Configuration>/net10.0/playwright.ps1 install chromium
+--with-deps`, which is what CI's `e2e` job does - see `.github/workflows/ci.yml`).
+
+Useful environment variables:
+
+| Variable | Purpose |
+| --- | --- |
+| `E2E_ENABLED` | Set to `1` to actually run the suite; unset (or any other value) skips every test. |
+| `E2E_BOT_DLL` | Overrides the resolved path to `DiscordBot.Bot.dll`, in case the test assembly's own build configuration (parsed from its own `bin/<Configuration>/net10.0/` path) doesn't match where the bot was built. |
+| `E2E_CHROMIUM_PATH` | Overrides the Chromium executable Playwright launches. |
+| `E2E_ADMIN_EMAIL` | Overrides the seeded admin account's email. Defaults to `e2e-admin@example.test`. |
+| `E2E_ADMIN_PASSWORD` | Overrides the seeded admin account's password. Defaults to a freshly generated one (`E2e-<guid>!`, meeting the Identity password policy) so no literal credential lives in source. |
+
+### How the host fixture works
+
+`BotHostFixture` (`IAsyncLifetime`, shared by the whole class via `E2ECollection` so the host
+boots once, not once per test) starts `DiscordBot.Bot.dll` as a child process - not in-process,
+so the test project stays free of Discord.NET, native audio libraries and the rest of the Bot
+project's runtime dependencies:
+
+- `ASPNETCORE_ENVIRONMENT=Development`, `Discord__Enabled=false` (web-only, no bot token - see
+  CLAUDE.md "Running it locally").
+- `ASPNETCORE_URLS=http://127.0.0.1:0`, letting the OS assign a free loopback port rather than
+  the fixture picking one itself - a `TcpListener` bound then stopped just to learn a free port
+  is a time-of-check/time-of-use race against anything else on the runner. The fixture instead
+  reads Kestrel's own `Now listening on: http://127.0.0.1:<port>` line (category
+  `Microsoft.Hosting.Lifetime`, logged once Kestrel has actually bound the address) back out of
+  the child process's stdout to learn the real port, with a 30s timeout.
+- `ConnectionStrings__DefaultConnection` pointed at a throwaway SQLite file, and
+  `DataProtection__KeyPath` at a sibling folder, both under a fresh temp directory (deleted on
+  dispose).
+- `Identity__DefaultAdmin__Email`/`Identity__DefaultAdmin__Password` (from `E2E_ADMIN_EMAIL`/
+  `E2E_ADMIN_PASSWORD`, or the generated defaults described above) so `IdentitySeeder` seeds one
+  admin account on first startup - no other secrets are needed; Discord OAuth, OpenRouter and
+  Azure Speech all start up fine unconfigured (see "Discord:Enabled (web-only mode)" and
+  "Optional Secrets" in `configuration-guide.md`).
+
+It polls `/health` (200 for Healthy or Degraded - Discord's own gateway check reports Degraded,
+not Unhealthy, when disabled) for up to 60 seconds after the port is known, and captures the
+child process's stdout/stderr to `host.log` under a fresh
+`tests/DiscordBot.E2E/TestResults/e2e-<timestamp>-<guid>/` directory (created by the fixture,
+alongside a `browser-console.log` that `BrowserTests` appends each page's console messages and
+uncaught errors to) - unlike the throwaway SQLite db and Data Protection keys, **this directory
+is always kept, not just on failure**, so it and the exception thrown on a failed startup both
+point at the same file. CI's `e2e` job uploads that directory as the `e2e-host-logs` artifact on
+failure (see `.github/workflows/ci.yml`).
+
+`PlaywrightFixture` launches one shared headless Chromium instance the same way, and each test
+opens its own `IBrowserContext` off of it (never sharing cookies/storage between tests) rather
+than one browser per test - xUnit constructs a fresh instance of the test class per test method
+regardless, so there is nothing else worth sharing at that level.
+
+### The rule
+
+**Every migrated page cluster (plan §5 Phase 4) adds one happy-path Playwright test**: log in (or
+reuse a login helper), navigate to the page, perform the one thing that page exists for, assert
+the result - mirroring plan §6's "one happy path per migrated cluster". Keep it to the happy path;
+edge cases and error states belong in bUnit component tests, which run without a browser and are
+far cheaper. Keep each test well under the file's practical ceiling (Playwright's own default
+timeouts are generous, but a host boot plus a browser round trip adds up fast in a shared CI
+runner) and prefer explicit waits (`Expect(...).ToBeVisibleAsync()`, `Expect(...).ToContainTextAsync()`)
+over `Task.Delay` sleeps, which are banned here for the same reason they're avoided in
+`ConcurrencyTestHelper`-style unit tests: they are either too short (flaky) or too long
+(slow) and never both at once.
 
 ---
 

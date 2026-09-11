@@ -22,6 +22,8 @@ Quick reference guide for common patterns and conventions used throughout the Di
 16. [MonitoredBackgroundService](#monitoredbackgroundservice)
 17. [IMemoryReportable](#imemoryreportable)
 18. [Per-Guild Locking](#per-guild-locking)
+19. [Blazor Components](#blazor-components)
+20. [Real-time event bus](#real-time-event-bus)
 
 ---
 
@@ -1774,6 +1776,165 @@ if (_guildLocks.TryRemove(guildId, out var removedLock))
 | `PlaybackService` | Sound playback queue and active stream per guild |
 | `SpamDetectionService` | Message frequency windows per guild |
 | `RaidDetectionService` | Join event detection windows per guild |
+
+---
+
+## Blazor Components
+
+The web UI is being ported from Razor Pages to Blazor, one page/cluster at a time (see
+`docs/plans/blazor-port-plan.md`). Both stacks coexist under `src/DiscordBot.Bot/` until the
+port finishes: `Pages/` (Razor Pages, legacy, being ported) and `Blazor/` (new UI). New UI work
+goes in `Blazor/`; do not add new Razor Pages.
+
+### Hosting model
+
+**Blazor Web App, Interactive Server only** - no WebAssembly, no Auto. Page/component models
+inject `DiscordSocketClient`, repositories and ~60 service interfaces directly, the same as
+Razor Pages do today; server render keeps that possible without standing up an API for each one.
+
+**Interactivity is per-page, not global.** `Blazor/Routes.razor` stays static SSR (no
+`@rendermode` on `<Routes />`); each page opts in individually with `@rendermode
+InteractiveServer` at the top of its `.razor` file. Shell chrome (sidebar, navbar) will be
+static SSR with small interactive islands (notification bell, toast host) once the layouts land
+in Phase 3 - don't put a render mode on a whole layout.
+
+Registration lives in `Extensions/BlazorServiceExtensions.cs` (`AddBlazorWeb(IServiceCollection,
+IWebHostEnvironment)`, called from `Program.cs` next to `AddWebServices()`) and follows the same
+DI-registration-by-extension-method pattern as everything else - see
+[DI Registration](#di-registration). `Program.cs` maps `MapRazorComponents<Blazor.App>()
+.AddInteractiveServerRenderMode()` next to `MapRazorPages()`, and calls `app.UseAntiforgery()`
+immediately after `app.UseAuthorization()` (required for `EditForm`/`<AntiforgeryToken />` on
+static SSR Blazor pages; it validates the same ASP.NET Core antiforgery token Razor Pages'
+`[ValidateAntiForgeryToken]`/`asp-antiforgery` already use, so the two don't double-validate).
+
+### Where things live
+
+| Folder | Contents |
+| --- | --- |
+| `Blazor/App.razor` | Static root document: `<!DOCTYPE html>`/`<head>` (`<base href="/">`, fonts, `app.css`, pre-paint theme script, sidebar FOUC guard - copied verbatim from `Pages/Shared/_Layout.cshtml`), `<HeadOutlet />`, `<Routes />`, an absolute-path `blazor.web.js` `<script>`. The `<base>` tag and the absolute script `src` both matter: without either, `blazor.web.js` resolves `_blazor/initializers` (and its own script URL) relative to the *current route* instead of the app root, 404ing and leaving the circuit dead on any nested page (e.g. `/admin/blazor-smoke`) - this is the known .NET 10 regression `tests/DiscordBot.E2E`'s nested-route test guards. |
+| `Blazor/Routes.razor` | `Router` + `AuthorizeRouteView` (`DefaultLayout="typeof(EmptyLayout)"`) + `RedirectToLogin` + `FocusOnNavigate`. |
+| `Blazor/Layout/` | `EmptyLayout` (no chrome; today's only layout) and, from Phase 3, `MainLayout`/`GuildLayout`/`PortalLayout`/`LandingLayout`. |
+| `Blazor/Shared/` | The design-system component library (Phase 2 - Button, Card, Modal, etc., one `bUnit` test each). |
+| `Blazor/Pages/` | Routable pages, mirroring today's `Pages/` tree as it's ported. |
+| `Blazor/Interop/` | Thin C# wrappers around the interop JS modules (Phase 1+ from a sibling stream - `charts.js`/`audio.js`/`browser.js`). |
+| `Blazor/Services/` | Blazor-specific services: the revalidating auth state provider, circuit observability, and (from a sibling stream) the event bus/toast/loading services. |
+
+### Auth in components
+
+**`HttpContext` is only available during prerendering, never once the Interactive Server circuit
+is live.** Static SSR pages (Identity/account pages, per §4.2 of the port plan) can inject
+`HttpContext` freely; any `@rendermode InteractiveServer` component cannot - use
+`[CascadingParameter] Task<AuthenticationState>` or the injected `AuthenticationStateProvider`
+instead, and never inject `IHttpContextAccessor` into an interactive component (it throws or
+returns null once the circuit is running).
+
+A circuit outlives the auth cookie that created it, and today's per-request
+`DiscordClaimsTransformation` does not run again inside a circuit. `RevalidatingIdentityAuthenticationStateProvider`
+(`Blazor/Services/`, registered scoped as `AuthenticationStateProvider`) closes that gap: every
+30 minutes it re-checks, via a fresh `UserManager<ApplicationUser>` scope, that the user still
+exists, isn't locked out, and (when the store supports it) that the security-stamp claim on the
+circuit's principal still matches. A failed check ends the circuit; the next navigation forces a
+real sign-in.
+
+Because `HttpContext` disappears once a circuit is running, anything a component would have read
+off it for audit logging - caller IP, user agent - has to be captured once, when the circuit
+opens. `BlazorCircuitHandler.OnCircuitOpenedAsync` reads `IHttpContextAccessor.HttpContext` (it
+*is* available at that one moment) and populates the scoped `CircuitClientInfoService`;
+components read IP/UA from that service instead of `HttpContext`.
+
+### Circuit observability
+
+`BlazorCircuitHandler : CircuitHandler` (`Blazor/Services/`, registered scoped - one instance per
+circuit) logs "Blazor circuit opened"/"closed" at Information with the user ID, circuit ID and a
+correlation ID (reused from the opening request via `HttpContextExtensions.GetCorrelationId()` if
+present, otherwise generated the same way `CorrelationIdMiddleware` does), and records
+`blazor.circuits.opened_total` / `blazor.circuits.active` via `Metrics/BlazorMetrics.cs` (same
+`IMeterFactory` pattern as `BotMetrics`/`ApiMetrics`, registered in `OpenTelemetryExtensions`).
+Circuit interactions travel over the SignalR hub, never an HTTP request, so they never pass
+through `ApiMetricsMiddleware` or `UseSerilogRequestLogging` - see the circuit notes in
+`docs/articles/metrics.md` and `docs/articles/tracing.md`.
+
+### Gotchas carried over from CLAUDE.md
+
+- **Discord snowflakes are strings** in any component `[Parameter]`, `@bind` target, or JS
+  interop call - the same rule as `'@Model.GuildId'` in Razor Pages. A `ulong` id is fine inside
+  C# logic; the moment it crosses into markup or `IJSRuntime.InvokeAsync`, convert it to `string`
+  first, or the last digits round off silently in JavaScript.
+- **`Discord:Enabled=false` (web-only mode)** works the same for Blazor pages as for Razor
+  Pages - it's how the host runs for UI testing without a bot token or gateway connection. See
+  "Running it locally" in `CLAUDE.md` and `docs/articles/configuration-guide.md`.
+
+## Real-time event bus
+
+`IDashboardEventBus` (`Bot/Services/Realtime/DashboardEventBus.cs`) is an in-process pub/sub bus
+that every SignalR dashboard broadcaster dual-publishes to alongside its
+`IHubContext<DashboardHub>` send, so a Blazor Server component gets the same real-time data a
+browser SignalR client gets, without a client connection. Full detail, event catalog, and the
+dual-publish rule for new broadcasters live in `docs/articles/signalr-realtime.md`, "In-process
+event bus" — this section is the component-authoring side of that same pattern.
+
+### Subscribing and rendering
+
+```csharp
+public partial class VoiceChannelPanel : ComponentBase, IDisposable
+{
+    [Parameter] public ulong GuildId { get; set; }
+
+    [Inject] private IDashboardEventBus EventBus { get; set; } = default!;
+
+    private IDisposable? _subscription;
+    private readonly Debouncer _debouncer = new();
+    private QueueUpdatedDto? _queue;
+
+    protected override void OnInitialized()
+    {
+        // Guild-scoped overload: only this guild's events reach the handler, one line, no
+        // `if (evt.GuildId != GuildId) return;` boilerplate.
+        _subscription = EventBus.Subscribe<QueueUpdatedEvent>(GuildId, (evt, _) =>
+        {
+            _debouncer.Debounce(TimeSpan.FromSeconds(1), async ct =>
+            {
+                _queue = evt.Queue;
+                await InvokeAsync(StateHasChanged);
+            });
+            return Task.CompletedTask;
+        });
+        base.OnInitialized();
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}
+```
+
+### Rules
+
+1. **Filter by guild** with the guild-scoped `Subscribe` overload (`Subscribe<TEvent>(guildId, handler)`)
+   for any event deriving from `GuildScopedEvent`, instead of subscribing broadly and filtering
+   by hand.
+2. **Debounce or coalesce to ≤1 Hz re-render.** High-frequency events (playback progress, a burst
+   of guild activity) must not drive `StateHasChanged` faster than about once a second; use
+   `Blazor/Common/Debouncer.cs`.
+3. **Unsubscribe in `Dispose`.** Failing to dispose the handle `Subscribe` returns leaks a
+   delegate that closes over the component; the bus catches a handler that throws (logged at
+   Warning) so a torn-down component can't fault the publisher, but a leaked subscription still
+   does pointless work forever.
+4. **Call `InvokeAsync(StateHasChanged)`.** A published event is delivered on whichever thread
+   called `PublishAsync` — a background service's timer thread, a request thread handling a hub
+   call, another circuit entirely — never automatically on this component's synchronization
+   context.
+
+### Toast, loading, and debounce services
+
+`Bot/Blazor/Services/IToastService` and `ILoadingState` are the scoped (per-circuit) UI-state
+counterparts to today's `wwwroot/js/toast.js` and the loading-overlay JS: inject them into a
+component, call `Toast.Success(...)` / `Loading.Begin(...)`, and subscribe to their `Changed`
+event the same way as the bus (`InvokeAsync(StateHasChanged)`). `Blazor/Common/Debouncer.cs` is
+the general-purpose trailing-edge debounce used above and anywhere else a component coalesces
+bursty input (a search box, a filter change) into one action.
 
 ---
 

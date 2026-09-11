@@ -33,6 +33,7 @@ public static class OpenTelemetryExtensions
         services.AddSingleton<BusinessMetrics>();
         services.AddSingleton<SloMetrics>();
         services.AddSingleton<VoxMetrics>();
+        services.AddSingleton<BlazorMetrics>();
 
         // Configure OpenTelemetry
         services.AddOpenTelemetry()
@@ -49,6 +50,7 @@ public static class OpenTelemetryExtensions
                 metrics.AddMeter(BusinessMetrics.MeterName);
                 metrics.AddMeter(SloMetrics.MeterName);
                 metrics.AddMeter(VoxMetrics.MeterName);
+                metrics.AddMeter(BlazorMetrics.MeterName);
 
                 // Add ASP.NET Core instrumentation
                 metrics.AddAspNetCoreInstrumentation();

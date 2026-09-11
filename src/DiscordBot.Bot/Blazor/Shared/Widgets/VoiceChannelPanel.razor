@@ -1,0 +1,435 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Interfaces
+@using DiscordBot.Bot.Services.Realtime
+@using DiscordBot.Bot.Services.Realtime.Events
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.Blazor.Services
+@implements IDisposable
+@inject IDashboardAudioStatusService AudioStatusService
+@inject IAudioService AudioService
+@inject IPlaybackService PlaybackService
+@inject IDashboardEventBus EventBus
+@inject IToastService ToastService
+@inject ILogger<VoiceChannelPanel> Logger
+
+@*
+    Ported from _VoiceChannelPanel.cshtml + voice-channel-panel.js. Initial connection/playback
+    state comes from IDashboardAudioStatusService.GetCurrentAudioStatus - the same service
+    DashboardHub.GetCurrentAudioStatus calls. AudioStatusDto (docs/plans/blazor-port-inventory.md
+    Part 4 §2) does not carry the guild's full voice-channel list or queue item details (only a
+    QueueLength count and the currently-playing sound), so AvailableChannels/Queue are
+    caller-seeded initial parameters - the same pattern ActivityFeed uses for Items - then kept
+    live from QueueUpdatedEvent (which does carry full QueueItemDto rows) and
+    VoiceChannelMemberCountUpdatedEvent.
+
+    Join/leave/stop/skip call IAudioService/IPlaybackService directly (the same interfaces
+    AudioController uses) rather than going over HTTP from inside the same process, with
+    EventCallbacks so the hosting page can react (toast, navigation, etc).
+
+    Fidelity deviation: the legacy partial's mobile-collapse toggle is an inline <script> function
+    plus an ID-selector <style> block; both move here - collapse as component state
+    (_mobileExpanded) and the styles into VoiceChannelPanel.razor.css (contract point 6). No
+    upfront "is audio enabled for this guild" check (AudioController's IGuildAudioSettingsService
+    guard) - out of scope for a widget built only on the interfaces named in the task brief.
+
+    Fidelity deviation: IconPaths.Microphone now renders the Heroicons v2 microphone outline
+    instead of the v1 shape _VoiceChannelPanel.cshtml renders inline, per the IconPaths merge
+    (docs/plans/blazor-port-plan.md §5 Phase 2 step 1) - the name collided with the TTS preset
+    bar/mode switcher's v2 usage, and the v2 path is the one that verifies against the published
+    Heroicons SVG.
+*@
+
+@if (_guildIdInvalid)
+{
+    <div id="voice-channel-panel"
+         class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden p-4 text-sm text-text-tertiary @PanelClass @Class"
+         aria-disabled="true"
+         @attributes="AdditionalAttributes">
+        Voice channel panel unavailable: invalid guild id.
+    </div>
+}
+else
+{
+<div id="voice-channel-panel"
+     class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden @PanelClass @Class"
+     data-guild-id="@GuildId"
+     data-connected="@IsConnected.ToString().ToLowerInvariant()"
+     data-channel-id="@ConnectedChannelId"
+     @attributes="AdditionalAttributes">
+
+    <button type="button"
+            class="voice-panel-mobile-toggle"
+            aria-expanded="@_mobileExpanded.ToString().ToLowerInvariant()"
+            aria-controls="voice-panel-collapsible-body"
+            @onclick="() => _mobileExpanded = !_mobileExpanded">
+        <div class="voice-panel-mobile-toggle-left">
+            <Icon Path="@IconPaths.Microphone" Class="voice-panel-mobile-toggle-icon" />
+            <span class="voice-panel-mobile-toggle-label">Voice Channel</span>
+            <span class="voice-panel-mobile-status @(IsConnected ? "connected" : "disconnected")">@StatusText</span>
+        </div>
+        <Icon Path="@IconPaths.ChevronDown" Class="@("voice-panel-mobile-chevron" + (_mobileExpanded ? " expanded" : ""))" />
+    </button>
+
+    <div id="voice-panel-collapsible-body" class="voice-panel-collapsible-body @(_mobileExpanded ? "expanded" : "")">
+
+        <div class="px-4 py-3 border-b border-border-primary">
+            <div class="flex items-center justify-between mb-2">
+                <h3 class="text-sm font-semibold text-text-primary">Voice Channel</h3>
+                <span class="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs font-medium rounded-full @StatusBgClass @StatusClass">
+                    <span class="w-1.5 h-1.5 rounded-full @(IsConnected ? "bg-success" : "bg-text-tertiary")"></span>
+                    <span>@StatusText</span>
+                </span>
+            </div>
+            @if (IsConnected && !string.IsNullOrEmpty(ConnectedChannelName))
+            {
+                <p class="text-sm text-text-secondary flex items-center gap-2">
+                    <Icon Path="@IconPaths.Microphone" Class="w-4 h-4 text-text-tertiary" />
+                    <span>@ConnectedChannelName</span>
+                    <span class="text-text-tertiary">(@(ChannelMemberCount ?? 0) members)</span>
+                </p>
+            }
+        </div>
+
+        <div class="px-4 py-3 border-b border-border-primary">
+            <label for="channel-selector" class="block text-xs font-medium text-text-secondary mb-1.5">Select Channel</label>
+            <div class="flex items-center gap-2 voice-channel-controls">
+                <select id="channel-selector"
+                        class="flex-1 bg-bg-tertiary border border-border-primary rounded-md px-3 py-1.5 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue focus:border-transparent"
+                        disabled="@_isBusy"
+                        @onchange="HandleChannelSelectedAsync">
+                    <option value="">-- Select a channel --</option>
+                    @foreach (var channel in AvailableChannels)
+                    {
+                        <option value="@channel.Id" selected="@(channel.Id.ToString() == ConnectedChannelId)">@channel.Name (@channel.MemberCount)</option>
+                    }
+                </select>
+                <button id="leave-channel-btn" type="button"
+                        class="@(IsConnected ? "" : "hidden") px-3 py-1.5 bg-error hover:bg-error-hover text-white text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 disabled:opacity-50"
+                        title="Leave voice channel" disabled="@_isBusy" @onclick="LeaveAsync">
+                    <Icon Path="@IconPaths.ArrowRightOnRectangle" Class="w-4 h-4" />
+                    Leave
+                </button>
+            </div>
+        </div>
+
+        @if (ShowNowPlaying)
+        {
+            <div id="now-playing-section" class="px-4 py-3 border-b border-border-primary @(NowPlaying is null ? "hidden" : "")">
+                <div class="flex items-center justify-between mb-2">
+                    <h4 class="text-xs font-medium text-text-secondary uppercase tracking-wider">Now Playing</h4>
+                    <button type="button" class="p-1 text-error hover:bg-error/10 rounded transition-colors" title="Stop playback" disabled="@_isBusy" @onclick="StopAsync">
+                        <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6h12v12H6z" /></svg>
+                    </button>
+                </div>
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 bg-accent-blue/20 rounded-lg flex items-center justify-center text-accent-blue flex-shrink-0">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z" /></svg>
+                    </div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-text-primary truncate" title="@(NowPlaying?.Name ?? "Nothing playing")">@(NowPlaying?.Name ?? "Nothing playing")</p>
+                        @if (ShowProgress)
+                        {
+                            <div class="mt-1.5">
+                                <div class="w-full bg-bg-tertiary rounded-full h-1.5" role="progressbar"
+                                     aria-valuenow="@(NowPlaying?.ProgressPercent ?? 0)" aria-valuemin="0" aria-valuemax="100" aria-label="Playback progress">
+                                    <div class="bg-accent-blue h-1.5 rounded-full transition-all duration-300" style="width: @(NowPlaying?.ProgressPercent ?? 0)%"></div>
+                                </div>
+                                <div class="flex justify-between mt-1 text-xs text-text-tertiary">
+                                    <span>@FormatDuration(NowPlaying?.PositionSeconds ?? 0)</span>
+                                    <span>@FormatDuration(NowPlaying?.DurationSeconds ?? 0)</span>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <p class="mt-1 text-xs text-text-tertiary">Playing...</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="px-4 py-3 voice-queue-section">
+            <div class="flex items-center justify-between mb-3">
+                <h4 class="text-xs font-medium text-text-secondary uppercase tracking-wider">Queue</h4>
+                <span class="text-xs text-text-tertiary">@(Queue.Count > 0 ? $"{Queue.Count} sound{(Queue.Count == 1 ? "" : "s")}" : "Empty")</span>
+            </div>
+
+            @if (Queue.Count == 0)
+            {
+                <div class="text-center py-4">
+                    <Icon Path="@IconPaths.QueueListEmpty" Class="w-8 h-8 text-text-tertiary mx-auto mb-2" StrokeWidth="1.5" />
+                    <p class="text-sm text-text-tertiary">No sounds in queue</p>
+                </div>
+            }
+            else
+            {
+                <ul class="space-y-2">
+                    @foreach (var item in Queue)
+                    {
+                        <li class="flex items-center gap-3 p-2 bg-bg-tertiary rounded-lg group">
+                            <span class="w-5 h-5 flex items-center justify-center text-xs text-text-tertiary font-medium">@item.Position</span>
+                            <div class="flex-1 min-w-0">
+                                <p class="text-sm text-text-primary truncate">@item.Name</p>
+                                <p class="text-xs text-text-tertiary">@item.DurationFormatted</p>
+                            </div>
+                            <button type="button" class="p-1 text-text-tertiary hover:text-accent-blue opacity-0 group-hover:opacity-100 transition-all" title="Skip to next" disabled="@_isBusy" @onclick="() => SkipAsync(item.Position)">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z" /></svg>
+                            </button>
+                        </li>
+                    }
+                </ul>
+            }
+        </div>
+    </div>
+</div>
+}
+
+@code {
+    [Parameter, EditorRequired] public string GuildId { get; set; } = string.Empty;
+    [Parameter] public bool IsCompact { get; set; }
+    [Parameter] public bool ShowNowPlaying { get; set; } = true;
+    [Parameter] public bool ShowProgress { get; set; } = true;
+    [Parameter] public IReadOnlyList<VoiceChannelInfo> AvailableChannels { get; set; } = [];
+    [Parameter] public IReadOnlyList<QueueItemInfo> Queue { get; set; } = [];
+    [Parameter] public EventCallback<string> OnJoined { get; set; }
+    [Parameter] public EventCallback OnLeft { get; set; }
+    [Parameter] public EventCallback OnStopped { get; set; }
+    [Parameter] public EventCallback<int> OnSkipped { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private ulong _guildId;
+    private bool IsConnected { get; set; }
+    private string? ConnectedChannelName { get; set; }
+    private string? ConnectedChannelId { get; set; }
+    private int? ChannelMemberCount { get; set; }
+    private NowPlayingInfo? NowPlaying { get; set; }
+    private bool _mobileExpanded;
+    private bool _isBusy;
+    private bool _guildIdInvalid;
+
+    private readonly Debouncer _debouncer = new();
+    private IDisposable? _connectedSub;
+    private IDisposable? _disconnectedSub;
+    private IDisposable? _startedSub;
+    private IDisposable? _progressSub;
+    private IDisposable? _finishedSub;
+    private IDisposable? _queueSub;
+    private IDisposable? _memberCountSub;
+
+    protected override void OnInitialized()
+    {
+        if (!ulong.TryParse(GuildId, out _guildId))
+        {
+            _guildIdInvalid = true;
+            return;
+        }
+
+        var status = AudioStatusService.GetCurrentAudioStatus(_guildId, null, null);
+        IsConnected = status.IsConnected;
+        ConnectedChannelId = status.ChannelId?.ToString();
+        ConnectedChannelName = status.ChannelName;
+        ChannelMemberCount = AvailableChannels.FirstOrDefault(c => c.Id == status.ChannelId)?.MemberCount;
+        if (status.IsPlaying && status.CurrentSound is { } sound)
+        {
+            NowPlaying = new NowPlayingInfo
+            {
+                Id = sound.SoundId.ToString(),
+                Name = sound.Name,
+                DurationSeconds = sound.DurationSeconds,
+                PositionSeconds = status.CurrentPositionSeconds ?? 0
+            };
+        }
+
+        _connectedSub = EventBus.Subscribe<AudioConnectedEvent>(_guildId, (evt, _) =>
+        {
+            Debounced(() =>
+            {
+                IsConnected = true;
+                ConnectedChannelId = evt.Data.ChannelId.ToString();
+                ConnectedChannelName = evt.Data.ChannelName;
+                ChannelMemberCount = evt.Data.MemberCount;
+            });
+            return Task.CompletedTask;
+        });
+
+        _disconnectedSub = EventBus.Subscribe<AudioDisconnectedEvent>(_guildId, (_, _) =>
+        {
+            Debounced(() =>
+            {
+                IsConnected = false;
+                ConnectedChannelId = null;
+                ConnectedChannelName = null;
+                ChannelMemberCount = null;
+                NowPlaying = null;
+            });
+            return Task.CompletedTask;
+        });
+
+        _startedSub = EventBus.Subscribe<PlaybackStartedEvent>(_guildId, (evt, _) =>
+        {
+            Debounced(() => NowPlaying = new NowPlayingInfo
+            {
+                Id = evt.Data.SoundId.ToString(),
+                Name = evt.Data.Name,
+                DurationSeconds = evt.Data.DurationSeconds,
+                PositionSeconds = 0
+            });
+            return Task.CompletedTask;
+        });
+
+        _progressSub = EventBus.Subscribe<PlaybackProgressEvent>(_guildId, (evt, _) =>
+        {
+            Debounced(() =>
+            {
+                if (NowPlaying is not null)
+                {
+                    NowPlaying = NowPlaying with { PositionSeconds = evt.Data.PositionSeconds };
+                }
+            });
+            return Task.CompletedTask;
+        });
+
+        _finishedSub = EventBus.Subscribe<PlaybackFinishedEvent>(_guildId, (_, _) =>
+        {
+            Debounced(() => NowPlaying = null);
+            return Task.CompletedTask;
+        });
+
+        _queueSub = EventBus.Subscribe<QueueUpdatedEvent>(_guildId, (evt, _) =>
+        {
+            Debounced(() => Queue = evt.Queue.Queue.Select(q => new QueueItemInfo
+            {
+                Position = q.Position,
+                Id = q.SoundId.ToString(),
+                Name = q.Name,
+                DurationSeconds = q.DurationSeconds
+            }).ToList());
+            return Task.CompletedTask;
+        });
+
+        _memberCountSub = EventBus.Subscribe<VoiceChannelMemberCountUpdatedEvent>(_guildId, (evt, _) =>
+        {
+            Debounced(() =>
+            {
+                if (ConnectedChannelId == evt.Data.ChannelId.ToString())
+                {
+                    ChannelMemberCount = evt.Data.MemberCount;
+                }
+            });
+            return Task.CompletedTask;
+        });
+    }
+
+    // Mirrors ActivityFeed.Enqueue/NotificationBell.Debounced: the state mutation always applies
+    // immediately (never dropped), and only the resulting re-render is coalesced to <=1 Hz.
+    // Debouncing the mutation itself (the previous behavior) let the shared Debouncer cancel a
+    // pending call outright when a second event arrived inside the same window, silently dropping
+    // that event's state change.
+    private void Debounced(Action apply)
+    {
+        apply();
+        _debouncer.Debounce(TimeSpan.FromSeconds(1), async _ => await InvokeAsync(StateHasChanged));
+    }
+
+    private async Task HandleChannelSelectedAsync(ChangeEventArgs e)
+    {
+        var value = e.Value?.ToString();
+        if (string.IsNullOrEmpty(value) || !ulong.TryParse(value, out var channelId))
+        {
+            return;
+        }
+
+        await RunBusyAsync(async () =>
+        {
+            var client = await AudioService.JoinChannelAsync(_guildId, channelId);
+            if (client is not null && OnJoined.HasDelegate)
+            {
+                await OnJoined.InvokeAsync(value);
+            }
+        });
+    }
+
+    private Task LeaveAsync() => RunBusyAsync(async () =>
+    {
+        await PlaybackService.StopAsync(_guildId);
+        var left = await AudioService.LeaveChannelAsync(_guildId);
+        if (left && OnLeft.HasDelegate)
+        {
+            await OnLeft.InvokeAsync();
+        }
+    });
+
+    private Task StopAsync() => RunBusyAsync(async () =>
+    {
+        await PlaybackService.StopAsync(_guildId);
+        if (OnStopped.HasDelegate)
+        {
+            await OnStopped.InvokeAsync();
+        }
+    });
+
+    private Task SkipAsync(int position) => RunBusyAsync(async () =>
+    {
+        var removed = await PlaybackService.RemoveFromQueueAsync(_guildId, position);
+        if (removed && OnSkipped.HasDelegate)
+        {
+            await OnSkipped.InvokeAsync(position);
+        }
+    });
+
+    private async Task RunBusyAsync(Func<Task> action)
+    {
+        if (_isBusy)
+        {
+            return;
+        }
+
+        _isBusy = true;
+        try
+        {
+            await action();
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Voice channel panel action failed for guild {GuildId}", GuildId);
+            ToastService.Error("Something went wrong with the voice channel. Please try again.");
+        }
+        finally
+        {
+            _isBusy = false;
+        }
+    }
+
+    private static string FormatDuration(double seconds)
+    {
+        var ts = TimeSpan.FromSeconds(seconds);
+        return ts.TotalHours >= 1 ? $"{(int)ts.TotalHours}:{ts.Minutes:D2}:{ts.Seconds:D2}" : $"{ts.Minutes}:{ts.Seconds:D2}";
+    }
+
+    private string PanelClass => string.Join(" ", new[]
+    {
+        IsCompact ? "voice-panel-compact" : null,
+        !ShowNowPlaying ? "voice-panel-hide-now-playing" : null
+    }.Where(c => c is not null));
+
+    private string StatusText => IsConnected ? "Connected" : "Disconnected";
+    private string StatusClass => IsConnected ? "text-success" : "text-text-tertiary";
+    private string StatusBgClass => IsConnected ? "bg-success/20" : "bg-bg-tertiary";
+
+    public void Dispose()
+    {
+        _connectedSub?.Dispose();
+        _disconnectedSub?.Dispose();
+        _startedSub?.Dispose();
+        _progressSub?.Dispose();
+        _finishedSub?.Dispose();
+        _queueSub?.Dispose();
+        _memberCountSub?.Dispose();
+        _debouncer.Dispose();
+    }
+}

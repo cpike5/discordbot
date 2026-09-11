@@ -51,6 +51,12 @@ public class SlashCommandRegistrationService : IHostedService
     /// </summary>
     public async Task StartAsync(CancellationToken cancellationToken)
     {
+        if (!_config.Enabled)
+        {
+            _logger.LogInformation("Discord bot disabled by configuration; skipping slash-command registration");
+            return;
+        }
+
         await DiscoverAndLoadModulesAsync(cancellationToken);
         _client.Ready += OnReadyAsync;
     }

@@ -1,0 +1,19 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@* New - the ".kbd" class in site.css:374 exists but isn't wired to any Razor Pages partial today
+   (the navbar search hint uses the near-identical ".search-kbd" class directly in _Navbar.cshtml
+   instead). Gives the design system a component for it. *@
+
+<kbd class="@ClassNames" @attributes="AdditionalAttributes">
+    @ChildContent
+</kbd>
+
+@code {
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string ClassNames => string.IsNullOrEmpty(Class) ? "kbd" : $"kbd {Class}";
+}

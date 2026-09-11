@@ -211,7 +211,7 @@ await notificationService.CreateForAllAdminsAsync(
     NotificationType.PerformanceAlert,
     title: $"{incident.MetricName} Alert",  // or "Resolved"
     message: incident.Message,
-    linkUrl: "/Admin/Performance/Alerts",
+    linkUrl: "/Admin/Performance#alerts",
     severity: incident.Severity,
     relatedEntityType: "PerformanceIncident",
     relatedEntityId: incident.Id.ToString(),

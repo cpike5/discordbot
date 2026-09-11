@@ -1,0 +1,317 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@inject NavigationManager Navigation
+
+@* Ported from _Pagination.cshtml / PaginationViewModel. Two modes, chosen by whether BaseUrl is
+   set: link mode (BaseUrl != null) renders <a href> exactly like the partial, including its
+   BuildUrl/StripQueryParam query-string algorithm; callback mode (BaseUrl == null) renders
+   <button>s that invoke OnPageChanged/OnPageSizeChanged instead - there is no server round trip
+   once a page owns its own paged state in a circuit. RenderNavElement is the one place the two
+   modes actually differ structurally (anchor vs. button); every style below calls it so the
+   class strings/layout stay a single, literal copy of the partial's four @if branches. The
+   page-size <select onchange="window.location.href=...")"> becomes NavigationManager.NavigateTo
+   in link mode per docs/plans/blazor-port-inventory.md Part 3 §2.3. *@
+
+@if (Style == PaginationStyle.Simple)
+{
+    <nav aria-label="Pagination" class="@Merge("flex items-center gap-3")" @attributes="AdditionalAttributes">
+        @RenderNavElement(CurrentPage - 1, IsFirstPage, $"inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors {DisabledClass(IsFirstPage)}", null, PrevWithText)
+        @RenderNavElement(CurrentPage + 1, IsLastPage, $"inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors {DisabledClass(IsLastPage)}", null, NextWithText)
+    </nav>
+}
+else if (Style == PaginationStyle.Compact)
+{
+    <nav aria-label="Pagination" class="@Merge("flex items-center justify-between gap-4")" @attributes="AdditionalAttributes">
+        @RenderNavElement(CurrentPage - 1, IsFirstPage, $"px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors {DisabledClass(IsFirstPage)}", "Previous page", ChevronLeftIcon)
+        <span class="text-sm text-text-secondary">
+            Page <span class="font-medium text-text-primary">@CurrentPage</span> of <span class="font-medium text-text-primary">@TotalPages</span>
+        </span>
+        @RenderNavElement(CurrentPage + 1, IsLastPage, $"px-3 py-2 text-sm text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors {DisabledClass(IsLastPage)}", "Next page", ChevronRightIcon)
+    </nav>
+}
+else if (Style == PaginationStyle.Bordered)
+{
+    <nav aria-label="Pagination" class="@Merge("inline-flex items-center bg-bg-secondary border border-border-primary rounded-lg overflow-hidden")" @attributes="AdditionalAttributes">
+        @RenderNavElement(CurrentPage - 1, IsFirstPage, $"px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary {DisabledClass(IsFirstPage)}", "Previous page", ChevronLeftIcon)
+        @foreach (var pageNum in PagesToShow)
+        {
+            if (pageNum is null)
+            {
+                <span class="px-4 py-2 text-sm text-text-tertiary border-r border-border-primary">...</span>
+            }
+            else if (pageNum == CurrentPage)
+            {
+                <span class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border-r border-border-primary" aria-current="page">@(pageNum)</span>
+            }
+            else
+            {
+                @RenderNavElement(pageNum.Value, false, "px-4 py-2 text-sm text-text-secondary hover:bg-bg-hover border-r border-border-primary transition-colors", null, PageNumberContent(pageNum.Value), disableable: false)
+            }
+        }
+        @RenderNavElement(CurrentPage + 1, IsLastPage, $"px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover {DisabledClass(IsLastPage)}", "Next page", ChevronRightIcon)
+    </nav>
+}
+else
+{
+    @* Full style *@
+    @if (ShowPageSizeSelector || ShowItemCount)
+    {
+        <div class="@Merge("flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4")" @attributes="AdditionalAttributes">
+            <div class="flex items-center gap-3">
+                @if (ShowPageSizeSelector)
+                {
+                    <label for="pageSize" class="text-sm text-text-secondary">Show:</label>
+                    <select id="pageSize" class="px-3 py-1.5 text-sm bg-bg-primary border border-border-primary rounded-md text-text-primary focus:border-accent-blue"
+                            @onchange="OnPageSizeSelectChanged">
+                        @foreach (var size in PageSizeOptions)
+                        {
+                            <option value="@size" selected="@(size == PageSize)">@size</option>
+                        }
+                    </select>
+                }
+                @if (ShowItemCount)
+                {
+                    <span class="text-sm text-text-secondary">
+                        Showing <span class="font-medium text-text-primary">@StartItem-@EndItem</span> of <span class="font-medium text-text-primary">@TotalItems</span>
+                    </span>
+                }
+            </div>
+            @FullNav(false)
+        </div>
+    }
+    else
+    {
+        @FullNav(true)
+    }
+}
+
+@code {
+    [Parameter] public int CurrentPage { get; set; } = 1;
+    [Parameter] public int TotalPages { get; set; } = 1;
+    [Parameter] public int TotalItems { get; set; }
+    [Parameter] public int PageSize { get; set; } = 10;
+    [Parameter] public int[] PageSizeOptions { get; set; } = { 10, 25, 50, 100 };
+    [Parameter] public PaginationStyle Style { get; set; } = PaginationStyle.Full;
+    [Parameter] public bool ShowPageSizeSelector { get; set; }
+    [Parameter] public bool ShowItemCount { get; set; }
+    [Parameter] public bool ShowFirstLast { get; set; } = true;
+
+    /// <summary>Link mode when set: renders &lt;a href&gt; built from this + <see cref="PageParameterName"/>/
+    /// <see cref="PageSizeParameterName"/>, exactly like the partial. Null (default) selects
+    /// callback mode: &lt;button&gt;s that invoke <see cref="OnPageChanged"/>/<see cref="OnPageSizeChanged"/>.</summary>
+    [Parameter] public string? BaseUrl { get; set; }
+    [Parameter] public string PageParameterName { get; set; } = "page";
+    [Parameter] public string PageSizeParameterName { get; set; } = "pageSize";
+    [Parameter] public EventCallback<int> OnPageChanged { get; set; }
+    [Parameter] public EventCallback<int> OnPageSizeChanged { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool IsFirstPage => CurrentPage == 1;
+    private bool IsLastPage => CurrentPage == TotalPages;
+    private int StartItem => (CurrentPage - 1) * PageSize + 1;
+    private int EndItem => Math.Min(CurrentPage * PageSize, TotalItems);
+
+    private string Merge(string baseClasses) => string.Join(" ", new[] { baseClasses, Class }
+        .Where(c => !string.IsNullOrEmpty(c)));
+
+    private static string DisabledClass(bool disabled) => disabled ? "pointer-events-none opacity-50" : "";
+
+    private static string DisabledClassWithCursor(bool disabled) => disabled ? "pointer-events-none opacity-50 cursor-not-allowed" : "";
+
+    // ---- Nav element content fragments (kept as members rather than inline `@<text>` template
+    // arguments - Razor templates nest cleanly when defined this way, the same pattern
+    // Card.razor's HeaderInner uses) -------------------------------------------------------------
+
+    private RenderFragment ChevronLeftIcon => @<Icon Path="@IconPaths.ChevronLeft" Class="w-4 h-4" />;
+    private RenderFragment ChevronRightIcon => @<Icon Path="@IconPaths.ChevronRight" Class="w-4 h-4" />;
+    private RenderFragment ChevronDoubleLeftIcon => @<Icon Path="@IconPaths.ChevronDoubleLeft" Class="w-4 h-4" />;
+    private RenderFragment ChevronDoubleRightIcon => @<Icon Path="@IconPaths.ChevronDoubleRight" Class="w-4 h-4" />;
+
+    private RenderFragment PrevWithText => @<text><Icon Path="@IconPaths.ChevronLeft" Class="w-4 h-4" />Previous</text>;
+    private RenderFragment NextWithText => @<text>Next<Icon Path="@IconPaths.ChevronRight" Class="w-4 h-4" /></text>;
+
+    private RenderFragment PageNumberContent(int pageNum) => @<text>@(pageNum)</text>;
+
+    /// <summary>Prev/next/first/last/page-number nav element. Renders &lt;a href&gt; in link mode
+    /// (<see cref="BaseUrl"/> set) or a &lt;button&gt; invoking <see cref="GoToPage"/> in callback
+    /// mode - the one structural fork between the two modes, factored here so every style's markup
+    /// above stays a literal copy of the partial instead of doubling into anchor/button variants.</summary>
+    private RenderFragment RenderNavElement(int targetPage, bool disabled, string cssClass, string? ariaLabel, RenderFragment content, bool disableable = true) => builder =>
+    {
+        var isLink = BaseUrl is not null;
+        builder.OpenElement(0, isLink ? "a" : "button");
+        if (isLink)
+        {
+            builder.AddAttribute(1, "href", BuildUrl(targetPage));
+            if (disableable)
+            {
+                builder.AddAttribute(2, "aria-disabled", disabled ? "true" : "false");
+            }
+        }
+        else
+        {
+            builder.AddAttribute(1, "type", "button");
+            builder.AddAttribute(2, "disabled", disabled);
+            builder.AddAttribute(3, "onclick", EventCallback.Factory.Create(this, () => GoToPage(targetPage)));
+        }
+        builder.AddAttribute(4, "class", cssClass);
+        if (ariaLabel is not null)
+        {
+            builder.AddAttribute(5, "aria-label", ariaLabel);
+        }
+        builder.AddContent(6, content);
+        builder.CloseElement();
+    };
+
+    private Task GoToPage(int page) => OnPageChanged.HasDelegate ? OnPageChanged.InvokeAsync(page) : Task.CompletedTask;
+
+    private async Task OnPageSizeSelectChanged(ChangeEventArgs e)
+    {
+        var raw = e.Value?.ToString();
+        if (string.IsNullOrEmpty(raw))
+        {
+            return;
+        }
+
+        if (BaseUrl is not null)
+        {
+            Navigation.NavigateTo($"{BuildUrl(1)}&{PageSizeParameterName}={raw}");
+        }
+        else if (int.TryParse(raw, out var newSize) && OnPageSizeChanged.HasDelegate)
+        {
+            await OnPageSizeChanged.InvokeAsync(newSize);
+        }
+    }
+
+    // ---- Full style ---------------------------------------------------------------------------
+
+    private List<int?> PagesToShow
+    {
+        get
+        {
+            var pages = new List<int?>();
+            if (TotalPages <= 7)
+            {
+                for (var i = 1; i <= TotalPages; i++)
+                {
+                    pages.Add(i);
+                }
+
+                return pages;
+            }
+
+            pages.Add(1);
+
+            if (CurrentPage <= 4)
+            {
+                for (var i = 2; i <= Math.Min(5, TotalPages - 1); i++)
+                {
+                    pages.Add(i);
+                }
+
+                pages.Add(null);
+            }
+            else if (CurrentPage >= TotalPages - 3)
+            {
+                pages.Add(null);
+                for (var i = Math.Max(2, TotalPages - 4); i < TotalPages; i++)
+                {
+                    pages.Add(i);
+                }
+            }
+            else
+            {
+                pages.Add(null);
+                for (var i = CurrentPage - 1; i <= CurrentPage + 1; i++)
+                {
+                    pages.Add(i);
+                }
+
+                pages.Add(null);
+            }
+
+            pages.Add(TotalPages);
+            return pages;
+        }
+    }
+
+    private Dictionary<string, object>? RootAttributes(bool asRoot) => asRoot ? AdditionalAttributes : null;
+
+    private string FullNavClass(bool asRoot) => asRoot ? Merge("flex items-center gap-1") : "flex items-center gap-1";
+
+    private RenderFragment FullNav(bool asRoot) => @<nav aria-label="Pagination" class="@FullNavClass(asRoot)" @attributes="RootAttributes(asRoot)">
+        @if (ShowFirstLast)
+        {
+            @RenderNavElement(1, IsFirstPage, $"px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors {DisabledClassWithCursor(IsFirstPage)}", "First page", ChevronDoubleLeftIcon)
+        }
+
+        @RenderNavElement(CurrentPage - 1, IsFirstPage, $"px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors {DisabledClassWithCursor(IsFirstPage)}", "Previous page", ChevronLeftIcon)
+
+        @foreach (var pageNum in PagesToShow)
+        {
+            if (pageNum is null)
+            {
+                <span class="px-2 py-2 text-text-tertiary">...</span>
+            }
+            else if (pageNum == CurrentPage)
+            {
+                <span class="px-3 py-2 text-sm font-medium text-white bg-accent-orange rounded-md" aria-current="page">@(pageNum)</span>
+            }
+            else
+            {
+                @RenderNavElement(pageNum.Value, false, "px-3 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors", null, PageNumberContent(pageNum.Value), disableable: false)
+            }
+        }
+
+        @RenderNavElement(CurrentPage + 1, IsLastPage, $"px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors {DisabledClassWithCursor(IsLastPage)}", "Next page", ChevronRightIcon)
+
+        @if (ShowFirstLast)
+        {
+            @RenderNavElement(TotalPages, IsLastPage, $"px-2 py-2 text-sm text-text-secondary hover:bg-bg-hover rounded-md transition-colors {DisabledClassWithCursor(IsLastPage)}", "Last page", ChevronDoubleRightIcon)
+        }
+    </nav>;
+
+    // ---- Link-mode URL building (exact port of the partial's BuildUrl/StripQueryParam) --------
+
+    private static string StripQueryParam(string url, string paramName)
+    {
+        var queryIndex = url.IndexOf('?');
+        if (queryIndex < 0)
+        {
+            return url;
+        }
+
+        var basePath = url[..queryIndex];
+        var queryString = url[(queryIndex + 1)..];
+        var pairs = queryString.Split('&')
+            .Where(p => !p.StartsWith(paramName + "=", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        return pairs.Length == 0 ? basePath : basePath + "?" + string.Join("&", pairs);
+    }
+
+    private string BuildUrl(int page, int? pageSize = null)
+    {
+        if (string.IsNullOrEmpty(BaseUrl))
+        {
+            return "#";
+        }
+
+        var baseUrl = StripQueryParam(BaseUrl, PageParameterName);
+        if (pageSize.HasValue)
+        {
+            baseUrl = StripQueryParam(baseUrl, PageSizeParameterName);
+        }
+
+        var separator = baseUrl.Contains('?') ? "&" : "?";
+        var url = $"{baseUrl}{separator}{PageParameterName}={page}";
+        if (pageSize.HasValue)
+        {
+            url += $"&{PageSizeParameterName}={pageSize.Value}";
+        }
+
+        return url;
+    }
+}

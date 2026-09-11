@@ -1,0 +1,219 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Merges _NavTabs.cshtml (NavTabsViewModel) and _TabPanel.cshtml (TabPanelViewModel) per the
+    consolidation in docs/articles/blazor-components.md - one component, two Modes (InPage,
+    Navigation), the AJAX mode both partials supported is dropped, and hash/localStorage
+    persistence is not this component's concern (the page decides, same as the "page decides"
+    note already established for DateRangeFilter's browser.js usage).
+
+    Markup/classes are the _TabPanel.cshtml superset (badges, subtitles, the Portal style variant)
+    since it covers everything _NavTabs.cshtml renders plus more - see TabItem's XML doc.
+
+    Keyboard behaviour (wwwroot/js/nav-tabs.js / tab-panel.js, "bindKeyboardNavigation"): ArrowLeft
+    /ArrowRight move among enabled tabs with wraparound, Home/End jump to first/last enabled tab -
+    implemented here for Mode=InPage (roving focus via ElementReference.FocusAsync, a built-in
+    Blazor API, needs no BrowserInterop call). Mode=Navigation renders NavLink, which exposes no
+    ElementReference to focus imperatively without new JS (out of scope for this tier's file
+    allowlist), so arrow-key roving is InPage-only there; tabindex/aria-selected still reflect
+    ActiveTabId and NavLink/anchor Tab-order navigation still works. See
+    docs/articles/blazor-components.md "Navigation" table for this noted as a fidelity deviation.
+*@
+
+<div id="@EffectiveId" class="@ContainerClasses" @attributes="AdditionalAttributes">
+    <nav class="tab-panel-tabs" role="tablist" aria-label="@AriaLabel">
+        @for (var i = 0; i < Tabs.Count; i++)
+        {
+            var tab = Tabs[i];
+            var index = i;
+            var isActive = tab.Id == ActiveTabId;
+            var tabElementId = $"{EffectiveId}-tab-{tab.Id}";
+            var panelElementId = $"{EffectiveId}-panel-{tab.Id}";
+
+            if (Mode == TabGroupMode.Navigation)
+            {
+                <NavLink @key="tab.Id"
+                         href="@(tab.Href ?? "#")"
+                         class="@GetTabClass(tab)"
+                         id="@tabElementId"
+                         role="tab"
+                         aria-selected="@(isActive ? "true" : "false")"
+                         aria-disabled="@(tab.Disabled ? "true" : null)"
+                         tabindex="@(isActive && !tab.Disabled ? "0" : "-1")"
+                         data-tab-id="@tab.Id">
+                    @RenderTabContent(tab, isActive)
+                </NavLink>
+            }
+            else
+            {
+                <button @key="tab.Id" @ref="_tabRefs[tab.Id]"
+                        type="button"
+                        class="@GetTabClass(tab)"
+                        id="@tabElementId"
+                        role="tab"
+                        aria-selected="@(isActive ? "true" : "false")"
+                        aria-controls="@panelElementId"
+                        tabindex="@(isActive && !tab.Disabled ? "0" : "-1")"
+                        disabled="@(tab.Disabled ? true : null)"
+                        aria-disabled="@(tab.Disabled ? "true" : null)"
+                        data-tab-id="@tab.Id"
+                        @onclick="() => ActivateTab(tab)"
+                        @onkeydown="e => HandleKeyDown(e, index)">
+                    @RenderTabContent(tab, isActive)
+                </button>
+            }
+        }
+    </nav>
+</div>
+
+@if (Mode == TabGroupMode.InPage)
+{
+    <CascadingValue Value="this" IsFixed="false">
+        @ChildContent
+    </CascadingValue>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<TabItem> Tabs { get; set; } = [];
+    [Parameter] public string? ActiveTabId { get; set; }
+    [Parameter] public EventCallback<string?> ActiveTabIdChanged { get; set; }
+    [Parameter] public TabStyleVariant StyleVariant { get; set; } = TabStyleVariant.Underline;
+    [Parameter] public TabGroupMode Mode { get; set; } = TabGroupMode.InPage;
+    [Parameter] public bool Compact { get; set; }
+    [Parameter] public string AriaLabel { get; set; } = "Tab navigation";
+    [Parameter] public string? Id { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>Group id used to build tab/panel element ids - the <see cref="Id"/> parameter
+    /// when given, otherwise a stable id generated once for this instance.</summary>
+    internal string EffectiveId { get; private set; } = string.Empty;
+
+    private readonly Dictionary<string, ElementReference> _tabRefs = [];
+    private readonly string _generatedId = $"tabGroup-{Guid.NewGuid():N}";
+
+    protected override void OnParametersSet()
+    {
+        EffectiveId = Id ?? _generatedId;
+
+        // Drop refs for tabs that no longer exist in Tabs - the @ref="_tabRefs[tab.Id]" indexer
+        // below only ever adds/updates entries, so without this the dictionary grows unbounded
+        // across successive Tabs changes and HandleKeyDown could try to focus a stale
+        // ElementReference whose DOM node has already been removed.
+        if (_tabRefs.Count > 0)
+        {
+            var currentIds = Tabs.Select(t => t.Id).ToHashSet();
+            foreach (var staleId in _tabRefs.Keys.Where(id => !currentIds.Contains(id)).ToList())
+            {
+                _tabRefs.Remove(staleId);
+            }
+        }
+    }
+
+    private string ContainerClasses => string.Join(" ", new[]
+    {
+        "tab-panel-container",
+        $"tab-panel-{StyleVariant.ToString().ToLowerInvariant()}",
+        Compact ? "tab-panel-compact" : "",
+        Class
+    }.Where(c => !string.IsNullOrEmpty(c)));
+
+    private static string GetTabClass(TabItem tab, bool isActive)
+    {
+        var classes = "tab-panel-tab";
+        if (isActive) classes += " active";
+        if (tab.Disabled) classes += " disabled";
+        return classes;
+    }
+
+    private string GetTabClass(TabItem tab) => GetTabClass(tab, tab.Id == ActiveTabId);
+
+    private static string GetBadgeClass(TabBadgeVariant variant) => variant switch
+    {
+        TabBadgeVariant.Success => "tab-badge tab-badge-success",
+        TabBadgeVariant.Warning => "tab-badge tab-badge-warning",
+        TabBadgeVariant.Error => "tab-badge tab-badge-error",
+        TabBadgeVariant.Info => "tab-badge tab-badge-info",
+        _ => "tab-badge"
+    };
+
+    private RenderFragment RenderTabContent(TabItem tab, bool isActive) => @<text>
+        @if (tab.HasIcon)
+        {
+            <Icon Path="@tab.IconPath" Class="@(isActive ? "tab-icon tab-icon-active" : "tab-icon")" />
+        }
+        @if (!string.IsNullOrEmpty(tab.ShortLabel))
+        {
+            <span class="tab-label-long">@tab.Label</span>
+            <span class="tab-label-short">@tab.ShortLabel</span>
+        }
+        else
+        {
+            <span>@tab.Label</span>
+        }
+        @if (tab.HasSubtitle)
+        {
+            <span class="tab-subtitle">@tab.Subtitle</span>
+        }
+        @if (tab.HasBadge)
+        {
+            <span class="@GetBadgeClass(tab.BadgeVariant)">@tab.BadgeCount</span>
+        }
+    </text>;
+
+    private async Task ActivateTab(TabItem tab)
+    {
+        if (tab.Disabled || tab.Id == ActiveTabId)
+        {
+            return;
+        }
+
+        ActiveTabId = tab.Id;
+        await ActiveTabIdChanged.InvokeAsync(ActiveTabId);
+    }
+
+    private async Task HandleKeyDown(KeyboardEventArgs e, int index)
+    {
+        var enabled = Tabs.Select((t, i) => (Tab: t, Index: i)).Where(x => !x.Tab.Disabled).ToList();
+        var pos = enabled.FindIndex(x => x.Index == index);
+        if (pos < 0 || enabled.Count == 0)
+        {
+            return;
+        }
+
+        var target = e.Key switch
+        {
+            "ArrowLeft" => enabled[(pos - 1 + enabled.Count) % enabled.Count],
+            "ArrowRight" => enabled[(pos + 1) % enabled.Count],
+            "Home" => enabled[0],
+            "End" => enabled[^1],
+            "Enter" or " " => enabled[pos],
+            _ => ((TabItem Tab, int Index)?)null
+        };
+
+        if (target is not { } t)
+        {
+            return;
+        }
+
+        if (_tabRefs.TryGetValue(t.Tab.Id, out var elementRef))
+        {
+            try
+            {
+                await elementRef.FocusAsync();
+            }
+            catch (JSException)
+            {
+                // The captured ElementReference's DOM node may already be gone (e.g. Tabs changed
+                // between the keydown and this await) - focus is a nice-to-have here, not worth
+                // crashing the circuit over.
+            }
+        }
+
+        await ActivateTab(t.Tab);
+    }
+}

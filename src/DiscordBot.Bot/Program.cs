@@ -125,7 +125,7 @@ try
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
         // Clear known networks/proxies to accept headers from any proxy
         // This is necessary when running behind multiple proxies (e.g., Cloudflare -> nginx)
-        options.KnownNetworks.Clear();
+        options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
 
@@ -195,6 +195,11 @@ try
 
     // Add Web API services (controllers, Razor Pages, HttpClient)
     builder.Services.AddWebServices();
+
+    // Add the Blazor Web App hosting foundation (Interactive Server, per-page interactivity)
+    // alongside Razor Pages/controllers, until every page is ported. See "Blazor components"
+    // in docs/architecture/patterns.md and docs/plans/blazor-port-plan.md.
+    builder.Services.AddBlazorWeb(builder.Environment);
 
     // Add SignalR for real-time dashboard updates
     builder.Services.AddSignalRServices(builder.Environment);
@@ -288,9 +293,17 @@ try
 
     app.UseAuthorization();
 
+    // Required for Blazor's EditForm/AntiforgeryToken support on static SSR pages/components.
+    // Razor Pages' own [ValidateAntiForgeryToken]/asp-antiforgery handling is unaffected - both
+    // validate the same ASP.NET Core antiforgery token, they don't double-validate.
+    app.UseAntiforgery();
+
     app.MapControllers();
     app.MapDiscordBotHealthChecks();
     app.MapRazorPages();
+    app.MapRazorComponents<DiscordBot.Bot.Blazor.App>()
+        .AddInteractiveServerRenderMode();
+    app.MapLegacyRouteRedirects();
 
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");
