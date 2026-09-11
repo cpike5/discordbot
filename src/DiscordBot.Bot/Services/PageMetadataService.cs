@@ -213,7 +213,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "AI assistant configuration",
                 Section = "Guild",
                 IconName = "cpu-chip",
-                Keywords = new[] { "ai", "assistant", "claude", "bot settings" },
+                Keywords = new[] { "ai", "assistant", "openrouter", "bot settings" },
                 RequiresGuildContext = true,
                 RouteTemplate = "/Guilds/AssistantSettings/{guildId}"
             },
