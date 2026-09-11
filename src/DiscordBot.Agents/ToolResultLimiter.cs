@@ -13,7 +13,7 @@ namespace DiscordBot.Agents;
 /// <para>
 /// The replacement envelope carries an explicit instruction not to re-call the tool. Without it a
 /// model reading a fragment tends to call the same tool again hoping for the rest — which is
-/// exactly the loop <see cref="AgentContext.DuplicateToolCallLimit"/> refuses.
+/// exactly the loop <see cref="Contracts.AgentContext.DuplicateToolCallLimit"/> refuses.
 /// </para>
 /// </remarks>
 public static class ToolResultLimiter

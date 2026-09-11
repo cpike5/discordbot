@@ -88,6 +88,7 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
             LoopCount = agentResult.LoopCount,
             ToolNames = agentResult.ToolNames,
             ConversationCleared = agentResult.ConversationCleared,
+            StoppedOnMaxIterations = agentResult.StoppedOnMaxIterations,
             EstimatedCostUsd = cost,
             Model = resolvedModel,
             UsageRecord = usageRecord

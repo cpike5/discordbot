@@ -206,20 +206,33 @@ public static class AssistantServiceExtensions
     /// </summary>
     private static void ApplyFlatLegacyKeyPrecedence(AssistantOptions options, IConfigurationSection assistantSection)
     {
-        foreach (var property in typeof(AssistantOptions).GetProperties(BindingFlags.Public | BindingFlags.Instance))
+        // A nested group can have legacy names of its own (e.g. "Assistant:Tools:MaxToolCallsPerQuestion"
+        // for "Assistant:Tools:MaxToolRounds"). Those are applied first so the outer flat key, which is
+        // the oldest spelling of all, still wins over everything when it is present too.
+        ApplyLegacyKeyPrecedence(options.Tools, assistantSection.GetSection("Tools"));
+        ApplyLegacyKeyPrecedence(options, assistantSection);
+    }
+
+    /// <summary>
+    /// Re-applies every <c>[Obsolete]</c> forwarding property of <paramref name="options"/> whose key is
+    /// actually present in <paramref name="section"/>, so the legacy name wins over the new one.
+    /// </summary>
+    private static void ApplyLegacyKeyPrecedence(object options, IConfigurationSection section)
+    {
+        foreach (var property in options.GetType().GetProperties(BindingFlags.Public | BindingFlags.Instance))
         {
             if (property.GetCustomAttribute<ObsoleteAttribute>() is null)
             {
                 continue;
             }
 
-            var flatKeySection = assistantSection.GetSection(property.Name);
-            if (!flatKeySection.Exists())
+            var legacyKeySection = section.GetSection(property.Name);
+            if (!legacyKeySection.Exists())
             {
                 continue;
             }
 
-            var value = flatKeySection.Get(property.PropertyType);
+            var value = legacyKeySection.Get(property.PropertyType);
             property.SetValue(options, value);
         }
     }

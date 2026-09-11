@@ -22,6 +22,12 @@ public sealed record ChatCompletionRequest
     public IReadOnlyList<ToolDefinition>? Tools { get; init; }
 
     /// <summary>
+    /// <c>tool_choice</c>. Only <c>"none"</c> is sent today — the text-only wrap-up call keeps
+    /// <see cref="Tools"/> so the cached prefix still matches, and forbids their use instead.
+    /// </summary>
+    public string? ToolChoice { get; init; }
+
+    /// <summary>
     /// Provider routing controls. Set whenever <see cref="Tools"/> is non-empty so a multi-provider
     /// slug only routes somewhere that actually supports function calling.
     /// </summary>

@@ -11,7 +11,8 @@ namespace DiscordBot.Tests.Agents;
 
 /// <summary>
 /// Unit tests for the loop's guard rails: the tool-result cap, the per-tool execution deadline,
-/// and the duplicate-call guard. Each of these protects a cost or a failure mode that is invisible
+/// the duplicate-call guard, and the two text-only follow-up calls (budget wrap-up and
+/// blank-final-text recovery). Each of these protects a cost or a failure mode that is invisible
 /// in a single-turn happy path, so they are exercised through whole runs rather than in isolation.
 /// </summary>
 public class AgentRunnerHardeningTests
@@ -22,6 +23,9 @@ public class AgentRunnerHardeningTests
 
     /// <summary>Every tool result that entered conversation history, in order.</summary>
     private readonly List<LlmToolResult> _recordedToolResults = new();
+
+    /// <summary>One snapshot per completion call, taken as the request went out.</summary>
+    private readonly List<RequestSnapshot> _sentRequests = new();
 
     public AgentRunnerHardeningTests()
     {
@@ -255,9 +259,169 @@ public class AgentRunnerHardeningTests
 
     #endregion
 
+    #region Budget Wrap-Up And Blank-Text Recovery
+
+    [Fact]
+    public async Task RunAsync_WhenTheBudgetRunsOut_AnswersFromWhatItHasWithANotice()
+    {
+        SetUpEndlessToolUse(wrapUpText: "Audio settings live on the portal's audio page.");
+
+        var result = await _agentRunner.RunAsync("hi", NewContext(c => c.MaxToolCallIterations = 2));
+
+        result.Success.Should().BeTrue();
+        result.StoppedOnMaxIterations.Should().BeTrue();
+        result.Response.Should().StartWith(AgentRunner.MaxIterationsNotice);
+        result.Response.Should().EndWith("Audio settings live on the portal's audio page.");
+        // Two loop iterations plus the wrap-up completion, which the usage ledger bills for.
+        result.LoopCount.Should().Be(3);
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenTheBudgetRunsOut_SendsToolChoiceNoneWithTheToolsStillAttached()
+    {
+        // Dropping the tools would change the serialized prefix and throw away the cached tool
+        // schemas for this call, which costs more than the schemas do.
+        _mockRegistry.Setup(r => r.GetEnabledTools()).Returns(new List<LlmToolDefinition>
+        {
+            new() { Name = "lookup", Description = "Look something up", InputSchema = Parse("{}") },
+        });
+        SetUpEndlessToolUse(wrapUpText: "Partial answer.");
+
+        await _agentRunner.RunAsync("hi", NewContext(c => c.MaxToolCallIterations = 1));
+
+        var wrapUpRequest = _sentRequests.Last();
+        wrapUpRequest.ToolChoice.Should().Be("none");
+        wrapUpRequest.Tools.Should().NotBeNullOrEmpty();
+        wrapUpRequest.Messages.Last().Content.Should().Contain("run out of tool-use steps");
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenTheWrapUpCallFails_FallsBackToTheBudgetError()
+    {
+        SetUpEndlessToolUse(wrapUpText: null);
+
+        var result = await _agentRunner.RunAsync("hi", NewContext(c => c.MaxToolCallIterations = 2));
+
+        result.Success.Should().BeFalse();
+        result.StoppedOnMaxIterations.Should().BeTrue();
+        result.ErrorMessage.Should().Contain("Exceeded maximum tool call iterations (2)");
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenTheModelEndsItsTurnBlank_AsksOnceForWordsAndUsesThem()
+    {
+        var calls = 0;
+        _mockLlmClient
+            .Setup(c => c.CompleteAsync(It.IsAny<LlmRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LlmRequest request, CancellationToken _) =>
+            {
+                _sentRequests.Add(Snapshot(request));
+                return new LlmResponse
+                {
+                    Success = true,
+                    Content = ++calls == 1 ? "   " : "Here is the answer.",
+                    StopReason = LlmStopReason.EndTurn,
+                    Usage = new LlmUsage { InputTokens = 10, OutputTokens = 5 },
+                };
+            });
+
+        var result = await _agentRunner.RunAsync("hi", NewContext());
+
+        result.Success.Should().BeTrue();
+        result.Response.Should().Be("Here is the answer.");
+        result.StoppedOnMaxIterations.Should().BeFalse();
+        calls.Should().Be(2, "exactly one recovery call, never two");
+        _sentRequests.Last().ToolChoice.Should().Be("none");
+        result.TotalUsage.InputTokens.Should().Be(20, "the recovery call's usage is billed like any other");
+    }
+
+    [Fact]
+    public async Task RunAsync_WhenTheRecoveryCallIsAlsoBlank_ReturnsTheEmptyReplyWithoutRetrying()
+    {
+        var calls = 0;
+        _mockLlmClient
+            .Setup(c => c.CompleteAsync(It.IsAny<LlmRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LlmRequest request, CancellationToken _) =>
+            {
+                _sentRequests.Add(Snapshot(request));
+                calls++;
+                return new LlmResponse
+                {
+                    Success = true,
+                    Content = null,
+                    StopReason = LlmStopReason.EndTurn,
+                    Usage = new LlmUsage { InputTokens = 10, OutputTokens = 5 },
+                };
+            });
+
+        var result = await _agentRunner.RunAsync("hi", NewContext());
+
+        result.Success.Should().BeTrue();
+        result.Response.Should().BeEmpty();
+        calls.Should().Be(2);
+    }
+
+    #endregion
+
     #region Helpers
 
     private static JsonElement Parse(string json) => JsonDocument.Parse(json).RootElement.Clone();
+
+    /// <summary>
+    /// What one outgoing request looked like. The runner mutates a single request object across
+    /// iterations, so anything asserted on has to be copied out as the call is made.
+    /// </summary>
+    private sealed record RequestSnapshot(
+        string? ToolChoice,
+        IReadOnlyList<LlmToolDefinition>? Tools,
+        IReadOnlyList<LlmMessage> Messages);
+
+    private static RequestSnapshot Snapshot(LlmRequest request) =>
+        new(request.ToolChoice, request.Tools?.ToList(), request.Messages.ToList());
+
+    /// <summary>
+    /// A model that asks for the same tool forever, so the run always ends on its budget. The
+    /// wrap-up call is answered with <paramref name="wrapUpText"/>, or refused when it is null.
+    /// </summary>
+    private void SetUpEndlessToolUse(string? wrapUpText)
+    {
+        _mockRegistry
+            .Setup(r => r.ExecuteToolAsync(
+                It.IsAny<string>(), It.IsAny<JsonElement>(), It.IsAny<ToolContext>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(ToolExecutionResult.CreateSuccess(Parse("""{"ok":true}""")));
+
+        _mockLlmClient
+            .Setup(c => c.CompleteAsync(It.IsAny<LlmRequest>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((LlmRequest request, CancellationToken _) =>
+            {
+                _sentRequests.Add(Snapshot(request));
+
+                // tool_choice is what distinguishes the wrap-up call from a loop iteration.
+                if (request.ToolChoice == "none")
+                {
+                    return wrapUpText is null
+                        ? new LlmResponse { Success = false, ErrorMessage = "provider unavailable" }
+                        : new LlmResponse
+                        {
+                            Success = true,
+                            Content = wrapUpText,
+                            StopReason = LlmStopReason.EndTurn,
+                            Usage = new LlmUsage { InputTokens = 10, OutputTokens = 5 },
+                        };
+                }
+
+                return new LlmResponse
+                {
+                    Success = true,
+                    StopReason = LlmStopReason.ToolUse,
+                    ToolCalls = new List<LlmToolCall>
+                    {
+                        new() { Id = $"call-{_sentRequests.Count}", Name = "lookup", Input = Parse("{}") },
+                    },
+                    Usage = new LlmUsage { InputTokens = 10, OutputTokens = 5 },
+                };
+            });
+    }
 
     private AgentContext NewContext(Action<AgentContext>? configure = null)
     {

@@ -287,13 +287,13 @@ public class AssistantOptions
     }
 
     /// <summary>
-    /// Gets or sets the maximum number of tool calls Claude can make per question.
+    /// Gets or sets the maximum number of tool-use rounds Claude gets per question.
     /// </summary>
-    [Obsolete("Use Tools.MaxToolCallsPerQuestion instead.")]
+    [Obsolete("Use Tools.MaxToolRounds instead.")]
     public int MaxToolCallsPerQuestion
     {
-        get => Tools.MaxToolCallsPerQuestion;
-        set => Tools.MaxToolCallsPerQuestion = value;
+        get => Tools.MaxToolRounds;
+        set => Tools.MaxToolRounds = value;
     }
 
     /// <summary>

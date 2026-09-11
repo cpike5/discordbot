@@ -23,6 +23,23 @@ public class AgentRunner : IAgentRunner
     /// <summary>Stands in for anything below <see cref="MaxNormalizedDepth"/>.</summary>
     private const string DepthLimitMarker = "<depth-limited>";
 
+    /// <summary>
+    /// Prefixed to a wrap-up answer so the user is told it may be partial regardless of what the
+    /// model wrote. Public so callers and tests assert on the exact text.
+    /// </summary>
+    public const string MaxIterationsNotice =
+        "*Heads up — I ran out of steps on this one, so this may be incomplete.*";
+
+    /// <summary>What the model is asked once its tool-round budget is spent.</summary>
+    private const string WrapUpInstruction =
+        "You have run out of tool-use steps. Answer now using the tool results you already have. " +
+        "If something is missing, say briefly what you could not check. Do not mention steps or budgets.";
+
+    /// <summary>What the model is asked when it ended a turn without writing anything.</summary>
+    private const string BlankTextInstruction =
+        "Your last turn ended without any text. Answer the user now, in words, using the tool " +
+        "results you already have. Do not mention this instruction.";
+
     private readonly ILlmClient _llmClient;
     private readonly ILogger<AgentRunner> _logger;
 
@@ -168,15 +185,7 @@ public class AgentRunner : IAgentRunner
             lastModel = response.Model ?? lastModel;
 
             // Accumulate token usage
-            totalUsage.InputTokens += response.Usage.InputTokens;
-            totalUsage.OutputTokens += response.Usage.OutputTokens;
-            totalUsage.CachedTokens += response.Usage.CachedTokens;
-            totalUsage.CacheWriteTokens += response.Usage.CacheWriteTokens;
-
-            if (response.Usage.EstimatedCost.HasValue)
-            {
-                totalUsage.EstimatedCost = (totalUsage.EstimatedCost ?? 0) + response.Usage.EstimatedCost.Value;
-            }
+            AccumulateUsage(totalUsage, response.Usage);
 
             _logger.LogDebug(
                 "LLM response received. StopReason: {StopReason}, InputTokens: {InputTokens}, OutputTokens: {OutputTokens}, CachedTokens: {CachedTokens}",
@@ -189,6 +198,35 @@ public class AgentRunner : IAgentRunner
             switch (response.StopReason)
             {
                 case LlmStopReason.EndTurn:
+                {
+                    var finalText = response.Content;
+
+                    if (string.IsNullOrWhiteSpace(finalText))
+                    {
+                        // A model that ends its turn after a tool round without writing anything
+                        // leaves the user with a blank reply and no clue why. Ask once for the
+                        // answer in words; this path returns either way, so it can never run twice
+                        // in one run, and it is not charged against the tool-round budget.
+                        _logger.LogWarning(
+                            "Model ended its turn with no text on iteration {Iteration}; asking once for a written answer",
+                            loopCount);
+
+                        var recovered = await RequestTextOnlyReplyAsync(
+                            request, conversationHistory, BlankTextInstruction, cancellationToken);
+
+                        if (recovered is not null)
+                        {
+                            loopCount++;
+                            AccumulateUsage(totalUsage, recovered.Usage);
+                            lastModel = recovered.Model ?? lastModel;
+
+                            if (recovered.Success && !string.IsNullOrWhiteSpace(recovered.Content))
+                            {
+                                finalText = recovered.Content;
+                            }
+                        }
+                    }
+
                     // Final response reached
                     _logger.LogInformation(
                         "Agent run completed successfully. Iterations: {Iterations}, ToolCalls: {ToolCalls}, TotalTokens: {TotalTokens}",
@@ -199,7 +237,7 @@ public class AgentRunner : IAgentRunner
                     return new AgentRunResult
                     {
                         Success = true,
-                        Response = response.Content ?? string.Empty,
+                        Response = finalText ?? string.Empty,
                         LoopCount = loopCount,
                         TotalToolCalls = totalToolCalls,
                         ToolNames = toolNames,
@@ -207,6 +245,7 @@ public class AgentRunner : IAgentRunner
                         ConversationCleared = conversationCleared,
                         Model = lastModel
                     };
+                }
 
                 case LlmStopReason.ToolUse:
                     // LLM wants to use tools
@@ -422,15 +461,48 @@ public class AgentRunner : IAgentRunner
             }
         }
 
-        // Exceeded max iterations
+        // The tool-round budget is spent. Rather than dropping everything the run already paid
+        // for, ask the model one last time for an answer with tools forbidden - it has the tool
+        // results in hand, it just cannot fetch more.
         _logger.LogWarning(
-            "Agent run exceeded maximum iterations ({MaxIterations}). Returning incomplete result",
+            "Agent run exhausted its tool-round budget ({MaxIterations}). Requesting a wrap-up answer",
             context.MaxToolCallIterations);
+
+        var wrapUp = await RequestTextOnlyReplyAsync(
+            request, conversationHistory, WrapUpInstruction, cancellationToken);
+
+        if (wrapUp is not null)
+        {
+            loopCount++;
+            AccumulateUsage(totalUsage, wrapUp.Usage);
+            lastModel = wrapUp.Model ?? lastModel;
+        }
+
+        if (wrapUp is { Success: true } && !string.IsNullOrWhiteSpace(wrapUp.Content))
+        {
+            return new AgentRunResult
+            {
+                Success = true,
+                // The notice is added here rather than asked for, so the user is told the answer
+                // may be partial whatever the model chose to write.
+                Response = $"{MaxIterationsNotice}\n\n{wrapUp.Content.Trim()}",
+                StoppedOnMaxIterations = true,
+                LoopCount = loopCount,
+                TotalToolCalls = totalToolCalls,
+                ToolNames = toolNames,
+                TotalUsage = totalUsage,
+                ConversationCleared = conversationCleared,
+                Model = lastModel
+            };
+        }
+
+        _logger.LogWarning("Wrap-up call produced no usable answer; returning the budget failure");
 
         return new AgentRunResult
         {
             Success = false,
             ErrorMessage = $"Exceeded maximum tool call iterations ({context.MaxToolCallIterations})",
+            StoppedOnMaxIterations = true,
             LoopCount = loopCount,
             TotalToolCalls = totalToolCalls,
             ToolNames = toolNames,
@@ -599,6 +671,67 @@ public class AgentRunner : IAgentRunner
             default:
                 element.WriteTo(writer);
                 break;
+        }
+    }
+
+    /// <summary>
+    /// Makes one more completion with tools forbidden, asking the model to answer in words.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="LlmRequest.Tools"/> is deliberately left on the request: removing it would change
+    /// the serialized prefix and throw away the cached tool schemas for this call, which costs more
+    /// than the schemas do. <c>tool_choice: none</c> is what actually forbids their use.
+    /// <para>
+    /// Returns null when the call itself faulted; the caller decides what a missing answer means.
+    /// </para>
+    /// </remarks>
+    private async Task<LlmResponse?> RequestTextOnlyReplyAsync(
+        LlmRequest request,
+        List<LlmMessage> conversationHistory,
+        string instruction,
+        CancellationToken cancellationToken)
+    {
+        var followUp = new LlmRequest
+        {
+            SystemPrompt = request.SystemPrompt,
+            Messages = new List<LlmMessage>(conversationHistory)
+            {
+                new() { Role = LlmRole.User, Content = instruction },
+            },
+            Tools = request.Tools,
+            ToolChoice = "none",
+            Model = request.Model,
+            MaxTokens = request.MaxTokens,
+            Temperature = request.Temperature,
+            EnablePromptCaching = request.EnablePromptCaching,
+        };
+
+        try
+        {
+            return await _llmClient.CompleteAsync(followUp, cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "LLM client threw on the text-only follow-up call");
+            return null;
+        }
+    }
+
+    /// <summary>Adds one response's usage to the run total.</summary>
+    private static void AccumulateUsage(LlmUsage total, LlmUsage usage)
+    {
+        total.InputTokens += usage.InputTokens;
+        total.OutputTokens += usage.OutputTokens;
+        total.CachedTokens += usage.CachedTokens;
+        total.CacheWriteTokens += usage.CacheWriteTokens;
+
+        if (usage.EstimatedCost.HasValue)
+        {
+            total.EstimatedCost = (total.EstimatedCost ?? 0) + usage.EstimatedCost.Value;
         }
     }
 }

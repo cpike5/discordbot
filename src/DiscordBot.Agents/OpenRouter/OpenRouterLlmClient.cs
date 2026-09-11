@@ -282,6 +282,7 @@ public class OpenRouterLlmClient : ILlmClient
             MaxTokens = request.MaxTokens,
             Temperature = request.Temperature,
             Tools = tools,
+            ToolChoice = request.ToolChoice,
             // Only route to a provider that supports the parameters we send. Without this a
             // provider with no native function calling can be picked, and the model then fakes a
             // tool call in plain text — which reaches the user as a raw tool-call-shaped string.

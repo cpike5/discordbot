@@ -288,10 +288,19 @@ slugs. See `docs/articles/settings-page.md` ("AI Models Tab") for the UI details
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `EnableDocumentationTools` | `true` | Whether the model can call documentation tools |
-| `MaxToolCallsPerQuestion` | `5` | Max tool rounds per question (prevents loops) |
+| `MaxToolRounds` | `8` | Max tool-use rounds per question (prevents loops). A round is one completion that asks for tools, not one tool call |
+| `MaxToolCallsPerQuestion` | — | Deprecated name for `MaxToolRounds`. Still binds, and still wins when both are set |
 | `ToolExecutionTimeoutMs` | `10000` | Per-tool deadline in milliseconds; an overrun tool is abandoned and the model is told so, and the loop continues. `0` disables it |
 | `MaxToolResultChars` | `8000` | Ceiling on one tool result entering conversation history (~2,000 tokens). A longer result is replaced by a truncation envelope telling the model it is reading a fragment. `0` disables the cap |
 | `DuplicateToolCallLimit` | `3` | How many times one tool may be called with identical arguments in a run before further identical calls are refused without executing the tool. `0` disables the guard |
+
+When the round budget runs out the run no longer fails. The model is asked once more for an
+answer with `tool_choice: none` — it keeps every tool result it already gathered, it just cannot
+fetch more — and the reply is prefixed with *"Heads up — I ran out of steps on this one, so this
+may be incomplete."* so the user is told it may be partial whatever the model wrote. Only if that
+call fails or comes back empty does the old error surface. The same follow-up covers a model that
+ends its turn without writing anything: one recovery call, never two, which previously reached the
+user as a blank reply.
 
 A tool result is not paid for once: it is appended to the conversation and re-sent on every later
 iteration of the loop, so one oversized read costs its tokens again on each following turn. That is
@@ -377,7 +386,7 @@ At 100 questions/day:
     "DocumentationBasePath": "docs/articles",
     "ReadmePath": "README.md",
     "EnableDocumentationTools": true,
-    "MaxToolCallsPerQuestion": 5,
+    "MaxToolRounds": 8,
     "ToolExecutionTimeoutMs": 10000,
     "MaxToolResultChars": 8000,
     "DuplicateToolCallLimit": 3,

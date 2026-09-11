@@ -14,11 +14,29 @@ public class AssistantToolOptions
     public bool EnableDocumentationTools { get; set; } = true;
 
     /// <summary>
-    /// Gets or sets the maximum number of tool calls Claude can make per question.
-    /// Prevents infinite loops and controls API costs.
-    /// Default is 5.
+    /// Gets or sets the maximum number of tool-use rounds the model gets per question.
+    /// Prevents infinite loops and controls API costs. Default is 8.
     /// </summary>
-    public int MaxToolCallsPerQuestion { get; set; } = 5;
+    /// <remarks>
+    /// A round is one completion that asks for tools, not one tool call: a round carrying three
+    /// tool calls spends one of these. When the budget runs out the model is asked once more for
+    /// an answer with tools forbidden, and the reply carries a notice that it may be incomplete.
+    /// <para>
+    /// Replaces <see cref="MaxToolCallsPerQuestion"/>, which named calls but has always limited
+    /// rounds. The old key still binds and still wins when both are set.
+    /// </para>
+    /// </remarks>
+    public int MaxToolRounds { get; set; } = 8;
+
+    /// <summary>
+    /// Gets or sets the maximum number of tool-use rounds per question, under its historical name.
+    /// </summary>
+    [Obsolete("Use MaxToolRounds instead - this limits rounds, not calls.")]
+    public int MaxToolCallsPerQuestion
+    {
+        get => MaxToolRounds;
+        set => MaxToolRounds = value;
+    }
 
     /// <summary>
     /// Gets or sets the timeout for individual tool executions in milliseconds.

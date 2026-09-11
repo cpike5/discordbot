@@ -455,7 +455,7 @@ public class AssistantMessagePipelineTests
             },
             Tools = new()
             {
-                MaxToolCallsPerQuestion = 5
+                MaxToolRounds = 5
             },
             Messages = new()
             {

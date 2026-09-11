@@ -168,5 +168,73 @@ public class AssistantOptionsBindingTests
         options.RateLimits.DefaultRateLimit.Should().Be(7, "the flat legacy key must win, enforced explicitly by PostConfigure");
     }
 
+    [Fact]
+    public void Bind_WithNoConfiguration_DefaultsMaxToolRoundsToEight()
+    {
+        var options = Bind(new Dictionary<string, string?>());
+
+        options.Tools.MaxToolRounds.Should().Be(8);
+        options.Tools.MaxToolCallsPerQuestion.Should().Be(8, "the old name forwards to the new one");
+    }
+
+    [Fact]
+    public void Bind_WithNestedLegacyToolKey_StillWinsOverTheNewName()
+    {
+        // "MaxToolCallsPerQuestion" named calls but has always limited rounds. Both keys bind to
+        // the same field, so which one wins cannot be left to property declaration order.
+        var data = new Dictionary<string, string?>
+        {
+            [$"{AssistantOptions.SectionName}:Tools:MaxToolRounds"] = "12",
+            [$"{AssistantOptions.SectionName}:Tools:MaxToolCallsPerQuestion"] = "4",
+        };
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(data).Build();
+        var services = new ServiceCollection();
+        services.AddAssistant(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AssistantOptions>>().Value;
+
+        options.Tools.MaxToolRounds.Should().Be(4, "the legacy key must keep winning when both are set");
+    }
+
+    [Fact]
+    public void Bind_WithFlatLegacyToolKey_WinsOverBothNestedKeys()
+    {
+        var data = new Dictionary<string, string?>
+        {
+            [$"{AssistantOptions.SectionName}:MaxToolCallsPerQuestion"] = "3",
+            [$"{AssistantOptions.SectionName}:Tools:MaxToolCallsPerQuestion"] = "4",
+            [$"{AssistantOptions.SectionName}:Tools:MaxToolRounds"] = "12",
+        };
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(data).Build();
+        var services = new ServiceCollection();
+        services.AddAssistant(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AssistantOptions>>().Value;
+
+        options.Tools.MaxToolRounds.Should().Be(3, "the oldest spelling of all still wins");
+    }
+
+    [Fact]
+    public void Bind_WithOnlyTheNewToolKey_UsesIt()
+    {
+        var data = new Dictionary<string, string?>
+        {
+            [$"{AssistantOptions.SectionName}:Tools:MaxToolRounds"] = "12",
+        };
+
+        var configuration = new ConfigurationBuilder().AddInMemoryCollection(data).Build();
+        var services = new ServiceCollection();
+        services.AddAssistant(configuration);
+
+        using var provider = services.BuildServiceProvider();
+        var options = provider.GetRequiredService<IOptions<AssistantOptions>>().Value;
+
+        options.Tools.MaxToolRounds.Should().Be(12);
+    }
+
 #pragma warning restore CS0618
 }
