@@ -29,7 +29,7 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        cache-dependency-path: src/DiscordBot.Bot/package.json
+        cache-dependency-path: src/DiscordBot.Bot/package-lock.json
 
     - name: Display .NET version
       run: dotnet --version
@@ -84,9 +84,10 @@ jobs:
   e2e:
     name: Browser (Playwright) Tests
     runs-on: ubuntu-latest
-    # Runs after build-and-test but is not a gate for it - a Chromium/E2E problem here must
-    # never block the unit-test job's own pass/fail (see docs/articles/testing-guide.md
-    # "Browser (Playwright) tests").
+    # Runs after build-and-test and is a gate like every other job here: a failure in this job
+    # fails the overall workflow run. It is deterministic (a fixed Chromium build driving the
+    # app in web-only mode against a throwaway SQLite db, see docs/articles/testing-guide.md
+    # "Browser (Playwright) tests"), so there is no reason to let it fail silently.
     needs: build-and-test
 
     steps:
@@ -103,13 +104,20 @@ jobs:
       with:
         node-version: ${{ env.NODE_VERSION }}
         cache: 'npm'
-        cache-dependency-path: src/DiscordBot.Bot/package.json
+        cache-dependency-path: src/DiscordBot.Bot/package-lock.json
 
     - name: Restore .NET dependencies
       run: dotnet restore
 
     - name: Install Node.js dependencies
       run: npm ci
+      working-directory: src/DiscordBot.Bot
+
+    - name: Build frontend assets
+      # GitHub Actions sets CI=true, which disables the MSBuild Tailwind/vendor target (see
+      # CLAUDE.md "Tailwind") - without this the host under test boots with no
+      # wwwroot/css/app.css and no wwwroot/lib/chart.js.
+      run: npm run build
       working-directory: src/DiscordBot.Bot
 
     - name: Build solution
@@ -131,16 +139,14 @@ jobs:
         if-no-files-found: ignore
 
     - name: Upload host logs
-      # BotHostFixture deletes its temp directory (host.log, the throwaway SQLite db, Data
-      # Protection keys) on dispose even after a failing run, so this is best-effort: it only
-      # finds something when the host itself failed to become healthy (BotHostFixture threw out
-      # of InitializeAsync before a normal DisposeAsync could run) - see BotHostFixture.cs. A
-      # plain assertion failure inside a test still leaves the trx/console output above as the
-      # primary source of what went wrong.
+      # BotHostFixture writes host.log (the child DiscordBot.Bot process's stdout/stderr) under
+      # tests/DiscordBot.E2E/TestResults/e2e-<timestamp>/ and always keeps it - only the
+      # throwaway SQLite db and Data Protection key directory are deleted on dispose - see
+      # BotHostFixture.cs. This upload only runs on failure to avoid noise on green runs.
       if: failure()
       uses: actions/upload-artifact@v4
       with:
         name: e2e-host-logs
-        path: /tmp/discordbot-e2e-*/
+        path: tests/DiscordBot.E2E/TestResults/e2e-*/
         retention-days: 30
         if-no-files-found: ignore

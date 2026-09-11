@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using System.Net;
-using System.Net.Sockets;
+using System.Text.RegularExpressions;
 
 namespace DiscordBot.E2E;
 
@@ -8,7 +8,7 @@ namespace DiscordBot.E2E;
 /// Collection fixture that boots the real <c>DiscordBot.Bot.dll</c> as a child process in
 /// web-only mode (<c>Discord:Enabled=false</c>, see CLAUDE.md "Running it locally") against a
 /// throwaway SQLite database in a temp directory, waits for <c>/health</c> to report success,
-/// and tears the process and temp directory down afterwards.
+/// and tears the process down afterwards.
 ///
 /// Assumes the solution is already built - this fixture does not build anything. It resolves
 /// <c>DiscordBot.Bot.dll</c> relative to the test assembly's own build configuration (Debug or
@@ -21,24 +21,56 @@ namespace DiscordBot.E2E;
 /// </summary>
 public sealed class BotHostFixture : IAsyncLifetime
 {
-    private const string SeededAdminEmailValue = "e2e-admin@example.test";
-    private const string SeededAdminPasswordValue = "E2e-Test-Passw0rd!";
+    // Kestrel logs "Now listening on: http://127.0.0.1:<port>" (category Microsoft.Hosting.Lifetime,
+    // information level - see appsettings.json "Serilog:MinimumLevel:Override") once it has
+    // actually bound the ASPNETCORE_URLS=http://127.0.0.1:0 address below.
+    private static readonly Regex NowListeningRegex =
+        new(@"Now listening on:\s*(http://127\.0\.0\.1:\d+)", RegexOptions.Compiled);
+
+    private readonly string _seededAdminEmail;
+    private readonly string _seededAdminPassword;
 
     private Process? _process;
     private StreamWriter? _logWriter;
-    private string? _tempDir;
+    private string? _tempDataDir;
+    private readonly TaskCompletionSource<string> _listeningAddress =
+        new(TaskCreationOptions.RunContinuationsAsynchronously);
 
-    /// <summary>Base URL of the running host, e.g. http://127.0.0.1:53214. Null until <see cref="InitializeAsync"/> has started the process.</summary>
+    public BotHostFixture()
+    {
+        // Read once regardless of E2E_ENABLED so the properties below are always well-formed -
+        // cheap, and keeps the seeded credentials available even if a caller inspects them
+        // before InitializeAsync runs.
+        _seededAdminEmail = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("E2E_ADMIN_EMAIL"), "e2e-admin@example.test");
+
+        // No literal password in source (secret scanners flag it even though it only ever
+        // seeds a throwaway local SQLite db): default to a freshly generated one that still
+        // satisfies the Identity password policy (RequireDigit/Uppercase/Lowercase/
+        // NonAlphanumeric, RequiredLength 8 - see IdentityConfigOptions and
+        // appsettings.json "Identity:DefaultAdmin"). "E2e-" supplies upper/lower/digit, the
+        // GUID supplies length and uniqueness, "!" supplies the non-alphanumeric character.
+        _seededAdminPassword = FirstNonEmpty(
+            Environment.GetEnvironmentVariable("E2E_ADMIN_PASSWORD"), $"E2e-{Guid.NewGuid():N}!");
+    }
+
+    /// <summary>Base URL of the running host, e.g. http://127.0.0.1:53214. Empty until <see cref="InitializeAsync"/> has resolved it.</summary>
     public string BaseUrl { get; private set; } = string.Empty;
 
-    /// <summary>Email of the admin account seeded via Identity:DefaultAdmin.</summary>
-    public string SeededAdminEmail => SeededAdminEmailValue;
+    /// <summary>Email of the admin account seeded via Identity:DefaultAdmin. Override with <c>E2E_ADMIN_EMAIL</c>.</summary>
+    public string SeededAdminEmail => _seededAdminEmail;
 
-    /// <summary>Password of the admin account seeded via Identity:DefaultAdmin.</summary>
-    public string SeededAdminPassword => SeededAdminPasswordValue;
+    /// <summary>Password of the admin account seeded via Identity:DefaultAdmin. Override with <c>E2E_ADMIN_PASSWORD</c>.</summary>
+    public string SeededAdminPassword => _seededAdminPassword;
 
     /// <summary>Path to the file the child process's stdout/stderr were captured to.</summary>
     public string LogFilePath { get; private set; } = string.Empty;
+
+    /// <summary>
+    /// Directory <see cref="LogFilePath"/> lives in (under tests/DiscordBot.E2E/TestResults) -
+    /// tests may drop additional per-run artifacts here, e.g. a browser console log.
+    /// </summary>
+    public string LogDirectory { get; private set; } = string.Empty;
 
     public async Task InitializeAsync()
     {
@@ -49,16 +81,27 @@ public sealed class BotHostFixture : IAsyncLifetime
             return;
         }
 
-        _tempDir = Path.Combine(Path.GetTempPath(), $"discordbot-e2e-{Guid.NewGuid():N}");
-        Directory.CreateDirectory(_tempDir);
-        LogFilePath = Path.Combine(_tempDir, "host.log");
+        var repoRoot = FindRepoRoot(AppContext.BaseDirectory);
+        var dllPath = ResolveBotDllPath(repoRoot);
 
-        var dllPath = ResolveBotDllPath();
-        var port = GetFreeTcpPort();
-        BaseUrl = $"http://127.0.0.1:{port}";
+        // host.log (and, from BrowserTests, the browser console log) live under a per-run
+        // directory inside the test project's own TestResults, not a temp directory - kept
+        // always (not just on failure) so the e2e-host-logs CI artifact and local debugging
+        // actually have something in them. Only the throwaway SQLite db and Data Protection
+        // keys, which are just noise once the process exits, go in (and get deleted from) a
+        // real temp directory.
+        var logDir = Path.Combine(
+            repoRoot, "tests", "DiscordBot.E2E", "TestResults",
+            $"e2e-{DateTime.UtcNow:yyyyMMdd-HHmmss}-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(logDir);
+        LogDirectory = logDir;
+        LogFilePath = Path.Combine(logDir, "host.log");
 
-        var dbPath = Path.Combine(_tempDir, "e2e.db");
-        var dataProtectionPath = Path.Combine(_tempDir, "dp-keys");
+        _tempDataDir = Path.Combine(Path.GetTempPath(), $"discordbot-e2e-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_tempDataDir);
+
+        var dbPath = Path.Combine(_tempDataDir, "e2e.db");
+        var dataProtectionPath = Path.Combine(_tempDataDir, "dp-keys");
 
         var startInfo = new ProcessStartInfo
         {
@@ -73,10 +116,15 @@ public sealed class BotHostFixture : IAsyncLifetime
 
         startInfo.Environment["ASPNETCORE_ENVIRONMENT"] = "Development";
         startInfo.Environment["Discord__Enabled"] = "false";
-        startInfo.Environment["ASPNETCORE_URLS"] = BaseUrl;
+        // Bind an OS-assigned ephemeral port rather than picking one ourselves with a
+        // TcpListener: stopping that listener so Kestrel can bind the same port is a
+        // time-of-check/time-of-use race - anything else on the runner can grab the port in
+        // between. Binding ":0" here and reading back Kestrel's own "Now listening on" line
+        // below is race-free because only the child process ever asks the OS for the port.
+        startInfo.Environment["ASPNETCORE_URLS"] = "http://127.0.0.1:0";
         startInfo.Environment["ConnectionStrings__DefaultConnection"] = $"Data Source={dbPath}";
-        startInfo.Environment["Identity__DefaultAdmin__Email"] = SeededAdminEmailValue;
-        startInfo.Environment["Identity__DefaultAdmin__Password"] = SeededAdminPasswordValue;
+        startInfo.Environment["Identity__DefaultAdmin__Email"] = _seededAdminEmail;
+        startInfo.Environment["Identity__DefaultAdmin__Password"] = _seededAdminPassword;
         startInfo.Environment["DataProtection__KeyPath"] = dataProtectionPath;
         // No token/keys are configured for Discord OAuth, OpenRouter or Azure Speech: those
         // features are optional and the host starts fine without them (see
@@ -85,7 +133,7 @@ public sealed class BotHostFixture : IAsyncLifetime
         _logWriter = new StreamWriter(LogFilePath, append: false) { AutoFlush = true };
 
         _process = new Process { StartInfo = startInfo, EnableRaisingEvents = true };
-        _process.OutputDataReceived += (_, e) => WriteLogLine(e.Data);
+        _process.OutputDataReceived += (_, e) => OnOutputLine(e.Data);
         _process.ErrorDataReceived += (_, e) => WriteLogLine(e.Data);
 
         try
@@ -102,6 +150,8 @@ public sealed class BotHostFixture : IAsyncLifetime
 
         _process.BeginOutputReadLine();
         _process.BeginErrorReadLine();
+
+        BaseUrl = await WaitForListeningAddressAsync(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
 
         await WaitForHealthyAsync(TimeSpan.FromSeconds(60)).ConfigureAwait(false);
     }
@@ -124,17 +174,36 @@ public sealed class BotHostFixture : IAsyncLifetime
         _process?.Dispose();
         _logWriter?.Dispose();
 
-        if (_tempDir is not null && Directory.Exists(_tempDir))
+        // Intentionally NOT deleting the log directory (under tests/DiscordBot.E2E/TestResults)
+        // - see the comment in InitializeAsync. Only the throwaway SQLite db / Data Protection
+        // keys temp directory is cleaned up.
+        if (_tempDataDir is not null && Directory.Exists(_tempDataDir))
         {
             try
             {
-                Directory.Delete(_tempDir, recursive: true);
+                Directory.Delete(_tempDataDir, recursive: true);
             }
             catch
             {
                 // Best-effort cleanup: a file briefly locked by SQLite/Data Protection on
                 // shutdown shouldn't fail the test run.
             }
+        }
+    }
+
+    private void OnOutputLine(string? line)
+    {
+        WriteLogLine(line);
+
+        if (line is null || _listeningAddress.Task.IsCompleted)
+        {
+            return;
+        }
+
+        var match = NowListeningRegex.Match(line);
+        if (match.Success)
+        {
+            _listeningAddress.TrySetResult(match.Groups[1].Value);
         }
     }
 
@@ -152,6 +221,28 @@ public sealed class BotHostFixture : IAsyncLifetime
         catch
         {
             // Ignore: the writer may already be disposed if output arrives during teardown.
+        }
+    }
+
+    private async Task<string> WaitForListeningAddressAsync(TimeSpan timeout)
+    {
+        using var cts = new CancellationTokenSource(timeout);
+        await using var registration = cts.Token.Register(
+            () => _listeningAddress.TrySetCanceled(cts.Token));
+
+        try
+        {
+            return await _listeningAddress.Task.ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            var exited = _process is { HasExited: true };
+            var detail = exited
+                ? $"DiscordBot.Bot exited early (code {_process!.ExitCode})"
+                : "DiscordBot.Bot did not log a \"Now listening on\" line";
+
+            throw new TimeoutException(
+                $"{detail} within {timeout} of starting. See {LogFilePath}.");
         }
     }
 
@@ -194,7 +285,10 @@ public sealed class BotHostFixture : IAsyncLifetime
             lastError);
     }
 
-    private static string ResolveBotDllPath()
+    private static string FirstNonEmpty(string? value, string fallback) =>
+        string.IsNullOrWhiteSpace(value) ? fallback : value;
+
+    private static string ResolveBotDllPath(string repoRoot)
     {
         var overridePath = Environment.GetEnvironmentVariable("E2E_BOT_DLL");
         if (!string.IsNullOrWhiteSpace(overridePath))
@@ -208,7 +302,6 @@ public sealed class BotHostFixture : IAsyncLifetime
             return overridePath;
         }
 
-        var repoRoot = FindRepoRoot(AppContext.BaseDirectory);
         var configuration = FindBuildConfiguration(AppContext.BaseDirectory);
 
         var dllPath = Path.Combine(
@@ -263,14 +356,5 @@ public sealed class BotHostFixture : IAsyncLifetime
         throw new DirectoryNotFoundException(
             $"Could not find DiscordBot.sln above '{startDirectory}'. " +
             "Set E2E_BOT_DLL to point at DiscordBot.Bot.dll directly if the test assembly moved.");
-    }
-
-    private static int GetFreeTcpPort()
-    {
-        var listener = new TcpListener(IPAddress.Loopback, 0);
-        listener.Start();
-        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
-        listener.Stop();
-        return port;
     }
 }
