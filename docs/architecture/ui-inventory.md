@@ -14,18 +14,22 @@ For detailed component documentation, see [Component API Usage Guide](../article
 
 ---
 
-## Blazor Routes (Phase 1, temporary)
+## Blazor Routes (Phase 1, temporary — retained through Phase 3)
 
 The Blazor port (`docs/plans/blazor-port-plan.md`) is under way alongside the Razor Pages
 below; see "Blazor components" in `patterns.md`. These routes exist only to prove the
-Phase 1 hosting foundation and are **deleted at the end of Phase 2**, once the real component
-library and shell layouts land — they are not part of the permanent route surface.
+Phase 1 hosting foundation and are **not part of the permanent route surface** — but per
+`blazor-port-plan.md` §5 Phase 2's "Delivered" note, they are **retained past Phase 2**
+(superseding this table's earlier "deleted at the end of Phase 2" wording) since nothing in
+Phase 2 needed to touch them; they are deleted once Phase 4 replaces them with real nested
+pages that exercise the same hosting-foundation guarantees as a side effect of being real
+product pages.
 
 | Route | File | Purpose |
 |-------|------|---------|
 | `/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Minimal smoke test: `RequireAdmin` auth on a routable component plus one interactive counter button. |
 | `/admin/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Second `@page` route on the same component as `/blazor-smoke`, guarding a known .NET 10 regression where `blazor.web.js` resolved `_blazor/initializers` relative to a nested path instead of the app base, 404ing and leaving the circuit dead — see `tests/DiscordBot.E2E`. Both the flat and nested Playwright checks run against this one component. |
-| `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, and `BrowserInterop`/`CircuitClientInfoService`. Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and is deleted with this probe at the end of Phase 2. |
+| `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, and `BrowserInterop`/`CircuitClientInfoService`. Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and stays retained with the rest of this page — see the note above. |
 
 ## Blazor Routes (Phase 2, permanent)
 
@@ -262,6 +266,32 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Guild Preview Popup** | `_GuildPreviewPopup.cshtml` | Guild card preview (name, icon, stats) | `GuildPreviewPopupViewModel` |
 | **Preview Popup Loading** | `_PreviewPopupLoading.cshtml` | Loading state for preview popup | `PreviewPopupLoadingViewModel` |
 | **Preview Popup Error** | `_PreviewPopupError.cshtml` | Error state for preview popup | `PreviewPopupErrorViewModel` |
+
+---
+
+## Blazor Components
+
+The Phase 2 component library (`docs/plans/blazor-port-plan.md` §5 "Phase 2", complete) at
+`src/DiscordBot.Bot/Blazor/Shared/` — 62 components across 7 groups, each namespaced
+`DiscordBot.Bot.Blazor.Shared` regardless of which group subfolder it lives in. See
+`docs/articles/blazor-components.md` for parameters, source partials, and documented fidelity
+deviations per component, and the "Status" section there for what each tier delivered. This table
+supersedes the "Reusable Components" partials above one entry at a time as their consuming pages
+are ported in Phase 4 — until then both the partial and its Blazor equivalent exist.
+
+| Group | Components |
+| --- | --- |
+| **Icons** (1) | `Icon` (+ the `IconPaths` static class of named `d` path constants) |
+| **Primitives** (17) | `Alert`, `Badge`, `Button`, `Card`, `DashboardWidget`, `EmptyState`, `GuildStatsCard`, `HeroMetricCard`, `Highlight`, `Kbd`, `LoadingSpinner`, `RuleTypeIcon`, `SeverityBadge`, `Skeleton`, `SkeletonCard`, `StatusBadge`, `StatusIndicator` |
+| **Forms** (10) | `Autocomplete`, `DateRangeFilter`, `FilterPanel`, `FormField`, `Select`, `SettingField`, `SortDropdown`, `TextArea`, `TextInput`, `Toggle` |
+| **Navigation** (7) | `Breadcrumb`, `GuildContextSelector`, `GuildHeader`, `PageHeader`, `Pagination`, `TabGroup`, `TabPanel` |
+| **Overlays** (7) | `ConfirmModal`, `GuildPreviewPopoverContent`, `LoadingOverlay`, `Modal`, `PreviewPopover`, `ToastHost`, `UserPreviewPopoverContent` |
+| **Widgets** (13) | `ActivityFeed`, `AuditLogCard`, `BotStatusBanner`, `BotStatusCard`, `Chart`, `CommandStatsCard`, `ConnectedServersWidget`, `ConnectionStatus`, `NotificationBell`, `QuickActionsCard`, `RecentActivityCard`, `RestartBanner`, `VoiceChannelPanel` |
+| **Tts** (7) | `EmphasisToolbar`, `ModeSwitcher`, `PauseModal`, `PresetBar`, `SsmlPreview`, `StyleSelector`, `VoiceSelector` |
+
+Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Blazor/Shared/`
+(mirroring this same group structure); the full library plus the `/components` showcase page is
+566 tests as of the end of Phase 2 (`docs/articles/testing-guide.md` "Component (bUnit) tests").
 
 ---
 

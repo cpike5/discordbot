@@ -18,12 +18,24 @@ each page opts in with `@rendermode InteractiveServer`). A page's `.cshtml`/`.cs
 deleted in the same PR that adds its `.razor` replacement, so at any point some pages are
 still `Pages/` and some are `Blazor/Pages/` - check which one exists before editing. New UI
 work goes in `Blazor/`, not `Pages/`. Phase 1 (hosting, auth plumbing, circuit
-observability) is done; see "Blazor components" in `docs/architecture/patterns.md` for the
-hosting model, the `HttpContext`-is-prerender-only rule, and where things live under
-`Blazor/`. `Blazor/Pages/Admin/BlazorProbe.razor` (`/admin/blazor-probe`) and
-`Blazor/Pages/BlazorSmoke.razor` (`/blazor-smoke`) are temporary Phase 1 proof pages, deleted at
-the end of Phase 2; bUnit component tests for `Blazor/` live in `tests/DiscordBot.ComponentTests`
-(see "Component (bUnit) Tests" in `docs/articles/testing-guide.md`).
+observability) and Phase 2 (the component library) are done; see "Blazor components" in
+`docs/architecture/patterns.md` for the hosting model, the `HttpContext`-is-prerender-only rule,
+and where things live under `Blazor/`. `Blazor/Pages/Admin/BlazorProbe.razor`
+(`/admin/blazor-probe`) and `Blazor/Pages/BlazorSmoke.razor` (`/blazor-smoke`) are temporary Phase
+1 proof pages, retained (not deleted at the end of Phase 2 as originally planned — nothing in
+Phase 2 needed to touch them) until Phase 4 replaces them with real nested pages; bUnit component
+tests for `Blazor/` live in `tests/DiscordBot.ComponentTests` (see "Component (bUnit) Tests" in
+`docs/articles/testing-guide.md`).
+
+**Component library (Phase 2, complete).** `src/DiscordBot.Bot/Blazor/Shared/` has 62 components
+across 7 groups (Icons, Primitives, Forms, Navigation, Overlays, Widgets, Tts) — every one derived
+from a shipped Graphite v2 partial under `Pages/Shared/Components/`, one bUnit test class each. Full
+reference, parameters, and documented fidelity deviations: `docs/articles/blazor-components.md`;
+the group/component list: the "Blazor Components" table in `docs/architecture/ui-inventory.md`. The
+showcase page moved too: `Blazor/Pages/Components/ComponentsPage.razor` at `/components` replaced
+`Pages/Components.cshtml`, which is deleted. New reusable UI work goes in `Blazor/Shared/` under the
+matching group, following the "Component contract" in `blazor-components.md` — not as a new
+`Pages/Shared/Components/` partial.
 
 ## Domain Map
 
@@ -41,7 +53,9 @@ the end of Phase 2; bUnit component tests for `Blazor/` live in `tests/DiscordBo
 - **Data Cards:** `_AuditLogCard`, `_CommandStatsCard`
 - **Input:** `_AutocompleteInput`
 - **Previews:** `_GuildPreviewPopup`
-- **Showcase:** `Components.cshtml` — living reference, keep updated when adding components
+- **Showcase:** `Blazor/Pages/Components/ComponentsPage.razor` at `/components` (the Blazor
+  showcase described above replaced `Components.cshtml`) — living reference, keep updated when
+  adding components
 
 ### Layouts
 - `_Layout.cshtml` — Main application layout

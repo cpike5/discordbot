@@ -201,6 +201,19 @@ Build Tiers 1–5 from §4.6 in order. Each PR: components, bUnit tests, `.razor
 
 Exit criterion: every one of the 56 partials has a Blazor equivalent or a documented merge target; no Razor Page has changed yet.
 
+**Delivered.** 62 components across 7 groups at `Blazor/Shared/` (see the "Blazor Components"
+table in `ui-inventory.md` and the "Status" section of `blazor-components.md` for the per-tier
+breakdown and documented fidelity deviations); 566 bUnit tests in
+`tests/DiscordBot.ComponentTests`, plus one Playwright test in `tests/DiscordBot.E2E` covering the
+`/components` showcase page end to end. `Pages/Components.cshtml` is retired; `/components` is now
+a permanent Blazor route. Superseding the "deleted at the end of Phase 2" note on the Phase 1
+probe/smoke pages (`/blazor-smoke`, `/admin/blazor-smoke`, `/admin/blazor-probe`, deliverable 7
+above): they are **retained** through Phase 2, since nothing in this phase needed to touch them,
+and stay in place until Phase 4 replaces them with real nested pages that exercise the same
+hosting-foundation guarantees (nested-route circuit boot, auth-in-circuit) as a side effect of
+being real product pages, rather than being deleted outright at a phase boundary with nothing yet
+to replace their coverage.
+
 ### Phase 3 — Shell and layouts · 4–6 days · 2 PRs
 
 `MainLayout`, `GuildLayout` + `GuildContext`, `PortalLayout`, `LandingLayout`, `EmptyLayout`; error pages 403/404/500 and `Landing` as the first real static SSR pages (delete their `.cshtml`); `Search` with `Highlight` as the first interactive page (delete `.cshtml`, `HighlightTagHelper` and its tests). From here two shells exist in parallel (`_Layout.cshtml` for un-migrated pages, `MainLayout.razor` for migrated ones); keep the phase-4 clusters moving quickly so the window is short, and route any shell change through both until Phase 5.
