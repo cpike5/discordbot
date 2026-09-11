@@ -6,7 +6,8 @@ on-demand skills, per-tool specs, and a behavioural eval suite). The goal is not
 architecture wholesale: it is to identify what is currently *blocking capability expansion here*
 and propose the smallest set of changes that unblocks it.
 
-**Status**: proposed. Nothing in this document is implemented.
+**Status**: proposed. Nothing in this document is implemented. The concrete code changes behind
+it are in [docs/specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md).
 
 ---
 
@@ -210,6 +211,24 @@ every tool as "Planned", plans 17 tools against the 27 that shipped, and describ
 never built (`list_guild_members`, `check_user_permissions`, `get_feature_status`). There is no
 per-tool spec and no behavioural eval of any kind.
 
+### F13 — The documentation tool can read markdown outside its base directory
+
+`DocumentationToolProvider` falls back to `fileName = $"{featureName}.md"` for any feature name not
+in its map, then `Path.Combine`s it onto `DocumentationBasePath` with no containment check
+(`Providers/DocumentationToolProvider.cs:158-168`). `featureName` comes from the model, and the
+model's input is a Discord message from any user in any guild where the assistant is enabled. A
+name of `../../docs/agents/assistant-agent` resolves outside `docs/articles` and returns the
+assistant's own system prompt — the one that prompt explicitly forbids disclosing. `CLAUDE.md` and
+every spec under `docs/` are reachable the same way.
+
+The `.md` suffix bounds this to markdown rather than secrets, so it is "read files you did not
+intend to publish" rather than a credential leak — but it is a direct prompt-injection target and
+it is the cheapest thing on this list to fix.
+
+**Fix**: resolve both paths with `Path.GetFullPath` and reject anything not under the base
+directory, plus an `[a-z0-9-]` allow-list on the unmapped fallback. Return the same payload as
+not-found, so a probe learns nothing. Detail in the implementation spec §1.3.
+
 ---
 
 ## 4. Proposed plan
@@ -217,10 +236,12 @@ per-tool spec and no behavioural eval of any kind.
 Four tiers. Each is independently shippable and each is one PR (the repo's small-blast-radius
 rule). Tier 1 pays for itself immediately; Tier 3 is the one that actually unlocks expansion.
 
-### Tier 1 — Stop the bleeding (F1, F4, F5, F6, F7)
+### Tier 1 — Stop the bleeding (F1, F4, F5, F6, F7, F13)
 
 Loop and cost fixes, no new abstractions, no schema changes.
 
+0. **Contain the documentation path** — resolve-and-verify against the base directory. Ships
+   first, alone, as a security fix.
 1. **Result cap in `AgentRunner`** — `Assistant:Tools:MaxToolResultChars` (default ~8,000) with an
    explicit truncation marker in the returned JSON.
 2. **Section-aware documentation tool** — `get_feature_documentation` gains an optional `section`
@@ -333,7 +354,8 @@ None should ship before Tier 1–2.
 
 ## References
 
-- This repo: `docs/articles/ai-assistant.md`, `docs/specs/assistant-tool-catalog.md` (stale),
+- This repo: [implementation spec](../specs/agent-tooling-implementation.md),
+  `docs/articles/ai-assistant.md`, `docs/specs/assistant-tool-catalog.md` (stale),
   `docs/architecture/service-catalog.md`, `.claude/agents/ai-assistant.md`
 - `pike-assistant`: `docs/agent-tools.md` (tool design standards), `docs/agent-prompts.md`
   (composition, skills, prompt caching), `docs/tools/load_skill.md`, `docs/evals.md`
