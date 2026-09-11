@@ -112,9 +112,9 @@
         <div class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <HeroMetricCard Title="Total Servers" Value="12" TrendValue="+2" TrendDirection="TrendDirection.Up" TrendLabel="this week"
-                                 AccentColor="CardAccent.Blue" IconPath="IconPaths.Server" DataAttribute="data-total-guilds" />
+                                 AccentColor="CardAccent.Blue" IconPath="@IconPaths.Server" DataAttribute="data-total-guilds" />
                 <HeroMetricCard Title="Commands Today" Value="1,847" TrendValue="-5%" TrendDirection="TrendDirection.Down" TrendLabel="vs yesterday"
-                                 AccentColor="CardAccent.Orange" IconPath="IconPaths.CheckCircle" />
+                                 AccentColor="CardAccent.Orange" IconPath="@IconPaths.CheckCircle" />
                 <HeroMetricCard Title="Uptime" Value="99.9%" TrendValue="0%" TrendDirection="TrendDirection.Neutral" TrendLabel="14 days stable"
                                  AccentColor="CardAccent.Success" ShowSparkline="true" SparklineData="@_sparkline">
                     <IconContent>
@@ -146,7 +146,7 @@
         </div>
         <div class="p-6">
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <DashboardWidget Title="Recent Activity" Subtitle="Last 24 hours" IconPath="IconPaths.CheckCircle" IsEnabled="true"
+                <DashboardWidget Title="Recent Activity" Subtitle="Last 24 hours" IconPath="@IconPaths.CheckCircle" IsEnabled="true"
                                   DetailUrl="#" DetailLinkText="View All →"
                                   HeaderActions="@_widgetHeaderActions">
                     <p class="text-text-secondary text-sm">3 commands executed, 1 moderation action taken.</p>

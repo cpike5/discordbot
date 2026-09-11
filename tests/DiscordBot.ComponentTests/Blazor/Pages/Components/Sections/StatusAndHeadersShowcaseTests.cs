@@ -1,5 +1,6 @@
 using Bunit;
 using DiscordBot.Bot.Blazor.Pages.Components.Sections;
+using DiscordBot.Bot.Blazor.Shared;
 using DiscordBot.ComponentTests.TestHelpers;
 using FluentAssertions;
 
@@ -41,5 +42,24 @@ public class StatusAndHeadersShowcaseTests : BlazorComponentTestContext
         callbackSection.QuerySelectorAll("button").First(b => b.TextContent.Trim() == "2").Click();
 
         cut.Find("[data-testid='pagination-callback-page']").TextContent.Should().Contain("2");
+    }
+
+    [Fact]
+    public void HeroMetricCardAndDashboardWidget_IconPathUsages_RenderRealPathData()
+    {
+        // Regression guard: this section's IconPath="IconPaths.X" values (HeroMetricCard,
+        // DashboardWidget) previously lacked the "@" prefix a string-typed component parameter
+        // needs to be evaluated as C# (Blazor treats an unprefixed value as a literal string for
+        // string parameters), so they rendered the literal text "IconPaths.X" as the SVG `d`.
+        var cut = Render<StatusAndHeadersShowcase>();
+
+        var heroCards = cut.Find("[data-testid='showcase-hero-metric-cards']");
+        heroCards.QuerySelector(".hero-metric-icon svg path")!.GetAttribute("d").Should().Be(IconPaths.Server);
+
+        var widget = cut.Find("[data-testid='showcase-dashboard-widget']");
+        var widgetIconPath = widget.QuerySelector("svg path")!.GetAttribute("d");
+        widgetIconPath.Should().StartWith("M");
+        widgetIconPath.Should().NotContain("IconPaths");
+        widgetIconPath.Should().Be(IconPaths.CheckCircle);
     }
 }

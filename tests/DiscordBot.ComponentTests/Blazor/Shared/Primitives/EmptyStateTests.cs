@@ -73,6 +73,36 @@ public class EmptyStateTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void PrimaryActionHref_ActionIcon_RendersRealPathData()
+    {
+        // Regression guard: the primary-action <Icon Path="IconPaths.Plus" ...> (anchor variant)
+        // previously lacked the "@" prefix a string-typed component parameter needs to be
+        // evaluated as C# (Blazor treats an unprefixed value as a literal string for string
+        // parameters), so it rendered the literal text "IconPaths.Plus" as the SVG `d`.
+        var cut = Render<EmptyState>(p => p.Add(x => x.PrimaryActionText, "Create").Add(x => x.PrimaryActionHref, "/create"));
+
+        var d = cut.Find("a svg path").GetAttribute("d");
+
+        d.Should().StartWith("M");
+        d.Should().NotContain("IconPaths");
+        d.Should().Be(IconPaths.Plus);
+    }
+
+    [Fact]
+    public void PrimaryAction_ButtonVariant_ActionIcon_RendersRealPathData()
+    {
+        // Same regression guard as above, for the <button> variant of the primary action (no
+        // PrimaryActionHref) - a separate <Icon Path="IconPaths.Plus" ...> in the partial's markup.
+        var cut = Render<EmptyState>(p => p.Add(x => x.PrimaryActionText, "Retry"));
+
+        var d = cut.Find("button svg path").GetAttribute("d");
+
+        d.Should().StartWith("M");
+        d.Should().NotContain("IconPaths");
+        d.Should().Be(IconPaths.Plus);
+    }
+
+    [Fact]
     public void PrimaryAction_WithoutHref_RendersButton_AndInvokesCallback()
     {
         var invoked = false;
