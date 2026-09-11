@@ -2,6 +2,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents;
 using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -18,6 +19,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
     private readonly IAssistantUsageMetricsRepository _metricsRepository;
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly ILlmModelResolver _modelResolver;
+    private readonly IToolAccessResolver _toolAccess;
     private readonly ILogger<GuildAssistantContext> _logger;
     private readonly AssistantOptions _options;
     private readonly ILlmUsageRecorder _usageRecorder;
@@ -29,6 +31,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         IAssistantUsageMetricsRepository metricsRepository,
         IAssistantInteractionLogRepository interactionLogRepository,
         ILlmModelResolver modelResolver,
+        IToolAccessResolver toolAccess,
         ILogger<GuildAssistantContext> logger,
         IOptions<AssistantOptions> options,
         ILlmUsageRecorder usageRecorder)
@@ -39,6 +42,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         _metricsRepository = metricsRepository ?? throw new ArgumentNullException(nameof(metricsRepository));
         _interactionLogRepository = interactionLogRepository ?? throw new ArgumentNullException(nameof(interactionLogRepository));
         _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
+        _toolAccess = toolAccess ?? throw new ArgumentNullException(nameof(toolAccess));
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
@@ -56,6 +60,16 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
     {
         var resolved = await _modelResolver.ResolveAsync(LlmMode.GuildAssistant, cancellationToken);
 
+        // Resolved once per run, then applied as a decorator: the guild's allow-list is shared by
+        // every caller in the guild, so narrowing here still leaves one prompt-cache prefix per
+        // guild rather than one per user.
+        IToolRegistry? registry = null;
+        if (_options.Tools.EnableDocumentationTools)
+        {
+            var allowed = await _toolAccess.ResolveAsync(guildId, cancellationToken);
+            registry = new FilteredToolRegistry(_toolRegistry, allowed);
+        }
+
         return new GuildAssistantContext(
             guildId,
             channelId,
@@ -63,7 +77,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             messageId,
             rateLimit,
             question,
-            _options.Tools.EnableDocumentationTools ? _toolRegistry : null,
+            registry,
             _guildService,
             _promptTemplate,
             _metricsRepository,

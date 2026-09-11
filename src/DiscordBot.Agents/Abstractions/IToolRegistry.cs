@@ -4,47 +4,36 @@ using DiscordBot.Agents.Contracts;
 namespace DiscordBot.Agents.Abstractions;
 
 /// <summary>
-/// Manages tool providers with enable/disable capability.
-/// Routes tool execution to the appropriate provider.
+/// Holds the registered tool providers and routes a tool call to the one that owns the tool.
 /// </summary>
+/// <remarks>
+/// Scoping - which of the registered tools a particular run may see and call - is not this
+/// interface's job. It is applied by wrapping a registry in <c>FilteredToolRegistry</c>, so the
+/// policy lives with whoever decides it and a registry stays a plain lookup.
+/// </remarks>
 public interface IToolRegistry
 {
     /// <summary>
     /// Registers a tool provider.
     /// </summary>
     /// <param name="provider">The tool provider to register.</param>
-    /// <param name="enabled">Whether the provider is initially enabled.</param>
-    void RegisterProvider(IToolProvider provider, bool enabled = true);
+    void RegisterProvider(IToolProvider provider);
 
     /// <summary>
-    /// Enables a provider by name.
+    /// Gets the tool definitions of every registered provider.
     /// </summary>
-    /// <param name="providerName">Name of the provider to enable.</param>
-    /// <exception cref="InvalidOperationException">Thrown if provider not found.</exception>
-    void EnableProvider(string providerName);
-
-    /// <summary>
-    /// Disables a provider by name.
-    /// </summary>
-    /// <param name="providerName">Name of the provider to disable.</param>
-    /// <exception cref="InvalidOperationException">Thrown if provider not found.</exception>
-    void DisableProvider(string providerName);
-
-    /// <summary>
-    /// Gets all tool definitions from enabled providers.
-    /// </summary>
-    /// <returns>Enumerable of tool definitions from enabled providers only.</returns>
+    /// <returns>Enumerable of tool definitions, ordered by name.</returns>
     IEnumerable<LlmToolDefinition> GetEnabledTools();
 
     /// <summary>
-    /// Executes a tool through the appropriate enabled provider.
+    /// Executes a tool through the provider that owns it.
     /// </summary>
     /// <param name="toolName">Name of the tool to execute.</param>
     /// <param name="input">Tool input as a JSON element.</param>
     /// <param name="context">Tool execution context.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>Result of tool execution.</returns>
-    /// <exception cref="NotSupportedException">Thrown if tool not found in any enabled provider.</exception>
+    /// <exception cref="NotSupportedException">Thrown if no registered provider owns the tool.</exception>
     Task<ToolExecutionResult> ExecuteToolAsync(
         string toolName,
         JsonElement input,

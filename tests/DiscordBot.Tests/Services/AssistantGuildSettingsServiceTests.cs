@@ -1,6 +1,7 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Interfaces.LLM;
 using DiscordBot.Infrastructure.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Logging;
@@ -18,6 +19,7 @@ public class AssistantGuildSettingsServiceTests
     private readonly Mock<ILogger<AssistantGuildSettingsService>> _mockLogger;
     private readonly Mock<IAssistantGuildSettingsRepository> _mockRepository;
     private readonly Mock<ISettingsService> _mockSettingsService;
+    private readonly Mock<IToolAccessResolver> _mockToolAccessResolver;
     private readonly AssistantOptions _assistantOptions;
     private readonly AssistantGuildSettingsService _service;
 
@@ -32,6 +34,7 @@ public class AssistantGuildSettingsServiceTests
         _mockLogger = new Mock<ILogger<AssistantGuildSettingsService>>();
         _mockRepository = new Mock<IAssistantGuildSettingsRepository>();
         _mockSettingsService = new Mock<ISettingsService>();
+        _mockToolAccessResolver = new Mock<IToolAccessResolver>();
 
         _assistantOptions = new AssistantOptions
         {
@@ -57,7 +60,8 @@ public class AssistantGuildSettingsServiceTests
             _mockLogger.Object,
             _mockRepository.Object,
             _mockSettingsService.Object,
-            mockOptions.Object);
+            mockOptions.Object,
+            _mockToolAccessResolver.Object);
     }
 
     #region GetOrCreateSettingsAsync Tests
@@ -155,7 +159,8 @@ public class AssistantGuildSettingsServiceTests
             _mockLogger.Object,
             _mockRepository.Object,
             mockSettingsService.Object,
-            mockOptions.Object);
+            mockOptions.Object,
+            _mockToolAccessResolver.Object);
 
         _mockRepository
             .Setup(r => r.GetByGuildIdAsync(TestGuildId, It.IsAny<CancellationToken>()))
@@ -534,7 +539,8 @@ public class AssistantGuildSettingsServiceTests
             _mockLogger.Object,
             _mockRepository.Object,
             mockSettingsService.Object,
-            mockOptions.Object);
+            mockOptions.Object,
+            _mockToolAccessResolver.Object);
 
         // Act
         var result = await service.IsEnabledAsync(TestGuildId);
@@ -897,7 +903,7 @@ public class AssistantGuildSettingsServiceTests
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(
-            () => new AssistantGuildSettingsService(null!, _mockRepository.Object, _mockSettingsService.Object, mockOptions.Object));
+            () => new AssistantGuildSettingsService(null!, _mockRepository.Object, _mockSettingsService.Object, mockOptions.Object, _mockToolAccessResolver.Object));
         ex.ParamName.Should().Be("logger");
     }
 
@@ -910,7 +916,7 @@ public class AssistantGuildSettingsServiceTests
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(
-            () => new AssistantGuildSettingsService(_mockLogger.Object, null!, _mockSettingsService.Object, mockOptions.Object));
+            () => new AssistantGuildSettingsService(_mockLogger.Object, null!, _mockSettingsService.Object, mockOptions.Object, _mockToolAccessResolver.Object));
         ex.ParamName.Should().Be("repository");
     }
 
@@ -923,7 +929,7 @@ public class AssistantGuildSettingsServiceTests
 
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(
-            () => new AssistantGuildSettingsService(_mockLogger.Object, _mockRepository.Object, null!, mockOptions.Object));
+            () => new AssistantGuildSettingsService(_mockLogger.Object, _mockRepository.Object, null!, mockOptions.Object, _mockToolAccessResolver.Object));
         ex.ParamName.Should().Be("settingsService");
     }
 
@@ -932,8 +938,24 @@ public class AssistantGuildSettingsServiceTests
     {
         // Act & Assert
         var ex = Assert.Throws<ArgumentNullException>(
-            () => new AssistantGuildSettingsService(_mockLogger.Object, _mockRepository.Object, _mockSettingsService.Object, null!));
+            () => new AssistantGuildSettingsService(_mockLogger.Object, _mockRepository.Object, _mockSettingsService.Object, null!, _mockToolAccessResolver.Object));
         ex.ParamName.Should().Be("assistantOptions");
+    }
+
+    #endregion
+
+    #region Tool Access Invalidation Tests
+
+    [Fact]
+    public async Task UpdateSettingsAsync_InvalidatesTheGuildToolAccessCache()
+    {
+        // Every settings write goes through UpdateSettingsAsync, which is what makes one
+        // invalidation point enough - without it an edited checklist would sit behind the cache.
+        var settings = new AssistantGuildSettings { GuildId = TestGuildId };
+
+        await _service.UpdateSettingsAsync(settings);
+
+        _mockToolAccessResolver.Verify(r => r.Invalidate(TestGuildId), Times.Once);
     }
 
     #endregion

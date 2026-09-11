@@ -2,7 +2,9 @@ using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
+using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Models.Llm;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -59,6 +61,17 @@ public class AssistantSettingsModel : PageModel
     public List<ChannelSelectItem> AvailableChannels { get; set; } = new();
 
     /// <summary>
+    /// The guild-scoped tools an admin can allow or deny, grouped by catalogue category.
+    /// </summary>
+    public List<ToolCategoryGroup> ToolCategories { get; set; } = new();
+
+    /// <summary>
+    /// Whether this guild is running the house default tool set (nothing explicitly selected).
+    /// The UI has to say so: an empty checklist otherwise reads as "no tools".
+    /// </summary>
+    public bool UsingDefaultToolSet { get; set; }
+
+    /// <summary>
     /// Default rate limit from configuration.
     /// </summary>
     public int DefaultRateLimit { get; set; }
@@ -100,6 +113,29 @@ public class AssistantSettingsModel : PageModel
         [Display(Name = "Rate Limit Override")]
         [Range(1, 100, ErrorMessage = "Rate limit must be between 1 and 100")]
         public int? RateLimitOverride { get; set; }
+
+        /// <summary>
+        /// Tool names ticked in the checklist. An empty selection means the house default set, not
+        /// "no tools" - see <see cref="UsingDefaultToolSet"/>.
+        /// </summary>
+        [Display(Name = "Enabled Tools")]
+        public List<string> EnabledTools { get; set; } = new();
+    }
+
+    /// <summary>One catalogue category and the tools filed under it.</summary>
+    public class ToolCategoryGroup
+    {
+        public string Category { get; set; } = string.Empty;
+        public List<ToolSelectItem> Tools { get; set; } = new();
+    }
+
+    /// <summary>One tool row in the checklist.</summary>
+    public class ToolSelectItem
+    {
+        public string Name { get; set; } = string.Empty;
+        public string DisplayName { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public bool IsSelected { get; set; }
     }
 
     /// <summary>
@@ -188,6 +224,11 @@ public class AssistantSettingsModel : PageModel
         // Get available channels
         AvailableChannels = GetTextChannels(guildId, allowedChannels);
 
+        // Tool allow-list checklist
+        var enabledTools = settings.GetEnabledToolsList();
+        UsingDefaultToolSet = enabledTools.Count == 0;
+        ToolCategories = BuildToolCategories(enabledTools);
+
         // Load configuration defaults
         DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
         RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;
@@ -201,7 +242,8 @@ public class AssistantSettingsModel : PageModel
             GuildId = guildId,
             IsEnabled = settings.IsEnabled,
             AllowedChannelIds = allowedChannels.Select(id => id.ToString()).ToList(),
-            RateLimitOverride = settings.RateLimitOverride
+            RateLimitOverride = settings.RateLimitOverride,
+            EnabledTools = enabledTools
         };
 
         return Page();
@@ -240,6 +282,14 @@ public class AssistantSettingsModel : PageModel
         }
         settings.SetAllowedChannelIdsList(channelIds);
 
+        // Only names the catalogue knows are stored, so a stale or hand-crafted POST cannot widen
+        // the allow-list past what the checklist offered. An empty result is the house default set.
+        var selectedTools = (Input.EnabledTools ?? new List<string>())
+            .Where(ToolCatalog.IsCatalogued)
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+        settings.SetEnabledToolsList(selectedTools);
+
         // Save settings
         await _settingsService.UpdateSettingsAsync(settings, cancellationToken);
 
@@ -268,6 +318,33 @@ public class AssistantSettingsModel : PageModel
     }
 
     /// <summary>
+    /// Builds the grouped checklist from the tool catalogue, ticking whatever the guild has saved.
+    /// When the guild has saved nothing, the house default set is shown ticked so the page reflects
+    /// what the assistant will actually advertise.
+    /// </summary>
+    private static List<ToolCategoryGroup> BuildToolCategories(List<string> enabledTools)
+    {
+        var selected = enabledTools.Count > 0
+            ? enabledTools.ToHashSet(StringComparer.OrdinalIgnoreCase)
+            : ToolCatalog.DefaultsForScope(ToolScopes.Guild).ToHashSet(StringComparer.OrdinalIgnoreCase);
+
+        return ToolCatalog.ForScope(ToolScopes.Guild)
+            .GroupBy(t => t.Category, StringComparer.Ordinal)
+            .Select(g => new ToolCategoryGroup
+            {
+                Category = g.Key,
+                Tools = g.Select(t => new ToolSelectItem
+                {
+                    Name = t.Name,
+                    DisplayName = t.DisplayName,
+                    Description = t.Description,
+                    IsSelected = selected.Contains(t.Name)
+                }).ToList()
+            })
+            .ToList();
+    }
+
+    /// <summary>
     /// Loads the view model for redisplay after validation error.
     /// </summary>
     private async Task LoadViewModelAsync(ulong guildId, CancellationToken cancellationToken)
@@ -286,6 +363,10 @@ public class AssistantSettingsModel : PageModel
         var settings = await _settingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
         var allowedChannels = settings.GetAllowedChannelIdsList();
         AvailableChannels = GetTextChannels(guildId, allowedChannels);
+
+        var enabledTools = Input.EnabledTools ?? settings.GetEnabledToolsList();
+        UsingDefaultToolSet = enabledTools.Count == 0;
+        ToolCategories = BuildToolCategories(enabledTools);
 
         DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
         RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;

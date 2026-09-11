@@ -12,7 +12,8 @@ namespace DiscordBot.Tests.Agents;
 
 /// <summary>
 /// Unit tests for <see cref="ToolRegistry"/>.
-/// Tests cover provider registration, enable/disable, tool retrieval, and tool execution.
+/// Tests cover provider registration, tool retrieval, tool execution, and composition with
+/// <see cref="FilteredToolRegistry"/>.
 /// </summary>
 public class ToolRegistryTests
 {
@@ -38,21 +39,7 @@ public class ToolRegistryTests
 
         // Assert
         _registry.IsProviderRegistered("TestProvider").Should().BeTrue();
-        _registry.IsProviderEnabled("TestProvider").Should().BeTrue();
-    }
-
-    [Fact]
-    public void RegisterProvider_RegistersDisabledProvider()
-    {
-        // Arrange
-        var provider = CreateMockProvider("TestProvider", "Test Description", "test_tool");
-
-        // Act
-        _registry.RegisterProvider(provider.Object, enabled: false);
-
-        // Assert
-        _registry.IsProviderRegistered("TestProvider").Should().BeTrue();
-        _registry.IsProviderEnabled("TestProvider").Should().BeFalse();
+        _registry.GetEnabledTools().Should().ContainSingle(t => t.Name == "test_tool");
     }
 
     [Fact]
@@ -95,66 +82,6 @@ public class ToolRegistryTests
 
     #endregion
 
-    #region Enable/Disable Tests
-
-    [Fact]
-    public void EnableProvider_EnablesDisabledProvider()
-    {
-        // Arrange
-        var provider = CreateMockProvider("TestProvider", "Test Description", "test_tool");
-        _registry.RegisterProvider(provider.Object, enabled: false);
-
-        // Act
-        _registry.EnableProvider("TestProvider");
-
-        // Assert
-        _registry.IsProviderEnabled("TestProvider").Should().BeTrue();
-    }
-
-    [Fact]
-    public void DisableProvider_DisablesEnabledProvider()
-    {
-        // Arrange
-        var provider = CreateMockProvider("TestProvider", "Test Description", "test_tool");
-        _registry.RegisterProvider(provider.Object, enabled: true);
-
-        // Act
-        _registry.DisableProvider("TestProvider");
-
-        // Assert
-        _registry.IsProviderEnabled("TestProvider").Should().BeFalse();
-    }
-
-    [Fact]
-    public void EnableProvider_ThrowsOnUnknownProvider()
-    {
-        // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => _registry.EnableProvider("UnknownProvider"));
-    }
-
-    [Fact]
-    public void DisableProvider_ThrowsOnUnknownProvider()
-    {
-        // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => _registry.DisableProvider("UnknownProvider"));
-    }
-
-    [Fact]
-    public void EnableProvider_IsCaseInsensitive()
-    {
-        // Arrange
-        var provider = CreateMockProvider("TestProvider", "Test Description", "test_tool");
-        _registry.RegisterProvider(provider.Object, enabled: false);
-
-        // Act
-        _registry.EnableProvider("TESTPROVIDER");
-
-        // Assert
-        _registry.IsProviderEnabled("TestProvider").Should().BeTrue();
-    }
-
-    #endregion
-
     #region GetEnabledTools Tests
 
     [Fact]
@@ -164,8 +91,8 @@ public class ToolRegistryTests
         var provider1 = CreateMockProvider("Provider1", "Description 1", "tool1");
         var provider2 = CreateMockProvider("Provider2", "Description 2", "tool2");
 
-        _registry.RegisterProvider(provider1.Object, enabled: true);
-        _registry.RegisterProvider(provider2.Object, enabled: true);
+        _registry.RegisterProvider(provider1.Object);
+        _registry.RegisterProvider(provider2.Object);
 
         // Act
         var tools = _registry.GetEnabledTools().ToList();
@@ -176,23 +103,6 @@ public class ToolRegistryTests
         tools.Select(t => t.Name).Should().Contain("tool2");
     }
 
-    [Fact]
-    public void GetEnabledTools_ExcludesDisabledProviders()
-    {
-        // Arrange
-        var provider1 = CreateMockProvider("Provider1", "Description 1", "tool1");
-        var provider2 = CreateMockProvider("Provider2", "Description 2", "tool2");
-
-        _registry.RegisterProvider(provider1.Object, enabled: true);
-        _registry.RegisterProvider(provider2.Object, enabled: false);
-
-        // Act
-        var tools = _registry.GetEnabledTools().ToList();
-
-        // Assert
-        tools.Should().HaveCount(1);
-        tools.Single().Name.Should().Be("tool1");
-    }
 
     [Fact]
     public void GetEnabledTools_ReturnsToolsSortedByNameRegardlessOfRegistrationOrder()
@@ -269,20 +179,6 @@ public class ToolRegistryTests
             _registry.ExecuteToolAsync("nonexistent_tool", input, context));
     }
 
-    [Fact]
-    public async Task ExecuteToolAsync_DoesNotExecuteFromDisabledProvider()
-    {
-        // Arrange
-        var provider = CreateMockProvider("TestProvider", "Description", "test_tool");
-        _registry.RegisterProvider(provider.Object, enabled: false);
-
-        var context = CreateToolContext();
-        var input = CreateJsonElement(new { });
-
-        // Act & Assert
-        await Assert.ThrowsAsync<NotSupportedException>(() =>
-            _registry.ExecuteToolAsync("test_tool", input, context));
-    }
 
     [Fact]
     public async Task ExecuteToolAsync_ReturnsErrorOnException()
@@ -327,6 +223,75 @@ public class ToolRegistryTests
 
         // Assert
         result.Success.Should().BeTrue();
+    }
+
+    #endregion
+
+    #region Composition With FilteredToolRegistry
+
+    [Fact]
+    public void FilteredToolRegistry_AdvertisesOnlyAllowedToolsOfTheInnerRegistry()
+    {
+        _registry.RegisterProvider(CreateMockProvider("Provider1", "D1", "tool1").Object);
+        _registry.RegisterProvider(CreateMockProvider("Provider2", "D2", "tool2").Object);
+
+        var filtered = new FilteredToolRegistry(
+            _registry, new HashSet<string> { "tool2" });
+
+        filtered.GetEnabledTools().Select(t => t.Name).Should().Equal("tool2");
+    }
+
+    [Fact]
+    public async Task FilteredToolRegistry_RefusesADisallowedToolEvenThoughTheInnerRegistryHasIt()
+    {
+        // Defence in depth: a model that saw the tool in an earlier cached prefix will sometimes
+        // call it after the host stopped advertising it.
+        var expected = ToolExecutionResult.CreateSuccess(CreateJsonElement(new { success = true }));
+        _registry.RegisterProvider(CreateMockProvider("Provider1", "D1", "tool1", expected).Object);
+
+        var filtered = new FilteredToolRegistry(_registry, new HashSet<string> { "tool2" });
+
+        await Assert.ThrowsAsync<NotSupportedException>(() =>
+            filtered.ExecuteToolAsync("tool1", CreateJsonElement(new { }), CreateToolContext()));
+    }
+
+    [Fact]
+    public async Task FilteredToolRegistry_ExecutesAnAllowedToolThroughTheInnerRegistry()
+    {
+        var expected = ToolExecutionResult.CreateSuccess(CreateJsonElement(new { success = true }));
+        _registry.RegisterProvider(CreateMockProvider("Provider1", "D1", "tool1", expected).Object);
+
+        var filtered = new FilteredToolRegistry(_registry, new HashSet<string> { "tool1" });
+
+        var result = await filtered.ExecuteToolAsync(
+            "tool1", CreateJsonElement(new { }), CreateToolContext());
+
+        result.Success.Should().BeTrue();
+    }
+
+    [Fact]
+    public void FilteredToolRegistry_MatchesToolNamesCaseInsensitivelyEvenWithACaseSensitiveSet()
+    {
+        _registry.RegisterProvider(CreateMockProvider("Provider1", "D1", "tool1").Object);
+
+        // A caller handing in an ordinal set must not accidentally make the filter case-sensitive.
+        var filtered = new FilteredToolRegistry(
+            _registry, new HashSet<string>(StringComparer.Ordinal) { "TOOL1" });
+
+        filtered.GetEnabledTools().Select(t => t.Name).Should().Equal("tool1");
+    }
+
+    [Fact]
+    public void FilteredToolRegistry_ReSortsAfterFilteringSoThePrefixOrderIsStable()
+    {
+        _registry.RegisterProvider(CreateMockProvider("Zulu", "Z", "zeta_tool").Object);
+        _registry.RegisterProvider(CreateMockProvider("Alpha", "A", "alpha_tool").Object);
+        _registry.RegisterProvider(CreateMockProvider("Mike", "M", "Beta_tool").Object);
+
+        var filtered = new FilteredToolRegistry(
+            _registry, new HashSet<string> { "zeta_tool", "Beta_tool" });
+
+        filtered.GetEnabledTools().Select(t => t.Name).Should().Equal("Beta_tool", "zeta_tool");
     }
 
     #endregion

@@ -1,6 +1,7 @@
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
+using DiscordBot.Core.Interfaces.LLM;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -16,6 +17,7 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
     private readonly IAssistantGuildSettingsRepository _repository;
     private readonly ISettingsService _settingsService;
     private readonly IOptions<AssistantOptions> _assistantOptions;
+    private readonly IToolAccessResolver _toolAccessResolver;
 
     /// <summary>
     /// Initializes a new instance of the AssistantGuildSettingsService.
@@ -24,16 +26,22 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
     /// <param name="repository">Repository for guild settings data access.</param>
     /// <param name="settingsService">Settings service for runtime configuration.</param>
     /// <param name="assistantOptions">Assistant configuration options.</param>
+    /// <param name="toolAccessResolver">
+    /// Tool allow-list resolver, invalidated on save so an edited checklist takes effect on the next
+    /// question rather than when its cache entry happens to expire.
+    /// </param>
     public AssistantGuildSettingsService(
         ILogger<AssistantGuildSettingsService> logger,
         IAssistantGuildSettingsRepository repository,
         ISettingsService settingsService,
-        IOptions<AssistantOptions> assistantOptions)
+        IOptions<AssistantOptions> assistantOptions,
+        IToolAccessResolver toolAccessResolver)
     {
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _repository = repository ?? throw new ArgumentNullException(nameof(repository));
         _settingsService = settingsService ?? throw new ArgumentNullException(nameof(settingsService));
         _assistantOptions = assistantOptions ?? throw new ArgumentNullException(nameof(assistantOptions));
+        _toolAccessResolver = toolAccessResolver ?? throw new ArgumentNullException(nameof(toolAccessResolver));
     }
 
     /// <inheritdoc />
@@ -82,6 +90,9 @@ public class AssistantGuildSettingsService : IAssistantGuildSettingsService
 
         settings.UpdatedAt = DateTime.UtcNow;
         await _repository.UpdateAsync(settings, cancellationToken);
+
+        // Every settings write goes through here, which is what makes one invalidation point enough.
+        _toolAccessResolver.Invalidate(settings.GuildId);
 
         _logger.LogInformation(
             "Updated assistant settings for guild {GuildId}. Enabled: {IsEnabled}, RateLimit: {RateLimit}",

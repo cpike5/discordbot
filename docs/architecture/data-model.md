@@ -110,7 +110,7 @@ erDiagram
 |--------|---------|-----------|-----------------|
 | **GuildModerationConfig** | Auto-moderation rule configuration per guild | `GuildId` (ulong, PK), `Mode` (enum: Simple/Advanced), `SimplePreset` (nullable), `SpamConfig` (JSON), `ContentFilterConfig` (JSON), `RaidProtectionConfig` (JSON), `UpdatedAt` | Belongs to Guild |
 | **GuildAudioSettings** | Soundboard feature configuration per guild | `GuildId` (ulong, PK), `AudioEnabled`, `AutoLeaveTimeoutMinutes`, `QueueEnabled`, `MaxDurationSeconds`, `MaxFileSizeBytes`, `MaxSoundsPerGuild`, `MaxStorageBytes`, `EnableMemberPortal`, `SilentPlayback`, `CreatedAt`, `UpdatedAt` | Belongs to Guild, has CommandRoleRestrictions |
-| **AssistantGuildSettings** | AI assistant feature configuration per guild | `GuildId` (ulong, PK), `IsEnabled`, `AllowedChannelIds` (JSON array), `RateLimitOverride` (nullable), `CreatedAt`, `UpdatedAt` | Belongs to Guild |
+| **AssistantGuildSettings** | AI assistant feature configuration per guild | `GuildId` (ulong, PK), `IsEnabled`, `AllowedChannelIds` (JSON array), `EnabledTools` (JSON array of tool names; `[]` = house default set), `RateLimitOverride` (nullable), `CreatedAt`, `UpdatedAt` | Belongs to Guild |
 
 **Notes:**
 - Configuration entities use Guild ID as primary key (one config per guild).
