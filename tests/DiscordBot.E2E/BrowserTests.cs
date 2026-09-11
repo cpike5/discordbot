@@ -1,3 +1,4 @@
+using System.Text.RegularExpressions;
 using FluentAssertions;
 using Microsoft.Playwright;
 using static Microsoft.Playwright.Assertions;
@@ -32,7 +33,7 @@ public sealed class BrowserTests
     public async Task Test_A_Login_WithSeededAdmin_LandsOnDashboardWithSidebar()
     {
         await using var context = await NewContextAsync();
-        var page = await context.NewPageAsync();
+        var page = await NewPageAsync(context);
 
         await page.GotoAsync("/Account/Login");
         await Expect(page.Locator("#login-form")).ToBeVisibleAsync();
@@ -49,7 +50,7 @@ public sealed class BrowserTests
     public async Task Test_B_BlazorSmoke_CounterButton_IncrementsAfterCircuitBoots()
     {
         await using var context = await NewContextAsync();
-        var page = await context.NewPageAsync();
+        var page = await NewPageAsync(context);
 
         await LoginAsync(page, _host);
 
@@ -61,7 +62,7 @@ public sealed class BrowserTests
     public async Task Test_C_NestedRoute_CircuitBoots_WithNoBlazorInitializer404()
     {
         await using var context = await NewContextAsync();
-        var page = await context.NewPageAsync();
+        var page = await NewPageAsync(context);
 
         var blazorFailures = new List<string>();
         page.Console += (_, message) =>
@@ -112,7 +113,7 @@ public sealed class BrowserTests
     public async Task Test_D_UnauthenticatedNestedRoute_RedirectsToLogin()
     {
         await using var context = await NewContextAsync();
-        var page = await context.NewPageAsync();
+        var page = await NewPageAsync(context);
 
         await page.GotoAsync("/admin/blazor-smoke");
 
@@ -140,6 +141,38 @@ public sealed class BrowserTests
         return context;
     }
 
+    /// <summary>
+    /// Opens a page off <paramref name="context"/> and, when <see cref="BotHostFixture.LogDirectory"/>
+    /// is set (i.e. E2E_ENABLED=1), appends its console messages and uncaught page errors to
+    /// <c>browser-console.log</c> in that same per-run directory alongside host.log - so a
+    /// failure in CI leaves both the server's and the browser's own account of what happened.
+    /// </summary>
+    private async Task<IPage> NewPageAsync(IBrowserContext context)
+    {
+        var page = await context.NewPageAsync();
+
+        if (!string.IsNullOrEmpty(_host.LogDirectory))
+        {
+            var consoleLogPath = Path.Combine(_host.LogDirectory, "browser-console.log");
+            page.Console += (_, message) => AppendConsoleLogLine(consoleLogPath, $"[{message.Type}] {message.Text}");
+            page.PageError += (_, error) => AppendConsoleLogLine(consoleLogPath, $"[pageerror] {error}");
+        }
+
+        return page;
+    }
+
+    private static void AppendConsoleLogLine(string path, string line)
+    {
+        try
+        {
+            File.AppendAllText(path, $"[{DateTime.UtcNow:HH:mm:ss.fff}] {line}{Environment.NewLine}");
+        }
+        catch
+        {
+            // Best-effort: never fail a test because its debug log couldn't be written.
+        }
+    }
+
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
@@ -160,17 +193,26 @@ public sealed class BrowserTests
     }
 
     /// <summary>
-    /// Asserts a click moves the counter from 0 to 1 - proof the Interactive Server circuit is
-    /// live, not just that the prerendered HTML shipped. The button is plain HTML and reports as
+    /// Asserts a click moves the counter off 0 - proof the Interactive Server circuit is live,
+    /// not just that the prerendered HTML shipped. The button is plain HTML and reports as
     /// enabled the moment the (statically prerendered) markup exists, well before blazor.web.js
-    /// has actually negotiated the SignalR circuit behind it - there is no DOM signal this page
-    /// exposes for "the circuit is connected", so this retries the click for up to 20s rather
-    /// than trusting one click fired at an arbitrary moment.
+    /// has actually negotiated the SignalR circuit behind it, and there is no DOM signal this
+    /// page exposes for "the circuit is connected". Waiting for <c>window.Blazor</c> to exist
+    /// only confirms the script has loaded, not that the circuit is up, and a click fired before
+    /// the circuit connects is simply dropped rather than queued and replayed - so this still
+    /// retries the click on a timer (confirmed empirically: a single click sent right after
+    /// <c>window.Blazor</c> appears reliably does nothing). What changed from the original
+    /// version of this helper is the assertion: because more than one of those retried clicks
+    /// can land together the instant the circuit connects, the exact "Current count: 1" text it
+    /// used to wait for can be skipped entirely (e.g. straight to "Current count: 3") and the
+    /// loop then never succeeds before its deadline - so this waits for the count to move off 0
+    /// by any amount instead, via a regex, and stops retrying the moment it does.
     /// </summary>
     private static async Task AssertCounterIncrementsAsync(IPage page)
     {
         var status = page.GetByRole(AriaRole.Status);
         var button = page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Click me" });
+        var countChanged = new Regex(@"Current count: [1-9]\d*");
 
         await Expect(status).ToContainTextAsync("Current count: 0");
 
@@ -180,7 +222,7 @@ public sealed class BrowserTests
             await button.ClickAsync();
             try
             {
-                await Expect(status).ToContainTextAsync("Current count: 1", new LocatorAssertionsToContainTextOptions
+                await Expect(status).ToContainTextAsync(countChanged, new LocatorAssertionsToContainTextOptions
                 {
                     Timeout = 1_000
                 });
@@ -188,7 +230,7 @@ public sealed class BrowserTests
             }
             catch (PlaywrightException) when (DateTime.UtcNow < deadline)
             {
-                // Circuit not connected yet - the click was a no-op. Try again.
+                // Circuit still not connected (or this particular click didn't land) - try again.
             }
         }
     }

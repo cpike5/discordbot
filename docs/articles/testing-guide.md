@@ -1107,10 +1107,13 @@ E2E_ENABLED=1 dotnet test tests/DiscordBot.E2E --no-build
 Chromium must already be installed. In this repository's remote (web) sessions it is
 pre-installed at `PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`
 (`PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1` is set, so do not run `playwright install` there) - the
-tests resolve Chromium's executable from, in order: `E2E_CHROMIUM_PATH` (an explicit override),
-then `$PLAYWRIGHT_BROWSERS_PATH/chromium`, then Playwright's own default resolution (a browser
-installed the normal way, e.g. after `pwsh tests/DiscordBot.E2E/bin/<Configuration>/net10.0/playwright.ps1
-install chromium --with-deps`, which is what CI's `e2e` job does - see `.github/workflows/ci.yml`).
+tests resolve Chromium's executable from, in order: `E2E_CHROMIUM_PATH` (an explicit override);
+then, under `$PLAYWRIGHT_BROWSERS_PATH`, a top-level `chromium` entry if one exists (this repo's
+remote sessions lay that out as a symlink straight to the executable, not a directory) or else
+the newest `chromium-<build>/chrome-linux/chrome` (or `headless_shell`) directory, the layout a
+plain `playwright install chromium` produces; then Playwright's own default resolution (e.g.
+after `pwsh tests/DiscordBot.E2E/bin/<Configuration>/net10.0/playwright.ps1 install chromium
+--with-deps`, which is what CI's `e2e` job does - see `.github/workflows/ci.yml`).
 
 Useful environment variables:
 
@@ -1119,6 +1122,8 @@ Useful environment variables:
 | `E2E_ENABLED` | Set to `1` to actually run the suite; unset (or any other value) skips every test. |
 | `E2E_BOT_DLL` | Overrides the resolved path to `DiscordBot.Bot.dll`, in case the test assembly's own build configuration (parsed from its own `bin/<Configuration>/net10.0/` path) doesn't match where the bot was built. |
 | `E2E_CHROMIUM_PATH` | Overrides the Chromium executable Playwright launches. |
+| `E2E_ADMIN_EMAIL` | Overrides the seeded admin account's email. Defaults to `e2e-admin@example.test`. |
+| `E2E_ADMIN_PASSWORD` | Overrides the seeded admin account's password. Defaults to a freshly generated one (`E2e-<guid>!`, meeting the Identity password policy) so no literal credential lives in source. |
 
 ### How the host fixture works
 
@@ -1129,22 +1134,30 @@ project's runtime dependencies:
 
 - `ASPNETCORE_ENVIRONMENT=Development`, `Discord__Enabled=false` (web-only, no bot token - see
   CLAUDE.md "Running it locally").
-- `ASPNETCORE_URLS` bound to a free loopback port picked for that run.
+- `ASPNETCORE_URLS=http://127.0.0.1:0`, letting the OS assign a free loopback port rather than
+  the fixture picking one itself - a `TcpListener` bound then stopped just to learn a free port
+  is a time-of-check/time-of-use race against anything else on the runner. The fixture instead
+  reads Kestrel's own `Now listening on: http://127.0.0.1:<port>` line (category
+  `Microsoft.Hosting.Lifetime`, logged once Kestrel has actually bound the address) back out of
+  the child process's stdout to learn the real port, with a 30s timeout.
 - `ConnectionStrings__DefaultConnection` pointed at a throwaway SQLite file, and
-  `DataProtection__KeyPath` at a sibling folder, both under a fresh temp directory.
-- `Identity__DefaultAdmin__Email`/`Identity__DefaultAdmin__Password` so `IdentitySeeder` seeds
-  one admin account (`e2e-admin@example.test`) on first startup - no other secrets are needed;
-  Discord OAuth, OpenRouter and Azure Speech all start up fine unconfigured (see
-  "Discord:Enabled (web-only mode)" and "Optional Secrets" in `configuration-guide.md`).
+  `DataProtection__KeyPath` at a sibling folder, both under a fresh temp directory (deleted on
+  dispose).
+- `Identity__DefaultAdmin__Email`/`Identity__DefaultAdmin__Password` (from `E2E_ADMIN_EMAIL`/
+  `E2E_ADMIN_PASSWORD`, or the generated defaults described above) so `IdentitySeeder` seeds one
+  admin account on first startup - no other secrets are needed; Discord OAuth, OpenRouter and
+  Azure Speech all start up fine unconfigured (see "Discord:Enabled (web-only mode)" and
+  "Optional Secrets" in `configuration-guide.md`).
 
 It polls `/health` (200 for Healthy or Degraded - Discord's own gateway check reports Degraded,
-not Unhealthy, when disabled) for up to 60 seconds, captures the child process's stdout/stderr to
-`host.log` in that same temp directory, and includes that file's path in the exception if startup
-fails. On dispose it kills the process and deletes the temp directory - so if a run fails and you
-need to inspect the log, capture it before the process exits (e.g. run the affected test alone,
-or read `BotHostFixture.LogFilePath` from a debugger/breakpoint); CI's `e2e` job also attempts a
-best-effort upload of `/tmp/discordbot-e2e-*/` on failure, which only actually finds something
-when the host failed to become healthy in the first place.
+not Unhealthy, when disabled) for up to 60 seconds after the port is known, and captures the
+child process's stdout/stderr to `host.log` under a fresh
+`tests/DiscordBot.E2E/TestResults/e2e-<timestamp>-<guid>/` directory (created by the fixture,
+alongside a `browser-console.log` that `BrowserTests` appends each page's console messages and
+uncaught errors to) - unlike the throwaway SQLite db and Data Protection keys, **this directory
+is always kept, not just on failure**, so it and the exception thrown on a failed startup both
+point at the same file. CI's `e2e` job uploads that directory as the `e2e-host-logs` artifact on
+failure (see `.github/workflows/ci.yml`).
 
 `PlaywrightFixture` launches one shared headless Chromium instance the same way, and each test
 opens its own `IBrowserContext` off of it (never sharing cookies/storage between tests) rather
