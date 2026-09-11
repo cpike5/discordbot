@@ -5,6 +5,15 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#0f1114" />
+    <!-- Required by every Blazor Web App (present in the framework's own project template but
+         missing here): blazor.web.js resolves its own framework endpoints, notably
+         _blazor/initializers, against this base rather than the current route. Without it a
+         nested page (e.g. /admin/blazor-smoke) requests ".../admin/_blazor/initializers", 404s,
+         and the circuit never boots - the exact .NET 10 regression
+         tests/DiscordBot.E2E's nested-route check exists to catch, and the actual root cause of
+         it (see also the absolute /_framework/blazor.web.js src below, needed for the same
+         reason on the initial script load itself). -->
+    <base href="/" />
     <link rel="icon" type="image/svg+xml" href="/images/logo.svg" />
     <title>Discord Bot Admin</title>
     <!-- Blocking theme application script - runs before first paint to prevent flash.
@@ -41,7 +50,10 @@
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased">
     <Routes />
-    <script src="_framework/blazor.web.js"></script>
+    <!-- Absolute, matching every other resource link in this file - belt-and-braces alongside
+         the <base> tag above, which is what actually makes this (and blazor.web.js's own
+         internal _blazor/initializers request) resolve correctly from a nested route. -->
+    <script src="/_framework/blazor.web.js"></script>
 </body>
 </html>
 

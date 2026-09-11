@@ -1,4 +1,5 @@
 @page "/blazor-smoke"
+@page "/admin/blazor-smoke"
 @attribute [Authorize(Policy = "RequireAdmin")]
 @rendermode InteractiveServer
 
@@ -8,6 +9,11 @@
     - RequireAdmin authorization on a routable component (an unauthenticated request must
       redirect to /Account/Login, not 404/500).
     - An Interactive Server circuit opens and its counter button actually updates the DOM.
+    - The second, nested route (/admin/blazor-smoke) guards a known .NET 10 regression where
+      blazor.web.js resolved _blazor/initializers relative to a nested path instead of the app
+      base, 404ing and leaving the circuit dead (see tests/DiscordBot.E2E). Both routes point at
+      the same component deliberately, so the flat-route and nested-route Playwright checks run
+      against one build.
     Deleted once the real probe page (/blazor-probe, plan §5 Phase 1 deliverable 7, landing in a
     later wave once the event bus / toast / theme interop / chart pieces exist) replaces it.
 *@
