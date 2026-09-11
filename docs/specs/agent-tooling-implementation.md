@@ -6,6 +6,13 @@ first — the finding IDs (F1…F13) are shared.
 
 **Status**: proposed. Nothing here is implemented.
 
+**Sequencing note.** [plans/agent-groundwork-overhaul.md](../plans/agent-groundwork-overhaul.md)
+supersedes the tier order used here: the engine moves to a `DiscordBot.Agents` project *before*
+these changes are made, so most of §1 and §3 lands there rather than in `DiscordBot.Infrastructure`.
+Two specifics below are corrected by it — the three new loop knobs ride on `AgentContext` rather
+than `IOptions`, and §2.3's tool spans use the engine's own `ActivitySource` rather than
+`BotActivitySource`, which lives in `DiscordBot.Bot` and is unreachable from the engine.
+
 Each section names the files touched, the shape of the change, the configuration and schema it
 adds, and how it is verified. Sections are ordered so each can ship as one PR without depending on
 a later one.

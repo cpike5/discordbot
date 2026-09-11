@@ -7,7 +7,10 @@ architecture wholesale: it is to identify what is currently *blocking capability
 and propose the smallest set of changes that unblocks it.
 
 **Status**: proposed. Nothing in this document is implemented. The concrete code changes behind
-it are in [docs/specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md).
+it are in [docs/specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md);
+the order the whole overhaul runs in — including the library extraction — is in
+[docs/plans/agent-groundwork-overhaul.md](./agent-groundwork-overhaul.md), which supersedes the
+tier sequencing below.
 
 ---
 
