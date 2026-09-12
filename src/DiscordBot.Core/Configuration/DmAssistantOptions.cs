@@ -23,6 +23,17 @@ public class DmAssistantOptions
     public string OwnerSystemPromptPath { get; set; } = "docs/agents/dm-owner-agent.md";
 
     /// <summary>
+    /// Gets or sets the directory holding the DM assistant's skill files.
+    /// Default is "docs/agents/skills/dm". Blank disables skills for the DM assistant.
+    /// </summary>
+    /// <remarks>
+    /// This surface is multi-turn, so an activation is replayed on the next turn and a skill is paid
+    /// for once rather than on every question. That is what makes it the right home for the heavy,
+    /// rarely needed tool groups.
+    /// </remarks>
+    public string SkillsPath { get; set; } = "docs/agents/skills/dm";
+
+    /// <summary>
     /// Gets or sets the placeholder message shown to non-owner users.
     /// </summary>
     public string PlaceholderMessage { get; set; } = "DM assistant support is coming soon! Stay tuned.";

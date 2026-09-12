@@ -4,6 +4,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
+using DiscordBot.Agents;
 using DiscordBot.Agents.Abstractions;
 using Microsoft.Extensions.Logging;
 using DiscordBot.Core.DTOs.Llm.Reporting;
@@ -33,6 +34,7 @@ public class GuildAssistantContext : IAssistantContext
     private readonly string _resolvedModel;
     private readonly LlmCatalogPricing? _resolvedPricing;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly ISkillActivationState? _skills;
 
     public GuildAssistantContext(
         ulong guildId,
@@ -51,7 +53,8 @@ public class GuildAssistantContext : IAssistantContext
         ILogger logger,
         string resolvedModel,
         LlmCatalogPricing? resolvedPricing = null,
-        ILlmUsageRecorder? usageRecorder = null)
+        ILlmUsageRecorder? usageRecorder = null,
+        ISkillActivationState? skills = null)
     {
         _guildId = guildId;
         _channelId = channelId;
@@ -68,6 +71,7 @@ public class GuildAssistantContext : IAssistantContext
         _resolvedModel = resolvedModel ?? throw new ArgumentNullException(nameof(resolvedModel));
         _resolvedPricing = resolvedPricing;
         _usageRecorder = usageRecorder ?? NoOpUsageRecorder.Instance;
+        _skills = skills;
         RateLimit = rateLimit;
 
         ExecutionContext = new ToolContext
@@ -78,6 +82,9 @@ public class GuildAssistantContext : IAssistantContext
             MessageId = messageId,
             CanMutate = callerCanMutate
         };
+
+        // The loader tool reads the session from here; the loop reads it from AgentContext.Skills.
+        ExecutionContext.SetSkills(skills);
     }
 
     public string RateLimitCacheKeyPrefix => RateLimitPrefix;
@@ -97,6 +104,14 @@ public class GuildAssistantContext : IAssistantContext
     public IToolRegistry? ToolRegistry { get; }
     public ToolContext ExecutionContext { get; }
     public List<LlmMessage> ConversationHistory { get; } = new();
+
+    /// <inheritdoc />
+    /// <remarks>
+    /// The guild assistant is single-turn, so nothing is ever pre-activated here: a skill costs a
+    /// round every time it is used. That is the trade this surface makes deliberately - keep its
+    /// common tools always-on and put only the rare, heavy ones behind a skill.
+    /// </remarks>
+    public ISkillActivationState? Skills => _skills;
 
     /// <summary>
     /// Per-million-token rates: catalog pricing for the resolved model wins when the catalog
@@ -130,7 +145,9 @@ public class GuildAssistantContext : IAssistantContext
             variables["BASE_URL"] = _options.BaseUrl;
         }
 
-        return _promptTemplate.Render(template, variables);
+        // The roster goes after the prompt, so everything above it is byte-identical to what it
+        // was before skills existed - and a surface with no skill files appends nothing at all.
+        return SkillRoster.Append(_promptTemplate.Render(template, variables), _skills);
     }
 
     /// <summary>

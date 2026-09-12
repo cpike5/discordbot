@@ -46,6 +46,7 @@ public class AssistantMessagePipeline : IAssistantMessagePipeline
             ToolExecutionTimeoutMs = context.ToolExecutionTimeoutMs,
             DuplicateToolCallLimit = context.DuplicateToolCallLimit,
             ConversationHistory = context.ConversationHistory.Count > 0 ? context.ConversationHistory : null,
+            Skills = context.Skills,
             RunKind = context.Mode.ToString()
         };
 

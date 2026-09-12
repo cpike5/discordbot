@@ -35,6 +35,13 @@ public static class ToolCatalog
             "Lists the bot's documented features.",
             ToolScopes.Guild | ToolScopes.Dm),
 
+        // Skills - the loader itself, advertised wherever skill files exist. The loop drops it from
+        // the request when a surface has no skills, so an entry here costs nothing until one does.
+        new("load_skill", "Skills", "Load a skill",
+            "Lets the assistant load extra instructions, and the tools they use, on demand instead "
+            + "of carrying them in every request.",
+            ToolScopes.Guild | ToolScopes.Dm),
+
         // Server and user lookups - guild assistant only.
         new("get_user_profile", "Server & Users", "User profile",
             "Looks up a member's profile: join date, roles and display name.",

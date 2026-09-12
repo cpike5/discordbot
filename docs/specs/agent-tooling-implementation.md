@@ -11,6 +11,8 @@ doing it. **§2.1–§2.4 shipped as Phase 3**; [§5.2a of the plan](../plans/ag
 records where the sequencing bent, and three specifics below are corrected by what doing it found:
 §2.2 had to ship *with* §2.1 rather than after it, §2.3's spans use the engine's own
 `ActivitySource` and `IToolRegistry` gained `FindProviderName` to tag them, and §2.4 took option B.
+**§3.1 shipped as Phase 4 and §3.2 as Phase 5** — see §5.3a and §5.4a of the plan; the notes at the
+head of each section below say where the built shape differs.
 §1.3 (F13, the documentation path containment) is still unshipped and still wants its own PR.
 §1.7c wants a probe against live traffic before anyone builds it. Everything else here is
 proposed.
@@ -531,6 +533,17 @@ Existing providers convert opportunistically, one per PR, when they are being to
 and the best measure of whether the shape is actually cheaper.
 
 ### 3.2 Skills (F11)
+
+> **Shipped, on the DM surface, with three changes.** A skill declares its surface by which
+> *directory* it is in (`docs/agents/skills/dm/`, `docs/agents/skills/guild/`) rather than by a field,
+> for the same reason `[DmOnlyTool]` was not built in §3.1 — the engine's file format must not learn
+> this bot's taxonomy. `load_skill` is an ordinary `IAgentTool` with an ordinary `ToolCatalog` entry
+> and therefore lives in Infrastructure, not in `DiscordBot.Agents`, because the catalogue is what
+> routes a tool to a surface. And DM stickiness is an `IMemoryCache` store keyed by user
+> (`DmSkillActivationStore`), on the same terms as the DM assistant's active guild, rather than a
+> column — which keeps the phase migration-free. See
+> [plans/agent-groundwork-overhaul.md §5.4a](../plans/agent-groundwork-overhaul.md) for the
+> reasoning and `docs/architecture/patterns.md` § Agent Skills for the pattern as built.
 
 The mechanism that makes a 50-tool bot affordable. Adapted to this codebase's two surfaces.
 

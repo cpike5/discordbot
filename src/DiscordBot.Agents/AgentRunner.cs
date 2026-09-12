@@ -106,7 +106,7 @@ public class AgentRunner : IAgentRunner
         {
             SystemPrompt = context.SystemPrompt,
             Messages = conversationHistory,
-            Tools = context.ToolRegistry?.GetEnabledTools().ToList(),
+            Tools = SkillToolSet.Compose(context.ToolRegistry, context.Skills),
             Model = context.Model,
             MaxTokens = context.MaxTokens,
             Temperature = context.Temperature,
@@ -296,6 +296,11 @@ public class AgentRunner : IAgentRunner
                     // Execute each tool call
                     var toolResults = new List<LlmToolResult>();
 
+                    // A skill loaded during this round changes what the next round may call, and the
+                    // comparison is against this, not against zero: a host may have pre-activated
+                    // skills before the run started.
+                    var activatedBefore = context.Skills?.Activated.Count ?? 0;
+
                     foreach (var toolCall in response.ToolCalls)
                     {
                         // One span per call, including the ones that never enter a tool: a refused
@@ -441,6 +446,21 @@ public class AgentRunner : IAgentRunner
 
                     // Update the request for the next iteration
                     request.Messages = conversationHistory;
+
+                    if (context.Skills is { } skills && skills.Activated.Count != activatedBefore)
+                    {
+                        // The tool array serializes ahead of everything else, so re-composing it
+                        // invalidates the prompt-cache prefix for the rest of the run. That is the
+                        // price of a skill and it is paid once, on the round that loads one - which
+                        // is the whole argument for loading a skill only when the request needs it.
+                        request.Tools = SkillToolSet.Compose(context.ToolRegistry, skills);
+
+                        _logger.LogInformation(
+                            "Skills active after iteration {Iteration}: {SkillKeys}. Advertising {ToolCount} tools",
+                            loopCount,
+                            string.Join(", ", skills.Activated.Select(sk => sk.Key)),
+                            request.Tools?.Count ?? 0);
+                    }
 
                     _logger.LogDebug(
                         "Tool execution cycle complete. Continuing to next iteration");

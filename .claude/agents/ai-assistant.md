@@ -16,10 +16,10 @@ The model-facing machinery lives in its own leaf project, `src/DiscordBot.Agents
 project references** and no Discord, EF Core, or ASP.NET packages — everything that makes this
 bot *this* bot stays in Infrastructure and Bot, which reference the engine.
 
-- **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IAgentTool`, `OptInToolAttribute`, `IPromptTemplate`
-- **`Agents/Contracts/`:** `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Definition/Result`, `LlmUsage`, `AgentContext`/`AgentRunResult` (`AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext`/`ToolExecutionResult`, and `Contracts/Enums/` `LlmRole`, `LlmStopReason`
+- **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IAgentTool`, `OptInToolAttribute`, `IPromptTemplate`, `ISkillLibrary`, `ISkillActivationState`
+- **`Agents/Contracts/`:** `AgentSkill`, `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Definition/Result`, `LlmUsage`, `AgentContext`/`AgentRunResult` (`AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext`/`ToolExecutionResult`, and `Contracts/Enums/` `LlmRole`, `LlmStopReason`
 - **`Agents/Configuration/`:** `OpenRouterOptions`
-- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `FilteredToolRegistry`, `ToolResultLimiter`, `ToolOutcomes`, `AgentToolProvider`, `AgentToolRegistration`, `ToolInput`, `ToolResults`, `ToolJson`, `PromptTemplate`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
+- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `FilteredToolRegistry`, `ToolResultLimiter`, `ToolOutcomes`, `AgentToolProvider`, `AgentToolRegistration`, `ToolInput`, `ToolResults`, `ToolJson`, `PromptTemplate`, `PromptPaths`, `SkillLibrary`/`SkillFile`/`SkillSession`/`SkillToolSet`/`SkillRoster`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
 - **`Agents/OpenRouter/`:** `OpenRouterLlmClient` (owned typed `HttpClient`, no SDK), `OpenRouterMessageMapper`, `ChatCompletionRequest`/`ChatCompletionResponse` wire records, `OpenRouterParameterSupportCache`
 
 #### Loop guard rails (Phase 2 hardening)
@@ -104,6 +104,61 @@ Two contract details the boundary forced:
 - **`AgentContext.RunKind` is a plain `string?`**, not `LlmMode`. `LlmMode` is application taxonomy and stays in Core; the engine carries the label for correlation only and never switches on it. The pipeline populates it from `IAssistantContext.Mode`.
 - **`ToolContext` has no `UserRoles` and no `ActiveGuildId`.** `UserRoles` was never populated or read and is gone; `CanMutate` is its replacement (above). "Active guild" is a DM-assistant concept and now rides in `ToolContext.Items`, an open-ended `Dictionary<string, object?>` the app owns; read and write it through `DmToolContextExtensions.GetActiveGuildId()`/`SetActiveGuildId()` (`Infrastructure/Services/LLM/`), never by spelling the key inline.
 
+#### Skills (Phase 5)
+
+**The rule is one sentence: a tool named by *any* available skill is hidden from the advertised tool
+array until one of the skills naming it is loaded.** `SkillToolSet.Compose` applies it;
+`AgentRunner` calls it once when building the request and again after any round whose
+`ISkillActivationState.Activated` count changed. Everything else the registry holds is advertised as
+it always was — so a surface keeps its common tools always-on and puts only rare, heavy ones behind
+a skill.
+
+- **A skill is a markdown file**, `docs/agents/skills/<surface>/<key>.md`, with `summary` (required —
+  it is the whole basis for the model's decision, so a file without one is logged and ignored),
+  optional `key` (defaults to the file name) and optional `tools` (comma-separated). Everything under
+  the closing `---` is the instructions, returned verbatim as `load_skill`'s result. `SkillFile`
+  parses; `SkillLibrary` reads a directory through `IPromptTemplate`, so a skill is cached and
+  hot-reloaded exactly like a prompt file. Authoring guide: `docs/agents/skills/README.md`.
+- **Two directories, not a `surfaces:` field.** A field would have put this bot's guild/DM taxonomy
+  inside the engine's file format — the same mistake `[DmOnlyTool]` would have been. The surface is
+  the directory, and the engine's loader only ever knows about *a* directory:
+  `Assistant:Tools:SkillsPath` (default `docs/agents/skills/guild`, ships empty) and
+  `DmAssistant:SkillsPath` (default `docs/agents/skills/dm`). Blank disables skills for that surface.
+- **`load_skill` is an ordinary tool**, `Infrastructure/Services/LLM/Tools/LoadSkillTool.cs`, with an
+  ordinary `ToolCatalog` entry (category **Skills**, `Guild | Dm`, default-on). It could not live in
+  `DiscordBot.Agents`: the catalogue is what routes a tool to a surface. The engine's one concession
+  is `ISkillActivationState.LoaderToolName` — when a surface has no skills the loop drops that name
+  from the array, so an empty skill directory costs exactly what it did before Phase 5.
+- **The session is reachable from both ends.** The loop reads it off `AgentContext.Skills`; the tool
+  reads the same instance out of `ToolContext.Items` through `SkillToolContextExtensions`
+  (`agent.skills`), because a tool is handed a `ToolContext` and nothing else. The context factories
+  put it in both places. Don't resolve it from the container instead — the two ends would be the same
+  object only for as long as nobody changed a lifetime.
+- **Narrowing happens twice, and a skill can never widen reach.** `SkillSessionFactory`
+  (`ISkillSessionFactory`) cuts each skill's tool list to what the run's registry advertises before
+  the run starts, so the roster and `load_skill`'s answer are honest; `SkillToolSet.Compose` then
+  builds from `GetEnabledTools()` and only ever subtracts. The guild registry is a
+  `FilteredToolRegistry` over the guild's allow-list, so a skill naming a tool a guild turned off
+  cannot turn it back on — the name is dropped with a `Debug` line and the model never hears of it.
+- **Stickiness differs by surface, and that is the design.** DM is multi-turn:
+  `DmSkillActivationStore` (`IMemoryCache`, 24h, keyed by user — same shape as the active guild)
+  remembers the activations and `DmAssistantContextFactory` replays them, so from turn 2 the tools
+  are advertised on the first call and the instructions are already in the prompt (`SkillRoster`
+  re-renders the body of anything replayed — the tool result that carried it is not in the sliding
+  window). `DmAssistantContext.RecordUsageAsync` writes the set back, and clears it when the run
+  cleared the conversation. The guild assistant is single-turn, so nothing is ever replayed and a
+  skill costs a round **every** time it is used.
+- **Loading costs a prompt-cache write.** Re-composing the tool array rewrites position 0 of the
+  request and invalidates the cached prefix for the rest of that run. Expect a cache-miss spike after
+  a `load_skill`; that is the mechanism working, not a regression. It is also why the loop re-composes
+  only when the activated set actually changed.
+- **A skill body is a tool result and is capped** by `MaxToolResultChars` (8000). A longer body is
+  truncated and the model reads a fragment. Keep skill files well under it.
+- **Adding a skill is one markdown file** — no catalogue entry, no DI, no code. Adding an engine knob
+  for skills still goes the usual way: `AgentContext` → `IAssistantContext` (`Skills` is a defaulted
+  interface member, so a context that knows nothing about skills still compiles) → both contexts →
+  the pipeline.
+
 ### Core (`Core/Interfaces/LLM/`, `Core/DTOs/Llm/Reporting/`)
 - **Interfaces:** `IAssistantService`, `IToolAccessResolver` (per-guild tool allow-list), `ILlmModelCatalogService`, `IOpenRouterModelCatalogClient`, `ILlmModelRepository`, `ILlmModelResolver` (per-mode default resolution, see below), `ILlmUsageRepository` (usage ledger grouped queries — `Core/Interfaces/ILlmUsageRepository.cs`), `ILlmUsageRecorder` (non-blocking ledger write path — `Core/Interfaces/LLM/ILlmUsageRecorder.cs`)
 - **DTOs (reporting only — the engine contracts are in `DiscordBot.Agents`):** `LlmModelCatalogFilter`, `LlmCatalogModel`, `LlmCatalogRefreshResult`, `LlmModelEnableResult`, `LlmModelDto`/`LlmModelListResponseDto`/`LlmModeDefaultDto` (portal-facing, `Core/DTOs/Llm/Reporting/LlmModelDto.cs`), `LlmResolvedModel`/`LlmCatalogPricing`/`LlmModelResolutionSource` (`Core/DTOs/Llm/Reporting/LlmResolvedModel.cs`), `LlmUsageQuery`/`LlmUsageTotals`/`LlmUsageByUser`/`LlmUsageByModel`/`LlmUsageByMode`/`LlmUsageByDay`/`LlmUsagePagedRecords` (`Core/DTOs/Llm/Reporting/LlmUsage*.cs`), `AssistantPipelineResult.Model`/`.UsageRecord`
@@ -113,8 +168,12 @@ Two contract details the boundary forced:
 - **Enums:** `LlmMode` (`GuildAssistant`/`DmAssistant`/`FeatureRequests`) with its `LlmModeSettings` static helper (`KeyFor`, `LabelFor`, `All`) — `Core/Enums/LlmMode.cs`; `LlmCostSource` (`Billed`/`Estimated`) — `Core/Enums/LlmCostSource.cs`
 
 ### Infrastructure (`Infrastructure/Services/LLM/`)
-- `Abstractions/LLM/` — the assistant abstractions whose signatures are made of engine types, and which therefore cannot live in Core: `IAssistantContext`, `IAssistantMessagePipeline`, `IDmToolProvider`, `IGuildAssistantContextFactory`, `IDmAssistantContextFactory`
+- `Abstractions/LLM/` — the assistant abstractions whose signatures are made of engine types, and which therefore cannot live in Core: `IAssistantContext`, `IAssistantMessagePipeline`, `IDmToolProvider`, `IGuildAssistantContextFactory`, `IDmAssistantContextFactory`, `ISkillSessionFactory`
 - `DmToolContextExtensions` — typed access to the DM assistant's entries in `ToolContext.Items`
+- `SkillToolContextExtensions` — the same, for the run's skill session (`agent.skills`)
+- `SkillSessionFactory` (`ISkillSessionFactory`) — builds a run's `SkillSession` and narrows each
+  skill's tools to what that run's registry advertises
+- `DmSkillActivationStore` (`IDmSkillActivationStore`) — the DM surface's cross-turn skill memory
 - `ToolAccessResolver` — resolves a guild's allowed tool set (saved allow-list, else the house default), cached per guild and invalidated by `AssistantGuildSettingsService.UpdateSettingsAsync`, the single point every settings write goes through
 - `ToolPermissions.MutationForbidden` — the shared refusal a write tool returns when `ToolContext.CanMutate` is false. Lives here, not in Agents: the wording is this bot's voice and the policy is this bot's.
 - `LlmModelCatalogService` — Local model catalog: refresh (upsert by slug), filtered/sorted listing, enable/disable allowlist. Audited (`AuditLogCategory.Configuration`).
@@ -131,6 +190,8 @@ Two contract details the boundary forced:
   provider name/description, no `switch`, no try/catch wrapper and no DI line).
 - `Providers/CataloguedAgentToolProvider` + `GuildAgentToolProvider` / `DmAgentToolProvider` — the
   two surfaces over those tools, registered as `IToolProvider` and `IDmToolProvider`
+- `Services/LLM/Tools/LoadSkillTool` — `load_skill`. Reads the run's session out of
+  `ToolContext.Items`, activates, and returns the skill's instructions; the loop does the rest.
 
 ### Tool Providers (the ten not yet converted)
 - `Providers/DocumentationToolProvider` — Maps 13 features to doc files

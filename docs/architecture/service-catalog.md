@@ -430,6 +430,12 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `GuildAgentToolProvider` / `DmAgentToolProvider` | Infrastructure/Services/LLM/Providers | The guild and DM surfaces over individually authored tools, registered as `IToolProvider` and `IDmToolProvider` respectively |
 | `IPromptTemplate` | Agents/Abstractions | System prompt and context template |
 | `PromptTemplate` | Agents | Loads a template from disk (memory-cached) and renders `{{variable}}` substitutions |
+| `ISkillLibrary` | Agents/Abstractions | Reads the skill files of one directory |
+| `SkillLibrary` | Agents | Loads a surface's `docs/agents/skills/<surface>/` markdown through `IPromptTemplate`, so a skill file is cached and hot-reloaded on exactly the same terms as a prompt; a missing directory is a surface with no skills, not an error |
+| `ISkillSessionFactory` | Infrastructure/Abstractions/LLM | Builds one exchange's skill session. In Infrastructure rather than Core because its signature is engine types (`IToolRegistry`, `SkillSession`) |
+| `SkillSessionFactory` | Infrastructure/Services/LLM | Narrows every skill's named tools to what the run's registry actually advertises, so the roster, the loader's answer and the tool array agree — and so loading a skill can never reach past a guild's allow-list |
+| `IDmSkillActivationStore` | Core Interfaces/LLM | Which skills the DM assistant has loaded for a user |
+| `DmSkillActivationStore` | Infrastructure/Services/LLM | One `IMemoryCache` entry per user with a 24-hour window, cleared when the conversation is; replaying it into the next turn is what makes a DM skill cost one round rather than one per question |
 | `RatWatchToolProvider` | Bot/Services/LLM | RatWatch-specific tool provider for assistant |
 | `SaveNoteTool` / `SearchNotesTool` / `GetNoteTool` / `ListNotesTool` / `DeleteNoteTool` | Infrastructure/Services/LLM/Tools | The DM assistant's memory tools, the first conversion to `IAgentTool` (they replace `MemoryToolProvider` and `MemoryTools`) |
 | `RatWatchTools` | Infrastructure/Services/LLM | Tool implementations for RatWatch queries |

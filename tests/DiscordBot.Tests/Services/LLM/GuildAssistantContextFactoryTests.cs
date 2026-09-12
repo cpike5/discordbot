@@ -12,6 +12,7 @@ using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
 using DiscordBot.Infrastructure.Abstractions.LLM;
 using DiscordBot.Agents;
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services.LLM;
 
@@ -51,7 +52,8 @@ public class GuildAssistantContextFactoryTests
             toolAccess ?? StubToolAccess(),
             Mock.Of<ILogger<GuildAssistantContext>>(),
             Options.Create(options ?? new AssistantOptions()),
-            Mock.Of<ILlmUsageRecorder>());
+            Mock.Of<ILlmUsageRecorder>(),
+            new StubSkillSessionFactory());
     }
 
     [Fact]

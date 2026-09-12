@@ -83,6 +83,25 @@ public class AgentContext
     public List<LlmMessage>? ConversationHistory { get; set; }
 
     /// <summary>
+    /// The skills this run may load, and the ones it already has. Null when the host is not using
+    /// skills, which leaves the advertised tool array exactly as the registry produced it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A skill is how a tool stops costing its schema on every request: the tools a skill names are
+    /// held back from the advertised array until the model loads it, and the loader's result is the
+    /// skill's instructions. The loop re-composes <see cref="LlmRequest.Tools"/> after any round
+    /// that activated one — see <see cref="SkillToolSet"/> for the rule.
+    /// </para>
+    /// <para>
+    /// The same instance is normally reachable from the host's loader tool (through
+    /// <see cref="ToolContext.Items"/>, which the engine does not read), because the tool is what
+    /// activates and the loop is what reads the activation.
+    /// </para>
+    /// </remarks>
+    public ISkillActivationState? Skills { get; set; }
+
+    /// <summary>
     /// A free-form label for what kind of run this is, carried purely for correlation in logs and
     /// telemetry. The engine never switches on it; the hosting application decides the vocabulary.
     /// </summary>

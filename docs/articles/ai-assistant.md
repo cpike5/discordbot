@@ -376,6 +376,7 @@ At 100 questions/day:
 | Setting | Default | Description |
 |---------|---------|-------------|
 | `AgentPromptPath` | `"docs/agents/assistant-agent.md"` | Path to agent behavior/security prompt |
+| `Tools:SkillsPath` | `"docs/agents/skills/guild"` | Directory of skill files for the guild assistant; blank disables skills here. Nested key only — unlike the paths above it has no flat `Assistant:SkillsPath` forwarder. Ships empty, see [Skills](#skills) |
 | `DocumentationBasePath` | `"docs/articles"` | Base directory for feature documentation |
 | `ReadmePath` | `"README.md"` | Path to README for command lists |
 | `BaseUrl` | `null` (uses Application.BaseUrl) | Base URL for link generation in responses |
@@ -562,6 +563,48 @@ when a provider is still the right shape, in
   `timeout`, `repeated_call`, `error` or `unknown_tool`
 - The tools a question used are also stored on its interaction log row, which is what the metrics
   page's Tool Usage table counts, so it works whether or not a trace backend is deployed
+
+### Skills
+
+A tool is not free. Its schema is serialized into every request whether or not the question needs
+it, and the prose explaining when to use it costs its tokens in the system prompt on the same terms.
+A **skill** is how that stops being true for a tool the assistant rarely needs: one markdown file
+naming some tools and carrying the instructions for using them, of which the model sees only a
+one-line summary until it decides a request is actually about it and calls `load_skill`. The tools
+a skill names are held back from the advertised tool array until then.
+
+`load_skill` is an ordinary tool with an ordinary `ToolCatalog` entry — category **Skills**, both
+surfaces, on by default — so it appears in a server's Tool Access checklist like any other, and an
+admin who unticks it has turned skills off for that server's assistant. It disappears on its own
+when a surface has no skill files, rather than costing its schema on every request for a mechanism
+with nothing to load.
+
+Skill files live in `docs/agents/skills/<surface>/`, one directory per assistant, pointed at by
+`DmAssistant:SkillsPath` and `Assistant:Tools:SkillsPath` (blank on either disables skills there).
+Two skills ship, both on the DM side:
+
+| Skill | Loads |
+|-------|-------|
+| `moderation` | `get_moderation_cases`, `get_user_mod_history`, `search_audit_logs` |
+| `analytics` | `get_server_activity_summary`, `get_command_analytics` |
+
+Those five tools are no longer advertised to the DM assistant on every message; they arrive when the
+owner asks something moderation- or analytics-shaped and the model loads the skill that owns them.
+Everything else the surface offers — the documentation tools, the memory tools, the rest — is
+advertised exactly as before. `docs/agents/skills/guild/` ships empty, and deliberately: the DM
+assistant is multi-turn, so an activation is replayed on later turns and a skill is paid for once,
+while the guild assistant is single-turn and would pay the loading round every time.
+
+Adding a skill is one markdown file in the right directory. There is no catalogue entry, no DI
+registration, and no code; the file is picked up without a restart, on the same cache terms as a
+prompt file. The tools it names have to exist and be advertised on that surface already — a skill
+can only ever un-hide something the assistant was allowed to use, never widen its reach, so a name
+a guild has turned off is dropped and the model is never told it existed.
+
+The file format and the authoring advice are in
+[`docs/agents/skills/README.md`](../agents/skills/README.md); the mechanism — how the tool array is
+re-composed, and what it costs the prompt cache — is
+[patterns.md § Agent Skills](../architecture/patterns.md#agent-skills).
 
 ### Agentic Loop
 

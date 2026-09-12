@@ -23,6 +23,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
     private readonly ILogger<GuildAssistantContext> _logger;
     private readonly AssistantOptions _options;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly ISkillSessionFactory _skillSessions;
 
     public GuildAssistantContextFactory(
         IGuildService guildService,
@@ -34,7 +35,8 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         IToolAccessResolver toolAccess,
         ILogger<GuildAssistantContext> logger,
         IOptions<AssistantOptions> options,
-        ILlmUsageRecorder usageRecorder)
+        ILlmUsageRecorder usageRecorder,
+        ISkillSessionFactory skillSessions)
     {
         _guildService = guildService ?? throw new ArgumentNullException(nameof(guildService));
         _promptTemplate = promptTemplate ?? throw new ArgumentNullException(nameof(promptTemplate));
@@ -46,6 +48,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
         _logger = logger ?? throw new ArgumentNullException(nameof(logger));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
+        _skillSessions = skillSessions ?? throw new ArgumentNullException(nameof(skillSessions));
     }
 
     /// <inheritdoc />
@@ -71,6 +74,12 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             registry = new FilteredToolRegistry(_toolRegistry, allowed);
         }
 
+        // Built from the narrowed registry, so a skill can only ever un-hide a tool this guild is
+        // already allowed. Nothing is pre-activated: the guild assistant is single-turn, so there is
+        // no previous turn to replay and a skill costs a round every time it is used.
+        var skills = await _skillSessions.CreateAsync(
+            _options.Tools.SkillsPath, registry, preActivatedKeys: null, cancellationToken);
+
         return new GuildAssistantContext(
             guildId,
             channelId,
@@ -88,6 +97,7 @@ public class GuildAssistantContextFactory : IGuildAssistantContextFactory
             _logger,
             resolved.Slug,
             resolved.Pricing,
-            _usageRecorder);
+            _usageRecorder,
+            skills);
     }
 }

@@ -183,6 +183,13 @@ public static class AssistantServiceExtensions
             // Register prompt template service
             services.AddSingleton<IPromptTemplate, PromptTemplate>();
 
+            // Skills: the library reads a surface's skill directory through the prompt template (so a
+            // skill file is cached and hot-reloaded exactly like a prompt file), and the session
+            // factory narrows each skill's tools to what the run's registry actually advertises.
+            // Both assistants' context factories use them, and both are stateless over that cache.
+            services.AddSingleton<ISkillLibrary, SkillLibrary>();
+            services.AddSingleton<ISkillSessionFactory, SkillSessionFactory>();
+
             // Register built-in tool providers (scoped to support scoped dependencies like ICommandMetadataService)
             services.AddScoped<IToolProvider, DocumentationToolProvider>();
             services.AddScoped<IToolProvider, UserGuildInfoToolProvider>();

@@ -29,6 +29,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
     private readonly ILlmModelResolver _modelResolver;
     private readonly DmAssistantOptions _options;
     private readonly ILlmUsageRecorder _usageRecorder;
+    private readonly ISkillSessionFactory _skillSessions;
+    private readonly IDmSkillActivationStore _skillActivations;
 
     public DmAssistantContextFactory(
         IEnumerable<IDmToolProvider> dmToolProviders,
@@ -40,7 +42,9 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         IMemoryCache memoryCache,
         ILlmModelResolver modelResolver,
         IOptions<DmAssistantOptions> options,
-        ILlmUsageRecorder usageRecorder)
+        ILlmUsageRecorder usageRecorder,
+        ISkillSessionFactory skillSessions,
+        IDmSkillActivationStore skillActivations)
     {
         _dmToolProviders = dmToolProviders ?? throw new ArgumentNullException(nameof(dmToolProviders));
         _loggerFactory = loggerFactory ?? throw new ArgumentNullException(nameof(loggerFactory));
@@ -52,6 +56,8 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
         _modelResolver = modelResolver ?? throw new ArgumentNullException(nameof(modelResolver));
         _options = options?.Value ?? throw new ArgumentNullException(nameof(options));
         _usageRecorder = usageRecorder ?? throw new ArgumentNullException(nameof(usageRecorder));
+        _skillSessions = skillSessions ?? throw new ArgumentNullException(nameof(skillSessions));
+        _skillActivations = skillActivations ?? throw new ArgumentNullException(nameof(skillActivations));
     }
 
     /// <inheritdoc />
@@ -74,6 +80,12 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
 
         var resolved = await _modelResolver.ResolveAsync(LlmMode.DmAssistant, cancellationToken);
 
+        // Replaying the previous turn's activations is what makes a skill nearly free from turn 2:
+        // its tools are advertised on the first call and its instructions are already in the prompt,
+        // so the round that loaded it is never paid for twice.
+        var skills = await _skillSessions.CreateAsync(
+            _options.SkillsPath, toolRegistry, _skillActivations.Get(userId), cancellationToken);
+
         return new DmAssistantContext(
             userId,
             activeGuildId,
@@ -87,7 +99,9 @@ public class DmAssistantContextFactory : IDmAssistantContextFactory
             _loggerFactory.CreateLogger<DmAssistantContext>(),
             resolved.Slug,
             resolved.Pricing,
-            _usageRecorder);
+            _usageRecorder,
+            skills,
+            _skillActivations);
     }
 
     /// <inheritdoc />
