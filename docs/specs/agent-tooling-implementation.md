@@ -13,7 +13,8 @@ records where the sequencing bent, and three specifics below are corrected by wh
 `ActivitySource` and `IToolRegistry` gained `FindProviderName` to tag them, and §2.4 took option B.
 **§3.1 shipped as Phase 4 and §3.2 as Phase 5** — see §5.3a and §5.4a of the plan; the notes at the
 head of each section below say where the built shape differs.
-§1.3 (F13, the documentation path containment) is still unshipped and still wants its own PR.
+**§1.3 (F13, the documentation path containment) shipped on its own**, last rather than first —
+[§6a of the plan](../plans/agent-groundwork-overhaul.md) records what changed from the shape below.
 §1.7c wants a probe against live traffic before anyone builds it. Everything else here is
 proposed.
 
@@ -120,6 +121,15 @@ full. Prefer reading one section over reading the whole document."*
 (must not be parsed as headings), and no headings at all.
 
 ### 1.3 Contain the documentation path (F13 — new)
+
+> **Shipped, with one change to the payload.** The `{ "error": true, "message": … }` shape below is
+> the one that was already there, and `ToolOutcomes.Classify` — written later, in Phase 6 — reads it
+> as a *success*, because `error` has to be a string or a `success`/`available`/`found` flag has to be
+> false. A refusal nobody can count is most of the point of refusing it, so the one unavailable
+> payload is `{ "available": false, "error": "…" }` through `ToolResults.Json` instead. Everything else
+> is as specified, including that all three causes answer identically. See
+> [plans/agent-groundwork-overhaul.md §6a](../plans/agent-groundwork-overhaul.md) and
+> [docs/tools/get_feature_documentation.md](../tools/get_feature_documentation.md).
 
 **This is a security finding, not a cost one.** `DocumentationToolProvider` builds the path as:
 

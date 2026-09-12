@@ -199,7 +199,7 @@ a skill.
   `ToolContext.Items`, activates, and returns the skill's instructions; the loop does the rest.
 
 ### Tool Providers (the ten not yet converted)
-- `Providers/DocumentationToolProvider` — Maps 13 features to doc files
+- `Providers/DocumentationToolProvider` — 28 feature-name aliases over 15 doc files, plus the allow-list and containment check that keep `feature_name` inside `DocumentationBasePath` ([tool page](../../docs/tools/get_feature_documentation.md))
 - `Bot/Services/LLM/Providers/UserGuildInfoToolProvider` — User profiles, guild info, roles
 - `Bot/Services/LLM/Providers/RatWatchToolProvider` — Rat Watch leaderboards, stats
 - Implementations in `Implementations/DocumentationTools`, `RatWatchTools`, `UserGuildInfoTools`
@@ -333,7 +333,8 @@ once for the group. Full pattern in `docs/architecture/patterns.md` § Agent Too
   flips is signal; a moved percentage at a dozen cases is noise.
 - **Tool execution is synchronous within the agent loop** — long-running tools block the response
 - **Token limits:** Conversation history can grow large; be mindful of context window
-- **DocumentationToolProvider** maps feature names to doc files — update mapping when docs change
+- **DocumentationToolProvider** maps feature names to doc files — update mapping when docs change. A name with no mapping falls back to `<name>.md`, which is why it is allow-listed to `^[a-z0-9][a-z0-9-]*$` and the resolved path is checked against `DocumentationBasePath` before anything is read
+- **A tool argument is untrusted input, whatever the prompt says.** It arrives from the model, and the model's input is a Discord message from any user in any guild where the assistant is enabled. Validate in the tool what the argument selects — a file, a row, a guild — and report a refusal as the *same* payload as a legitimate miss, with the reason in a `Warning` log line: a distinct "rejected" message tells a prober their probe was understood. `get_feature_documentation` is the worked example (F13)
 - **OpenRouterMessageMapper** translates between internal DTOs and the OpenAI-compatible wire shape. The three traps: the system prompt is the **first message**, not a top-level parameter; each tool result is its own `role:"tool"` message carrying `tool_call_id`, not a block on a user turn; and tool-call arguments cross the wire as a **JSON string**, not an object.
 - **No LLM SDK.** Build LLM work on `ILlmClient` and the owned wire records in `Services/LLM/OpenRouter/` — do not add a vendor SDK or `Microsoft.Extensions.AI`.
 - **Model names are OpenRouter slugs** (`anthropic/claude-sonnet-4`), not vendor model IDs. Full list at https://openrouter.ai/models.

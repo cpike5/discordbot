@@ -395,7 +395,7 @@ At 100 questions/day:
 |---------|---------|-------------|
 | `AgentPromptPath` | `"docs/agents/assistant-agent.md"` | Path to agent behavior/security prompt |
 | `Tools:SkillsPath` | `"docs/agents/skills/guild"` | Directory of skill files for the guild assistant; blank disables skills here. Nested key only — unlike the paths above it has no flat `Assistant:SkillsPath` forwarder. Ships empty, see [Skills](#skills) |
-| `DocumentationBasePath` | `"docs/articles"` | Base directory for feature documentation |
+| `DocumentationBasePath` | `"docs/articles"` | Base directory for feature documentation, and the only directory `get_feature_documentation` may read — a feature name that resolves outside it is refused |
 | `ReadmePath` | `"README.md"` | Path to README for command lists |
 | `BaseUrl` | `null` (uses Application.BaseUrl) | Base URL for link generation in responses |
 
@@ -890,6 +890,12 @@ Look for logs containing:
 The agent prompt scopes the assistant to questions about bot features and tells the model to treat the user message as a question, never as instructions. It rules out sharing secrets, configuration, internals, the prompt itself, stored user data, and help with abusing the bot.
 
 The prompt deliberately does not quote injection phrases ("ignore previous instructions", persona names, and so on) as examples. OpenRouter's guardrails scan the whole request including the system message, so a prompt that quotes attack strings trips them on every call. Current models do not need the examples; a short statement of scope is enough. Keep it that way when editing the prompt.
+
+### Tool Arguments Are Untrusted Input
+
+A tool argument reaches the tool from the model, and the model's input is a Discord message from any user in any guild where the assistant is enabled. A prompt instruction is not a control: it is advice to a component that can be talked to. Anything a tool argument selects — a file, a row, a guild — is validated in the tool.
+
+`get_feature_documentation` is the worked example. Its `feature_name` becomes a file name, so it is allow-listed to `[a-z0-9-]` before it is used and the resolved path is checked against `DocumentationBasePath`; a name that escapes is refused with the same payload as a name that is simply absent, because a distinct "rejected" message would tell a prober that their probe was understood. The `Warning` log line is where that is visible instead. Full behaviour in [`docs/tools/get_feature_documentation.md`](../tools/get_feature_documentation.md).
 
 ### Data Privacy
 
