@@ -428,6 +428,10 @@ Services for AI-powered chat, tool execution, and LLM integration.
 | `ToolInput` / `ToolResults` / `ToolJson` | Agents | Argument reading and schema building; the house result shapes (`Error`/`NotFound` satisfy `ToolOutcomes.Classify` by construction); the compact serializer settings |
 | `CataloguedAgentToolProvider` | Infrastructure/Services/LLM/Providers | Base for the two surfaces — keeps the scanned tools whose `ToolCatalog` scopes include its own, warns about an uncatalogued one, and refuses forbidden writes in this bot's voice |
 | `GuildAgentToolProvider` / `DmAgentToolProvider` | Infrastructure/Services/LLM/Providers | The guild and DM surfaces over individually authored tools, registered as `IToolProvider` and `IDmToolProvider` respectively |
+| `PromptSurface` | Agents | Measures an advertised tool array as it is actually sent — per-tool characters through the real wire serialization, the array total, and an estimated token count |
+| `IPromptSurfaceReporter` | Infrastructure/Abstractions/LLM | What a surface advertises and what it costs. Null when no API key is configured, which is the page's "not configured" state |
+| `PromptSurfaceReporter` | Infrastructure/Services/LLM | Rebuilds a surface the way a run sees it — allow-list decorator, skill session, `SkillToolSet.Compose` — so the number counts the per-request prefix rather than everything registered |
+| `PromptSurfaceReportService` | Bot/Services/LLM | `IHostedService` logging one Information line per surface at startup: tools advertised, schema characters, estimated tokens, and the three largest tools |
 | `IPromptTemplate` | Agents/Abstractions | System prompt and context template |
 | `PromptTemplate` | Agents | Loads a template from disk (memory-cached) and renders `{{variable}}` substitutions |
 | `ISkillLibrary` | Agents/Abstractions | Reads the skill files of one directory |
@@ -612,6 +616,7 @@ Long-running background processes that start with the application:
 - `ReminderExecutionService` - Reminder trigger execution
 - `MetricsUpdateService` - Periodic metrics collection
 - `VoiceAutoLeaveService` - Auto-disconnect from idle channels
+- `PromptSurfaceReportService` - One startup line per assistant surface: what the tool array costs
 - And 10+ other cleanup/monitoring services
 
 ### Instrumented Memory Services

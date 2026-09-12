@@ -19,7 +19,7 @@ bot *this* bot stays in Infrastructure and Bot, which reference the engine.
 - **`Agents/Abstractions/`:** `ILlmClient`, `IAgentRunner`, `IToolRegistry`, `IToolProvider`, `IAgentTool`, `OptInToolAttribute`, `IPromptTemplate`, `ISkillLibrary`, `ISkillActivationState`
 - **`Agents/Contracts/`:** `AgentSkill`, `LlmMessage`, `LlmRequest/Response` (`Response.Model` is the model that actually served the call), `LlmToolCall/Definition/Result`, `LlmUsage`, `AgentContext`/`AgentRunResult` (`AgentRunResult.Model` — last non-null response model across the loop; `LoopCount` doubles as the LLM call count), `ToolContext`/`ToolExecutionResult`, and `Contracts/Enums/` `LlmRole`, `LlmStopReason`
 - **`Agents/Configuration/`:** `OpenRouterOptions`
-- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `FilteredToolRegistry`, `ToolResultLimiter`, `ToolOutcomes`, `AgentToolProvider`, `AgentToolRegistration`, `ToolInput`, `ToolResults`, `ToolJson`, `PromptTemplate`, `PromptPaths`, `SkillLibrary`/`SkillFile`/`SkillSession`/`SkillToolSet`/`SkillRoster`, `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
+- **`Agents/`:** `AgentRunner`, `ToolRegistry`, `FilteredToolRegistry`, `ToolResultLimiter`, `ToolOutcomes`, `AgentToolProvider`, `AgentToolRegistration`, `ToolInput`, `ToolResults`, `ToolJson`, `PromptTemplate`, `PromptPaths`, `SkillLibrary`/`SkillFile`/`SkillSession`/`SkillToolSet`/`SkillRoster`, `PromptSurface` (measures an advertised tool array through the real wire serialization), `AgentsActivitySource` (the engine's own tracing source, subscribed in `OpenTelemetryExtensions`)
 - **`Agents/OpenRouter/`:** `OpenRouterLlmClient` (owned typed `HttpClient`, no SDK), `OpenRouterMessageMapper`, `ChatCompletionRequest`/`ChatCompletionResponse` wire records, `OpenRouterParameterSupportCache`
 
 #### Loop guard rails (Phase 2 hardening)
@@ -168,13 +168,18 @@ a skill.
 - **Enums:** `LlmMode` (`GuildAssistant`/`DmAssistant`/`FeatureRequests`) with its `LlmModeSettings` static helper (`KeyFor`, `LabelFor`, `All`) — `Core/Enums/LlmMode.cs`; `LlmCostSource` (`Billed`/`Estimated`) — `Core/Enums/LlmCostSource.cs`
 
 ### Infrastructure (`Infrastructure/Services/LLM/`)
-- `Abstractions/LLM/` — the assistant abstractions whose signatures are made of engine types, and which therefore cannot live in Core: `IAssistantContext`, `IAssistantMessagePipeline`, `IDmToolProvider`, `IGuildAssistantContextFactory`, `IDmAssistantContextFactory`, `ISkillSessionFactory`
+- `Abstractions/LLM/` — the assistant abstractions whose signatures are made of engine types, and which therefore cannot live in Core: `IAssistantContext`, `IAssistantMessagePipeline`, `IDmToolProvider`, `IGuildAssistantContextFactory`, `IDmAssistantContextFactory`, `ISkillSessionFactory`, `IPromptSurfaceReporter`
 - `DmToolContextExtensions` — typed access to the DM assistant's entries in `ToolContext.Items`
 - `SkillToolContextExtensions` — the same, for the run's skill session (`agent.skills`)
 - `SkillSessionFactory` (`ISkillSessionFactory`) — builds a run's `SkillSession` and narrows each
   skill's tools to what that run's registry advertises
 - `DmSkillActivationStore` (`IDmSkillActivationStore`) — the DM surface's cross-turn skill memory
 - `ToolAccessResolver` — resolves a guild's allowed tool set (saved allow-list, else the house default), cached per guild and invalidated by `AssistantGuildSettingsService.UpdateSettingsAsync`, the single point every settings write goes through
+- `PromptSurfaceReporter` (`IPromptSurfaceReporter`) — rebuilds a surface the way a run sees it
+  (allow-list decorator, skill session, `SkillToolSet.Compose`) and measures it. Registered
+  **ungated** so the metrics page can always inject it; returns null with no API key. Resolves
+  `IToolRegistry` and `ISkillSessionFactory` from the container rather than injecting them, because
+  both are registered only inside the API-key block and absence is one of its answers.
 - `ToolPermissions.MutationForbidden` — the shared refusal a write tool returns when `ToolContext.CanMutate` is false. Lives here, not in Agents: the wording is this bot's voice and the policy is this bot's.
 - `LlmModelCatalogService` — Local model catalog: refresh (upsert by slug), filtered/sorted listing, enable/disable allowlist. Audited (`AuditLogCategory.Configuration`).
 - `OpenRouter/OpenRouterModelCatalogClient` — **Second, separate** typed `HttpClient` against OpenRouter's `GET /models` (not `OpenRouterLlmClient`, which only does chat completions); same auth/attribution headers, no retry loop
@@ -205,7 +210,8 @@ a skill.
 - `Handlers/AssistantMessageHandler` — Discord message handler (guild)
 - `Handlers/DmAssistantMessageHandler` — Discord message handler (DM)
 - `Pages/Guilds/AssistantSettings.cshtml` — Per-guild config
-- `Pages/Guilds/AssistantMetrics.cshtml` — Usage metrics dashboard
+- `Pages/Guilds/AssistantMetrics.cshtml` — Usage metrics dashboard, including the **Prompt Surface** panel (`IPromptSurfaceReporter`, per-tool schema size and share of the prefix)
+- `Services/LLM/PromptSurfaceReportService` — `IHostedService`; one Information line per surface at startup saying what the tool array costs. Gated with the rest of the assistant; never fails startup
 - **Repos:** `AssistantGuildSettingsRepository`, `AssistantInteractionLogRepository`, `AssistantUsageMetricsRepository`
 - `Controllers/LlmModelsController` — `api/admin/llm-models` (`RequireAdmin`): catalog list/filter, refresh, enable/disable (slug in the request body — OpenRouter slugs contain `/`); `GetDefaults` delegates entirely to `ILlmModelResolver` (one resolution path, shared with message-send time)
 - `Services/LLM/LlmCatalogRefreshService` — `MonitoredBackgroundService`; periodic catalog refresh on `Llm:CatalogRefreshHours` (default 24h, `0` disables), first attempt delayed `Llm:CatalogRefreshInitialDelayMinutes` (default 5) after startup; registered only when `OpenRouter:ApiKey` is present
@@ -293,6 +299,18 @@ Two files, and one of them already exists.
    `failed_result` rather than invisible in the traces.
 6. Ship it dark with `[OptInTool("Section:Enabled")]` if it needs a flag.
 
+7. Write its page in `docs/tools/<tool_name>.md` from the template in `docs/tools/README.md`:
+   purpose, dependencies, the verbatim model-facing description, an input table, and **every**
+   result shape — success and each expected failure, marked `failed_result` where
+   `ToolOutcomes.Classify` counts it. Backfill the page of any existing tool you change.
+
+`ToolContractTests` will hold you to most of the above without being asked: it reflects over every
+registered tool and asserts the name shape and uniqueness, a 40–600 character description, a
+well-formed object schema with every property described, a `ToolCatalog` entry in both directions,
+the `Mutation` refusal through the real `AgentToolProvider`, and a missing argument coming back
+classified `failed_result`. `SkillContractTests` does the same for skill files. If you are adding a
+new house rule about tools, add it there rather than to a checklist.
+
 Write an `IToolProvider` instead only when several tools share expensive state worth constructing
 once for the group. Full pattern in `docs/architecture/patterns.md` § Agent Tool Authoring.
 
@@ -304,6 +322,15 @@ once for the group. Full pattern in `docs/architecture/patterns.md` § Agent Too
   breakpoint behind it — correct answers at ~10x the input price, with no other symptom. Build the
   definition from a `static readonly` field, and when converting a tool, pin its schema against the
   old literal in a test (`MemoryAgentToolsTests` does).
+- **Measure what a surface *advertises*, not what its registry holds.** `PromptSurface` is fed the
+  skill-aware set from `SkillToolSet.Compose`, never `IToolRegistry.GetEnabledTools()` — a tool
+  behind an unloaded skill is registered, is callable once the skill loads, and is not in the
+  per-request prefix. Anything new that counts or costs a surface has to make the same distinction.
+- **The evals are a regression gate, not a scoreboard.** `tests/DiscordBot.Evals` runs a dozen cases
+  through the real loop and a real model, skipped when `OpenRouter:ApiKey` is absent so CI stays free.
+  Assert machine-checkable facts — tools called, skills activated, rows written — never what the
+  reply says: a model claiming it saved the note is the failure mode being watched for. A case that
+  flips is signal; a moved percentage at a dozen cases is noise.
 - **Tool execution is synchronous within the agent loop** — long-running tools block the response
 - **Token limits:** Conversation history can grow large; be mindful of context window
 - **DocumentationToolProvider** maps feature names to doc files — update mapping when docs change

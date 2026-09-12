@@ -1,3 +1,14 @@
+> **Archived — this describes the original design intent, not what shipped.**
+>
+> Every tool here is listed as "Planned"; all 29 shipped, the set differs from the one planned, and
+> four tools specified here were never built. It is kept because it is still the record of what the
+> assistant's tooling was *meant* to be, and because `get_feature_status` (below) remains a good idea
+> that has not been built.
+>
+> For what exists today: per-tool pages in [`docs/tools/`](../../tools/README.md), the routing and
+> default-on table in `ToolCatalog` (`src/DiscordBot.Core/Models/Llm/ToolCatalog.cs`), and the
+> authoring pattern in [`patterns.md` § Agent Tool Authoring](../../architecture/patterns.md#agent-tool-authoring).
+
 # Assistant Tool Catalog
 
 ## Overview

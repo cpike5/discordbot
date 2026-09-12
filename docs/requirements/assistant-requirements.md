@@ -160,7 +160,7 @@ Tool implementations will:
   - `README.md` for command lists and overview
   - In-memory command metadata from Discord.NET registration
   - Discord API for user/guild info
-- See `docs/specs/assistant-tool-catalog.md` for full tool catalog
+- See `docs/tools/` for per-tool specifications, and `ToolCatalog` for the routing table
 
 ### Security
 - Agent prompt includes extensive security guidelines (prompt injection defense, jailbreak prevention, etc.)
@@ -635,7 +635,7 @@ Users must explicitly consent before using the assistant feature:
 
 1. **Review architecture specs**:
    - `docs/specs/llm-abstraction-architecture.md` - LLM abstraction interfaces
-   - `docs/specs/assistant-tool-catalog.md` - Tool inventory and priorities
+   - `docs/tools/` - Per-tool specifications (the original catalog is archived at `docs/specs/archive/`)
 2. **Create GitHub issues** via `/create-issue` command
 3. **Database migration design** (new tables for settings and metrics)
 4. **Agent prompt finalization** (finalize placeholders and security guidelines)

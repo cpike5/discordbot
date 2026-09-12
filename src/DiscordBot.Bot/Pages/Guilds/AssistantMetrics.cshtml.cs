@@ -5,6 +5,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.Llm;
+using DiscordBot.Infrastructure.Abstractions.LLM;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DiscordBot.Core.DTOs.Llm.Reporting;
@@ -26,6 +27,7 @@ public class AssistantMetricsModel : GuildPageModelBase
     private readonly IAssistantInteractionLogRepository _interactionLogRepository;
     private readonly ILlmUsageRepository _usageRepository;
     private readonly IDiscordUserResolver _userResolver;
+    private readonly IPromptSurfaceReporter _promptSurface;
     private readonly ILogger<AssistantMetricsModel> _logger;
 
     public AssistantMetricsModel(
@@ -34,6 +36,7 @@ public class AssistantMetricsModel : GuildPageModelBase
         IAssistantInteractionLogRepository interactionLogRepository,
         ILlmUsageRepository usageRepository,
         IDiscordUserResolver userResolver,
+        IPromptSurfaceReporter promptSurface,
         ILogger<AssistantMetricsModel> logger)
     {
         _assistantService = assistantService;
@@ -41,6 +44,7 @@ public class AssistantMetricsModel : GuildPageModelBase
         _interactionLogRepository = interactionLogRepository;
         _usageRepository = usageRepository;
         _userResolver = userResolver;
+        _promptSurface = promptSurface;
         _logger = logger;
     }
 
@@ -126,6 +130,18 @@ public class AssistantMetricsModel : GuildPageModelBase
     /// </summary>
     public bool HasToolUsageData { get; set; }
 
+    /// <summary>
+    /// What this guild's assistant puts in front of the model on every question, and what it costs.
+    /// Null when no OpenRouter key is configured, so there is no registry to measure.
+    /// </summary>
+    /// <remarks>
+    /// The usage table above answers "which tools did we use"; this answers "which tools did we pay
+    /// for". They are different questions, and the gap between them is the one worth acting on: a
+    /// tool that is 15% of every request and was called twice in a month belongs behind a skill or
+    /// turned off.
+    /// </remarks>
+    public PromptSurfaceReport? PromptSurface { get; set; }
+
     /// <summary>One row of the per-tool usage table.</summary>
     public class ToolUsageRow
     {
@@ -178,6 +194,8 @@ public class AssistantMetricsModel : GuildPageModelBase
             GuildId, startDate, endDate.AddDays(1).AddTicks(-1), cancellationToken);
         ToolUsage = BuildToolUsageRows(toolUsage);
         HasToolUsageData = toolUsage.Count > 0;
+
+        PromptSurface = await ReadPromptSurfaceAsync(cancellationToken);
 
         var usageQuery = new LlmUsageQuery
         {
@@ -246,6 +264,27 @@ public class AssistantMetricsModel : GuildPageModelBase
         Navigation = BuildNavigation(guild.Id, "assistant");
 
         return Page();
+    }
+
+    /// <summary>
+    /// The prompt-surface report for this guild, or null when it cannot be built.
+    /// </summary>
+    /// <remarks>
+    /// Building it constructs every registered tool provider, which is the one thing on this page
+    /// that can fail for a reason unrelated to metrics. A panel that cannot be drawn is not a reason
+    /// to fail the page, so it is caught and the panel is left out.
+    /// </remarks>
+    private async Task<PromptSurfaceReport?> ReadPromptSurfaceAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            return await _promptSurface.ReportAsync(ToolScopes.Guild, GuildId, cancellationToken);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Could not build the prompt-surface report for guild {GuildId}", GuildId);
+            return null;
+        }
     }
 
     /// <summary>
