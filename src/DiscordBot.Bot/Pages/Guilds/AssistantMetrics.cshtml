@@ -277,6 +277,143 @@
         </div>
     </div>
 
+    <!-- Prompt Surface -->
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mt-6">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Prompt Surface</h3>
+            <p class="text-sm text-text-secondary mt-1">
+                What every question pays for before it is even read. The tool array is sent at the top
+                of each request, so a tool costs its schema whether or not the question needs it.
+            </p>
+        </div>
+
+        @if (Model.PromptSurface is null)
+        {
+            <div class="px-6 py-4 text-sm text-text-secondary">
+                The assistant is not configured on this deployment, so there is no tool array to measure.
+            </div>
+        }
+        else
+        {
+            var surface = Model.PromptSurface;
+
+            <div class="grid grid-cols-2 lg:grid-cols-4 divide-x divide-y lg:divide-y-0 divide-border-primary border-b border-border-primary">
+                <div class="px-6 py-4">
+                    <div class="text-xs text-text-tertiary uppercase tracking-wider">Tools sent</div>
+                    <div class="text-2xl font-semibold text-text-primary mt-1">@surface.AdvertisedCount</div>
+                    <div class="text-xs text-text-tertiary mt-1">of @surface.RegisteredCount available</div>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="text-xs text-text-tertiary uppercase tracking-wider">Schema size</div>
+                    <div class="text-2xl font-semibold text-text-primary mt-1">@surface.Advertised.TotalChars.ToString("N0")</div>
+                    <div class="text-xs text-text-tertiary mt-1">characters per request</div>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="text-xs text-text-tertiary uppercase tracking-wider">Estimated tokens</div>
+                    <div class="text-2xl font-semibold text-accent-orange mt-1">~@surface.Advertised.EstimatedTokens.ToString("N0")</div>
+                    <div class="text-xs text-text-tertiary mt-1">characters &#247; 4</div>
+                </div>
+                <div class="px-6 py-4">
+                    <div class="text-xs text-text-tertiary uppercase tracking-wider">Held back</div>
+                    <div class="text-2xl font-semibold text-text-primary mt-1">@surface.WithheldChars.ToString("N0")</div>
+                    <div class="text-xs text-text-tertiary mt-1">characters not sent</div>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto hidden md:block">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Tool</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Category</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Schema</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Share of prefix</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">In every request</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var tool in surface.Tools)
+                        {
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors @(tool.Advertised ? "" : "opacity-60")">
+                                <td class="px-6 py-3 whitespace-nowrap">
+                                    <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
+                                    <span class="block text-xs text-text-tertiary font-mono">@tool.Name</span>
+                                </td>
+                                <td class="px-6 py-3 whitespace-nowrap text-sm text-text-secondary">@tool.Category</td>
+                                <td class="px-6 py-3 whitespace-nowrap text-right text-sm text-text-primary">@tool.SchemaChars.ToString("N0")</td>
+                                <td class="px-6 py-3 whitespace-nowrap">
+                                    @if (tool.Advertised)
+                                    {
+                                        <div class="flex items-center gap-2">
+                                            <div class="w-24 h-2 bg-bg-tertiary rounded-full overflow-hidden">
+                                                <div class="h-full bg-accent-orange" style="width: @((tool.Share * 100).ToString("F1"))%"></div>
+                                            </div>
+                                            <span class="text-xs text-text-secondary">@((tool.Share * 100).ToString("F1"))%</span>
+                                        </div>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-xs text-text-tertiary">&#8212;</span>
+                                    }
+                                </td>
+                                <td class="px-6 py-3 whitespace-nowrap text-xs">
+                                    @if (tool.Advertised)
+                                    {
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-accent-orange/10 text-accent-orange">Yes</span>
+                                    }
+                                    else if (tool.BehindSkill)
+                                    {
+                                        var namedBy = string.Join(", ", tool.SkillKeys);
+
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-bg-tertiary text-text-secondary"
+                                              title="@($"Loaded on demand by the {namedBy} skill")">
+                                            Behind a skill
+                                        </span>
+                                    }
+                                    else
+                                    {
+                                        <span class="inline-flex items-center px-2 py-0.5 rounded-full bg-bg-tertiary text-text-secondary">Not allowed here</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="md:hidden divide-y divide-border-primary">
+                @foreach (var tool in surface.Tools)
+                {
+                    <div class="p-4 @(tool.Advertised ? "" : "opacity-60")">
+                        <div class="flex items-center justify-between mb-2">
+                            <span class="text-sm font-medium text-text-primary">@tool.DisplayName</span>
+                            <span class="text-sm font-semibold text-accent-orange">@tool.SchemaChars.ToString("N0")</span>
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div><span class="text-text-tertiary block">Category</span><span class="text-text-primary font-medium">@tool.Category</span></div>
+                            <div>
+                                <span class="text-text-tertiary block">Share of prefix</span>
+                                <span class="text-text-primary font-medium">@(tool.Advertised ? (tool.Share * 100).ToString("F1") + "%" : "\u2014")</span>
+                            </div>
+                            <div class="col-span-2">
+                                <span class="text-text-tertiary block">In every request</span>
+                                <span class="text-text-primary font-medium">
+                                    @(tool.Advertised ? "Yes" : tool.BehindSkill ? "Behind a skill" : "Not allowed here")
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            <div class="px-6 py-3 border-t border-border-primary text-xs text-text-tertiary">
+                Measured as the request is actually sent. A tool this server has turned off, or one a
+                skill is holding back, is not in the prefix and is not billed for &#8212; it still appears
+                above so the cost of turning it on is visible before you do.
+            </div>
+        }
+    </div>
+
     <!-- Cost by User -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mt-6">
         <div class="px-6 py-4 border-b border-border-primary">

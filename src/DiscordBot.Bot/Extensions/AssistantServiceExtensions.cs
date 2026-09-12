@@ -79,6 +79,11 @@ public static class AssistantServiceExtensions
         // Register assistant guild settings service (always needed for admin UI)
         services.AddScoped<IAssistantGuildSettingsService, AssistantGuildSettingsService>();
 
+        // The prompt-surface report. Ungated so the metrics page can always inject it: with no API
+        // key there is no registry to measure and it answers null, which the page renders as "not
+        // configured" rather than failing to resolve.
+        services.AddScoped<IPromptSurfaceReporter, PromptSurfaceReporter>();
+
         // Register the LLM model catalog repository, service, and its OpenRouter client ungated (no
         // API key needed to read the already-fetched catalog), so the "AI Models" admin page - and
         // migrations, which must run without a key - work before one is set. This is safe with no
@@ -213,6 +218,10 @@ public static class AssistantServiceExtensions
 
             // Register the main assistant service
             services.AddScoped<IAssistantService, AssistantService>();
+
+            // One line per surface at startup saying what the tool array costs. Gated with the rest:
+            // with no API key there are no providers to measure.
+            services.AddHostedService<PromptSurfaceReportService>();
         }
 
         return services;

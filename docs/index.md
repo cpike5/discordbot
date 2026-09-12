@@ -17,6 +17,7 @@ Welcome to the Discord Bot Management System documentation. This site provides c
 - [Database Schema](articles/database-schema.md) - Entity definitions
 - [Repository Pattern](articles/repository-pattern.md) - Data access patterns
 - [Permissions](articles/permissions.md) - Permission system
+- [Agent Tools](tools/README.md) - Per-tool specifications for the AI assistant
 
 ### Bot Commands
 - [Admin Commands](articles/admin-commands.md) - Slash command reference
@@ -29,6 +30,7 @@ Welcome to the Discord Bot Management System documentation. This site provides c
 
 | Project | Description |
 |---------|-------------|
+| `DiscordBot.Agents` | The agent engine: loop, tool contracts, skills, OpenRouter client |
 | `DiscordBot.Core` | Domain entities, interfaces, DTOs, enums |
 | `DiscordBot.Infrastructure` | EF Core DbContext, repositories, Serilog config |
 | `DiscordBot.Bot` | Web API controllers, bot hosted service, command modules |

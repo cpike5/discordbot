@@ -831,6 +831,57 @@ A tool that should ship dark carries `[OptInTool("Section:Enabled")]` and is reg
 that configuration flag is true — a disabled tool then costs nothing rather than costing a class
 and a runtime branch.
 
+### What the build checks for you
+
+`ToolContractTests` (`tests/DiscordBot.Tests/Services/LLM/`) runs over **every** tool this
+application registers — the `IAgentTool`s and the hand-written providers' static definitions alike,
+found by reflection so a tool added tomorrow is covered without anyone adding it to a list. It
+asserts the house rules:
+
+| Rule | Why it is a red build rather than a code review note |
+|------|------------------------------------------------------|
+| Name matches `^[a-z][a-z0-9_]{2,63}$` and is unique | The registry's walk is first-match; two tools answering to one name means which one runs depends on registration order. |
+| Description is 40–600 characters | The floor catches the one-liner the model cannot choose by, the ceiling the essay that is paid for on every request. |
+| `InputSchema` is a `type: "object"` schema, every `required` name is a declared property, every property has a `description` | The model cannot supply a property it was never shown, and guesses at one it cannot read. |
+| A `ToolCatalog` entry exists — and every catalogue entry has an implementation | The catalogue routes the tool; without an entry it reaches no surface, and an entry with nothing behind it puts a dead tick box on the settings page. |
+| A tool declaring `Mutation` is refused when `CanMutate` is false | Asserted through the real `AgentToolProvider`, so it is the mechanism that is checked and not a restatement of it. |
+| A missing required argument comes back through `ToolResults`, classified `failed_result` | An expected failure reported any other way is invisible in the traces, and expected failures are most of what is worth seeing there. |
+| `Definition` is readable without the constructor having run | It is serialized at position 0 of every request; one built from injected state can differ between two runs, and a differing schema is a cold prompt cache. |
+
+`SkillContractTests` does the same for the skill files that ship: every tool a skill names must exist
+**and** be advertised on that skill's own surface. At runtime a name the surface does not have is
+dropped with a `Debug` line, because on the guild surface an allow-list excluding one is routine —
+which means a typo and a correct exclusion look identical in production. Here they do not.
+
+### Specify it in `docs/tools/`
+
+One page per tool: purpose, dependencies, the exact model-facing description, an input table, and
+**every** result shape — success and each expected failure, each marked `failed_result` where
+`ToolOutcomes.Classify` counts it as one. The template is in
+[`docs/tools/README.md`](../tools/README.md).
+
+Write the page when you touch the tool, not in one sitting: a page written alongside a change is
+accurate for the same reason the change is, and 29 pages written in an afternoon are 29 pages nobody
+keeps true. New tools get one; the rest are backfilled as they are next changed.
+
+### What a tool costs
+
+Every tool's schema is serialized at position 0 of every request on its surface, needed or not.
+`PromptSurface.Measure` puts a number on that, and two places report it:
+
+- **At startup**, one line per surface — tools advertised, schema characters, estimated tokens, and
+  the three largest tools by name.
+- **On a guild's Assistant Metrics page**, a per-tool table with each tool's share of the prefix,
+  marking the ones this guild has turned off and the ones a skill is holding back.
+
+Both count what a surface *advertises* — the skill-aware set from `SkillToolSet.Compose` over the
+run's registry — not everything `IToolRegistry.GetEnabledTools()` holds. A tool behind an unloaded
+skill is registered, is callable once the skill loads, and is not in the prefix now.
+
+Read them together with the Tool Usage table above them: a tool that is 15% of every request and was
+called twice last month belongs behind a skill or turned off, and that is a decision with a number
+attached rather than an argument.
+
 ### When to write an `IToolProvider` instead
 
 `IToolProvider` is still the contract the registry speaks, and still the right shape when several

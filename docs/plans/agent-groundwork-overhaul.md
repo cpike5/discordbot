@@ -10,10 +10,10 @@ as the detail.
 | [specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md) | The code shape of each enhancement — option keys, interfaces, migrations, tests. Sections referenced below as *impl §x.y*. |
 | **This document** | The extraction, and the order the whole overhaul runs in. |
 
-**Status**: Phases 0, 1, 2, 3, 4 and 5 are implemented — see §4.3a and §5.1a for where the manifest
-and the spec needed correcting, §5.2a for what Phase 3 shipped, §5.3a for Phase 4, and §5.4a for
-Phase 5. Phase 6 remains proposed. F13 (impl §1.3) has not shipped yet; it is still meant to go out
-as its own PR.
+**Status**: Every phase, 0 through 6, is implemented — see §4.3a and §5.1a for where the manifest
+and the spec needed correcting, §5.2a for what Phase 3 shipped, §5.3a for Phase 4, §5.4a for
+Phase 5, and §5.5a for Phase 6. **F13 (impl §1.3) has still not shipped**; it is the one piece of
+this plan that remains open, and it is still meant to go out as its own PR.
 
 ---
 
@@ -481,13 +481,62 @@ Prompt-surface report, per-tool specs in `docs/tools/`, the tool contract test, 
 project. The contract test belongs in the existing test project and runs over the app's registered
 tools, not the library's — it is asserting house conventions, which are an app concern.
 
+#### 5.5a What shipped, and the one thing the spec had backwards
+
+Done, all four sections in one PR as §6 sequenced it.
+
+- **The report counts what a surface advertises, which is not `GetEnabledTools()`.** §3.3 was
+  written before skills existed and would naturally have been implemented against the registry. That
+  would have been wrong after Phase 5: a tool held behind an unloaded skill is registered, is
+  callable the moment the skill loads, and is **not** in the per-request prefix. `PromptSurfaceReporter`
+  therefore rebuilds the surface the way a run sees it — the guild's allow-list decorator, the skill
+  session, then `SkillToolSet.Compose` — and measures that. The rows it returns still cover every
+  registered tool, flagged `Advertised` / `BehindSkill`, because "what would it cost to turn this on"
+  is the second question anyone asks.
+- **The measurement is the real wire encoding.** `PromptSurface.Measure` serializes through
+  `OpenRouterMessageMapper.ToOpenRouterTools` and `OpenRouterJson.Options` rather than approximating,
+  so the number is comparable with the bill and moves automatically if the request encoding ever
+  changes. Tokens are characters ÷ 4, stated as an estimate; the useful question is whether a tool is
+  2% or 20% of the prefix, and that ratio survives a rough tokenizer.
+- **The reporter is registered ungated and answers null.** Every other assistant service is
+  registered only when `OpenRouter:ApiKey` is present, but the metrics page must render without one.
+  So it is registered unconditionally and resolves `IToolRegistry` and `ISkillSessionFactory` from
+  the container — the only service-locator in this stream, and there because absence is one of its
+  answers rather than a failure.
+- **The contract test found nothing, which is the result.** All 29 registered tools already satisfied
+  every rule on the first run. That is worth stating rather than hiding: the value is not the bugs it
+  found today but that the next tool cannot quietly skip a catalogue entry, a property description or
+  the `failed_result` convention. Two rules were added beyond impl §4.2's list, both from Phase 3–5
+  house rules that had been prose until now: a tool declaring `Mutation` is refused through the real
+  `AgentToolProvider` when `CanMutate` is false, and a missing required argument comes back through
+  `ToolResults` classified `failed_result`. A third, `SkillContractTests`, checks every skill file's
+  named tools resolve on that skill's own surface — at runtime a name the surface lacks is dropped
+  with a `Debug` line, so a typo and a correct exclusion are indistinguishable in production.
+- **Definitions are read from uninitialized instances**, which turns `IAgentTool.Definition`'s "build
+  it from a static field" from advice into something the build enforces. A definition composed from
+  injected state can differ between two runs, and a differing schema is a cold prompt cache at
+  roughly ten times the input price. The hand-written providers are *not* read this way — a provider
+  may legitimately decide from options whether to advertise anything at all, as
+  `CodeExecutionToolProvider` does — so their definitions come from their static declaration classes.
+- **Six tool pages, not twenty-nine.** impl §4.1 says to write them as each tool is touched, so the
+  pages that exist are the six tools Phases 4 and 5 converted. `docs/specs/assistant-tool-catalog.md`
+  is archived under `docs/specs/archive/` with a header pointing at `docs/tools/`, as specified.
+- **The evals are honest about their scope.** "The real pipeline" in impl §4.3 cannot mean
+  `DmAssistantService`: that needs a Discord client and a populated guild database, and faking either
+  would make the suite a test of the fake. What is real is everything below it — `AgentRunner`,
+  `OpenRouterLlmClient`, `ToolRegistry`, `DmAgentToolProvider`, the shipped `IAgentTool`s over a
+  throwaway SQLite database, and the shipped skill files. Twelve cases: eight on the memory tools
+  (including one that asserts *no* tool was called, because a model that reaches for one on every
+  question costs a round trip per question) and four on whether skills load when they should and stay
+  out of the way when they should not — which is the open empirical question §7 names.
+
 ---
 
 ## 6. Sequencing
 
 | PR | Phase | Content | Risk |
 | --- | --- | --- | --- |
-| 1 | — | F13 doc path containment (impl §1.3) | low — ships immediately, alone |
+| 1 | — | F13 doc path containment (impl §1.3) | **still open** — low; ships alone, and is now the only unshipped item |
 | 2 | 0 | Delete `IDocumentationToolService`; split `DTOs/LLM`; decouple `FeatureRequestConversationState` | low |
 | 3 | 1 | **The extraction** — pure move | medium — large diff, zero logic |
 | 4 | 2 | Result cap + timeout + duplicate guard | low |
@@ -499,7 +548,7 @@ tools, not the library's — it is asserting house conventions, which are an app
 | 10 | 3 | Caller access | low — blocks write tools until done |
 | 11 | 4 | `IAgentTool` + helpers + one conversion | medium |
 | 12 | 5 | Skills | **done** — high risk as predicted; see §5.4a |
-| 13 | 6 | Report, specs, contract test, evals | low |
+| 13 | 6 | Report, specs, contract test, evals | **done** — see §5.5a |
 
 Phases 2 and 3 can overlap once PR 3 lands; 4 and 5 should not start until 2 is finished, because
 both build on the loop.

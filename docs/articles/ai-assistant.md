@@ -192,8 +192,26 @@ If you ask about private data, the assistant will politely decline and suggest c
   **including the ones that were never called** — "which of my tools has never been used" is the
   first question worth answering, and only the zeroes answer it.
 
+- **Prompt Surface:** What every question on this server pays for before it is read. The tool array
+  serializes at the top of each request, so a tool costs its schema whether or not the question
+  needs it. The panel shows the tools sent, the schema size in characters, an estimated token count
+  (characters ÷ 4), the characters held back, and then a per-tool table with each tool's share of
+  the prefix — marking the tools this server has turned off and the ones a skill is holding back,
+  since neither is in the request.
+
+  It measures what the surface *advertises*, not everything registered: a tool behind an unloaded
+  skill is callable once the skill loads and is not billed for until then. The same numbers are
+  logged once per surface at startup, so a change in the tool array is visible at deploy time rather
+  than on the bill.
+
+  Read it against the Tool Usage table above it. A tool that is 15% of every request and was called
+  twice in a month belongs behind a skill or turned off — and that is a decision with a number
+  attached.
+
 **Use Cases:**
 - Monitor usage trends
+- Decide whether a tool earns its place in every request, by comparing its share of the prefix with
+  how often it is actually called
 - Retire or re-enable tools based on what the assistant actually reaches for
 - Track API costs against budget
 - Identify peak usage periods
@@ -556,6 +574,23 @@ when a provider is still the right shape, in
   Administrator); in DMs, which are owner-only, it is always true. A tool authored as `IAgentTool`
   declares `Mutation` and `AgentToolProvider` applies the check before entering it; the remaining
   hand-written providers check it themselves.
+
+**Tool Specifications:**
+- One page per tool in [`docs/tools/`](../tools/README.md): purpose, dependencies, the exact
+  model-facing description, an input table, and every result shape — success and each expected
+  failure. Written when a tool is touched rather than all at once, so the pages that exist are the
+  ones that are true
+- `ToolContractTests` asserts the house rules over every registered tool: name shape and uniqueness,
+  a description between 40 and 600 characters, a well-formed object schema with every property
+  described, a `ToolCatalog` entry, a mutation refused when the caller may not write, and a missing
+  argument reported through `ToolResults` so `ToolOutcomes.Classify` counts it
+
+**Prompt Surface:**
+- `PromptSurface.Measure` puts a character and token count on what a surface advertises, measured
+  through the real wire serialization. One Information line per surface at startup, and a per-tool
+  panel on each guild's Assistant Metrics page
+- It counts the skill-aware advertised set, not everything the registry holds: a tool behind an
+  unloaded skill is not in the request and is not billed for
 
 **Tool Telemetry:**
 - Every tool call emits an `agent.tool {name}` span on the `DiscordBot.Agents` source, tagged with

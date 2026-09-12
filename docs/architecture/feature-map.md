@@ -723,6 +723,26 @@ breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-p
 
 ---
 
+### Agent Tool Discipline
+
+What keeps the assistant's tool array honest and affordable: a measurement of what it costs, a
+specification per tool, a contract test over every registered tool, and an eval suite that asks
+whether the model actually uses them well. Design in
+`docs/specs/agent-tooling-implementation.md` (§3.3, §4.1–§4.3).
+
+| Aspect | Components |
+|--------|------------|
+| **Prompt-surface measurement** | `PromptSurface` / `PromptSurfaceMeasurement` / `PromptSurfaceTool` (`DiscordBot.Agents`) — per-tool characters through the real wire serialization (`OpenRouterMessageMapper` + `OpenRouterJson.Options`), the array total, and tokens as characters ÷ 4 |
+| **Reporter** | `IPromptSurfaceReporter` (`Infrastructure/Abstractions/LLM`) / `PromptSurfaceReporter` (`Infrastructure/Services/LLM`) — rebuilds a surface as a run sees it (allow-list decorator, skill session, `SkillToolSet.Compose`), so it counts the per-request prefix rather than everything the registry holds. Registered ungated; returns null when no API key is configured |
+| **Startup report** | `PromptSurfaceReportService` (`Bot/Services/LLM`) — one Information line per surface: tools advertised of tools registered, schema characters, estimated tokens, characters held back by skills, and the three largest tools |
+| **Web page** | `/guild/{guildId}/assistant-metrics` gains a **Prompt Surface** panel: four summary tiles and a per-tool table with each tool's share of the prefix, marking the ones this guild turned off and the ones a skill is holding back |
+| **Per-tool specs** | `docs/tools/<tool_name>.md` — status, surfaces, purpose, dependencies, the verbatim model-facing description, an input table, and every result shape with its `failed_result` marker. Template and index in [`docs/tools/README.md`](../tools/README.md). Written when a tool is touched; the original `assistant-tool-catalog.md` is archived under `docs/specs/archive/` |
+| **Contract test** | `ToolContractTests` (`tests/DiscordBot.Tests/Services/LLM/`) over every registered tool, found by reflection (`TestHelpers/RegisteredAgentTools`): name shape and uniqueness, description length, object schema with described properties and resolvable `required` names, a `ToolCatalog` entry both ways, the `Mutation` refusal through the real `AgentToolProvider`, and a missing argument classified `failed_result`. `SkillContractTests` checks every skill file's named tools resolve on its own surface |
+| **Evals** | `tests/DiscordBot.Evals` — a dozen cases through the real loop, the real OpenRouter client and the real tools over throwaway SQLite. Asserts only machine-checkable facts (which tools were called, which skills activated, what rows exist), never what the reply says. Skipped when `OpenRouter:ApiKey` is absent, so CI stays free and green |
+| **Key Rule** | Every count is of what a surface **advertises** — the skill-aware set — not of `IToolRegistry.GetEnabledTools()`. A tool behind an unloaded skill is registered, callable once the skill loads, and not in the prefix now |
+
+---
+
 ### Background Services
 
 Long-running background tasks for maintenance and scheduled operations.

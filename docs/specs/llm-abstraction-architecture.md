@@ -1075,6 +1075,6 @@ public class MockToolProvider : IToolProvider
 
 ## References
 
-- [assistant-tool-catalog.md](assistant-tool-catalog.md) - Complete tool definitions and implementation phases
+- [docs/tools/](../tools/README.md) - Per-tool specifications (the original catalog is archived at [specs/archive/assistant-tool-catalog.md](archive/assistant-tool-catalog.md))
 - [assistant-requirements.md](../requirements/assistant-requirements.md) - Feature requirements and decisions
 - [assistant-implementation-plan.md](../requirements/assistant-implementation-plan.md) - Implementation phases and file manifest

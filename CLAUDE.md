@@ -23,6 +23,7 @@ Solution layout (clean architecture, dependencies point inward):
 | `src/DiscordBot.Bot` | Everything hosted: Discord command modules, bot services, Razor Pages, controllers, SignalR hubs, DI registration in `Extensions/*ServiceExtensions.cs`, `Program.cs`. |
 | `src/DiscordBot.DocGen` | Small CLI that runs the feature-request document generator against the database. Rarely touched. |
 | `tests/DiscordBot.Tests` | One xUnit project mirroring `src/`. Moq, FluentAssertions. |
+| `tests/DiscordBot.Evals` | Assistant evals: a dozen cases through the real agent loop against a real model. Every test skips itself when `OpenRouter:ApiKey` is absent, so a normal `dotnet test` runs them as skips and costs nothing. |
 
 A new service goes: interface in Core, implementation in Bot or Infrastructure,
 registration in the matching `*ServiceExtensions.cs`. Follow that split so Core
@@ -38,6 +39,11 @@ belongs in `DiscordBot.Agents`. See `docs/architecture/patterns.md` § Agent Too
 A new **skill** — instructions for a rare, heavy tool group, kept out of every request until the
 model loads it — is one markdown file in `docs/agents/skills/<surface>/` and nothing else: no
 catalogue entry, no DI, no code. See `docs/architecture/patterns.md` § Agent Skills.
+
+A new tool also gets a page in `docs/tools/` (template in that directory's README) and is held to
+the house rules by `ToolContractTests` — name shape, description length, schema shape, a catalogue
+entry, the mutation refusal, and failures that `ToolOutcomes.Classify` can count. Adding a house rule
+about tools means adding it there, not to a checklist.
 An assistant abstraction whose signature is made of engine types (`IAssistantContext`,
 `IAssistantMessagePipeline`, the context factories) lives in
 `Infrastructure/Abstractions/LLM/` rather than Core, because Core cannot see the engine.
@@ -66,8 +72,9 @@ Feature-level docs are in `docs/articles/` (indexed in `docs/index.md` and
 
 ```bash
 dotnet build DiscordBot.sln                 # ~1.5 min cold, seconds warm
-dotnet test DiscordBot.sln                  # ~3,600 tests, ~1 min
+dotnet test DiscordBot.sln                  # ~4,800 tests, ~1 min
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
+dotnet test tests/DiscordBot.Evals   # skips entirely without OpenRouter:ApiKey
 ```
 
 CI (`.github/workflows/ci.yml`) runs restore, build in Release, and the full test
