@@ -1,6 +1,6 @@
 # Blazor Port — UI Inventory (appendix)
 
-> **Status:** Survey, 2026-09-10
+> **Status:** Survey, 2026-09-10; post-survey delta added 2026-09-13 (see "Changes on `main` since the survey")
 > **Companion:** [`blazor-port-plan.md`](blazor-port-plan.md)
 
 This is the detailed survey behind the plan: every Razor Page, shared component, layout, JavaScript module, controller and hosting concern, with a proposed Blazor mapping for each. It was produced by reading the code on `main` at `2a43628` and is a point-in-time snapshot; `docs/architecture/ui-inventory.md` remains the maintained reference and will be rewritten when the port completes.
@@ -17,6 +17,63 @@ Sections:
 4. JavaScript: every file, classification A/B/C/D, SignalR surface, charts, audio
 5. Hosting, identity, authorization, SignalR, controllers, tests, Docker, and the constraints a Blazor design must satisfy
 6. Gotchas recorded by the earlier, unmerged migration branch
+
+---
+
+# Changes on `main` since the survey (rebased 2026-09-13)
+
+The tables in Parts 1–5 describe `main` at `2a43628`. The branch was rebased onto `5d33d4b` (71 commits later). This section lists what those commits added or changed in the surveyed surface; the plan's §2.1 carries the same list in short form and the phase tables absorb it. Nothing below touches hosting, layouts, SignalR groups/events, tokens or the Tailwind setup.
+
+## Pages
+
+| Page | Route | Model / policy | Handlers | Scripts | Notes | Complexity |
+| --- | --- | --- | --- | --- | --- | --- |
+| `Admin/Currency/Index` | `/Admin/Currency` | `PageModel`, `RequireSuperAdmin` | `OnGetAsync` | `currency/currency-manage.js`, `currency/currency-wallets.js` | Bot-wide currencies: create/edit/deactivate/mint-authority modals (8 modal references), `_Alert` ×2, `_EmptyState`, `_CurrencyWalletPanel` with no currency selected until `window.CurrencyWallets.setCurrency(id, symbol)` is called. All writes via `CurrenciesController`/`WalletsController`. | **M** |
+| `Admin/LlmUsage` | `/Admin/LlmUsage` | `PageModel`, `RequireAdmin` | `OnGetAsync` | `llm-usage.js` | Date-range/guild/mode filters, hero totals and by-user/model/mode/day breakdowns rendered server-side from `ILlmUsageRepository`; per-user drill-down of raw ledger rows fetched from `LlmUsageController`. No charts. | **M** |
+| `Guilds/Currency/Index` | `/Guilds/{guildId:long}/Currency` | `GuildPageModelBase`, `RequireAdmin` + `GuildAccess`, `_GuildLayout` | `OnGetAsync` | `currency/currency-manage.js` | Guild currencies as server-rendered cards (holder/circulation/debtor totals); create/edit/deactivate/mint-authority modals; `_TabPanel`, `_Alert` ×3, `_EmptyState`. | **M** |
+| `Guilds/Currency/Details` | `/Guilds/{guildId:long}/Currency/{currencyId:guid}` | `GuildPageModelBase`, `RequireModerator` + `GuildAccess`, `_GuildLayout` | `OnGetAsync` | `currency/currency-wallets.js`, `currency/currency-reconcile.js` | One currency's wallets and ledger via `_CurrencyWalletPanel`; what the viewer may do comes from `ICurrencyAccessService`; reconcile (cached balance vs ledger sum) for administrators. | **M** |
+| `Guilds/Currency/Prices` | `/Guilds/{guildId:long}/Currency/Prices` | `GuildPageModelBase`, `RequireAdmin` + `GuildAccess`, `_GuildLayout` | `OnGetAsync` | `currency/currency-prices.js` | Per-sound price rows, currency picker, exempt-role picker, read-only list of prices that are not this guild's sounds; rows keyed by `CurrencyFeatureKeys.Soundboard(soundId)` and the key is sent back untouched. `_TabPanel`, modals ×4. | **M** |
+
+Existing pages that changed: `Admin/Settings` (+214 lines: AI Models tab, lazily initialised by `llm-models.js` outside `#settingsForm`), `Guilds/AssistantSettings` (+52/+80: Tool Access checklist, `UsingDefaultToolSet` banner, per-guild tool list save), `Guilds/AssistantMetrics` (+280/+161: cost-by-user, tool-usage and prompt-surface tables, still no chart library), `Guilds/AudioModerationLog` (feature column now `_Badge` via `IndexModel.BuildFeatureBadge`; "Unknown" for `UserId == 0`), `Portal/Soundboard` (+25/+85: `.sound-price` badge, `price`/`currencySymbol` in the sound JSON, 402 handled in `portal-soundboard.js` as a warning toast and `payment_required` rejection), `Account/Login` (brand side panel removed, single centred card; ~140 lines of `.login-brand-*` CSS deleted from `site.css`), `Landing` (OpenRouter tile replaces the Claude tile), `Account/Privacy` (copy).
+
+## Shared components
+
+- **New:** `_CurrencyWalletPanel.cshtml` (`CurrencyWalletPanelViewModel`: `CanMint`, `CanFine`, `CanAdminister`, plus the currency identity) — holder list, ledger with paging, mint/fine/adjust modal. Static markup filled entirely by `currency-wallets.js`; 4 modal references. Consumed by `Admin/Currency` and `Guilds/Currency/Details`. Blazor mapping: one `CurrencyWalletPanel` widget owning its own paging state and calling the wallet/ledger services, with `Modal` for the action dialog; lands with plan cluster 4h.
+- **Changed:** `_Badge` gained `IsPill` (`badge-pill`, already in `site.css`) — mirrored in `Blazor/Shared/Primitives/Badge.razor`. `_FormSelect` now HTML-encodes `AdditionalAttributes` values — no Blazor action, attribute splatting encodes.
+- **Changed:** `_Sidebar` gained "LLM Usage" (`/Admin/LlmUsage`, Admin) and "Currency" (`/Admin/Currency`, inside the existing `RequireSuperAdmin` block) entries.
+
+## JavaScript
+
+| File | Lines | What | Loaded by | Endpoints | Class |
+| --- | --- | --- | --- | --- | --- |
+| `currency/currency-manage.js` | 321 | Currency create/edit form, deactivate, mint-authority list | `Admin/Currency`, `Guilds/Currency/Index` | `api/guilds/{g}/currencies`, `api/currencies/{id}`, `/deactivate`, `/mint-authorities[/{userId}]` | **A** |
+| `currency/currency-wallets.js` | 420 | Holder list, ledger paging, mint/fine/adjust behind `_CurrencyWalletPanel`; `window.CurrencyWallets.setCurrency` | `Admin/Currency`, `Guilds/Currency/Details` | `api/currencies/{id}/wallets?debtorsOnly=`, `api/wallets/{id}/ledger?page=&pageSize=`, `api/currencies/{id}/mint`, `/fine`, `api/ledger/{id}/adjust` | **A** |
+| `currency/currency-prices.js` | 251 | Price rows, exempt roles, search/filter | `Guilds/Currency/Prices` | `api/guilds/{g}/prices/{key}` | **A** |
+| `currency/currency-reconcile.js` | 70 | Cached-balance vs ledger-sum check | `Guilds/Currency/Details` | `api/currencies/{id}/reconcile` | **A** |
+| `llm-models.js` | 679 | AI Models tab: OpenRouter catalog with search/vendor filter/sort, allowlist toggles, refresh, per-mode default selects with price/context detail; lazy init hooked into `window.settingsManager.switchTab` | `Admin/Settings` | `api/admin/llm-models` (4 endpoints) | **A** |
+| `llm-usage.js` | 155 | Per-user ledger drill-down (paged fetch, render rows) | `Admin/LlmUsage` | `api/admin/llm-usage/records?…` | **A** |
+
+`voice-channel-panel.js` (class A, already ported as `VoiceChannelPanel`) changed behaviour: after a successful leave it calls `applyDisconnectedState()` instead of waiting for `AudioDisconnected`; the Blazor widget does the same. `settings.js` and `portal-soundboard.js` had small edits (tab hook, price badge/402) noted above. No SignalR, Chart.js or audio changes.
+
+Totals move from 71 files / 29,656 lines to 77 files / 31,552 lines; the class A count from 27 to 33.
+
+## Controllers
+
+| Controller | Route | Endpoints | Consumers | Class |
+| --- | --- | --- | --- | --- |
+| `CurrenciesController` (`CurrencyControllerBase`) | `api/guilds/{guildId}/currencies`, `api/currencies/{id}` (+ `/deactivate`, `/mint-authorities`, `/reconcile`), `api/admin/currencies` | 10 | `currency-manage.js`, `currency-wallets.js`, `currency-reconcile.js` | **P** today; the only ledger write path and the home of the `ICurrencyAccessService` checks — decide X vs P at cluster 4h |
+| `WalletsController` (`CurrencyControllerBase`) | `api/currencies/{id:guid}/wallets` (+ `api/wallets/{id}/ledger`, `api/ledger/{id}/adjust`) | 5 | `currency-wallets.js` | same |
+| `PricesController` | `api/guilds/{guildId}/prices` | 4 | `currency-prices.js` | same |
+| `LlmModelsController` | `api/admin/llm-models` | 4 | `llm-models.js` | **P** |
+| `LlmUsageController` | `api/admin/llm-usage` | 2 | `llm-usage.js` | **P** |
+
+Changed: `PortalSoundboardPlaybackController` returns 402 (`ApiErrorDto`) when the charge seam refuses a priced sound; `PortalTtsPlaybackController`/`PortalTtsSynthesisController` map `TtsUpstreamUnavailableException` to a 503 with `ErrorCode = "tts_upstream_unavailable"`. The Blazor portal pages surface both as toasts, not failures. Totals move from 36 concrete controllers to 41; P from 18 to 23.
+
+## Solution and CI
+
+- New projects: `src/DiscordBot.Agents` (agent engine extracted from the assistant: abstractions, contracts, tool registry, skills) and `tests/DiscordBot.Evals` (12 tests, skipped without an API key). Both were on `net8.0` when they landed and were moved to `net10.0` (with 10.0.12 `Microsoft.Extensions.*`/EF packages) in the rebase, so the Phase 0 upgrade still covers every project. `Dockerfile` already copied the Agents csproj.
+- `.github/workflows/ci.yml` gained `paths-ignore` for documentation-only changes; the E2E job introduced in Phase 1 sits under the same rule.
+- Test totals: `DiscordBot.Tests` 5,051 passed / 12 skipped (was 3,353 at the survey, 4,025 at the end of Phase 2).
 
 ---
 
