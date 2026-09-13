@@ -1,5 +1,7 @@
 using System.Text.Json;
+using System.Text.RegularExpressions;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Agents;
 using DiscordBot.Agents.Contracts;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Interfaces.LLM;
@@ -26,6 +28,19 @@ public class DocumentationToolProvider : IToolProvider
 
     /// <inheritdoc />
     public string Description => "Access bot documentation, command information, and feature guides";
+
+    /// <summary>
+    /// Every character an unmapped feature name is allowed to contain.
+    /// </summary>
+    /// <remarks>
+    /// A mapped name resolves to a constant from <see cref="FeatureDocumentationMap"/>; an unmapped
+    /// one becomes a file name directly, and it arrives from the model, whose input is a Discord
+    /// message from any user in any guild where the assistant is enabled. Refusing anything outside
+    /// this set stops a traversal before the name is ever turned into a path, rather than after -
+    /// which also means a separator, a dot or a null byte never reaches
+    /// <see cref="Path.GetFullPath(string)" />.
+    /// </remarks>
+    private static readonly Regex UnmappedFeatureName = new("^[a-z0-9][a-z0-9-]*$", RegexOptions.Compiled);
 
     // Feature name to documentation file mappings
     private static readonly Dictionary<string, string> FeatureDocumentationMap = new(StringComparer.OrdinalIgnoreCase)
@@ -155,28 +170,32 @@ public class DocumentationToolProvider : IToolProvider
 
         _logger.LogDebug("Getting documentation for feature: {FeatureName}", featureName);
 
-        // Map feature name to documentation file
+        // Map feature name to documentation file. A mapped name is a constant; an unmapped one is
+        // model input on its way to becoming a file name, so it is allow-listed before it is used.
         if (!FeatureDocumentationMap.TryGetValue(featureName, out var fileName))
         {
-            // Try with .md extension
-            fileName = $"{featureName}.md";
+            var unmapped = featureName.Trim().ToLowerInvariant();
+            if (!UnmappedFeatureName.IsMatch(unmapped))
+            {
+                _logger.LogWarning(
+                    "Refused documentation feature name outside the allow-list: {FeatureName}", featureName);
+                return DocumentationUnavailable(featureName);
+            }
+
+            fileName = $"{unmapped}.md";
         }
 
-        var docPath = Path.Combine(_assistantOptions.Value.Tools.DocumentationBasePath, fileName);
-
-        // Resolve path
-        var fullPath = Path.IsPathRooted(docPath)
-            ? docPath
-            : Path.Combine(Directory.GetCurrentDirectory(), docPath);
+        if (!TryResolveDocumentationPath(fileName, out var fullPath))
+        {
+            _logger.LogWarning(
+                "Refused documentation path outside the base directory for feature: {FeatureName}", featureName);
+            return DocumentationUnavailable(featureName);
+        }
 
         if (!File.Exists(fullPath))
         {
             _logger.LogWarning("Documentation file not found: {Path}", fullPath);
-            return CreateJsonResult(new
-            {
-                error = true,
-                message = $"Documentation for feature '{featureName}' not found. Available features can be listed using list_features tool."
-            });
+            return DocumentationUnavailable(featureName);
         }
 
         try
@@ -364,6 +383,66 @@ public class DocumentationToolProvider : IToolProvider
             total_count = features.Count
         });
     }
+
+    /// <summary>
+    /// Resolves <paramref name="fileName"/> against the configured documentation directory, refusing
+    /// anything that lands outside it.
+    /// </summary>
+    /// <param name="fileName">A documentation file name, mapped or allow-listed.</param>
+    /// <param name="fullPath">The resolved absolute path, when it is contained.</param>
+    /// <returns><c>true</c> when the resolved path is inside the base directory.</returns>
+    /// <remarks>
+    /// The second layer, behind <see cref="UnmappedFeatureName"/>: both paths are fully resolved and
+    /// compared, so a traversal cannot arrive through a mistaken
+    /// <see cref="FeatureDocumentationMap"/> entry either. It is ordinary containment and not a
+    /// filesystem audit - a symlink inside the base directory pointing out of it is still followed.
+    /// </remarks>
+    private bool TryResolveDocumentationPath(string fileName, out string fullPath)
+    {
+        fullPath = string.Empty;
+
+        try
+        {
+            // A relative base path resolves against the working directory, as it always has.
+            var baseDirectory = Path.TrimEndingDirectorySeparator(
+                Path.GetFullPath(_assistantOptions.Value.Tools.DocumentationBasePath));
+            var resolved = Path.GetFullPath(Path.Combine(baseDirectory, fileName));
+
+            if (!resolved.StartsWith(baseDirectory + Path.DirectorySeparatorChar, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            fullPath = resolved;
+            return true;
+        }
+        catch (Exception ex) when (ex is ArgumentException or NotSupportedException or PathTooLongException)
+        {
+            // A name the filesystem will not resolve at all - a null byte, a path past the length
+            // limit. Refused the same way, and for the same reason, as one that escapes the directory.
+            _logger.LogWarning(ex, "Documentation path could not be resolved: {FileName}", fileName);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// The one answer <c>get_feature_documentation</c> gives for a feature it will not read: absent,
+    /// outside the allow-list, or outside the base directory.
+    /// </summary>
+    /// <remarks>
+    /// Deliberately indistinguishable between those cases. A distinct "rejected" message would tell
+    /// whoever wrote the message behind the model's call that their probe was understood; the warning
+    /// that says so goes to the log instead, where the operator reads it and the prober does not.
+    /// Shaped so <see cref="ToolOutcomes.Classify"/> counts it - a top-level <c>error</c> string
+    /// beside the <c>available</c> flag the success payload carries.
+    /// </remarks>
+    /// <param name="featureName">The feature name as the model supplied it.</param>
+    private static ToolExecutionResult DocumentationUnavailable(string featureName) =>
+        ToolResults.Json(new
+        {
+            available = false,
+            error = $"Documentation for feature '{featureName}' not found. Available features can be listed using list_features tool."
+        });
 
     /// <summary>
     /// Gets the base URL for generating links.

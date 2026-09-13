@@ -232,6 +232,11 @@ it is the cheapest thing on this list to fix.
 directory, plus an `[a-z0-9-]` allow-list on the unmapped fallback. Return the same payload as
 not-found, so a probe learns nothing. Detail in the implementation spec §1.3.
 
+> **Fixed.** Shipped alone, as intended, as the last item of the groundwork overhaul rather than the
+> first — see [plans/agent-groundwork-overhaul.md §6a](./agent-groundwork-overhaul.md) for what
+> changed from the spec, and [docs/tools/get_feature_documentation.md](../tools/get_feature_documentation.md)
+> for the tool as it now behaves.
+
 ---
 
 ## 4. Proposed plan

@@ -795,6 +795,20 @@ Each of these is now something the shape does for you rather than something to r
 | Check `ToolContext.CanMutate` before writing | Declare `Mutation` — a phrase that follows "isn't allowed to", e.g. `"save notes"`. `AgentToolProvider` refuses the call with `ToolPermissions.MutationForbidden` **before entering the tool**, so a write cannot half-run. |
 | Report an expected failure so `ToolOutcomes.Classify` counts it | `ToolResults.Error` / `.NotFound` emit the top-level `error`/`found` keys the classifier reads. Using the helpers is the convention. |
 
+### Arguments are untrusted
+
+A tool argument arrives from the model, and the model's input is a Discord message from any user in
+any guild where the assistant is enabled. The prompt is not a control over that — it is advice to a
+component that can be talked to — so whatever an argument *selects* is validated in the tool: a file
+path, a row the caller may not own, a guild that is not this one.
+
+Refuse with the **same** payload a legitimate miss returns, and put the reason in a `Warning` log
+line. A distinct "rejected" answer tells whoever wrote the message behind the call that their probe
+was understood, which is the one thing a probe should not learn; the operator needs to know and the
+prober does not. `get_feature_documentation` is the worked example — an allow-list on the name before
+it becomes a file name, `Path.GetFullPath` containment behind it, one payload for absent and refused
+alike ([tool page](../tools/get_feature_documentation.md)).
+
 ### The helpers
 
 All in `DiscordBot.Agents`:

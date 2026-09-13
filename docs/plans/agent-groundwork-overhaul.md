@@ -10,10 +10,10 @@ as the detail.
 | [specs/agent-tooling-implementation.md](../specs/agent-tooling-implementation.md) | The code shape of each enhancement — option keys, interfaces, migrations, tests. Sections referenced below as *impl §x.y*. |
 | **This document** | The extraction, and the order the whole overhaul runs in. |
 
-**Status**: Every phase, 0 through 6, is implemented — see §4.3a and §5.1a for where the manifest
-and the spec needed correcting, §5.2a for what Phase 3 shipped, §5.3a for Phase 4, §5.4a for
-Phase 5, and §5.5a for Phase 6. **F13 (impl §1.3) has still not shipped**; it is the one piece of
-this plan that remains open, and it is still meant to go out as its own PR.
+**Status**: Complete. Every phase, 0 through 6, is implemented — see §4.3a and §5.1a for where the
+manifest and the spec needed correcting, §5.2a for what Phase 3 shipped, §5.3a for Phase 4, §5.4a for
+Phase 5, and §5.5a for Phase 6. **F13 (impl §1.3) has now shipped too**, on its own as intended — see
+§6a. Nothing in this plan remains open.
 
 ---
 
@@ -36,7 +36,9 @@ overhaul, and the difference is worth stating rather than quietly reversing:
 
 One thing does not wait: **F13, the documentation path-traversal fix, ships first and alone**
 (impl §1.3). It is a security fix in a tool provider, untouched by any of this, and it should not
-sit behind a refactor.
+sit behind a refactor. In the event it shipped last rather than first — the rest of the overhaul ran
+ahead of it — but still alone, and the reasoning held either way: the diff touches one method and one
+provider, and nothing in Phases 0–6 moved it. See §6a.
 
 A correction to the earlier framing while sequencing this: I described `ILlmUsageRecorder`'s
 dependency on the `LlmUsageRecord` entity as an extraction blocker. It is not — that interface is
@@ -536,7 +538,7 @@ Done, all four sections in one PR as §6 sequenced it.
 
 | PR | Phase | Content | Risk |
 | --- | --- | --- | --- |
-| 1 | — | F13 doc path containment (impl §1.3) | **still open** — low; ships alone, and is now the only unshipped item |
+| 1 | — | F13 doc path containment (impl §1.3) | **done** — shipped last rather than first, still alone; see §6a |
 | 2 | 0 | Delete `IDocumentationToolService`; split `DTOs/LLM`; decouple `FeatureRequestConversationState` | low |
 | 3 | 1 | **The extraction** — pure move | medium — large diff, zero logic |
 | 4 | 2 | Result cap + timeout + duplicate guard | low |
@@ -552,6 +554,38 @@ Done, all four sections in one PR as §6 sequenced it.
 
 Phases 2 and 3 can overlap once PR 3 lands; 4 and 5 should not start until 2 is finished, because
 both build on the loop.
+
+### 6a What F13 shipped
+
+Done, alone, as the last item rather than the first. Two layers in
+`DocumentationToolProvider.ExecuteGetFeatureDocumentationAsync`, a tool page, and a test class of
+fifty-one cases; no option, no schema and no prompt change, so no prompt-cache write.
+
+- **The allow-list is the layer that does the work, and the containment check is the one that keeps
+  doing it.** impl §1.3 asks for both and is right to: an unmapped `feature_name` is matched against
+  `^[a-z0-9][a-z0-9-]*$` before it becomes a file name, which refuses every traversal the *model* can
+  send before `Path.GetFullPath` ever sees it — and resolve-and-verify then still stands behind it,
+  for the day someone writes a `FeatureDocumentationMap` entry wrongly. Each is cheap; only together
+  are they a containment argument that survives an edit to the table.
+- **The refusal payload is the not-found payload, and that cost a shape change the spec did not
+  anticipate.** §1.3 shows the existing `{ "error": true, "message": … }`, which was written before
+  `ToolOutcomes.Classify` existed and which the classifier reads as a *success* — `error` has to be a
+  string, or a `success`/`available`/`found` flag has to be false. A rejection invisible on the
+  metrics page is most of the value of rejecting it, so the one unavailable payload is now
+  `{ "available": false, "error": "…" }` — `available` mirroring the flag the success payload already
+  carries — built through `ToolResults.Json`. Identical for all three causes: absent, outside the
+  allow-list, outside the base directory. What distinguishes them is a `Warning` log line, which the
+  operator reads and the prober does not.
+- **The positive case the spec names is the wrong half of the test.** §1.3 asks that `welcome-system`
+  still resolve; it is a *mapped* name, so it never reaches the allow-list. The test asserts both it
+  and `authorization-policies`, which is unmapped, real, and therefore the case that proves the
+  fallback still works rather than merely that the map does.
+- **The test file is written to fail loudly if the fix is reverted.** It plants a real readable file
+  one directory above the configured base path and asserts it exists before each probe — without that
+  guard an unreachable file and a missing one give the same answer, which is the whole point of the
+  payload design and would otherwise make the suite pass vacuously. Fifteen escape shapes (`../`,
+  backslashes, rooted paths, a null byte, `.`, `~/`) times three assertions: the payload is the
+  unavailable one, it is byte-identical to a plain miss, and `ToolOutcomes.Classify` counts it.
 
 ---
 

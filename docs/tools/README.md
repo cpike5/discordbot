@@ -18,8 +18,9 @@ which described a design rather than what shipped.
 | [`list_notes`](./list_notes.md) | DM | no |
 | [`delete_note`](./delete_note.md) | DM | yes |
 | [`load_skill`](./load_skill.md) | Guild, DM | no |
+| [`get_feature_documentation`](./get_feature_documentation.md) | Guild, DM | no |
 
-The other 23 tools are still the hand-written `IToolProvider` kind and have no page yet.
+The other 22 tools are still the hand-written `IToolProvider` kind and have no page yet.
 
 ## When to write one
 
@@ -27,8 +28,9 @@ The other 23 tools are still the hand-written `IToolProvider` kind and have no p
 reads and nobody keeps true; a page written while changing the thing it describes is accurate for
 the same reason the change is. Backfill the ones being changed, and write one for every new tool.
 
-The set above is the tools converted to `IAgentTool` in Phases 4 and 5 — the ones most recently
-touched, which is the rule applied to itself.
+The set above is the tools converted to `IAgentTool` in Phases 4 and 5, plus
+`get_feature_documentation`, which is still a hand-written provider tool and got its page when the
+path-containment fix (F13) touched it. Being converted is not what earns a page; being changed is.
 
 ## The template
 
