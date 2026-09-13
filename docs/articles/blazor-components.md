@@ -435,8 +435,7 @@ deviation" note in the header of every component that previously rendered the dr
 | `Microphone` | Tier 5's v2 microphone (`PresetBar`, `ModeSwitcher`) | Tier 4's v1 microphone (`VoiceChannelPanel`) |
 | `Pause` | Tier 4's bars-only fragment of the real Heroicons v1 `pause-circle` (`ActivityFeed`) | Tier 5's non-canonical coordinates (`EmphasisToolbar`) — matched no published Heroicons revision |
 
-**Test count.** `tests/DiscordBot.ComponentTests` (bUnit) covers this library at 566 tests as of
-the end of Phase 2, including the two `IconPathsUsageGuardTests` regression guards (a static sweep
+**Test count.** `tests/DiscordBot.ComponentTests` (bUnit) covers this library at 595 tests as of 2026-09-13 (566 at the end of Phase 2), including the two `IconPathsUsageGuardTests` regression guards (a static sweep
 of every `.razor` file for an unguarded `IconPaths.X` literal, and a dynamic render sweep of the
 six showcase sections) and `ComponentsPageTests` for the `/components` route itself.
 `tests/DiscordBot.E2E` adds one Playwright test exercising `/components`'s toast and confirm-modal

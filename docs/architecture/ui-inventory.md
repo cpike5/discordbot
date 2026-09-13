@@ -298,7 +298,7 @@ are ported in Phase 4 — until then both the partial and its Blazor equivalent 
 
 Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Blazor/Shared/`
 (mirroring this same group structure); the full library plus the `/components` showcase page is
-566 tests as of the end of Phase 2 (`docs/articles/testing-guide.md` "Component (bUnit) tests").
+595 tests as of 2026-09-13 (566 at the end of Phase 2) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
 
 ---
 

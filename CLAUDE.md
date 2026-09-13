@@ -9,7 +9,8 @@ A Discord bot with an admin web portal, in one .NET 10 process. The bot side is
 Discord.NET slash commands, voice/audio (soundboard, TTS, VOX clips), moderation,
 reminders, scheduled messages, and an LLM-backed assistant. The web side is
 ASP.NET Core Razor Pages plus REST controllers, styled with Tailwind, with
-plain per-page JavaScript modules in `wwwroot/js/` and SignalR for live updates. Storage is EF Core
+plain per-page JavaScript modules in `wwwroot/js/` and SignalR for live updates;
+it is being ported page by page to a Blazor Web App under `Blazor/` (see Gotchas). Storage is EF Core
 on SQLite by default or PostgreSQL. Auth is ASP.NET Identity plus Discord OAuth.
 Observability is Serilog and OpenTelemetry. It ships as a GHCR Docker image.
 
@@ -23,6 +24,8 @@ Solution layout (clean architecture, dependencies point inward):
 | `src/DiscordBot.Bot` | Everything hosted: Discord command modules, bot services, Razor Pages, controllers, SignalR hubs, DI registration in `Extensions/*ServiceExtensions.cs`, `Program.cs`. |
 | `src/DiscordBot.DocGen` | Small CLI that runs the feature-request document generator against the database. Rarely touched. |
 | `tests/DiscordBot.Tests` | One xUnit project mirroring `src/`. Moq, FluentAssertions. |
+| `tests/DiscordBot.ComponentTests` | bUnit tests for the `Blazor/` tree, one class per component. |
+| `tests/DiscordBot.E2E` | Playwright browser tests against the real host in web-only mode; skipped unless `E2E_ENABLED=1`. |
 | `tests/DiscordBot.Evals` | Assistant evals: a dozen cases through the real agent loop against a real model. Every test skips itself when `OpenRouter:ApiKey` is absent, so a normal `dotnet test` runs them as skips and costs nothing. |
 
 A new service goes: interface in Core, implementation in Bot or Infrastructure,
@@ -72,7 +75,7 @@ Feature-level docs are in `docs/articles/` (indexed in `docs/index.md` and
 
 ```bash
 dotnet build DiscordBot.sln                 # ~1.5 min cold, seconds warm
-dotnet test DiscordBot.sln                  # ~4,800 tests, ~1 min
+dotnet test DiscordBot.sln                  # ~5,000 unit + ~600 bUnit tests, ~1.5 min
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 dotnet test tests/DiscordBot.Evals   # skips entirely without OpenRouter:ApiKey
 ```
