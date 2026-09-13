@@ -31,6 +31,8 @@
     [Parameter] public BadgeSize Size { get; set; } = BadgeSize.Medium;
     [Parameter] public BadgeStyle Style { get; set; } = BadgeStyle.Filled;
     [Parameter] public string? IconLeft { get; set; }
+    /// <summary>Renders the badge with a fully rounded (pill) border radius.</summary>
+    [Parameter] public bool IsPill { get; set; }
     [Parameter] public bool IsRemovable { get; set; }
     [Parameter] public EventCallback OnRemove { get; set; }
     [Parameter] public string? Class { get; set; }
@@ -55,7 +57,9 @@
 
     private string StyleClass => Style switch { BadgeStyle.Outline => "badge-outline", BadgeStyle.Subtle => "badge-subtle", _ => "" };
 
-    private string ClassNames => string.Join(" ", new[] { "badge", VariantClass, StyleClass, SizeClass, Class }
+    private string PillClass => IsPill ? "badge-pill" : "";
+
+    private string ClassNames => string.Join(" ", new[] { "badge", VariantClass, StyleClass, SizeClass, PillClass, Class }
         .Where(c => !string.IsNullOrEmpty(c)));
 
     private Task HandleRemove() => OnRemove.HasDelegate ? OnRemove.InvokeAsync() : Task.CompletedTask;

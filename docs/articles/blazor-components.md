@@ -263,7 +263,7 @@ icon-constants class.
 | Component | From partial(s) | Key parameters |
 | --- | --- | --- |
 | `Button` | `_Button` / `ButtonViewModel` | `Text`, `ChildContent`, `Variant` (`ButtonVariant`), `Size` (`ButtonSize`), `Type`, `IconLeft`/`IconRight`, `IsDisabled`, `IsLoading` + `LoadingText`, `IsIconOnly` + `AriaLabel`, `OnClick`, `Href`, `Class`, `AdditionalAttributes` |
-| `Badge` | `_Badge` / `BadgeViewModel` | `Text`, `ChildContent`, `Variant` (`BadgeVariant`), `Size` (`BadgeSize`), `Style` (`BadgeStyle`), `IconLeft`, `IsRemovable` + `OnRemove`, `Class`, `AdditionalAttributes` |
+| `Badge` | `_Badge` / `BadgeViewModel` | `Text`, `ChildContent`, `Variant` (`BadgeVariant`), `Size` (`BadgeSize`), `Style` (`BadgeStyle`), `IconLeft`, `IsPill`, `IsRemovable` + `OnRemove`, `Class`, `AdditionalAttributes` |
 | `Alert` | `_Alert` / `AlertViewModel` | `Variant` (`AlertVariant`), `Title`, `Message`/`ChildContent`, `IsDismissible`, `ShowIcon`, `OnDismiss`, `Class`, `AdditionalAttributes` |
 | `Card` | `_Card` + `_EnhancedCard` / `CardViewModel` + `EnhancedCardViewModel` | `Title`, `Subtitle`, `HeaderContent`, `HeaderActions`, `ChildContent`, `FooterContent`, `Variant` (`CardVariant`, plain-card path only), `Accent` (`CardAccent`), `HoverLift`, `CompactPadding`, `IsInteractive` + `OnClick`, `IsCollapsible` + `IsExpanded`/`IsExpandedChanged`, `Id`, `Class`, `AdditionalAttributes` |
 | `Skeleton` | `_Skeleton` / `SkeletonViewModel` | `Type` (`SkeletonType`), `Width`, `Height`, `Rounded`, `Animate`, `Class`, `AdditionalAttributes` |

@@ -83,6 +83,27 @@ public class VoiceChannelPanelTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void LeaveButton_OnSuccess_AppliesDisconnectedState_WithoutWaitingForEvent()
+    {
+        _audioStatusService
+            .Setup(s => s.GetCurrentAudioStatus(ParsedGuildId, null, null))
+            .Returns(new AudioStatusDto { GuildId = ParsedGuildId, IsConnected = true, ChannelId = 42, ChannelName = "General" });
+        _audioService.Setup(s => s.LeaveChannelAsync(ParsedGuildId, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var cut = Render<VoiceChannelPanel>(p => p.Add(x => x.GuildId, GuildId));
+        cut.Find(".voice-panel-mobile-status").ClassList.Should().Contain("connected");
+
+        // No AudioDisconnectedEvent is published: the panel must reset itself after the leave call
+        // succeeds (mirrors applyDisconnectedState() in voice-channel-panel.js).
+        cut.Find("#leave-channel-btn").Click();
+
+        var status = cut.Find(".voice-panel-mobile-status");
+        status.ClassList.Should().Contain("disconnected");
+        status.TextContent.Trim().Should().Be("Disconnected");
+        cut.Markup.Should().NotContain("members)", "the connected-channel line is hidden once disconnected");
+    }
+
+    [Fact]
     public void SkipButton_RemovesFromQueue_AndRaisesOnSkipped()
     {
         _playbackService.Setup(s => s.RemoveFromQueueAsync(ParsedGuildId, 1, It.IsAny<CancellationToken>())).ReturnsAsync(true);

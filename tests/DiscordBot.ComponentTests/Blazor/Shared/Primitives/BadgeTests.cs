@@ -34,6 +34,20 @@ public class BadgeTests : BlazorComponentTestContext
         cut.Find("span").ClassList.Should().Contain(expectedClass);
     }
 
+    [Fact]
+    public void IsPill_AppliesPillClass()
+    {
+        var cut = Render<Badge>(p => p.Add(x => x.Text, "x").Add(x => x.IsPill, true));
+        cut.Find("span").ClassList.Should().Contain("badge-pill");
+    }
+
+    [Fact]
+    public void IsPill_False_OmitsPillClass()
+    {
+        var cut = Render<Badge>(p => p.Add(x => x.Text, "x"));
+        cut.Find("span").ClassList.Should().NotContain("badge-pill");
+    }
+
     [Theory]
     [InlineData(BadgeSize.Small, "badge-sm")]
     [InlineData(BadgeSize.Large, "badge-lg")]

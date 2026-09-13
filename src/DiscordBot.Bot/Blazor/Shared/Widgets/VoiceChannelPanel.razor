@@ -259,14 +259,7 @@ else
 
         _disconnectedSub = EventBus.Subscribe<AudioDisconnectedEvent>(_guildId, (_, _) =>
         {
-            Debounced(() =>
-            {
-                IsConnected = false;
-                ConnectedChannelId = null;
-                ConnectedChannelName = null;
-                ChannelMemberCount = null;
-                NowPlaying = null;
-            });
+            Debounced(ApplyDisconnectedState);
             return Task.CompletedTask;
         });
 
@@ -358,11 +351,32 @@ else
     {
         await PlaybackService.StopAsync(_guildId);
         var left = await AudioService.LeaveChannelAsync(_guildId);
-        if (left && OnLeft.HasDelegate)
+        if (left)
         {
-            await OnLeft.InvokeAsync();
+            // The server has left the channel. Apply the disconnected state now rather than
+            // relying only on AudioDisconnectedEvent, which can be missed (the event raced with
+            // this call, or the bus delivered it before the subscription was set up) and would
+            // leave the panel showing the bot as still connected. Mirrors voice-channel-panel.js.
+            ApplyDisconnectedState();
+            if (OnLeft.HasDelegate)
+            {
+                await OnLeft.InvokeAsync();
+            }
         }
     });
+
+    /// <summary>
+    /// Resets the panel to the disconnected state. Idempotent: called from AudioDisconnectedEvent
+    /// and directly after a successful leave.
+    /// </summary>
+    private void ApplyDisconnectedState()
+    {
+        IsConnected = false;
+        ConnectedChannelId = null;
+        ConnectedChannelName = null;
+        ChannelMemberCount = null;
+        NowPlaying = null;
+    }
 
     private Task StopAsync() => RunBusyAsync(async () =>
     {
