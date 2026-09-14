@@ -955,7 +955,10 @@ public sealed class BrowserTests
         // "No usage data yet" - see AssistantMetrics.razor.cs's class remarks.
         await page.GotoAsync($"/Guilds/AssistantMetrics/{guildId}");
         await Expect(page.Locator("h1")).ToHaveTextAsync("E2E Cluster Guild");
-        await Expect(page.GetByText("The assistant is not configured on this deployment")).ToBeVisibleAsync();
+        // Exact match: the Prompt Surface panel further down this same page also renders text
+        // starting with this same sentence ("...on this deployment, so there is no tool array to
+        // measure."), so a substring match resolves to two elements.
+        await Expect(page.GetByText("The assistant is not configured on this deployment", new PageGetByTextOptions { Exact = true })).ToBeVisibleAsync();
 
         // AudioModerationLog - same "no matching tab" case as AssistantMetrics.
         await page.GotoAsync($"/Guilds/AudioModerationLog/{guildId}");
