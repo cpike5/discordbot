@@ -22,43 +22,51 @@ save, or a pause/resume toggle, or both) and then **deleted, all within the same
 - i.e. without an intervening full page navigation. A single toggle followed by delete, or a
 delete with no prior update in that circuit, does not trigger it.
 
-**Cause (best understanding, not fully root-caused).** `ScheduledMessageService.UpdateAsync` and
-`DeleteAsync` both call `IScheduledMessageRepository.GetByIdAsync`, which - unlike the generic
-`Repository<T>.GetByIdAsync` (`DbSet.FindAsync`, which checks the local change tracker first) - is
-an override using a plain tracked query: `DbSet.Include(s => s.Guild).FirstOrDefaultAsync(...)`.
-`Repository<T>.UpdateAsync` then calls `DbSet.Update(entity)` before `SaveChangesAsync` - on an
-entity already tracked from that same fetch, which re-walks and re-attaches the whole reachable
-graph (`ScheduledMessage` + its `Guild` navigation) rather than being the no-op it would be for an
-entity whose properties were merely mutated in place. A **Razor Page's own `BotDbContext` lives
-for exactly one HTTP request**, so this pattern (fetch, mutate, `Update()`, save) never had a
-second chance to collide with itself - every action got a fresh, empty change tracker. A **Blazor
-Server circuit's DI scope, and therefore its `BotDbContext`, lives for the whole circuit** (every
-interaction on a page, and on every other page navigated to via client-side enhanced navigation
-without a full reload, shares one scope) - so a second `GetByIdAsync` + `Update()` cycle for the
-same entity, later in the same circuit, is operating against a change tracker that already has an
-entry for that key. The full mechanism (identity resolution normally reuses an already-tracked
-instance for a matching key in a plain tracked query - see EF Core's docs - so this needs the
-`Include`d `Guild` graph-attach, or a subtler queued-SaveChanges interaction, to actually explain
-the "already tracked" specifically for the outer `ScheduledMessage`) wasn't fully nailed down
-before time ran out on this PR; treat the explanation above as the leading hypothesis, not a
-confirmed root cause.
+**Cause (confirmed, with a correction to the original hypothesis).** An earlier version of this
+note guessed `ScheduledMessageRepository.GetByIdAsync` used a *tracked* query and that identity
+resolution alone should have deduplicated repeat fetches. That was wrong on both counts, and was
+never checked against a real repro before time ran out on the PR that introduced it. The actual
+mechanism, confirmed by a real SQLite-in-memory repro
+(`tests/DiscordBot.Tests/Services/ScheduledMessageRepeatedUpdateTrackingTests.cs`) going through
+the real `ScheduledMessageRepository`/`ScheduledMessageService`, not mocks:
 
-**Workaround taken here.** `tests/DiscordBot.E2E/BrowserTests.cs`'s
-`Test_W_ScheduledMessages_CreateListEditDelete_RoundTrip` does a real page load
-(`page.GotoAsync` - a fresh circuit, fresh `DbContext`) between the toggle steps and Delete, rather
-than deleting straight off the same circuit the toggle just used. This is also a more realistic
-user flow (most people navigate or refresh between distinct admin actions rather than rapid-firing
-several in one continuous session) and keeps the test green without touching shared repository
-code under time pressure in an unrelated PR.
+`ScheduledMessageRepository.GetByIdAsync` is `DbSet.AsNoTracking().Include(s => s.Guild)
+.FirstOrDefaultAsync(...)` - genuinely untracked, and always was. `Repository<T>.UpdateAsync` then
+called `DbSet.Update(entity)` unconditionally. `DbSet.Update()` walks the entity's *whole reachable
+graph* (the `Include`d `Guild`, not just the `ScheduledMessage` root) and attaches every node it
+finds as tracked (`Modified`, since both have non-default keys) - and, critically, **does not
+detach any of it after `SaveChangesAsync`**; every node stays tracked (`Unchanged`) for the rest of
+the `DbContext`'s lifetime. A **Razor Page's own `BotDbContext` lives for exactly one HTTP
+request**, so this never had a second chance to collide with itself - every action got a fresh,
+empty change tracker. A **Blazor Server circuit's DI scope, and therefore its `BotDbContext`,
+lives for the whole circuit** - so a *second* `GetByIdAsync` (a brand new, still-untracked
+`ScheduledMessage` + a brand new, still-untracked `Guild` instance - `AsNoTracking` never returns
+the same instance twice) followed by `DbSet.Update()` tries to attach two different instances for
+keys the first `Update()` call left tracked, and EF's identity map throws "already tracked"
+immediately - confirmed to happen on the **second `UpdateAsync` call itself**, not deferred to a
+later `DeleteAsync` the way the first repro that motivated this note appeared to show (that
+Playwright repro likely had a full page load between more of its steps than the "workaround" below
+assumed; the root cause was never in doubt, just which call it surfaced on first).
 
-**Not fixed.** The underlying gap in `Repository<T>.UpdateAsync`/`GetByIdAsync` (or specifically in
-`ScheduledMessageRepository`'s override) is real and will keep surfacing for any Blazor page that
-updates then deletes (or updates twice) the same entity within one circuit without a page reload
-in between - a Blazor-native interaction pattern (toast-and-stay, no full navigation) that this
-port encourages far more than the old POST-per-action Razor Pages ever did. Worth a dedicated pass
-across `Repository<T>` and its per-entity overrides once more than one Phase 4 cluster has hit it,
-rather than a narrow fix to `ScheduledMessageRepository` alone: the leading hypothesis above (drop
-the redundant `DbSet.Update(entity)` call for an entity fetched via a tracked query and mutated in
-place, since EF's change tracker detects those changes on `SaveChangesAsync` without it) needs
-verifying against every other `Repository<T>` consumer's fetch/mutate/save pattern before it's
-safe to apply generically.
+**Fix.** `Repository<T>.UpdateAsync`/`DeleteAsync` (`src/DiscordBot.Infrastructure/Data/Repositories/Repository.cs`)
+now reconcile instead of blindly attaching: before calling `DbSet.Update(entity)` (skipped entirely
+when `entity` is already tracked - e.g. fetched via a tracked query and mutated in place, where
+`SaveChangesAsync` picks up the change on its own) or `DbSet.Remove(entity)`, they walk `entity`'s
+reachable graph (its own key, then every loaded navigation, recursively - the same graph
+`DbSet.Update()`/`Remove()` themselves walk) and detach any already-tracked entry for a *different*
+instance sharing a node's key. This is broader than the originally proposed "skip the redundant
+`Update()` call when already tracked" - that alone doesn't help here, since the *second* fetch is a
+genuinely new, untracked instance every time; the graph walk is what a fresh instance needs to
+reconcile against a stale one left behind by an earlier call in the same long-lived `DbContext`.
+Applied generically to `Repository<T>`, not narrowly to `ScheduledMessageRepository`, since the
+same `AsNoTracking` + `Include` + `Update()` shape is common across repositories and the fix is a
+no-op (one extra in-memory tracker scan) when nothing actually conflicts - the existing full
+`dotnet test tests/DiscordBot.Tests` run (all repository/service suites, not just scheduled
+messages) is green against it.
+
+**Verified fixed**, not just worked around: `ScheduledMessageRepeatedUpdateTrackingTests` updates
+the same entity twice (and, separately, four times) then deletes it against one `BotDbContext`,
+matching a Blazor circuit's lifetime, and none of it throws.
+`tests/DiscordBot.E2E/BrowserTests.cs`'s `Test_W_ScheduledMessages_CreateListEditDelete_RoundTrip`
+no longer reloads the page between the Resume toggle and Delete - it deletes straight off the same
+circuit the edit and both toggles just used.

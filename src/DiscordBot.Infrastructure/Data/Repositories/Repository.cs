@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Linq;
 using System.Linq.Expressions;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Tracing;
@@ -233,7 +234,7 @@ public class Repository<T> : IRepository<T> where T : class
 
         try
         {
-            DbSet.Update(entity);
+            AttachForUpdate(entity);
             await Context.SaveChangesAsync(cancellationToken);
             stopwatch.Stop();
 
@@ -281,6 +282,11 @@ public class Repository<T> : IRepository<T> where T : class
 
         try
         {
+            if (Context.Entry(entity).State == EntityState.Detached)
+            {
+                DetachConflictingTrackedEntries(entity);
+            }
+
             DbSet.Remove(entity);
             await Context.SaveChangesAsync(cancellationToken);
             stopwatch.Stop();
@@ -606,6 +612,110 @@ public class Repository<T> : IRepository<T> where T : class
                 "Repository<{EntityType}>.GetOrCreateAsync failed. ElapsedMs={ElapsedMs}, Error={Error}",
                 _entityTypeName, stopwatch.ElapsedMilliseconds, ex.Message);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// Attaches <paramref name="entity"/> for an update, without the "already tracked" collision
+    /// documented in docs/lessons-learned/scheduled-message-repeated-update-tracking.md: a
+    /// long-lived <see cref="Context"/> (a Blazor circuit's DbContext lives for the whole circuit,
+    /// not one request) can already be tracking a *different* instance for the same key - e.g. an
+    /// earlier fetch-mutate-<see cref="UpdateAsync"/> cycle in the same scope, since
+    /// <see cref="DbSet"/>.Update() marks the whole reachable graph (a loaded navigation included)
+    /// and never detaches it after <c>SaveChangesAsync</c>. <c>DbSet.Update(entity)</c> on a second
+    /// such instance throws rather than reconciling, so this detaches every stale entry reachable
+    /// from <paramref name="entity"/> first (see <see cref="DetachConflictingTrackedEntries"/>).
+    /// </summary>
+    private void AttachForUpdate(T entity)
+    {
+        var entry = Context.Entry(entity);
+        if (entry.State != EntityState.Detached)
+        {
+            // This exact instance is already tracked (e.g. fetched via a tracked query earlier in
+            // this scope and mutated in place) - nothing to attach. SaveChangesAsync detects the
+            // mutated properties on its own; calling Update() here would be redundant and would
+            // re-walk (and re-mark-Modified) the whole reachable graph for no reason.
+            return;
+        }
+
+        DetachConflictingTrackedEntries(entity);
+        DbSet.Update(entity);
+    }
+
+    /// <summary>
+    /// Walks <paramref name="root"/>'s reachable graph (its own key, then every loaded navigation,
+    /// recursively - the same graph <see cref="DbSet"/>.Update()/Remove() itself walks) and
+    /// detaches any already-tracked entry for a *different* instance sharing a node's key, so the
+    /// attach that follows doesn't hit EF's "already tracked" identity-map conflict. Needed because
+    /// the collision isn't only on <paramref name="root"/> itself: a loaded navigation fetched
+    /// fresh (e.g. <c>ScheduledMessage.Guild</c>, reloaded on every
+    /// <c>AsNoTracking().Include(...)</c> fetch) collides with whatever that same related row's
+    /// previous fetch-and-update cycle left tracked, in the same long-lived
+    /// <see cref="Context"/> - see <see cref="AttachForUpdate"/>. A no-op when nothing conflicts,
+    /// which is the common case (a per-request <c>DbContext</c>, or a first update in a circuit).
+    /// </summary>
+    private void DetachConflictingTrackedEntries(object root)
+    {
+        var visited = new HashSet<object>(ReferenceEqualityComparer.Instance);
+        var stack = new Stack<object>();
+        stack.Push(root);
+
+        while (stack.Count > 0)
+        {
+            var current = stack.Pop();
+            if (!visited.Add(current))
+            {
+                continue;
+            }
+
+            var entityType = Context.Model.FindEntityType(current.GetType());
+            if (entityType is null)
+            {
+                continue;
+            }
+
+            var keyProperties = entityType.FindPrimaryKey()?.Properties;
+            if (keyProperties is { Count: > 0 })
+            {
+                var currentKey = keyProperties.Select(p => p.PropertyInfo?.GetValue(current)).ToArray();
+
+                foreach (var tracked in Context.ChangeTracker.Entries().Where(e => e.Metadata == entityType).ToList())
+                {
+                    if (ReferenceEquals(tracked.Entity, current))
+                    {
+                        continue;
+                    }
+
+                    var trackedKey = keyProperties.Select(p => p.PropertyInfo?.GetValue(tracked.Entity)).ToArray();
+                    if (currentKey.SequenceEqual(trackedKey))
+                    {
+                        tracked.State = EntityState.Detached;
+                    }
+                }
+            }
+
+            foreach (var navigation in entityType.GetNavigations())
+            {
+                var value = navigation.PropertyInfo?.GetValue(current);
+                switch (value)
+                {
+                    case null:
+                        continue;
+                    case System.Collections.IEnumerable items and not string:
+                        foreach (var item in items)
+                        {
+                            if (item is not null)
+                            {
+                                stack.Push(item);
+                            }
+                        }
+
+                        break;
+                    default:
+                        stack.Push(value);
+                        break;
+                }
+            }
         }
     }
 

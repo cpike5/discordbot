@@ -1118,17 +1118,12 @@ public sealed class BrowserTests
         await row.Locator("button[title='Resume']").ClickAsync();
         await Expect(row).ToContainTextAsync("Active", new LocatorAssertionsToContainTextOptions { Timeout = 20_000 });
 
-        // Delete via the confirm modal -> empty state. A fresh page load first, rather than
-        // deleting straight off the same circuit the Resume toggle just used: a second
-        // GetByIdAsync + DbSet.Update() fetch/save of the same entity's tracked instance within
-        // one long-lived circuit-scoped DbContext, followed by a third GetByIdAsync for Delete,
-        // can throw EF's "already being tracked" InvalidOperationException from
-        // ScheduledMessageRepository's tracked (Include-based) GetByIdAsync + Repository.UpdateAsync's
-        // DbSet.Update() re-attach - a pre-existing Repository<T> gap the old per-request Razor
-        // Pages architecture never exercised (fresh DbContext per POST) but a Blazor circuit's
-        // single long-lived scope can. See docs/lessons-learned/scheduled-message-repeated-update-tracking.md.
-        await page.GotoAsync($"/Guilds/ScheduledMessages/{guildId}");
-        await page.WaitForTimeoutAsync(1_500);
+        // Delete via the confirm modal -> empty state, straight off the same circuit the Edit save
+        // and both toggles just used (no reload first): Repository{T}.UpdateAsync/DeleteAsync now
+        // reconcile a stale already-tracked instance instead of throwing EF's "already being
+        // tracked" InvalidOperationException, so a second update-then-delete cycle within one
+        // long-lived circuit-scoped DbContext no longer needs a fresh page load to dodge it. See
+        // docs/lessons-learned/scheduled-message-repeated-update-tracking.md.
         await row.Locator("button[title='Delete']").ClickAsync();
         var deleteModal = page.Locator("#delete-scheduled-message-modal");
         await Expect(deleteModal).ToBeVisibleAsync();
