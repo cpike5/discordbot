@@ -77,6 +77,12 @@
          enhanced-navigation resync hook. See wwwroot/js/blazor/shell.js and "Blazor Components"
          in docs/architecture/patterns.md. -->
     <script src="/js/blazor/shell.js"></script>
+    <!-- Converts every <LocalTime> component's [data-utc] markup to the viewer's local time -
+         classic script, loaded after shell.js for the same "window.Blazor exists for its
+         enhanced-navigation resync hook" reason. See wwwroot/js/blazor/localtime.js,
+         Blazor/Shared/Primitives/LocalTime.razor and "BrowserInterop / browser.js" in
+         docs/articles/blazor-interop.md. -->
+    <script src="/js/blazor/localtime.js"></script>
 </body>
 </html>
 

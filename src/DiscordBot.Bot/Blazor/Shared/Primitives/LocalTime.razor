@@ -1,0 +1,69 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using System.Globalization
+
+@*
+    New primitive - no source partial. Ports the client-side half of wwwroot/js/timezone.js's
+    convertDisplayTimes (docs/plans/blazor-port-plan.md Phase 4 cluster 4a) as a typed component:
+    every page that used to emit a raw `<span data-utc="..." data-format="...">` for the legacy
+    shell now renders `<LocalTime>` instead. The `data-utc`/`data-format` attributes and vocabulary
+    ("date", "date-short", "datetime-short", "time", "datetime-seconds", default "datetime") are
+    unchanged so wwwroot/js/blazor/localtime.js (the Blazor-shell port of timezone.js, loaded from
+    App.razor) converts them the same way.
+
+    Server fallback: renders the UTC value in a matching .NET format string as the element's
+    initial text, so a page that never gets its DOM scanned (a very short-lived static render, a
+    test harness with no JS) still shows a real timestamp rather than an empty node - the scan
+    script then overwrites it with the viewer's local time. DateTimeKind.Unspecified is treated as
+    already-UTC (the same assumption startNode.ExecutedAtUtcIso-style properties across the
+    codebase make with DateTime.SpecifyKind(x, DateTimeKind.Utc)); DateTimeKind.Local is converted
+    with ToUniversalTime().
+
+    No nullable `DateTime?` overload - a caller with a nullable timestamp branches on
+    `HasValue` itself (see Blazor/Pages/Search.razor's audit log rows), which keeps this
+    component's single required parameter simple and matches how <LocalTime> is guarded in every
+    call site ported so far.
+*@
+
+<time datetime="@IsoUtc" data-utc="@IsoUtc" data-format="@Format" title="@Title" class="@Class" @attributes="AdditionalAttributes">@FallbackText</time>
+
+@code {
+    /// <summary>The instant to render, in UTC (or unspecified-treated-as-UTC).</summary>
+    [Parameter, EditorRequired]
+    public DateTime Utc { get; set; }
+
+    /// <summary>One of "date", "date-short", "datetime-short", "time", "datetime-seconds", or the default "datetime" - the same vocabulary <c>wwwroot/js/timezone.js</c>/<c>localtime.js</c> reads from <c>data-format</c>.</summary>
+    [Parameter]
+    public string Format { get; set; } = "datetime";
+
+    /// <summary>Optional tooltip text (e.g. a relative-time hint like "3 days ago").</summary>
+    [Parameter]
+    public string? Title { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private DateTime NormalizedUtc => Utc.Kind switch
+    {
+        DateTimeKind.Utc => Utc,
+        DateTimeKind.Unspecified => DateTime.SpecifyKind(Utc, DateTimeKind.Utc),
+        _ => Utc.ToUniversalTime()
+    };
+
+    private string IsoUtc => NormalizedUtc.ToString("o", CultureInfo.InvariantCulture);
+
+    // Matches the shape (not necessarily the exact punctuation) of the corresponding
+    // Intl.DateTimeFormat options in timezone.js/localtime.js - this is only ever seen before the
+    // client-side scan overwrites it, or when JS never runs at all.
+    private string FallbackText => Format switch
+    {
+        "date" => NormalizedUtc.ToString("MMM d, yyyy", CultureInfo.InvariantCulture),
+        "date-short" => NormalizedUtc.ToString("MMM d", CultureInfo.InvariantCulture),
+        "datetime-short" => NormalizedUtc.ToString("MMM d, h:mm tt", CultureInfo.InvariantCulture),
+        "time" => NormalizedUtc.ToString("h:mm tt", CultureInfo.InvariantCulture),
+        "datetime-seconds" => NormalizedUtc.ToString("MMM d, yyyy, h:mm:ss tt", CultureInfo.InvariantCulture),
+        _ => NormalizedUtc.ToString("MMM d, yyyy, h:mm tt", CultureInfo.InvariantCulture)
+    };
+}

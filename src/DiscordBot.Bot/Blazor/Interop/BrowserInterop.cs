@@ -167,6 +167,22 @@ public sealed class BrowserInterop : IAsyncDisposable
     }
 
     /// <summary>
+    /// Re-scans <paramref name="root"/> (default: the whole document) for <c>&lt;LocalTime&gt;</c>
+    /// markup not yet converted, and rewrites it to the viewer's local time - delegates to
+    /// <c>wwwroot/js/blazor/localtime.js</c>'s <c>window.DiscordBotLocalTime.convert</c>, the same
+    /// scan a static SSR page gets for free from that script's own <c>DOMContentLoaded</c>/
+    /// <c>enhancedload</c> hooks. An interactive page calls this from <c>OnAfterRenderAsync</c>
+    /// after rendering rows containing new <c>&lt;LocalTime&gt;</c> instances - the browser never
+    /// re-fires those document-level events for a Blazor re-render, so nothing else would convert
+    /// them.
+    /// </summary>
+    public async Task ConvertLocalTimesAsync(ElementReference? root = null)
+    {
+        var module = await ModuleAsync();
+        await module.InvokeVoidAsync("convertLocalTimes", root);
+    }
+
+    /// <summary>
     /// Invokes <paramref name="dotNetRef"/>'s <c>[JSInvokable] OnClickOutside()</c> when a
     /// click lands outside <paramref name="element"/> (for closing a dropdown/menu).
     /// </summary>

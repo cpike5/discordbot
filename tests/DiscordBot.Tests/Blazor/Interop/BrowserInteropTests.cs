@@ -204,6 +204,34 @@ public class BrowserInteropTests
     }
 
     [Fact]
+    public async Task ConvertLocalTimesAsync_WithNoRoot_InvokesConvertLocalTimesWithNull()
+    {
+        var (_, module, sut) = CreateSut();
+
+        await sut.ConvertLocalTimesAsync();
+
+        module.Verify(
+            m => m.InvokeAsync<It.IsAnyType>(
+                "convertLocalTimes",
+                It.Is<object?[]>(a => a.Length == 1 && a[0] == null)),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task ConvertLocalTimesAsync_WithRoot_InvokesConvertLocalTimesWithTheElement()
+    {
+        var (_, module, sut) = CreateSut();
+
+        await sut.ConvertLocalTimesAsync(default(ElementReference));
+
+        module.Verify(
+            m => m.InvokeAsync<It.IsAnyType>(
+                "convertLocalTimes",
+                It.Is<object?[]>(a => a.Length == 1 && a[0] is ElementReference)),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task OnClickOutsideAsync_InvokesOnClickOutsideWithTheElementAndRef_AndReturnsTheHandle()
     {
         var (_, module, sut) = CreateSut();

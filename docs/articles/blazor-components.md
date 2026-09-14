@@ -279,6 +279,7 @@ icon-constants class.
 | `GuildStatsCard` | `_GuildStatsCard` (model: Pages-namespace `GuildStatsViewModel`, taken here as three primitive values) | `TotalGuilds`, `ActiveGuilds`, `InactiveGuilds`, `Class`, `AdditionalAttributes` |
 | `DashboardWidget` | `_DashboardWidget` / `DashboardWidgetViewModel` | `Title`, `Subtitle`, `DetailUrl`/`DetailLinkText`, `IconPath`, `IsEnabled` + `EnabledLabel`/`DisabledLabel`, `ChildContent` (body) or `EmptyState` (`EmptyStateViewModel`, mapped onto `<EmptyState>`) or `EmptyContent` (`RenderFragment`) — precedence `ChildContent` > `EmptyContent` > `EmptyState`, `ColSpan` (1\|2), `HeaderActions` (`List<WidgetHeaderAction>`), `Class`, `AdditionalAttributes` |
 | `Highlight` | `HighlightTagHelper` (`Helpers/TextHighlightHelper`) | `Text`, `SearchTerm`, `MaxLength`, `ShowContext`, `Class`, `AdditionalAttributes` |
+| `LocalTime` | (new — replaces a raw `<span data-utc data-format>`, Phase 4 cluster 4a) | `Utc` (required `DateTime`, `Unspecified` treated as UTC), `Format` (`"date"`\|`"date-short"`\|`"datetime-short"`\|`"time"`\|`"datetime-seconds"`\|default `"datetime"`), `Title`, `Class`, `AdditionalAttributes` — renders `<time datetime data-utc data-format>` with a UTC server fallback, converted client-side by `wwwroot/js/blazor/localtime.js`; a static SSR page needs nothing further, an interactive page that renders new rows calls `BrowserInterop.ConvertLocalTimesAsync()` in `OnAfterRenderAsync` (see "BrowserInterop / browser.js" in `docs/articles/blazor-interop.md`) |
 
 ### Forms
 

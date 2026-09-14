@@ -252,6 +252,28 @@ export function getTimeZone() {
 }
 
 // ---------------------------------------------------------------------------
+// Local time — delegates to wwwroot/js/blazor/localtime.js's window.DiscordBotLocalTime,
+// the classic script (loaded from App.razor) that owns the actual DOM scan/conversion so a
+// page's own <LocalTime> markup and any later interactive re-render both go through one
+// implementation. See Blazor/Interop/BrowserInterop.cs's ConvertLocalTimesAsync — the caller
+// an interactive component uses after it renders new [data-utc] rows.
+// ---------------------------------------------------------------------------
+
+/**
+ * Re-scans `root` (default: the whole document) for `[data-utc]` elements not yet converted
+ * and rewrites their text to the viewer's local time. A no-op if localtime.js hasn't loaded
+ * (e.g. a bUnit test with no real `<script>` tags) — every caller of this from C# already
+ * tolerates a best-effort conversion.
+ *
+ * @param {ParentNode} [root]
+ */
+export function convertLocalTimes(root) {
+    if (typeof window !== 'undefined' && window.DiscordBotLocalTime) {
+        window.DiscordBotLocalTime.convert(root);
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Click outside — ports navigation.js's dropdown-close handler
 // ---------------------------------------------------------------------------
 

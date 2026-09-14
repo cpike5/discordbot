@@ -242,7 +242,11 @@ A grab-bag of small browser APIs that don't warrant their own module, ported fro
 `navigation.js` (click-outside), `quick-actions.js` (focus trap), `settings.js` /
 `moderation-settings.js` (`beforeunload` guard), `portal-vox.js` (`matchMedia`),
 `timezone.js` (IANA detection), and `_EmphasisToolbar.cshtml`'s inline script (textarea
-selection).
+selection). `convertLocalTimes` is different from the rest of this module: it delegates to
+`wwwroot/js/blazor/localtime.js`'s own `window.DiscordBotLocalTime.convert`, a separate classic
+script loaded from `App.razor` that owns the actual `[data-utc]` DOM scan (see
+`Blazor/Shared/Primitives/LocalTime.razor`) — `browser.js` here is only the thin bridge an
+interactive component's C# code can call through `BrowserInterop`.
 
 ### JS API
 
@@ -263,6 +267,7 @@ selection).
 | `getSelection` | `(textarea) => { start, end, value }` | |
 | `setSelection` | `(textarea, start, end) => void` | Focuses the textarea and sets the range. |
 | `insertAtSelection` | `(textarea, text) => void` | Replaces the selection, moves the caret, dispatches a bubbling `input` event so Blazor two-way bindings observe the change. |
+| `convertLocalTimes` | `(root?) => void` | Delegates to `window.DiscordBotLocalTime.convert(root)` (a no-op if `localtime.js` hasn't loaded). Re-scans `root` (default: the whole document) for `<LocalTime>` markup not yet converted. |
 
 ### C# API (`BrowserInterop`)
 
@@ -284,6 +289,7 @@ Task OffClickOutsideAsync(int handle);
 Task<TextSelectionResult> GetSelectionAsync(ElementReference textarea);
 Task SetSelectionAsync(ElementReference textarea, int start, int end);
 Task InsertAtSelectionAsync(ElementReference textarea, string text);
+Task ConvertLocalTimesAsync(ElementReference? root = null);
 ```
 
 `MediaWatchResult` (`{ int Handle, bool Matches }`) and `TextSelectionResult`

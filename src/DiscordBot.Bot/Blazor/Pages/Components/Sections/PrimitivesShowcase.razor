@@ -285,9 +285,31 @@
             </div>
         </div>
     </section>
+
+    <!-- LocalTime -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-local-time">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Local Time</h3>
+            <p class="text-sm text-text-secondary mt-1">Renders in UTC on the server, converted to the viewer's local time client-side</p>
+        </div>
+        <div class="p-6">
+            <table class="text-sm text-text-primary">
+                <tbody class="space-y-1">
+                    <tr><td class="pr-4 text-text-tertiary">datetime (default)</td><td><LocalTime Utc="_sampleInstant" /></td></tr>
+                    <tr><td class="pr-4 text-text-tertiary">date</td><td><LocalTime Utc="_sampleInstant" Format="date" /></td></tr>
+                    <tr><td class="pr-4 text-text-tertiary">date-short</td><td><LocalTime Utc="_sampleInstant" Format="date-short" /></td></tr>
+                    <tr><td class="pr-4 text-text-tertiary">datetime-short</td><td><LocalTime Utc="_sampleInstant" Format="datetime-short" /></td></tr>
+                    <tr><td class="pr-4 text-text-tertiary">time</td><td><LocalTime Utc="_sampleInstant" Format="time" /></td></tr>
+                    <tr><td class="pr-4 text-text-tertiary">datetime-seconds</td><td><LocalTime Utc="_sampleInstant" Format="datetime-seconds" /></td></tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
 </div>
 
 @code {
+    private readonly DateTime _sampleInstant = new(2026, 9, 14, 18, 30, 15, DateTimeKind.Utc);
+
     private int _removedCount;
     private int _cardClicks;
     private bool _collapsibleExpanded = true;
