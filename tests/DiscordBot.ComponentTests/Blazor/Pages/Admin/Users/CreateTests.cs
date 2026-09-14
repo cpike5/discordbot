@@ -41,6 +41,7 @@ public class CreateTests : BlazorComponentTestContext
     [Fact]
     public void EmptyEmail_BlocksSubmit_AndDoesNotCallTheService()
     {
+        SetInteractiveRendererInfo();
         var cut = Render<Create>();
 
         cut.Find("#Input_Password").Input("Password123!");
@@ -54,6 +55,7 @@ public class CreateTests : BlazorComponentTestContext
     [Fact]
     public void MismatchedPasswords_BlocksSubmit_AndDoesNotCallTheService()
     {
+        SetInteractiveRendererInfo();
         var cut = Render<Create>();
 
         cut.Find("#Input_Email").Input("new@example.test");
@@ -72,6 +74,7 @@ public class CreateTests : BlazorComponentTestContext
             .ReturnsAsync(UserManagementResult.Success(new UserDto { Id = "new-1", Email = "new@example.test" }));
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
+        SetInteractiveRendererInfo();
         var cut = Render<Create>();
         Fill(cut);
         cut.Find("#Input_Role").Change("Admin");
@@ -91,6 +94,7 @@ public class CreateTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
         var startUri = navMan.Uri;
 
+        SetInteractiveRendererInfo();
         var cut = Render<Create>();
         Fill(cut);
         cut.Find("form").Submit();

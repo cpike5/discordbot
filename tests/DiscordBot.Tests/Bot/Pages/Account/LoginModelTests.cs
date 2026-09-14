@@ -400,9 +400,12 @@ public class LoginModelTests
         var result = await _loginModel.OnPostAsync();
 
         // Assert
-        result.Should().BeOfType<RedirectToPageResult>("locked out users should be redirected");
-        var redirectResult = result as RedirectToPageResult;
-        redirectResult!.PageName.Should().Be("./Lockout");
+        // The Lockout page is Blazor (Blazor/Pages/Account/Lockout.razor), not a Razor Page, so
+        // this must be a literal path redirect rather than RedirectToPage("./Lockout") - see
+        // DeletedPagesGuardTests.
+        result.Should().BeOfType<RedirectResult>("locked out users should be redirected");
+        var redirectResult = result as RedirectResult;
+        redirectResult!.Url.Should().Be("/Account/Lockout");
     }
 
     [Fact]

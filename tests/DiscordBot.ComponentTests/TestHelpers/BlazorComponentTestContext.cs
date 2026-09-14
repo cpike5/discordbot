@@ -58,6 +58,22 @@ public abstract class BlazorComponentTestContext : BunitContext, Xunit.IAsyncLif
     }
 
     /// <summary>
+    /// Declares this render "already interactive" (matching a live circuit) so a component that
+    /// reads <c>ComponentBase.RendererInfo.IsInteractive</c> - the disabled-until-interactive
+    /// pattern from docs/lessons-learned/blazor-editform-formname-race.md - doesn't throw
+    /// <c>MissingRendererInfoException</c>. Not called from the constructor: bUnit's
+    /// <c>BunitServiceProvider</c> locks itself the moment anything resolves a service from it
+    /// (which <c>SetRendererInfo</c> does internally), so calling this before a subclass
+    /// constructor finishes registering its own mocks would break every later
+    /// <c>Services.AddSingleton(...)</c>/<c>AddAuthorization()</c> call - instead, call this
+    /// explicitly, after all service registration, right before <c>Render&lt;T&gt;</c> (a test that
+    /// specifically wants the pre-interactive "Connecting…"/disabled state can pass
+    /// <paramref name="isInteractive"/>: false instead).
+    /// </summary>
+    protected void SetInteractiveRendererInfo(bool isInteractive = true) =>
+        SetRendererInfo(new Microsoft.AspNetCore.Components.RendererInfo("Server", isInteractive));
+
+    /// <summary>
     /// Configures bUnit's fake auth (<c>this.AddAuthorization()</c>) as a signed-in admin, which
     /// makes <c>[CascadingParameter] Task&lt;AuthenticationState&gt;</c> resolve to that identity
     /// in any component rendered afterwards - equivalent to what <c>RequireAdmin</c> lets through

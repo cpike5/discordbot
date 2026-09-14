@@ -168,7 +168,7 @@ public class ExternalLoginModel : PageModel
         if (signInResult.IsLockedOut)
         {
             _logger.LogWarning("User account locked out during external login");
-            return RedirectToPage("./Lockout");
+            return Redirect("/Account/Lockout");
         }
 
         // User doesn't have an account yet - create one

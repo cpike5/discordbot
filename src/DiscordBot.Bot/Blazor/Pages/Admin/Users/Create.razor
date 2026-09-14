@@ -52,9 +52,17 @@
             <Toggle Id="Input_SendWelcomeEmail" Label="Send welcome email to new user" @bind-Value="Input.SendWelcomeEmail" />
 
             <div class="border-t border-border-primary pt-6">
-                <div class="flex justify-end gap-3">
+                <div class="flex items-center justify-end gap-3">
+                    @* Disabled until RendererInfo.IsInteractive flips true (the interactive circuit
+                       has attached): the prerendered <form> is a real, submittable form the moment
+                       it hits the DOM, and OnValidSubmit only exists once the circuit is wired up.
+                       See docs/lessons-learned/blazor-editform-formname-race.md. *@
+                    @if (!RendererInfo.IsInteractive)
+                    {
+                        <span class="text-sm text-text-tertiary">Connecting…</span>
+                    }
                     <a href="/Admin/Users" class="btn btn-secondary">Cancel</a>
-                    <button type="submit" class="btn btn-primary">
+                    <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">
                         <Icon Path="@IconPaths.Plus" Class="w-5 h-5 mr-2" />
                         Create User
                     </button>

@@ -1,5 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -89,7 +90,10 @@ public partial class Details : ComponentBase, IDisposable
 
     protected override async Task OnParametersSetAsync()
     {
-        ResolvedReturnUrl = string.IsNullOrEmpty(ReturnUrl) ? "/Admin/Logs?tab=audit" : ReturnUrl;
+        // ReturnUrl arrives from the query string, so it is attacker-controlled: reject anything
+        // that isn't a same-origin relative path before it reaches an href (javascript: XSS,
+        // open redirect via an absolute or protocol-relative URL) - see LocalUrl.
+        ResolvedReturnUrl = LocalUrl.IsLocal(ReturnUrl) ? ReturnUrl! : "/Admin/Logs?tab=audit";
 
         if (_resolvedId != Id)
         {

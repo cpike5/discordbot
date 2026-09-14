@@ -50,7 +50,7 @@ public class DeletedPagesGuardTests
         // alike) - tolerating whitespace around "=" and either quote style, same as
         // IconPathsUsageGuardTests. Each deleted route gets its own alternation so the violation
         // message can name exactly which stale route was found.
-        var patterns = DeletedPageRoutes.Select(route => new
+        var absolutePatterns = DeletedPageRoutes.Select(route => new
         {
             Route = route,
             Regex = new Regex(
@@ -60,12 +60,47 @@ public class DeletedPagesGuardTests
                 RegexOptions.Compiled)
         }).ToList();
 
+        // Razor Pages also resolves *relative* page names against the referencing file's own
+        // folder: RedirectToPage("./Leaf") / RedirectToPage("Leaf") and asp-page="./Leaf" /
+        // asp-page="Leaf" (and the Url.Page equivalents) all mean "the page named Leaf in this
+        // same folder" with no leading slash at all. Deleting a page removes it from disk, not
+        // from these strings, so a relative reference is just as broken as an absolute one - but
+        // it must only be flagged for files that actually live in the deleted page's former
+        // folder, since a bare leaf name like "Edit" or "Details" is also a live, unrelated page
+        // in other folders (e.g. Pages/Guilds/Edit.cshtml, Pages/Guilds/Index.cshtml's
+        // asp-page="Details"). Folder/leaf are derived from the route itself: the route's last
+        // "/"-segment is the leaf, everything before it (web-style, "/"-separated) is the folder
+        // ("" for a route with a single segment, meaning the Pages root).
+        var relativePatternsByFolder = DeletedPageRoutes
+            .Select(route =>
+            {
+                var lastSlash = route.LastIndexOf('/');
+                var folder = lastSlash <= 0 ? string.Empty : route[..lastSlash];
+                var leaf = route[(lastSlash + 1)..];
+                return new
+                {
+                    Route = route,
+                    Folder = folder,
+                    Regex = new Regex(
+                        $@"asp-page\s*=\s*[""'](?:\./)?{Regex.Escape(leaf)}[""']" +
+                        $@"|RedirectToPage\s*\(\s*[""'](?:\./)?{Regex.Escape(leaf)}[""']" +
+                        $@"|Url\.Page\s*\(\s*[""'](?:\./)?{Regex.Escape(leaf)}[""']",
+                        RegexOptions.Compiled)
+                };
+            })
+            .GroupBy(p => p.Folder, p => (p.Route, p.Regex))
+            .ToDictionary(g => g.Key, g => g.ToList());
+
         var violations = new List<string>();
         var files = Directory.EnumerateFiles(pagesDir, "*.cshtml", SearchOption.AllDirectories)
             .Concat(Directory.EnumerateFiles(pagesDir, "*.cshtml.cs", SearchOption.AllDirectories));
 
         foreach (var file in files)
         {
+            var relativeDir = Path.GetDirectoryName(Path.GetRelativePath(pagesDir, file))
+                ?.Replace(Path.DirectorySeparatorChar, '/') ?? string.Empty;
+            relativePatternsByFolder.TryGetValue(relativeDir, out var relativePatternsForThisFolder);
+
             var lines = File.ReadAllLines(file);
             for (var i = 0; i < lines.Length; i++)
             {
@@ -78,11 +113,22 @@ public class DeletedPagesGuardTests
                     continue;
                 }
 
-                foreach (var pattern in patterns)
+                foreach (var pattern in absolutePatterns)
                 {
                     if (pattern.Regex.IsMatch(line))
                     {
                         violations.Add($"{Path.GetRelativePath(pagesDir, file)}:{i + 1} references deleted page \"{pattern.Route}\": {line.Trim()}");
+                    }
+                }
+
+                if (relativePatternsForThisFolder is not null)
+                {
+                    foreach (var (route, regex) in relativePatternsForThisFolder)
+                    {
+                        if (regex.IsMatch(line))
+                        {
+                            violations.Add($"{Path.GetRelativePath(pagesDir, file)}:{i + 1} references deleted page \"{route}\" by its relative name: {line.Trim()}");
+                        }
                     }
                 }
             }

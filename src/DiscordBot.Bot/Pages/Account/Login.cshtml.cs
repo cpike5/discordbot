@@ -212,7 +212,7 @@ public class LoginModel : PageModel
         if (result.IsLockedOut)
         {
             _logger.LogWarning("User account {Email} is locked out", Input.Email);
-            return RedirectToPage("./Lockout");
+            return Redirect("/Account/Lockout");
         }
 
         // Login failed
