@@ -245,81 +245,6 @@ public sealed class BrowserTests
     }
 
     /// <summary>
-    /// Covers <c>Blazor/Layout/GuildLayout.razor</c> + <c>GuildProbe.razor</c> (plan §5 Phase 3):
-    /// seeds a bare <c>Guilds</c> row directly into the fixture's throwaway SQLite database (the
-    /// host runs web-only, so there is no live Discord guild to join and no UI flow that creates
-    /// one - <see cref="BotHostFixture.DatabasePath"/> is the fixture's own escape hatch for
-    /// exactly this), then asserts the full guild shell renders: breadcrumb, header with the
-    /// guild's name, the desktop tab strip (Overview through Feature Requests), and the probe
-    /// page's own resolved-context fields. The seeded admin carries the SuperAdmin role
-    /// (IdentitySeeder), which <c>GuildAccessHandler</c> short-circuits - so this needs no guild
-    /// membership setup beyond the bare row <c>IGuildService.GetGuildByIdAsync</c> requires.
-    /// </summary>
-    [E2EFact]
-    public async Task Test_I_GuildProbe_RendersGuildShell_ForSeededGuild()
-    {
-        const ulong guildId = 900000000000000001UL;
-        SeedGuild(guildId, "E2E Probe Guild");
-
-        await using var context = await NewContextAsync();
-        var page = await NewPageAsync(context);
-
-        await LoginAsync(page, _host);
-
-        await page.GotoAsync($"/Guilds/{guildId}/blazor-probe");
-
-        await Expect(page.Locator("nav[aria-label='Breadcrumb']")).ToContainTextAsync("E2E Probe Guild");
-        // GuildHeader's <h1> precedes GuildProbe's own "Guild Context Probe" <h1> in document
-        // order - both are real headings, so .First disambiguates rather than narrowing by a
-        // class/testid GuildHeader doesn't carry. The probe route matches none of
-        // GuildNavigationConfig's tabs, so GuildLayout falls back to the guild's own name as the
-        // header title (see GuildLayout.razor's "headerTitle" comment) rather than a tab label.
-        await Expect(page.Locator("h1").First).ToHaveTextAsync("E2E Probe Guild");
-
-        var tabNav = page.Locator("#guildNav");
-        await Expect(tabNav).ToBeVisibleAsync();
-        foreach (var label in new[]
-                 {
-                     "Overview", "Members", "Moderation", "Messages", "Audio", "Rat Watch",
-                     "Currency", "Reminders", "Welcome", "Assistant", "Feature Requests"
-                 })
-        {
-            await Expect(tabNav.GetByText(label, new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync();
-        }
-
-        await Expect(page.Locator("[data-testid='probe-guild-context']")).ToBeVisibleAsync();
-        await Expect(page.Locator("[data-testid='probe-guild-name']")).ToHaveTextAsync("E2E Probe Guild");
-        await Expect(page.Locator("[data-testid='probe-guild-id']")).ToHaveTextAsync(guildId.ToString());
-        await Expect(page.Locator("[data-testid='probe-can-edit']")).ToHaveTextAsync("True");
-    }
-
-    /// <summary>
-    /// Covers <c>GuildContextGate</c>'s not-found state for a guild id with no matching
-    /// <c>Guilds</c> row: the gate's default "Server Not Found" content renders and
-    /// <c>GuildLayout</c> omits the breadcrumb/header/tab chrome around it - still an HTTP 200
-    /// (this route doesn't wire <c>NavigationManager.NotFound()</c>; the 404 status-code page is
-    /// a different route owned elsewhere), just asserting the rendered content here.
-    /// </summary>
-    [E2EFact]
-    public async Task Test_J_GuildProbe_UnknownGuild_ShowsNotFoundState()
-    {
-        const ulong unknownGuildId = 900000000000000099UL;
-
-        await using var context = await NewContextAsync();
-        var page = await NewPageAsync(context);
-
-        await LoginAsync(page, _host);
-
-        var response = await page.GotoAsync($"/Guilds/{unknownGuildId}/blazor-probe");
-
-        response.Should().NotBeNull();
-        response!.Status.Should().Be(200);
-        await Expect(page.GetByText("Server Not Found")).ToBeVisibleAsync();
-        await Expect(page.Locator("nav[aria-label='Breadcrumb']")).ToHaveCountAsync(0);
-        await Expect(page.Locator("[data-testid='probe-guild-context']")).ToHaveCountAsync(0);
-    }
-
-    /// <summary>
     /// Covers <c>Blazor/Layout/PortalLayout.razor</c> in web-only mode (plan §5 Phase 3): no live
     /// Discord gateway connection exists, so <c>PortalAccessService.DiscordGuildExists</c> always
     /// returns false and every guild resolves
@@ -932,6 +857,122 @@ public sealed class BrowserTests
         await Expect(toggleModal).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
         await toggleModal.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Disable" }).ClickAsync();
         await Expect(toggleRow.GetByText("Inactive", new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+    }
+
+    /// <summary>
+    /// Covers cluster 4b's first real <c>GuildLayout</c> consumer end to end (plan §5 Phase 4):
+    /// <c>Guilds/Edit</c> renders the full guild shell (breadcrumb, header, desktop tab strip) for
+    /// a seeded guild, a toggle-and-save round trip lands on <c>/Guilds/Details/{id}</c> (a Razor
+    /// Page, unaffected by this cluster) with a success toast, and an unknown guild id renders the
+    /// not-found gate with no chrome - replacing the retired <c>Test_I_GuildProbe_...</c>/
+    /// <c>Test_J_GuildProbe_...</c> pair (both retired with <c>GuildProbe.razor</c> itself) now
+    /// that a real page proves the same shell.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_U_GuildEdit_RendersShell_SavesAndRedirects()
+    {
+        const ulong guildId = 900000000000000003UL;
+        SeedGuild(guildId, "E2E Edit Guild");
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Guilds/Edit/{guildId}");
+
+        await Expect(page.Locator("nav[aria-label='Breadcrumb']")).ToContainTextAsync("E2E Edit Guild");
+        var tabNav = page.Locator("#guildNav");
+        await Expect(tabNav).ToBeVisibleAsync();
+        await Expect(tabNav.GetByText("Overview", new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+
+        await page.WaitForTimeoutAsync(1_500);
+        await page.Locator("label[for='Input_IsActive']").ClickAsync();
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Settings" }).ClickAsync();
+
+        await Expect(page).ToHaveURLAsync(new Regex($@"/Guilds/Details/{guildId}$"), new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+        await Expect(page.Locator(".toast-success")).ToBeVisibleAsync();
+
+        // Unknown guild id: the gate's not-found content renders, with the breadcrumb/header/tab
+        // chrome omitted around it - same shape GuildProbe's Test_J proved for the retired probe.
+        const ulong unknownGuildId = 900000000000000098UL;
+        var response = await page.GotoAsync($"/Guilds/Edit/{unknownGuildId}");
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(200);
+        await Expect(page.GetByText("Server Not Found")).ToBeVisibleAsync();
+        await Expect(page.Locator("nav[aria-label='Breadcrumb']")).ToHaveCountAsync(0);
+    }
+
+    /// <summary>
+    /// Smoke-covers the other five cluster 4b pages (plan §5 Phase 4) in one pass: each renders its
+    /// main heading or empty state for a seeded guild in web-only mode (no Discord gateway, so
+    /// channel lists are empty and Discord names fall back to raw ids) with no browser console
+    /// errors, then exercises Welcome's "channel required when enabled" field-error rule and its
+    /// success-toast/stay-in-place save path.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_V_GuildPages_RenderWebOnly()
+    {
+        const ulong guildId = 900000000000000004UL;
+        SeedGuild(guildId, "E2E Cluster Guild");
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        var consoleErrors = new List<string>();
+        page.Console += (_, message) =>
+        {
+            if (message.Type == "error")
+            {
+                consoleErrors.Add(message.Text);
+            }
+        };
+        page.PageError += (_, error) => consoleErrors.Add(error);
+
+        // Welcome - matches its own guild-nav tab, so GuildLayout's header shows the tab label.
+        await page.GotoAsync($"/Guilds/Welcome/{guildId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Welcome");
+        await Expect(page.GetByText("Enable Welcome Messages")).ToBeVisibleAsync();
+        await Expect(page.GetByText("Live Preview")).ToBeVisibleAsync();
+
+        // AssistantSettings - same "own tab" case.
+        await page.GotoAsync($"/Guilds/AssistantSettings/{guildId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Assistant");
+        await Expect(page.GetByText("Enable AI Assistant")).ToBeVisibleAsync();
+
+        // AssistantMetrics - route matches no guild-nav tab (its tab points at AssistantSettings'
+        // URL instead), so GuildLayout falls back to the guild's own name as the header title.
+        await page.GotoAsync($"/Guilds/AssistantMetrics/{guildId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("E2E Cluster Guild");
+        await Expect(page.GetByText("No usage data yet")).ToBeVisibleAsync();
+
+        // AudioModerationLog - same "no matching tab" case as AssistantMetrics.
+        await page.GotoAsync($"/Guilds/AudioModerationLog/{guildId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("E2E Cluster Guild");
+        await Expect(page.Locator("#audioTabs")).ToBeVisibleAsync();
+        await Expect(page.GetByText("No audio playback events found")).ToBeVisibleAsync();
+
+        // RatWatch - matches its own guild-nav tab.
+        await page.GotoAsync($"/Guilds/RatWatch/{guildId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Rat Watch");
+        await Expect(page.GetByText("No Rat Watches Yet")).ToBeVisibleAsync();
+
+        consoleErrors.Should().BeEmpty("none of the five pages should log a browser console error while rendering web-only");
+
+        // Welcome: enable with no channel selected (web-only mode resolves no Discord channels at
+        // all, so there is nothing to pick even if a selector were used) - the manual
+        // "channel required when enabled" rule refuses the save with a field error, not a toast.
+        await page.GotoAsync($"/Guilds/Welcome/{guildId}");
+        await page.WaitForTimeoutAsync(1_500);
+        await page.Locator("label[for='Input_IsEnabled']").ClickAsync();
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Configuration" }).ClickAsync();
+        await Expect(page.Locator("#Input_WelcomeChannelId-error")).ToContainTextAsync("A welcome channel must be selected");
+        await Expect(page.Locator(".toast-success")).ToHaveCountAsync(0);
+
+        // Disabling it again removes the reason for that rule, so the same save now succeeds.
+        await page.Locator("label[for='Input_IsEnabled']").ClickAsync();
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Configuration" }).ClickAsync();
+        await Expect(page.Locator(".toast-success")).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
     }
 
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>

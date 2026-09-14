@@ -37,6 +37,12 @@ public class DeletedPagesGuardTests
         "/Admin/AuditLogs/Details",
         "/Admin/MessageLogs/Details",
         "/CommandLogs/Details",
+        "/Guilds/Edit",
+        "/Guilds/Welcome",
+        "/Guilds/AssistantSettings",
+        "/Guilds/AssistantMetrics",
+        "/Guilds/AudioModerationLog/Index",
+        "/Guilds/RatWatch/Index",
     };
 
     [Fact]

@@ -37,9 +37,18 @@ public partial class Index : GuildPageBase
     [Parameter]
     public int PageSize { get; set; } = DefaultPageSize;
 
+    /// <summary>
+    /// Query-bound as <c>int?</c>, not <see cref="AudioFeatureType"/>? directly -
+    /// <c>QueryParameterValueSupplier</c> only knows a fixed set of primitive types for
+    /// <c>[SupplyParameterFromQuery]</c> (string/bool/DateTime/decimal/double/float/Guid/int/long
+    /// and their nullable/array forms) and throws <c>InvalidOperationException</c> for an arbitrary
+    /// enum; <see cref="FeatureFilter"/> is the typed value derived from this on every (re)seed.
+    /// </summary>
     [SupplyParameterFromQuery(Name = "FeatureFilter")]
     [Parameter]
-    public AudioFeatureType? FeatureFilter { get; set; }
+    public int? FeatureFilterQuery { get; set; }
+
+    protected AudioFeatureType? FeatureFilter { get; set; }
 
     [SupplyParameterFromQuery(Name = "UserFilter")]
     [Parameter]
@@ -102,6 +111,7 @@ public partial class Index : GuildPageBase
     {
         CurrentPage = Math.Max(1, PageNumber);
         CurrentPageSize = PageSize is < 1 or > 100 ? DefaultPageSize : PageSize;
+        FeatureFilter = FeatureFilterQuery.HasValue ? (AudioFeatureType)FeatureFilterQuery.Value : null;
         FeatureFilterInput = FeatureFilter;
         UserFilterInput = UserFilter;
         DateFromInput = DateFrom;

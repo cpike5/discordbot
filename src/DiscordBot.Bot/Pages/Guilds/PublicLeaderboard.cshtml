@@ -347,7 +347,7 @@
                     @if (User.Identity?.IsAuthenticated == true)
                     {
                         <p class="text-sm mb-3">
-                            <a asp-page="/Guilds/RatWatch/Index" asp-route-guildId="@Model.GuildId"
+                            <a href="@($"/Guilds/RatWatch/{Model.GuildId}")"
                                class="inline-flex items-center gap-1.5 footer-link font-medium hover:text-text-primary transition-colors">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 19l-7-7m0 0l7-7m-7 7h18" />

@@ -106,8 +106,7 @@
                             <textarea @ref="_messageTextArea" id="Input_WelcomeMessage" rows="4" maxlength="2000"
                                       class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                                       placeholder="Enter your welcome message..."
-                                      value="@Input.WelcomeMessage"
-                                      @oninput="HandleMessageInput"></textarea>
+                                      @oninput="HandleMessageInput">@Input.WelcomeMessage</textarea>
                             <p class="text-xs text-text-secondary mt-1">Use tokens to personalize your message. Click a token above to insert it.</p>
                             <ValidationMessage For="() => Input.WelcomeMessage" class="text-error text-xs" />
                         </div>
