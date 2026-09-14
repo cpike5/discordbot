@@ -5,12 +5,13 @@ namespace DiscordBot.Bot.Extensions;
 
 /// <summary>
 /// Extension methods for registering the Blazor JS interop wrappers
-/// (<see cref="ChartInterop"/>, <see cref="AudioInterop"/>, <see cref="BrowserInterop"/>).
+/// (<see cref="ChartInterop"/>, <see cref="AudioInterop"/>, <see cref="BrowserInterop"/>,
+/// <see cref="ThemeInterop"/>).
 /// </summary>
 public static class BlazorInteropServiceExtensions
 {
     /// <summary>
-    /// Registers the three JS interop wrappers under <c>Blazor/Interop/</c> as scoped
+    /// Registers the JS interop wrappers under <c>Blazor/Interop/</c> as scoped
     /// services — one instance per circuit, matching the lifetime of the
     /// <see cref="Microsoft.JSInterop.IJSRuntime"/> they wrap.
     /// </summary>
@@ -21,6 +22,7 @@ public static class BlazorInteropServiceExtensions
         services.AddScoped<ChartInterop>();
         services.AddScoped<AudioInterop>();
         services.AddScoped<BrowserInterop>();
+        services.AddScoped<ThemeInterop>();
 
         return services;
     }
