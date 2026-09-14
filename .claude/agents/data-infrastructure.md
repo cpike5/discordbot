@@ -75,6 +75,23 @@ dotnet ef migrations add MigrationName --project src/DiscordBot.Infrastructure -
 
 ## Gotchas
 
+- **The SQLite/Postgres context split is exact-type, not assignability.** `SqliteBotDbContext`
+  and `PostgresBotDbContext` each carry their own migration set (`[DbContext(typeof(SqliteBotDbContext))]`
+  vs. `[DbContext(typeof(PostgresBotDbContext))]`), and EF Core's migrator matches a migration to
+  a context by exact runtime type — never register or resolve the shared base `BotDbContext` for
+  either provider (the only place it belongs in DI is a forwarding registration,
+  `services.AddScoped<BotDbContext>(sp => sp.GetRequiredService<TConcrete>())`, for code that only
+  needs the shared `DbSet<T>` surface). Scaffold SQLite migrations with `--context
+  SqliteBotDbContext`, never a bare `dotnet ef migrations add` — see "EF Migration Commands" above.
+  `Program.cs` runs `Infrastructure/Data/Migrations/SqliteLegacyHistoryRepair.cs` immediately
+  before `MigrateAsync` on every boot — a one-shot, idempotent repair for a SQLite database whose
+  `__EFMigrationsHistory` still ends at the old base-`BotDbContext` lineage (`main` had this bug
+  for months; see `docs/lessons-learned/sqlite-migration-context-mismatch.md`). Both
+  `Migrations/Sqlite/20260914060035_SeedDefaultThemesSqlite.cs` and
+  `.../20260914065633_SeedPerformanceAlertConfigsSqlite.cs` are SQLite-only: the SQLite baseline
+  migration was scaffolded as a model diff and never carried the `Themes`/`PerformanceAlertConfigs`
+  seed rows forward, while Postgres's `Migrations/Postgresql/20260219132220_InitialPostgresql.cs`
+  is a genuine from-scratch "Initial" migration that already seeds both tables.
 - **Always pass `--context`** to EF CLI — both SqliteBotDbContext and PostgresBotDbContext exist
 - **Npgsql legacy timestamp:** `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)` is required — do not remove
 - **68 DbSets** — new entities need DbSet in BotDbContext + entity configuration

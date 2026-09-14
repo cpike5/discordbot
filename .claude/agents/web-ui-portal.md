@@ -74,6 +74,22 @@ gates. What a new page needs to know:
 - An interactive page's not-found (or similarly circuit-only) state renders the design-system
   `EmptyState` component at HTTP 200, never a real 404 status — once a circuit is live there is no
   way left to set the response status code. Repo-wide convention since cluster 4a.
+- Any mutation handler (and the reload that follows it) resolves its service through
+  `Blazor/Common/ScopedOperations.cs`'s `IServiceScopeFactory.RunAsync` extension methods instead
+  of the page's injected, circuit-scoped instance — a circuit's DI scope, and therefore its
+  `BotDbContext`, lives for the whole circuit, so a second call against the injected instance can
+  collide with the first call's still-tracked entity graph. Never inject a mutating service
+  directly into a page field and call it from an event handler. See "Per-operation scopes" in
+  `docs/architecture/patterns.md` and `docs/lessons-learned/scheduled-message-repeated-update-tracking.md`.
+- A paginated list page uses `Blazor/Common/PagedQuery.cs` (`PageNumber`/`PageSize`/`SortBy`/
+  `SortDescending`, clamped; `FromQuery`/`ToQueryString`) rather than inventing its own paging
+  state, paired with `Blazor/Shared/Navigation/Pagination.razor` in link mode. Query names are
+  `pageNumber`/`pageSize`/`sortBy`/`sortDescending`; `FromQuery`'s `legacyPage` parameter accepts
+  an old `?page=` link without a redirect. See "Paged list pages" in `docs/architecture/patterns.md`.
+- A guild list/detail page that renders `<LocalTime>` and can re-render its rows after the first
+  load (paging, a filter, an action that reloads the list) must call `GuildPageBase`'s protected
+  `RequestLocalTimeScan()` at the end of every load/reload — `localtime.js`'s document-level scan
+  only ever fires once, so a row rendered afterward would otherwise show the raw UTC fallback.
 
 ## Domain Map
 

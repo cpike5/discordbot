@@ -402,8 +402,8 @@ exist.
 
 Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Blazor/Shared/`
 (mirroring this same group structure); the full library plus the `/components` showcase page and
-every ported page is 778 tests as of 2026-09-14, now that cluster 4a is complete (706 at the end of
-Phase 3) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
+every ported page is 853 tests as of 2026-09-14, now that cluster 4b is complete (784 at the end of
+cluster 4a, 706 at the end of Phase 3) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
 
 ---
 
@@ -678,8 +678,8 @@ partials this section originally described.
 
 When working on features, use these pages as entry points:
 
-- **Need to add a form?** Look at `/admin/users/create` or `/guild/{guildId}/edit`
-- **Need to display a list?** Look at `/admin/users` or `/admin/logs`
+- **Need to add a form?** Look at `/Admin/Users/Create` or `/Guilds/Edit/{guildId}` (both Blazor, `EditForm`-based — see "Blazor Routes (Phase 4, permanent)" above)
+- **Need to display a list?** Look at `/Admin/Users` (Blazor, `PagedQuery`-based) or `/admin/logs`
 - **Need tabbed navigation?** See `/admin/performance` or `/guild/{guildId}/analytics`
 - **Need modals/popups?** See `_MemberDetailModal.cshtml` or `_ConfirmationModal.cshtml`
 - **Need real-time status?** See `_StatusIndicator` and `_BotStatusCard`

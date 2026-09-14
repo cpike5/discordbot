@@ -324,7 +324,7 @@ Order is by rising complexity so the component library hardens on easy pages fir
 | Cluster | Pages | Notes |
 | --- | --- | --- |
 | 4a Simple admin | `Admin/Users` ×4, `Admin/AuditLogs/Details`, `Admin/MessageLogs/Details`, `CommandLogs/Details`, `Account/Profile`, `Account/AccessDenied`, `Account/Lockout` | **Done.** Classic forms → `EditForm`; TempData flash → `IToastService`. Client-side JSON download on AuditLogs details → `browser.js`. First cluster with a timestamped list (`AuditLogs`/`MessageLogs`/`CommandLogs` details) — adds the `browser.js` timezone conversion (or a `LocalTime` component) that `Search`'s own `data-utc` rows (§5 Phase 3 deviation (c)) pick up at the same time. |
-| 4b Simple guild | `Guilds/Edit`, `Welcome`, `AssistantSettings`, `AssistantMetrics`, `FeatureRequests` ×2, `Reminders`, `ScheduledMessages` ×3, `AudioModerationLog`, `RatWatch/Index` | First consumers of `GuildLayout`. ScheduledMessages needs timezone capture via `browser.js` and the live preview pane. Standardise on one pagination state type here. `AssistantSettings` now has a Tool Access checklist (with the "default set" banner) and `AssistantMetrics` three more server-rendered tables; both are still S/M with no charts. |
+| 4b Simple guild | `Guilds/Edit`, `Welcome`, `AssistantSettings`, `AssistantMetrics`, `FeatureRequests` ×2, `Reminders`, `ScheduledMessages` ×3, `AudioModerationLog`, `RatWatch/Index` | **Done.** First consumers of `GuildLayout`. ScheduledMessages needs timezone capture via `browser.js` and the live preview pane. Standardise on one pagination state type here. `AssistantSettings` now has a Tool Access checklist (with the "default set" banner) and `AssistantMetrics` three more server-rendered tables; both are still S/M with no charts. |
 | 4c Account | `Login`, `ExternalLogin`, `LinkDiscord`, `Logout`, `Privacy` + minimal-API endpoints | Static SSR. Preserve the `?authError` contract, `returnUrl` sanitising and `OnRemoteFailure` redirect. Verify with Playwright against a stubbed OAuth provider or a manual checklist. Remove jQuery and `_ValidationScriptsPartial`. Fix the dead `LoginWith2fa` branch (either remove or leave a documented no-op). `Login` is now a single centred card (the brand side panel and its CSS were removed on `main`); port that composition. |
 | 4d Lists and settings | `Guilds/Index`, `Guilds/Details`, `Members/Index` (+ detail modal), `Members/Moderation`, `FlaggedEvents` ×2, `ModerationSettings`, `AudioSettings`, `Admin/Logs` (unified; stubs become redirects), `Admin/Notifications`, `Admin/BulkPurge` (wire real progress from the event bus), `Admin/UserPurge`, `Admin/Settings`, `Admin/LlmUsage`, `RatWatch/Incidents` | Three save patterns collapse to component methods calling services. `Admin/Settings` and `ModerationSettings` get `TabGroup` + dirty tracking via `EditContext` + `beforeunload` guard. CSV exports become minimal-API GET endpoints. `Admin/Settings`'s AI Models tab (`llm-models.js`: lazily loaded OpenRouter catalog, allowlist, per-mode defaults) becomes its own component inside the settings `TabGroup`, loading on first activation and calling the catalog service directly; `LlmModelsController` retires with it. `Admin/LlmUsage`'s per-user drill-down (`llm-usage.js`) becomes a paged component call; `LlmUsageController` retires with it. |
 | 4e Dashboards and charts | `Index` (home), `Commands` (three tabs in one component, filter state in the query string via `NavigationManager`), `Guilds/Analytics` ×3 (custom heatmap becomes a component), `RatWatch/Analytics`, `Admin/RatWatchAnalytics`, `Admin/Performance` (one page, six tabs, event-bus live tiles) | `Chart` component + `charts.js`. Retire `CommandsApiController` and `PerformanceTabsController` HTML endpoints, `AnalyticsController`. |
@@ -364,11 +364,12 @@ so "View all" from global search silently dropped the term; fixed to build `?Sea
 Admin acting on a SuperAdmin, or any actor acting on themselves through this path, renders an
 access-denied `EmptyState` instead of the form) — new enforcement versus the legacy `EditModel`,
 which rendered the form unconditionally and relied only on `Details.cshtml` hiding the "Edit User"
-link. Reset-password and unlink-Discord are similarly gated. Test totals: 778 bUnit (up from 706 at
+link. Reset-password and unlink-Discord are similarly gated. Test totals: 784 bUnit (up from 706 at
 the end of Phase 3), 20 Playwright (up from 15: new scenarios `Test_P`–`Test_T` cover `Profile`
 render/theme-save, `AccessDenied`/`Lockout` anonymous rendering, an `Admin/Users`
 create/edit/details round trip, `AuditLogs`/`MessageLogs`/`CommandLogs` details rendering for
-seeded rows, and the AuditLogs Export JSON download), 5,162 unit.
+seeded rows, and the AuditLogs Export JSON download), 5,167 unit (at the end of the cluster's fix
+round).
 
 **Deviations and rules.**
 
@@ -409,6 +410,146 @@ seeded rows, and the AuditLogs Export JSON download), 5,162 unit.
   (`BrowserInterop.CopyToClipboardAsync`) — it is never put in a toast, never logged (only the
   fact that a reset happened is logged, not the value), and never persisted anywhere beyond the
   component's in-memory state for that render.
+
+**Cluster 4b delivered.** Twelve pages ported, all under `Blazor/Pages/Guilds/`: `Edit.razor` (+
+`.razor.cs`), `Welcome.razor` (+ `.razor.cs`), `AssistantSettings.razor` (+ `.razor.cs`),
+`AssistantMetrics.razor` (+ `.razor.cs`), `AudioModerationLog/Index.razor` (+ `.razor.cs`),
+`RatWatch/Index.razor` (+ `.razor.cs`), `FeatureRequests/Index.razor` and `.../Details.razor`
+(each + `.razor.cs`), `Reminders/Index.razor` (+ `.razor.cs`), `ScheduledMessages/Index.razor`,
+`.../Create.razor` and `.../Edit.razor` (each + `.razor.cs`, the latter two sharing
+`ScheduledMessageInputModel.cs`/`ScheduledMessageForm.razor`) — the first real
+`GuildLayout`/`GuildPageBase`/`GuildContextGate` consumers, replacing the Phase 3
+`GuildProbe.razor` probe in that role (`Guilds/Edit` inherits its Playwright coverage as
+`Test_U`/`Test_V`). `Blazor/Common/PagedQuery.cs` (`PageNumber`/`PageSize`/`SortBy`/
+`SortDescending`, clamped, with a `FromQuery`/`ToQueryString` pair) plus
+`Blazor/Shared/Navigation/Pagination.razor` in link mode becomes the one pagination pattern for a
+guild list page, replacing what would otherwise have been six ad hoc paging implementations; query
+names are `pageNumber`/`pageSize`/`sortBy`/`sortDescending`, with `FromQuery`'s `legacyPage`
+parameter accepting the old `?page=` links (bookmarks, the `Guilds/Details` widget) without a
+redirect. `ScheduledMessages/Create` and `.../Edit` detect the viewer's IANA zone once via
+`BrowserInterop.GetTimeZoneAsync()` after first render and convert with the existing
+`Core/Utilities/TimezoneHelper.cs` (`ConvertFromUtc` to prefill, `ConvertToUtc` on submit); a
+chosen local time that falls in a DST spring-forward gap (`TimeZoneInfo.ConvertTimeToUtc` throwing
+`ArgumentException` for an instant that never occurs, e.g. `America/Toronto` 2026-03-08 02:30) is
+caught and surfaced as an inline validation message instead of crashing the circuit.
+`GuildPageBase` (`Blazor/Guilds/`) gained `RequestLocalTimeScan()`/a virtual `OnAfterRenderAsync`
+override — a page calls it at the end of every load/reload so the next render re-triggers
+`BrowserInterop.ConvertLocalTimesAsync()`, since `localtime.js`'s document-level scan only ever
+fires once; lifted out of what had been `Admin/Users/Index.razor.cs`'s own copy so every guild
+list/detail page gets it for free. Review (`ae54ddb`, written up in
+`docs/lessons-learned/scheduled-message-repeated-update-tracking.md`) found that a Blazor circuit's
+DI scope — and therefore its `BotDbContext` — lives for the whole circuit, so a second
+fetch-mutate-`Update()` of the same entity in one circuit collides with the first call's still-
+tracked graph; the fix is `Blazor/Common/ScopedOperations.cs` (`IServiceScopeFactory.RunAsync`
+one/two-service, action/func overloads), applied to every mutation handler and the reload that
+follows it across both this cluster and 4a — 22 call sites across this cluster's 9 guild page
+files (31 in total including the 3 `Admin/Users` files from 4a). Sweep:
+`GuildNavigationConfig`'s `feature-requests` tab `UrlPattern` (`/Guilds/{guildId}/FeatureRequests`,
+which never matched the real route either) fixed to `/Guilds/FeatureRequests/{guildId}`;
+`RemindersSearchProvider`'s result `Url` (was building `/Guilds/{guildId}/Reminders` instead of
+`/Guilds/Reminders/{guildId}`); `PageMetadataService` gains a Feature Requests entry;
+`Guilds/Details.cshtml`'s three `Url.Page(...)` widget links become literal hrefs; extends
+`DeletedPagesGuardTests.DeletedPageRoutes`. Deletions: the six legacy `.cshtml`/`.cshtml.cs` pairs
+from the first PR and six more from the second, `GuildProbe.razor`, and two page-model test files
+— `GuildProbeTests.cs` and `Reminders/IndexModelTests.cs` (RatWatch's own `IndexModelTests.cs`
+also goes, its behaviour ported into the new page's bUnit suite). New lessons-learned notes:
+`docs/lessons-learned/scheduled-message-repeated-update-tracking.md` (the per-operation-scopes
+fix above) and `docs/lessons-learned/sqlite-migration-context-mismatch.md` (see the next section).
+Test totals measured after the cluster's fix round: 853 bUnit, 5,204 unit, 23 Playwright (two of
+the 4a-era `Test_I`/`Test_J` GuildProbe scenarios were retired and replaced by `Test_U`/`Test_V`,
+and `Test_W`/`Test_X`/`Test_Y` cover the ScheduledMessages create/list/edit/delete round trip,
+Reminders list/cancel, and FeatureRequests list/details/approve respectively).
+
+**Deviations and follow-ups.**
+
+- (a) `AssistantMetrics`'s route matches none of `GuildNavigationConfig`'s tabs (the "assistant"
+  tab points at `AssistantSettings`'s URL instead), so `GuildLayout` falls back to the guild's own
+  name for the header/breadcrumb rather than the legacy page's custom "Home > Servers > Guild >
+  Assistant > Metrics" trail — there is no separate "Metrics" breadcrumb entry. Accepted as a
+  cluster 4b fidelity deviation.
+- (b) `preview-trigger` hover previews are not wired in the Blazor shell. `Reminders/Index`,
+  `RatWatch/Index` and `AudioModerationLog/Index` all carry the same `preview-trigger`
+  class/`data-preview-*` attributes the legacy pages did, but `App.razor` loads only
+  `blazor.web.js`, `shell.js` and `localtime.js` — never `wwwroot/js/preview-popup.js` — so the
+  markup is inert; a Blazor-native `PreviewPopover` component exists (`Blazor/Shared/Overlays/`)
+  but nothing in this cluster calls it. Left as a follow-up for cluster 4d, when the Members pages
+  need the same preview.
+- (c) `Repository<T>.UpdateAsync`'s `DbSet.Update(entity)` marks every `Include`d navigation as
+  `Modified` too, not just the root entity — saving a `ScheduledMessage` (fetched with `.Include(s
+  => s.Guild)`) also rewrites the `Guilds` row it came with, even though nothing about the guild
+  changed. Per-operation scopes (deviation above) don't make this better or worse; it is
+  pre-existing behaviour, tracked as a follow-up for a separate PR, not fixed as part of this one.
+- (d) Discord-dependent data (channel lists, resolved usernames) renders empty, or as a raw
+  Discord id, in the web-only E2E host used for Playwright (no gateway connection) — `Welcome`'s
+  channel dropdown, `ScheduledMessages`' channel `Select`, and `Reminders`'/`RatWatch`'s/
+  `AudioModerationLog`'s username columns all degrade this way. `tests/DiscordBot.E2E/BrowserTests.cs`
+  therefore covers these pages' shells, navigation and validation, not the actual Discord content;
+  the round-trip tests (`Test_W`/`Test_X`/`Test_Y`) seed rows directly via
+  `BotHostFixture.DatabasePath` rather than through the Discord-backed create flow.
+
+**Found during 4b: SQLite migrations never ran past January 2026 (upstream bug).**
+
+Before this cluster's own work, `main`'s `AddInfrastructure` registered the **base**
+`BotDbContext` for the SQLite provider, while every SQLite migration after
+`20260127225612_AddSsmlSupportToGuildTtsSettings` carries `[DbContext(typeof(SqliteBotDbContext))]`
+— the Sqlite/Postgres migration-set split (CLAUDE.md "Database and migrations"). EF Core's
+migrator matches a migration to a context by exact runtime type, so `Program.cs`'s startup
+`db.Database.MigrateAsync()`, which resolved the base type, silently stopped applying migrations
+at 40 of 59 and returned successfully — no exception, no `PendingModelChangesWarning`, `/health`
+green. **Every SQLite database created or upgraded since late January 2026 — the default provider
+— has therefore been missing** `FeatureRequests`, `LlmUsageRecords`, `AudioPlaybackLogs`,
+`UserPreferences`, `VoxMessageHistory`, `UserSoundFavorites`, the `EnabledTools`/`ToolNames`
+columns, and the `Themes`/`PerformanceAlertConfigs` seed rows, among everything else added in the
+last several months. It looked intermittent only because different pages touch different missing
+tables — this cluster's own `FeatureRequests` Playwright test is what surfaced it.
+
+What this branch does about it:
+
+- **The registration fix.** `AddInfrastructure`'s SQLite branch now mirrors the Postgres branch:
+  `AddBotDbContext<SqliteBotDbContext>(...)` plus a forwarding `AddScoped<BotDbContext>(sp =>
+  sp.GetRequiredService<SqliteBotDbContext>())`.
+- **`Infrastructure/Data/Migrations/SqliteLegacyHistoryRepair.cs`**, run from `Program.cs`
+  immediately before `MigrateAsync`. Fixing the registration alone would brick every database
+  already running under the bug: its `__EFMigrationsHistory` holds exactly the 40 legacy ids and
+  none of the current lineage's, so the migrator would treat the whole re-baseline
+  (`20260219205009_AddIsEnabledToGuildModerationConfig`, a from-scratch snapshot of the schema the
+  legacy chain had already built) as pending and crash on `CREATE TABLE "ApplicationSettings"`
+  against a table that already exists. The repair detects that pre-fix state, adds the one column
+  the re-baseline actually introduces (`GuildModerationConfigs.IsEnabled`, defaulted to `1` so a
+  guild that had moderation configured before the flag existed stays moderated), verifies every
+  table/column the re-baseline declares already exists (reading the migration's own
+  `UpOperations`, not a hand-copied list), and stamps the re-baseline as applied so the remaining
+  migrations apply normally. It throws with recovery guidance (back up, then either
+  `dotnet ef database update --context SqliteBotDbContext` or delete the file and let a fresh
+  database be created) on a history that carries only *some* of the legacy ids; it logs a Warning
+  and stands aside on a history with none of either lineage's ids. It is a no-op on a fresh
+  database, an already-repaired one, and PostgreSQL.
+- **Two idempotent seed migrations**, since the re-baseline recreated tables without their
+  original seed data (not part of a model-diff snapshot):
+  `Migrations/Sqlite/20260914060035_SeedDefaultThemesSqlite.cs` (the two default themes) and
+  `Migrations/Sqlite/20260914065633_SeedPerformanceAlertConfigsSqlite.cs` (the eight default alert
+  thresholds, copied row for row from `Migrations/Postgresql/20260219132220_InitialPostgresql.cs`).
+  Both use `INSERT OR IGNORE` so they no-op on a database that already has the rows.
+- **Tests.** `tests/DiscordBot.Tests/Infrastructure/Extensions/ServiceCollectionExtensionsTests.cs`'s
+  `AddInfrastructure_WithSqliteConnectionString_ResolvesSqliteBotDbContext` now actually asserts
+  `BeOfType<SqliteBotDbContext>()` (it asserted `BeOfType<BotDbContext>()` before, despite its own
+  name). `tests/DiscordBot.Tests/Infrastructure/Data/SqliteLegacyHistoryRepairTests.cs` (13 test
+  methods) builds the pre-fix on-disk state by migrating the base `BotDbContext` into a temp file
+  and proves the fix against it: `MigrateAsync_OnLegacyDatabaseWithoutRepair_Throws` proves the
+  crash without the repair; `RepairedDatabase_HasTheSameSchemaAsOneMigratedFromScratch` compares
+  the repaired database against a from-scratch one object by object (`sqlite_master` plus `PRAGMA
+  table_info`, including indexes and foreign keys); the rest cover idempotency, the fresh-database
+  and empty-history no-ops, existing-data preservation, seed de-duplication, and the two refusal
+  paths (partial legacy history, and a legacy history whose schema doesn't match the baseline).
+
+**Recommendation for the user:** ship the registration fix, the repair, and the two seed
+migrations to `main` as their own hotfix PR (and tag a release) ahead of, or independently from,
+this port branch — every SQLite deployment is affected today, not just guild pages this port
+happens to touch. PostgreSQL is untested for this change (CLAUDE.md: "There is no PostgreSQL test
+path"), though the registration fix mirrors a pattern the Postgres branch already used and the two
+seed migrations are SQLite-only by design (Postgres's initial migration already seeds both tables).
+See `docs/lessons-learned/sqlite-migration-context-mismatch.md` for the full investigation and
+`docs/articles/database-schema.md` for the upgrade note this needs.
 
 ### Phase 5 — Decommission · 4–6 days · 3–4 PRs
 
