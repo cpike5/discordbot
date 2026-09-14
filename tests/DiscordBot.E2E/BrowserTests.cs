@@ -1372,6 +1372,231 @@ public sealed class BrowserTests
             "Enter in the delete confirmation box must submit only the delete form, never the consent Grant/Revoke button in the separate privacy-actions form");
     }
 
+    /// <summary>
+    /// Covers the unified Admin/Logs page end to end (docs/plans/blazor-port-plan.md Phase 4
+    /// cluster 4d): the <c>?tab=audit</c> query selects the Audit tab on load, a seeded row is
+    /// visible, and the CSV export link (now a minimal-API GET rather than a page handler)
+    /// downloads a file whose header row matches <see cref="DiscordBot.Bot.Services.AdminLogsCsvExporter.Header"/>.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZE1_AdminLogs_TabsFiltersAndAuditExport()
+    {
+        var (_, auditLogId, _, _) = SeedLogRows();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Admin/Logs?tab=audit");
+        await Expect(page.Locator("[data-testid='audit-filter-form']")).ToBeVisibleAsync();
+        await Expect(page.Locator("body")).ToContainTextAsync("BotStarted");
+
+        var download = await page.RunAndWaitForDownloadAsync(async () =>
+        {
+            await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Export CSV" }).ClickAsync();
+        });
+
+        var path = await download.PathAsync();
+        path.Should().NotBeNullOrEmpty();
+        var lines = await File.ReadAllLinesAsync(path!);
+        // Literal copy of Services/AdminLogsCsvExporter.Header - this project has no reference to
+        // DiscordBot.Bot (see the .csproj comment SeedGuild's own doc points to).
+        lines[0].Should().Be("Timestamp,Category,Action,Actor,Target Type,Target ID,Guild,Details,IP Address,Correlation ID");
+        _ = auditLogId;
+    }
+
+    /// <summary>
+    /// Covers the Admin/Notifications page end to end (cluster 4d): marking one seeded unread
+    /// notification read updates its row in place (no navigation - <c>ToggleReadAsync</c> reloads
+    /// through <c>ScopedOperations</c>), and deleting the other removes its row.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZE2_Notifications_MarkReadInPlace()
+    {
+        var (id1, id2) = SeedNotificationsForSeededAdmin();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Admin/Notifications");
+        // Scoped to the two seeded rows by id, not an exact total count: the live host also runs
+        // its own performance-threshold monitor, which can add its own real notifications for
+        // this same admin (visible below as "Performance Alert" rows) independently of this seed.
+        var firstRow = page.Locator($"[data-notification-id='{id1}']");
+        var secondRow = page.Locator($"[data-notification-id='{id2}']");
+        await Expect(firstRow).ToBeVisibleAsync();
+        await Expect(secondRow).ToBeVisibleAsync();
+
+        await Expect(firstRow).ToHaveAttributeAsync("data-read", "false");
+        await firstRow.Locator("button[title='Mark read']").ClickAsync();
+        await Expect(firstRow).ToHaveAttributeAsync("data-read", "true");
+        await Expect(page).ToHaveURLAsync(new Regex(@"/Admin/Notifications$"));
+
+        await secondRow.Locator("button[title='Delete']").ClickAsync();
+        await Expect(secondRow).Not.ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// Covers the Admin/LlmUsage page end to end (cluster 4d): the hero tiles reflect three
+    /// seeded <c>LlmUsageRecords</c> rows, and clicking the user's row in "Cost by User" loads the
+    /// per-user drill-down (now a direct paged repository call, replacing <c>llm-usage.js</c>).
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZE3_LlmUsage_HeroAndDrilldown()
+    {
+        SeedLlmUsageRecords(3);
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Admin/LlmUsage");
+        var messagesCard = page.Locator(".hero-metric-card").Filter(new LocatorFilterOptions { HasTextString = "Messages" });
+        await Expect(messagesCard.Locator(".hero-metric-value")).ToHaveTextAsync("3");
+
+        await page.Locator("[data-testid='llm-usage-user-row']").First.ClickAsync();
+        await Expect(page.Locator("[data-testid='llm-usage-drilldown-row']")).ToHaveCountAsync(3);
+    }
+
+    /// <summary>
+    /// Covers Admin/UserPurge end to end for the SuperAdmin role the seeded admin already carries
+    /// (cluster 4d): a seeded, unlinked Discord member with one <c>ModNotes</c> row previews with
+    /// a non-zero count, the typed-confirm button stays disabled until the Discord user id itself
+    /// is typed (the dynamic <c>RequiredText</c>, unlike BulkPurge's fixed "CONFIRM"), and purging
+    /// shows the success banner.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZE4_UserPurge_PreviewAndTypedConfirm()
+    {
+        var discordUserId = SeedPurgeableMember();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Admin/UserPurge?DiscordUserId={discordUserId}");
+        await Expect(page.Locator("[data-testid='user-purge-preview']")).ToBeVisibleAsync();
+        await Expect(page.Locator("[data-testid='user-purge-preview-row']").Filter(new LocatorFilterOptions { HasTextString = "ModNotes" })).ToBeVisibleAsync();
+
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Purge This User's Data" }).ClickAsync();
+        var confirmButton = page.Locator("#userPurgeModal").GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Purge User Data" });
+        await Expect(confirmButton).ToBeDisabledAsync();
+
+        await page.Locator("#userPurgeModalInput").FillAsync(discordUserId.ToString());
+        await Expect(confirmButton).ToBeEnabledAsync();
+        await confirmButton.ClickAsync();
+
+        await Expect(page.Locator("body")).ToContainTextAsync("purged successfully");
+    }
+
+    /// <summary>Seeds two unread <c>UserNotifications</c> rows for the seeded SuperAdmin, for <see cref="Test_ZE2_Notifications_MarkReadInPlace"/>.</summary>
+    private (Guid Id1, Guid Id2) SeedNotificationsForSeededAdmin()
+    {
+        var userId = GetSeededAdminUserId();
+        var id1 = Guid.NewGuid();
+        var id2 = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        foreach (var id in new[] { id1, id2 })
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO UserNotifications (Id, UserId, Type, Title, Message, IsRead, CreatedAt)
+                VALUES ($id, $userId, 2, 'E2E Notification', 'Seeded for Test_ZE2', 0, $now)
+                """;
+            command.Parameters.AddWithValue("$id", id.ToString());
+            command.Parameters.AddWithValue("$userId", userId);
+            // EF Core's SQLite provider stores/compares DateTime as TEXT in its own
+            // "yyyy-MM-dd HH:mm:ss.fffffff" format (no 'T'/'Z') - a round-trip ("O") string sorts
+            // differently within the same calendar day (the 'T' at position 10 collates after a
+            // space), so a same-day upper-bound filter like this page's default date range can
+            // silently exclude a row seeded with "O". Match EF's own format instead.
+            command.Parameters.AddWithValue("$now", now.ToString("yyyy-MM-dd HH:mm:ss.fffffff"));
+            var rows = command.ExecuteNonQuery();
+            rows.Should().Be(1, $"the INSERT for notification {id} into UserNotifications (UserId={userId}) should affect exactly one row");
+        }
+
+        return (id1, id2);
+    }
+
+    /// <summary>Looks up the seeded SuperAdmin's <c>AspNetUsers.Id</c>, for tests that seed rows owned by that account (e.g. <see cref="SeedNotificationsForSeededAdmin"/>).</summary>
+    private string GetSeededAdminUserId()
+    {
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT Id FROM AspNetUsers WHERE Email = $email";
+        command.Parameters.AddWithValue("$email", _host.SeededAdminEmail);
+        return (string)command.ExecuteScalar()!;
+    }
+
+    /// <summary>Seeds <paramref name="count"/> <c>LlmUsageRecords</c> rows for one salted Discord user id, for <see cref="Test_ZE3_LlmUsage_HeroAndDrilldown"/>.</summary>
+    private void SeedLlmUsageRecords(int count)
+    {
+        var userId = 900000000000000060UL + (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        for (var i = 0; i < count; i++)
+        {
+            using var command = connection.CreateCommand();
+            command.CommandText = """
+                INSERT INTO LlmUsageRecords (Id, Timestamp, Mode, UserId, Model, InputTokens, OutputTokens, CachedTokens, CacheWriteTokens, LlmCalls, ToolCalls, CostUsd, CostSource, LatencyMs, Success)
+                VALUES ($id, $timestamp, 1, $userId, 'anthropic/claude-sonnet-4.6', 100, 50, 0, 0, 1, 0, 0.05, 1, 500, 1)
+                """;
+            command.Parameters.AddWithValue("$id", DateTime.UtcNow.Ticks + i);
+            // See the identical note on SeedNotificationsForSeededAdmin's "$now" parameter -
+            // EF's SQLite DateTime TEXT format, not round-trip "O".
+            command.Parameters.AddWithValue("$timestamp", now.AddMinutes(-i).ToString("yyyy-MM-dd HH:mm:ss.fffffff"));
+            command.Parameters.AddWithValue("$userId", unchecked((long)userId));
+            command.ExecuteNonQuery();
+        }
+    }
+
+    /// <summary>Seeds one Discord <c>Users</c> row (no linked <c>AspNetUsers</c> account, so <c>CanPurgeUserAsync</c> allows it) plus a <c>Guilds</c> row and one <c>ModNotes</c> row authored by that user, for <see cref="Test_ZE4_UserPurge_PreviewAndTypedConfirm"/>.</summary>
+    private ulong SeedPurgeableMember()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var discordUserId = 900000000000000070UL + salt;
+        var guildId = 900000000000000080UL + salt;
+        var now = DateTime.UtcNow;
+
+        SeedGuild(guildId, "E2E Purge Guild");
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "INSERT INTO Users (Id, Username, Discriminator, FirstSeenAt, LastSeenAt) VALUES ($id, $username, '0', $now, $now)";
+            command.Parameters.AddWithValue("$id", unchecked((long)discordUserId));
+            command.Parameters.AddWithValue("$username", "e2e-purge-member");
+            command.Parameters.AddWithValue("$now", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO ModNotes (Id, GuildId, AuthorUserId, TargetUserId, Content, CreatedAt)
+                VALUES ($id, $guildId, $authorUserId, $targetUserId, 'E2E seeded note', $now)
+                """;
+            command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+            command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+            command.Parameters.AddWithValue("$authorUserId", unchecked((long)discordUserId));
+            command.Parameters.AddWithValue("$targetUserId", unchecked((long)(discordUserId + 1)));
+            command.Parameters.AddWithValue("$now", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        return discordUserId;
+    }
+
     /// <summary>Sets the seeded SuperAdmin's <c>DiscordUserId</c>/<c>DiscordUsername</c> directly in the database, for <see cref="Test_Z4_Privacy_UnlinkedUser_RendersCallout_AndDeleteRequiresConfirmation"/> - the web-only host has no real Discord OAuth to link an account through. Returns the generated Discord user id so a caller can seed/verify per-user rows (e.g. <c>UserConsents</c>) keyed on it.</summary>
     private ulong LinkSeededAdminToDiscord()
     {
