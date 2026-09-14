@@ -34,6 +34,9 @@ public class DeletedPagesGuardTests
         "/Admin/Users/Create",
         "/Admin/Users/Edit",
         "/Admin/Users/Details",
+        "/Admin/AuditLogs/Details",
+        "/Admin/MessageLogs/Details",
+        "/CommandLogs/Details",
     };
 
     [Fact]

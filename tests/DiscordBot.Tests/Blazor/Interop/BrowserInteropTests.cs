@@ -305,6 +305,37 @@ public class BrowserInteropTests
     }
 
     [Fact]
+    public async Task DownloadFileAsync_InvokesDownloadFileWithNameContentAndContentType()
+    {
+        var (_, module, sut) = CreateSut();
+
+        await sut.DownloadFileAsync("audit-entry-1.json", "{\"a\":1}", "application/json");
+
+        module.Verify(
+            m => m.InvokeAsync<It.IsAnyType>(
+                "downloadFile",
+                It.Is<object?[]>(a => a.Length == 3
+                    && (string)a[0]! == "audit-entry-1.json"
+                    && (string)a[1]! == "{\"a\":1}"
+                    && (string)a[2]! == "application/json")),
+            Times.Once);
+    }
+
+    [Fact]
+    public async Task DownloadFileAsync_DefaultsContentTypeToApplicationJson()
+    {
+        var (_, module, sut) = CreateSut();
+
+        await sut.DownloadFileAsync("file.json", "{}");
+
+        module.Verify(
+            m => m.InvokeAsync<It.IsAnyType>(
+                "downloadFile",
+                It.Is<object?[]>(a => a.Length == 3 && (string)a[2]! == "application/json")),
+            Times.Once);
+    }
+
+    [Fact]
     public async Task DisposeAsync_WithNoModuleImported_DoesNothing()
     {
         var jsRuntimeMock = new Mock<IJSRuntime>();

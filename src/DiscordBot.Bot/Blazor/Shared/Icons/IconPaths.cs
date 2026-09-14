@@ -45,6 +45,12 @@ public static class IconPaths
     /// <summary>Heroicon <c>arrow-down</c>. Downward trend in <c>_HeroMetricCard.cshtml</c>.</summary>
     public const string ArrowDown = "M19 14l-7 7m0 0l-7-7m7 7V3";
 
+    /// <summary>Heroicon <c>arrow-down-tray</c>. "Export JSON" action in <c>Pages/Admin/AuditLogs/Details.cshtml</c> (cluster 4a).</summary>
+    public const string ArrowDownTray = "M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4";
+
+    /// <summary>Heroicon <c>arrow-left</c>. Back-to-list links in <c>Pages/Admin/AuditLogs/Details.cshtml</c>, <c>Pages/Admin/MessageLogs/Details.cshtml</c> and <c>Pages/CommandLogs/Details.cshtml</c> (cluster 4a).</summary>
+    public const string ArrowLeft = "M10 19l-7-7m0 0l7-7m-7 7h18";
+
     /// <summary>Heroicon <c>arrow-path</c>. "Restart Required" badges (<c>_SettingField.cshtml</c>, <c>_RestartBanner.cshtml</c>).</summary>
     public const string ArrowPath = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15";
 

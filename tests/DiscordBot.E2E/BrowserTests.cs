@@ -680,6 +680,172 @@ public sealed class BrowserTests
         await Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Return to Login" })).ToBeVisibleAsync();
     }
 
+    /// <summary>
+    /// Covers the three cluster 4a Details pages end to end
+    /// (docs/plans/blazor-port-plan.md Phase 4 cluster 4a): one row each is seeded directly into
+    /// the fixture's throwaway SQLite <c>AuditLogs</c>, <c>MessageLogs</c> and <c>CommandLogs</c>
+    /// tables (the same <see cref="BotHostFixture.DatabasePath"/> escape hatch
+    /// <see cref="SeedGuild"/> uses - there is no UI flow that creates these rows in web-only
+    /// mode), then each Details page is opened and asserted to render its key fields plus a
+    /// client-side-converted <c>&lt;time data-localtime-converted="1"&gt;</c> - proof
+    /// <c>localtime.js</c>/<c>BrowserInterop.ConvertLocalTimesAsync</c> actually ran, the same
+    /// assertion shape <see cref="Test_P_Profile_RendersAndSavesTheme"/> uses.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_S_LogDetails_RenderForSeededRows()
+    {
+        var (guildId, auditLogId, messageLogId, commandLogId) = SeedLogRows();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Admin/AuditLogs/Details/{auditLogId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Audit Entry Details");
+        await Expect(page.Locator("body")).ToContainTextAsync("System");
+        await Expect(page.Locator("body")).ToContainTextAsync("BotStarted");
+        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", "1");
+
+        await page.GotoAsync($"/Admin/MessageLogs/Details/{messageLogId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Message Details");
+        await Expect(page.Locator("body")).ToContainTextAsync("Hello from the E2E seed");
+        await Expect(page.Locator("body")).ToContainTextAsync("e2e-log-user");
+        await Expect(page.Locator("body")).ToContainTextAsync("E2E Log Details Guild");
+        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", "1");
+
+        await page.GotoAsync($"/CommandLogs/Details/{commandLogId}");
+        await Expect(page.Locator("h1")).ToContainTextAsync("ping");
+        await Expect(page.Locator("body")).ToContainTextAsync("E2E Log Details Guild");
+        await Expect(page.Locator("body")).ToContainTextAsync("e2e-log-user");
+        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", "1");
+    }
+
+    /// <summary>
+    /// Covers the AuditLogs Details "Export JSON" client-side download end to end (cluster 4a):
+    /// <c>BrowserInterop.DownloadFileAsync</c>/<c>browser.js</c>'s <c>downloadFile</c>
+    /// (Blob + object URL + synthetic <c>&lt;a download&gt;</c>) via Playwright's download event,
+    /// asserting the file name and that its content parses as JSON containing the entry id.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_T_AuditLogDetails_ExportDownloadsJson()
+    {
+        var (_, auditLogId, _, _) = SeedLogRows();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Admin/AuditLogs/Details/{auditLogId}");
+
+        var downloadTask = page.RunAndWaitForDownloadAsync(async () =>
+        {
+            await page.GetByLabel("Export this entry as JSON").ClickAsync();
+        });
+        var download = await downloadTask;
+
+        download.SuggestedFilename.Should().Be($"audit-entry-{auditLogId}.json");
+
+        var path = await download.PathAsync();
+        path.Should().NotBeNullOrEmpty();
+        var content = await File.ReadAllTextAsync(path!);
+        var json = System.Text.Json.JsonDocument.Parse(content);
+        json.RootElement.GetProperty("entryId").GetInt64().Should().Be(auditLogId);
+        json.RootElement.GetProperty("category").GetString().Should().Be("System");
+    }
+
+    /// <summary>
+    /// Seeds one <c>Guilds</c> row (via <see cref="SeedGuild"/>), one <c>Users</c> row, and one
+    /// row each in <c>AuditLogs</c>, <c>MessageLogs</c> and <c>CommandLogs</c> referencing them -
+    /// the FK rows <see cref="Test_S_LogDetails_RenderForSeededRows"/> and
+    /// <see cref="Test_T_AuditLogDetails_ExportDownloadsJson"/> both need. The audit log entry
+    /// uses a <c>System</c> actor (no Identity user lookup involved) and no guild id - guild-name
+    /// enrichment for audit logs goes through the live Discord gateway cache
+    /// (<c>Services/Audit/AuditLogService.cs</c>'s <c>EnrichDtosAsync</c>), which is never
+    /// populated in this web-only host, so a real assertion on that field would be testing
+    /// something this host can never produce.
+    /// </summary>
+    /// <remarks>
+    /// Every numeric id is offset by a random salt so two callers in the same test run (both
+    /// <see cref="Test_S_LogDetails_RenderForSeededRows"/> and
+    /// <see cref="Test_T_AuditLogDetails_ExportDownloadsJson"/> call this) never collide on the
+    /// shared <see cref="BotHostFixture.DatabasePath"/> - xUnit constructs a fresh
+    /// <see cref="BrowserTests"/> instance per test method, but the collection fixture's database
+    /// file is one file for the whole run. The <c>CommandLogs.Id</c> parameter is bound as the
+    /// <see cref="Guid"/> value itself, not <c>.ToString()</c> - Microsoft.Data.Sqlite's native
+    /// GUID support serializes a <see cref="Guid"/> parameter as the same 16-byte blob EF Core's
+    /// own <c>TEXT</c>-affinity GUID column mapping writes, so a hex-string parameter would bind
+    /// as a different SQLite storage class and never match <c>CommandLogService.GetByIdAsync</c>'s
+    /// own EF-issued lookup.
+    /// </remarks>
+    private (ulong GuildId, long AuditLogId, long MessageLogId, Guid CommandLogId) SeedLogRows()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000010UL + salt;
+        SeedGuild(guildId, "E2E Log Details Guild");
+
+        var userId = 900000000000000011UL + salt;
+        var now = DateTime.UtcNow;
+        var auditLogId = 900000000000000012L + (long)salt;
+        var messageLogId = 900000000000000013L + (long)salt;
+        var commandLogId = Guid.NewGuid();
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "INSERT INTO Users (Id, Username, Discriminator, FirstSeenAt, LastSeenAt) VALUES ($id, $username, '0', $now, $now)";
+            command.Parameters.AddWithValue("$id", (long)userId);
+            command.Parameters.AddWithValue("$username", "e2e-log-user");
+            command.Parameters.AddWithValue("$now", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO AuditLogs (Id, Timestamp, Category, Action, ActorId, ActorType, TargetType, TargetId, GuildId, Details, IpAddress, CorrelationId)
+                VALUES ($id, $timestamp, 7, 16, NULL, 2, NULL, NULL, NULL, NULL, NULL, NULL)
+                """;
+            command.Parameters.AddWithValue("$id", auditLogId);
+            command.Parameters.AddWithValue("$timestamp", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO MessageLogs (Id, DiscordMessageId, AuthorId, ChannelId, ChannelName, GuildId, Source, Content, Timestamp, LoggedAt, HasAttachments, HasEmbeds, ReplyToMessageId)
+                VALUES ($id, $discordMessageId, $authorId, $channelId, 'general', $guildId, 2, $content, $timestamp, $loggedAt, 0, 0, NULL)
+                """;
+            command.Parameters.AddWithValue("$id", messageLogId);
+            command.Parameters.AddWithValue("$discordMessageId", unchecked((long)(900000000000000014UL + salt)));
+            command.Parameters.AddWithValue("$authorId", unchecked((long)userId));
+            command.Parameters.AddWithValue("$channelId", unchecked((long)(900000000000000015UL + salt)));
+            command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+            command.Parameters.AddWithValue("$content", "Hello from the E2E seed");
+            command.Parameters.AddWithValue("$timestamp", now.ToString("O"));
+            command.Parameters.AddWithValue("$loggedAt", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO CommandLogs (Id, GuildId, UserId, CommandName, Parameters, ExecutedAt, ResponseTimeMs, Success, ErrorMessage, CorrelationId)
+                VALUES ($id, $guildId, $userId, 'ping', NULL, $executedAt, 42, 1, NULL, NULL)
+                """;
+            command.Parameters.AddWithValue("$id", commandLogId);
+            command.Parameters.AddWithValue("$guildId", (long)guildId);
+            command.Parameters.AddWithValue("$userId", (long)userId);
+            command.Parameters.AddWithValue("$executedAt", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        return (guildId, auditLogId, messageLogId, commandLogId);
+    }
+
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
     [E2EFact]
     public async Task Test_R_Users_CreateEditDetails_RoundTrip()

@@ -353,6 +353,33 @@ if (typeof window !== 'undefined') {
 }
 
 // ---------------------------------------------------------------------------
+// File download — ports Pages/Admin/AuditLogs/Details.cshtml's inline "Export JSON" script
+// (cluster 4a). Wrapped by BrowserInterop.DownloadFileAsync.
+// ---------------------------------------------------------------------------
+
+/**
+ * Downloads `content` as a file named `fileName`: builds a Blob, a temporary object URL, and a
+ * synthetic `<a download>` click, then revokes the URL. The viewer's own download UI (save
+ * dialog, downloads folder) takes it from there - there is nothing to await beyond the
+ * synchronous click.
+ *
+ * @param {string} fileName
+ * @param {string} content
+ * @param {string} [contentType]
+ */
+export function downloadFile(fileName, content, contentType) {
+    const blob = new Blob([content], { type: contentType || 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// ---------------------------------------------------------------------------
 // Textarea selection — ports _EmphasisToolbar.cshtml's inline script
 // ---------------------------------------------------------------------------
 

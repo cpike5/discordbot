@@ -201,6 +201,23 @@ public sealed class BrowserInterop : IAsyncDisposable
         await module.InvokeVoidAsync("offClickOutside", handle);
     }
 
+    /// <summary>
+    /// Downloads <paramref name="content"/> as a file named <paramref name="fileName"/> - builds a
+    /// <c>Blob</c>, a temporary object URL, and a synthetic <c>&lt;a download&gt;</c> click, the
+    /// same mechanism <c>Pages/Admin/AuditLogs/Details.cshtml</c>'s inline "Export JSON" script
+    /// used (see <c>Blazor/Pages/Admin/AuditLogs/Details.razor.cs</c>, cluster 4a) - the JSON body
+    /// itself is built server-side with <c>System.Text.Json</c> rather than string-interpolated
+    /// into a <c>&lt;script&gt;</c> block.
+    /// </summary>
+    /// <param name="fileName">The filename the browser's save dialog / downloads folder sees.</param>
+    /// <param name="content">The file's text content.</param>
+    /// <param name="contentType">The <c>Blob</c>'s MIME type; defaults to <c>application/json</c>.</param>
+    public async Task DownloadFileAsync(string fileName, string content, string contentType = "application/json")
+    {
+        var module = await ModuleAsync();
+        await module.InvokeVoidAsync("downloadFile", fileName, content, contentType);
+    }
+
     /// <summary>Reads a textarea's current selection.</summary>
     public async Task<TextSelectionResult> GetSelectionAsync(ElementReference textarea)
     {

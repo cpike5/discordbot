@@ -1,0 +1,284 @@
+@page "/Admin/AuditLogs/Details/{id:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.ViewModels.Pages
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Admin/AuditLogs/Details.cshtml + DetailsModel
+    (docs/plans/blazor-port-plan.md Phase 4 cluster 4a). See Details.razor.cs for the
+    load/export/raw-data-toggle logic this markup renders.
+*@
+
+<PageTitle>Audit Entry Details</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <Breadcrumb Items="@(new[]
+    {
+        new BreadcrumbItem { Label = "Admin", Url = "/" },
+        new BreadcrumbItem { Label = "Audit Logs", Url = ResolvedReturnUrl },
+        new BreadcrumbItem { Label = "Entry Details", IsCurrent = true }
+    })" />
+
+    @if (NotFound)
+    {
+        <EmptyState Type="EmptyStateType.NoData"
+                    Size="EmptyStateSize.Large"
+                    Title="Audit Entry Not Found"
+                    Description="This audit log entry doesn't exist or has been removed."
+                    PrimaryActionText="Back to Audit Logs"
+                    PrimaryActionHref="@ResolvedReturnUrl" />
+    }
+    else if (ViewModel is null)
+    {
+        <div class="flex items-center justify-center py-16">
+            <LoadingSpinner Message="Loading entry..." />
+        </div>
+    }
+    else
+    {
+        <!-- Header with Back Button -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+            <div class="flex items-center gap-4">
+                <a href="@ResolvedReturnUrl" class="inline-flex items-center justify-center w-10 h-10 text-text-secondary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Back to audit logs">
+                    <Icon Path="@IconPaths.ArrowLeft" Size="IconSize.MD" />
+                </a>
+                <div>
+                    <h1 class="text-2xl font-bold text-text-primary">Audit Entry Details</h1>
+                    <p class="mt-1 text-sm text-text-secondary">Entry ID: <span class="font-mono">@ViewModel.Id</span></p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold @ViewModel.ActionBadgeClass">
+                    @ViewModel.Action
+                </span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <!-- Left Column - Metadata -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Actor Information Card -->
+                <Card Title="Actor Information">
+                    <div class="flex items-center gap-4 mb-4">
+                        <div class="h-12 w-12 rounded-full @ViewModel.ActorAvatarClass flex items-center justify-center">
+                            <span class="font-bold text-lg">@ViewModel.ActorInitials</span>
+                        </div>
+                        <div>
+                            <p class="text-base font-medium text-text-primary">@ViewModel.ActorName</p>
+                            <p class="text-sm text-text-secondary">@ViewModel.ActorTypeName</p>
+                        </div>
+                    </div>
+                    <div class="space-y-3 pt-3 border-t border-border-secondary">
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Actor ID</span>
+                            <span class="text-sm font-mono text-text-secondary break-all text-right">@ViewModel.ActorId</span>
+                        </div>
+                    </div>
+                </Card>
+
+                <!-- Target Resource Card -->
+                @if (!string.IsNullOrEmpty(ViewModel.TargetType))
+                {
+                    <Card Title="Target Resource">
+                        <div class="space-y-3">
+                            <div class="flex justify-between items-start">
+                                <span class="text-sm text-text-tertiary">Type</span>
+                                <span class="text-sm text-text-primary">@ViewModel.TargetType</span>
+                            </div>
+                            @if (!string.IsNullOrEmpty(ViewModel.TargetId))
+                            {
+                                <div class="flex justify-between items-start">
+                                    <span class="text-sm text-text-tertiary">Resource ID</span>
+                                    <span class="text-sm font-mono text-text-secondary break-all text-right">@ViewModel.TargetId</span>
+                                </div>
+                            }
+                            @if (ViewModel.HasGuild)
+                            {
+                                <div class="flex justify-between items-start">
+                                    <span class="text-sm text-text-tertiary">Guild</span>
+                                    <a href="@($"/Guilds/Details/{ViewModel.GuildId}")" class="text-sm text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1">
+                                        @ViewModel.GuildName
+                                        <Icon Path="@IconPaths.ArrowTopRightOnSquare" Class="w-3 h-3" />
+                                    </a>
+                                </div>
+                                <div class="flex justify-between items-start">
+                                    <span class="text-sm text-text-tertiary">Guild ID</span>
+                                    <span class="text-sm font-mono text-text-secondary">@ViewModel.GuildId</span>
+                                </div>
+                            }
+                        </div>
+                    </Card>
+                }
+
+                <!-- Request Metadata Card -->
+                <Card Title="Request Metadata">
+                    <div class="space-y-3">
+                        <div class="flex justify-between items-start">
+                            <span class="text-sm text-text-tertiary">Timestamp</span>
+                            <div class="text-right">
+                                <p class="text-sm text-text-primary"><LocalTime Utc="ViewModel.Timestamp" Format="datetime-seconds" /></p>
+                                <p class="text-xs text-text-tertiary timezone-indicator"></p>
+                            </div>
+                        </div>
+                        @if (!string.IsNullOrEmpty(ViewModel.IpAddress))
+                        {
+                            <div class="flex justify-between items-start">
+                                <span class="text-sm text-text-tertiary">IP Address</span>
+                                <span class="text-sm font-mono text-text-secondary">@ViewModel.IpAddress</span>
+                            </div>
+                        }
+                        @if (!string.IsNullOrEmpty(ViewModel.CorrelationId))
+                        {
+                            <div class="flex flex-col gap-1">
+                                <span class="text-sm text-text-tertiary">Correlation ID</span>
+                                <span class="text-xs font-mono text-text-secondary bg-bg-primary rounded px-2 py-1.5 break-all">@ViewModel.CorrelationId</span>
+                            </div>
+                        }
+                    </div>
+                </Card>
+            </div>
+
+            <!-- Right Column - Changes & Details -->
+            <div class="lg:col-span-2">
+                @if (ViewModel.HasDetails)
+                {
+                    <!-- Changes/Details Panel -->
+                    <div class="mb-6">
+                        <Card Title="Details">
+                            @if (ViewModel.ParsedDetails is { Count: > 0 })
+                            {
+                                <div class="space-y-4">
+                                    @foreach (var (key, value) in ViewModel.ParsedDetails)
+                                    {
+                                        <div class="rounded-lg border border-border-primary overflow-hidden">
+                                            <div class="px-3 py-2 bg-bg-tertiary border-b border-border-primary">
+                                                <h3 class="text-sm font-medium text-text-primary flex items-center gap-2">
+                                                    <Icon Path="@IconPaths.DocumentText" Class="w-4 h-4 text-text-secondary" />
+                                                    @key
+                                                </h3>
+                                            </div>
+                                            <div class="p-3">
+                                                <div class="rounded px-3 py-2 bg-bg-primary font-mono text-sm text-text-primary break-all">
+                                                    @value.ToString()
+                                                </div>
+                                            </div>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <div class="text-sm text-text-secondary">
+                                    <p>No structured details available for this entry.</p>
+                                </div>
+                            }
+                        </Card>
+                    </div>
+
+                    <!-- Raw Data Panel (Expandable) -->
+                    <div class="mb-6">
+                        <Card Title="Raw Change Data" HeaderActions="@RawDataToggle">
+                            <div class="relative @(RawDataExpanded ? "" : "json-collapsed")">
+                                <pre class="p-4 text-xs font-mono text-text-secondary overflow-x-auto">@ViewModel.FormattedDetails</pre>
+                            </div>
+                        </Card>
+                    </div>
+                }
+                else
+                {
+                    <div class="mb-6">
+                        <EmptyState Type="EmptyStateType.NoData"
+                                    Title="No Additional Details"
+                                    Description="This audit log entry does not contain additional detail information." />
+                    </div>
+                }
+
+                <!-- Related Entries Panel -->
+                @if (ViewModel.HasRelatedEntries)
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+                        <div class="px-4 py-3 border-b border-border-primary bg-bg-tertiary">
+                            <h2 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                                <Icon Path="@IconPaths.Bolt" Class="w-4 h-4 text-text-secondary" />
+                                Related Entries
+                                <span class="ml-auto text-xs font-normal text-text-tertiary">@ViewModel.RelatedEntries.Count entries</span>
+                            </h2>
+                        </div>
+                        <div class="overflow-x-auto">
+                            <table class="min-w-full divide-y divide-border-primary">
+                                    <thead class="bg-bg-tertiary">
+                                        <tr>
+                                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Timestamp</th>
+                                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                                            <th scope="col" class="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Target</th>
+                                            <th scope="col" class="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border-secondary">
+                                        @foreach (var entry in ViewModel.RelatedEntries)
+                                        {
+                                            <tr class="hover:bg-bg-hover transition-colors">
+                                                <td class="px-4 py-3 whitespace-nowrap">
+                                                    <span class="text-sm font-mono text-text-secondary"><LocalTime Utc="entry.Timestamp" Format="datetime-seconds" /></span>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap">
+                                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium @entry.ActionBadgeClass">
+                                                        @entry.Action
+                                                    </span>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap">
+                                                    <div class="flex items-center gap-2">
+                                                        <div class="h-6 w-6 rounded-full @entry.ActorAvatarClass flex items-center justify-center">
+                                                            <span class="text-xs font-medium">@entry.ActorInitials</span>
+                                                        </div>
+                                                        <span class="text-sm text-text-primary">@entry.ActorName</span>
+                                                    </div>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap">
+                                                    <span class="text-sm text-text-secondary">@entry.TargetType</span>
+                                                </td>
+                                                <td class="px-4 py-3 whitespace-nowrap text-right">
+                                                    <a href="@($"/Admin/AuditLogs/Details/{entry.Id}")" class="text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                                                        View
+                                                    </a>
+                                                </td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                            </table>
+                        </div>
+                    </div>
+                }
+
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap gap-3">
+                    <a href="@ResolvedReturnUrl" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                        <Icon Path="@IconPaths.ArrowLeft" Class="w-4 h-4" />
+                        Back to Audit Logs
+                    </a>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Copy entry ID to clipboard" @onclick="CopyEntryIdAsync">
+                        <Icon Path="@IconPaths.ClipboardCopy" Class="w-4 h-4" />
+                        Copy Entry ID
+                    </button>
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export this entry as JSON" @onclick="ExportJsonAsync">
+                        <Icon Path="@IconPaths.ArrowDownTray" Class="w-4 h-4" />
+                        Export JSON
+                    </button>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    // Collapsed by default (max-height clamp + bottom fade), matching the legacy page's
+    // #rawDataContent.json-collapsed starting state - expand/collapse is now Card's
+    // HeaderActions slot driving ToggleRawData() component state instead of a JS class toggle.
+    private RenderFragment RawDataToggle => @<button type="button" class="text-xs text-accent-blue hover:text-accent-blue-hover transition-colors flex items-center gap-1" aria-expanded="@(RawDataExpanded ? "true" : "false")" @onclick="ToggleRawData">
+        <span>@(RawDataExpanded ? "Collapse" : "Expand")</span>
+        <Icon Path="@IconPaths.ChevronDown" Class="@("w-4 h-4 transition-transform" + (RawDataExpanded ? " rotate-180" : ""))" />
+    </button>;
+}

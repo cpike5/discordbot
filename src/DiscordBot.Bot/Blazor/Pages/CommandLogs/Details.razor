@@ -1,0 +1,228 @@
+@page "/CommandLogs/Details/{id:guid}"
+@attribute [Authorize(Policy = "RequireModerator")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/CommandLogs/Details.cshtml + DetailsModel
+    (docs/plans/blazor-port-plan.md Phase 4 cluster 4a). See Details.razor.cs for the load logic;
+    the sibling partial Pages/CommandLogs/_CommandLogDetailsContent.cshtml (used by
+    CommandLogs/Index, cluster 4e) is untouched.
+*@
+
+<PageTitle>@(ViewModel is not null ? $"Command Log: {ViewModel.CommandName}" : "Command Log Details")</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Breadcrumb Navigation -->
+    <Breadcrumb Items="@(new[]
+    {
+        new BreadcrumbItem { Label = "Home", Url = "/" },
+        new BreadcrumbItem { Label = "Command Logs", Url = "/Commands?tab=logs" },
+        new BreadcrumbItem { Label = "Details", IsCurrent = true }
+    })" />
+
+    @if (NotFound)
+    {
+        <EmptyState Type="EmptyStateType.NoData"
+                    Size="EmptyStateSize.Large"
+                    Title="Command Log Not Found"
+                    Description="This command log entry doesn't exist or has been removed."
+                    PrimaryActionText="Back to Logs"
+                    PrimaryActionHref="/Commands?tab=logs" />
+    }
+    else if (ViewModel is null)
+    {
+        <div class="flex items-center justify-center py-16">
+            <LoadingSpinner Message="Loading command log..." />
+        </div>
+    }
+    else
+    {
+        var log = ViewModel;
+
+        <!-- Page Header -->
+        <div class="mb-8">
+            <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-2xl lg:text-3xl font-bold text-text-primary font-mono">/@log.CommandName</h1>
+                    <Badge Text="@(log.Success ? "Success" : "Failed")" Variant="@(log.Success ? BadgeVariant.Success : BadgeVariant.Error)" Size="BadgeSize.Medium" />
+                </div>
+                <div class="flex items-center gap-3">
+                    <a href="/Commands?tab=logs" class="btn btn-secondary">
+                        <Icon Path="@IconPaths.ArrowLeft" Class="w-4 h-4 mr-2" />
+                        Back to Logs
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Error Alert -->
+        @if (log.HasError)
+        {
+            <div class="mb-6">
+                <Alert Variant="AlertVariant.Error" Message="@(log.ErrorMessage!)" IsDismissible="false" />
+            </div>
+        }
+
+        <!-- Basic Information Card -->
+        <Card Title="Basic Information" Class="mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Timestamp -->
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <Icon Path="@IconPaths.Calendar" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">Executed At</span>
+                    </div>
+                    <p class="text-xl font-bold text-text-primary"><LocalTime Utc="log.ExecutedAt" Format="date" /></p>
+                    <p class="text-sm text-text-secondary mt-1"><LocalTime Utc="log.ExecutedAt" Format="time" /></p>
+                </div>
+
+                <!-- Log ID -->
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <Icon Path="@IconPaths.Hashtag" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">Log ID</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <p class="text-sm font-mono text-text-primary">@log.Id</p>
+                        <button type="button" @onclick="@(() => CopyToClipboardAsync(log.Id.ToString()))"
+                                class="text-text-tertiary hover:text-accent-blue transition-colors"
+                                title="Copy Log ID" aria-label="Copy Log ID">
+                            <Icon Path="@IconPaths.ClipboardCopy" Class="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Response Time -->
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <Icon Path="@IconPaths.Clock" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">Response Time</span>
+                    </div>
+                    <p class="text-xl font-bold text-text-primary">@log.ResponseTimeMs ms</p>
+                </div>
+
+                <!-- Status -->
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <Icon Path="@IconPaths.CheckCircle" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">Status</span>
+                    </div>
+                    <p class="text-xl font-bold @(log.Success ? "text-success" : "text-error")">
+                        @log.StatusText
+                    </p>
+                </div>
+            </div>
+        </Card>
+
+        <!-- Server Information Card -->
+        <Card Title="Server Information" Class="mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Server Name -->
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <Icon Path="@IconPaths.Server" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">Server Name</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <p class="text-xl font-bold text-text-primary">@log.GuildName</p>
+                        @if (log.HasGuildLink)
+                        {
+                            <!-- Fidelity fix: the legacy page's asp-page="/Guilds/Details"
+                                 asp-route-id combination is a dead link - that page's route
+                                 template is "{guildId:long}", not "{id:long}" (same fix
+                                 Search.razor.cs applies to its own guild links). -->
+                            <a href="@($"/Guilds/Details/{log.GuildId}")"
+                               class="text-accent-blue hover:text-accent-blue-hover transition-colors"
+                               title="View server details">
+                                <Icon Path="@IconPaths.ArrowTopRightOnSquare" Class="w-5 h-5" />
+                            </a>
+                        }
+                    </div>
+                </div>
+
+                <!-- Guild ID -->
+                @if (log.GuildId.HasValue)
+                {
+                    <div>
+                        <div class="flex items-center gap-2 mb-1">
+                            <Icon Path="@IconPaths.Hashtag" Class="w-5 h-5 text-text-tertiary" />
+                            <span class="text-sm text-text-tertiary font-medium">Guild ID</span>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <p class="text-sm font-mono text-text-primary">@log.GuildId</p>
+                            <button type="button" @onclick="@(() => CopyToClipboardAsync(log.GuildId.Value.ToString()))"
+                                    class="text-text-tertiary hover:text-accent-blue transition-colors"
+                                    title="Copy Guild ID" aria-label="Copy Guild ID">
+                                <Icon Path="@IconPaths.ClipboardCopy" Class="w-4 h-4" />
+                            </button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </Card>
+
+        <!-- User Information Card -->
+        <Card Title="User Information" Class="mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Username -->
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <Icon Path="@IconPaths.User" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">Username</span>
+                    </div>
+                    <p class="text-xl font-bold text-text-primary">@log.Username</p>
+                </div>
+
+                <!-- User ID -->
+                <div>
+                    <div class="flex items-center gap-2 mb-1">
+                        <Icon Path="@IconPaths.Hashtag" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">User ID</span>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <p class="text-sm font-mono text-text-primary">@log.UserId</p>
+                        <button type="button" @onclick="@(() => CopyToClipboardAsync(log.UserId.ToString()))"
+                                class="text-text-tertiary hover:text-accent-blue transition-colors"
+                                title="Copy User ID" aria-label="Copy User ID">
+                            <Icon Path="@IconPaths.ClipboardCopy" Class="w-4 h-4" />
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Card>
+
+        <!-- Command Details Card -->
+        <Card Title="Command Details">
+            <!-- Command Name -->
+            <div class="mb-4">
+                <div class="flex items-center gap-2 mb-1">
+                    <Icon Path="@IconPaths.CodeBracket" Class="w-5 h-5 text-text-tertiary" />
+                    <span class="text-sm text-text-tertiary font-medium">Command Name</span>
+                </div>
+                <p class="text-xl font-bold text-accent-blue font-mono">/@log.CommandName</p>
+            </div>
+
+            <!-- Parameters -->
+            @if (log.HasParameters)
+            {
+                <div>
+                    <div class="flex items-center gap-2 mb-2">
+                        <Icon Path="@IconPaths.DocumentText" Class="w-5 h-5 text-text-tertiary" />
+                        <span class="text-sm text-text-tertiary font-medium">Parameters</span>
+                    </div>
+                    <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4 overflow-x-auto">
+                        <pre class="text-sm text-text-primary font-mono whitespace-pre-wrap">@log.FormattedParameters</pre>
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="text-sm text-text-secondary italic">
+                    No parameters provided
+                </div>
+            }
+        </Card>
+    }
+</div>
