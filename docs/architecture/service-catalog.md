@@ -188,6 +188,7 @@ Services for user lifecycle, guild membership, and user data operations.
 | `UserManagementService` | Bot/Services | Full user lifecycle management with audit logging |
 | `IGuildMembershipService` | Core Interfaces | Guild membership tracking and sync |
 | `IGuildMemberService` | Core Interfaces | Individual member details and operations |
+| `IPreviewService` | Core Interfaces | User/guild hover-popup lookups from the Discord cache (added cluster 4d); implementation `Bot/Services/Preview/PreviewService.cs`, extracted from `PreviewController` |
 | `IUserDiscordGuildService` | Core Interfaces | Cross-mapping of user/guild relationships |
 | `UserDiscordGuildService` | Bot/Services | Manages user presence across multiple Discord guilds |
 | `IGuildService` | Core Interfaces | Guild-level operations and metadata |

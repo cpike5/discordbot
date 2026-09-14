@@ -1424,6 +1424,178 @@ public sealed class BrowserTests
         return Convert.ToInt64(command.ExecuteScalar()) > 0;
     }
 
+    /// <summary>
+    /// Covers the Blazor port of <c>Pages/Guilds/Members/Index.cshtml</c> +
+    /// <c>_MemberDetailModal.cshtml</c> (docs/plans/blazor-port-plan.md Phase 4 cluster 4d): two
+    /// seeded members both list, the search filter narrows to one, and its detail modal opens
+    /// with the seeded nickname plus a working "View Moderation Profile" link.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZC1_Members_ListSearchModal()
+    {
+        var (guildId, aliceId, bobId) = SeedTwoMembers();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Guilds/{guildId}/Members");
+        var rows = page.Locator("[data-testid='member-row']");
+        await Expect(rows).ToHaveCountAsync(2);
+        await Expect(rows.Filter(new LocatorFilterOptions { HasTextString = "e2e-alice" })).ToHaveCountAsync(1);
+        await Expect(rows.Filter(new LocatorFilterOptions { HasTextString = "e2e-bob" })).ToHaveCountAsync(1);
+
+        await page.WaitForTimeoutAsync(1_500);
+        await page.Locator("#memberSearch").FillAsync("alice");
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Apply Filters" }).ClickAsync();
+
+        await Expect(rows).ToHaveCountAsync(1, new LocatorAssertionsToHaveCountOptions { Timeout = 10_000 });
+        await Expect(rows).ToContainTextAsync("e2e-alice");
+
+        await rows.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "View" }).ClickAsync();
+        var modal = page.Locator("#memberDetailModal");
+        await Expect(modal).ToContainTextAsync("Alice Nickname");
+
+        var moderationLink = modal.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = "View Moderation Profile" });
+        await Expect(moderationLink).ToHaveAttributeAsync("href", $"/Guilds/{guildId}/Members/{aliceId}/Moderation");
+
+        _ = bobId; // asserted indirectly via the row content above
+    }
+
+    /// <summary>
+    /// Covers the Blazor port of <c>Pages/Guilds/Members/Moderation.cshtml</c>
+    /// (docs/plans/blazor-port-plan.md Phase 4 cluster 4d): adding a note appears in the list
+    /// without a page navigation, adding a tag renders a chip, and hovering a
+    /// <c>UserPreview</c> trigger (the added note's author) opens the popover - this fixture's
+    /// host runs web-only (<c>Discord:Enabled=false</c>, no gateway), so, like every other
+    /// Discord-dependent surface covered elsewhere in this file, the popover resolves to its
+    /// error state rather than a live username; this only asserts that it opens and resolves.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZC2_Moderation_AddNoteAndTag()
+    {
+        var (guildId, userId, tagName) = SeedMemberForModeration();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Guilds/{guildId}/Members/{userId}/Moderation");
+        await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "e2e-charlie" })).ToBeVisibleAsync();
+
+        await page.WaitForTimeoutAsync(1_500);
+        await page.GetByRole(AriaRole.Tab, new PageGetByRoleOptions { Name = "Notes", Exact = false }).ClickAsync();
+        await page.Locator("textarea").FillAsync("E2E moderator note");
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Add Note" }).ClickAsync();
+
+        var noteItem = page.Locator(".note-item", new PageLocatorOptions { HasTextString = "E2E moderator note" });
+        await Expect(noteItem).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 10_000 });
+        await Expect(page).ToHaveURLAsync(new Regex($"/Guilds/{guildId}/Members/{userId}/Moderation$"));
+
+        await page.Locator("#addTagSelect").SelectOptionAsync(tagName);
+        await Expect(page.Locator(".user-tag-removable")).ToContainTextAsync(tagName, new LocatorAssertionsToContainTextOptions { Timeout = 10_000 });
+
+        await noteItem.Locator("[tabindex='0']").First.HoverAsync();
+        await Expect(page.Locator("[role='dialog']").First).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+    }
+
+    /// <summary>Seeds one guild and two <c>GuildMembers</c> (with backing <c>Users</c> rows), for <see cref="Test_ZC1_Members_ListSearchModal"/>.</summary>
+    private (ulong GuildId, ulong AliceId, ulong BobId) SeedTwoMembers()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000060UL + salt;
+        SeedGuild(guildId, "E2E Members Guild");
+
+        var aliceId = 900000000000000061UL + salt;
+        var bobId = 900000000000000062UL + salt;
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+
+        void SeedUserAndMember(ulong userId, string username, string? nickname)
+        {
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText =
+                    "INSERT INTO Users (Id, Username, Discriminator, FirstSeenAt, LastSeenAt) VALUES ($id, $username, '0', $now, $now)";
+                command.Parameters.AddWithValue("$id", unchecked((long)userId));
+                command.Parameters.AddWithValue("$username", username);
+                command.Parameters.AddWithValue("$now", now.ToString("O"));
+                command.ExecuteNonQuery();
+            }
+
+            using (var command = connection.CreateCommand())
+            {
+                command.CommandText = """
+                    INSERT INTO GuildMembers (GuildId, UserId, JoinedAt, Nickname, IsActive, LastCachedAt)
+                    VALUES ($guildId, $userId, $joinedAt, $nickname, 1, $joinedAt)
+                    """;
+                command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+                command.Parameters.AddWithValue("$userId", unchecked((long)userId));
+                command.Parameters.AddWithValue("$joinedAt", now.ToString("O"));
+                command.Parameters.AddWithValue("$nickname", (object?)nickname ?? DBNull.Value);
+                command.ExecuteNonQuery();
+            }
+        }
+
+        SeedUserAndMember(aliceId, "e2e-alice", "Alice Nickname");
+        SeedUserAndMember(bobId, "e2e-bob", null);
+
+        return (guildId, aliceId, bobId);
+    }
+
+    /// <summary>Seeds one guild, one member, and one <c>ModTags</c> row, for <see cref="Test_ZC2_Moderation_AddNoteAndTag"/>.</summary>
+    private (ulong GuildId, ulong UserId, string TagName) SeedMemberForModeration()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000070UL + salt;
+        SeedGuild(guildId, "E2E Moderation Guild");
+
+        var userId = 900000000000000071UL + salt;
+        var now = DateTime.UtcNow;
+        const string tagName = "E2E-Watch";
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText =
+                "INSERT INTO Users (Id, Username, Discriminator, FirstSeenAt, LastSeenAt) VALUES ($id, 'e2e-charlie', '0', $now, $now)";
+            command.Parameters.AddWithValue("$id", unchecked((long)userId));
+            command.Parameters.AddWithValue("$now", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO GuildMembers (GuildId, UserId, JoinedAt, IsActive, LastCachedAt)
+                VALUES ($guildId, $userId, $joinedAt, 1, $joinedAt)
+                """;
+            command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+            command.Parameters.AddWithValue("$userId", unchecked((long)userId));
+            command.Parameters.AddWithValue("$joinedAt", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        using (var command = connection.CreateCommand())
+        {
+            command.CommandText = """
+                INSERT INTO ModTags (Id, GuildId, Name, Color, Category, Description, IsFromTemplate, CreatedAt)
+                VALUES ($id, $guildId, $name, '#FF5733', 1, NULL, 0, $now)
+                """;
+            command.Parameters.AddWithValue("$id", Guid.NewGuid());
+            command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+            command.Parameters.AddWithValue("$name", tagName);
+            command.Parameters.AddWithValue("$now", now.ToString("O"));
+            command.ExecuteNonQuery();
+        }
+
+        return (guildId, userId, tagName);
+    }
+
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");

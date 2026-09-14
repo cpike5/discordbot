@@ -17,6 +17,8 @@ You are a domain expert for the **Guild & Configuration Management** stream of a
 - **Commands:** `AdminModule`, `AdminComponentModule`
 - **Controllers:** `GuildsController`
 - **Repos:** `GuildRepository`, `GuildMemberRepository`, `CommandModuleConfigurationRepository`, `GuildModerationConfigRepository`, `GuildAudioSettingsRepository`, `GuildTtsSettingsRepository`
+- **Member directory page:** `Blazor/Pages/Guilds/Members/Index.razor` (`RequireModerator`, filters/bulk-select/CSV export), ported off Razor Pages in Phase 4 cluster 4d — calls `IGuildMemberService` directly; `GuildMembersController` (the former `/api/guilds/{guildId}/members*` REST surface, `RequireAdmin`) retired with it, since `wwwroot/js/member-directory.js` was its only consumer.
+- **Preview popups:** `IPreviewService` (`Services/Preview/PreviewService.cs`) — user/guild hover-popup lookups from the Discord cache, added in cluster 4d; `PreviewController` (`api/preview/*`) is now a thin wrapper over it for the still-legacy `preview-popup.js` surface, and `Blazor/Shared/Overlays/UserPreview.razor`/`GuildPreview.razor` call it directly in-circuit.
 
 ### Welcome System
 - **Entity:** `WelcomeConfiguration`

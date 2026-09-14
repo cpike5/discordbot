@@ -200,6 +200,17 @@ Loaded globally in `_Layout.cshtml`:
       data-guild-id="@item.GuildId">@item.GuildName</span>
 ```
 
+**Blazor equivalent (Phase 4 cluster 4d):** the lookup logic behind `PreviewController` (`api/preview/*`)
+moved to `IPreviewService` (`Bot/Services/Preview/PreviewService.cs`, registered in
+`ApplicationServiceExtensions`); the controller is now a thin wrapper over it, still serving
+`preview-popup.js` for pages that haven't been ported. A Blazor page writes
+`<UserPreview UserId="@item.UserId" GuildId="@GuildId">@item.Username</UserPreview>` or
+`<GuildPreview GuildId="@item.GuildId">@item.GuildName</GuildPreview>`
+(`Blazor/Shared/Overlays/`) instead of the `preview-trigger` markup above — both call
+`IPreviewService` through a fresh `IServiceScopeFactory` scope and render through the generic
+`PreviewPopover` component (`Blazor/Shared/Overlays/PreviewPopover.razor`, Phase 2) via
+`UserPreviewContent`/`GuildPreviewContent`.
+
 ## Gotchas
 
 - **Discord Snowflake IDs in JavaScript:** Always treat as strings — `'@Model.GuildId'` not `@Model.GuildId`

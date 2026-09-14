@@ -102,7 +102,7 @@
                                                     <Icon Path="@IconPaths.User" Class="w-4 h-4 text-text-tertiary" />
                                                 </div>
                                             }
-                                            <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@row.UserId" data-context-guild-id="@GuildId">@row.Username</span>
+                                            <UserPreview UserId="row.UserId" GuildId="GuildId" Class="text-sm text-text-primary">@row.Username</UserPreview>
                                         </div>
                                     </td>
                                     <td class="px-6 py-4"><span class="text-sm text-text-secondary max-w-[250px] truncate block" title="@row.Message">@row.MessagePreview</span></td>

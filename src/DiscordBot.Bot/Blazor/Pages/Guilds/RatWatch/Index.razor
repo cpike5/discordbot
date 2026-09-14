@@ -225,7 +225,7 @@
                                     <span class="@("w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold " + (entry.Rank == 1 ? "bg-warning/20 text-warning" : entry.Rank == 2 ? "bg-text-secondary/20 text-text-secondary" : entry.Rank == 3 ? "bg-accent-orange/20 text-accent-orange" : "bg-bg-tertiary text-text-tertiary"))">
                                         @entry.Rank
                                     </span>
-                                    <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@guild.GuildIdString">@entry.Username</span>
+                                    <UserPreview UserId="entry.UserId" GuildId="GuildId" Class="text-sm text-text-primary">@entry.Username</UserPreview>
                                 </div>
                                 <span class="text-sm font-semibold text-error">@entry.GuiltyCount guilty</span>
                             </div>
@@ -272,8 +272,8 @@
                                             @watch.StatusText
                                         </span>
                                     </td>
-                                    <td class="px-6 py-4"><span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@watch.AccusedUserId" data-context-guild-id="@guild.GuildIdString">@watch.AccusedUsername</span></td>
-                                    <td class="px-6 py-4"><span class="preview-trigger text-sm text-text-secondary" data-preview-type="user" data-user-id="@watch.InitiatorUserId" data-context-guild-id="@guild.GuildIdString">@watch.InitiatorUsername</span></td>
+                                    <td class="px-6 py-4"><UserPreview UserId="watch.AccusedUserId" GuildId="GuildId" Class="text-sm text-text-primary">@watch.AccusedUsername</UserPreview></td>
+                                    <td class="px-6 py-4"><UserPreview UserId="watch.InitiatorUserId" GuildId="GuildId" Class="text-sm text-text-secondary">@watch.InitiatorUsername</UserPreview></td>
                                     <td class="px-6 py-4"><span class="text-sm text-text-secondary max-w-[200px] truncate block" title="@watch.CustomMessage">@(watch.CustomMessage ?? "No message")</span></td>
                                     <td class="px-6 py-4"><LocalTime Utc="watch.ScheduledAt" Format="datetime-short" Class="text-sm text-text-primary" /></td>
                                     <td class="px-6 py-4">

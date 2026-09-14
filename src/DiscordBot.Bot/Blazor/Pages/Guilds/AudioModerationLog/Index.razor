@@ -110,9 +110,9 @@
                                     <td class="px-4 py-4 whitespace-nowrap">
                                         @if (entry.UserId != 0)
                                         {
-                                            <span class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@guild.GuildIdString">
+                                            <UserPreview UserId="entry.UserId" GuildId="GuildId" Class="text-sm font-medium text-text-primary">
                                                 @ResolveUserName(entry.UserId)
-                                            </span>
+                                            </UserPreview>
                                         }
                                         else
                                         {
@@ -153,9 +153,9 @@
                                 <span class="text-sm font-semibold text-text-secondary">User:</span>
                                 @if (entry.UserId != 0)
                                 {
-                                    <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@guild.GuildIdString">
+                                    <UserPreview UserId="entry.UserId" GuildId="GuildId" Class="text-sm text-text-primary">
                                         @ResolveUserName(entry.UserId)
-                                    </span>
+                                    </UserPreview>
                                 }
                                 else
                                 {

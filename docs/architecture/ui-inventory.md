@@ -142,6 +142,20 @@ in the same change.
 
 `ScheduledMessageForm.razor` (shared, not itself routable) holds the Create/Edit field markup: title/content/channel, the schedule-type radio cards, `<InputDate Type="InputDateType.DateTimeLocal">` for the next-run time with a `.timezone-indicator`-style caption, the cron field (Custom only), and a live Discord-styled message preview (HTML-encoded, newline → `<br>`, reactive on every keystroke — no JS needed since `TextArea`'s `@bind-Value` re-renders the component).
 
+Cluster 4d ("Lists and settings") ports the member directory and per-user moderation profile.
+Both are `@inherits GuildPageBase`. `Members/Index` reuses the `PagedQuery`/`Pagination` pattern
+above; filters are edited in local component state and only applied (a `NavigationManager.NavigateTo`
+rebuilding the query string) on an explicit "Apply Filters" click, since five independent filters
+navigating per keystroke would be poor UX (unlike the single-`Select` immediate-navigate pattern
+`FeatureRequests/Index` uses for its one filter). Both call their services directly —
+`GuildMembersController`/`UserModerationController` retired with this cluster (see "Blazor
+Components" below and `docs/articles/api-endpoints.md`).
+
+| Route | File | Purpose |
+| --- | --- | --- |
+| `/Guilds/{guildId:long}/Members` | `Blazor/Pages/Guilds/Members/Index.razor` (+ `.razor.cs`) | `RequireModerator` (not `RequireAdmin` — matches the legacy page; note `GuildMembersController`, retired with this port, was `RequireAdmin`, one level stricter, so this page's own policy now governs). Replaces `Pages/Guilds/Members/Index.cshtml` + `IndexModel` + `_MemberDetailModal.cshtml`. Search/role/join-date/activity filters, desktop table + mobile cards, bulk select with an "Export Selected" toolbar action, and a header "Export All (current filter, max 10k)" action — both build the CSV via `IGuildMemberService.ExportMembersToCsvAsync` directly and hand it to the browser with `BrowserInterop.DownloadFileAsync`, replacing the legacy header link that pointed at a nonexistent `?handler=Export`. Member detail is a `Modal` fed by `IGuildMemberService.GetMemberAsync` directly (not an AJAX call). Roles come from `DiscordSocketClient.GetGuild(id).Roles` (empty in web-only mode — renders "No roles available"). Names render through `UserPreview`. |
+| `/Guilds/{guildId:long}/Members/{userId:long}/Moderation` | `Blazor/Pages/Guilds/Members/Moderation.razor` (+ `.razor.cs`) | `RequireAdmin`. Replaces `Pages/Guilds/Members/Moderation.cshtml` + `ModerationModel`. Cases/Notes/Flags in a `TabGroup`/`TabPanel` (`Mode="InPage"`) with count badges; Notes add/delete (own-note gating via the `discord:user_id` claim, `User.GetDiscordUserId()`) and Tags add/remove (`ConfirmModal`-gated remove) are mutations through `ScopeFactory.RunAsync`, refreshing only the touched list in place rather than the legacy page's full reload. Flags render the shared `SeverityBadge`/`RuleTypeIcon`/`StatusBadge` primitives (`Blazor/Shared/Primitives/`, ported from `_SeverityBadge`/`_RuleTypeIcon`/`_StatusBadge.cshtml`, also used by the not-yet-ported FlaggedEvents pages). `wwwroot/css/moderation.css` stays loaded (`<HeadContent>`) — the tag chip/note-item/severity classes it defines are still shared with those pages. |
+
 ## Blazor Layouts
 
 `Blazor/Layout/` (plan §4.7/§5 Phase 3). `Routes.razor`'s `DefaultLayout` is `MainLayout`, so a
@@ -204,9 +218,7 @@ Reminders, Scheduled Messages, and Feature Requests moved to Blazor in Phase 4 c
 | Route | File | Purpose |
 |-------|------|---------|
 | `/guild/{guildId}` | `Pages/Guilds/Index.cshtml` | Guild overview/dashboard |
-| `/guild/{guildId}/members` | `Pages/Guilds/Members/Index.cshtml` | Member directory |
-| `/guild/{guildId}/members/moderation/{memberId}` | `Pages/Guilds/Members/Moderation.cshtml` | Member moderation actions |
-| `/guild/{guildId}/members/{memberId}` | `Pages/Guilds/Members/_MemberDetailModal.cshtml` | Member detail popup |
+| `/guild/{guildId}/members`, `/members/{memberId}`, `/members/moderation/{memberId}` | moved to Blazor in Phase 4 cluster 4d — see "Blazor Routes (Phase 4, permanent)" above (`Blazor/Pages/Guilds/Members/{Index,Moderation}.razor`) |
 | `/guild/{guildId}/moderation-settings` | `Pages/Guilds/ModerationSettings/Index.cshtml` | Moderation rules configuration |
 | `/guild/{guildId}/analytics` | `Pages/Guilds/Analytics/Index.cshtml` | Analytics overview |
 | `/guild/{guildId}/analytics/engagement` | `Pages/Guilds/Analytics/Engagement.cshtml` | Engagement metrics |
@@ -386,12 +398,18 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Preview Popup Loading** | `_PreviewPopupLoading.cshtml` | Loading state for preview popup | `PreviewPopupLoadingViewModel` |
 | **Preview Popup Error** | `_PreviewPopupError.cshtml` | Error state for preview popup | `PreviewPopupErrorViewModel` |
 
+Blazor equivalent (Phase 4 cluster 4d): `IPreviewService` (`Bot/Services/Preview/PreviewService.cs`)
+now owns the lookup logic `PreviewController` (still serving `preview-popup.js` for the pages
+above) delegates to; a ported page writes `<UserPreview UserId="..." GuildId="...">name</UserPreview>`/
+`<GuildPreview GuildId="...">name</GuildPreview>` (`Blazor/Shared/Overlays/`) instead of a
+`preview-trigger` span — see the "Overlays" row in "Blazor Components" below.
+
 ---
 
 ## Blazor Components
 
 The Phase 2 component library (`docs/plans/blazor-port-plan.md` §5 "Phase 2", complete), plus
-additions from later phases, at `src/DiscordBot.Bot/Blazor/Shared/` — 63 components across 7
+additions from later phases, at `src/DiscordBot.Bot/Blazor/Shared/` — 67 components across 7
 groups, each namespaced `DiscordBot.Bot.Blazor.Shared` regardless of which group subfolder it
 lives in. See `docs/articles/blazor-components.md` for parameters, source partials, and documented
 fidelity deviations per component, and the "Status" section there for what each tier delivered.
@@ -405,7 +423,7 @@ exist.
 | **Primitives** (18) | `Alert`, `Badge`, `Button`, `Card`, `DashboardWidget`, `EmptyState`, `GuildStatsCard`, `HeroMetricCard`, `Highlight`, `Kbd`, `LoadingSpinner`, `LocalTime`, `RuleTypeIcon`, `SeverityBadge`, `Skeleton`, `SkeletonCard`, `StatusBadge`, `StatusIndicator` |
 | **Forms** (10) | `Autocomplete`, `DateRangeFilter`, `FilterPanel`, `FormField`, `Select`, `SettingField`, `SortDropdown`, `TextArea`, `TextInput`, `Toggle` |
 | **Navigation** (7) | `Breadcrumb`, `GuildContextSelector`, `GuildHeader`, `PageHeader`, `Pagination`, `TabGroup`, `TabPanel` |
-| **Overlays** (7) | `ConfirmModal`, `GuildPreviewPopoverContent`, `LoadingOverlay`, `Modal`, `PreviewPopover`, `ToastHost`, `UserPreviewPopoverContent` |
+| **Overlays** (11) | `ConfirmModal`, `GuildPreview`, `GuildPreviewContent`, `GuildPreviewPopoverContent`, `LoadingOverlay`, `Modal`, `PreviewPopover`, `ToastHost`, `UserPreview`, `UserPreviewContent`, `UserPreviewPopoverContent` |
 | **Widgets** (13) | `ActivityFeed`, `AuditLogCard`, `BotStatusBanner`, `BotStatusCard`, `Chart`, `CommandStatsCard`, `ConnectedServersWidget`, `ConnectionStatus`, `NotificationBell`, `QuickActionsCard`, `RecentActivityCard`, `RestartBanner`, `VoiceChannelPanel` |
 | **Tts** (7) | `EmphasisToolbar`, `ModeSwitcher`, `PauseModal`, `PresetBar`, `SsmlPreview`, `StyleSelector`, `VoiceSelector` |
 

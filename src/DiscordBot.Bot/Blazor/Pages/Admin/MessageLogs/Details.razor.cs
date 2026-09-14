@@ -14,11 +14,10 @@ namespace DiscordBot.Bot.Blazor.Pages.Admin.MessageLogs;
 /// <remarks>
 /// <b>Not found is HTTP 200 with an <c>EmptyState</c>,</b> matching the same established
 /// precedent as <c>Blazor/Pages/Admin/AuditLogs/Details.razor.cs</c> - see that class's remarks.
-/// <b>Preview triggers.</b> The legacy page's Author/Guild <c>preview-trigger</c> spans called
-/// <c>api/preview/*</c> through <c>preview-popup.js</c>, a controller-backed lookup with no
-/// reusable service <c>PreviewPopover</c>'s <c>Loader</c> could call server-side without
-/// duplicating <c>PreviewController</c>'s Discord-cache/DB logic - out of scope for this cluster,
-/// so both render as plain text here (see the cluster report).
+/// <b>Preview triggers.</b> The legacy page's Author/Guild <c>preview-trigger</c> spans are now
+/// <c>Blazor/Shared/Overlays/UserPreview.razor</c>/<c>GuildPreview.razor</c>
+/// (docs/plans/blazor-port-plan.md Phase 4 cluster 4d), calling the same lookup logic
+/// <c>PreviewController</c> uses via <c>IPreviewService</c> directly, in-circuit.
 /// </remarks>
 public partial class Details : ComponentBase, IDisposable
 {

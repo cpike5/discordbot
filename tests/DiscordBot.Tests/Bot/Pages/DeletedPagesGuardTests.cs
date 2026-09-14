@@ -54,6 +54,8 @@ public class DeletedPagesGuardTests
         "/Account/Logout",
         "/Account/LinkDiscord",
         "/Account/Privacy",
+        "/Guilds/Members/Index",
+        "/Guilds/Members/Moderation",
     };
 
     [Fact]

@@ -7,8 +7,8 @@
 
 @*
     Routable replacement for Pages/Admin/MessageLogs/Details.cshtml + DetailsModel
-    (docs/plans/blazor-port-plan.md Phase 4 cluster 4a). See Details.razor.cs for the load logic
-    and the preview-trigger deviation note.
+    (docs/plans/blazor-port-plan.md Phase 4 cluster 4a). See Details.razor.cs for the load logic;
+    the Author/Guild preview popups were wired to UserPreview/GuildPreview in cluster 4d.
 *@
 
 <PageTitle>@(Message is not null ? $"Message #{Message.Id}" : "Message Details")</PageTitle>
@@ -80,11 +80,9 @@
                                 <span class="text-white font-medium text-lg">@AuthorInitials</span>
                             </div>
                             <div>
-                                <!-- Fidelity deviation: the legacy preview-trigger popup called
-                                     api/preview/users/{id} via preview-popup.js. No Blazor-callable
-                                     preview loader exists yet (see the class remarks), so this is
-                                     plain text rather than a PreviewPopover. -->
-                                <div class="text-base font-medium text-text-primary">@(Message.AuthorUsername ?? "(Unknown)")</div>
+                                <div class="text-base font-medium text-text-primary">
+                                    <UserPreview UserId="Message.AuthorId" GuildId="@((long?)Message.GuildId)">@(Message.AuthorUsername ?? "(Unknown)")</UserPreview>
+                                </div>
                                 <div class="text-sm text-text-secondary">Discord User</div>
                             </div>
                         </div>
@@ -133,9 +131,9 @@
                             {
                                 <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                                     <span class="text-sm text-text-secondary">Guild Name</span>
-                                    <!-- Fidelity deviation: see the Author section note above -
-                                         plain text instead of a guild PreviewPopover. -->
-                                    <span class="text-sm text-text-primary">@Message.GuildName</span>
+                                    <span class="text-sm text-text-primary">
+                                        <GuildPreview GuildId="Message.GuildId!.Value">@Message.GuildName</GuildPreview>
+                                    </span>
                                 </div>
                             }
                             <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">

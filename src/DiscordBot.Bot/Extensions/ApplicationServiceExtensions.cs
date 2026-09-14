@@ -4,6 +4,7 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Bot.Services.Guilds;
 using DiscordBot.Bot.Services.Portal;
+using DiscordBot.Bot.Services.Preview;
 using DiscordBot.Bot.Services.Settings;
 using DiscordBot.Bot.Services.Search;
 using DiscordBot.Bot.Services.Tts;
@@ -73,6 +74,7 @@ public static class ApplicationServiceExtensions
         services.AddScoped<ISearchProvider, ScheduledMessagesSearchProvider>();
         services.AddScoped<ITimeParsingService, TimeParsingService>();
         services.AddScoped<IGuildMemberService, GuildMemberService>();
+        services.AddScoped<IPreviewService, PreviewService>();
         services.AddScoped<IConsentService, ConsentService>();
         services.AddScoped<IUserPurgeService, UserPurgeService>();
         services.AddScoped<IUserDataExportService, UserDataExportService>();
