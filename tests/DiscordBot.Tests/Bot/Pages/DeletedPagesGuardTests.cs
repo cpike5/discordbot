@@ -49,6 +49,9 @@ public class DeletedPagesGuardTests
         "/Guilds/ScheduledMessages/Index",
         "/Guilds/ScheduledMessages/Create",
         "/Guilds/ScheduledMessages/Edit",
+        "/Account/Login",
+        "/Account/ExternalLogin",
+        "/Account/Logout",
     };
 
     [Fact]
@@ -87,7 +90,13 @@ public class DeletedPagesGuardTests
             .Select(route =>
             {
                 var lastSlash = route.LastIndexOf('/');
-                var folder = lastSlash <= 0 ? string.Empty : route[..lastSlash];
+                // route always starts with "/" (e.g. "/Account/ExternalLogin"), but relativeDir
+                // below (from Path.GetRelativePath) never has a leading separator - route[1..lastSlash]
+                // strips it so the two agree ("Account", not "/Account"). Without this the dictionary
+                // lookup below never matched *any* route, silently disabling this half of the guard
+                // since it was introduced (found while wiring up cluster 4c: LinkDiscord.cshtml.cs's
+                // own Url.Page("./ExternalLogin", ...) went uncaught until this fix).
+                var folder = lastSlash <= 0 ? string.Empty : route[1..lastSlash];
                 var leaf = route[(lastSlash + 1)..];
                 return new
                 {

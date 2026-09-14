@@ -15,9 +15,10 @@
     page - see Forbidden.razor's own header comment for the fuller rationale), so only the centered
     content div survives.
 
-    "Sign Out" posts to plain /Account/Logout (still a Razor Page handler - Phase 4c's job) with an
-    explicit <AntiforgeryToken/>, the same pattern MainNavbar.razor's logout form uses, since this
-    is a plain <form> rather than an EditForm (which would emit the token automatically).
+    "Sign Out" posts to plain /Account/Logout (the AccountEndpointExtensions minimal API, Phase 4
+    cluster 4c) with an explicit <AntiforgeryToken/>, the same pattern MainNavbar.razor's logout
+    form uses, since this is a plain <form> rather than an EditForm (which would emit the token
+    automatically).
 *@
 
 <PageTitle>Access Denied - Discord Bot Admin</PageTitle>

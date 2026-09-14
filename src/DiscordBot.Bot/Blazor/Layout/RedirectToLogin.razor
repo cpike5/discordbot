@@ -8,16 +8,17 @@
 @code {
     protected override void OnInitialized()
     {
-        // A path relative to the app base, always starting with "/", so it matches what the
-        // existing Account/Login page passes to LocalRedirect (an absolute URL here would make
-        // that throw).
+        // A path relative to the app base, always starting with "/", so it matches what
+        // Blazor/Pages/Account/Login.razor.cs's own LocalUrl.IsLocal check (Phase 4 cluster 4c)
+        // accepts as a returnUrl (an absolute URL here would otherwise be rejected there anyway).
         var relativePath = Navigation.ToBaseRelativePath(Navigation.Uri);
         var returnUrl = "/" + relativePath;
 
         // Reject anything that could carry the browser off-site: "//host/..." is a
-        // protocol-relative URL, and "scheme://" anywhere in the path (Login's LocalRedirect
-        // does not itself re-check this) would otherwise be handed straight to the browser as
-        // the post-login destination. Fall back to the app root instead of failing the redirect.
+        // protocol-relative URL, and "scheme://" anywhere in the path would otherwise be handed
+        // straight to the browser as the post-login destination. Login.razor.cs's own
+        // LocalUrl.IsLocal check re-validates this too (belt and suspenders across the redirect),
+        // but fall back to the app root here as well instead of relying solely on that.
         if (returnUrl.StartsWith("//", StringComparison.Ordinal) || returnUrl.Contains("://", StringComparison.Ordinal))
         {
             returnUrl = "/";

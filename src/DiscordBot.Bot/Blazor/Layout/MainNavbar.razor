@@ -20,13 +20,12 @@
     outside prerendering, and this component never goes interactive). Guarded null throughout in
     case the principal's user id no longer resolves to a user (deleted account, stale cookie).
 
-    Logout: Pages/Account/Logout.cshtml.cs declares OnPostAsync with no handler suffix (an
-    *unnamed* POST handler), not OnPostPostAsync - so despite _Navbar.cshtml's
-    asp-page-handler="Post" (which renders "?handler=Post" and would not actually match that
-    handler by Razor Pages' handler-selection rules), the real route this form must post to is
-    plain "/Account/Logout". <AntiforgeryToken /> supplies the same __RequestVerificationToken
-    field asp-antiforgery/[ValidateAntiForgeryToken] already validate (UseAntiforgery() runs for
-    both stacks - see "Blazor Components" > "Hosting model" in patterns.md).
+    Logout: POST /Account/Logout is now the AccountEndpointExtensions minimal API (Phase 4 cluster
+    4c), not a Razor Page - a plain literal action, since there is no page for a tag helper to
+    resolve. <AntiforgeryToken /> supplies the same __RequestVerificationToken field the endpoint's
+    [FromForm] binding automatically requires (UseAntiforgery() runs for both stacks - see "Blazor
+    Components" > "Hosting model" in patterns.md, and AccountEndpointExtensions' own remarks for
+    how a [FromForm] minimal API gets antiforgery validation without an explicit attribute).
 *@
 
 <header class="topbar navbar-redesign" id="topbar">
