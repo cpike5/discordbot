@@ -46,6 +46,13 @@ namespace DiscordBot.Infrastructure.Migrations.Sqlite
         }
 
         /// <inheritdoc />
+        /// <remarks>
+        /// Deletes all eight rows by <c>MetricName</c> unconditionally, regardless of whether
+        /// <see cref="Up"/>'s <c>INSERT OR IGNORE</c> actually inserted them here or they already
+        /// existed (a pre-split database, or an operator's own row for one of these metric names) -
+        /// a straight mirror of <see cref="Up"/>, not a guard against removing rows this migration
+        /// didn't create.
+        /// </remarks>
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.Sql("""

@@ -1,6 +1,7 @@
 using System.Data.Common;
 using System.Reflection;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Migrations.Operations;
 using Microsoft.Extensions.Logging;
@@ -27,8 +28,8 @@ namespace DiscordBot.Infrastructure.Data.Migrations;
 /// process never starts.</para>
 ///
 /// <para><b>The delta.</b> The legacy chain's end state and the re-baseline's end state were
-/// compared object by object (<c>sqlite_master</c> plus <c>PRAGMA table_info</c> for all 57
-/// tables). They are identical except for one column: <c>GuildModerationConfigs.IsEnabled</c>,
+/// compared object by object (<c>sqlite_master</c> plus <c>PRAGMA table_info</c> across the legacy
+/// chain's 55 tables and the current lineage's 76). They are identical except for one column: <c>GuildModerationConfigs.IsEnabled</c>,
 /// which is what the re-baseline migration is actually named for. Every table, index and other
 /// column already matches, because the re-baseline was scaffolded as a full snapshot of the schema
 /// the legacy chain had already built. So the repair adds that one column, then stamps the
@@ -50,6 +51,17 @@ public static class SqliteLegacyHistoryRepair
     public const string BaselineMigrationId = "20260219205009_AddIsEnabledToGuildModerationConfig";
 
     private const string HistoryTable = "__EFMigrationsHistory";
+
+    /// <summary>
+    /// Shared actionable text for the two states this repair refuses to guess its way through: a
+    /// history with no recognised ids at all (stood aside, logged at Warning), and one with *some*
+    /// but not all of the legacy chain's ids (thrown, since guessing which end state that is risks
+    /// silently hiding schema objects or losing data).
+    /// </summary>
+    private const string RecoveryGuidance =
+        "Back up the database, then either run `dotnet ef database update --context SqliteBotDbContext` "
+        + "(--project src/DiscordBot.Infrastructure --startup-project src/DiscordBot.Bot) to try applying "
+        + "the rest of the migrations by hand, or delete the file and let a fresh database be created.";
 
     /// <summary>
     /// The complete schema delta between the legacy chain's end state and the re-baseline, as
@@ -108,16 +120,32 @@ public static class SqliteLegacyHistoryRepair
 
             if (!applied.ContainsKey(LastLegacyMigrationId))
             {
-                // Not a state this repair knows how to reason about: history exists, but neither the
-                // legacy chain's end nor the re-baseline is in it. Say so loudly and stand aside
-                // rather than guess - MigrateAsync will report its own error next.
-                logger.LogWarning(
-                    "SQLite database has {Count} migration(s) applied but neither {Legacy} nor {Baseline}. "
-                    + "The pre-split history repair does not recognise this state and is standing aside; "
-                    + "if startup migration now fails with \"table already exists\", restore from backup "
-                    + "and upgrade through an earlier release first.",
-                    applied.Count, LastLegacyMigrationId, BaselineMigrationId);
-                return false;
+                var legacyIds = GetLegacyMigrationIds();
+                var recognisedLegacyCount = applied.Keys.Count(legacyIds.Contains);
+
+                if (recognisedLegacyCount == 0)
+                {
+                    // Not a single id in this history belongs to either lineage - a state this
+                    // repair genuinely cannot reason about. Say so loudly and stand aside rather
+                    // than guess; MigrateAsync will report its own error next.
+                    logger.LogWarning(
+                        "SQLite database has {Count} migration(s) applied but none recognised from the "
+                        + "superseded BotDbContext lineage or the current SqliteBotDbContext lineage "
+                        + "({Baseline}). The pre-split history repair does not recognise this state and is "
+                        + "standing aside. {Guidance}",
+                        applied.Count, BaselineMigrationId, RecoveryGuidance);
+                    return false;
+                }
+
+                // Some, but not all, of the legacy chain's ids are present (e.g. 35 of 40) - the
+                // history has been edited or corrupted somehow. Guessing which end state this is
+                // would risk stamping the re-baseline over a schema it doesn't actually match, so
+                // refuse outright instead of failing open.
+                throw new InvalidOperationException(
+                    $"SQLite database has {applied.Count} migration(s) applied, {recognisedLegacyCount} of "
+                    + $"{legacyIds.Count} recognised from the superseded BotDbContext lineage, but it does not "
+                    + $"end at {LastLegacyMigrationId} and has not reached {BaselineMigrationId} either. This is "
+                    + $"not a state the pre-split history repair can safely act on - {RecoveryGuidance}");
             }
 
             VerifyLegacySchemaMatchesBaseline(connection, cancellationToken);
@@ -146,6 +174,12 @@ public static class SqliteLegacyHistoryRepair
                 await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
             }
 
+            // Mirror the row just inserted so the "remaining" count below reflects what MigrateAsync
+            // will actually see next, rather than assuming the baseline is the only current-lineage
+            // id GetMigrations() will report (true by construction, but worth computing rather than
+            // asserting via a bare "- 1").
+            applied[BaselineMigrationId] = productVersion;
+
             logger.LogWarning(
                 "Repaired a SQLite database created before the SqliteBotDbContext registration fix: "
                 + "its history ends at {Legacy} (the superseded BotDbContext lineage, {Count} migrations), "
@@ -158,7 +192,7 @@ public static class SqliteLegacyHistoryRepair
                 addedColumn
                     ? " after adding the one column it introduces, GuildModerationConfigs.IsEnabled"
                     : " (GuildModerationConfigs.IsEnabled was already present)",
-                context.Database.GetMigrations().Count() - 1);
+                context.Database.GetMigrations().Except(applied.Keys).Count());
 
             return true;
         }
@@ -178,9 +212,11 @@ public static class SqliteLegacyHistoryRepair
     /// </summary>
     private static void VerifyLegacySchemaMatchesBaseline(DbConnection connection, CancellationToken cancellationToken)
     {
-        var baseline = FindBaselineMigration();
-        if (baseline is null)
-            return;
+        var baseline = FindBaselineMigration()
+            ?? throw new InvalidOperationException(
+                $"Could not find the {BaselineMigrationId} migration class in this assembly to verify the "
+                + "legacy database's schema against before stamping it as applied. A missing migration class "
+                + "the repair depends on is a build/deployment bug, not a state to silently skip verification for.");
 
         var existingTables = ReadTableNames(connection, cancellationToken);
         var problems = new List<string>();
@@ -233,6 +269,24 @@ public static class SqliteLegacyHistoryRepair
 
         migration.ActiveProvider = "Microsoft.EntityFrameworkCore.Sqlite";
         return migration;
+    }
+
+    /// <summary>
+    /// Every migration id attributed to the superseded base <see cref="BotDbContext"/> - the 40
+    /// ids a pre-fix database's history can legitimately contain. Read via reflection (the same
+    /// way <see cref="FindBaselineMigration"/> finds the re-baseline) rather than hand-maintained,
+    /// so it can never drift from the migration classes actually in this assembly.
+    /// </summary>
+    private static HashSet<string> GetLegacyMigrationIds()
+    {
+        return typeof(SqliteBotDbContext).Assembly
+            .GetTypes()
+            .Where(t => t is { IsClass: true, IsAbstract: false } && t.IsSubclassOf(typeof(Migration)))
+            .Where(t => t.GetCustomAttribute<DbContextAttribute>()?.ContextType == typeof(BotDbContext))
+            .Select(t => t.GetCustomAttribute<MigrationAttribute>()?.Id)
+            .Where(id => id is not null)
+            .Select(id => id!)
+            .ToHashSet(StringComparer.Ordinal);
     }
 
     private static async Task<bool> TableExistsAsync(DbConnection connection, string table, CancellationToken cancellationToken)

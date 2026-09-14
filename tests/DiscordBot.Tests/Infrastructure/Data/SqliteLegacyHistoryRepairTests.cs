@@ -29,7 +29,6 @@ public class SqliteLegacyHistoryRepairTests : IDisposable
     public void Dispose()
     {
         GC.SuppressFinalize(this);
-        SqliteConnectionPoolReset();
         try
         {
             if (Directory.Exists(_tempDirectory))
@@ -41,18 +40,26 @@ public class SqliteLegacyHistoryRepairTests : IDisposable
         }
     }
 
-    private static void SqliteConnectionPoolReset() => Microsoft.Data.Sqlite.SqliteConnection.ClearAllPools();
-
     private string PathFor(string name) => Path.Combine(_tempDirectory, name);
+
+    /// <summary>
+    /// Every connection string in this fixture disables Microsoft.Data.Sqlite's connection pool
+    /// (<c>Pooling=False</c>) instead of the test class relying on a
+    /// <c>SqliteConnection.ClearAllPools()</c> teardown: that call is process-global, so it reset
+    /// pooled connections for every other test class's SQLite fixtures running in the same test
+    /// process, not just this one's. With pooling off, closing a connection actually releases its
+    /// file handle immediately, so <see cref="Dispose"/>'s directory delete needs nothing else.
+    /// </summary>
+    private static string ConnectionStringFor(string path) => $"Data Source={path};Pooling=False";
 
     private static BotDbContext OpenLegacyContext(string path) =>
         new(new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite($"Data Source={path}", b => b.MigrationsAssembly("DiscordBot.Infrastructure"))
+            .UseSqlite(ConnectionStringFor(path), b => b.MigrationsAssembly("DiscordBot.Infrastructure"))
             .Options);
 
     private static SqliteBotDbContext OpenCurrentContext(string path) =>
         new(new DbContextOptionsBuilder<SqliteBotDbContext>()
-            .UseSqlite($"Data Source={path}", b => b.MigrationsAssembly("DiscordBot.Infrastructure"))
+            .UseSqlite(ConnectionStringFor(path), b => b.MigrationsAssembly("DiscordBot.Infrastructure"))
             .Options);
 
     /// <summary>
@@ -79,7 +86,10 @@ public class SqliteLegacyHistoryRepairTests : IDisposable
 
     /// <summary>
     /// A comparable rendering of a database's schema: every <c>sqlite_master</c> object name by
-    /// type, and every table's column set.
+    /// type, and for every table its column set, index set (name, uniqueness, member columns) and
+    /// foreign-key set (referenced table/column and the <c>ON DELETE</c> action) - the same objects
+    /// <c>DbSet.Update()</c>/EF's model would care about, so a legacy-vs-fresh mismatch in any of
+    /// them shows up here instead of only at runtime.
     ///
     /// Column <b>defaults</b> are deliberately excluded. A legacy database carries DEFAULT clauses
     /// on <c>GuildAudioSettings.SilentPlayback</c> and <c>MetricSnapshots.CpuUsagePercent</c> that a
@@ -87,8 +97,8 @@ public class SqliteLegacyHistoryRepairTests : IDisposable
     /// <c>defaultValue:</c> while the re-baseline's <c>CreateTable</c> declares them plainly - and
     /// SQLite cannot drop a DEFAULT without rebuilding the table. The repair adds one of its own for
     /// the same reason (see <c>SqliteLegacyHistoryRepair</c>). Defaults are invisible to EF, which
-    /// always writes these columns explicitly; names, types, nullability and keys are what must
-    /// match, and those are compared in full.
+    /// always writes these columns explicitly; names, types, nullability, keys, indexes and foreign
+    /// keys are what must match, and those are compared in full.
     /// </summary>
     private static async Task<string> CaptureSchemaAsync(DbContext db)
     {
@@ -118,19 +128,67 @@ public class SqliteLegacyHistoryRepairTests : IDisposable
                 continue;
 
             var columns = new List<string>();
-            await using var pragma = connection.CreateCommand();
-            pragma.CommandText = $"PRAGMA table_info(\"{name}\")";
-            await using var columnReader = await pragma.ExecuteReaderAsync();
-            while (await columnReader.ReadAsync())
+            await using (var pragma = connection.CreateCommand())
             {
-                columns.Add(
-                    $"{columnReader.GetString(1)}:{columnReader.GetString(2)}"
-                    + $":notnull={columnReader.GetInt32(3)}:pk={columnReader.GetInt32(5)}");
+                pragma.CommandText = $"PRAGMA table_info(\"{name}\")";
+                await using var columnReader = await pragma.ExecuteReaderAsync();
+                while (await columnReader.ReadAsync())
+                {
+                    columns.Add(
+                        $"{columnReader.GetString(1)}:{columnReader.GetString(2)}"
+                        + $":notnull={columnReader.GetInt32(3)}:pk={columnReader.GetInt32(5)}");
+                }
             }
 
             columns.Sort(StringComparer.Ordinal);
             foreach (var column in columns)
                 sb.Append("  col\t").Append(name).Append('.').Append(column).AppendLine();
+
+            var indexNames = new List<(string Name, bool Unique)>();
+            await using (var pragma = connection.CreateCommand())
+            {
+                pragma.CommandText = $"PRAGMA index_list(\"{name}\")";
+                await using var indexReader = await pragma.ExecuteReaderAsync();
+                while (await indexReader.ReadAsync())
+                    indexNames.Add((indexReader.GetString(1), indexReader.GetInt32(2) != 0));
+            }
+
+            var indexLines = new List<string>();
+            foreach (var (indexName, unique) in indexNames)
+            {
+                var indexColumns = new List<string>();
+                await using var pragma = connection.CreateCommand();
+                pragma.CommandText = $"PRAGMA index_info(\"{indexName}\")";
+                await using var indexInfoReader = await pragma.ExecuteReaderAsync();
+                while (await indexInfoReader.ReadAsync())
+                    indexColumns.Add(indexInfoReader.GetString(2));
+
+                indexLines.Add($"{indexName}:unique={unique}:cols={string.Join(",", indexColumns)}");
+            }
+
+            indexLines.Sort(StringComparer.Ordinal);
+            foreach (var index in indexLines)
+                sb.Append("  idx\t").Append(name).Append('.').Append(index).AppendLine();
+
+            var fkLines = new List<string>();
+            await using (var pragma = connection.CreateCommand())
+            {
+                pragma.CommandText = $"PRAGMA foreign_key_list(\"{name}\")";
+                await using var fkReader = await pragma.ExecuteReaderAsync();
+                while (await fkReader.ReadAsync())
+                {
+                    // Columns: id, seq, table, from, to, on_update, on_delete, match.
+                    var referencedTable = fkReader.GetString(2);
+                    var fromColumn = fkReader.GetString(3);
+                    var toColumn = fkReader.IsDBNull(4) ? string.Empty : fkReader.GetString(4);
+                    var onDelete = fkReader.GetString(6);
+                    fkLines.Add($"{fromColumn}->{referencedTable}.{toColumn}:onDelete={onDelete}");
+                }
+            }
+
+            fkLines.Sort(StringComparer.Ordinal);
+            foreach (var fk in fkLines)
+                sb.Append("  fk\t").Append(name).Append('.').Append(fk).AppendLine();
         }
 
         return sb.ToString();
@@ -392,9 +450,15 @@ public class SqliteLegacyHistoryRepairTests : IDisposable
     }
 
     [Fact]
-    public async Task Repair_OnUnrecognisedHistory_StandsAsideWithoutStamping()
+    public async Task Repair_OnPartialLegacyHistory_ThrowsRatherThanStandAsideOrStamp()
     {
-        var path = PathFor("unknown.db");
+        // 39 of the 40 legacy ids are still present and recognised - only the marker this repair
+        // uses to detect "the legacy chain's true end" is gone. That is not the same as a history
+        // with no recognisable ids at all (see Repair_OnWhollyUnrecognisedHistory_StandsAside
+        // below): guessing which end state a *partially* legacy history represents risks stamping
+        // the re-baseline over a schema it doesn't actually match, so this must throw instead of
+        // silently standing aside.
+        var path = PathFor("partial.db");
         CreateLegacyDatabase(path);
 
         await using var db = OpenCurrentContext(path);
@@ -402,8 +466,34 @@ public class SqliteLegacyHistoryRepairTests : IDisposable
             "DELETE FROM __EFMigrationsHistory WHERE MigrationId = "
             + $"'{SqliteLegacyHistoryRepair.LastLegacyMigrationId}'");
 
+        var act = async () => await RepairAsync(db);
+
+        var thrown = await act.Should().ThrowAsync<InvalidOperationException>();
+        thrown.Which.Message.Should().Contain(SqliteLegacyHistoryRepair.LastLegacyMigrationId);
+        thrown.Which.Message.Should().Contain("39",
+            "the message should say how many of the legacy chain's ids it did recognise");
+
+        (await HistoryAsync(db)).Should().NotContain(SqliteLegacyHistoryRepair.BaselineMigrationId,
+            "refusing to act must never record the re-baseline as applied");
+    }
+
+    [Fact]
+    public async Task Repair_OnWhollyUnrecognisedHistory_StandsAsideWithoutStamping()
+    {
+        // No id in this history belongs to either lineage at all - not a single legacy id, and not
+        // the baseline. This is the one case the repair genuinely cannot reason about, so it must
+        // log and stand aside (not throw) and let MigrateAsync report its own error next.
+        var path = PathFor("unknown.db");
+        CreateLegacyDatabase(path);
+
+        await using var db = OpenCurrentContext(path);
+        await ExecuteAsync(db, "DELETE FROM __EFMigrationsHistory");
+        await ExecuteAsync(db,
+            "INSERT INTO __EFMigrationsHistory (MigrationId, ProductVersion) "
+            + "VALUES ('00000000000000_SomeUnrelatedMigration', '10.0.0')");
+
         (await RepairAsync(db)).Should().BeFalse(
-            "neither marker is present, so the repair cannot know what schema it is looking at");
+            "no id in this history is recognised from either lineage, so the repair cannot know what schema it is looking at");
 
         (await HistoryAsync(db)).Should().NotContain(SqliteLegacyHistoryRepair.BaselineMigrationId,
             "standing aside must never record the re-baseline as applied");
