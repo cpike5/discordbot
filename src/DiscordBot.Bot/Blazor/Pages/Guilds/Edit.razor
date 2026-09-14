@@ -1,0 +1,82 @@
+@page "/Guilds/Edit/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Guilds/Edit.cshtml + EditModel (docs/plans/blazor-port-plan.md
+    §5 Phase 4, cluster 4b). See Edit.razor.cs for the load/save logic this markup renders.
+*@
+
+<PageTitle>Edit Settings</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        <div class="max-w-3xl mx-auto">
+            @if (!string.IsNullOrEmpty(ErrorMessage))
+            {
+                <div class="mb-6">
+                    <Alert Variant="AlertVariant.Error" Message="@ErrorMessage" IsDismissible="true" OnDismiss="() => ErrorMessage = null" />
+                </div>
+            }
+
+            <EditForm Model="Input" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+
+                <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+                    <div class="px-6 py-4 border-b border-border-primary">
+                        <h2 class="text-lg font-semibold text-text-primary">General Settings</h2>
+                    </div>
+                    <div class="p-6">
+                        <Toggle Id="Input_IsActive" Label="Bot Active" Description="Enable or disable the bot for this server" @bind-Value="Input.IsActive" />
+                    </div>
+                </div>
+
+                @if (AudioSettingsLoaded)
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h2 class="text-lg font-semibold text-text-primary">Audio Settings</h2>
+                        </div>
+                        <div class="p-6 space-y-4">
+                            <Toggle Id="Input_AudioEnabled" Label="Audio Enabled" Description="Enable or disable audio features" @bind-Value="Input.AudioEnabled" />
+
+                            <div class="flex items-center justify-between py-2">
+                                <div class="flex-1 pr-4">
+                                    <label for="Input_AutoLeaveTimeoutMinutes" class="text-sm font-medium text-text-primary">Auto-leave Timeout</label>
+                                    <p class="text-xs text-text-tertiary mt-0.5">Minutes of inactivity before leaving voice (0 = stay indefinitely)</p>
+                                </div>
+                                <InputNumber @bind-Value="Input.AutoLeaveTimeoutMinutes" id="Input_AutoLeaveTimeoutMinutes"
+                                             class="w-24 px-3 py-1.5 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20" />
+                            </div>
+                            <ValidationMessage For="() => Input.AutoLeaveTimeoutMinutes" class="text-error text-xs" />
+
+                            <Toggle Id="Input_QueueEnabled" Label="Queue Enabled" Description="Whether sounds queue or replace current" @bind-Value="Input.QueueEnabled" />
+
+                            <div class="pt-2 border-t border-border-primary">
+                                <a href="@($"/Guilds/AudioSettings/{guild.GuildIdString}")" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                                    More settings...
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+
+                <div class="flex items-center justify-end gap-4">
+                    @if (!RendererInfo.IsInteractive)
+                    {
+                        <span class="text-sm text-text-tertiary">Connecting…</span>
+                    }
+                    <a href="@($"/Guilds/Details/{guild.GuildIdString}")" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">
+                        <Icon Path="@IconPaths.Check" Class="w-5 h-5 mr-2" />
+                        Save Settings
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </ChildContent>
+</GuildContextGate>

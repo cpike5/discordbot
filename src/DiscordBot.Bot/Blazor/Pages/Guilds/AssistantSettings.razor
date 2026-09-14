@@ -1,0 +1,193 @@
+@page "/Guilds/AssistantSettings/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Guilds/AssistantSettings.cshtml + AssistantSettingsModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). See AssistantSettings.razor.cs for the
+    load/save logic this markup renders.
+*@
+
+<PageTitle>Assistant Settings</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        @if (!GloballyEnabled)
+        {
+            <div class="mb-6">
+                <Alert Variant="AlertVariant.Warning" Message="The AI assistant is globally disabled. Guild-level settings will take effect once the feature is enabled globally." />
+            </div>
+        }
+
+        <EditForm Model="Input" OnValidSubmit="HandleValidSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label for="Input_IsEnabled" class="text-sm font-semibold text-text-primary">Enable AI Assistant</label>
+                                <p class="text-xs text-text-secondary mt-1">Allow users to ask questions by mentioning the bot</p>
+                            </div>
+                            <Toggle Id="Input_IsEnabled" @bind-Value="Input.IsEnabled" />
+                        </div>
+                    </div>
+
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6 @(!Input.IsEnabled ? "opacity-60 pointer-events-none" : "")">
+                        <!-- Channel Selection -->
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-2">Allowed Channels</label>
+                            <p class="text-xs text-text-secondary mb-3">Select channels where the assistant can respond. Leave empty to allow all channels.</p>
+
+                            <div class="max-h-64 overflow-y-auto border border-border-primary rounded-md bg-bg-primary">
+                                @if (AvailableChannels.Count > 0)
+                                {
+                                    @foreach (var channel in AvailableChannels)
+                                    {
+                                        var channelIdStr = channel.Id.ToString();
+                                        var isSelected = Input.AllowedChannelIds.Contains(channelIdStr);
+                                        <label class="flex items-center gap-3 px-4 py-2.5 hover:bg-bg-hover cursor-pointer border-b border-border-secondary last:border-b-0">
+                                            <input type="checkbox" checked="@isSelected"
+                                                   @onchange="@(e => ToggleChannel(channelIdStr, (bool)e.Value!))"
+                                                   class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange focus:ring-offset-bg-primary" />
+                                            <Icon Path="@(channel.Type == DiscordBot.Core.Enums.ChannelDisplayType.Announcement ? IconPaths.Megaphone : IconPaths.Hashtag)" Class="w-4 h-4 text-text-tertiary flex-shrink-0" />
+                                            <span class="text-sm text-text-primary">@channel.Name</span>
+                                            <span class="text-xs text-text-tertiary">@(channel.Type == DiscordBot.Core.Enums.ChannelDisplayType.Announcement ? "Announcement" : "Text")</span>
+                                        </label>
+                                    }
+                                }
+                                else
+                                {
+                                    <div class="px-4 py-6 text-center text-text-secondary text-sm">No text channels available</div>
+                                }
+                            </div>
+                            <p class="text-xs text-text-tertiary mt-2">
+                                @Input.AllowedChannelIds.Count of @AvailableChannels.Count channels selected
+                            </p>
+                        </div>
+
+                        <!-- Tool Access -->
+                        <div>
+                            <label class="block text-sm font-medium text-text-primary mb-2">Tool Access</label>
+                            <p class="text-xs text-text-secondary mb-3">
+                                Choose which tools the assistant may use in this server. Fewer tools means cheaper,
+                                faster answers; a tool the assistant cannot see is one it cannot call.
+                            </p>
+
+                            @if (UsingDefaultToolSet)
+                            {
+                                <div class="mb-3">
+                                    <Alert Variant="AlertVariant.Info" Message="No tools selected - this server uses the default set, shown ticked below. Saving the page as-is keeps that default." />
+                                </div>
+                            }
+
+                            <div class="max-h-80 overflow-y-auto border border-border-primary rounded-md bg-bg-primary">
+                                @foreach (var category in ToolCategories)
+                                {
+                                    <div class="border-b border-border-secondary last:border-b-0">
+                                        <div class="px-4 py-2 bg-bg-tertiary/40">
+                                            <span class="text-xs font-semibold uppercase tracking-wide text-text-tertiary">@category.Category</span>
+                                        </div>
+                                        @foreach (var tool in category.Tools)
+                                        {
+                                            <label class="flex items-start gap-3 px-4 py-2.5 hover:bg-bg-hover cursor-pointer">
+                                                <input type="checkbox" checked="@tool.IsSelected"
+                                                       @onchange="@(e => ToggleTool(tool.Name, (bool)e.Value!))"
+                                                       class="mt-0.5 w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange focus:ring-offset-bg-primary" />
+                                                <span class="min-w-0">
+                                                    <span class="block text-sm text-text-primary">@tool.DisplayName</span>
+                                                    <span class="block text-xs text-text-secondary">@tool.Description</span>
+                                                    <code class="block mt-0.5 text-xs text-text-tertiary font-mono">@tool.Name</code>
+                                                </span>
+                                            </label>
+                                        }
+                                    </div>
+                                }
+                            </div>
+                            <p class="text-xs text-text-tertiary mt-2">
+                                @ToolCategories.Sum(c => c.Tools.Count(t => t.IsSelected)) of @ToolCategories.Sum(c => c.Tools.Count) tools selected.
+                                Clearing every box restores the default set.
+                            </p>
+                        </div>
+
+                        <!-- Rate Limit Override -->
+                        <div>
+                            <label for="Input_RateLimitOverride" class="block text-sm font-medium text-text-primary mb-2">Rate Limit Override</label>
+                            <div class="max-w-xs">
+                                <InputNumber @bind-Value="Input.RateLimitOverride" id="Input_RateLimitOverride"
+                                             placeholder="@($"{DefaultRateLimit} (default)")"
+                                             class="form-input w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20" />
+                            </div>
+                            <p class="text-xs text-text-secondary mt-1">
+                                Maximum questions per user per @RateLimitWindowMinutes minute window. Leave empty to use the default (@DefaultRateLimit).
+                            </p>
+                            <ValidationMessage For="() => Input.RateLimitOverride" class="text-error text-xs" />
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        @if (!RendererInfo.IsInteractive)
+                        {
+                            <span class="text-sm text-text-tertiary self-center">Connecting…</span>
+                        }
+                        <button type="submit" class="btn btn-primary inline-flex items-center justify-center gap-2" disabled="@(!RendererInfo.IsInteractive)">
+                            <Icon Path="@IconPaths.Check" Class="w-4 h-4" />
+                            Save Settings
+                        </button>
+                        <a href="@($"/Guilds/Details/{guild.GuildIdString}")" class="btn btn-secondary inline-flex items-center justify-center gap-2">
+                            Cancel
+                        </a>
+                        <a href="@($"/Guilds/AssistantMetrics/{guild.GuildIdString}")" class="btn btn-glass inline-flex items-center justify-center gap-2 ml-auto">
+                            <Icon Path="@IconPaths.ChartBarSquare" Class="w-4 h-4" />
+                            View Metrics
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Help Panel Column -->
+                <div class="space-y-6">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary flex items-center gap-2">
+                                <Icon Path="@IconPaths.InformationCircle" Class="w-5 h-5 text-accent-blue" />
+                                How It Works
+                            </h3>
+                        </div>
+                        <div class="p-6 space-y-4 text-sm text-text-secondary">
+                            <p>When enabled, users can ask questions by mentioning the bot:</p>
+                            <div class="bg-bg-primary border border-border-primary rounded-md p-3 font-mono text-xs">
+                                <span class="text-accent-blue">@@BotName</span> How do I use the soundboard?
+                            </div>
+                            <p>The bot uses AI to answer questions about its features and commands.</p>
+                        </div>
+                    </div>
+
+                    <div class="bg-info-bg border border-info-border rounded-lg p-4">
+                        <div class="flex items-start gap-3">
+                            <Icon Path="@IconPaths.InformationCircle" Class="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                            <div class="text-sm text-info">
+                                <p class="font-semibold mb-1">User Consent Required</p>
+                                <p class="text-info/90">
+                                    Users must grant consent via <code class="px-1 py-0.5 bg-info/20 rounded font-mono text-xs">/consent</code> before using the assistant. Questions and responses are logged for debugging.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                        <h4 class="text-sm font-semibold text-text-primary mb-2">Rate Limiting</h4>
+                        <p class="text-xs text-text-secondary">
+                            Rate limits prevent API cost abuse. Each user can ask @DefaultRateLimit questions per @RateLimitWindowMinutes minutes (by default).
+                            Admins can bypass this limit.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </ChildContent>
+</GuildContextGate>

@@ -1,0 +1,193 @@
+@page "/Guilds/AudioModerationLog/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Routable replacement for Pages/Guilds/AudioModerationLog/Index.cshtml + IndexModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). See Index.razor.cs for the
+    filter/paging logic this markup renders.
+*@
+
+<PageTitle>Audio Log</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        <!-- Audio cluster sub-navigation -->
+        <TabGroup Id="audioTabs" Mode="TabGroupMode.Navigation" StyleVariant="TabStyleVariant.Pills" AriaLabel="Audio sections" ActiveTabId="audiolog"
+                  Class="mb-6"
+                  Tabs="@(new List<TabItem>
+                  {
+                      new() { Id = "soundboard", Label = "Soundboard", Href = $"/Guilds/Soundboard/{guild.GuildIdString}", IconPath = IconPaths.SpeakerWave },
+                      new() { Id = "tts", Label = "Text-to-Speech", Href = $"/Guilds/TextToSpeech/{guild.GuildIdString}", IconPath = IconPaths.Microphone },
+                      new() { Id = "vox", Label = "VOX", Href = $"/Guilds/VOX/{guild.GuildIdString}", IconPath = IconPaths.HandRaised },
+                      new() { Id = "settings", Label = "Settings", Href = $"/Guilds/AudioSettings/{guild.GuildIdString}", IconPath = IconPaths.Cog },
+                      new() { Id = "audiolog", Label = "Audio Log", Href = $"/Guilds/AudioModerationLog/{guild.GuildIdString}", IconPath = IconPaths.DocumentText }
+                  })" />
+
+        <!-- Filter Bar -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+            <EditForm Model="this" OnSubmit="HandleFilterSubmit">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div>
+                        <label for="FeatureFilter" class="block text-sm font-medium text-text-secondary mb-1">Feature Type</label>
+                        <select id="FeatureFilter" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue"
+                                value="@(FeatureFilterInput.HasValue ? ((int)FeatureFilterInput.Value).ToString() : "")"
+                                @onchange="@(e => FeatureFilterInput = int.TryParse(e.Value?.ToString(), out var v) ? (AudioFeatureType)v : null)">
+                            <option value="">All Types</option>
+                            <option value="@((int)AudioFeatureType.Soundboard)">Soundboard</option>
+                            <option value="@((int)AudioFeatureType.Tts)">TTS</option>
+                            <option value="@((int)AudioFeatureType.Vox)">VOX</option>
+                        </select>
+                    </div>
+
+                    <div>
+                        <TextInput Id="UserFilter" Label="User ID" Placeholder="Discord User ID..." @bind-Value="UserFilterInput" />
+                    </div>
+
+                    <div>
+                        <label for="DateFrom" class="block text-sm font-medium text-text-secondary mb-1">From Date</label>
+                        <input type="date" id="DateFrom" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue"
+                               value="@DateFromInput?.ToString("yyyy-MM-dd")"
+                               @onchange="@(e => DateFromInput = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+                    </div>
+
+                    <div>
+                        <label for="DateTo" class="block text-sm font-medium text-text-secondary mb-1">To Date</label>
+                        <input type="date" id="DateTo" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue"
+                               value="@DateToInput?.ToString("yyyy-MM-dd")"
+                               @onchange="@(e => DateToInput = DateTime.TryParse(e.Value?.ToString(), out var d) ? d : null)" />
+                    </div>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 mt-4">
+                    <a href="@($"/Guilds/AudioModerationLog/{guild.GuildIdString}")" @onclick="HandleClearFilters" @onclick:preventDefault="true"
+                       class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
+                        Clear Filters
+                    </a>
+                    <button type="submit" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
+                        Apply Filters
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+
+        @if (LogEntries.Count == 0)
+        {
+            <EmptyState Type="EmptyStateType.NoData"
+                        Title="No audio playback events found"
+                        Description="@(HasActiveFilters ? "Try adjusting your filters." : "No audio has been played in this guild yet.")" />
+        }
+        else
+        {
+            <!-- Desktop Table -->
+            <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-border-primary" role="table" aria-label="Audio playback log">
+                        <thead class="bg-bg-tertiary">
+                            <tr>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Timestamp</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Feature</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Content</th>
+                                <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Channel</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            @foreach (var entry in LogEntries)
+                            {
+                                var (badgeText, badgeVariant) = FeatureBadge(entry.FeatureType);
+                                <tr class="hover:bg-bg-hover transition-colors">
+                                    <td class="px-4 py-4 whitespace-nowrap"><LocalTime Utc="entry.PlayedAt" Format="datetime" Class="text-sm text-text-secondary" /></td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        @if (entry.UserId != 0)
+                                        {
+                                            <span class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@guild.GuildIdString">
+                                                @ResolveUserName(entry.UserId)
+                                            </span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-tertiary">Unknown</span>
+                                        }
+                                    </td>
+                                    <td class="px-4 py-4 whitespace-nowrap"><Badge Text="@badgeText" Variant="badgeVariant" IsPill="true" /></td>
+                                    <td class="px-4 py-4"><span class="text-sm text-text-primary truncate block max-w-xs" title="@entry.ContentName">@entry.ContentName</span></td>
+                                    <td class="px-4 py-4 whitespace-nowrap">
+                                        @if (entry.ChannelId.HasValue)
+                                        {
+                                            <span class="text-sm text-text-secondary">#@ResolveChannelName(entry.ChannelId.Value)</span>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-tertiary">--</span>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Mobile Cards -->
+            <div class="md:hidden space-y-4 mb-6">
+                @foreach (var entry in LogEntries)
+                {
+                    var (badgeText, badgeVariant) = FeatureBadge(entry.FeatureType);
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
+                        <div class="flex items-start justify-between mb-3">
+                            <Badge Text="@badgeText" Variant="badgeVariant" IsPill="true" />
+                            <LocalTime Utc="entry.PlayedAt" Format="datetime" Class="text-xs text-text-tertiary" />
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-semibold text-text-secondary">User:</span>
+                                @if (entry.UserId != 0)
+                                {
+                                    <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@guild.GuildIdString">
+                                        @ResolveUserName(entry.UserId)
+                                    </span>
+                                }
+                                else
+                                {
+                                    <span class="text-sm text-text-tertiary">Unknown</span>
+                                }
+                            </div>
+                            <div>
+                                <span class="text-sm font-semibold text-text-secondary">Content:</span>
+                                <span class="text-sm text-text-primary">@entry.ContentName</span>
+                            </div>
+                            @if (entry.ChannelId.HasValue)
+                            {
+                                <div class="text-sm text-text-secondary">#@ResolveChannelName(entry.ChannelId.Value)</div>
+                            }
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="mt-6">
+                    <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="CurrentPageSize"
+                                Style="PaginationStyle.Full" ShowPageSizeSelector="true" ShowItemCount="true"
+                                OnPageChanged="HandlePageChanged" OnPageSizeChanged="HandlePageSizeChanged" />
+                </div>
+            }
+
+            @if (TotalCount > 0)
+            {
+                var startItem = (CurrentPage - 1) * CurrentPageSize + 1;
+                var endItem = Math.Min(CurrentPage * CurrentPageSize, TotalCount);
+                <div class="mt-4 text-sm text-text-secondary">
+                    Showing @startItem to @endItem of @TotalCount.ToString("N0") entries
+                </div>
+            }
+        }
+    </ChildContent>
+</GuildContextGate>

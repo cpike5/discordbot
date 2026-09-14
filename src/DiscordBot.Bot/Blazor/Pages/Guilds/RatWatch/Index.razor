@@ -1,0 +1,340 @@
+@page "/Guilds/RatWatch/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Routable replacement for Pages/Guilds/RatWatch/Index.cshtml + IndexModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). See Index.razor.cs for the
+    load/cancel/end-vote/settings logic this markup renders.
+*@
+
+<PageTitle>Rat Watch</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        @if (!string.IsNullOrEmpty(SettingsError))
+        {
+            <div class="mb-6">
+                <Alert Variant="AlertVariant.Error" Message="@SettingsError" IsDismissible="true" OnDismiss="() => SettingsError = null" />
+            </div>
+        }
+
+        <!-- Settings Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-semibold text-text-primary">Settings</h2>
+                @if (!IsEditingSettings)
+                {
+                    <button type="button" @onclick="EnterEditSettings" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                        Edit Settings
+                    </button>
+                }
+            </div>
+
+            @if (!IsEditingSettings)
+            {
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Timezone</p>
+                        <p class="text-sm text-text-primary">@Settings.Timezone</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Max Advance Hours</p>
+                        <p class="text-sm text-text-primary">@Settings.MaxAdvanceHours hours</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Voting Duration</p>
+                        <p class="text-sm text-text-primary">@Settings.VotingDurationMinutes minutes</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Status</p>
+                        <p class="@("text-sm " + (Settings.IsEnabled ? "text-success" : "text-error"))">@(Settings.IsEnabled ? "Enabled" : "Disabled")</p>
+                    </div>
+                    <div>
+                        <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Public Leaderboard</p>
+                        @if (Settings.PublicLeaderboardEnabled)
+                        {
+                            <a href="@($"/Guilds/PublicLeaderboard/{guild.GuildIdString}")" target="_blank"
+                               class="inline-flex items-center gap-1 text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                                Enabled
+                                <Icon Path="@IconPaths.ArrowTopRightOnSquare" Class="w-3.5 h-3.5" />
+                            </a>
+                        }
+                        else
+                        {
+                            <p class="text-sm text-text-secondary">Disabled</p>
+                        }
+                    </div>
+                </div>
+            }
+            else
+            {
+                <div class="mt-4 pt-4 border-t border-border-primary">
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <div>
+                            <label for="timezone" class="block text-sm font-medium text-text-secondary mb-1">Timezone</label>
+                            <select id="timezone" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue"
+                                    value="@SettingsInput.Timezone" @onchange="@(e => SettingsInput.Timezone = e.Value?.ToString() ?? string.Empty)">
+                                <option value="Eastern Standard Time">Eastern Time</option>
+                                <option value="Central Standard Time">Central Time</option>
+                                <option value="Mountain Standard Time">Mountain Time</option>
+                                <option value="Pacific Standard Time">Pacific Time</option>
+                                <option value="UTC">UTC</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label for="maxAdvanceHours" class="block text-sm font-medium text-text-secondary mb-1">Max Advance Hours</label>
+                            <InputNumber id="maxAdvanceHours" @bind-Value="SettingsInput.MaxAdvanceHours"
+                                         class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
+                        </div>
+                        <div>
+                            <label for="votingDurationMinutes" class="block text-sm font-medium text-text-secondary mb-1">Voting Duration (minutes)</label>
+                            <InputNumber id="votingDurationMinutes" @bind-Value="SettingsInput.VotingDurationMinutes"
+                                         class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue" />
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-text-secondary mb-1">Feature Status</label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked="@SettingsInput.IsEnabled" @onchange="@(e => SettingsInput.IsEnabled = (bool)e.Value!)"
+                                       class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" />
+                                <span class="text-sm text-text-primary">Enable Rat Watch for this guild</span>
+                            </label>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium text-text-secondary mb-1">Public Leaderboard</label>
+                            <label class="flex items-center gap-2 cursor-pointer">
+                                <input type="checkbox" checked="@SettingsInput.PublicLeaderboardEnabled" @onchange="@(e => SettingsInput.PublicLeaderboardEnabled = (bool)e.Value!)"
+                                       class="w-4 h-4 rounded border-border-primary text-accent-orange focus:ring-accent-orange" />
+                                <span class="text-sm text-text-primary">Enable public leaderboard page</span>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-2">
+                        <button type="button" @onclick="CancelEditSettings" class="px-4 py-2 text-sm font-medium text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                            Cancel
+                        </button>
+                        <button type="button" @onclick="HandleUpdateSettings" class="px-4 py-2 text-sm font-medium text-white bg-accent-orange border border-accent-orange rounded-md hover:bg-accent-orange-hover transition-colors">
+                            Save Settings
+                        </button>
+                    </div>
+                </div>
+            }
+        </div>
+
+        <!-- Rat Watch Navigation Tabs -->
+        <TabGroup Id="ratWatchTabs" Mode="TabGroupMode.Navigation" StyleVariant="TabStyleVariant.Underline" AriaLabel="Rat Watch navigation" ActiveTabId="settings" Class="mb-6"
+                  Tabs="@(new List<TabItem>
+                  {
+                      new() { Id = "settings", Label = "Settings", Href = $"/Guilds/RatWatch/{guild.GuildIdString}" },
+                      new() { Id = "analytics", Label = "Analytics", Href = $"/Guilds/RatWatch/Analytics/{guild.GuildIdString}" },
+                      new() { Id = "incidents", Label = "Incidents", Href = $"/Guilds/RatWatch/Incidents/{guild.GuildIdString}" }
+                  })" />
+
+        <!-- Summary Stats Cards -->
+        @if (AnalyticsSummary is not null)
+        {
+            <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-6">
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-text-secondary">Total Watches</p>
+                            <p class="mt-2 text-3xl font-bold text-text-primary">@AnalyticsSummary.TotalWatches.ToString("N0")</p>
+                            <p class="mt-1 text-xs text-text-tertiary">All-time</p>
+                        </div>
+                        <div class="p-3 bg-accent-blue/10 rounded-lg"><Icon Path="@IconPaths.Eye" Class="w-6 h-6 text-accent-blue" /></div>
+                    </div>
+                </div>
+
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-text-secondary">Active Watches</p>
+                            <p class="mt-2 text-3xl font-bold text-warning">@AnalyticsSummary.ActiveWatches.ToString("N0")</p>
+                            <p class="mt-1 text-xs text-text-tertiary">Pending + Voting</p>
+                        </div>
+                        <div class="p-3 bg-warning/10 rounded-lg"><Icon Path="@IconPaths.Clock" Class="w-6 h-6 text-warning" /></div>
+                    </div>
+                </div>
+
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-text-secondary">Guilty Rate</p>
+                            <p class="@("mt-2 text-3xl font-bold " + (AnalyticsSummary.GuiltyRate < 50 ? "text-success" : AnalyticsSummary.GuiltyRate <= 80 ? "text-warning" : "text-error"))">@AnalyticsSummary.GuiltyRate.ToString("F0")%</p>
+                            <p class="mt-1 text-xs text-text-tertiary">@AnalyticsSummary.GuiltyCount guilty verdicts</p>
+                        </div>
+                        <div class="@("p-3 rounded-lg " + (AnalyticsSummary.GuiltyRate < 50 ? "bg-success/10" : AnalyticsSummary.GuiltyRate <= 80 ? "bg-warning/10" : "bg-error/10"))">
+                            <Icon Path="@IconPaths.ChartBar" Class="@("w-6 h-6 " + (AnalyticsSummary.GuiltyRate < 50 ? "text-success" : AnalyticsSummary.GuiltyRate <= 80 ? "text-warning" : "text-error"))" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-text-secondary">Early Check-in Rate</p>
+                            <p class="@("mt-2 text-3xl font-bold " + (AnalyticsSummary.EarlyCheckInRate > 80 ? "text-success" : AnalyticsSummary.EarlyCheckInRate >= 50 ? "text-warning" : "text-error"))">@AnalyticsSummary.EarlyCheckInRate.ToString("F0")%</p>
+                            <p class="mt-1 text-xs text-text-tertiary">@AnalyticsSummary.ClearedEarlyCount cleared early</p>
+                        </div>
+                        <div class="@("p-3 rounded-lg " + (AnalyticsSummary.EarlyCheckInRate > 80 ? "bg-success/10" : AnalyticsSummary.EarlyCheckInRate >= 50 ? "bg-warning/10" : "bg-error/10"))">
+                            <Icon Path="@IconPaths.CheckCircle" Class="@("w-6 h-6 " + (AnalyticsSummary.EarlyCheckInRate > 80 ? "text-success" : AnalyticsSummary.EarlyCheckInRate >= 50 ? "text-warning" : "text-error"))" />
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+
+        <!-- Stats and Leaderboard Row -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Watch Stats</h2>
+                <div class="grid grid-cols-3 gap-4">
+                    <div class="text-center"><p class="text-2xl font-bold text-warning">@PendingCount</p><p class="text-xs text-text-tertiary">Pending</p></div>
+                    <div class="text-center"><p class="text-2xl font-bold text-accent-blue">@VotingCount</p><p class="text-xs text-text-tertiary">Voting</p></div>
+                    <div class="text-center"><p class="text-2xl font-bold text-success">@CompletedCount</p><p class="text-xs text-text-tertiary">Completed</p></div>
+                </div>
+                <div class="mt-4 pt-4 border-t border-border-primary text-center">
+                    <p class="text-3xl font-bold text-text-primary">@TotalWatches</p>
+                    <p class="text-sm text-text-tertiary">Total Watches</p>
+                </div>
+            </div>
+
+            <div class="lg:col-span-2 bg-bg-secondary border border-border-primary rounded-lg p-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Hall of Shame</h2>
+                @if (Leaderboard.Count > 0)
+                {
+                    <div class="space-y-2">
+                        @foreach (var entry in Leaderboard)
+                        {
+                            <div class="@("flex items-center justify-between p-2 rounded-lg " + (entry.Rank <= 3 ? "bg-bg-tertiary" : ""))">
+                                <div class="flex items-center gap-3">
+                                    <span class="@("w-8 h-8 flex items-center justify-center rounded-full text-sm font-bold " + (entry.Rank == 1 ? "bg-warning/20 text-warning" : entry.Rank == 2 ? "bg-text-secondary/20 text-text-secondary" : entry.Rank == 3 ? "bg-accent-orange/20 text-accent-orange" : "bg-bg-tertiary text-text-tertiary"))">
+                                        @entry.Rank
+                                    </span>
+                                    <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@entry.UserId" data-context-guild-id="@guild.GuildIdString">@entry.Username</span>
+                                </div>
+                                <span class="text-sm font-semibold text-error">@entry.GuiltyCount guilty</span>
+                            </div>
+                        }
+                    </div>
+                }
+                else
+                {
+                    <p class="text-sm text-text-tertiary text-center py-8">No guilty verdicts yet. Everyone's been honest!</p>
+                }
+            </div>
+        </div>
+
+        <!-- Watches Table -->
+        @if (TotalWatches > 0)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-lg font-semibold text-text-primary">Recent Watches</h2>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[900px]">
+                        <thead class="bg-bg-tertiary border-b border-border-primary">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Accused</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Initiator</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Message</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Scheduled</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Vote Ends</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Votes</th>
+                                <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            @foreach (var watch in Watches)
+                            {
+                                var (pillClass, dotClass) = StatusPillClasses(watch.Status);
+                                <tr class="hover:bg-bg-hover transition-colors">
+                                    <td class="px-6 py-4">
+                                        <span class="@("inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold " + pillClass)">
+                                            <span class="@("w-1.5 h-1.5 rounded-full mr-1.5 " + dotClass)"></span>
+                                            @watch.StatusText
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4"><span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@watch.AccusedUserId" data-context-guild-id="@guild.GuildIdString">@watch.AccusedUsername</span></td>
+                                    <td class="px-6 py-4"><span class="preview-trigger text-sm text-text-secondary" data-preview-type="user" data-user-id="@watch.InitiatorUserId" data-context-guild-id="@guild.GuildIdString">@watch.InitiatorUsername</span></td>
+                                    <td class="px-6 py-4"><span class="text-sm text-text-secondary max-w-[200px] truncate block" title="@watch.CustomMessage">@(watch.CustomMessage ?? "No message")</span></td>
+                                    <td class="px-6 py-4"><LocalTime Utc="watch.ScheduledAt" Format="datetime-short" Class="text-sm text-text-primary" /></td>
+                                    <td class="px-6 py-4">
+                                        @if (watch.VoteEndsAt.HasValue)
+                                        {
+                                            <LocalTime Utc="watch.VoteEndsAt.Value" Format="datetime-short" Class="text-sm text-text-primary" />
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-tertiary">--</span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if (watch.TotalVotes > 0)
+                                        {
+                                            <div class="flex items-center gap-2 text-sm">
+                                                <span class="text-error font-medium">@watch.GuiltyVotes</span>
+                                                <span class="text-text-tertiary">/</span>
+                                                <span class="text-success font-medium">@watch.NotGuiltyVotes</span>
+                                            </div>
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-tertiary">--</span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center justify-end gap-1">
+                                            @if (watch.CanEndVote)
+                                            {
+                                                <button type="button" @onclick="@(() => RequestEndVote(watch))" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="End Vote">
+                                                    <Icon Path="@IconPaths.Check" Class="w-4 h-4" />
+                                                </button>
+                                            }
+                                            @if (watch.CanCancel)
+                                            {
+                                                <button type="button" @onclick="@(() => RequestCancel(watch))" class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors" title="Cancel Watch">
+                                                    <Icon Path="@IconPaths.XMark" Class="w-4 h-4" />
+                                                </button>
+                                            }
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (TotalPages > 1)
+                {
+                    <div class="px-6 py-4 border-t border-border-primary">
+                        <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" TotalItems="TotalWatches" PageSize="CurrentPageSize"
+                                    Style="PaginationStyle.Compact" OnPageChanged="HandlePageChanged" />
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+                <EmptyState Type="EmptyStateType.FirstTime"
+                            Title="No Rat Watches Yet"
+                            Description="No accountability watches have been created in this server. Use the &quot;Rat Watch&quot; context menu on a message in Discord to start one." />
+            </div>
+        }
+
+        <ConfirmModal @ref="_cancelModal" Id="cancelWatchModal" Title="Cancel Rat Watch" Message="@CancelModalMessage"
+                      ConfirmText="Cancel Watch" CancelText="Keep Watch" Variant="ConfirmationVariant.Danger" />
+
+        <ConfirmModal @ref="_endVoteModal" Id="endVoteModal" Title="End Vote Early" Message="@EndVoteModalMessage"
+                      ConfirmText="End Vote Now" CancelText="Continue Voting" Variant="ConfirmationVariant.Warning" />
+    </ChildContent>
+</GuildContextGate>
