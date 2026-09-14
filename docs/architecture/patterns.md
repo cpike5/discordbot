@@ -2069,7 +2069,7 @@ static SSR Blazor pages; it validates the same ASP.NET Core antiforgery token Ra
 | --- | --- |
 | `Blazor/App.razor` | Static root document: `<!DOCTYPE html>`/`<head>` (`<base href="/">`, fonts, `app.css`, pre-paint theme script, sidebar FOUC guard - copied verbatim from `Pages/Shared/_Layout.cshtml`), `<HeadOutlet />`, `<Routes />`, an absolute-path `blazor.web.js` `<script>`. The `<base>` tag and the absolute script `src` both matter: without either, `blazor.web.js` resolves `_blazor/initializers` (and its own script URL) relative to the *current route* instead of the app root, 404ing and leaving the circuit dead on any nested page (e.g. `/admin/blazor-smoke`) - this is the known .NET 10 regression `tests/DiscordBot.E2E`'s nested-route test guards. |
 | `Blazor/Routes.razor` | `Router` + `AuthorizeRouteView` (`DefaultLayout="typeof(MainLayout)"`, `NotFoundPage="typeof(NotFound)"`) + `RedirectToLogin` + `FocusOnNavigate`. |
-| `Blazor/Layout/` | `EmptyLayout` (no chrome; still `Routes.razor`'s `DefaultLayout`), `MainLayout`/`MainSidebar`/`MainNavbar`/`MobileSearchOverlay`/`ShellNavigation` (Phase 3 - see below), and later `GuildLayout`/`PortalLayout`/`LandingLayout`. |
+| `Blazor/Layout/` | `EmptyLayout` (no chrome; an opt-in layout for pages that declare `@layout EmptyLayout`, e.g. the error pages - `Routes.razor`'s `DefaultLayout` is `MainLayout`), `MainLayout`/`MainSidebar`/`MainNavbar`/`MobileSearchOverlay`/`ShellNavigation` (Phase 3 - see below), and later `GuildLayout`/`PortalLayout`/`LandingLayout`. |
 | `Blazor/Shared/` | The design-system component library (Phase 2 - Button, Card, Modal, etc., one `bUnit` test each). |
 | `Blazor/Pages/` | Routable pages, mirroring today's `Pages/` tree as it's ported. |
 | `Blazor/Interop/` | Thin C# wrappers around the interop JS modules (Phase 1+ - `charts.js`/`audio.js`/`browser.js`/`theme.js`). |
@@ -2081,8 +2081,9 @@ static SSR Blazor pages; it validates the same ASP.NET Core antiforgery token Ra
 `_Sidebar.cshtml` + `_MobileSearchOverlay.cshtml` + the root `_ToastContainer.cshtml` into one
 static-SSR layout, composed from `MainSidebar`, `MainNavbar` and `MobileSearchOverlay` (also
 static SSR - same ids/classes as the partials they replace, so `site.css`/`app.css` apply
-unchanged). A page opts in with `@layout MainLayout`; `Routes.razor`'s `DefaultLayout` stays
-`EmptyLayout` until every remaining page has one. `<AuthorizeView Policy="...">` replaces the
+unchanged). `Routes.razor`'s `DefaultLayout` is `MainLayout` itself, so a routed page gets the
+admin shell unless it opts out with `@layout EmptyLayout` (or another named layout, e.g.
+`LandingLayout`/`GuildLayout`/`PortalLayout`). `<AuthorizeView Policy="...">` replaces the
 legacy `<authorize policy="...">` tag helper one for one in `MainSidebar`; active-link state
 (the `active` class, `aria-current="page"`) comes from `Blazor/Layout/ShellNavigation.cs`, a
 small pure-string helper (`IsActive(currentPath, exact:, prefixes:)`) matching

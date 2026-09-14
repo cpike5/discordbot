@@ -8,7 +8,14 @@
  * Landing.razor. Runs on DOMContentLoaded (first, full-page load) and on Blazor's
  * enhanced-navigation "enhancedload" event, which fires after a client-side route change swaps in
  * new DOM (e.g. a Blazor page's link to /landing) without a full reload - DOMContentLoaded does
- * not fire again for that case, so the listeners here would otherwise never attach.
+ * not fire again for that case, so the listeners here would otherwise never attach. The
+ * enhancedload hook itself can only be registered from inside init(), not at this script's own
+ * top-level: this script runs in <head>, before blazor.web.js (a plain <script> at the end of
+ * <body>) has run and defined window.Blazor, so a top-level `if (window.Blazor)` check here is
+ * always false and the hook would silently never register. By the time DOMContentLoaded fires,
+ * blazor.web.js has already executed (synchronous parsing order), so window.Blazor exists there.
+ * A module-level flag (`enhancedLoadHooked`) keeps that registration from happening more than
+ * once across the several call sites below that all funnel through init().
  *
  * Idempotent by design rather than by a guard flag: init() is safe to call any number of times
  * because everything it does either (a) is a pure function of the *current* DOM, re-run from
@@ -25,6 +32,7 @@
  */
 (function () {
     var scrollBound = false;
+    var enhancedLoadHooked = false;
 
     function handleScroll() {
         if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
@@ -73,14 +81,25 @@
         page.dataset.landingJsReady = 'true';
     }
 
-    document.addEventListener('DOMContentLoaded', init);
-    if (window.Blazor && typeof window.Blazor.addEventListener === 'function') {
-        window.Blazor.addEventListener('enhancedload', init);
+    function hookEnhancedLoad() {
+        if (!enhancedLoadHooked && window.Blazor && typeof window.Blazor.addEventListener === 'function') {
+            window.Blazor.addEventListener('enhancedload', init);
+            enhancedLoadHooked = true;
+        }
     }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        init();
+        // By DOMContentLoaded time blazor.web.js (end of <body>) has already run synchronously
+        // during parsing, so window.Blazor is defined here even though it wasn't when this
+        // script's own top-level code ran in <head>.
+        hookEnhancedLoad();
+    });
     // The script tag can execute after the parser has already reached <body> (it's injected via
     // <HeadContent>, not a fixed spot in the static markup), in which case DOMContentLoaded has
     // already fired and will never fire again - cover that case directly.
     if (document.readyState !== 'loading') {
         init();
+        hookEnhancedLoad();
     }
 })();

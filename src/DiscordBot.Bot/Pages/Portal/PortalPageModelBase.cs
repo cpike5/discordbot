@@ -180,6 +180,17 @@ public abstract class PortalPageModelBase : PageModel
         // rebuilt here from the guild id the service already confirmed exists. GetGuild is an
         // in-memory gateway-cache read, not a network call, so re-resolving it is cheap.
         var socketGuild = _discordClient.GetGuild(guildId);
+        if (socketGuild is null)
+        {
+            // The gateway cache lost the guild between IPortalAccessService's own existence check
+            // and this re-lookup (e.g. the bot was removed from the guild in between) - every
+            // outcome below builds a PortalAuthContext that assumes a non-null SocketGuild
+            // (Soundboard/TTS/VOX Index pages dereference context!.SocketGuild unconditionally
+            // once GetAuthResultAction lets them past ShowLandingPage), so this must short-circuit
+            // to GuildNotFound the same way the original inline check always did, rather than let
+            // ToAuthContext silently return a null Context for an "Authorized" result.
+            return (PortalAuthResult.GuildNotFound, null);
+        }
 
         switch (access.Outcome)
         {

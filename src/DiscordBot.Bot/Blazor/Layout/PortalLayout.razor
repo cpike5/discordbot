@@ -59,20 +59,36 @@
     plumbing has nothing left to wrap once a page calls a service in-circuit instead of an
     endpoint - blazor-port-inventory.md classifies its shape as **D**, obsolete under Blazor).
     shared/keyboard-shortcuts.js and user-preferences.js are both classified **B** (thin-interop-
-    shim-survives) in blazor-port-inventory.md Part 4 - loaded here, as classic scripts (both are
-    self-initializing IIFEs with no module system, the same shape wwwroot/js/blazor/shell.js
-    already loads this way), for the same three non-GuildNotFound states the legacy layout always
-    served them in. Neither is wired up further in this PR: keyboard-shortcuts.js's own
-    `RegisterShortcut` interop call (plan §4.4) and user-preferences.js's `UserPreferences.init(...)`
-    call both need a real page component to drive them, and no Portal page has been ported yet
-    (PortalProbe is a temporary probe, not a real consumer) - that wiring lands with the actual
-    Tier 5/Phase 4f audio components. Loading the scripts now (rather than waiting for that PR)
-    keeps this layout's script bundle decision self-contained and matches the legacy layout's own
-    "always loaded, regardless of which state you're viewing" behavior for anyone auditing parity.
+    shim-survives) in blazor-port-inventory.md Part 4 - loaded via <HeadContent> below, as classic
+    scripts (both are self-initializing IIFEs with no module system, the same shape
+    wwwroot/js/blazor/shell.js already loads this way), unconditionally rather than only from the
+    Authorized branch's markup: a <script> tag inside @@Body-adjacent markup only runs once, on
+    the very first full-page load, because Blazor's enhanced navigation never executes <script>
+    elements it swaps into the DOM on a later render - and this component re-renders on every
+    guild id change even without a full reload. <HeadContent> has neither problem and matches the
+    legacy layout's own "always loaded, regardless of which state you're viewing" behavior.
+    Neither script is wired up further in this PR: keyboard-shortcuts.js's own `RegisterShortcut`
+    interop call (plan §4.4) and user-preferences.js's `UserPreferences.init(...)` call both need a
+    real page component to drive them, and no Portal page has been ported yet (PortalProbe is a
+    temporary probe, not a real consumer) - that wiring lands with the actual Tier 5/Phase 4f audio
+    components.
 *@
 
 <HeadContent>
     <link rel="stylesheet" href="/css/portal.css" />
+    @* keyboard-shortcuts.js/user-preferences.js used to live as plain <script> tags inside the
+       Authorized-only branch of this component's body markup below - which is (a) never executed
+       for the other three states, breaking this layout's "always loaded, regardless of which
+       state you're viewing" parity claim (see the header comment's "Script bundle" paragraph),
+       and (b) not re-executed by Blazor's enhanced navigation at all when this component
+       re-renders under it, since enhanced navigation only diffs/patches the DOM and never runs
+       <script> elements it swaps in. <HeadContent> scripts don't have that problem - they load
+       once with the rest of <head> and persist across this component's own re-renders. Neither
+       script is wired up to anything yet (RegisterShortcut/UserPreferences.init calls land with
+       the real Tier 5/Phase 4f audio components), so only the *loading* fixed here, not the
+       wiring - that's still Phase 4f's job. *@
+    <script src="/js/shared/keyboard-shortcuts.js"></script>
+    <script src="/js/user-preferences.js"></script>
 </HeadContent>
 
 @if (!PortalRoutes.TryGetGuildId(Nav.Uri, out var guildId))
@@ -199,9 +215,6 @@ else
         <div data-testid="portal-body">
             @Body
         </div>
-
-        <script src="/js/shared/keyboard-shortcuts.js"></script>
-        <script src="/js/user-preferences.js"></script>
     }
 }
 

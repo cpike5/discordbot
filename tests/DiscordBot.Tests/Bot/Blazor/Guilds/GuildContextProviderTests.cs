@@ -273,4 +273,59 @@ public class GuildContextProviderTests
         _mockGuildService.Verify(s => s.GetGuildByIdAsync(GuildId, It.IsAny<CancellationToken>()), Times.Once);
         _mockGuildService.Verify(s => s.GetGuildByIdAsync(otherGuildId, It.IsAny<CancellationToken>()), Times.Once);
     }
+
+    /// <summary>
+    /// Regression coverage for the Phase 3 review finding: a faulted resolution used to stay the
+    /// cached entry for the rest of the scope, so a transient failure (a DB blip, a Discord API
+    /// error) permanently poisoned every later call for that guild id instead of letting a
+    /// retry succeed. <see cref="GuildContextProvider"/> now evicts the cache entry once the
+    /// underlying task faults, so a later call re-resolves instead of rethrowing the same
+    /// exception forever.
+    /// </summary>
+    [Fact]
+    public async Task GetAsync_EvictsCachedEntry_WhenResolutionFaults_SoALaterCallRetries()
+    {
+        var callCount = 0;
+        _mockGuildService
+            .Setup(s => s.GetGuildByIdAsync(GuildId, It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                Interlocked.Increment(ref callCount);
+                return callCount == 1
+                    ? Task.FromException<GuildDto?>(new InvalidOperationException("transient failure"))
+                    : Task.FromResult<GuildDto?>(Guild());
+            });
+        SetupAuthorized();
+        SetupSettings();
+        _mockGuildMembershipService
+            .Setup(s => s.IsGuildAdminAsync(It.IsAny<string>(), GuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(false);
+
+        var user = User();
+
+        var firstCall = async () => await _provider.GetAsync(GuildId, user);
+        await firstCall.Should().ThrowAsync<InvalidOperationException>();
+
+        // Eviction runs in a continuation attached to the faulted task, which is not guaranteed
+        // to have completed the instant the test's own await above observes the fault (both are
+        // continuations of the same antecedent task with no ordering between them) - poll with
+        // ConfigureAwait(false) rather than a plain await, per the flaky-tests-thread-pool-
+        // starvation lesson (CLAUDE.md), until the retry succeeds or a generous deadline passes.
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        GuildContextResult? result = null;
+        while (result is null)
+        {
+            try
+            {
+                result = await _provider.GetAsync(GuildId, user);
+            }
+            catch (InvalidOperationException) when (DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+        }
+
+        result.Status.Should().Be(GuildContextStatus.Ok);
+        callCount.Should().Be(2, "the faulted first resolution must not be served again - the retry should call GetGuildByIdAsync a second time");
+    }
 }

@@ -87,4 +87,49 @@ public class PortalContextProviderTests
             s => s.ResolveAsync(OtherGuildId, It.IsAny<ClaimsPrincipal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
             Times.Once);
     }
+
+    /// <summary>
+    /// Regression coverage for the Phase 3 review finding: a faulted resolution used to stay the
+    /// cached entry for the rest of the scope, so a transient failure permanently poisoned every
+    /// later call for that guild id. <see cref="PortalContextProvider"/> now evicts the cache
+    /// entry once the underlying task faults, so a later call re-resolves instead of rethrowing
+    /// the same exception forever. See <c>GuildContextProviderTests</c>'s analogous test for why
+    /// this polls rather than asserting immediately after the first call's exception.
+    /// </summary>
+    [Fact]
+    public async Task GetAsync_EvictsCachedEntry_WhenResolutionFaults_SoALaterCallRetries()
+    {
+        var callCount = 0;
+        _mockAccessService
+            .Setup(s => s.ResolveAsync(GuildId, It.IsAny<ClaimsPrincipal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()))
+            .Returns(() =>
+            {
+                Interlocked.Increment(ref callCount);
+                return callCount == 1
+                    ? Task.FromException<PortalAccessResult>(new InvalidOperationException("transient failure"))
+                    : Task.FromResult(PortalAccessResult.Authorized(Context(GuildId, "Test Guild"), string.Empty));
+            });
+
+        var user = User();
+
+        var firstCall = async () => await _provider.GetAsync(GuildId, user, "/Portal/Soundboard/x");
+        await firstCall.Should().ThrowAsync<InvalidOperationException>();
+
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(5);
+        PortalAccessResult? result = null;
+        while (result is null)
+        {
+            try
+            {
+                result = await _provider.GetAsync(GuildId, user, "/Portal/Soundboard/x");
+            }
+            catch (InvalidOperationException) when (DateTime.UtcNow < deadline)
+            {
+                await Task.Delay(10).ConfigureAwait(false);
+            }
+        }
+
+        result.Outcome.Should().Be(PortalAccessOutcome.Authorized);
+        callCount.Should().Be(2, "the faulted first resolution must not be served again - the retry should call ResolveAsync a second time");
+    }
 }

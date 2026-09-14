@@ -58,8 +58,34 @@ public sealed class GuildContextProvider : IGuildContextProvider
 
             var task = ResolveAsync(guildId, user, ct);
             _cache[guildId] = task;
+            EvictOnFailure(guildId, task);
             return task;
         }
+    }
+
+    // A faulted or cancelled resolution must not stick around as the cached entry for the rest of
+    // this scope's lifetime - a transient DB/Discord failure would otherwise be served to every
+    // later caller for this guild id (regardless of that caller's own CancellationToken), instead
+    // of retrying. Evicting only when the cached entry is still this exact task guards against a
+    // race where GetAsync has already replaced it (not currently possible - only this method
+    // removes entries - but keeps the check correct if that ever changes).
+    private void EvictOnFailure(ulong guildId, Task<GuildContextResult> task)
+    {
+        task.ContinueWith(
+            t =>
+            {
+                _ = t.Exception; // observe the exception so it isn't reported as unobserved
+                lock (_cacheLock)
+                {
+                    if (_cache.TryGetValue(guildId, out var cached) && ReferenceEquals(cached, t))
+                    {
+                        _cache.Remove(guildId);
+                    }
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.NotOnRanToCompletion,
+            TaskScheduler.Default);
     }
 
     private async Task<GuildContextResult> ResolveAsync(ulong guildId, ClaimsPrincipal user, CancellationToken ct)

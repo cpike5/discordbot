@@ -32,7 +32,31 @@ public sealed class PortalContextProvider : IPortalContextProvider
 
             var task = _portalAccessService.ResolveAsync(guildId, user, returnPath, ct);
             _cache[guildId] = task;
+            EvictOnFailure(guildId, task);
             return task;
         }
+    }
+
+    // Same reasoning as GuildContextProvider.EvictOnFailure: a faulted or cancelled resolution
+    // must not stick around as the cached entry for the rest of this scope's lifetime, or a
+    // transient DB/Discord failure is served to every later caller for this guild id instead of
+    // being retried.
+    private void EvictOnFailure(ulong guildId, Task<PortalAccessResult> task)
+    {
+        task.ContinueWith(
+            t =>
+            {
+                _ = t.Exception; // observe the exception so it isn't reported as unobserved
+                lock (_cacheLock)
+                {
+                    if (_cache.TryGetValue(guildId, out var cached) && ReferenceEquals(cached, t))
+                    {
+                        _cache.Remove(guildId);
+                    }
+                }
+            },
+            CancellationToken.None,
+            TaskContinuationOptions.NotOnRanToCompletion,
+            TaskScheduler.Default);
     }
 }

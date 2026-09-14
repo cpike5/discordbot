@@ -18,11 +18,11 @@ public static class BlazorUiServiceExtensions
     /// <see cref="ILoadingState"/>, both scoped to a circuit so each connected user gets their own
     /// toast queue and loading flag; <see cref="IGuildContextProvider"/> (also scoped - it
     /// memoises per guild id for the lifetime of the scope, see "GuildContext" in
-    /// <c>docs/architecture/patterns.md</c>); and <see cref="IPortalContextProvider"/> (same
+    /// <c>docs/architecture/patterns.md</c>); <see cref="IPortalContextProvider"/> (same
     /// scoped-and-memoised shape, wrapping the existing <c>IPortalAccessService</c> - see
-    /// "Portal three-state gate" in <c>docs/architecture/patterns.md</c>).
-    /// <c>docs/architecture/patterns.md</c>); and <see cref="IUserGuildSelectorService"/>
-    /// (<c>Search.razor</c>'s guild-intersection seam, plan §5 Phase 3).
+    /// "Portal three-state gate" in <c>docs/architecture/patterns.md</c>); and
+    /// <see cref="IUserGuildSelectorService"/> (<c>Search.razor</c>'s guild-intersection seam,
+    /// plan §5 Phase 3).
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
     /// <returns>The service collection for chaining.</returns>

@@ -124,7 +124,7 @@ public partial class Search : ComponentBase, IDisposable
         }
 
         var user = await GetUserAsync();
-        Logger.LogDebug("User {UserId} performed a search", user.Identity?.Name);
+        Logger.LogDebug("User {UserId} performed a search", user.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous");
 
         var canViewUsers = (await AuthorizationService.AuthorizeAsync(user, "RequireAdmin")).Succeeded;
 
