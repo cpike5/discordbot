@@ -1,0 +1,35 @@
+@namespace DiscordBot.Bot.Blazor.Layout
+
+@*
+    Static SSR - part of MainLayout, ports Pages/Shared/_MobileSearchOverlay.cshtml one for one
+    (same ids/classes - see "Blazor Components" in docs/architecture/patterns.md).
+
+    Deviation from the legacy overlay (recorded per the task brief): the legacy version is a
+    live-filtering panel driven by wwwroot/js/search.js (recent searches, incremental results, an
+    empty state, all populated by JS calling a search API as you type). That client-side search
+    experience is out of scope for Phase 3 (Search itself, and its Highlight component, are
+    explicitly another agent's work per plan §5 Phase 3). This overlay is a plain HTML form that
+    submits "q" to GET /Search on submit, same as the desktop topbar-search form in MainNavbar -
+    no recent-searches list, no incremental results, no empty state. wwwroot/js/blazor/shell.js
+    only opens/closes the overlay (data-shell-action="toggle-mobile-search"/"close-mobile-search"),
+    it does not reimplement search.js's result-fetching.
+*@
+
+<div id="mobileSearchOverlay" class="mobile-search-overlay" role="dialog" aria-modal="true" aria-label="Search">
+    <form class="mobile-search-header" method="get" action="/Search">
+        <div class="relative flex-1">
+            <Icon Path="@IconPaths.MagnifyingGlass" Class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-text-tertiary pointer-events-none" StrokeWidth="2" />
+            <input type="search" id="mobile-search-input" name="q" placeholder="Search servers, commands, logs..." class="mobile-search-input" aria-label="Search" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" />
+        </div>
+        <button type="button" data-shell-action="close-mobile-search" class="mobile-search-close" aria-label="Close search">
+            <Icon Path="@IconPaths.XMark" Class="w-6 h-6" StrokeWidth="2" />
+        </button>
+    </form>
+
+    <div class="mobile-search-content">
+        <div id="mobile-search-empty" class="mobile-search-empty">
+            <Icon Path="@IconPaths.MagnifyingGlass" Class="w-16 h-16 text-text-tertiary opacity-50" StrokeWidth="2" />
+            <p class="text-text-secondary">Press Enter to search</p>
+        </div>
+    </div>
+</div>

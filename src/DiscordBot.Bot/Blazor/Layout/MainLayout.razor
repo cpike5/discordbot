@@ -1,0 +1,59 @@
+@inherits LayoutComponentBase
+@namespace DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Static SSR admin shell (no @rendermode here - see the hosting-model note in Routes.razor and
+    "Blazor Components" > "Hosting model" in docs/architecture/patterns.md). Replaces
+    Pages/Shared/_Layout.cshtml + _Navbar.cshtml + _Sidebar.cshtml + _MobileSearchOverlay.cshtml +
+    root _ToastContainer.cshtml for pages that opt into it via "@@layout MainLayout" - the legacy
+    Razor Pages shell is untouched and keeps serving every page that hasn't moved yet (plan §5
+    Phase 3: "two shells exist in parallel ... until Phase 5").
+
+    App.razor already owns everything _Layout.cshtml put in <head> (theme pre-paint script,
+    sidebar-collapse FOUC guard, fonts, app.css/tab-panel.css, <base>, blazor.web.js) - this layout
+    starts at <body>'s content, matching _Layout.cshtml's skip link through to the toast
+    container/script includes.
+
+    Interactive islands: NotificationBell lives inside MainNavbar (rendermode set there);
+    ToastHost and LoadingOverlay are declared here directly, both InteractiveServer, both taking
+    only the parameter-less default (every parameter a page could pass them is itself scoped
+    per-circuit service state, never something serialized in from this static parent - see
+    "Interactivity is per-page" in patterns.md for why islands may only receive serializable
+    parameters, and neither of these takes any). LoadingOverlay is purely ILoadingState-driven (no
+    interop of its own), so making it an island is what lets any InteractiveServer page's
+    ILoadingState.Begin(...) call reach a live re-render here in the shared shell rather than each
+    page needing its own overlay instance.
+
+    ErrorBoundary: catches exceptions raised while this static layout (and any static-SSR content
+    inside @@Body) renders - i.e. prerender/static-page exceptions. It does NOT catch an exception
+    thrown inside an @@rendermode InteractiveServer island's own circuit; that surfaces through
+    Blazor's own reconnect UI (#blazor-error-ui in App.razor) instead, same as any other in-circuit
+    error - see "Blazor Components" in patterns.md for the same note recorded for future readers.
+*@
+
+<a href="#main-content" class="skip-link">Skip to main content</a>
+
+<div id="mobileOverlay" class="mobile-overlay lg:hidden" data-shell-action="toggle-mobile-sidebar"></div>
+
+<MobileSearchOverlay />
+
+<MainSidebar />
+
+<MainNavbar />
+
+<main id="main-content" class="main-content-redesign">
+    <div class="page-container">
+        <ErrorBoundary>
+            <ChildContent>
+                @Body
+            </ChildContent>
+            <ErrorContent Context="exception">
+                <Alert Variant="AlertVariant.Error" Title="Something went wrong" Message="This page hit an unexpected error while rendering. Try reloading the page; if it keeps happening, let an administrator know." />
+            </ErrorContent>
+        </ErrorBoundary>
+    </div>
+</main>
+
+<LoadingOverlay @rendermode="InteractiveServer" />
+<ToastHost @rendermode="InteractiveServer" />

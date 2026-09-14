@@ -50,10 +50,33 @@
 </head>
 <body class="bg-bg-primary text-text-primary font-sans antialiased">
     <Routes />
+
+    <!-- Blazor's own reconnect/unhandled-error UI (the standard Blazor Web App template
+         element, by the fixed id "blazor-error-ui" the framework looks for) - toggled to
+         style.display:"block" by the framework itself when a circuit error/disconnect happens.
+         Styled with design tokens rather than the template's inline "lightyellow". The Reload
+         link is a plain same-page navigation (no JS needed - a full reload always clears a dead
+         circuit); Dismiss goes through shell.js's data-shell-action dispatch (see MainLayout's
+         "ErrorBoundary" note in docs/architecture/patterns.md: this is the circuit-level
+         counterpart to that component-level boundary - a circuit crash isn't something an
+         ErrorBoundary inside the circuit can catch). -->
+    <div id="blazor-error-ui" style="display: none;" class="fixed inset-x-0 bottom-0 z-50 flex items-center justify-between gap-4 border-t border-border-primary bg-bg-secondary px-4 py-3 text-sm text-text-primary shadow-lg" data-nosnippet>
+        <span>
+            An unhandled error has occurred.
+            <a href="." class="reload underline text-accent-orange ml-1">Reload</a>
+        </span>
+        <button type="button" data-shell-action="dismiss-error-ui" class="dismiss btn btn-ghost btn-sm" aria-label="Dismiss">✕</button>
+    </div>
+
     <!-- Absolute, matching every other resource link in this file - belt-and-braces alongside
          the <base> tag above, which is what actually makes this (and blazor.web.js's own
          internal _blazor/initializers request) resolve correctly from a nested route. -->
     <script src="/_framework/blazor.web.js"></script>
+    <!-- MainLayout shell behaviour (sidebar collapse/drawer, user menu, mobile search, Ctrl/Cmd+K)
+         - classic script, loaded after blazor.web.js so window.Blazor exists for its
+         enhanced-navigation resync hook. See wwwroot/js/blazor/shell.js and "Blazor Components"
+         in docs/architecture/patterns.md. -->
+    <script src="/js/blazor/shell.js"></script>
 </body>
 </html>
 

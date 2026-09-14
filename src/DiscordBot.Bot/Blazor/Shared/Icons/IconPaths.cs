@@ -51,11 +51,20 @@ public static class IconPaths
     /// <summary>Heroicon <c>arrow-right</c>. <c>_GuildContextSelector.cshtml</c>'s "Open in {guild}" trailing icon.</summary>
     public const string ArrowRight = "M13 7l5 5m0 0l-5 5m5-5H6";
 
+    /// <summary>Heroicon <c>arrow-top-right-on-square</c>. <c>MainSidebar</c>'s external-link glyph
+    /// (Kibana/Seq), harvested verbatim from <c>_Sidebar.cshtml</c>'s <c>.sidebar-link-ext</c> icon
+    /// (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string ArrowTopRightOnSquare = "M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14";
+
     /// <summary>Heroicon <c>arrow-right-on-rectangle</c>. "Leave" voice channel button in <c>_VoiceChannelPanel.cshtml</c>.</summary>
     public const string ArrowRightOnRectangle = "M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1";
 
     /// <summary>Heroicon <c>arrow-up</c>. Upward trend in <c>_HeroMetricCard.cshtml</c>.</summary>
     public const string ArrowUp = "M5 10l7-7m0 0l7 7m-7-7v18";
+
+    /// <summary>Heroicon <c>bars-3</c>. <c>MainNavbar</c>'s mobile sidebar-menu toggle, harvested
+    /// verbatim from <c>_Navbar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string Bars3 = "M4 6h16M4 12h16M4 18h16";
 
     /// <summary>Heroicon <c>bars-arrow-down</c>. <c>_SortDropdown.cshtml</c>'s toggle button.</summary>
     public const string BarsArrowDown = "M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12";
@@ -111,8 +120,29 @@ public static class IconPaths
     /// <summary>Heroicon <c>code-bracket</c>. "CommandError" notification type icon.</summary>
     public const string CodeBracket = "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4";
 
+    /// <summary>Heroicon <c>cog</c> (v1 coordinates). <c>MainSidebar</c>'s Settings link, harvested
+    /// verbatim from <c>Pages/Shared/_Sidebar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string Cog = "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z";
+
+    /// <summary>Heroicon <c>currency-dollar</c>. <c>MainSidebar</c>'s LLM Usage and Currency links
+    /// (the same path in both places in <c>_Sidebar.cshtml</c>), harvested verbatim
+    /// (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string CurrencyDollar = "M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
+
     /// <summary>Heroicon <c>computer-desktop</c>. The "Robot" TTS preset.</summary>
     public const string ComputerDesktop = "M9 17.25v1.007a3 3 0 0 1-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0 1 15 18.257V17.25m6-12V15a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 15V5.25m18 0A2.25 2.25 0 0 0 18.75 3H5.25A2.25 2.25 0 0 0 3 5.25m18 0V12a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 12V5.25";
+
+    /// <summary>
+    /// Heroicon-style asymmetric four-tile grid (not a single published Heroicons revision -
+    /// same non-canonical-variant situation as <see cref="Pause"/>). <c>MainSidebar</c>'s
+    /// Dashboard link, harvested verbatim from <c>_Sidebar.cshtml</c>
+    /// (docs/plans/blazor-port-plan.md Phase 3).
+    /// </summary>
+    public const string DashboardGrid = "M4 5.5A1.5 1.5 0 015.5 4h4A1.5 1.5 0 0111 5.5v4A1.5 1.5 0 019.5 11h-4A1.5 1.5 0 014 9.5v-4zM13 5.5A1.5 1.5 0 0114.5 4h4A1.5 1.5 0 0120 5.5v2A1.5 1.5 0 0118.5 9h-4A1.5 1.5 0 0113 7.5v-2zM4 14.5A1.5 1.5 0 015.5 13h4a1.5 1.5 0 011.5 1.5v4A1.5 1.5 0 019.5 20h-4A1.5 1.5 0 014 18.5v-4zM13 12.5a1.5 1.5 0 011.5-1.5h4a1.5 1.5 0 011.5 1.5v6a1.5 1.5 0 01-1.5 1.5h-4a1.5 1.5 0 01-1.5-1.5v-6z";
+
+    /// <summary>Heroicon <c>document-chart-bar</c>. <c>MainSidebar</c>'s Seq external link, harvested
+    /// verbatim from <c>_Sidebar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string DocumentChartBar = "M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z";
 
     /// <summary>Heroicon <c>document-duplicate</c>. <c>_SsmlPreview.cshtml</c>'s "Copy SSML" button.</summary>
     public const string DocumentDuplicate = "M8 7v8a2 2 0 0 0 2 2h6M8 7V5a2 2 0 0 1 2-2h4.586a1 1 0 0 1 .707.293l4.414 4.414a1 1 0 0 1 .293.707V15a2 2 0 0 1-2 2h-2M8 7H6a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2v-2";
@@ -198,6 +228,10 @@ public static class IconPaths
     /// <summary>Heroicon <c>plus</c> (v2 coordinates, distinct from <see cref="Plus"/>). <c>_PresetBar.cshtml</c>'s "Save preset" button.</summary>
     public const string PlusOutline = "M12 4.5v15m7.5-7.5h-15";
 
+    /// <summary>Heroicon <c>presentation-chart-line</c>. <c>MainSidebar</c>'s Bot Performance link,
+    /// harvested verbatim from <c>_Sidebar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string PresentationChartLine = "M3 17l5-6 4 3 4-6 5 4M3 21h18";
+
     /// <summary>Heroicon <c>question-mark-circle</c>. The unmapped/unknown <c>RuleType</c> fallback.</summary>
     public const string QuestionMarkCircle = "M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z";
 
@@ -231,11 +265,25 @@ public static class IconPaths
     /// <summary>Heroicon <c>speaker-x-mark</c>. The <c>whispering</c> TTS style and "Whisper" preset.</summary>
     public const string SpeakerXMark = "M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25M19.5 12l-2.25 2.25m-10.5-6 4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.009 9.009 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75Z";
 
+    /// <summary>Heroicon <c>squares-2x2</c> (v1 coordinates, four equal tiles). <c>MainSidebar</c>'s
+    /// Components link, harvested verbatim from <c>_Sidebar.cshtml</c>
+    /// (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string Squares2X2 = "M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z";
+
     /// <summary>Heroicon <c>star</c>. The custom-preset button icon in <c>_PresetBar.cshtml</c>.</summary>
     public const string Star = "M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z";
 
+    /// <summary>Heroicon <c>trash</c>. <c>MainSidebar</c>'s Bulk Purge link, harvested verbatim
+    /// from <c>_Sidebar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string Trash = "M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16";
+
     /// <summary>Heroicon <c>user</c>. <c>autocomplete.js</c>'s default result icon.</summary>
     public const string User = "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z";
+
+    /// <summary>Heroicon <c>user-group</c>. <c>MainSidebar</c>'s Users link, harvested verbatim
+    /// from <c>_Sidebar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3) - distinct from
+    /// <see cref="Users"/>, which is a different Heroicons revision used elsewhere.</summary>
+    public const string UserGroup = "M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z";
 
     /// <summary>Heroicon <c>users</c>. "GuildEvent" notification type icon.</summary>
     public const string Users = "M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z";

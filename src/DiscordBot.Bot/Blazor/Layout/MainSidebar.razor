@@ -1,0 +1,167 @@
+@namespace DiscordBot.Bot.Blazor.Layout
+@using DiscordBot.Core.Configuration
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.Options
+@inject NavigationManager Navigation
+@inject IVersionService VersionService
+@inject IOptions<ObservabilityOptions> ObservabilityOptions
+
+@*
+    Static SSR - part of MainLayout, ports Pages/Shared/_Sidebar.cshtml one for one (same ids,
+    classes and structure so site.css/app.css styles apply unchanged - see "Blazor Components" in
+    docs/architecture/patterns.md). <authorize policy="..."> tag helpers become
+    <AuthorizeView Policy="...">. Active-link state comes from ShellNavigation.IsActive against
+    NavigationManager's current URL path rather than a Razor Pages route value (there isn't one
+    here) - see ShellNavigation.cs. Sidebar-collapse/mobile-drawer/close interactions are plain
+    data-shell-action attributes handled by wwwroot/js/blazor/shell.js (event delegation, no
+    inline onclick= - Phase 6 adds a CSP), not @onclick handlers - this component never becomes
+    interactive itself, so there is nothing here for Blazor's own event system to bind to anyway.
+*@
+
+<aside id="sidebar" class="sidebar-redesign transform -translate-x-full lg:translate-x-0" aria-label="Main navigation">
+    <div class="sidebar-brand">
+        <a href="/" class="sidebar-brand-link" aria-label="Bot Admin home">
+            <img src="/images/logo.svg" alt="" class="sidebar-brand-mark" />
+            <span class="sidebar-logo-text">
+                <span class="sidebar-logo-title">Bot Admin</span>
+                <span class="sidebar-logo-sub">Control Console</span>
+            </span>
+        </a>
+        <button type="button" class="sidebar-close lg:hidden" data-shell-action="toggle-mobile-sidebar" aria-label="Close menu">
+            <Icon Path="@IconPaths.XMark" Class="w-4 h-4" />
+        </button>
+    </div>
+
+    <nav class="sidebar-nav" aria-label="Primary">
+        <div class="sidebar-group" role="group" aria-labelledby="main-nav-heading">
+            <h2 id="main-nav-heading" class="sidebar-section-header">Overview</h2>
+
+            <a href="/" class="sidebar-link-redesign @(DashboardActive ? "active" : "")" title="Dashboard" aria-current="@(DashboardActive ? "page" : null)">
+                <Icon Path="@IconPaths.DashboardGrid" Class="sidebar-icon" StrokeWidth="1.75" />
+                <span class="sidebar-link-text">Dashboard</span>
+            </a>
+
+            <AuthorizeView Policy="RequireModerator" Context="moderatorContext">
+                <a href="/Guilds" class="sidebar-link-redesign @(GuildsActive ? "active" : "")" title="Servers" aria-current="@(GuildsActive ? "page" : null)">
+                    <Icon Path="@IconPaths.Server" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Servers</span>
+                </a>
+            </AuthorizeView>
+
+            <AuthorizeView Policy="RequireViewer" Context="viewerContext">
+                <a href="/Commands" class="sidebar-link-redesign @(CommandsActive ? "active" : "")" title="Commands" aria-current="@(CommandsActive ? "page" : null)">
+                    <Icon Path="@IconPaths.ChartBar" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Commands</span>
+                </a>
+                <a href="/Admin/Performance" class="sidebar-link-redesign @(PerformanceActive ? "active" : "")" title="Bot Performance" aria-current="@(PerformanceActive ? "page" : null)">
+                    <Icon Path="@IconPaths.PresentationChartLine" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Bot Performance</span>
+                </a>
+            </AuthorizeView>
+
+            <AuthorizeView Policy="RequireAdmin" Context="overviewAdminContext">
+                <a href="/Admin/RatWatchAnalytics" class="sidebar-link-redesign @(RatWatchAnalyticsActive ? "active" : "")" title="Rat Watch Analytics" aria-current="@(RatWatchAnalyticsActive ? "page" : null)">
+                    <Icon Path="@IconPaths.Eye" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Rat Watch Analytics</span>
+                </a>
+                <a href="/Admin/Settings" class="sidebar-link-redesign @(SettingsActive ? "active" : "")" title="Settings" aria-current="@(SettingsActive ? "page" : null)">
+                    <Icon Path="@IconPaths.Cog" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Settings</span>
+                </a>
+            </AuthorizeView>
+        </div>
+
+        <AuthorizeView Policy="RequireAdmin" Context="adminContext">
+            <div class="sidebar-group" role="group" aria-labelledby="admin-nav-heading">
+                <h2 id="admin-nav-heading" class="sidebar-section-header">Administration</h2>
+                <a href="/Admin/Users" class="sidebar-link-redesign @(UsersActive ? "active" : "")" title="Users" aria-current="@(UsersActive ? "page" : null)">
+                    <Icon Path="@IconPaths.UserGroup" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Users</span>
+                </a>
+                <a href="/Admin/Logs" class="sidebar-link-redesign @(LogsActive ? "active" : "")" title="Logs" aria-current="@(LogsActive ? "page" : null)">
+                    <Icon Path="@IconPaths.DocumentText" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Logs</span>
+                </a>
+                <a href="/Admin/Notifications" class="sidebar-link-redesign @(NotificationsActive ? "active" : "")" title="Notifications" aria-current="@(NotificationsActive ? "page" : null)">
+                    <Icon Path="@IconPaths.Bell" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Notifications</span>
+                </a>
+                <a href="/Admin/LlmUsage" class="sidebar-link-redesign @(LlmUsageActive ? "active" : "")" title="LLM Usage" aria-current="@(LlmUsageActive ? "page" : null)">
+                    <Icon Path="@IconPaths.CurrencyDollar" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">LLM Usage</span>
+                </a>
+                <AuthorizeView Policy="RequireSuperAdmin" Context="superAdminContext">
+                    <a href="/Admin/Currency" class="sidebar-link-redesign @(CurrencyAdminActive ? "active" : "")" title="Currency" aria-current="@(CurrencyAdminActive ? "page" : null)">
+                        <Icon Path="@IconPaths.CurrencyDollar" Class="sidebar-icon" StrokeWidth="1.75" />
+                        <span class="sidebar-link-text">Currency</span>
+                    </a>
+                    <a href="/Admin/BulkPurge" class="sidebar-link-redesign @(BulkPurgeActive ? "active" : "")" title="Bulk Purge" aria-current="@(BulkPurgeActive ? "page" : null)">
+                        <Icon Path="@IconPaths.Trash" Class="sidebar-icon" StrokeWidth="1.75" />
+                        <span class="sidebar-link-text">Bulk Purge</span>
+                    </a>
+                    <a href="/Admin/UserPurge" class="sidebar-link-redesign @(UserPurgeActive ? "active" : "")" title="User Purge" aria-current="@(UserPurgeActive ? "page" : null)">
+                        <Icon Path="@IconPaths.User" Class="sidebar-icon" StrokeWidth="1.75" />
+                        <span class="sidebar-link-text">User Purge</span>
+                    </a>
+                </AuthorizeView>
+            </div>
+        </AuthorizeView>
+
+        <AuthorizeView Policy="RequireAdmin" Context="devContext">
+            <div class="sidebar-group" role="group" aria-labelledby="dev-nav-heading">
+                <h2 id="dev-nav-heading" class="sidebar-section-header">Developer</h2>
+                <a href="/Components" class="sidebar-link-redesign @(ComponentsActive ? "active" : "")" title="Components" aria-current="@(ComponentsActive ? "page" : null)">
+                    <Icon Path="@IconPaths.Squares2X2" Class="sidebar-icon" StrokeWidth="1.75" />
+                    <span class="sidebar-link-text">Components</span>
+                </a>
+                @if (!string.IsNullOrEmpty(ObservabilityOptions.Value.KibanaUrl))
+                {
+                    <a href="@ObservabilityOptions.Value.KibanaUrl" target="_blank" rel="noopener noreferrer" class="sidebar-link-redesign" title="Kibana">
+                        <Icon Path="@IconPaths.Eye" Class="sidebar-icon" StrokeWidth="1.75" />
+                        <span class="sidebar-link-text">Kibana</span>
+                        <Icon Path="@IconPaths.ArrowTopRightOnSquare" Class="sidebar-link-ext" StrokeWidth="2" />
+                    </a>
+                }
+                @if (!string.IsNullOrEmpty(ObservabilityOptions.Value.SeqUrl))
+                {
+                    <a href="@ObservabilityOptions.Value.SeqUrl" target="_blank" rel="noopener noreferrer" class="sidebar-link-redesign" title="Seq">
+                        <Icon Path="@IconPaths.DocumentChartBar" Class="sidebar-icon" StrokeWidth="1.75" />
+                        <span class="sidebar-link-text">Seq</span>
+                        <Icon Path="@IconPaths.ArrowTopRightOnSquare" Class="sidebar-link-ext" StrokeWidth="2" />
+                    </a>
+                }
+            </div>
+        </AuthorizeView>
+    </nav>
+
+    <div class="sidebar-footer bot-status-footer" role="status" aria-label="Bot status">
+        <div class="bot-status-container">
+            <div class="bot-status-led-wrap" aria-hidden="true">
+                <span class="bot-status-led"></span>
+            </div>
+            <div class="bot-status-text">
+                <p class="bot-status-name">Bot Online</p>
+                <p class="bot-status-version">@VersionService.GetVersion()</p>
+            </div>
+        </div>
+    </div>
+</aside>
+
+@code {
+    private string CurrentPath => ShellNavigation.GetCurrentPath(Navigation);
+
+    private bool DashboardActive => ShellNavigation.IsActive(CurrentPath, exact: ["/"]);
+    private bool GuildsActive => ShellNavigation.IsActive(CurrentPath, prefixes: ["/Guilds"]);
+    private bool CommandsActive => ShellNavigation.IsActive(CurrentPath, prefixes: ["/Commands", "/CommandLogs"]);
+    private bool PerformanceActive => ShellNavigation.IsActive(CurrentPath, prefixes: ["/Admin/Performance"]);
+    private bool RatWatchAnalyticsActive => ShellNavigation.IsActive(CurrentPath, exact: ["/Admin/RatWatchAnalytics"]);
+    private bool SettingsActive => ShellNavigation.IsActive(CurrentPath, exact: ["/Admin/Settings"]);
+    private bool UsersActive => ShellNavigation.IsActive(CurrentPath, prefixes: ["/Admin/Users"]);
+    private bool LogsActive => ShellNavigation.IsActive(CurrentPath, prefixes: ["/Admin/Logs", "/Admin/MessageLogs/Details", "/Admin/AuditLogs/Details"]);
+    private bool NotificationsActive => ShellNavigation.IsActive(CurrentPath, prefixes: ["/Admin/Notifications"]);
+    private bool LlmUsageActive => ShellNavigation.IsActive(CurrentPath, exact: ["/Admin/LlmUsage"]);
+    private bool CurrencyAdminActive => ShellNavigation.IsActive(CurrentPath, prefixes: ["/Admin/Currency"]);
+    private bool BulkPurgeActive => ShellNavigation.IsActive(CurrentPath, exact: ["/Admin/BulkPurge"]);
+    private bool UserPurgeActive => ShellNavigation.IsActive(CurrentPath, exact: ["/Admin/UserPurge"]);
+    private bool ComponentsActive => ShellNavigation.IsActive(CurrentPath, exact: ["/Components"]);
+}

@@ -1,6 +1,7 @@
 @page "/components"
 @attribute [Authorize(Policy = "RequireAdmin")]
 @rendermode InteractiveServer
+@layout MainLayout
 @using DiscordBot.Bot.Blazor.Pages.Components.Sections
 @using DiscordBot.Bot.Blazor.Shared
 
@@ -12,23 +13,21 @@
     no change there.
 
     Composes the six tier showcase sections built over the rest of Phase 2
-    (Blazor/Pages/Components/Sections/*Showcase.razor) plus a ToastHost and LoadingOverlay so
-    their interactive demos (the toast buttons in NavigationAndOverlaysShowcase, any showcase
-    content that calls ILoadingState) actually have something to render into - neither showcase
-    section hosts its own.
+    (Blazor/Pages/Components/Sections/*Showcase.razor). Their interactive demos (the toast buttons
+    in NavigationAndOverlaysShowcase, any showcase content that calls ILoadingState) render into
+    MainLayout's own ToastHost/LoadingOverlay islands as of Phase 3 - this page used to host its
+    own copies of both before MainLayout existed; hosting two ToastHosts would double-render every
+    toast, so they were removed here (docs/plans/blazor-port-plan.md §5 Phase 3).
 
-    No shell yet: this renders under Routes.razor's DefaultLayout (EmptyLayout) rather than a real
-    MainLayout, same as every other Phase 1/2 page - MainLayout/GuildLayout land in Phase 3 (plan
-    §5 Phase 3). Anchor nav (not TabGroup) links the six sections: TabGroup's InPage mode only
+    @layout MainLayout as of Phase 3 (plan §5 Phase 3) - previously rendered under Routes.razor's
+    DefaultLayout (EmptyLayout) like every other Phase 1/2 page. Anchor nav (not TabGroup) links
+    the six sections: TabGroup's InPage mode only
     renders the active TabPanel's content (see TabPanel.razor), which would hide five of six
     sections at a time - wrong for a page whose whole job, like the Razor Page it replaces, is
     being a single scrollable catalog of every variant at once.
 *@
 
 <PageTitle>Component Showcase</PageTitle>
-
-<ToastHost />
-<LoadingOverlay />
 
 <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
     <div class="mb-2">

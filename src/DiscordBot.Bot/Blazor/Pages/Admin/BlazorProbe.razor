@@ -1,6 +1,7 @@
 @page "/admin/blazor-probe"
 @attribute [Authorize(Policy = "RequireAdmin")]
 @rendermode InteractiveServer
+@layout MainLayout
 @using System.Security.Claims
 @using Microsoft.AspNetCore.Components
 @using DiscordBot.Bot.Blazor.Common
@@ -9,12 +10,15 @@
 @using DiscordBot.Bot.Services.Realtime
 @using DiscordBot.Bot.Services.Realtime.Events
 @using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
 @implements IAsyncDisposable
 @inject IToastService Toast
 @inject ILoadingState Loading
 @inject IDashboardEventBus EventBus
 @inject ChartInterop ChartInterop
 @inject BrowserInterop BrowserInterop
+@inject ThemeInterop ThemeInterop
+@inject IThemeService ThemeService
 @inject CircuitClientInfoService CircuitInfo
 
 @*
@@ -207,6 +211,40 @@
         </div>
     </section>
 
+    <!-- (i) Theme -->
+    <section class="card" data-testid="probe-theme">
+        <div class="card-header">
+            <h2 class="card-title">Theme</h2>
+            <span class="badge badge-info">IThemeInterop</span>
+        </div>
+        <div class="card-body space-y-3">
+            <p class="text-sm text-text-secondary">
+                No navbar theme toggle exists yet (Phase 3 doesn't add shell UI beyond what the
+                brief scopes) - this is the interop's only caller today. Selecting a theme applies
+                it client-side immediately via <code class="font-mono">ThemeInterop.ApplyAsync</code>,
+                then persists it server-side via <code class="font-mono">IThemeService.SetUserThemeAsync</code>
+                so it survives to the next session.
+            </p>
+            @if (_themes.Count == 0)
+            {
+                <p class="text-sm text-text-secondary" data-testid="theme-empty">No active themes configured.</p>
+            }
+            else
+            {
+                <select class="form-select" data-testid="theme-select" value="@_selectedThemeKey" @onchange="OnThemeSelectedAsync">
+                    @foreach (var theme in _themes)
+                    {
+                        <option value="@theme.ThemeKey">@theme.DisplayName</option>
+                    }
+                </select>
+            }
+            @if (_themeResult is not null)
+            {
+                <p class="text-sm text-text-secondary" data-testid="theme-result">@_themeResult</p>
+            }
+        </div>
+    </section>
+
     <!-- (h) Status summary -->
     <section class="card" data-testid="probe-status-table">
         <div class="card-header">
@@ -259,7 +297,12 @@
     private int _count;
 
     private string _userName = "(unknown)";
+    private string? _userId;
     private IReadOnlyList<string> _roles = [];
+
+    private IReadOnlyList<ThemeDto> _themes = [];
+    private string? _selectedThemeKey;
+    private string? _themeResult;
 
     private readonly Debouncer _debouncer = new();
     private IDisposable? _busSubscription;
@@ -281,11 +324,17 @@
         {
             var authState = await AuthenticationStateTask;
             _userName = authState.User.Identity?.Name ?? "(unknown)";
+            _userId = authState.User.FindFirstValue(ClaimTypes.NameIdentifier);
             _roles = authState.User.Claims
                 .Where(c => c.Type == ClaimTypes.Role)
                 .Select(c => c.Value)
                 .ToArray();
         }
+
+        // (i): load the active theme catalog so the select has something to show - GetCurrentThemeKeyAsync
+        // (not used here) is what App.razor calls to pick the initial <html data-theme>; this page
+        // only needs the list plus whichever key is already applied client-side.
+        _themes = await ThemeService.GetActiveThemesAsync();
 
         // (c) / (d): a single handler for both UI-state services - both events are plain
         // Action, may fire from a non-circuit thread (an auto-dismiss timer), so always marshal
@@ -315,9 +364,10 @@
             return;
         }
 
-        // (f) / (g): interop calls only after the circuit is live, never during prerender.
+        // (f) / (g) / (i): interop calls only after the circuit is live, never during prerender.
         _chartHandle = await ChartInterop.CreateAsync(_canvasRef, BuildChartConfig());
         _timeZone = await BrowserInterop.GetTimeZoneAsync();
+        _selectedThemeKey = await ThemeInterop.GetCurrentAsync();
         StateHasChanged();
     }
 
@@ -376,6 +426,33 @@
     {
         var copied = await BrowserInterop.CopyToClipboardAsync(CircuitInfo.CircuitId);
         _copyResult = copied ? "Copied to clipboard." : "Copy failed.";
+    }
+
+    // (i): applies the pick immediately client-side, then persists it server-side so it survives
+    // to the user's next session/device - see the "callers persist server-side" note on
+    // ThemeInterop's remarks and docs/articles/blazor-interop.md's Theme section.
+    private async Task OnThemeSelectedAsync(ChangeEventArgs e)
+    {
+        var themeKey = e.Value?.ToString();
+        var theme = _themes.FirstOrDefault(t => t.ThemeKey == themeKey);
+        if (theme is null)
+        {
+            return;
+        }
+
+        _selectedThemeKey = theme.ThemeKey;
+        await ThemeInterop.ApplyAsync(theme.ThemeKey);
+
+        if (_userId is null)
+        {
+            _themeResult = "Applied client-side only (no signed-in user id to persist against).";
+            return;
+        }
+
+        var persisted = await ThemeService.SetUserThemeAsync(_userId, theme.Id);
+        _themeResult = persisted
+            ? $"Applied and saved \"{theme.DisplayName}\" as your preference."
+            : "Applied client-side, but the server-side save failed.";
     }
 
     private static object BuildChartConfig() => new
