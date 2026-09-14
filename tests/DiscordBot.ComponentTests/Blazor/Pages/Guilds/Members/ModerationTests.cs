@@ -115,13 +115,25 @@ public class ModerationTests : BlazorComponentTestContext
     public void AddNote_CallsServiceWithCurrentUserId_AndRefreshesListInPlace()
     {
         SetupMember(new GuildMemberDto { UserId = UserId, Username = "alice", JoinedAt = DateTime.UtcNow });
-        SetupNotes();
         SetupTags();
+
+        // A mutable backing list so GetNotesAsync's post-add reload (the "in-place refresh"
+        // this port replaces the legacy page's full reload with) actually reflects the add,
+        // the same way the real IModNoteService/database would.
+        var notes = new List<ModNoteDto>();
+        _modNoteService.Setup(s => s.GetNotesAsync(GuildId, UserId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(() => notes.ToArray());
         _modNoteService.Setup(s => s.AddNoteAsync(GuildId, UserId, "A new note", CurrentUserId, It.IsAny<CancellationToken>()))
-            .ReturnsAsync(new ModNoteDto { Id = Guid.NewGuid(), AuthorUserId = CurrentUserId, Content = "A new note", CreatedAt = DateTime.UtcNow });
+            .ReturnsAsync(() =>
+            {
+                var note = new ModNoteDto { Id = Guid.NewGuid(), AuthorUserId = CurrentUserId, Content = "A new note", CreatedAt = DateTime.UtcNow };
+                notes.Add(note);
+                return note;
+            });
 
         var cut = RenderPage();
         cut.Find("[data-tab-id='notes']").Click();
+        cut.WaitForAssertion(() => cut.Find("textarea"));
         cut.Find("textarea").Input("A new note");
         cut.FindAll("button").First(b => b.TextContent.Contains("Add Note")).Click();
 
@@ -142,7 +154,7 @@ public class ModerationTests : BlazorComponentTestContext
         var cut = RenderPage();
         cut.Find("[data-tab-id='notes']").Click();
 
-        cut.FindAll(".note-item button").Should().HaveCount(1);
+        cut.WaitForAssertion(() => cut.FindAll(".note-item button").Should().HaveCount(1));
     }
 
     [Fact]

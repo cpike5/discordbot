@@ -105,7 +105,7 @@
                 </div>
             </div>
 
-            <TabGroup Mode="TabGroupMode.InPage" ActiveTabId="ActiveTabId" ActiveTabIdChanged="v => ActiveTabId = v"
+            <TabGroup Mode="TabGroupMode.InPage" @bind-ActiveTabId="ActiveTabId"
                       AriaLabel="User moderation sections"
                       Tabs="@(new List<TabItem>
                           {
