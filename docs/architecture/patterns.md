@@ -2155,6 +2155,78 @@ Circuit interactions travel over the SignalR hub, never an HTTP request, so they
 through `ApiMetricsMiddleware` or `UseSerilogRequestLogging` - see the circuit notes in
 `docs/articles/metrics.md` and `docs/articles/tracing.md`.
 
+### GuildContext
+
+`Blazor/Guilds/` (namespace `DiscordBot.Bot.Blazor.Guilds`) replaces the ~27 independent
+`IGuildService.GetGuildByIdAsync` + breadcrumb/header/nav builds `Pages/Guilds/GuildPageModelBase.cs`
+repeats today with one resolve-once-per-route pipeline (`docs/plans/blazor-port-plan.md` §4.7,
+Phase 3):
+
+- **`IGuildContextProvider`** (`GuildContextProvider`, registered scoped in `AddBlazorUiServices()`)
+  loads the guild (`GuildContextStatus.NotFound` on a miss), authorizes the user against the
+  consolidated `GuildAccess` policy via `IAuthorizationService.AuthorizeAsync(user, guildId,
+  "GuildAccess")` - passing the guild id as the `resource` argument, which `GuildAccessHandler`
+  checks before any route/query value, specifically for this non-HTTP caller
+  (`GuildContextStatus.Forbidden` on a deny) - then computes `CanEdit`
+  (`IsGuildAdmin || IsAppAdmin`, the same rule `Pages/Guilds/Details.cshtml.cs` uses), the
+  `AudioEnabled`/`RatWatchEnabled` feature flags, and takes the tab list from
+  `GuildNavigationConfig.GetTabs()`. The result is a `GuildContext` record - plain, JSON-serializable,
+  no `ClaimsPrincipal` - wrapped in a `GuildContextResult` (`NotFound | Forbidden | Ok`).
+- **It's scoped and memoised** because one HTTP request's prerender and one circuit's lifetime are
+  each exactly one DI scope, and a guild page plus the `GuildLayout` wrapping it both resolve the
+  same guild id within that one scope - the provider caches its result per `guildId` (a `Dictionary`
+  keyed by guild id, not by user, since one scope belongs to one user) so the second caller costs
+  nothing. This is why it's registered `AddScoped`, not `AddSingleton` - a singleton's cache would
+  leak across users and never expire.
+- **The static-layout-vs-page resolution rule:** during prerender, the static `GuildLayout` and the
+  interactive page it wraps share the request's DI scope, so whichever resolves first populates the
+  memoisation cache for the other. Once the circuit takes over, the page gets a *new* scope (a fresh
+  `IGuildContextProvider`, cache empty again) - `GuildLayout` obtains the guild id itself via
+  `GuildRoutes.TryGetGuildId(NavigationManager.Uri, out var guildId)` (it has no route-parameter
+  binding of its own) and calls the same provider a page derived from `GuildPageBase` calls, so
+  the two agree without a cascading parameter carrying it across the static/interactive boundary
+  (cascading values don't cross that boundary at all - see "Auth in components" above).
+- **`GuildPageBase : ComponentBase`** is what a routable guild page derives from: declares
+  `[Parameter] public long GuildId { get; set; }` (routes are `{guildId:long}` - no `ulong`
+  route-constraint type exists), resolves via `IGuildContextProvider` in a sealed
+  `OnInitializedAsync`/`OnParametersSetAsync` pair (re-resolving only when `GuildId` changes),
+  and persists the `GuildContextResult` with `PersistentComponentState.RegisterOnPersisting`/
+  `TryTakeFromJson` so the provider - and everything it calls - runs once per page load, not once
+  during prerender and again when the circuit reconnects. A derived page overrides the virtual
+  `OnGuildContextReadyAsync()` hook for its own data loading instead of the lifecycle methods
+  directly, which are sealed so that bookkeeping can't be bypassed by accident. Exposes `Result`,
+  `Guild` (shorthand for `Result?.Context`), and `IsLoading` as `protected`.
+- **`GuildContextGate.razor`** renders the four states a `GuildContextResult` can be in - still
+  loading, not found, forbidden, or the page via a `RenderFragment<GuildContext> ChildContent` -
+  with `NotFoundContent`/`ForbiddenContent`/`LoadingContent` parameters to override any of the
+  default `EmptyState` fragments. A guild page's markup is typically just
+  `<GuildContextGate Result="Result"><ChildContent Context="guild"> ... </ChildContent></GuildContextGate>`.
+- **`GuildLayout` reuses the same provider** rather than a second lookup path: it resolves the
+  guild id from the URI via `GuildRoutes.TryGetGuildId`, the active tab via
+  `GuildRoutes.ResolveActiveTabId`, and calls `IGuildContextProvider.GetAsync` itself to render the
+  breadcrumb/header/nav chrome - memoisation is what keeps that from being a second guild load when
+  the page underneath it also resolves the same guild id.
+
+### Portal three-state gate
+
+The Portal's anonymous-landing / authenticated-non-member-forbidden / member-portal gate
+(`Pages/Portal/PortalPageModelBase.CheckPortalAuthorizationAsync`) is implemented once in
+`IPortalAccessService`/`PortalAccessService` (`Bot/Services/Portal/`, scoped) rather than inline in
+the page model, so a future Blazor `PortalLayout` can reuse the exact same ordering: guild lookup,
+Discord client lookup, auth state, Discord-link check, Admin/SuperAdmin bypass, then a
+cache-then-REST guild membership check. `ResolveAsync` returns a `PortalAccessResult`
+(`GuildNotFound | ShowLanding | NotGuildMember | Authorized`, each carrying the login URL except
+`GuildNotFound`) with a `PortalContext` payload scoped to what `_PortalHeader`/`_PortalLanding`
+need (guild DTO, name, icon, bot-online flag) - deliberately narrower than
+`PortalPageModelBase.PortalAuthContext`, which still carries the Discord.Net `SocketGuild` the three
+Portal Index pages (Soundboard/TTS/VOX) read directly for voice-channel listing.
+`PortalPageModelBase.CheckPortalAuthorizationAsync` now delegates to this service and rebuilds that
+`SocketGuild` from the id `IPortalAccessService` already confirmed exists (an in-memory gateway-cache
+read, not a network call). Its constructor's parameter list is unchanged - `IPortalAccessService` is
+resolved from `HttpContext.RequestServices` inside the method, the one service-locator exception in
+this codebase, because changing the constructor would mean touching every derived Portal page model
+for a refactor scoped to the base class alone.
+
 ### Gotchas carried over from CLAUDE.md
 
 - **Discord snowflakes are strings** in any component `[Parameter]`, `@bind` target, or JS

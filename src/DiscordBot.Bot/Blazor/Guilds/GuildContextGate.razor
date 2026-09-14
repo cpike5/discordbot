@@ -1,0 +1,84 @@
+@namespace DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Renders one of four states for a <see cref="GuildContextResult"/> from
+   IGuildContextProvider/GuildPageBase: still loading (Result is null), not found, forbidden, or
+   the guild page content via ChildContent. The default NotFound/Forbidden fragments use EmptyState
+   with copy matching the tone of Pages/Error/404.cshtml and 403.cshtml (see
+   docs/architecture/patterns.md, "GuildContext") - a caller overrides any of the three via
+   NotFoundContent/ForbiddenContent/LoadingContent for a page-specific look. *@
+
+<div class="@Class" @attributes="AdditionalAttributes">
+    @if (Result is null)
+    {
+        if (LoadingContent is not null)
+        {
+            @LoadingContent
+        }
+        else
+        {
+            <div class="flex items-center justify-center py-16">
+                <LoadingSpinner Message="Loading server..." />
+            </div>
+        }
+    }
+    else if (Result.Status == GuildContextStatus.NotFound)
+    {
+        if (NotFoundContent is not null)
+        {
+            @NotFoundContent
+        }
+        else
+        {
+            <EmptyState Type="EmptyStateType.NoData"
+                        Size="EmptyStateSize.Large"
+                        Title="Server Not Found"
+                        Description="This server doesn't exist or has been removed."
+                        PrimaryActionText="Go to Dashboard"
+                        PrimaryActionHref="/" />
+        }
+    }
+    else if (Result.Status == GuildContextStatus.Forbidden)
+    {
+        if (ForbiddenContent is not null)
+        {
+            @ForbiddenContent
+        }
+        else
+        {
+            <EmptyState Type="EmptyStateType.NoPermission"
+                        Size="EmptyStateSize.Large"
+                        Title="Access Denied"
+                        Description="You don't have permission to access this server."
+                        PrimaryActionText="Go to Dashboard"
+                        PrimaryActionHref="/" />
+        }
+    }
+    else
+    {
+        @ChildContent(Result.Context!)
+    }
+</div>
+
+@code {
+    /// <summary>The result to render for, e.g. from <c>GuildPageBase.Result</c>.</summary>
+    [Parameter] public GuildContextResult? Result { get; set; }
+
+    /// <summary>Rendered with the resolved <see cref="GuildContext"/> once <c>Result.Status == Ok</c>.</summary>
+    [Parameter, EditorRequired] public RenderFragment<GuildContext> ChildContent { get; set; } = default!;
+
+    /// <summary>Overrides the default "guild not found" fragment.</summary>
+    [Parameter] public RenderFragment? NotFoundContent { get; set; }
+
+    /// <summary>Overrides the default "access denied" fragment.</summary>
+    [Parameter] public RenderFragment? ForbiddenContent { get; set; }
+
+    /// <summary>Overrides the default loading fragment shown while <c>Result</c> is null.</summary>
+    [Parameter] public RenderFragment? LoadingContent { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+}

@@ -199,6 +199,8 @@ Services for user lifecycle, guild membership, and user data operations.
 | `BulkPurgeService` | Bot/Services | Coordinates bulk user purge operations |
 | `IUserDataExportService` | Core Interfaces | Export user data (for GDPR/privacy requests) |
 | `UserDataExportService` | Bot/Services | Generates user data export packages |
+| `IPortalAccessService` | Bot/Services/Portal | The Portal three-state access gate (landing/forbidden/authorized), extracted from `PortalPageModelBase.CheckPortalAuthorizationAsync` so a future Blazor `PortalLayout` can reuse it - see "Portal three-state gate" in `patterns.md` |
+| `PortalAccessService` | Bot/Services/Portal | Default `IPortalAccessService` (scoped); guild lookup, Discord client lookup, Admin/SuperAdmin bypass, cache-then-REST guild membership check |
 
 ---
 
@@ -508,6 +510,8 @@ Pages under `src/DiscordBot.Bot/Blazor/`. See "Blazor components" in `patterns.m
 | `CircuitClientInfoService` | Bot/Blazor/Services | Scoped per-circuit holder for IP/UA/circuit ID/correlation ID, since `HttpContext` is unavailable inside a running circuit |
 | `BlazorCircuitHandler` | Bot/Blazor/Services | `CircuitHandler` (scoped); logs circuit open/close and records `blazor.circuits.*` metrics |
 | `BlazorMetrics` | Bot/Metrics | `blazor.circuits.opened_total` counter and `blazor.circuits.active` gauge, registered alongside `BotMetrics`/`ApiMetrics` in `OpenTelemetryExtensions` |
+| `IGuildContextProvider` | Bot/Blazor/Guilds | Phase 3: resolves a guild route to a `GuildContext` (guild DTO, `CanEdit`, feature flags, nav tabs) once per guild id per scope - see "GuildContext" in `patterns.md` |
+| `GuildContextProvider` | Bot/Blazor/Guilds | Default `IGuildContextProvider` (scoped); loads the guild, authorizes against `GuildAccess`, computes permissions/flags via `IGuildMembershipService`/`IGuildAudioSettingsService`/`IRatWatchService` |
 
 ## Blazor Interop
 

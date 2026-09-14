@@ -1,13 +1,17 @@
+using Discord.WebSocket;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Commands;
 using DiscordBot.Bot.Services.Guilds;
+using DiscordBot.Bot.Services.Portal;
 using DiscordBot.Bot.Services.Settings;
 using DiscordBot.Bot.Services.Search;
 using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.Configuration;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Services;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Extensions;
@@ -88,6 +92,19 @@ public static class ApplicationServiceExtensions
         // a single call so the corresponding Razor Page model stays thin.
         services.AddScoped<IGuildDetailsAggregator, GuildDetailsAggregator>();
         services.AddScoped<ISettingsSectionService, SettingsSectionService>();
+
+        // Portal three-state access gate (docs/plans/blazor-port-plan.md §4.2, Phase 3),
+        // extracted from Pages/Portal/PortalPageModelBase so a future PortalLayout can reuse it.
+        // PortalAccessService takes a plain ILogger (not ILogger<PortalAccessService>) so
+        // PortalPageModelBase - whose constructor cannot change without touching every derived
+        // Portal page model - can also construct one directly from its own injected ILogger; this
+        // factory resolves the properly-categorized ILogger<PortalAccessService> for the normal
+        // DI-registered instance.
+        services.AddScoped<IPortalAccessService>(sp => new PortalAccessService(
+            sp.GetRequiredService<IGuildService>(),
+            sp.GetRequiredService<DiscordSocketClient>(),
+            sp.GetRequiredService<UserManager<ApplicationUser>>(),
+            sp.GetRequiredService<ILogger<PortalAccessService>>()));
         services.AddScoped<IAppearanceSettingsService, AppearanceSettingsService>();
         services.AddScoped<IBotControlService, BotControlService>();
 

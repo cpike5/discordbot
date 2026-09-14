@@ -1,0 +1,25 @@
+@namespace DiscordBot.ComponentTests.Blazor.Guilds
+@using DiscordBot.Bot.Blazor.Guilds
+@inherits GuildPageBase
+
+@* Minimal page for GuildPageBaseTests - proves the resolve-once/persist/re-resolve-on-guild-id-change
+   bookkeeping GuildPageBase implements, without needing a real routable guild page (none exist yet
+   - GuildLayout and the first ported guild page are built on top of this type by a later agent). *@
+
+<div data-testid="is-loading">@IsLoading</div>
+<div data-testid="status">@(Result?.Status.ToString() ?? "null")</div>
+@if (Guild is not null)
+{
+    <div data-testid="guild-name">@Guild.Guild.Name</div>
+}
+<div data-testid="ready-count">@ReadyCount</div>
+
+@code {
+    public int ReadyCount { get; private set; }
+
+    protected override Task OnGuildContextReadyAsync()
+    {
+        ReadyCount++;
+        return Task.CompletedTask;
+    }
+}
