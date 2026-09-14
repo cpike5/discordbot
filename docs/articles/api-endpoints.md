@@ -67,9 +67,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/scheduled-messages/{id}` | DELETE | Delete scheduled message |
 | `/api/guilds/{guildId}/scheduled-messages/{id}/execute` | POST | Execute scheduled message immediately |
 | `/api/guilds/{guildId}/scheduled-messages/validate-cron` | POST | Validate cron expression |
-| `/api/guilds/{guildId}/members` | GET | List guild members (filtered, paginated) |
-| `/api/guilds/{guildId}/members/{userId}` | GET | Get specific guild member by user ID |
-| `/api/guilds/{guildId}/members/export` | GET | Export guild members to CSV |
+| ~~`/api/guilds/{guildId}/members`~~ | ~~GET~~ | **Retired in Phase 4 cluster 4d** (`GuildMembersController` deleted — `wwwroot/js/member-directory.js` was its only consumer). `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. |
+| ~~`/api/guilds/{guildId}/members/{userId}`~~ | ~~GET~~ | Retired with the row above. |
+| ~~`/api/guilds/{guildId}/members/export`~~ | ~~GET~~ | Retired with the row above — CSV export now built in-circuit via `IGuildMemberService.ExportMembersToCsvAsync` + `BrowserInterop.DownloadFileAsync`. |
 | `/api/commands/list` | GET | Get command list tab (HTML partial) |
 | `/api/commands/logs` | GET | Get execution logs tab with filters (HTML partial) |
 | `/api/commands/analytics` | GET | Get analytics tab with charts (HTML partial) |
@@ -95,17 +95,23 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/cases/number/{caseNumber}` | GET | Get case by case number |
 | `/api/guilds/{guildId}/cases` | POST | Create moderation case |
 | `/api/guilds/{guildId}/cases/number/{caseNumber}/reason` | PATCH | Update case reason |
-| `/api/guilds/{guildId}/users/{userId}/cases` | GET | Get user's cases |
-| `/api/guilds/{guildId}/users/{userId}/notes` | GET | Get user's mod notes |
-| `/api/guilds/{guildId}/users/{userId}/notes` | POST | Create mod note |
-| `/api/guilds/{guildId}/users/{userId}/flags` | GET | Get user's flagged events |
-| `/api/guilds/{guildId}/users/{userId}/tags` | GET | Get user's tags |
 | `/api/guilds/{guildId}/tags` | GET | List guild tags |
 | `/api/guilds/{guildId}/tags` | POST | Create tag |
 | `/api/guilds/{guildId}/tags/{tagName}` | DELETE | Delete tag |
 | `/api/guilds/{guildId}/tags/import-templates` | POST | Import template tags |
-| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | POST | Apply tag to user |
-| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | DELETE | Remove tag from user |
+| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | POST | Apply tag to user (`ModTagsController` — see note below) |
+| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | DELETE | Remove tag from user (`ModTagsController` — see note below) |
+
+> **`UserModerationController` retired in Phase 4 cluster 4d** (docs/plans/blazor-port-plan.md,
+> the Blazor port of `Members/Moderation`). It duplicated `GET .../cases`, `GET`/`POST .../notes`,
+> `DELETE .../notes/{noteId}`, `GET .../flags`, and `GET .../tags` with no `ModTagsController`
+> equivalent (removed above), plus `POST`/`DELETE .../tags/{tagName}` (the two rows above), which
+> *did* duplicate `ModTagsController.ApplyTag`/`RemoveTag` at the exact same route — an ambiguous
+> match ASP.NET Core only discovered at request time. `wwwroot/js/user-moderation-profile.js` was
+> its only consumer and retired with it; `Blazor/Pages/Guilds/Members/Moderation.razor` calls
+> `IModerationService`/`IModNoteService`/`IModTagService`/`IFlaggedEventService` directly.
+> `ControllerRouteConflictTests` (`tests/DiscordBot.Tests/Bot/Controllers/`) now guards against a
+> repeat by reflecting over every controller action for a shared HTTP method + route template.
 | `/api/guilds/{guildId}/watchlist` | GET | List watchlist |
 | `/api/guilds/{guildId}/watchlist` | POST | Add user to watchlist |
 | `/api/guilds/{guildId}/watchlist/{userId}` | DELETE | Remove user from watchlist |
@@ -2096,6 +2102,8 @@ Synchronizes guild data from Discord to the database. Creates or updates the gui
 
 ### GET /api/guilds/{guildId}/members
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Retrieves a paginated, filtered, and sorted list of guild members. Supports comprehensive filtering by search term, roles, join date, activity date, and active status.
 
 **Authorization:** Admin+
@@ -2263,6 +2271,8 @@ GET /api/guilds/123456789012345678/members?roleIds=111222333444555666&roleIds=77
 
 ### GET /api/guilds/{guildId}/members/{userId}
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Returns detailed information for a specific guild member by user ID.
 
 **Authorization:** Admin+
@@ -2322,6 +2332,8 @@ Returns detailed information for a specific guild member by user ID.
 ---
 
 ### GET /api/guilds/{guildId}/members/export
+
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
 
 Exports guild members matching the query criteria to a CSV file for external analysis or archival. Limited to 10,000 rows maximum.
 
@@ -3359,6 +3371,8 @@ Validates a cron expression for correctness before creating or updating a schedu
 
 ### GET /api/guilds/{guildId}/members
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Returns a paginated list of guild members with advanced filtering, searching, and sorting capabilities.
 
 **Authorization:** Admin+
@@ -3497,6 +3511,8 @@ GET /api/guilds/123456789012345678/members?SearchTerm=john&RoleIds=1112223334445
 
 ### GET /api/guilds/{guildId}/members/{userId}
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Returns detailed information for a specific guild member.
 
 **Authorization:** Admin+
@@ -3567,6 +3583,8 @@ GET /api/guilds/123456789012345678/members/987654321098765432
 ---
 
 ### GET /api/guilds/{guildId}/members/export
+
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
 
 Exports guild members to a CSV file with optional filtering. Pagination is ignored; all matching members are exported up to the 10,000 row limit.
 
@@ -5122,6 +5140,8 @@ User-specific moderation endpoints provide access to all moderation data for a p
 
 #### GET /api/guilds/{guildId}/users/{userId}/cases
 
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
+
 Returns all moderation cases for a specific user with pagination.
 
 **Authorization:** Admin+
@@ -5147,6 +5167,8 @@ Returns paginated ModerationCaseDto objects for the user.
 ---
 
 #### GET /api/guilds/{guildId}/users/{userId}/notes
+
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
 
 Returns all moderator notes for a specific user.
 
@@ -5191,6 +5213,8 @@ Returns all moderator notes for a specific user.
 
 #### POST /api/guilds/{guildId}/users/{userId}/notes
 
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
+
 Creates a new moderator note for a user.
 
 **Authorization:** Admin+
@@ -5226,6 +5250,8 @@ Returns created ModNoteDto object.
 
 #### GET /api/guilds/{guildId}/users/{userId}/flags
 
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
+
 Returns all flagged events for a specific user.
 
 **Authorization:** Admin+
@@ -5244,6 +5270,8 @@ Returns array of FlaggedEventDto objects for the user.
 ---
 
 #### GET /api/guilds/{guildId}/users/{userId}/tags
+
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
 
 Returns all tags applied to a specific user.
 
@@ -5471,6 +5499,8 @@ Or if invalid template names provided:
 
 #### POST /api/guilds/{guildId}/users/{userId}/tags/{tagName}
 
+> **`UserModerationController`'s copy of this endpoint retired in Phase 4 cluster 4d** - it duplicated `ModTagsController`'s identical route (an ambiguous match at runtime, see the summary table note above). `ModTagsController` is the sole owner now; this section documents its behaviour, which is unchanged.
+
 Applies a tag to a user.
 
 **Authorization:** Admin+
@@ -5515,6 +5545,8 @@ Returns UserModTagDto object.
 ---
 
 #### DELETE /api/guilds/{guildId}/users/{userId}/tags/{tagName}
+
+> **`UserModerationController`'s copy of this endpoint retired in Phase 4 cluster 4d** - it duplicated `ModTagsController`'s identical route (an ambiguous match at runtime, see the summary table note above). `ModTagsController` is the sole owner now; this section documents its behaviour, which is unchanged.
 
 Removes a tag from a user.
 
