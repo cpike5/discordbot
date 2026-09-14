@@ -178,9 +178,9 @@ Issues the Discord OAuth challenge. Form field: `returnUrl` (optional). Posted t
 
 **Antiforgery:** Required automatically, same as `/Account/Logout` above.
 
-**Behavior:** When Discord OAuth isn't configured, redirects to `/Account/Login?authError=discord_error`. Otherwise builds a `RedirectUri` of `/Account/ExternalLogin/Callback?returnUrl=<sanitized returnUrl>` and returns `Results.Challenge` for the `Discord` authentication scheme (the OAuth handshake itself, including the `/signin-discord` middleware callback, is unchanged).
+**Behavior:** When Discord OAuth isn't configured, redirects to `/Account/Login?authError=discord_unconfigured`. Otherwise builds a `RedirectUri` of `/Account/ExternalLogin/Callback?returnUrl=<sanitized returnUrl>` and returns `Results.Challenge` for the `Discord` authentication scheme (the OAuth handshake itself, including the `/signin-discord` middleware callback, is unchanged).
 
-**Response:** `302 Found` (challenge redirect to Discord, or the `discord_error` redirect above).
+**Response:** `302 Found` (challenge redirect to Discord, or the `discord_unconfigured` redirect above).
 
 ### GET /Account/ExternalLogin/Callback
 

@@ -75,7 +75,7 @@ Feature-level docs are in `docs/articles/` (indexed in `docs/index.md` and
 
 ```bash
 dotnet build DiscordBot.sln                 # ~1.5 min cold, seconds warm
-dotnet test DiscordBot.sln                  # ~5,000 unit + ~600 bUnit tests, ~1.5 min
+dotnet test DiscordBot.sln                  # ~5,200 unit + ~900 bUnit tests, ~1.5 min
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 dotnet test tests/DiscordBot.Evals   # skips entirely without OpenRouter:ApiKey
 ```

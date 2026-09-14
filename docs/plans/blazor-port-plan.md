@@ -325,7 +325,7 @@ Order is by rising complexity so the component library hardens on easy pages fir
 | --- | --- | --- |
 | 4a Simple admin | `Admin/Users` ×4, `Admin/AuditLogs/Details`, `Admin/MessageLogs/Details`, `CommandLogs/Details`, `Account/Profile`, `Account/AccessDenied`, `Account/Lockout` | **Done.** Classic forms → `EditForm`; TempData flash → `IToastService`. Client-side JSON download on AuditLogs details → `browser.js`. First cluster with a timestamped list (`AuditLogs`/`MessageLogs`/`CommandLogs` details) — adds the `browser.js` timezone conversion (or a `LocalTime` component) that `Search`'s own `data-utc` rows (§5 Phase 3 deviation (c)) pick up at the same time. |
 | 4b Simple guild | `Guilds/Edit`, `Welcome`, `AssistantSettings`, `AssistantMetrics`, `FeatureRequests` ×2, `Reminders`, `ScheduledMessages` ×3, `AudioModerationLog`, `RatWatch/Index` | **Done.** First consumers of `GuildLayout`. ScheduledMessages needs timezone capture via `browser.js` and the live preview pane. Standardise on one pagination state type here. `AssistantSettings` now has a Tool Access checklist (with the "default set" banner) and `AssistantMetrics` three more server-rendered tables; both are still S/M with no charts. |
-| 4c Account | `Login`, `ExternalLogin`, `LinkDiscord`, `Logout`, `Privacy` + minimal-API endpoints | Static SSR. Preserve the `?authError` contract, `returnUrl` sanitising and `OnRemoteFailure` redirect. Verify with Playwright against a stubbed OAuth provider or a manual checklist. Remove jQuery and `_ValidationScriptsPartial`. Fix the dead `LoginWith2fa` branch (either remove or leave a documented no-op). `Login` is now a single centred card (the brand side panel and its CSS were removed on `main`); port that composition. |
+| 4c Account | `Login`, `ExternalLogin`, `LinkDiscord`, `Logout`, `Privacy` + minimal-API endpoints | Done. Static SSR. Preserve the `?authError` contract, `returnUrl` sanitising and `OnRemoteFailure` redirect. Verify with Playwright against a stubbed OAuth provider or a manual checklist. Remove jQuery and `_ValidationScriptsPartial`. Fix the dead `LoginWith2fa` branch (either remove or leave a documented no-op). `Login` is now a single centred card (the brand side panel and its CSS were removed on `main`); port that composition. |
 | 4d Lists and settings | `Guilds/Index`, `Guilds/Details`, `Members/Index` (+ detail modal), `Members/Moderation`, `FlaggedEvents` ×2, `ModerationSettings`, `AudioSettings`, `Admin/Logs` (unified; stubs become redirects), `Admin/Notifications`, `Admin/BulkPurge` (wire real progress from the event bus), `Admin/UserPurge`, `Admin/Settings`, `Admin/LlmUsage`, `RatWatch/Incidents` | Three save patterns collapse to component methods calling services. `Admin/Settings` and `ModerationSettings` get `TabGroup` + dirty tracking via `EditContext` + `beforeunload` guard. CSV exports become minimal-API GET endpoints. `Admin/Settings`'s AI Models tab (`llm-models.js`: lazily loaded OpenRouter catalog, allowlist, per-mode defaults) becomes its own component inside the settings `TabGroup`, loading on first activation and calling the catalog service directly; `LlmModelsController` retires with it. `Admin/LlmUsage`'s per-user drill-down (`llm-usage.js`) becomes a paged component call; `LlmUsageController` retires with it. |
 | 4e Dashboards and charts | `Index` (home), `Commands` (three tabs in one component, filter state in the query string via `NavigationManager`), `Guilds/Analytics` ×3 (custom heatmap becomes a component), `RatWatch/Analytics`, `Admin/RatWatchAnalytics`, `Admin/Performance` (one page, six tabs, event-bus live tiles) | `Chart` component + `charts.js`. Retire `CommandsApiController` and `PerformanceTabsController` HTML endpoints, `AnalyticsController`. |
 | 4f Audio | `Guilds/Soundboard`, `Guilds/TextToSpeech`, `Guilds/VOX`, `Portal/Soundboard`, `Portal/TTS`, `Portal/VOX` | Hardest cluster. `audio.js` for preview and upload; `VoiceChannelPanel` on the event bus; Tier 5 TTS components; `<Virtualize>` for the sound grid. VOX browser preview (a commented-out stub today) is implemented: add the clip stream endpoint and reuse `audio.js`. Portal pages keep the three-state gate and the stream/upload endpoints. The portal sound card now carries `Price`/`CurrencySymbol` and shows the price badge; the play action surfaces a charge refusal (402 from the charge seam) as a warning toast, not a failure. |
@@ -550,6 +550,133 @@ path"), though the registration fix mirrors a pattern the Postgres branch alread
 seed migrations are SQLite-only by design (Postgres's initial migration already seeds both tables).
 See `docs/lessons-learned/sqlite-migration-context-mismatch.md` for the full investigation and
 `docs/articles/database-schema.md` for the upgrade note this needs.
+
+**Cluster 4c delivered.** Five pages ported, all under `Blazor/Pages/Account/`: `Login.razor` (+
+`.razor.cs`, `@layout EmptyLayout`), `LinkDiscord.razor` (+ `.razor.cs`) and `Privacy.razor` (+
+`.razor.cs`, `.razor.css`), both `[Authorize]` under `MainLayout`; `ExternalLogin` and `Logout` have
+no page of their own — both become minimal-API endpoints. `Extensions/AccountEndpointExtensions.cs`
+(`MapAccountEndpoints()`, mapped next to `MapRazorPages()`, all `[AllowAnonymous]`) owns `POST
+/Account/Logout`, `POST /Account/PerformExternalLogin` (the Discord challenge, shared by `Login`'s
+Discord button and `LinkDiscord`'s "Link Discord Account" form) and `GET
+/Account/ExternalLogin/Callback`, plus a no-handler `GET /Account/ExternalLogin` that redirects to
+`Login`. Both POST endpoints bind a `[FromForm]` parameter, which ASP.NET Core decorates with the
+same antiforgery requirement a Razor Pages handler got automatically — no explicit
+`[ValidateAntiForgeryToken]` needed. Route strings are `Extensions/AccountRoutes` constants
+(`Login`, `Logout`, `PerformExternalLogin`, `ExternalLoginCallback`, `Lockout`, `AccessDenied`,
+`LinkDiscord`, `Privacy`) rather than retyped literals, since `IdentityConfigOptions`'s
+`LoginPath`/`LogoutPath`/`AccessDeniedPath`, the OAuth `OnRemoteFailure` redirect,
+`RedirectToLogin.razor`, `MainNavbar.razor`, the legacy `_Navbar.cshtml`, `AccessDenied.razor`'s
+"Sign Out" form and `LinkDiscord`/`Privacy`'s own self-redirects all need the same literal. The
+sign-in/OAuth/linking logic itself moved into three plain scoped services in
+`Services/Account/`, unit-testable without a running host: `IPasswordSignInService`
+(email/password), `IExternalLoginHandler` (the callback: remote-failure short-circuit, external
+login lookup, token extraction before sign-in, sign-in-or-link-or-create by Discord id then email
+then a brand-new account, token/guild-membership storage), and `IDiscordLinkService` (unlink,
+refresh Discord data, initiate/verify/cancel bot verification — each returning a
+`DiscordLinkOperationOutcome` with a stable status key).
+
+**The static-SSR form rules, verified against a real running host, not assumed.** The initial
+per-action `<EditForm FormName="...">` design (five forms on `LinkDiscord`, four on `Privacy`)
+never actually worked — curling a running instance reproduced a genuine .NET static SSR framework
+failure (matching public `dotnet/aspnetcore` issues #55808, #55893, #54854), invisible to bUnit
+because bUnit invokes handlers directly against the component instance and never exercises the
+real static-form-mapping HTTP path. Isolated to two always-present requirements, on top of the
+already-known "`EditForm` always emits `method="post"` regardless of `FormName`" fact from cluster
+4a (`docs/lessons-learned/blazor-editform-formname-race.md`):
+
+1. A named form's static mapping never registers unless the render also contains at least one real
+   `InputBase`-derived bound field (`InputText`, etc.) — a form with only plain
+   `<button name=/value=>` pairs and no bound input is never recognized as "a form on this page" at
+   all. Both pages now carry a hidden marker `InputText` wherever no other bound field is already
+   present in that render path.
+2. A posted field only binds through `[SupplyParameterFromForm]` when its name carries the exact
+   `"{ComponentPropertyName}.{ModelPropertyName}"` prefix Blazor's own bound inputs emit — a bare
+   `name="UnlinkAction"` is silently dropped; it must be `name="ActionForm.UnlinkAction"`.
+3. One named `EditForm` per distinct **implicit-submit target**, not per action or even per page:
+   HTML implicit submission on Enter fires the first submit button in the form the focused field
+   belongs to, so every action whose form would otherwise share a text input with an unrelated
+   button has to get its own form. `LinkDiscord` collapses to one form (`link-discord-actions`,
+   appearing in at most one of its two mutually exclusive branches: not-linked or linked). `Privacy`
+   needs two: `privacy-actions` (every consent Grant/Revoke plus "Export My Data") and
+   `privacy-delete` (the typed-`DELETE` confirmation, its own form so Enter in that text box can
+   never land on a consent button).
+
+`docs/lessons-learned/blazor-editform-formname-race.md` documents these three findings as their own
+section. `AccountEndpointExtensionsTests.MapAccountEndpoints_PostEndpointsRequireAntiforgery_GetEndpointsDoNot`
+builds the real endpoint data via `MapAccountEndpoints` on a `WebApplication` and asserts the
+antiforgery metadata directly, since the file's other, handler-level tests call the handlers as
+plain delegates and never construct a real endpoint.
+
+**PRG via `?status=`.** `LinkDiscord`/`Privacy` replace `TempData` (unavailable on a static SSR
+redirect target with no circuit) with a `?status=<key>[&detail=...]` query string read via
+`[SupplyParameterFromQuery]`, banner copy centralised per page. `detail` carries free text only on
+a **failure** redirect (a service's own error message) — never on success, so a crafted URL can't
+put attacker-controlled text in a success banner. The one success case that used to show dynamic
+text, `verify-code-success`'s "Welcome, {username}!", instead reads the linked `DiscordUsername`
+back from the database; `export-success` renders fixed, static copy.
+
+**Deleted:** `Pages/Account/{Login,ExternalLogin,Logout,LinkDiscord,Privacy}.cshtml(.cs)`, their
+PageModel tests (`LoginModelTests`, `LogoutModelTests`, `LinkDiscordModelTests`), `wwwroot/js/login.js`
+and `Pages/Shared/_ValidationScriptsPartial.cshtml` (jQuery unobtrusive validation — no remaining
+Razor Page loaded it). `DeletedPagesGuardTests.DeletedPageRoutes` gained all five routes; extending
+it surfaced a real bug in the guard itself, fixed in the same PR — its relative-reference folder
+computation kept the route's leading `/` (e.g. `/Account` instead of `Account`), so the
+relative-reference half of the check (`Url.Page("./Leaf")`/`asp-page="Leaf"`) had silently matched
+nothing for any route since cluster 4a introduced it. With the fix, the guard immediately caught
+two more stale references from this same cluster's own concurrent work: `Privacy.cshtml.cs`'s
+absolute `Url.Page("/Account/Logout")` and `LinkDiscord.cshtml.cs`'s relative
+`Url.Page("./ExternalLogin", ...)`, both swept onto `AccountRoutes` constants.
+
+**Kept:** `Lockout.razor`/`AccessDenied.razor` (cluster 4a) — no change beyond `AccessDenied.razor`'s
+"Sign Out" form and comments moving to the new `AccountRoutes.Logout` literal.
+
+**The dead `LoginWith2fa` branch.** The legacy `LoginModel.OnPostAsync` redirected
+`SignInResult.RequiresTwoFactor` to `RedirectToPage("./LoginWith2fa")` — a page that was never
+implemented (no 2FA flow exists anywhere in the app). Decision: removed, not left as a documented
+no-op. `IPasswordSignInService` treats `RequiresTwoFactor` as an ordinary failed sign-in attempt
+(logged distinctly so a future 2FA rollout is easy to find), and `PasswordSignInServiceTests` ports
+every `LoginModelTests` case except the dead redirect, replaced by a test asserting
+`RequiresTwoFactor` now falls into the failure branch.
+
+**Test totals at the tip of this cluster:** 5,214 unit tests passed (12 skipped —
+`tests/DiscordBot.Evals`, which needs `OpenRouter:ApiKey`), 891 bUnit, 27 Playwright, 40 npm
+(`wwwroot/js/__tests__`). New unit suites: `PasswordSignInServiceTests`, `ExternalLoginHandlerTests`,
+`AccountEndpointExtensionsTests`, `DiscordLinkServiceTests`. New bUnit suites: `LoginTests`,
+`LinkDiscordTests`, `PrivacyTests`. New Playwright scenarios: `Test_Z1`/`Test_Z2` (Login — bad
+password with no redirect, a local `returnUrl` round-tripping, an external one falling back to
+`/`, and every `authError` variant's copy), `Test_Z3` (`LinkDiscord` in web-only mode — the
+not-configured notice, full initiate/verify-pending/cancel round trip), `Test_Z4` (`Privacy` —
+callout for the unlinked seeded SuperAdmin, linked directly via SQL the same way `SeedGuild` seeds
+other rows, to exercise the delete-confirmation guard without a real OAuth flow to link through).
+
+**Manual OAuth checklist (not automatable here).** The web-only E2E host has no real Discord OAuth
+client, so the following need a manual pass with `Discord:OAuth:ClientId`/`ClientSecret` configured
+in User Secrets:
+
+- The "Continue with Discord" button appears on `/Account/Login` once OAuth is configured.
+- Consenting on Discord's screen returns to the original `returnUrl`.
+- A brand-new Discord user gets an `ApplicationUser` created (audit-logged) and is signed in.
+- A Discord account whose email matches an existing local (password) account links to that
+  account rather than creating a second one.
+- Denying on Discord's consent screen lands on `/Account/Login?authError=discord_error`.
+- A locked-out user's sign-in (password or Discord) redirects to `/Account/Lockout`.
+- Signing out redirects to `/landing`.
+- `/Account/LinkDiscord`'s verification-code flow links the Discord id, and the success banner
+  shows the username read back from the database, not anything forwarded on the URL.
+
+**Deviations / follow-ups.**
+
+- (a) Linking-by-email in `CreateUserFromExternalLoginAsync` (an `ExternalLoginInfo` whose email
+  matches an existing local account is linked to it with no further verification that the Discord
+  account's owner also controls the local account) is carried over unchanged from the legacy
+  `ExternalLogin.cshtml.cs` — it predates this port. No dedicated hardening ticket was found in
+  `docs/plans/` or in code comments for this cluster or 4b; flagged here as a candidate follow-up
+  rather than fixed, since fixing it is a behaviour change outside this port's scope.
+- (b) `patterns.md`'s "Static-SSR account pages" section (added by this cluster) documents `FormName`
+  being required and the endpoint/route inventory, but was written before the static-form-mapping
+  investigation above and does not itself carry the `InputBase`/name-prefix/one-form-per-target
+  rules — they live only in the lessons-learned note. Left as found; a future pass could fold a
+  short cross-reference into `patterns.md` too.
 
 ### Phase 5 — Decommission · 4–6 days · 3–4 PRs
 

@@ -71,6 +71,20 @@ gates. What a new page needs to know:
   "Connecting…" hint) until the circuit attaches, so a click in the prerender window is prevented
   rather than silently discarded; Playwright waits for that button to become enabled instead of a
   blind sleep. See `docs/lessons-learned/blazor-editform-formname-race.md`.
+- A static SSR page (no `@rendermode` at all — `Login`, `LinkDiscord`, `Privacy`, `Profile`: see
+  "Static-SSR account pages" in `docs/architecture/patterns.md`) has the opposite `EditForm` rule:
+  `FormName` **is** required, since the browser's own POST is the only submission mechanism. It
+  also needs at least one real `InputBase`-derived bound field in the render (add a hidden
+  `InputText` marker if nothing else qualifies) or the named form's static mapping never
+  registers, and every posted field name must carry its exact
+  `"{ComponentPropertyName}.{ModelPropertyName}"` prefix or it's silently dropped. Group actions
+  into one `EditForm` per implicit-submit target, not one per action — a shared form is fine only
+  when no free-text field in it could have Enter fire a different action's button by accident.
+  None of this is visible to bUnit, which never exercises the real static-form-mapping HTTP path;
+  verify against a real running host. See the second section of
+  `docs/lessons-learned/blazor-editform-formname-race.md`, and the example pages at
+  `Blazor/Pages/Account/{Login,LinkDiscord,Privacy}.razor` plus their minimal-API endpoints in
+  `Extensions/AccountEndpointExtensions.cs`.
 - An interactive page's not-found (or similarly circuit-only) state renders the design-system
   `EmptyState` component at HTTP 200, never a real 404 status — once a circuit is live there is no
   way left to set the response status code. Repo-wide convention since cluster 4a.

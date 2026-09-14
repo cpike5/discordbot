@@ -1175,7 +1175,22 @@ timeouts are generous, but a host boot plus a browser round trip adds up fast in
 runner) and prefer explicit waits (`Expect(...).ToBeVisibleAsync()`, `Expect(...).ToContainTextAsync()`)
 over `Task.Delay` sleeps, which are banned here for the same reason they're avoided in
 `ConcurrencyTestHelper`-style unit tests: they are either too short (flaky) or too long
-(slow) and never both at once.
+(slow) and never both at once. `tests/DiscordBot.E2E/BrowserTests.cs` has 27 tests (`Test_A`
+through `Test_Z4`) as of Phase 4 cluster 4c.
+
+### Waiting on an interactive-only control
+
+Any button gated `disabled="@(!RendererInfo.IsInteractive)"` (the rule in
+`docs/lessons-learned/blazor-editform-formname-race.md` for every first-interaction control on a
+freshly rendered `@rendermode InteractiveServer` page) needs `Expect(button).ToBeEnabledAsync()`
+before the first click - that flip is the real "the circuit has attached" signal, not a sleep.
+Even after that, a click sent the instant the button becomes enabled can still beat Blazor
+Server's own client-side event-listener attachment and be silently dropped rather than queued
+(confirmed empirically against the showcase page's `ConfirmModal`/toast demo buttons). The private
+helper `ClickUntilVisibleAsync(trigger, target)` covers that narrower race: it clicks, waits up to
+one second for `target` to become visible, and retries the click (not a blind sleep - each attempt
+is a real "did it work" check) on a bounded 20-second deadline. Use it for any interactive-only
+trigger whose effect is itself something `Expect(...).ToBeVisibleAsync()` can observe.
 
 ---
 

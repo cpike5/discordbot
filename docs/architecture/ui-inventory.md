@@ -411,8 +411,9 @@ exist.
 
 Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Blazor/Shared/`
 (mirroring this same group structure); the full library plus the `/components` showcase page and
-every ported page is 853 tests as of 2026-09-14, now that cluster 4b is complete (784 at the end of
-cluster 4a, 706 at the end of Phase 3) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
+every ported page is 891 tests as of 2026-09-14, now that cluster 4c is complete (853 at the end of
+cluster 4b, 784 at cluster 4a, 706 at the end of Phase 3) (`docs/articles/testing-guide.md`
+"Component (bUnit) tests").
 
 ---
 
