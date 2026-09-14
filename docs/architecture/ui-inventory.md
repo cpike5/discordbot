@@ -190,10 +190,12 @@ All layouts below are located in `Pages/Shared/`.
 | **Landing Layout** | `_LayoutLanding.cshtml` | Unauthenticated layout for public pages | Login pages only — the public landing page (`/landing`) moved to Blazor's own `LandingLayout` (below) |
 | **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context | Guild pages under `/guild/{guildId}/*` |
 
-The Blazor tree has its own layouts alongside these: `Blazor/Layout/EmptyLayout.razor` (no chrome
-— today's default, see "Blazor Routes" above) and `Blazor/Layout/LandingLayout.razor` (marketing
-shell for `/landing` — no chrome of its own either, since `App.razor` already owns the document
-`<head>`/theme for the whole app; see "Blazor Routes (permanent)" above).
+The Blazor tree has its own layouts alongside these — see "Blazor Layouts" above for the full set
+(`MainLayout`, `GuildLayout`, `PortalLayout`, `LandingLayout`, `EmptyLayout`). `MainLayout`, not
+`EmptyLayout`, is `Routes.razor`'s default now; `Blazor/Layout/EmptyLayout.razor` (no chrome) is an
+opt-in layout for pages that declare `@layout EmptyLayout`, e.g. the error pages, and
+`Blazor/Layout/LandingLayout.razor` (marketing shell for `/landing` — no chrome of its own either,
+since `App.razor` already owns the document `<head>`/theme for the whole app) is likewise opt-in.
 
 ### Layout Components
 

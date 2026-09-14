@@ -37,6 +37,30 @@ showcase page moved too: `Blazor/Pages/Components/ComponentsPage.razor` at `/com
 matching group, following the "Component contract" in `blazor-components.md` — not as a new
 `Pages/Shared/Components/` partial.
 
+**Shell and layouts (Phase 3, complete).** `Blazor/Layout/` now has all five layouts —
+`MainLayout` (the admin shell: sidebar/navbar/toast/loading, driven by
+`wwwroot/js/blazor/shell.js`'s `data-shell-action` handlers), `GuildLayout`, `PortalLayout`,
+`LandingLayout`, `EmptyLayout` — and `Routes.razor`'s `DefaultLayout` is `MainLayout`, plus
+`IThemeInterop` (theme switching), deferred from Phase 1, landed alongside them. See
+"GuildContext"/"Portal three-state gate"/"GuildLayout / PortalLayout" in
+`docs/architecture/patterns.md` for the resolve-once-and-persist mechanics behind both context
+gates. What a new page needs to know:
+
+- A new Blazor page gets `MainLayout` (the admin shell) by default; opt out with `@layout` instead
+  of writing chrome of your own.
+- A guild page declares `@inherits GuildPageBase` + `@layout GuildLayout` and wraps its markup in
+  `<GuildContextGate Result="Result">` (`Blazor/Guilds/`).
+- A Portal page declares `@inherits PortalPageBase` + `@layout PortalLayout` (`Blazor/Portal/`).
+- A static-SSR-only page (no `@rendermode`) opts into `@layout EmptyLayout` (error pages, and later
+  `PublicLeaderboard`) or `@layout LandingLayout` (marketing-only, `/landing`).
+- Shell behavior (sidebar collapse, drawer, user menu, mobile search) lives in
+  `wwwroot/js/blazor/shell.js` via `data-shell-action`, not a component event handler.
+- Whenever a Phase 4 cluster deletes a `.cshtml`, sweep `Pages/**` for
+  `asp-page`/`RedirectToPage`/`Url.Page` references to its route and add the route to
+  `DeletedPagesGuardTests.DeletedPageRoutes` (`tests/DiscordBot.Tests/Bot/Pages/`) in the same PR —
+  a stale reference to a deleted page fails silently (empty form action, or an
+  `InvalidOperationException` at request time) rather than at compile time.
+
 ## Domain Map
 
 ### Shared Component Library (25+ components)

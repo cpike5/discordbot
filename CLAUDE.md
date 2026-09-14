@@ -225,9 +225,13 @@ the other.
   Interactive Server only, per-page interactivity). **New UI work goes in
   `Blazor/`, not `Pages/`.** Legacy Razor Pages reusable UI is partials under
   `Pages/Shared/Components/` with view models in `ViewModels/Components/`,
-  `.cshtml` plus `.cshtml.cs`, guild pages inheriting `GuildPageModelBase`; the
-  Blazor equivalent (component library, layouts) lands over `docs/plans/blazor-port-plan.md`
-  Phases 2-3. See "Blazor components" in `docs/architecture/patterns.md` for
+  `.cshtml` plus `.cshtml.cs`, guild pages inheriting `GuildPageModelBase`. The
+  Blazor equivalent exists now: the component library (Phase 2) under `Blazor/Shared/`, and the
+  shell layouts plus `GuildContext` (Phase 3) under `Blazor/Layout/`, `Blazor/Guilds/`,
+  `Blazor/Portal/` — Phase 4 is now porting pages cluster by cluster
+  (`docs/plans/blazor-port-plan.md`). When a Phase 4 cluster deletes a `.cshtml`, sweep
+  `asp-page`/`RedirectToPage`/`Url.Page` references to it and extend `DeletedPageRoutes` in
+  `DeletedPagesGuardTests`. See "Blazor components" in `docs/architecture/patterns.md` for
   hosting, auth-in-circuits and the `HttpContext`-is-prerender-only rule.
 - **Component interactions** (buttons, selects) are handled in separate
   `*ComponentModule` classes, with custom IDs built by `ComponentIdBuilder` and

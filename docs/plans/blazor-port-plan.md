@@ -99,7 +99,7 @@ Lessons carried into this plan (the full list is in the inventory): delete the `
 | Prerender | Prerender on for pages (first paint fast); use `PersistentComponentState` where `OnInitializedAsync` does non-trivial work, so it does not run twice. | Standard double-render mitigation. |
 | Framework | **Upgrade to .NET 10 LTS first** (Phase 0), then port. | .NET 8 leaves support in Nov 2026, two months out. The Ubuntu archive the remote session hook installs from has `dotnet-sdk-10.0`, so remote sessions keep working with a one-line hook change. The old branch did 8→10 cleanly. This is a separate PR with its own risk (EF Core 10, Npgsql, Elastic APM majors) and its own Postgres caveat. |
 | Data access in components | Inject the Core service interfaces as today. Services and `BotDbContext` are scoped; a circuit is one scope. For long-lived pages that hit the database on every event, resolve per operation via `IServiceScopeFactory` (the old branch's proven pattern) rather than holding one `DbContext` for the life of the circuit. | Avoids the stale-DbContext-in-circuit problem. |
-| Coexistence | `MapRazorComponents<App>()` alongside `MapRazorPages()` and `MapControllers()` until the last page moves. Route-conflict rule: a `.cshtml` is deleted in the same PR that adds its `.razor`. | The app is buildable and shippable after every PR. |
+| Coexistence | `MapRazorComponents<App>()` alongside `MapRazorPages()` and `MapControllers()` until the last page moves. Route-conflict rule: delete the `.cshtml` in the same PR that adds its `.razor`, **and** sweep `asp-page`/`RedirectToPage`/`Url.Page` references to it in that same PR, extending `DeletedPagesGuardTests`'s `DeletedPageRoutes` list (§5 Phase 3 deviation (e)/(f)). | The app is buildable and shippable after every PR. |
 | Folder | `src/DiscordBot.Bot/Blazor/` with `App.razor`, `Routes.razor`, `_Imports.razor`, `Layout/`, `Shared/` (design system), `Pages/` (mirrors today's `Pages/` tree), `Interop/`, `Services/`. Add `./Blazor/**/*.razor` to the Tailwind `content` globs. | Repo precedent; avoids the clash with the existing `Components/ComponentIdBuilder.cs` (Discord interaction IDs). |
 
 ### 4.2 Authentication and authorization
@@ -231,13 +231,99 @@ to replace their coverage.
 
 `MainLayout`, `GuildLayout` + `GuildContext`, `PortalLayout`, `LandingLayout`, `EmptyLayout`; error pages 403/404/500 and `Landing` as the first real static SSR pages (delete their `.cshtml`); `Search` with `Highlight` as the first interactive page (delete `.cshtml`, `HighlightTagHelper` and its tests). From here two shells exist in parallel (`_Layout.cshtml` for un-migrated pages, `MainLayout.razor` for migrated ones); keep the phase-4 clusters moving quickly so the window is short, and route any shell change through both until Phase 5. `MainLayout`'s sidebar ports the current `_Sidebar`, which since the survey also carries "LLM Usage" (Admin) and "Currency" (SuperAdmin); `Landing` ports the current markup (OpenRouter tile, not Claude).
 
+**Delivered.** All five layouts at `Blazor/Layout/`: `MainLayout` (static SSR shell with
+`ToastHost`/`LoadingOverlay` declared directly as `@rendermode InteractiveServer` islands, a
+`NotificationBell` island inside `MainNavbar`, an `ErrorBoundary` around `@Body`, and
+`wwwroot/js/blazor/shell.js` — a classic script delegating sidebar collapse/mobile-drawer,
+user-menu and mobile-search open/close, plus `GuildLayout`'s mobile nav `<select>`, off
+`data-shell-action` attributes so the handlers survive enhanced navigation); `GuildLayout`
+(`@layout MainLayout`, no route parameter of its own — reads the guild id off
+`NavigationManager.Uri` via `GuildRoutes.TryGetGuildId` and calls the same memoised
+`IGuildContextProvider` a page under it calls — renders `Breadcrumb`/`GuildHeader`/`TabGroup
+Mode=Navigation StyleVariant=Pills` for desktop plus a native mobile `<select
+data-shell-action="navigate-select">`, no `tab-panel.js`/`guild-nav.js`); `PortalLayout` (**not**
+nested under `MainLayout`; the three/four-state gate — `GuildNotFound` / `ShowLanding` /
+`NotGuildMember` / `Authorized` — over the same `IPortalAccessService` outcome
+`PortalPageModelBase` already used, via the new memoising `IPortalContextProvider`); `LandingLayout`
+(no chrome, `/landing` only); and `EmptyLayout` (retained, now an opt-in layout for the error pages
+rather than `Routes.razor`'s default — see below). `Routes.razor`'s `AuthorizeRouteView` now reads
+`DefaultLayout="typeof(MainLayout)"` and `NotFoundPage="typeof(NotFound)"`, so a routed page gets
+the admin shell unless it opts out, and the .NET 10 `Router` renders `Error/NotFound.razor` (a real
+HTTP 404) for a signed-in visitor who hits an unmatched route. `Blazor/Guilds/GuildContext.cs` +
+`IGuildContextProvider`/`GuildContextProvider` (scoped, memoised per guild id for the DI scope's
+lifetime, `GuildAccess` via resource-based `IAuthorizationService.AuthorizeAsync(user, guildId,
+"GuildAccess")`) replace the ~27 independent `GuildPageModelBase` loaders, paired with
+`GuildPageBase` (sealed `OnInitializedAsync`/`OnParametersSetAsync`, `PersistentComponentState`
+round trip across the prerender-to-circuit boundary) and `GuildContextGate` (loading/not-found/
+forbidden/child-content states, overridable per page). `IPortalAccessService`/`PortalAccessResult`
+are extracted from `Pages/Portal/PortalPageModelBase.CheckPortalAuthorizationAsync`, which now
+delegates to the service (resolved from `HttpContext.RequestServices` rather than a constructor
+change, so every derived Portal page model stays untouched); `IPortalContextProvider`/
+`PortalContextProvider` (the same memoising-wrapper shape as `GuildContextProvider`) and
+`PortalPageBase` (mirrors `GuildPageBase` exactly) sit on top of it. `IThemeInterop`, deferred from
+Phase 1, landed and is wired into `/admin/blazor-probe`'s theme select (no navbar theme toggle
+exists yet, so the probe is its only caller today). First real pages: `/landing` (static SSR,
+`LandingLayout`, `[AllowAnonymous]`), `/Error/403|404|500` (static SSR, `EmptyLayout`,
+`[AllowAnonymous]`), and `/Search` (the first interactive page — `Highlight`, `[SupplyParameterFromQuery]`
+for `?q=`, `PersistentComponentState` keyed by search term). Deletions: `Pages/Landing.cshtml(.cs)`,
+`Pages/Error/{403,404,500}.cshtml(.cs)`, `Pages/Search.cshtml(.cs)`,
+`TagHelpers/HighlightTagHelper.cs` — `Pages/Shared/_LayoutLanding.cshtml` stays, since `Login` and
+the rest of Account still use it until Phase 4c. Test totals: 706 bUnit (up from 566 at the end of
+Phase 2), 15 Playwright (up from 6: the new scenarios are `MainLayout` shell chrome on the Phase
+1/2 probe pages for a seeded SuperAdmin, `GuildProbe` rendering `GuildLayout` for a seeded guild and
+its unknown-guild not-found state, `PortalProbe` in web-only mode showing guild-not-found, anonymous
+`/landing` rendering its hero without a login redirect, the Blazor 404 for an unmatched route,
+`/Error/403`/`/Error/500` rendering anonymously, `/Search` logged in showing the Pages section, a
+short-query validation message, and a logout-from-shell regression check), 5,163 unit.
+
+**Deviations and follow-ups.**
+
+- (a) An anonymous request to an unmatched route is redirected to `/Account/Login` by the global
+  `FallbackPolicy` (`IdentityServiceExtensions`, `RequireAuthenticatedUser`) before Blazor's router
+  ever runs — `MapRazorComponents`'s fallback endpoint carries no derivable `[AllowAnonymous]`
+  metadata for that policy to see. So `/Error/404` is only reached anonymously via
+  `UseStatusCodePagesWithReExecute` for a non-Blazor 404 (an unmatched Razor Page/controller route),
+  and by a signed-in visitor otherwise, for an unmatched Blazor route. Accepted for this admin app;
+  revisit in Phase 6 alongside the security headers.
+- (b) `MobileSearchOverlay` is a plain `GET /Search` form with no live results — the legacy
+  `search.js` recent-searches/incremental-results panes are not reproduced; out of scope for this
+  round per plan §5 Phase 3's own "`Search` ... as the first interactive page" scoping.
+- (c) `Search`'s Command Log/Audit Log rows carry `data-utc`/`data-format` spans that
+  `wwwroot/js/timezone.js` converts client-side under the legacy shell, but nothing loads that
+  script (or an equivalent) under `MainLayout` yet, so those two columns render in UTC for now.
+  Cluster 4a — the first cluster with a timestamped list (`Admin/AuditLogs/Details`,
+  `Admin/MessageLogs/Details`, `CommandLogs/Details`) — adds the `browser.js` timezone conversion
+  (or a `LocalTime` component) and `Search`'s rows pick it up at the same time.
+- (d) Two more temporary probe pages join the Phase 1 ones (`/blazor-smoke`, `/admin/blazor-smoke`,
+  `/admin/blazor-probe`): `/Guilds/{guildId:long}/blazor-probe` (`GuildProbe.razor`, retained until
+  4b lands a real `GuildLayout` consumer) and `/Portal/{guildId:long}/blazor-probe`
+  (`PortalProbe.razor`, retained until 4f lands a real `PortalLayout` consumer).
+- (e) `tests/DiscordBot.Tests/Bot/Pages/DeletedPagesGuardTests.cs` scans `Pages/**/*.cshtml(.cs)`
+  for `asp-page`/`RedirectToPage`/`Url.Page` references to a route this round deleted
+  (`/Landing`, `/Search`, `/Error/403`, `/Error/404`, `/Error/500`, in its `DeletedPageRoutes`
+  list) — added after the review found `Pages/Account/Logout.cshtml.cs` and
+  `Pages/Shared/_Navbar.cshtml` still referencing `/Landing`/`/Search` after their `.cshtml` was
+  deleted, silently breaking (an empty form action; an `InvalidOperationException` at request time)
+  because the tag helper/MVC routing has no compile-time link to a page that no longer exists.
+  Every Phase 4 cluster that deletes another `.cshtml` extends `DeletedPageRoutes` with its own
+  route(s) rather than adding a new ad-hoc guard test.
+- (f) The route-conflict rule in §4.1 now reads: a `.cshtml` is deleted in the same PR that adds
+  its `.razor`, **and** every `asp-page`/`RedirectToPage`/`Url.Page` reference to it is swept in
+  that same PR, extending `DeletedPagesGuardTests`'s `DeletedPageRoutes` list — the §4.1 table cell
+  below is updated to match.
+- (g) `PortalLayout` loads `shared/keyboard-shortcuts.js`/`user-preferences.js` (class B) via
+  `<HeadContent>` for every non-`GuildNotFound` state, matching the legacy layout's "always
+  loaded regardless of state" behavior — but neither script is wired to anything yet
+  (`RegisterShortcut`/`UserPreferences.init(guildId)`); that wiring is Phase 4f's job, since no real
+  Portal page exists yet to drive it.
+
 ### Phase 4 — Page migration by cluster · 25–40 days · 25–35 PRs
 
 Order is by rising complexity so the component library hardens on easy pages first. Each PR migrates one cluster (2–6 pages), deletes the `.cshtml`s, their PageModel tests and page-specific JS, retires any P-class controller whose last consumer went, adds bUnit page tests and one Playwright smoke path, and updates `ui-inventory.md` and `feature-map.md`.
 
 | Cluster | Pages | Notes |
 | --- | --- | --- |
-| 4a Simple admin | `Admin/Users` ×4, `Admin/AuditLogs/Details`, `Admin/MessageLogs/Details`, `CommandLogs/Details`, `Account/Profile`, `Account/AccessDenied`, `Account/Lockout` | Classic forms → `EditForm`; TempData flash → `IToastService`. Client-side JSON download on AuditLogs details → `browser.js`. |
+| 4a Simple admin | `Admin/Users` ×4, `Admin/AuditLogs/Details`, `Admin/MessageLogs/Details`, `CommandLogs/Details`, `Account/Profile`, `Account/AccessDenied`, `Account/Lockout` | Classic forms → `EditForm`; TempData flash → `IToastService`. Client-side JSON download on AuditLogs details → `browser.js`. First cluster with a timestamped list (`AuditLogs`/`MessageLogs`/`CommandLogs` details) — adds the `browser.js` timezone conversion (or a `LocalTime` component) that `Search`'s own `data-utc` rows (§5 Phase 3 deviation (c)) pick up at the same time. |
 | 4b Simple guild | `Guilds/Edit`, `Welcome`, `AssistantSettings`, `AssistantMetrics`, `FeatureRequests` ×2, `Reminders`, `ScheduledMessages` ×3, `AudioModerationLog`, `RatWatch/Index` | First consumers of `GuildLayout`. ScheduledMessages needs timezone capture via `browser.js` and the live preview pane. Standardise on one pagination state type here. `AssistantSettings` now has a Tool Access checklist (with the "default set" banner) and `AssistantMetrics` three more server-rendered tables; both are still S/M with no charts. |
 | 4c Account | `Login`, `ExternalLogin`, `LinkDiscord`, `Logout`, `Privacy` + minimal-API endpoints | Static SSR. Preserve the `?authError` contract, `returnUrl` sanitising and `OnRemoteFailure` redirect. Verify with Playwright against a stubbed OAuth provider or a manual checklist. Remove jQuery and `_ValidationScriptsPartial`. Fix the dead `LoginWith2fa` branch (either remove or leave a documented no-op). `Login` is now a single centred card (the brand side panel and its CSS were removed on `main`); port that composition. |
 | 4d Lists and settings | `Guilds/Index`, `Guilds/Details`, `Members/Index` (+ detail modal), `Members/Moderation`, `FlaggedEvents` ×2, `ModerationSettings`, `AudioSettings`, `Admin/Logs` (unified; stubs become redirects), `Admin/Notifications`, `Admin/BulkPurge` (wire real progress from the event bus), `Admin/UserPurge`, `Admin/Settings`, `Admin/LlmUsage`, `RatWatch/Incidents` | Three save patterns collapse to component methods calling services. `Admin/Settings` and `ModerationSettings` get `TabGroup` + dirty tracking via `EditContext` + `beforeunload` guard. CSV exports become minimal-API GET endpoints. `Admin/Settings`'s AI Models tab (`llm-models.js`: lazily loaded OpenRouter catalog, allowlist, per-mode defaults) becomes its own component inside the settings `TabGroup`, loading on first activation and calling the catalog service directly; `LlmModelsController` retires with it. `Admin/LlmUsage`'s per-user drill-down (`llm-usage.js`) becomes a paged component call; `LlmUsageController` retires with it. |
