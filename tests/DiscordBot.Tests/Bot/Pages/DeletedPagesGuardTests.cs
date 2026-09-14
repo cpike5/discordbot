@@ -30,6 +30,10 @@ public class DeletedPagesGuardTests
         "/Account/Profile",
         "/Account/AccessDenied",
         "/Account/Lockout",
+        "/Admin/Users",
+        "/Admin/Users/Create",
+        "/Admin/Users/Edit",
+        "/Admin/Users/Details",
     };
 
     [Fact]
