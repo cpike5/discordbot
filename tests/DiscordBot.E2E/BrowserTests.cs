@@ -1429,11 +1429,19 @@ public sealed class BrowserTests
         await Expect(secondRow).ToBeVisibleAsync();
 
         await Expect(firstRow).ToHaveAttributeAsync("data-read", "false");
-        await firstRow.Locator("button[title='Mark read']").ClickAsync();
+        var markReadButton = firstRow.Locator("button[title='Mark read']");
+        // Wait for the circuit to actually attach before clicking - a click fired in the
+        // prerender-to-circuit handoff window is dropped, not queued (see docs/lessons-learned/
+        // blazor-editform-formname-race.md); the button's own disabled="@(!RendererInfo.IsInteractive)"
+        // binding is what makes this wait meaningful.
+        await Expect(markReadButton).ToBeEnabledAsync();
+        await markReadButton.ClickAsync();
         await Expect(firstRow).ToHaveAttributeAsync("data-read", "true");
         await Expect(page).ToHaveURLAsync(new Regex(@"/Admin/Notifications$"));
 
-        await secondRow.Locator("button[title='Delete']").ClickAsync();
+        var deleteButton = secondRow.Locator("button[title='Delete']");
+        await Expect(deleteButton).ToBeEnabledAsync();
+        await deleteButton.ClickAsync();
         await Expect(secondRow).Not.ToBeVisibleAsync();
     }
 
@@ -1455,6 +1463,12 @@ public sealed class BrowserTests
         var messagesCard = page.Locator(".hero-metric-card").Filter(new LocatorFilterOptions { HasTextString = "Messages" });
         await Expect(messagesCard.Locator(".hero-metric-value")).ToHaveTextAsync("3");
 
+        // The user row itself has no natural disabled state to wait on (it's a <tr>, not a
+        // button) - RendererInfo.IsInteractive is circuit-wide, not per-element, so waiting for
+        // the filter form's own disabled-gated Apply button to become enabled is a valid proxy
+        // for "the circuit has attached and every handler on this page is live", same idea as
+        // Test_ZE2's explicit ToBeEnabledAsync wait.
+        await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Apply" })).ToBeEnabledAsync();
         await page.Locator("[data-testid='llm-usage-user-row']").First.ClickAsync();
         await Expect(page.Locator("[data-testid='llm-usage-drilldown-row']")).ToHaveCountAsync(3);
     }
@@ -1507,7 +1521,11 @@ public sealed class BrowserTests
                 INSERT INTO UserNotifications (Id, UserId, Type, Title, Message, IsRead, CreatedAt)
                 VALUES ($id, $userId, 2, 'E2E Notification', 'Seeded for Test_ZE2', 0, $now)
                 """;
-            command.Parameters.AddWithValue("$id", id.ToString());
+            // Bind the Guid value directly, not .ToString() - see the CommandLogs.Id remark on
+            // SeedLogRows: Microsoft.Data.Sqlite's own Guid-parameter binding is what matches the
+            // TEXT format EF Core's SQLite provider reads back with FindAsync/GetByIdAsync; a
+            // hand-formatted string silently fails that lookup ("Notification ... not found").
+            command.Parameters.AddWithValue("$id", id);
             command.Parameters.AddWithValue("$userId", userId);
             // EF Core's SQLite provider stores/compares DateTime as TEXT in its own
             // "yyyy-MM-dd HH:mm:ss.fffffff" format (no 'T'/'Z') - a round-trip ("O") string sorts
@@ -1586,7 +1604,7 @@ public sealed class BrowserTests
                 INSERT INTO ModNotes (Id, GuildId, AuthorUserId, TargetUserId, Content, CreatedAt)
                 VALUES ($id, $guildId, $authorUserId, $targetUserId, 'E2E seeded note', $now)
                 """;
-            command.Parameters.AddWithValue("$id", Guid.NewGuid().ToString());
+            command.Parameters.AddWithValue("$id", Guid.NewGuid());
             command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
             command.Parameters.AddWithValue("$authorUserId", unchecked((long)discordUserId));
             command.Parameters.AddWithValue("$targetUserId", unchecked((long)(discordUserId + 1)));

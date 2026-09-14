@@ -32,6 +32,7 @@
             {
                 <button type="button" data-testid="entity-type-card"
                         class="@("text-left p-4 border rounded-lg transition-colors " + (EntityType == entityType ? "border-accent-orange bg-accent-orange/5" : "border-border-primary hover:bg-bg-hover"))"
+                        disabled="@(!RendererInfo.IsInteractive)"
                         @onclick="() => SelectEntityType(entityType)">
                     <span class="block font-medium text-text-primary">@entityType</span>
                 </button>

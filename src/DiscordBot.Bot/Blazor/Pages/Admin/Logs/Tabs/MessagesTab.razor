@@ -39,8 +39,8 @@ else
             <DateRangeFilter Start="StartInput" StartChanged="v => StartInput = v" End="EndInput" EndChanged="v => EndInput = v" />
 
             <div class="flex justify-end gap-2">
-                <button type="button" class="btn btn-secondary" @onclick="HandleClearFilters">Clear</button>
-                <button type="submit" class="btn btn-primary">
+                <button type="button" class="btn btn-secondary" disabled="@(!RendererInfo.IsInteractive)" @onclick="HandleClearFilters">Clear</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">
                     <Icon Path="@IconPaths.MagnifyingGlass" Class="w-4 h-4 mr-2" />
                     Search
                 </button>
