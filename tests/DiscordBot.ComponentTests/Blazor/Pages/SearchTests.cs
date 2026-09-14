@@ -150,6 +150,24 @@ public class SearchTests : BlazorComponentTestContext
     }
 
     [Fact]
+    public void Results_CommandLogAndAuditLogRows_RenderLocalTime()
+    {
+        AddAuthorizedAdmin().SetPolicies("RequireAdmin");
+        AddBunitPersistentComponentState();
+        var result = BuildFullResult("test");
+        result.AuditLogs.Items[0].Timestamp = new DateTime(2026, 9, 14, 12, 0, 0, DateTimeKind.Utc);
+        SetupSearch("test", result);
+
+        var cut = RenderWithQuery("test");
+
+        // One <LocalTime> for the command log row's ExecutedAt, one for the audit log row's
+        // Timestamp - see Search.razor's "Command Log Results List"/"Audit Log Results List"
+        // sections, ported off the plain data-utc spans (docs/plans/blazor-port-plan.md Phase 4
+        // cluster 4a).
+        cut.FindComponents<DiscordBot.Bot.Blazor.Shared.LocalTime>().Should().HaveCount(2);
+    }
+
+    [Fact]
     public void Results_HidesAdminOnlySections_ForViewer()
     {
         // No SetPolicies("RequireAdmin") - bUnit's fake authorization fails closed on a policy it

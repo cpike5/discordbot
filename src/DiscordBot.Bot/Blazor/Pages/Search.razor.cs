@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -53,6 +54,9 @@ public partial class Search : ComponentBase, IDisposable
     [Inject]
     private ILogger<Search> Logger { get; set; } = default!;
 
+    [Inject]
+    private BrowserInterop BrowserInterop { get; set; } = default!;
+
     /// <summary>The mapped results for the current <see cref="Q"/> - empty until the first search resolves.</summary>
     protected SearchResultsViewModel ViewModel { get; private set; } = new();
 
@@ -68,6 +72,16 @@ public partial class Search : ComponentBase, IDisposable
     private PersistingComponentStateSubscription _persistingSubscription;
     private string? _resolvedTerm;
 
+    /// <summary>
+    /// True once <see cref="ViewModel"/> has (re)rendered new <c>&lt;LocalTime&gt;</c> rows that
+    /// the browser's document-level <c>DOMContentLoaded</c>/<c>enhancedload</c> scan in
+    /// <c>localtime.js</c> never fires for - set whenever <see cref="SearchAsync"/> resolves a new
+    /// result set (including the persisted-state restore path in <see cref="OnInitializedAsync"/>,
+    /// whose hydration re-render can reset the client-side "already converted" marker Blazor's own
+    /// diff doesn't know to preserve), consumed by the next <see cref="OnAfterRenderAsync"/>.
+    /// </summary>
+    private bool _needsLocalTimeScan;
+
     private string PersistenceKey => $"Search.Results.{Q}";
 
     protected override async Task OnInitializedAsync()
@@ -81,6 +95,7 @@ public partial class Search : ComponentBase, IDisposable
             UserGuilds = restored.UserGuilds;
             _resolvedTerm = Q;
             IsLoading = false;
+            _needsLocalTimeScan = true;
         }
         else
         {
@@ -193,6 +208,16 @@ public partial class Search : ComponentBase, IDisposable
             unifiedResult.TotalResultCount);
 
         IsLoading = false;
+        _needsLocalTimeScan = true;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsLocalTimeScan)
+        {
+            _needsLocalTimeScan = false;
+            await BrowserInterop.ConvertLocalTimesAsync();
+        }
     }
 
     private async Task<ClaimsPrincipal> GetUserAsync()

@@ -208,7 +208,7 @@
                                             </span>
                                             <span class="flex items-center gap-1">
                                                 <Icon Path="@IconPaths.Clock" Class="w-3.5 h-3.5" />
-                                                <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-short"></span>
+                                                <LocalTime Utc="log.ExecutedAt" Format="datetime-short" />
                                             </span>
                                         </div>
                                     </div>
@@ -449,7 +449,7 @@
                                     @if (log.Timestamp.HasValue)
                                     {
                                         <p class="text-xs text-text-tertiary">
-                                            <span data-utc="@log.Timestamp.Value.ToString("o")" data-format="datetime-short"></span>
+                                            <LocalTime Utc="log.Timestamp.Value" Format="datetime-short" />
                                         </p>
                                     }
                                 </div>
