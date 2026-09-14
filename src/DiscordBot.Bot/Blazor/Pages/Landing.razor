@@ -1,11 +1,34 @@
 @page "/landing"
-@model DiscordBot.Bot.Pages.LandingModel
-@{
-    Layout = "_LayoutLanding";
-    ViewData["Title"] = "Discord Bot";
-}
+@layout LandingLayout
+@attribute [AllowAnonymous]
+@using DiscordBot.Core.Configuration
+@using Microsoft.Extensions.Options
+@inject IOptions<ApplicationOptions> ApplicationOptions
 
-@section Styles {
+@*
+    Static SSR port of Pages/Landing.cshtml + LandingModel (docs/plans/blazor-port-plan.md §5
+    Phase 3). [AllowAnonymous] is required here because Routes.razor's AuthorizeRouteView carries
+    a FallbackPolicy that requires authentication globally (docs/architecture/patterns.md "Blazor
+    Components"). No @@rendermode - this page has no server-side interactivity, only the two
+    plain-DOM scroll effects below, same as the cshtml it replaces.
+
+    Program.cs's "/" and "/Index" -> "/landing" redirect for anonymous visitors, and the tile
+    markup below (incl. the ".NET 8"/OpenRouter tech-stack tiles), are ported unchanged - neither
+    is touched by this round.
+
+    The two inline <script> blocks in the cshtml's @@section Scripts (parallax hero background,
+    scroll-spy nav highlighting) move to wwwroot/js/blazor/landing.js, a classic script (not an ES
+    module - nothing here needs a .NET-side interop wrapper) that initializes on both
+    DOMContentLoaded and Blazor's "enhancedload" event so it still runs if a future Blazor page
+    ever links here via client-side navigation instead of a full page load - see that file's own
+    header comment for the idempotency argument. [data-landing-page] on the <nav> below is its
+    hook for "is this the landing page" and its Playwright-visible "did I actually run" signal
+    (data-landing-js-ready).
+*@
+
+<PageTitle>Discord Bot</PageTitle>
+
+<HeadContent>
     <style>
         /* Smooth scrolling */
         html {
@@ -157,10 +180,11 @@
             }
         }
     </style>
-}
+    <script src="/js/blazor/landing.js"></script>
+</HeadContent>
 
 <!-- Sticky Navigation -->
-<nav class="bg-bg-secondary/95 backdrop-blur-sm border-b border-border-primary sticky top-0 z-50">
+<nav data-landing-page class="bg-bg-secondary/95 backdrop-blur-sm border-b border-border-primary sticky top-0 z-50">
     <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex items-center justify-center h-14">
             <div class="flex items-center gap-6 sm:gap-8">
@@ -570,50 +594,8 @@
                 </svg>
                 GitHub
             </a>
-            <span>v@(Model.Version)</span>
+            <span>v@(ApplicationOptions.Value.Version)</span>
             <span>&copy; @DateTime.UtcNow.Year cpike</span>
         </div>
     </div>
 </footer>
-
-@section Scripts {
-    <script>
-        // Parallax effect for hero background - respects reduced motion
-        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-            window.addEventListener('scroll', () => {
-                const scrolled = window.pageYOffset;
-                const hero = document.querySelector('.hero-bg');
-                if (hero && scrolled < 600) {
-                    hero.style.transform = `translateY(${scrolled * 0.3}px)`;
-                    hero.style.opacity = `${1 - (scrolled / 600)}`;
-                }
-            }, { passive: true });
-        }
-
-        // Active nav link on scroll
-        const sections = document.querySelectorAll('section[id]');
-        const navLinks = document.querySelectorAll('.nav-link');
-
-        function updateActiveNav() {
-            const scrollY = window.pageYOffset;
-
-            sections.forEach(section => {
-                const sectionTop = section.offsetTop - 100;
-                const sectionHeight = section.offsetHeight;
-                const sectionId = section.getAttribute('id');
-
-                if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
-                    navLinks.forEach(link => {
-                        link.classList.remove('active');
-                        if (link.getAttribute('href') === `#${sectionId}`) {
-                            link.classList.add('active');
-                        }
-                    });
-                }
-            });
-        }
-
-        window.addEventListener('scroll', updateActiveNav, { passive: true });
-        updateActiveNav();
-    </script>
-}

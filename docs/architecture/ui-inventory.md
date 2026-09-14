@@ -31,14 +31,19 @@ product pages.
 | `/admin/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Second `@page` route on the same component as `/blazor-smoke`, guarding a known .NET 10 regression where `blazor.web.js` resolved `_blazor/initializers` relative to a nested path instead of the app base, 404ing and leaving the circuit dead — see `tests/DiscordBot.E2E`. Both the flat and nested Playwright checks run against this one component. |
 | `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, `BrowserInterop`/`CircuitClientInfoService`, and (Phase 3) `IThemeInterop` — a theme select bound to `IThemeService.GetActiveThemesAsync()` that applies the pick client-side via the interop, then persists it via `IThemeService.SetUserThemeAsync` (no navbar theme toggle exists yet, so this is the interop's only caller — see `docs/articles/blazor-interop.md`). Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and stays retained with the rest of this page — see the note above. As of Phase 3, renders under `MainLayout` (see "Blazor Layouts" below), same as `/blazor-smoke`/`/admin/blazor-smoke`. |
 
-## Blazor Routes (Phase 2, permanent)
+## Blazor Routes (permanent)
 
-Unlike the Phase 1 probe/smoke routes above, this route is a permanent part of the app — it
+Unlike the Phase 1 probe/smoke routes above, these routes are a permanent part of the app — each
 replaces a Razor Page rather than proving the hosting foundation.
 
 | Route | File | Purpose |
 |-------|------|---------|
 | `/components` | `Blazor/Pages/Components/ComponentsPage.razor` | Component showcase / design-system reference, `RequireAdmin`-gated. Replaces the former Razor Page `Pages/Components.cshtml` (route `/Components` — ASP.NET Core endpoint routing matches both case-insensitively, so the sidebar's existing link keeps resolving). Composes the six tier showcase sections (`Blazor/Pages/Components/Sections/*Showcase.razor`) behind an anchor nav. As of Phase 3, renders under `MainLayout` (see "Blazor Layouts" below), which now supplies the shared `ToastHost`/`LoadingOverlay` islands this page used to host itself. See "Blazor components" table below for every component it showcases. |
+| `/landing` | `Blazor/Pages/Landing.razor` | Public marketing/landing page, `[AllowAnonymous]`, static SSR. Replaces `Pages/Landing.cshtml` + `LandingModel`. Renders under `LandingLayout` (see "Layouts" below); the two inline `@section Scripts` blocks the cshtml carried (hero parallax, scroll-spy nav highlight) move to the classic script `wwwroot/js/blazor/landing.js`. Also the target of Program.cs's unauthenticated `/` and `/Index` → `/landing` redirect middleware (unchanged). |
+| `/Error/403` | `Blazor/Pages/Error/Forbidden.razor` | Access forbidden, `[AllowAnonymous]`, static SSR. Replaces `Pages/Error/403.cshtml` + `ForbiddenModel`; the authenticated/anonymous button branch now reads the cascading `Task<AuthenticationState>` instead of `User.Identity.IsAuthenticated`. |
+| `/Error/404` | `Blazor/Pages/Error/NotFound.razor` | Page not found, `[AllowAnonymous]`, static SSR. Replaces `Pages/Error/404.cshtml` + `NotFoundModel`, fixing a fidelity bug: the requested-URL line now reads `IStatusCodeReExecuteFeature.OriginalPath`/`OriginalQueryString` when `UseStatusCodePagesWithReExecute` set them (falling back to `HttpContext.Request.Path` otherwise), rather than always showing `/Error/404` itself. Also `Routes.razor`'s `Router.NotFoundPage` target — the .NET 10 mechanism that renders this component (and returns a real HTTP 404) when no `@page` route matches, for a signed-in visitor. An anonymous visitor hitting an unmatched route never reaches it: `MapRazorComponents`'s generic "no match" fallback endpoint carries no derivable `[AllowAnonymous]` metadata, so `IdentityServiceExtensions`'s pre-existing global `FallbackPolicy` (`RequireAuthenticatedUser`) redirects to `/Account/Login` first — a known gap orthogonal to this page, left for a future PR/decision. |
+| `/Error/500` | `Blazor/Pages/Error/ServerError.razor` | Server error, `[AllowAnonymous]`, static SSR. Replaces `Pages/Error/500.cshtml` + `ServerErrorModel`; `RequestId` is `[SupplyParameterFromQuery]` falling back to `HttpContext.TraceIdentifier`, and exception message/stack trace still gate on `IWebHostEnvironment.IsDevelopment()` via `IExceptionHandlerPathFeature`. Program.cs's `UseExceptionHandler("/Error/500")` reaches it unchanged. |
+
 
 ## Blazor Layouts
 
@@ -52,7 +57,12 @@ above (`/blazor-smoke`, `/admin/blazor-smoke`, `/admin/blazor-probe`, `/componen
 | `EmptyLayout` | static SSR | `Layout = null` pages | No chrome — `Routes.razor`'s `DefaultLayout` until every page opts into `MainLayout`. |
 | `MainLayout` | static SSR + islands | `Pages/Shared/_Layout.cshtml` + `_Navbar.cshtml` + `_Sidebar.cshtml` + `_MobileSearchOverlay.cshtml` + root `_ToastContainer.cshtml` | `MainSidebar` (role-gated via `AuthorizeView Policy`, active-link state from `ShellNavigation`), `MainNavbar` (search form, user menu, `NotificationBell` island), `MobileSearchOverlay` (plain `GET /Search` form — no live recent/results panes yet, a recorded Phase 3 deviation from the legacy JS-driven overlay), an `ErrorBoundary` around `@Body`, and `ToastHost`/`LoadingOverlay` islands. Sidebar/navbar/mobile-search interactivity (collapse, drawer, user menu, Ctrl/Cmd+K) is `wwwroot/js/blazor/shell.js`, a classic script loaded after `blazor.web.js` in `App.razor`. See "Blazor Components" in `patterns.md` for the static-shell-plus-islands pattern. |
 
-`GuildLayout`/`PortalLayout`/`LandingLayout` are not built yet — later phases per the port plan.
+`LandingLayout` (static SSR, replaces `_LayoutLanding.cshtml` for `/landing`; Login still uses the cshtml layout) landed with the landing page; `GuildLayout`/`PortalLayout` follow in the same phase.
+
+
+Error-page "Go Back"/"Try Again" buttons are `<button data-error-action="back\|reload">` wired by
+a delegated click listener in the classic script `wwwroot/js/blazor/error-pages.js`, rather than
+the cshtml's inline `onclick`, so they survive the `script-src 'self'` CSP planned for Phase 6.
 
 ---
 
@@ -62,7 +72,6 @@ above (`/blazor-smoke`, `/admin/blazor-smoke`, `/admin/blazor-probe`, `/componen
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/` | `Pages/Landing.cshtml` | Unauthenticated landing page |
 | `/index` | `Pages/Index.cshtml` | Authenticated home/dashboard |
 
 ### Account Pages
@@ -145,25 +154,25 @@ above (`/blazor-smoke`, `/admin/blazor-smoke`, `/admin/blazor-probe`, `/componen
 | `/portal/tts` | `Pages/Portal/TTS/Index.cshtml` | Public TTS interface |
 | `/portal/vox` | `Pages/Portal/VOX/Index.cshtml` | Public VOX clip player |
 
-### Error Pages
-
-| Route | File | Purpose |
-|-------|------|---------|
-| `/error/403` | `Pages/Error/403.cshtml` | Access forbidden |
-| `/error/404` | `Pages/Error/404.cshtml` | Page not found |
-| `/error/500` | `Pages/Error/500.cshtml` | Server error |
+Error pages (`/error/403`, `/error/404`, `/error/500`) and the public landing page (`/`) moved to
+Blazor — see "Blazor Routes (permanent)" above.
 
 ---
 
 ## Layouts
 
-All layouts are located in `Pages/Shared/`.
+All layouts below are located in `Pages/Shared/`.
 
 | Layout | File | Purpose | Used By |
 |--------|------|---------|---------|
 | **Main Layout** | `_Layout.cshtml` | Default authenticated layout with navbar, sidebar, footer | Most admin/guild pages |
-| **Landing Layout** | `_LayoutLanding.cshtml` | Unauthenticated layout for public pages | Landing, Login pages |
+| **Landing Layout** | `_LayoutLanding.cshtml` | Unauthenticated layout for public pages | Login pages only — the public landing page (`/landing`) moved to Blazor's own `LandingLayout` (below) |
 | **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context | Guild pages under `/guild/{guildId}/*` |
+
+The Blazor tree has its own layouts alongside these: `Blazor/Layout/EmptyLayout.razor` (no chrome
+— today's default, see "Blazor Routes" above) and `Blazor/Layout/LandingLayout.razor` (marketing
+shell for `/landing` — no chrome of its own either, since `App.razor` already owns the document
+`<head>`/theme for the whole app; see "Blazor Routes (permanent)" above).
 
 ### Layout Components
 
@@ -512,7 +521,7 @@ Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Bl
 
 | Layout | Routes | Key Feature |
 |--------|--------|-------------|
-| **_LayoutLanding** | `/`, `/account/login`, `/account/external-login`, `/account/link-discord` | Public pages with minimal chrome |
+| **_LayoutLanding** | `/account/login`, `/account/external-login`, `/account/link-discord` | Public pages with minimal chrome — `/landing` (what `/` redirects anonymous visitors to) moved to Blazor's own `LandingLayout`, see "Layouts" above |
 | **_Layout** | Admin, Command, Home pages | Full nav + sidebar authenticated layout |
 | **_GuildLayout** | All `/guild/{guildId}/*` routes | Guild context header + nav |
 | **Portal (_ViewStart)** | `/portal/*` routes | Portal-specific initialization |

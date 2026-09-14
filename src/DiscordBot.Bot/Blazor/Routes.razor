@@ -1,7 +1,8 @@
 @* Stays static SSR - no @rendermode here. Interactivity is per-page (plan §4.1): each page
    opts in with its own @rendermode InteractiveServer. Putting a render mode on this component
    would make the whole app interactive instead. *@
-<Router AppAssembly="typeof(Program).Assembly">
+@using DiscordBot.Bot.Blazor.Pages.Error
+<Router AppAssembly="typeof(Program).Assembly" NotFoundPage="typeof(NotFound)">
     <Found Context="routeData">
         <AuthorizeRouteView RouteData="routeData" DefaultLayout="typeof(EmptyLayout)">
             <NotAuthorized>

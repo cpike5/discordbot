@@ -296,6 +296,85 @@ public sealed class BrowserTests
     }
 
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
+    [E2EFact]
+    public async Task Test_G_Landing_Anonymous_RendersHero_WithoutLoginRedirect()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await page.GotoAsync("/landing");
+        await Expect(page).ToHaveURLAsync(new Regex(@"/landing$"));
+        await Expect(page.Locator("h1")).ToHaveTextAsync(new Regex(@"^\s*Discord Bot\s*$"));
+        await Expect(page.Locator("[data-landing-page]")).ToHaveAttributeAsync("data-landing-js-ready", "true");
+
+        // The "/" -> "/landing" redirect (Program.cs) for an anonymous visitor - not touched this
+        // round, but the page it lands on is now this component instead of the old cshtml.
+        await page.GotoAsync("/");
+        await Expect(page).ToHaveURLAsync(new Regex(@"/landing$"));
+    }
+
+    /// <summary>
+    /// Covers Routes.razor's new <c>NotFoundPage="typeof(NotFound)"</c> (plan §5 Phase 3 step 3):
+    /// for a SIGNED-IN visitor, an unmatched URL renders Blazor/Pages/Error/NotFound.razor's
+    /// markup AND returns an actual HTTP 404 - the .NET 10 Router.NotFoundPage fix over the older
+    /// NotFound-render-fragment-only behaviour, which always returned 200 (verified directly:
+    /// curling the same build pre-fix-adoption always returns 200 for an unmatched route).
+    ///
+    /// There is deliberately no anonymous case here: an anonymous visitor hitting an unmatched
+    /// URL never reaches the Router at all. MapRazorComponents' generic "no @page matched"
+    /// fallback endpoint carries no [Authorize]/[AllowAnonymous] metadata of its own (there is no
+    /// matched page component to derive it from), so IdentityServiceExtensions'
+    /// pre-existing/out-of-scope global `FallbackPolicy` (RequireAuthenticatedUser, applied to
+    /// any endpoint without explicit authorization metadata) intercepts it in UseAuthorization()
+    /// before Blazor's Router ever runs, 302-redirecting to /Account/Login - confirmed by curling
+    /// the running host directly: every matched [AllowAnonymous] page (/landing, /Error/403,
+    /// /Error/404, /Error/500) returns 200, but /this/does/not/exist always 302s regardless. This
+    /// is a pre-existing interaction between Program.cs's endpoint registration and
+    /// IdentityServiceExtensions' FallbackPolicy, neither of which this round may touch - flagged
+    /// for the orchestrator rather than worked around here (see the PR/handoff notes).
+    /// </summary>
+    [E2EFact]
+    public async Task Test_H_UnknownRoute_Returns404Page()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        var response = await page.GotoAsync("/this/does/not/exist");
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(404, "an unmatched route must return a real 404 for a signed-in user");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Page Not Found");
+        await Expect(page.Locator("body")).ToContainTextAsync("/this/does/not/exist");
+    }
+
+    /// <summary>
+    /// Covers Blazor/Pages/Error/{Forbidden,ServerError}.razor rendering anonymously (plan §5
+    /// Phase 3) - both carry [AllowAnonymous] against Routes.razor's authenticated-by-default
+    /// FallbackPolicy, and Program.cs's UseExceptionHandler("/Error/500") reaches ServerError the
+    /// same way it reached the old cshtml.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_N_ErrorPages_RenderAnonymously()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await page.GotoAsync("/Error/403");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Access Forbidden");
+        await Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Sign In", Exact = true })).ToBeVisibleAsync();
+
+        await page.GotoAsync("/Error/500?requestId=e2e-request-abc");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Something Went Wrong");
+        await Expect(page.Locator("body")).ToContainTextAsync("e2e-request-abc");
+    }
+    /// <summary>
+    /// Opens a page off <paramref name="context"/> and, when <see cref="BotHostFixture.LogDirectory"/>
+    /// is set (i.e. E2E_ENABLED=1), appends its console messages and uncaught page errors to
+    /// <c>browser-console.log</c> in that same per-run directory alongside host.log - so a
+    /// failure in CI leaves both the server's and the browser's own account of what happened.
+    /// </summary>
+    /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
+
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");
