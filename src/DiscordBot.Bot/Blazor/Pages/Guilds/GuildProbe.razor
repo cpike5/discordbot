@@ -1,0 +1,83 @@
+@page "/Guilds/{guildId:long}/blazor-probe"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@inject NavigationManager Nav
+
+@*
+    Temporary Phase 3 probe page (docs/plans/blazor-port-plan.md §5 Phase 3), proving GuildLayout +
+    GuildPageBase + GuildContextGate work together end to end on a real routable, interactive guild
+    page - the same role BlazorProbe.razor plays for the Phase 1 hosting foundation. Retained until
+    Phase 4b replaces it with the first real ported guild page (see the "Blazor Routes" retention
+    note this page's ui-inventory.md entry links back to).
+*@
+
+<PageTitle>Guild Blazor Probe</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        <div class="space-y-6" data-testid="probe-guild-context">
+            <div>
+                <h1 class="page-title">Guild Context Probe</h1>
+                <p class="mt-1 text-sm text-text-secondary">
+                    Temporary Phase 3 page proving <code class="font-mono">GuildLayout</code>,
+                    <code class="font-mono">GuildPageBase</code> and
+                    <code class="font-mono">GuildContextGate</code> resolve, cascade and render
+                    correctly for a real interactive guild route.
+                </p>
+            </div>
+
+            <section class="card">
+                <div class="card-header">
+                    <h2 class="card-title">Resolved GuildContext</h2>
+                </div>
+                <div class="card-body">
+                    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <dt class="text-text-secondary">Guild name</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-guild-name">@guild.Guild.Name</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">Guild id</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-guild-id">@guild.GuildIdString</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">CanEdit</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-can-edit">@guild.CanEdit</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">IsAppAdmin</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-is-app-admin">@guild.IsAppAdmin</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">IsGuildAdmin</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-is-guild-admin">@guild.IsGuildAdmin</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">AudioEnabled</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-audio-enabled">@guild.AudioEnabled</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">RatWatchEnabled</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-ratwatch-enabled">@guild.RatWatchEnabled</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">Active tab</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-active-tab">@(ActiveTabId ?? "(none)")</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">Tab count</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-tab-count">@guild.Tabs.Count</dd>
+                        </div>
+                    </dl>
+                </div>
+            </section>
+        </div>
+    </ChildContent>
+</GuildContextGate>
+
+@code {
+    private string? ActiveTabId => GuildRoutes.ResolveActiveTabId(Nav.Uri, (ulong)GuildId);
+}

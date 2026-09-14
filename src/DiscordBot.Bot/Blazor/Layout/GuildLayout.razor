@@ -1,0 +1,153 @@
+@inherits LayoutComponentBase
+@namespace DiscordBot.Bot.Blazor.Layout
+@layout MainLayout
+@using System.Security.Claims
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Configuration
+@using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IGuildContextProvider ContextProvider
+@inject NavigationManager Nav
+
+@*
+    Static SSR (no @@rendermode here - see "Interactivity is per-page" in
+    docs/architecture/patterns.md, "Blazor Components"). Replaces Pages/Shared/_GuildLayout.cshtml
+    + GuildNavBarHelper for pages that opt in via "@@layout GuildLayout" (plan §4.7/§5 Phase 3).
+    Nested under MainLayout ("@@layout MainLayout" above), so it only ever contributes the guild
+    breadcrumb/header/nav chrome + @@Body - MainLayout still supplies the sidebar/navbar/toast/
+    loading islands around it.
+
+    Runs once, during the same static render pass GuildPageBase's prerender resolution runs in -
+    a page's own @@rendermode InteractiveServer only makes that PAGE component (and its
+    descendants) interactive, never its ancestor layout (render modes cascade downward from an
+    ancestor to its descendants, and the layout is the page's ancestor here, wrapping it via
+    @@Body - see "The static-layout-vs-page resolution rule" in patterns.md, "GuildContext"). So
+    this layout is never re-rendered once the circuit takes over; it has no need for
+    PersistentComponentState of its own the way GuildPageBase does, and its own
+    IGuildContextProvider call within the initial request's DI scope is what the "agree without a
+    cascading parameter" note in that same section is about - it and the page each resolve once,
+    independently, from the same (guildId, user) inputs, and the memoisation in that one shared
+    scope means only the first of the two actually hits the database.
+
+    GuildLayout has no route-parameter binding of its own (it wraps whatever page routed), so it
+    reads the guild id straight off NavigationManager.Uri via GuildRoutes.TryGetGuildId - the same
+    approach GuildPageBase's sibling, a routable page, gets for free from its {guildId:long} route
+    parameter. A URI with no guild id (not expected for anything using this layout today, but a
+    defensive fallback) renders @@Body with no chrome at all.
+
+    NotFound/Forbidden: this layout omits the breadcrumb/header/nav entirely and renders @@Body
+    unchanged - GuildContextGate inside that page's own markup is what shows the 404/403 content,
+    using the *page's own* GuildPageBase.Result (a second, independent resolution - see the note
+    above), not this layout's.
+
+    Page title: no per-page title reaches this layout (a page sets Blazor's own <PageTitle>,
+    the browser tab title, itself - unrelated to GuildHeader's PageTitle, the on-page H1). Per the
+    Phase 3 brief this deliberately skips a page-title-carrying mechanism (a second GuildLayout
+    parameter, or a cascading value) in favor of the simplest thing that reads right on every
+    guild page: the active tab's Label doubles as both the header's PageTitle and the breadcrumb's
+    trailing segment - GuildContext.Breadcrumb(string?)'s own doc comment already documents this
+    exact null-vs-page-name split (null reproduces BuildBasicBreadcrumb, a page name reproduces
+    BuildPageBreadcrumb). The Overview tab is the one exception, matching legacy behavior: Overview
+    itself IS the guild-details page, so it gets the plain "guild name is current" breadcrumb
+    (Breadcrumb(null)) rather than a redundant "... > GuildName > Overview" - and a route that
+    matches no tab at all (e.g. a probe/utility page under a guild) falls back to the guild's own
+    name as the header title with the same plain breadcrumb.
+
+    Mobile nav: a native <select> (data-shell-action="navigate-select", a one-line addition to
+    wwwroot/js/blazor/shell.js's delegated dispatch) replacing the legacy hand-rolled
+    button+absolutely-positioned-menu dropdown (_GuildLayout.cshtml's #guildNavDropdownToggle/
+    #guildNavDropdownMenu, driven by guild-nav.js). A native select needs no JS to be keyboard- and
+    screen-reader-accessible (arrow keys, typeahead, Escape-to-close are all free), matches the
+    "details/summary vs <select>" choice this brief calls out to make explicit, and the layout has
+    no IJSRuntime of its own (static SSR) to drive anything more custom. tab-panel.js/guild-nav.js
+    are not loaded - TabGroup's own keyboard handling covers the desktop tabs (docs/articles/
+    blazor-components.md, TabGroup's own header comment on Mode=Navigation's known fidelity
+    deviation: no imperative roving focus there, NavLink/anchor tab order still works).
+*@
+
+@if (!GuildRoutes.TryGetGuildId(Nav.Uri, out var guildId))
+{
+    @Body
+}
+else
+{
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        @if (_result is { Status: GuildContextStatus.Ok } && _result.Context is { } context)
+        {
+            var orderedTabs = context.Tabs.OrderBy(t => t.Order).ToList();
+            var activeTabId = GuildRoutes.ResolveActiveTabId(Nav.Uri, guildId);
+            var activeTab = orderedTabs.FirstOrDefault(t => t.Id == activeTabId);
+            var isOverview = activeTab is { Id: "overview" };
+            var headerTitle = isOverview || activeTab is null ? context.Guild.Name : activeTab.Label;
+            var breadcrumbItems = context.Breadcrumb(isOverview || activeTab is null ? null : activeTab.Label);
+            var tabItems = orderedTabs
+                .Select(t => new TabItem
+                {
+                    Id = t.Id,
+                    Label = t.Label,
+                    Href = t.GetUrl(guildId),
+                    IconPath = t.IconOutline
+                })
+                .ToList();
+
+            <Breadcrumb Items="breadcrumbItems" />
+
+            <GuildHeader GuildId="@context.GuildIdString"
+                         Name="@context.Guild.Name"
+                         IconUrl="@context.Guild.IconUrl"
+                         PageTitle="@headerTitle" />
+
+            <div class="guild-nav-container mb-6" id="guildNavContainer">
+                <!-- Desktop: Horizontal tabs -->
+                <div class="hidden sm:block">
+                    <TabGroup Id="guildNav"
+                              Tabs="tabItems"
+                              ActiveTabId="@activeTabId"
+                              Mode="TabGroupMode.Navigation"
+                              StyleVariant="TabStyleVariant.Pills"
+                              AriaLabel="Guild sections" />
+                </div>
+
+                <!-- Mobile: native select, navigates on change (wwwroot/js/blazor/shell.js) -->
+                <div class="guild-nav-dropdown sm:hidden">
+                    <label for="guildNavMobileSelect" class="sr-only">Guild navigation</label>
+                    <select id="guildNavMobileSelect"
+                            class="guild-nav-dropdown-button w-full"
+                            data-shell-action="navigate-select"
+                            aria-label="Guild navigation">
+                        @foreach (var tab in orderedTabs)
+                        {
+                            <option value="@tab.GetUrl(guildId)" selected="@(tab.Id == activeTabId)">@tab.Label</option>
+                        }
+                    </select>
+                </div>
+            </div>
+        }
+
+        <div class="guild-page-content">
+            @Body
+        </div>
+    </div>
+}
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private GuildContextResult? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!GuildRoutes.TryGetGuildId(Nav.Uri, out var guildId))
+        {
+            return;
+        }
+
+        var user = AuthenticationStateTask is not null
+            ? (await AuthenticationStateTask).User
+            : new ClaimsPrincipal(new ClaimsIdentity());
+
+        _result = await ContextProvider.GetAsync(guildId, user);
+    }
+}

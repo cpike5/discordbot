@@ -14,6 +14,11 @@
  * inline onclick= - Phase 6 adds a CSP) so it survives Blazor's enhanced navigation, which patches
  * the DOM in place rather than reloading the page and would otherwise leave a freshly-swapped
  * sidebar/navbar with no listeners of its own.
+ *
+ * Also handles GuildLayout's mobile guild-nav <select> (data-shell-action="navigate-select",
+ * Blazor/Layout/GuildLayout.razor) via a delegated `change` listener - the same static-SSR-has-no-
+ * IJSRuntime reasoning as everything else here, just on a different DOM event than the click-based
+ * actions below.
  */
 (function () {
     if (window.__discordBotShellInitialized) {
@@ -190,6 +195,18 @@
         var withinMenu = event.target.closest && event.target.closest('#userMenu');
         if (!withinButton && !withinMenu) {
             closeUserMenu();
+        }
+    });
+
+    // ---------------------------------------------------------------------
+    // GuildLayout's mobile guild-nav <select> (Blazor/Layout/GuildLayout.razor):
+    // navigates on change, same as a plain <a href> tap would on the desktop tab strip.
+    // ---------------------------------------------------------------------
+
+    document.addEventListener('change', function (event) {
+        var target = event.target.closest ? event.target.closest('[data-shell-action="navigate-select"]') : null;
+        if (target && target.value) {
+            window.location.href = target.value;
         }
     });
 
