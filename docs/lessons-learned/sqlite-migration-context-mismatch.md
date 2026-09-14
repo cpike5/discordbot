@@ -68,3 +68,58 @@ And when a "re-baseline" migration for a newly-split context recreates a table t
 now-orphaned migration used to seed, check whether that seed data needs to be carried forward too
 - a model-diff tool has no way to know a `CreateTable` needs an `InsertData` alongside it if the
 only record of that data lived in a migration the tool no longer considers part of the chain.
+
+**A third bug the fix exposed: existing deployments could not boot.** The two bugs above are about
+*fresh* databases. Every database that had already been created under the broken registration has
+exactly the 40 base-`BotDbContext` migration ids in `__EFMigrationsHistory` and none of the
+`SqliteBotDbContext` ones. Once the registration is fixed, the migrator sees a history it does not
+recognise at all and treats the whole current lineage - starting with the
+`20260219205009_AddIsEnabledToGuildModerationConfig` re-baseline and its 54 `CreateTable`s - as
+pending. Its first statement is `CREATE TABLE "ApplicationSettings"` against a database that
+already has one, so `Program.cs`'s unguarded startup `MigrateAsync()` throws
+`SQLite Error 1: 'table "ApplicationSettings" already exists'` and the process never starts.
+The fix that repairs new installs would therefore have bricked every existing one.
+
+**The upgrade path.** `Infrastructure/Data/Migrations/SqliteLegacyHistoryRepair.cs` runs from
+`Program.cs` immediately before `MigrateAsync`, SQLite only. It detects the pre-fix state
+(`__EFMigrationsHistory` contains `20260127225612_AddSsmlSupportToGuildTtsSettings` but not the
+re-baseline), applies the schema delta, and records the re-baseline as applied with the
+`ProductVersion` already in the history table. The remaining migrations then run normally, because
+they only add new tables and columns. It is a no-op on a fresh database, on an already-repaired
+one, and on PostgreSQL, so it is safe on every boot.
+
+**The delta turned out to be one column.** Comparing the two end states object by object -
+`sqlite_master` plus `PRAGMA table_info` for all 57 tables, built by migrating the base context and
+the re-baseline separately into two temp files - showed them identical apart from
+`GuildModerationConfigs.IsEnabled`, the column the re-baseline migration is actually named for.
+That is the whole point of a re-baseline scaffolded as a model diff: it re-describes the schema the
+legacy chain had already built, so almost none of it is new. This is why the repair is a single
+`ALTER TABLE ... ADD COLUMN` and not a second "catch-up" migration full of `IF NOT EXISTS` DDL. It
+supplies `DEFAULT 1` because SQLite cannot add a `NOT NULL` column without a default, and `1`
+matches the entity's CLR initialiser - a guild that had moderation configured before the flag
+existed stays moderated. (Two columns, `GuildAudioSettings.SilentPlayback` and
+`MetricSnapshots.CpuUsagePercent`, carry `DEFAULT` clauses in a legacy database that a fresh one
+lacks, because they arrived via `AddColumn(defaultValue:)`. SQLite cannot drop a default without
+rebuilding the table, and EF never reads them, so they are left alone.)
+
+**Guardrail.** Before stamping anything, the repair reads the re-baseline migration's own
+`UpOperations` and checks that every table and column it declares already exists. If any is
+missing, it throws with the list instead of writing a history row - a history row that lies about
+the schema is unrecoverable, because every future migration then assumes those objects are there.
+It also stands aside with a Warning, rather than guessing, on a history that contains neither
+marker.
+
+**The re-baseline dropped two sets of seed rows, not one.** `Themes` was the visible one (the
+layout throws without a default theme). `PerformanceAlertConfigs` was the quiet one: eight default
+alert thresholds that `Migrations/Postgresql/20260219132220_InitialPostgresql.cs` seeds and the
+SQLite re-baseline did not, so every fresh SQLite install came up with an empty alert-configuration
+table and nothing to threshold against. `20260914065633_SeedPerformanceAlertConfigsSqlite` restores
+them, copied row for row from the Postgres migration, with `INSERT OR IGNORE` so it is a no-op on a
+database that already has them.
+
+**Rule that falls out of it.** A registration fix that changes which migrations EF considers
+applied is a data-migration problem, not just a DI problem. Before shipping one, build the old
+on-disk state the way the bug built it and boot against it - `tests/DiscordBot.Tests/Infrastructure/Data/SqliteLegacyHistoryRepairTests.cs`
+does exactly that, by migrating the base `BotDbContext` into a temp file - and assert that the
+upgraded schema is byte-for-byte what a from-scratch database gets. "It works on a new database"
+is not evidence about the databases that already exist.

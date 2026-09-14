@@ -688,6 +688,12 @@ sudo /opt/discordbot/update-from-release.sh --force
 8. Starts the service and verifies it's running
 9. Rolls back automatically if the service fails to start
 
+> **SQLite deployments:** the first boot after upgrading past the migration-context fix repairs the
+> database's migration history automatically and logs a `Warning` saying what it changed. Nothing is
+> required of you, but read
+> [database-schema.md § Upgrading a SQLite database created before the migration-context fix](database-schema.md#upgrading-a-sqlite-database-created-before-the-migration-context-fix)
+> before you upgrade, and keep the backup this script takes.
+
 ### Alternative: Manual Update from Main Branch
 
 If you prefer to deploy from the main branch (latest code, may be unstable):

@@ -154,6 +154,18 @@ dotnet ef migrations add Name --project src/DiscordBot.Infrastructure --startup-
 dotnet run --project src/DiscordBot.Bot -- migrate-data --source "Data Source=data/discordbot.db" --target "Host=localhost;Database=discordbot;Username=discordbot;Password=changeme"
 ```
 
+`Migrations/Sqlite` holds two lineages: 40 superseded migrations attributed to the
+base `BotDbContext` (ending at `20260127225612_AddSsmlSupportToGuildTtsSettings`)
+and the live one attributed to `SqliteBotDbContext` (from the
+`20260219205009_AddIsEnabledToGuildModerationConfig` re-baseline onward) — EF matches
+a migration to a context by exact runtime type, so a SQLite migration scaffolded
+with anything but `--context SqliteBotDbContext` is invisible to the running app
+and applies silently to nothing. A database created before that split was fixed has
+only the 40 legacy ids in `__EFMigrationsHistory`, so `SqliteLegacyHistoryRepair`
+(called from `Program.cs` immediately before `MigrateAsync`, SQLite only) brings it
+to the re-baseline first; see
+`docs/lessons-learned/sqlite-migration-context-mismatch.md`.
+
 A schema change ships with **both** migrations, and with `data-model.md` updated
 if it adds or changes an entity. `Database:Provider` (`Sqlite` or `PostgreSql`)
 selects the provider explicitly; omitted, it is inferred from the connection

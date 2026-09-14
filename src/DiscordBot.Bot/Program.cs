@@ -3,6 +3,7 @@ using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Infrastructure.Data.Migrations;
 using DiscordBot.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -222,6 +223,15 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<BotDbContext>();
+
+        // A SQLite database created before the SqliteBotDbContext registration fix has only the
+        // superseded BotDbContext lineage in __EFMigrationsHistory, which makes MigrateAsync try to
+        // re-create tables that already exist. This brings that history up to the re-baseline first;
+        // it is a no-op on a fresh database, on an already-repaired one, and on PostgreSQL.
+        await SqliteLegacyHistoryRepair.RepairAsync(
+            db,
+            scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(SqliteLegacyHistoryRepair)));
+
         await db.Database.MigrateAsync();
     }
 
