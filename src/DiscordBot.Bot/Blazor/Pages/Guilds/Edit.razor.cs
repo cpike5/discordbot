@@ -1,9 +1,12 @@
 using System.ComponentModel.DataAnnotations;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds;
 
@@ -26,6 +29,9 @@ public partial class Edit : GuildPageBase
 
     [Inject]
     private IGuildAudioSettingsService AudioSettingsService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IToastService Toast { get; set; } = default!;
@@ -79,7 +85,7 @@ public partial class Edit : GuildPageBase
         Logger.LogInformation("User submitting guild edit for guild {GuildId}, IsActive={IsActive}", guildId, Input.IsActive);
 
         var updateRequest = new GuildUpdateRequestDto { IsActive = Input.IsActive };
-        var result = await GuildService.UpdateGuildAsync(guildId, updateRequest);
+        var result = await ScopeFactory.RunAsync<IGuildService, GuildDto?>(s => s.UpdateGuildAsync(guildId, updateRequest));
 
         if (result is null)
         {
@@ -90,12 +96,12 @@ public partial class Edit : GuildPageBase
 
         try
         {
-            await AudioSettingsService.UpdateSettingsAsync(guildId, settings =>
+            await ScopeFactory.RunAsync<IGuildAudioSettingsService, GuildAudioSettings>(s => s.UpdateSettingsAsync(guildId, settings =>
             {
                 settings.AudioEnabled = Input.AudioEnabled;
                 settings.AutoLeaveTimeoutMinutes = Input.AutoLeaveTimeoutMinutes;
                 settings.QueueEnabled = Input.QueueEnabled;
-            });
+            }));
         }
         catch (Exception ex)
         {

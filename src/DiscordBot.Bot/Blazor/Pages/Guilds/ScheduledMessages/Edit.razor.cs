@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Blazor.Interop;
@@ -8,6 +9,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Utilities;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds.ScheduledMessages;
 
@@ -25,6 +27,9 @@ public partial class Edit : GuildPageBase
 
     [Inject]
     private IScheduledMessageService ScheduledMessageService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IDiscordChannelResolver ChannelResolver { get; set; } = default!;
@@ -56,6 +61,9 @@ public partial class Edit : GuildPageBase
     private DateTime _nextExecutionUtc;
     private bool _timeZoneApplied;
 
+    /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>'s field of the same name.</summary>
+    private int _loadGeneration;
+
     protected override async Task OnGuildContextReadyAsync()
     {
         if (Guild is null)
@@ -66,7 +74,13 @@ public partial class Edit : GuildPageBase
         await LoadAsync();
     }
 
-    /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>.</summary>
+    /// <summary>
+    /// See the identical note on <c>FeatureRequests/Index.razor.cs</c>'s <c>OnParametersSet</c>
+    /// override - dispatches through <see cref="ComponentBase.InvokeAsync(Action)"/> instead of a
+    /// bare fire-and-forget task, so a second <see cref="Id"/> change landing while an earlier
+    /// reload is still in flight can't leave an unobserved exception (<see cref="LoadAsync"/>
+    /// itself also catches and surfaces one via <see cref="ErrorMessage"/> - see there).
+    /// </summary>
     protected override void OnParametersSet()
     {
         base.OnParametersSet();
@@ -74,7 +88,7 @@ public partial class Edit : GuildPageBase
         if (Guild is not null && _resolvedId != Id)
         {
             _timeZoneApplied = false;
-            _ = ReloadAndRerenderAsync();
+            _ = InvokeAsync(ReloadAndRerenderAsync);
         }
     }
 
@@ -86,40 +100,62 @@ public partial class Edit : GuildPageBase
 
     private async Task LoadAsync()
     {
+        var generation = ++_loadGeneration;
         _resolvedId = Id;
-        var message = await ScheduledMessageService.GetByIdAsync(Id);
-        if (message is null || message.GuildId != (ulong)GuildId)
+        ErrorMessage = null;
+
+        try
         {
-            NotFoundState = true;
-            return;
+            var message = await ScheduledMessageService.GetByIdAsync(Id);
+            if (generation != _loadGeneration)
+            {
+                // A newer load (another Id navigated to) already superseded this one - its result wins.
+                return;
+            }
+
+            if (message is null || message.GuildId != (ulong)GuildId)
+            {
+                NotFoundState = true;
+                return;
+            }
+
+            NotFoundState = false;
+            CreatedAt = message.CreatedAt;
+            LastExecutedAt = message.LastExecutedAt;
+            _nextExecutionUtc = message.NextExecutionAt ?? DateTime.UtcNow;
+
+            AvailableChannels = ChannelResolver.GetTextChannels((ulong)GuildId)
+                .Select(ViewModels.Pages.ChannelSelectItem.FromChannelInfo)
+                .ToList();
+
+            Input = new ScheduledMessageInputModel
+            {
+                Title = message.Title,
+                Content = message.Content,
+                ChannelId = message.ChannelId,
+                Frequency = message.Frequency,
+                CronExpression = message.CronExpression,
+                IsEnabled = message.IsEnabled,
+                NextExecutionAt = message.NextExecutionAt
+            };
+
+            if (DetectedTimeZone is not null)
+            {
+                ApplyDetectedTimeZoneToInput();
+            }
+
+            RequestLocalTimeScan();
         }
-
-        NotFoundState = false;
-        CreatedAt = message.CreatedAt;
-        LastExecutedAt = message.LastExecutedAt;
-        _nextExecutionUtc = message.NextExecutionAt ?? DateTime.UtcNow;
-
-        AvailableChannels = ChannelResolver.GetTextChannels((ulong)GuildId)
-            .Select(ViewModels.Pages.ChannelSelectItem.FromChannelInfo)
-            .ToList();
-
-        Input = new ScheduledMessageInputModel
+        catch (Exception ex)
         {
-            Title = message.Title,
-            Content = message.Content,
-            ChannelId = message.ChannelId,
-            Frequency = message.Frequency,
-            CronExpression = message.CronExpression,
-            IsEnabled = message.IsEnabled,
-            NextExecutionAt = message.NextExecutionAt
-        };
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
 
-        if (DetectedTimeZone is not null)
-        {
-            ApplyDetectedTimeZoneToInput();
+            Logger.LogError(ex, "Failed to load scheduled message {MessageId} for guild {GuildId}", Id, GuildId);
+            ErrorMessage = "Failed to load the scheduled message. Please try again.";
         }
-
-        RequestLocalTimeScan();
     }
 
     /// <summary>
@@ -209,7 +245,7 @@ public partial class Edit : GuildPageBase
 
         try
         {
-            var result = await ScheduledMessageService.UpdateAsync(Id, updateDto);
+            var result = await ScopeFactory.RunAsync<IScheduledMessageService, ScheduledMessageDto?>(s => s.UpdateAsync(Id, updateDto));
             if (result is null)
             {
                 NotFoundState = true;
@@ -240,7 +276,7 @@ public partial class Edit : GuildPageBase
     {
         try
         {
-            var deleted = await ScheduledMessageService.DeleteAsync(Id);
+            var deleted = await ScopeFactory.RunAsync<IScheduledMessageService, bool>(s => s.DeleteAsync(Id));
             if (deleted)
             {
                 Toast.Success("Scheduled message deleted successfully.");

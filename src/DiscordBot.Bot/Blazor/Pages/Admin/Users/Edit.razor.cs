@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Blazor.Shared;
@@ -8,6 +9,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Admin.Users;
 
@@ -38,6 +40,9 @@ public partial class Edit : ComponentBase
 
     [Inject]
     private IUserManagementService UserManagementService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IToastService Toast { get; set; } = default!;
@@ -103,7 +108,7 @@ public partial class Edit : ComponentBase
     private ConfirmModal? _unlinkDiscordModal;
     private string? _currentUserId;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync() => await LoadAsync(UserManagementService);
 
     protected override async Task OnParametersSetAsync()
     {
@@ -112,11 +117,17 @@ public partial class Edit : ComponentBase
         // caller navigating straight to a different ?id= would trigger.
         if (User is not null && !string.Equals(User.Id, Id, StringComparison.Ordinal))
         {
-            await LoadAsync();
+            await LoadAsync(UserManagementService);
         }
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Loads the page's data through <paramref name="service"/> - see the identical note on
+    /// <c>Admin/Users/Index.razor.cs</c>'s <c>LoadAsync</c>: the circuit-scoped
+    /// <see cref="UserManagementService"/> for the initial/query-driven load, a fresh scope's
+    /// instance via <see cref="ScopeFactory"/> for the reload after a save/reset/unlink mutation.
+    /// </summary>
+    private async Task LoadAsync(IUserManagementService service)
     {
         IsLoading = true;
         UserNotFound = false;
@@ -137,7 +148,7 @@ public partial class Edit : ComponentBase
             return;
         }
 
-        var user = await UserManagementService.GetUserByIdAsync(Id);
+        var user = await service.GetUserByIdAsync(Id);
         if (user is null)
         {
             UserNotFound = true;
@@ -147,7 +158,7 @@ public partial class Edit : ComponentBase
 
         User = user;
         IsSelf = _currentUserId == user.Id;
-        _targetManageable = await UserManagementService.CanManageUserAsync(_currentUserId, user.Id);
+        _targetManageable = await service.CanManageUserAsync(_currentUserId, user.Id);
         Input = new InputModel
         {
             UserId = user.Id,
@@ -157,7 +168,7 @@ public partial class Edit : ComponentBase
             IsActive = user.IsActive
         };
 
-        AvailableRoles = await UserManagementService.GetAvailableRolesAsync(_currentUserId);
+        AvailableRoles = await service.GetAvailableRolesAsync(_currentUserId);
         IsLoading = false;
     }
 
@@ -176,14 +187,15 @@ public partial class Edit : ComponentBase
             IsActive = Input.IsActive
         };
 
-        var result = await UserManagementService.UpdateUserAsync(Input.UserId, updateDto, _currentUserId, CircuitInfo.RemoteIp?.ToString());
+        var result = await ScopeFactory.RunAsync<IUserManagementService, UserManagementResult>(
+            s => s.UpdateUserAsync(Input.UserId, updateDto, _currentUserId, CircuitInfo.RemoteIp?.ToString()));
 
         if (result.Succeeded)
         {
             Logger.LogInformation("Successfully updated user {UserId}", Input.UserId);
             ErrorMessage = null;
             Toast.Success("User updated successfully");
-            await LoadAsync();
+            await ScopeFactory.RunAsync<IUserManagementService>(LoadAsync);
         }
         else
         {
@@ -212,14 +224,15 @@ public partial class Edit : ComponentBase
             return;
         }
 
-        var result = await UserManagementService.ResetPasswordAsync(User.Id, _currentUserId, CircuitInfo.RemoteIp?.ToString());
+        var result = await ScopeFactory.RunAsync<IUserManagementService, UserManagementResult>(
+            s => s.ResetPasswordAsync(User.Id, _currentUserId, CircuitInfo.RemoteIp?.ToString()));
 
         if (result.Succeeded && !string.IsNullOrEmpty(result.GeneratedPassword))
         {
             Logger.LogInformation("Successfully reset password for user {UserId}", User.Id);
             GeneratedPassword = result.GeneratedPassword;
             ErrorMessage = null;
-            await LoadAsync();
+            await ScopeFactory.RunAsync<IUserManagementService>(LoadAsync);
         }
         else
         {
@@ -248,14 +261,15 @@ public partial class Edit : ComponentBase
             return;
         }
 
-        var result = await UserManagementService.UnlinkDiscordAccountAsync(User.Id, _currentUserId, CircuitInfo.RemoteIp?.ToString());
+        var result = await ScopeFactory.RunAsync<IUserManagementService, UserManagementResult>(
+            s => s.UnlinkDiscordAccountAsync(User.Id, _currentUserId, CircuitInfo.RemoteIp?.ToString()));
 
         if (result.Succeeded)
         {
             Logger.LogInformation("Successfully unlinked Discord for user {UserId}", User.Id);
             ErrorMessage = null;
             Toast.Success("Discord account unlinked successfully");
-            await LoadAsync();
+            await ScopeFactory.RunAsync<IUserManagementService>(LoadAsync);
         }
         else
         {

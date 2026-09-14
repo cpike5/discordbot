@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using System.Text.Json;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Core.Entities;
@@ -8,6 +9,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.FeatureRequests;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds.FeatureRequests;
 
@@ -27,6 +29,9 @@ public partial class Details : GuildPageBase
 
     [Inject]
     private IFeatureRequestService Service { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IToastService Toast { get; set; } = default!;
@@ -56,7 +61,7 @@ public partial class Details : GuildPageBase
             return;
         }
 
-        await LoadAsync();
+        await LoadAsync(Service);
     }
 
     /// <summary>Reloads when only <see cref="Id"/> changes (same guild) - see the identical note on
@@ -73,11 +78,18 @@ public partial class Details : GuildPageBase
 
     private async Task ReloadAndRerenderAsync()
     {
-        await LoadAsync();
+        await LoadAsync(Service);
         StateHasChanged();
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Loads the page's data through <paramref name="service"/> - the circuit-scoped
+    /// <see cref="Service"/> for the initial and Id-change loads, a fresh scope's instance via
+    /// <see cref="ScopeFactory"/> for the reload that follows <see cref="SetStatusAsync"/>'s
+    /// approve/reject mutation (docs/architecture/patterns.md "Blazor Components" § Per-operation
+    /// scopes).
+    /// </summary>
+    private async Task LoadAsync(IFeatureRequestService service)
     {
         var generation = ++_loadGeneration;
         LoadFailed = false;
@@ -85,7 +97,7 @@ public partial class Details : GuildPageBase
 
         try
         {
-            var item = await Service.GetByIdAsync(Id);
+            var item = await service.GetByIdAsync(Id);
             if (generation != _loadGeneration)
             {
                 // A newer load (a different Id navigated to, or a review action's reload) already
@@ -154,11 +166,12 @@ public partial class Details : GuildPageBase
         }
 
         var reviewerId = await GetCurrentDiscordUserIdAsync();
-        await Service.UpdateStatusAsync(Item.Id, status, reviewerId, string.IsNullOrWhiteSpace(ReviewNotes) ? null : ReviewNotes);
+        var notes = string.IsNullOrWhiteSpace(ReviewNotes) ? null : ReviewNotes;
+        await ScopeFactory.RunAsync<IFeatureRequestService>(s => s.UpdateStatusAsync(Item.Id, status, reviewerId, notes));
 
         Logger.LogInformation("Admin {Verb} feature request {RequestId} in guild {GuildId}", verb, Item.Id, GuildId);
         Toast.Success($"Feature request {verb}.");
-        await LoadAsync();
+        await ScopeFactory.RunAsync<IFeatureRequestService>(LoadAsync);
         StateHasChanged();
     }
 

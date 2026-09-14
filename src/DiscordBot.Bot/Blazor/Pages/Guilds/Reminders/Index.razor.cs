@@ -7,6 +7,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds.Reminders;
 
@@ -49,6 +50,9 @@ public partial class Index : GuildPageBase
     private IReminderUserResolver UserResolver { get; set; } = default!;
 
     [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
+
+    [Inject]
     private IToastService Toast { get; set; } = default!;
 
     [Inject]
@@ -86,7 +90,7 @@ public partial class Index : GuildPageBase
             return;
         }
 
-        await LoadAsync();
+        await LoadAsync(ReminderRepository);
     }
 
     /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>.</summary>
@@ -102,13 +106,22 @@ public partial class Index : GuildPageBase
 
     private async Task ReloadAndRerenderAsync()
     {
-        await LoadAsync();
+        await LoadAsync(ReminderRepository);
         StateHasChanged();
     }
 
     private (ReminderStatus?, int?, int?) CurrentQueryKey => (Status, PageNumber, LegacyPage);
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Loads the page's data through <paramref name="reminderRepository"/> - the circuit-scoped
+    /// <see cref="ReminderRepository"/> for the initial and query-driven loads, a fresh scope's
+    /// instance via <see cref="ScopeFactory"/> for the reload that follows
+    /// <see cref="ConfirmCancelAsync"/>'s mutation (docs/architecture/patterns.md "Blazor
+    /// Components" § Per-operation scopes). <see cref="UserResolver"/> stays circuit-scoped in
+    /// both cases - it resolves Discord user info, not <c>BotDbContext</c> state, so it carries
+    /// none of the stale-tracking risk a repository does.
+    /// </summary>
+    private async Task LoadAsync(IReminderRepository reminderRepository)
     {
         var generation = ++_loadGeneration;
         LoadFailed = false;
@@ -119,8 +132,8 @@ public partial class Index : GuildPageBase
 
         try
         {
-            var (reminders, total) = await ReminderRepository.GetByGuildAsync(guildId, Query.PageNumber, Query.PageSize, Status);
-            var (statTotal, statPending, statDeliveredToday, statFailed) = await ReminderRepository.GetGuildStatsAsync(guildId);
+            var (reminders, total) = await reminderRepository.GetByGuildAsync(guildId, Query.PageNumber, Query.PageSize, Status);
+            var (statTotal, statPending, statDeliveredToday, statFailed) = await reminderRepository.GetGuildStatsAsync(guildId);
 
             var rows = new List<ReminderRow>();
             foreach (var reminder in reminders)
@@ -185,27 +198,51 @@ public partial class Index : GuildPageBase
             return;
         }
 
-        var reminder = await ReminderRepository.GetByIdAsync(_pendingCancel.Reminder.Id);
-        if (reminder is null || reminder.GuildId != (ulong)GuildId)
+        var pendingCancelId = _pendingCancel.Reminder.Id;
+        var outcome = await ScopeFactory.RunAsync<IReminderRepository, CancelOutcome>(async repo =>
         {
-            Toast.Error("Reminder not found.");
-            _pendingCancel = null;
-            return;
+            var reminder = await repo.GetByIdAsync(pendingCancelId);
+            if (reminder is null || reminder.GuildId != (ulong)GuildId)
+            {
+                return CancelOutcome.NotFound;
+            }
+
+            if (reminder.Status != ReminderStatus.Pending)
+            {
+                return CancelOutcome.NotPending;
+            }
+
+            reminder.Status = ReminderStatus.Cancelled;
+            await repo.UpdateAsync(reminder);
+            return CancelOutcome.Cancelled;
+        });
+
+        switch (outcome)
+        {
+            case CancelOutcome.NotFound:
+                Toast.Error("Reminder not found.");
+                break;
+            case CancelOutcome.NotPending:
+                Toast.Error("Only pending reminders can be cancelled.");
+                break;
+            case CancelOutcome.Cancelled:
+                Toast.Success("Reminder cancelled successfully.");
+                break;
         }
 
-        if (reminder.Status != ReminderStatus.Pending)
-        {
-            Toast.Error("Only pending reminders can be cancelled.");
-            _pendingCancel = null;
-            return;
-        }
-
-        reminder.Status = ReminderStatus.Cancelled;
-        await ReminderRepository.UpdateAsync(reminder);
-
-        Toast.Success("Reminder cancelled successfully.");
         _pendingCancel = null;
-        await LoadAsync();
+
+        if (outcome == CancelOutcome.Cancelled)
+        {
+            await ScopeFactory.RunAsync<IReminderRepository>(LoadAsync);
+        }
+    }
+
+    private enum CancelOutcome
+    {
+        NotFound,
+        NotPending,
+        Cancelled
     }
 
     /// <summary>Display row pairing a <see cref="Reminder"/> with its resolved Discord username/avatar.</summary>

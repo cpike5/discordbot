@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -8,6 +9,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.Llm;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds;
@@ -23,6 +25,9 @@ public partial class AssistantSettings : GuildPageBase
 {
     [Inject]
     private IAssistantGuildSettingsService SettingsService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IDiscordChannelResolver ChannelResolver { get; set; } = default!;
@@ -54,13 +59,19 @@ public partial class AssistantSettings : GuildPageBase
             return;
         }
 
-        await LoadAsync();
+        await LoadAsync(SettingsService);
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Loads the page's data through <paramref name="settingsService"/> - the circuit-scoped
+    /// <see cref="SettingsService"/> for the initial load, a fresh scope's instance via
+    /// <see cref="ScopeFactory"/> for the reload that follows <see cref="HandleValidSubmit"/>'s
+    /// save (docs/architecture/patterns.md "Blazor Components" § Per-operation scopes).
+    /// </summary>
+    private async Task LoadAsync(IAssistantGuildSettingsService settingsService)
     {
         var guildId = (ulong)GuildId;
-        var settings = await SettingsService.GetOrCreateSettingsAsync(guildId);
+        var settings = await settingsService.GetOrCreateSettingsAsync(guildId);
         var allowedChannels = settings.GetAllowedChannelIdsList();
 
         AvailableChannels = ChannelResolver.GetTextChannels(guildId)
@@ -93,25 +104,32 @@ public partial class AssistantSettings : GuildPageBase
         }
 
         var guildId = (ulong)GuildId;
-        var settings = await SettingsService.GetOrCreateSettingsAsync(guildId);
 
-        settings.IsEnabled = Input.IsEnabled;
-        settings.RateLimitOverride = Input.RateLimitOverride;
+        // Fetch, mutate and save within one scope (one DbContext) so the entity GetOrCreateSettingsAsync
+        // returns is the same tracked instance UpdateSettingsAsync saves - see docs/architecture/patterns.md
+        // "Blazor Components" § Per-operation scopes.
+        await ScopeFactory.RunAsync<IAssistantGuildSettingsService>(async s =>
+        {
+            var settings = await s.GetOrCreateSettingsAsync(guildId);
 
-        var channelIds = Input.AllowedChannelIds
-            .Select(s => ulong.TryParse(s, out var id) ? (ulong?)id : null)
-            .Where(id => id.HasValue)
-            .Select(id => id!.Value)
-            .ToList();
-        settings.SetAllowedChannelIdsList(channelIds);
-        settings.SetEnabledToolsList(ToolCatalog.NormalizeSelection(Input.EnabledTools, ToolScopes.Guild));
+            settings.IsEnabled = Input.IsEnabled;
+            settings.RateLimitOverride = Input.RateLimitOverride;
 
-        await SettingsService.UpdateSettingsAsync(settings);
+            var channelIds = Input.AllowedChannelIds
+                .Select(v => ulong.TryParse(v, out var id) ? (ulong?)id : null)
+                .Where(id => id.HasValue)
+                .Select(id => id!.Value)
+                .ToList();
+            settings.SetAllowedChannelIdsList(channelIds);
+            settings.SetEnabledToolsList(ToolCatalog.NormalizeSelection(Input.EnabledTools, ToolScopes.Guild));
+
+            await s.UpdateSettingsAsync(settings);
+        });
 
         Logger.LogInformation("Successfully updated assistant settings for guild {GuildId}", guildId);
         Toast.Success("Assistant settings saved successfully.");
 
-        await LoadAsync();
+        await ScopeFactory.RunAsync<IAssistantGuildSettingsService>(LoadAsync);
     }
 
     protected void ToggleChannel(string channelId, bool selected)

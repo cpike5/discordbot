@@ -1,11 +1,13 @@
 using System.ComponentModel.DataAnnotations;
 using System.Security.Claims;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Admin.Users;
 
@@ -23,6 +25,9 @@ public partial class Create : ComponentBase
 
     [Inject]
     private IUserManagementService UserManagementService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private NavigationManager NavigationManager { get; set; } = default!;
@@ -73,7 +78,8 @@ public partial class Create : ComponentBase
             SendWelcomeEmail = Input.SendWelcomeEmail
         };
 
-        var result = await UserManagementService.CreateUserAsync(createDto, _currentUserId, CircuitInfo.RemoteIp?.ToString());
+        var result = await ScopeFactory.RunAsync<IUserManagementService, UserManagementResult>(
+            s => s.CreateUserAsync(createDto, _currentUserId, CircuitInfo.RemoteIp?.ToString()));
 
         if (result.Succeeded)
         {

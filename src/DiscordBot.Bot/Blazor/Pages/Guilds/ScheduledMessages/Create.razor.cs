@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
 using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
@@ -8,6 +9,7 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Utilities;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds.ScheduledMessages;
 
@@ -27,6 +29,9 @@ public partial class Create : GuildPageBase
 
     [Inject]
     private IScheduledMessageService ScheduledMessageService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IDiscordChannelResolver ChannelResolver { get; set; } = default!;
@@ -150,7 +155,7 @@ public partial class Create : GuildPageBase
 
         try
         {
-            var result = await ScheduledMessageService.CreateAsync(createDto);
+            var result = await ScopeFactory.RunAsync<IScheduledMessageService, ScheduledMessageDto>(s => s.CreateAsync(createDto));
             Logger.LogInformation("Created scheduled message {MessageId} for guild {GuildId}", result.Id, GuildId);
             Toast.Success("Scheduled message created successfully.");
             NavigationManager.NavigateTo($"/Guilds/ScheduledMessages/{GuildId}");

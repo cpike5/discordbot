@@ -6,6 +6,7 @@ using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds.ScheduledMessages;
 
@@ -28,6 +29,9 @@ public partial class Index : GuildPageBase
 
     [Inject]
     private IScheduledMessageService ScheduledMessageService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IDiscordChannelResolver ChannelResolver { get; set; } = default!;
@@ -55,7 +59,7 @@ public partial class Index : GuildPageBase
             return;
         }
 
-        await LoadAsync();
+        await LoadAsync(ScheduledMessageService);
     }
 
     /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>.</summary>
@@ -71,17 +75,24 @@ public partial class Index : GuildPageBase
 
     private async Task ReloadAndRerenderAsync()
     {
-        await LoadAsync();
+        await LoadAsync(ScheduledMessageService);
         StateHasChanged();
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Loads the page's data through <paramref name="service"/> - the circuit-scoped
+    /// <see cref="ScheduledMessageService"/> for the initial and page-change loads, a fresh scope's
+    /// instance via <see cref="ScopeFactory"/> for the reload that follows
+    /// <see cref="ToggleAsync"/>/<see cref="ConfirmDeleteAsync"/> (docs/architecture/patterns.md
+    /// "Blazor Components" § Per-operation scopes).
+    /// </summary>
+    private async Task LoadAsync(IScheduledMessageService service)
     {
         _resolvedPageNumber = PageNumber ?? LegacyPage;
         Query = PagedQuery.FromQuery(PageNumber, null, defaultPageSize: PageSize, legacyPage: LegacyPage);
 
         var guildId = (ulong)GuildId;
-        var (messages, total) = await ScheduledMessageService.GetByGuildIdAsync(guildId, Query.PageNumber, Query.PageSize);
+        var (messages, total) = await service.GetByGuildIdAsync(guildId, Query.PageNumber, Query.PageSize);
 
         var listViewModel = ScheduledMessageListViewModel.Create(
             guildId,
@@ -102,7 +113,8 @@ public partial class Index : GuildPageBase
 
     protected async Task ToggleAsync(ScheduledMessageListItem item)
     {
-        var result = await ScheduledMessageService.UpdateAsync(item.Id, new ScheduledMessageUpdateDto { IsEnabled = !item.IsEnabled });
+        var result = await ScopeFactory.RunAsync<IScheduledMessageService, ScheduledMessageDto?>(
+            s => s.UpdateAsync(item.Id, new ScheduledMessageUpdateDto { IsEnabled = !item.IsEnabled }));
         if (result is not null)
         {
             Toast.Success($"Scheduled message {(result.IsEnabled ? "resumed" : "paused")} successfully.");
@@ -112,7 +124,7 @@ public partial class Index : GuildPageBase
             Toast.Error("Failed to update scheduled message.");
         }
 
-        await LoadAsync();
+        await ScopeFactory.RunAsync<IScheduledMessageService>(LoadAsync);
     }
 
     protected async Task RequestDelete(ScheduledMessageListItem item)
@@ -132,11 +144,11 @@ public partial class Index : GuildPageBase
             return;
         }
 
-        var success = await ScheduledMessageService.DeleteAsync(_pendingDelete.Id);
+        var success = await ScopeFactory.RunAsync<IScheduledMessageService, bool>(s => s.DeleteAsync(_pendingDelete.Id));
         Toast.Success(success ? "Scheduled message deleted successfully." : "Scheduled message not found. It may have already been deleted.");
 
         _pendingDelete = null;
-        await LoadAsync();
+        await ScopeFactory.RunAsync<IScheduledMessageService>(LoadAsync);
         StateHasChanged();
     }
 }

@@ -8,6 +8,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds.RatWatch;
 
@@ -44,6 +45,9 @@ public partial class Index : GuildPageBase
 
     [Inject]
     private IRatWatchRepository RatWatchRepository { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IToastService Toast { get; set; } = default!;
@@ -85,7 +89,7 @@ public partial class Index : GuildPageBase
             return;
         }
 
-        await LoadAsync();
+        await LoadAsync(RatWatchService, RatWatchRepository);
     }
 
     /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>.</summary>
@@ -101,11 +105,18 @@ public partial class Index : GuildPageBase
 
     private async Task ReloadAndRerenderAsync()
     {
-        await LoadAsync();
+        await LoadAsync(RatWatchService, RatWatchRepository);
         StateHasChanged();
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Loads the page's data through <paramref name="ratWatchService"/>/<paramref name="ratWatchRepository"/>
+    /// - the circuit-scoped <see cref="RatWatchService"/>/<see cref="RatWatchRepository"/> for the
+    /// initial and page-change loads, a fresh scope's instances via <see cref="ScopeFactory"/> for
+    /// the reload that follows a settings-save/cancel/end-vote mutation (docs/architecture/patterns.md
+    /// "Blazor Components" § Per-operation scopes).
+    /// </summary>
+    private async Task LoadAsync(IRatWatchService ratWatchService, IRatWatchRepository ratWatchRepository)
     {
         var generation = ++_loadGeneration;
         LoadFailed = false;
@@ -116,10 +127,10 @@ public partial class Index : GuildPageBase
 
         try
         {
-            var settings = await RatWatchService.GetGuildSettingsAsync(guildId);
-            var (watches, totalCount) = await RatWatchService.GetByGuildAsync(guildId, Query.PageNumber, Query.PageSize);
-            var leaderboard = await RatWatchService.GetLeaderboardAsync(guildId, 10);
-            var analyticsSummary = await RatWatchRepository.GetAnalyticsSummaryAsync(guildId, null, null);
+            var settings = await ratWatchService.GetGuildSettingsAsync(guildId);
+            var (watches, totalCount) = await ratWatchService.GetByGuildAsync(guildId, Query.PageNumber, Query.PageSize);
+            var leaderboard = await ratWatchService.GetLeaderboardAsync(guildId, 10);
+            var analyticsSummary = await ratWatchRepository.GetAnalyticsSummaryAsync(guildId, null, null);
 
             if (generation != _loadGeneration)
             {
@@ -200,20 +211,20 @@ public partial class Index : GuildPageBase
         var guildId = (ulong)GuildId;
         try
         {
-            await RatWatchService.UpdateGuildSettingsAsync(guildId, settings =>
+            await ScopeFactory.RunAsync<IRatWatchService, GuildRatWatchSettings>(s => s.UpdateGuildSettingsAsync(guildId, settings =>
             {
                 settings.Timezone = SettingsInput.Timezone;
                 settings.MaxAdvanceHours = SettingsInput.MaxAdvanceHours;
                 settings.VotingDurationMinutes = SettingsInput.VotingDurationMinutes;
                 settings.IsEnabled = SettingsInput.IsEnabled;
                 settings.PublicLeaderboardEnabled = SettingsInput.PublicLeaderboardEnabled;
-            });
+            }));
 
             Logger.LogInformation("Successfully updated Rat Watch settings for guild {GuildId}", guildId);
             Toast.Success("Rat Watch settings updated successfully.");
             SettingsError = null;
             IsEditingSettings = false;
-            await LoadAsync();
+            await ScopeFactory.RunAsync<IRatWatchService, IRatWatchRepository>(LoadAsync);
         }
         catch (Exception ex)
         {
@@ -239,7 +250,7 @@ public partial class Index : GuildPageBase
         }
 
         var watchId = _pendingWatch.Id;
-        var success = await RatWatchService.CancelWatchAsync(watchId, "Cancelled by administrator from Admin UI");
+        var success = await ScopeFactory.RunAsync<IRatWatchService, bool>(s => s.CancelWatchAsync(watchId, "Cancelled by administrator from Admin UI"));
 
         if (success)
         {
@@ -253,7 +264,7 @@ public partial class Index : GuildPageBase
         }
 
         _pendingWatch = null;
-        await LoadAsync();
+        await ScopeFactory.RunAsync<IRatWatchService, IRatWatchRepository>(LoadAsync);
     }
 
     protected async Task RequestEndVote(RatWatchItemViewModel watch)
@@ -273,7 +284,7 @@ public partial class Index : GuildPageBase
         }
 
         var watchId = _pendingWatch.Id;
-        var success = await RatWatchService.FinalizeVotingAsync(watchId);
+        var success = await ScopeFactory.RunAsync<IRatWatchService, bool>(s => s.FinalizeVotingAsync(watchId));
 
         if (success)
         {
@@ -287,7 +298,7 @@ public partial class Index : GuildPageBase
         }
 
         _pendingWatch = null;
-        await LoadAsync();
+        await ScopeFactory.RunAsync<IRatWatchService, IRatWatchRepository>(LoadAsync);
     }
 
     protected string CancelModalMessage => _pendingWatch is null

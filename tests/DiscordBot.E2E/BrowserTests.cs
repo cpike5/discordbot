@@ -1049,10 +1049,11 @@ public sealed class BrowserTests
         await Expect(row).ToContainTextAsync("Active", new LocatorAssertionsToContainTextOptions { Timeout = 20_000 });
 
         // Delete via the confirm modal -> empty state, straight off the same circuit the Edit save
-        // and both toggles just used (no reload first): Repository{T}.UpdateAsync/DeleteAsync now
-        // reconcile a stale already-tracked instance instead of throwing EF's "already being
-        // tracked" InvalidOperationException, so a second update-then-delete cycle within one
-        // long-lived circuit-scoped DbContext no longer needs a fresh page load to dodge it. See
+        // and both toggles just used (no reload first): every mutation on this page (save, toggle,
+        // delete) - and the reload that follows it - resolves its IScheduledMessageService through
+        // a fresh IServiceScopeFactory scope (Blazor/Common/ScopedOperations.cs) instead of the
+        // page's injected, circuit-scoped instance, so there is no stale tracked entity left behind
+        // for a later call in this circuit to collide with. See
         // docs/lessons-learned/scheduled-message-repeated-update-tracking.md.
         await row.Locator("button[title='Delete']").ClickAsync();
         var deleteModal = page.Locator("#delete-scheduled-message-modal");

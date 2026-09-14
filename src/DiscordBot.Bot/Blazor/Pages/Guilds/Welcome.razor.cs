@@ -1,6 +1,7 @@
 using System.ComponentModel.DataAnnotations;
 using System.Net;
 using System.Text.RegularExpressions;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
 using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
@@ -9,6 +10,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Guilds;
 
@@ -31,6 +33,9 @@ public partial class Welcome : GuildPageBase
 {
     [Inject]
     private IWelcomeService WelcomeService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private IDiscordChannelResolver ChannelResolver { get; set; } = default!;
@@ -109,7 +114,7 @@ public partial class Welcome : GuildPageBase
             EmbedColor = Input.EmbedColor
         };
 
-        var result = await WelcomeService.UpdateConfigurationAsync(guildId, updateRequest);
+        var result = await ScopeFactory.RunAsync<IWelcomeService, WelcomeConfigurationDto?>(s => s.UpdateConfigurationAsync(guildId, updateRequest));
 
         if (result is null)
         {

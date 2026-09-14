@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Blazor.Shared;
@@ -7,6 +8,7 @@ using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Blazor.Pages.Admin.Users;
 
@@ -53,6 +55,9 @@ public partial class Index : ComponentBase, IDisposable
 
     [Inject]
     private IUserManagementService UserManagementService { get; set; } = default!;
+
+    [Inject]
+    private IServiceScopeFactory ScopeFactory { get; set; } = default!;
 
     [Inject]
     private NavigationManager NavigationManager { get; set; } = default!;
@@ -127,7 +132,7 @@ public partial class Index : ComponentBase, IDisposable
         }
         else
         {
-            await LoadAsync();
+            await LoadAsync(UserManagementService);
         }
     }
 
@@ -145,7 +150,7 @@ public partial class Index : ComponentBase, IDisposable
         if (_resolvedQuery != CurrentQuery)
         {
             SeedInputsFromQuery();
-            await LoadAsync();
+            await LoadAsync(UserManagementService);
         }
     }
 
@@ -159,7 +164,14 @@ public partial class Index : ComponentBase, IDisposable
         DiscordLinkedFilterInput = DiscordLinkedFilter switch { true => "true", false => "false", _ => "" };
     }
 
-    private async Task LoadAsync()
+    /// <summary>
+    /// Loads the page's data through <paramref name="service"/> - the circuit-scoped
+    /// <see cref="UserManagementService"/> for the initial load and query-driven reloads (read-only,
+    /// no long-lived tracking risk), or a fresh scope's instance via <see cref="ScopeFactory"/> for
+    /// the reload that follows <see cref="HandleToggleConfirmed"/>'s mutation - see
+    /// docs/architecture/patterns.md "Blazor Components" § Per-operation scopes.
+    /// </summary>
+    private async Task LoadAsync(IUserManagementService service)
     {
         IsLoading = true;
         _resolvedQuery = CurrentQuery;
@@ -188,8 +200,8 @@ public partial class Index : ComponentBase, IDisposable
             SortDescending = true
         };
 
-        var paginatedUsers = await UserManagementService.GetUsersAsync(query);
-        AvailableRoles = await UserManagementService.GetAvailableRolesAsync(currentUserId);
+        var paginatedUsers = await service.GetUsersAsync(query);
+        AvailableRoles = await service.GetAvailableRolesAsync(currentUserId);
 
         Users = paginatedUsers.Items;
         TotalCount = paginatedUsers.TotalCount;
@@ -272,17 +284,14 @@ public partial class Index : ComponentBase, IDisposable
 
         var targetUser = _pendingToggleUser;
         var targetActive = !targetUser.IsActive;
-        var result = await UserManagementService.SetUserActiveStatusAsync(
-            targetUser.Id,
-            targetActive,
-            _currentUserId,
-            CircuitInfo.RemoteIp?.ToString());
+        var result = await ScopeFactory.RunAsync<IUserManagementService, UserManagementResult>(
+            s => s.SetUserActiveStatusAsync(targetUser.Id, targetActive, _currentUserId, CircuitInfo.RemoteIp?.ToString()));
 
         if (result.Succeeded)
         {
             Toast.Success($"User {(targetActive ? "enabled" : "disabled")} successfully");
             Logger.LogInformation("User {UserId} {Action} user {TargetUserId}", _currentUserId, targetActive ? "enabled" : "disabled", targetUser.Id);
-            await LoadAsync();
+            await ScopeFactory.RunAsync<IUserManagementService>(LoadAsync);
         }
         else
         {
