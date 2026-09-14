@@ -137,6 +137,9 @@ try
     // Add Identity, Discord OAuth, and authorization policies
     builder.Services.AddIdentityServices(builder.Configuration);
 
+    // Sign-in/sign-out flows behind the Account minimal-API endpoints and Blazor/Pages/Account/Login.razor
+    builder.Services.AddAccountServices();
+
     // ==========================================
     // Application Services
     // ==========================================
@@ -320,6 +323,7 @@ try
     app.MapRazorPages();
     app.MapRazorComponents<DiscordBot.Bot.Blazor.App>()
         .AddInteractiveServerRenderMode();
+    app.MapAccountEndpoints();
     app.MapLegacyRouteRedirects();
 
     // Map SignalR hub for real-time dashboard
