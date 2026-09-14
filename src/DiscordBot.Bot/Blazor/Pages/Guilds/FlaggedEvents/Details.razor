@@ -1,0 +1,205 @@
+@page "/Guilds/FlaggedEvents/{guildId:long}/{id:guid}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Routable replacement for Pages/Guilds/FlaggedEvents/Details.cshtml + DetailsModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4d). See Details.razor.cs for the
+    load/dismiss/acknowledge/take-action logic this markup renders.
+*@
+
+<PageTitle>Flagged Event Details</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load this event" Message="Something went wrong loading it. Try reloading the page." />
+        }
+        else if (NotFoundState)
+        {
+            <EmptyState Type="EmptyStateType.NoData" Title="Flagged event not found"
+                        Description="It may have been removed, or belongs to a different server."
+                        PrimaryActionText="Back to Flagged Events" PrimaryActionHref="@($"/Guilds/FlaggedEvents/{GuildId}")" />
+        }
+        else if (Event is not null)
+        {
+            var evt = Event;
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" data-testid="flagged-event-details">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-3">
+                                <SeverityBadge Severity="evt.Severity" />
+                                <StatusBadge Status="evt.Status" />
+                            </div>
+                            <LocalTime Utc="evt.CreatedAt" Format="datetime" Class="text-sm text-text-tertiary" />
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
+                                <p class="text-text-primary">@evt.Description</p>
+                            </div>
+
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Rule Type</h3>
+                                    <div class="flex items-center gap-2">
+                                        <RuleTypeIcon RuleType="evt.RuleType" />
+                                        <span class="text-text-primary">@evt.RuleType</span>
+                                    </div>
+                                </div>
+                                @if (evt.ChannelId > 0)
+                                {
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Channel</h3>
+                                        <p class="text-text-primary">#@evt.ChannelName</p>
+                                    </div>
+                                }
+                            </div>
+
+                            @if (evt.ReviewedAt.HasValue)
+                            {
+                                <div class="border-t border-border-primary pt-4">
+                                    <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-2">Review Information</h3>
+                                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <span class="text-sm text-text-secondary">Reviewed by:</span>
+                                            <p class="text-text-primary">@(evt.ReviewedByUsername ?? "Unknown")</p>
+                                        </div>
+                                        <div>
+                                            <span class="text-sm text-text-secondary">Reviewed at:</span>
+                                            <p class="text-text-primary"><LocalTime Utc="evt.ReviewedAt.Value" Format="datetime" /></p>
+                                        </div>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(evt.ActionTaken))
+                                    {
+                                        <div class="mt-4">
+                                            <span class="text-sm text-text-secondary">Action taken:</span>
+                                            <p class="text-text-primary">@evt.ActionTaken</p>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        </div>
+                    </div>
+
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <h2 class="text-lg font-semibold text-text-primary mb-4">User Information</h2>
+                        <div class="flex items-center gap-4">
+                            <div class="w-12 h-12 rounded-full bg-accent-blue flex items-center justify-center text-white font-bold text-lg">
+                                @(evt.Username.Length > 0 ? evt.Username[0].ToString().ToUpperInvariant() : "?")
+                            </div>
+                            <div>
+                                <div class="text-text-primary font-medium preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@GuildId">@evt.Username</div>
+                                <div class="text-sm text-text-tertiary">User ID: @evt.UserId</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <button type="button" class="w-full flex items-center justify-between text-left" @onclick="ToggleEvidence">
+                            <h2 class="text-lg font-semibold text-text-primary">Evidence</h2>
+                            <Icon Path="@IconPaths.ChevronDown" Class="@("w-5 h-5 text-text-secondary transition-transform" + (EvidenceExpanded ? " rotate-180" : ""))" />
+                        </button>
+                        @if (EvidenceExpanded)
+                        {
+                            <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto mt-4">@evt.Evidence</pre>
+                        }
+                    </div>
+
+                    @if (UserHistory.Count > 0)
+                    {
+                        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                            <h2 class="text-lg font-semibold text-text-primary mb-4">User History (@UserHistory.Count previous events)</h2>
+                            <div class="space-y-3">
+                                @foreach (var hist in UserHistory)
+                                {
+                                    <div class="flex items-center justify-between p-3 bg-bg-primary border border-border-primary rounded-md">
+                                        <div class="flex items-center gap-3">
+                                            <SeverityBadge Severity="hist.Severity" />
+                                            <span class="text-sm text-text-primary">@hist.RuleType</span>
+                                            <LocalTime Utc="hist.CreatedAt" Format="date" Class="text-xs text-text-tertiary" />
+                                        </div>
+                                        <StatusBadge Status="hist.Status" />
+                                    </div>
+                                }
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                <div class="lg:col-span-1">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sticky top-6">
+                        <h2 class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
+
+                        @if (evt.Status == FlaggedEventStatus.Pending)
+                        {
+                            <div class="space-y-3">
+                                <button type="button" class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors disabled:opacity-50"
+                                        disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick="RequestDismissAsync">
+                                    Dismiss
+                                </button>
+                                <button type="button" class="w-full px-4 py-2 bg-accent-blue text-white font-medium rounded-md hover:bg-accent-blue/90 transition-colors disabled:opacity-50"
+                                        disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick="RequestAcknowledgeAsync">
+                                    Acknowledge
+                                </button>
+
+                                <div class="pt-2 border-t border-border-primary space-y-2">
+                                    <p class="text-xs font-semibold text-text-tertiary uppercase tracking-wide">Take Action</p>
+                                    <button type="button" class="w-full text-left px-3 py-2 text-sm text-text-primary bg-bg-primary hover:bg-bg-hover rounded-md transition-colors disabled:opacity-50"
+                                            disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick='() => RequestCannedActionAsync("Warned user")'>
+                                        Warn User
+                                    </button>
+                                    <button type="button" class="w-full text-left px-3 py-2 text-sm text-text-primary bg-bg-primary hover:bg-bg-hover rounded-md transition-colors disabled:opacity-50"
+                                            disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick='() => RequestCannedActionAsync("Muted user for 24 hours")'>
+                                        Mute User
+                                    </button>
+                                    <button type="button" class="w-full text-left px-3 py-2 text-sm text-text-primary bg-bg-primary hover:bg-bg-hover rounded-md transition-colors disabled:opacity-50"
+                                            disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick='() => RequestCannedActionAsync("Kicked user from server")'>
+                                        Kick User
+                                    </button>
+                                    <button type="button" class="w-full text-left px-3 py-2 text-sm text-error bg-bg-primary hover:bg-bg-hover rounded-md transition-colors disabled:opacity-50"
+                                            disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick='() => RequestCannedActionAsync("Banned user from server")'>
+                                        Ban User
+                                    </button>
+                                    <button type="button" class="w-full text-left px-3 py-2 text-sm text-text-primary bg-bg-primary hover:bg-bg-hover rounded-md transition-colors disabled:opacity-50"
+                                            disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick="ShowCustomActionModal">
+                                        Custom Action...
+                                    </button>
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-text-secondary">
+                                This event has been @evt.Status.ToString().ToLowerInvariant()
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+    </ChildContent>
+</GuildContextGate>
+
+<ConfirmModal @ref="_confirmModal" Id="flaggedEventConfirmModal" Title="@_pendingActionTitle" Message="@_pendingActionMessage" ConfirmText="Confirm" Variant="ConfirmationVariant.Warning" />
+
+<Modal @bind-IsOpen="CustomActionModalOpen" Id="customActionModal" Title="Custom Action">
+    <ChildContent>
+        <label for="customActionText" class="sr-only">Action description</label>
+        <textarea id="customActionText" rows="4" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue"
+                  placeholder="Describe the action you took..." @bind="CustomActionText" @bind:event="oninput"></textarea>
+    </ChildContent>
+    <FooterContent>
+        <button type="button" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors" @onclick="() => CustomActionModalOpen = false">Cancel</button>
+        <button type="button" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors disabled:opacity-50" disabled="@IsBusy" @onclick="SubmitCustomActionAsync">Submit</button>
+    </FooterContent>
+</Modal>

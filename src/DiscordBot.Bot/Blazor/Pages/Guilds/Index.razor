@@ -1,0 +1,285 @@
+@page "/Guilds"
+@attribute [Authorize(Policy = "RequireModerator")]
+@layout MainLayout
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.ViewModels.Components
+@inject NavigationManager Nav
+
+@*
+    Routable replacement for Pages/Guilds/Index.cshtml + IndexModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4d). Top-level guild list, under
+    MainLayout - see Index.razor.cs for the search/filter/sort/sync logic this markup renders.
+    The legacy mobile card's row link used Url.Page("Details", new { id = guild.Id }) - "id" is
+    not this page's route parameter name ("guildId" is), so that link built "/Guilds/Details"
+    with no id segment at all; fixed here to the same DetailsUrl helper the desktop row uses.
+*@
+
+<PageTitle>Servers</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="page-header">
+        <div class="page-header-text">
+            <p class="page-eyebrow">Guilds</p>
+            <div class="flex items-center gap-3">
+                <h1 class="page-title">Servers</h1>
+                <Badge Text="@TotalCount.ToString()" Variant="BadgeVariant.Blue" Size="BadgeSize.Medium" />
+            </div>
+            <p class="page-subtitle">Every Discord server the bot is connected to, with membership and status.</p>
+        </div>
+        <div class="page-actions">
+            @if (CanSyncAll)
+            {
+                <button type="button" class="btn btn-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled="@(!RendererInfo.IsInteractive || IsSyncingAll)" @onclick="HandleSyncAllAsync" title="Sync all guilds from Discord">
+                    <Icon Path="@IconPaths.ArrowPath" Class="@("w-5 h-5 mr-2" + (IsSyncingAll ? " animate-spin" : ""))" />
+                    @(IsSyncingAll ? "Syncing..." : "Sync All")
+                </button>
+            }
+        </div>
+    </div>
+
+    @if (IsFiltered)
+    {
+        <Alert Variant="AlertVariant.Info" Class="mb-6">
+            You're viewing <strong class="text-text-primary">@TotalCount</strong> of <strong class="text-text-primary">@TotalGuilds</strong> total servers.
+            Only servers where you are a Discord member are shown.
+        </Alert>
+    }
+
+    <div class="surface p-4 sm:p-5 mb-6">
+        <form class="flex flex-col md:flex-row md:items-end gap-4" @onsubmit="HandleFilterSubmit" @onsubmit:preventDefault="true">
+            <div class="flex-1">
+                <TextInput Id="SearchTerm" Label="Search" @bind-Value="SearchTermInput" Placeholder="Search servers by name or ID..." />
+            </div>
+            <div class="w-full md:w-40">
+                <Select TValue="string" Id="StatusFilter" Label="Status" Placeholder="" @bind-Value="StatusFilterInput" Options="StatusFilterOptions" />
+            </div>
+            <div class="w-full md:w-40">
+                <Select TValue="string" Id="SortBy" Label="Sort By" Placeholder="" @bind-Value="SortByInput" Options="SortByOptions" />
+            </div>
+            <div class="w-full md:w-40">
+                <Select TValue="string" Id="SortDescending" Label="Order" Placeholder="" @bind-Value="SortDescendingInput" Options="SortDirectionOptions" />
+            </div>
+            <div class="flex gap-2">
+                <button type="button" class="btn btn-secondary" @onclick="HandleClear">Clear</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">
+                    <Icon Path="@IconPaths.MagnifyingGlass" Class="w-4 h-4 mr-2" />
+                    Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    @if (Guilds.Count == 0)
+    {
+        <EmptyState Type="EmptyStateType.NoResults" Title="@EmptyTitle" Description="@EmptyDescription" />
+    }
+    else
+    {
+        <div class="card hidden md:block">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <thead class="table-header">
+                        <tr>
+                            <th class="table-cell-header px-6">Server Name</th>
+                            <th class="table-cell-header px-6">Members</th>
+                            <th class="table-cell-header px-6">Status</th>
+                            <th class="table-cell-header px-6 hidden lg:table-cell">Joined</th>
+                            <th class="table-cell-header px-6 text-right">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var guild in Guilds)
+                        {
+                            <tr class="hover:bg-bg-hover transition-colors cursor-pointer group focus:outline-none focus:ring-2 focus:ring-border-focus focus:ring-inset" data-testid="guild-row"
+                                tabindex="0" role="link" aria-label="View details for @guild.Name"
+                                @onclick="() => Nav.NavigateTo(DetailsUrl(guild.Id))"
+                                @onkeydown="@(e => HandleRowKeyDown(e, guild.Id))">
+                                <td class="px-6 py-4">
+                                    <div class="flex items-center gap-3">
+                                        @if (!string.IsNullOrEmpty(guild.IconUrl))
+                                        {
+                                            <img src="@guild.IconUrl" alt="@guild.Name" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                @Initials(guild.Name)
+                                            </div>
+                                        }
+                                        <div class="min-w-0">
+                                            <p class="font-medium text-text-primary group-hover:text-accent-blue transition-colors truncate">@guild.Name</p>
+                                            <p class="text-xs text-text-tertiary font-mono">ID: @guild.Id</p>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td class="px-6 py-4 text-text-secondary">@guild.MemberCount.ToString("N0")</td>
+                                <td class="px-6 py-4">
+                                    <StatusIndicator Status="@(guild.IsActive ? StatusType.Online : StatusType.Offline)" Text="@(guild.IsActive ? "Active" : "Inactive")" />
+                                </td>
+                                <td class="px-6 py-4 text-text-secondary text-sm hidden lg:table-cell">
+                                    <LocalTime Utc="guild.JoinedAt" Format="date" />
+                                </td>
+                                <td class="px-6 py-4 text-right" @onclick:stopPropagation="true">
+                                    <div class="flex items-center justify-end gap-2">
+                                        <button type="button" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors disabled:opacity-50"
+                                                disabled="@(!RendererInfo.IsInteractive || SyncingGuildIds.Contains(guild.Id))"
+                                                @onclick="() => HandleSyncGuildAsync(guild.Id)" title="Sync guild data">
+                                            <Icon Path="@IconPaths.ArrowPath" Class="@("w-5 h-5" + (SyncingGuildIds.Contains(guild.Id) ? " animate-spin" : ""))" />
+                                        </button>
+                                        <a href="@DetailsUrl(guild.Id)" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-bg-hover rounded transition-colors" title="View Details">
+                                            <Icon Path="@IconPaths.Eye" Class="w-5 h-5" />
+                                        </a>
+                                        <a href="@($"/Guilds/Edit/{guild.Id}")" class="p-2 text-text-secondary hover:text-accent-orange hover:bg-bg-hover rounded transition-colors" title="Configure">
+                                            <Icon Path="@IconPaths.Cog" Class="w-5 h-5" />
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="md:hidden space-y-4">
+            @foreach (var guild in Guilds)
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-4" data-testid="guild-card">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-3">
+                            @if (!string.IsNullOrEmpty(guild.IconUrl))
+                            {
+                                <img src="@guild.IconUrl" alt="@guild.Name" class="w-10 h-10 rounded-full flex-shrink-0" />
+                            }
+                            else
+                            {
+                                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                    @Initials(guild.Name)
+                                </div>
+                            }
+                            <div class="min-w-0">
+                                <p class="font-medium text-text-primary truncate">@guild.Name</p>
+                                <p class="text-xs text-text-tertiary font-mono">@guild.Id</p>
+                            </div>
+                        </div>
+                        <StatusIndicator Status="@(guild.IsActive ? StatusType.Online : StatusType.Offline)" Text="@(guild.IsActive ? "Active" : "Inactive")" Size="StatusSize.Small" />
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-3 mb-4 text-sm">
+                        <div><span class="text-text-tertiary">Members:</span> <span class="text-text-primary ml-1">@guild.MemberCount.ToString("N0")</span></div>
+                        <div><span class="text-text-tertiary">Joined:</span> <span class="text-text-primary ml-1"><LocalTime Utc="guild.JoinedAt" Format="date" /></span></div>
+                    </div>
+
+                    <div class="flex items-center gap-2 pt-3 border-t border-border-secondary">
+                        <button type="button" class="inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors disabled:opacity-50"
+                                disabled="@(!RendererInfo.IsInteractive || SyncingGuildIds.Contains(guild.Id))"
+                                @onclick="() => HandleSyncGuildAsync(guild.Id)">
+                            <Icon Path="@IconPaths.ArrowPath" Class="@("w-4 h-4" + (SyncingGuildIds.Contains(guild.Id) ? " animate-spin" : ""))" />
+                            Sync
+                        </button>
+                        <a href="@DetailsUrl(guild.Id)" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                            <Icon Path="@IconPaths.Eye" Class="w-4 h-4" />
+                            View
+                        </a>
+                        <a href="@($"/Guilds/Edit/{guild.Id}")" class="flex-1 inline-flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-text-secondary hover:text-text-primary border border-border-primary hover:bg-bg-hover rounded-lg transition-colors">
+                            <Icon Path="@IconPaths.Cog" Class="w-4 h-4" />
+                            Configure
+                        </a>
+                    </div>
+                </div>
+            }
+        </div>
+
+        @if (TotalPages > 1)
+        {
+            <div class="mt-6">
+                <Pagination CurrentPage="Query.PageNumber" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="Query.PageSize"
+                            BaseUrl="@PageUrl" PageParameterName="pageNumber" ShowPageSizeSelector="true" ShowItemCount="true" />
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private List<SelectOption> StatusFilterOptions =>
+    [
+        new() { Value = "", Text = "All Statuses" },
+        new() { Value = "true", Text = "Active" },
+        new() { Value = "false", Text = "Inactive" }
+    ];
+
+    private static readonly List<SelectOption> SortByOptions =
+    [
+        new() { Value = "Name", Text = "Name" },
+        new() { Value = "MemberCount", Text = "Member Count" },
+        new() { Value = "JoinedAt", Text = "Join Date" }
+    ];
+
+    private static readonly List<SelectOption> SortDirectionOptions =
+    [
+        new() { Value = "false", Text = "Ascending" },
+        new() { Value = "true", Text = "Descending" }
+    ];
+
+    private string? SearchTermInput { get; set; }
+    private string? StatusFilterInput { get; set; } = "";
+    private string? SortByInput { get; set; } = "Name";
+    private string? SortDescendingInput { get; set; } = "false";
+
+    protected override void OnParametersSet()
+    {
+        SearchTermInput = SearchTerm ?? "";
+        StatusFilterInput = StatusFilter switch { true => "true", false => "false", _ => "" };
+        SortByInput = SortBy ?? "Name";
+        SortDescendingInput = SortDescending == true ? "true" : "false";
+    }
+
+    private void HandleFilterSubmit()
+    {
+        var parts = new List<string>();
+        if (!string.IsNullOrWhiteSpace(SearchTermInput))
+        {
+            parts.Add($"SearchTerm={Uri.EscapeDataString(SearchTermInput)}");
+        }
+
+        if (StatusFilterInput is "true" or "false")
+        {
+            parts.Add($"StatusFilter={StatusFilterInput}");
+        }
+
+        if (!string.IsNullOrEmpty(SortByInput) && SortByInput != "Name")
+        {
+            parts.Add($"SortBy={Uri.EscapeDataString(SortByInput)}");
+        }
+
+        if (SortDescendingInput == "true")
+        {
+            parts.Add("SortDescending=true");
+        }
+
+        Nav.NavigateTo(parts.Count == 0 ? "/Guilds" : $"/Guilds?{string.Join('&', parts)}");
+    }
+
+    private void HandleClear() => Nav.NavigateTo("/Guilds");
+
+    private void HandleRowKeyDown(Microsoft.AspNetCore.Components.Web.KeyboardEventArgs e, ulong guildId)
+    {
+        if (e.Key is "Enter" or " ")
+        {
+            Nav.NavigateTo(DetailsUrl(guildId));
+        }
+    }
+
+    private bool HasActiveFilters => !string.IsNullOrWhiteSpace(SearchTerm) || StatusFilter.HasValue;
+
+    private string EmptyTitle => IsFiltered && !HasActiveFilters ? "No accessible servers"
+        : HasActiveFilters ? "No servers found" : "No servers yet";
+
+    private string EmptyDescription => IsFiltered && !HasActiveFilters
+        ? "You don't have access to any servers. Contact an admin to grant access or join a Discord server with this bot."
+        : HasActiveFilters ? "Try adjusting your search or filters" : "The bot hasn't joined any servers yet";
+
+    private static string Initials(string name) => name.Length >= 2 ? name[..2].ToUpperInvariant() : name.ToUpperInvariant();
+}

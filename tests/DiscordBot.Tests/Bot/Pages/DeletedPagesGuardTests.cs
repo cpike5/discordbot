@@ -56,6 +56,11 @@ public class DeletedPagesGuardTests
         "/Account/Privacy",
         "/Guilds/Members/Index",
         "/Guilds/Members/Moderation",
+        "/Guilds/Index",
+        "/Guilds/Details",
+        "/Guilds/FlaggedEvents/Index",
+        "/Guilds/FlaggedEvents/Details",
+        "/Guilds/RatWatch/Incidents",
     };
 
     [Fact]

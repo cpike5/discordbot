@@ -1,0 +1,379 @@
+@page "/Guilds/Details/{guildId:long}"
+@attribute [Authorize(Policy = "RequireModerator")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Guilds/Details.cshtml + DetailsModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4d). See Details.razor.cs for the
+    aggregate load/sync/more-actions logic this markup renders. The legacy page built each
+    widget's body as a raw HTML string (_DashboardWidget's BodyContent); this renders real markup
+    against Aggregate/DiscordBot.Core.DTOs.GuildDetailsAggregateDto directly.
+*@
+
+<PageTitle>@(Guild?.Guild.Name ?? "Guild Details")</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load guild details" Message="Something went wrong loading this page. Try reloading." Class="mb-6" />
+        }
+        else if (Aggregate is null)
+        {
+            <EmptyState Type="EmptyStateType.NoResults" Title="Guild not found" Description="This guild could not be loaded." />
+        }
+        else
+        {
+            var agg = Aggregate!;
+
+            @* Page-level action bar - GuildLayout's GuildHeader carries no Actions slot, so a
+               guild page that needs header-level actions renders its own bar underneath the tabs. *@
+            <div class="flex items-center justify-end gap-2 mb-6">
+                @if (guild.CanEdit)
+                {
+                    <button type="button" class="btn btn-secondary disabled:opacity-50" disabled="@(!RendererInfo.IsInteractive || IsSyncing)" @onclick="HandleSyncAsync">
+                        <Icon Path="@IconPaths.ArrowPath" Class="@("w-4 h-4 mr-2" + (IsSyncing ? " animate-spin" : ""))" />
+                        @(IsSyncing ? "Syncing..." : "Sync")
+                    </button>
+                    <a href="@($"/Guilds/Edit/{GuildId}")" class="btn btn-primary">
+                        <Icon Path="@IconPaths.PencilSquare" Class="w-4 h-4 mr-2" />
+                        Edit Settings
+                    </a>
+                }
+                <div class="relative" @ref="_moreActionsRef">
+                    <button type="button" class="btn btn-secondary" aria-haspopup="true" aria-expanded="@(MoreActionsOpen ? "true" : "false")" @onclick="ToggleMoreActions">
+                        More Actions
+                        <Icon Path="@IconPaths.ChevronDown" Class="w-4 h-4 ml-1" />
+                    </button>
+                    @if (MoreActionsOpen)
+                    {
+                        <div class="absolute right-0 z-10 mt-2 w-48 bg-bg-secondary border border-border-primary rounded-md shadow-lg py-1" role="menu">
+                            <button type="button" role="menuitem" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors" @onclick="HandleCopyGuildIdAsync">
+                                Copy Guild ID
+                            </button>
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
+                <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Information</h2>
+                <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">
+                    <div>
+                        <p class="text-sm text-text-tertiary font-medium mb-1">Members</p>
+                        <p class="text-xl font-bold text-text-primary">@((guild.Guild.MemberCount ?? 0).ToString("N0"))</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-text-tertiary font-medium mb-1">Bot Joined</p>
+                        <p class="text-xl font-bold text-text-primary"><LocalTime Utc="guild.Guild.JoinedAt" Format="date" /></p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-text-tertiary font-medium mb-1">Prefix</p>
+                        <p class="text-xl font-bold text-text-primary font-mono">
+                            @(string.IsNullOrEmpty(guild.Guild.Prefix) ? "Default (/)" : guild.Guild.Prefix)
+                        </p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-text-tertiary font-medium mb-1">Status</p>
+                        <p class="text-xl font-bold @(guild.Guild.IsActive ? "text-success" : "text-error")">@(guild.Guild.IsActive ? "Active" : "Inactive")</p>
+                    </div>
+                    <div>
+                        <p class="text-sm text-text-tertiary font-medium mb-1">Welcome</p>
+                        <p class="text-xl font-bold @(agg.WelcomeEnabled ? "text-success" : "text-text-secondary")">@(agg.WelcomeEnabled ? "Enabled" : "Disabled")</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6 mb-6">
+                <Card Title="Scheduled Messages">
+                    <HeaderActions>
+                        <a href="@($"/Guilds/ScheduledMessages/{GuildId}")" class="text-sm text-accent-blue hover:text-accent-blue/80">View all &rarr;</a>
+                    </HeaderActions>
+                    <ChildContent>
+                        @if (agg.ScheduledMessagesTotal > 0)
+                        {
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                                <StatTile Label="Total" Value="@agg.ScheduledMessagesTotal.ToString()" />
+                                <StatTile Label="Active" Value="@agg.ScheduledMessagesActive.ToString()" ValueClass="text-success" />
+                                <StatTile Label="Paused" Value="@agg.ScheduledMessagesPaused.ToString()" ValueClass="text-warning" />
+                                <div class="bg-bg-primary rounded-lg p-3">
+                                    <p class="text-xs text-text-tertiary font-medium mb-1">Next Run</p>
+                                    @if (agg.NextScheduledExecution.HasValue)
+                                    {
+                                        <LocalTime Utc="agg.NextScheduledExecution.Value" Format="datetime-short" Class="text-sm font-bold text-text-primary" />
+                                        <p class="text-xs text-text-tertiary line-clamp-2 mt-1">@agg.NextScheduledMessageTitle</p>
+                                    }
+                                    else
+                                    {
+                                        <p class="text-sm text-text-tertiary">--</p>
+                                    }
+                                </div>
+                            </div>
+                        }
+                        else
+                        {
+                            <EmptyState Type="EmptyStateType.NoData" Title="No scheduled messages yet" Description=""
+                                        PrimaryActionText="Create Scheduled Message" PrimaryActionHref="@($"/Guilds/ScheduledMessages/Create/{GuildId}")" />
+                        }
+                    </ChildContent>
+                </Card>
+
+                <Card Title="Rat Watch">
+                    <HeaderActions>
+                        <div class="flex items-center gap-3 text-sm">
+                            <a href="@($"/Guilds/RatWatch/{GuildId}")" class="text-accent-blue hover:text-accent-blue/80">Settings</a>
+                            <a href="@($"/Guilds/RatWatch/Analytics/{GuildId}")" class="text-accent-blue hover:text-accent-blue/80">Analytics</a>
+                            <a href="@($"/Guilds/RatWatch/Incidents/{GuildId}")" class="text-accent-blue hover:text-accent-blue/80">Incidents &rarr;</a>
+                        </div>
+                    </HeaderActions>
+                    <ChildContent>
+                        @if (agg.RatWatchTotal > 0)
+                        {
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                                <StatTile Label="Total Watches" Value="@agg.RatWatchTotal.ToString()" />
+                                <StatTile Label="Pending/Voting" Value="@agg.RatWatchPending.ToString()" ValueClass="text-warning" />
+                                <StatTile Label="Completed" Value="@agg.RatWatchCompleted.ToString()" ValueClass="text-success" />
+                            </div>
+                            @if (agg.TopRatLeaderboard.Count > 0)
+                            {
+                                <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">Top Rats</h3>
+                                <div class="space-y-2">
+                                    @foreach (var entry in agg.TopRatLeaderboard)
+                                    {
+                                        <div class="flex items-center justify-between p-2 rounded-lg bg-bg-primary">
+                                            <div class="flex items-center gap-2 min-w-0">
+                                                <span class="text-sm font-bold text-text-tertiary w-6 flex-shrink-0">@RankLabel(entry.Rank)</span>
+                                                <span class="text-sm font-medium text-text-primary truncate">@entry.Username</span>
+                                            </div>
+                                            <span class="text-sm font-bold text-error flex-shrink-0">@entry.GuiltyCount guilty</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <EmptyState Type="EmptyStateType.NoData"
+                                        Title="@(guild.RatWatchEnabled ? "No watches yet" : "Rat Watch is disabled")"
+                                        Description="@(guild.RatWatchEnabled ? "Use the \"Rat Watch\" context menu on a message in Discord to start tracking." : "Enable Rat Watch in settings to start tracking.")" />
+                        }
+                    </ChildContent>
+                </Card>
+
+                <Card Title="Reminders">
+                    <HeaderActions>
+                        <a href="@($"/Guilds/Reminders/{GuildId}")" class="text-sm text-accent-blue hover:text-accent-blue/80">View all &rarr;</a>
+                    </HeaderActions>
+                    <ChildContent>
+                        @if (agg.RemindersTotal > 0)
+                        {
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
+                                <StatTile Label="Total" Value="@agg.RemindersTotal.ToString()" />
+                                <StatTile Label="Pending" Value="@agg.RemindersPending.ToString()" ValueClass="text-accent-blue" />
+                                <StatTile Label="Delivered Today" Value="@agg.RemindersDeliveredToday.ToString()" ValueClass="text-success" />
+                                <StatTile Label="Failed" Value="@agg.RemindersFailed.ToString()" ValueClass="@(agg.RemindersFailed > 0 ? "text-error" : "")" />
+                            </div>
+                            @if (agg.UpcomingReminders.Count > 0)
+                            {
+                                <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">Upcoming</h3>
+                                <div class="space-y-2">
+                                    @foreach (var reminder in agg.UpcomingReminders)
+                                    {
+                                        <div class="p-2 rounded-lg hover:bg-bg-tertiary transition-colors">
+                                            <p class="text-sm font-medium text-text-primary">@reminder.Username</p>
+                                            <p class="text-xs text-text-secondary truncate">@reminder.MessagePreview</p>
+                                            <LocalTime Utc="reminder.TriggerAt" Format="datetime-relative" Class="text-xs text-text-tertiary" />
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <EmptyState Type="EmptyStateType.NoData" Title="No reminders yet" Description="Users can create reminders using the /remind command in Discord." />
+                        }
+                    </ChildContent>
+                </Card>
+
+                <Card Title="Audio">
+                    <HeaderActions>
+                        <a href="@($"/Guilds/AudioSettings/{GuildId}")" class="text-sm text-accent-blue hover:text-accent-blue/80">View all &rarr;</a>
+                    </HeaderActions>
+                    <ChildContent>
+                        @if (agg.AudioEnabled && (agg.TotalSoundCount > 0 || agg.TopSounds.Count > 0 || !string.IsNullOrEmpty(agg.MostUsedTtsVoice)))
+                        {
+                            <div class="grid grid-cols-2 gap-3 mb-4">
+                                <StatTile Label="Total Sounds" Value="@agg.TotalSoundCount.ToString()" />
+                                <div class="bg-bg-primary rounded-lg p-3">
+                                    <p class="text-xs text-text-tertiary font-medium mb-1">Top TTS Voice</p>
+                                    <p class="text-sm font-bold text-text-primary truncate">@(agg.MostUsedTtsVoice ?? "No TTS usage")</p>
+                                </div>
+                            </div>
+                            @if (agg.TopSounds.Count > 0)
+                            {
+                                <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">Top Sounds This Week</h3>
+                                <div class="space-y-2">
+                                    @foreach (var sound in agg.TopSounds)
+                                    {
+                                        <div class="flex items-center justify-between p-2 rounded-lg bg-bg-primary">
+                                            <span class="text-sm font-medium text-text-primary truncate">@sound.Name</span>
+                                            <span class="text-sm font-bold text-accent-blue flex-shrink-0">@sound.PlayCount plays</span>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                        }
+                        else if (!agg.AudioEnabled)
+                        {
+                            <EmptyState Type="EmptyStateType.NoData" Title="Audio is disabled" Description="Enable audio features in Audio settings."
+                                        PrimaryActionText="Configure Audio" PrimaryActionHref="@($"/Guilds/AudioSettings/{GuildId}")" />
+                        }
+                        else
+                        {
+                            <EmptyState Type="EmptyStateType.NoData" Title="No audio activity yet" Description="Upload sounds and use TTS to see stats here." />
+                        }
+                    </ChildContent>
+                </Card>
+
+                <Card Title="Assistant">
+                    <HeaderActions>
+                        <a href="@($"/Guilds/AssistantSettings/{GuildId}")" class="text-sm text-accent-blue hover:text-accent-blue/80">View all &rarr;</a>
+                    </HeaderActions>
+                    <ChildContent>
+                        @if (!agg.AssistantGloballyEnabled)
+                        {
+                            <EmptyState Type="EmptyStateType.Error" Title="Service unavailable" Description="The Assistant feature is globally disabled. Contact your administrator to enable it." />
+                        }
+                        else if (!agg.AssistantLocallyEnabled)
+                        {
+                            <EmptyState Type="EmptyStateType.NoData" Title="Assistant is disabled" Description="Enable the Assistant to allow users to ask questions about bot features."
+                                        PrimaryActionText="Configure Assistant" PrimaryActionHref="@($"/Guilds/AssistantSettings/{GuildId}")" />
+                        }
+                        else
+                        {
+                            <div class="grid grid-cols-2 md:grid-cols-3 gap-3">
+                                <StatTile Label="Global Status" Value="Enabled" ValueClass="text-success" />
+                                <StatTile Label="Channel Coverage" Value="@(agg.AssistantChannelCount == 0 ? "All" : agg.AssistantChannelCount.ToString())" />
+                                <StatTile Label="Rate Limit" Value="@(agg.AssistantIsRateLimitOverride ? $"{agg.AssistantRateLimit} req/{agg.AssistantRateLimitWindowMinutes}min" : "Default")" />
+                            </div>
+                        }
+                    </ChildContent>
+                </Card>
+
+                <Card Title="Members">
+                    <HeaderActions>
+                        <a href="@($"/Guilds/{GuildId}/Members")" class="text-sm text-accent-blue hover:text-accent-blue/80">View all &rarr;</a>
+                    </HeaderActions>
+                    <ChildContent>
+                        @if (agg.MembersTotalCount > 0)
+                        {
+                            <div class="grid grid-cols-2 gap-3 mb-4">
+                                <StatTile Label="Total Members" Value="@agg.MembersTotalCount.ToString("N0")" />
+                                <StatTile Label="Active Today" Value="@agg.MembersActiveToday.ToString("N0")" ValueClass="text-success" />
+                            </div>
+                            @if (agg.NewestMembers.Count > 0)
+                            {
+                                <h3 class="text-xs font-semibold text-text-tertiary uppercase tracking-wide mb-2">Newest Members</h3>
+                                <div class="space-y-2">
+                                    @foreach (var member in agg.NewestMembers)
+                                    {
+                                        <a href="@($"/Guilds/{GuildId}/Members?searchTerm={member.UserId}")" class="flex items-center gap-3 p-2 rounded-lg hover:bg-bg-tertiary transition-colors">
+                                            @if (!string.IsNullOrEmpty(member.AvatarHash))
+                                            {
+                                                <img src="@($"https://cdn.discordapp.com/avatars/{member.UserId}/{member.AvatarHash}.{(member.AvatarHash.StartsWith("a_") ? "gif" : "png")}?size=80")" alt="@member.DisplayName" class="w-10 h-10 rounded-full" />
+                                            }
+                                            else
+                                            {
+                                                <div class="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center">
+                                                    <Icon Path="@IconPaths.User" Class="w-6 h-6 text-text-tertiary" />
+                                                </div>
+                                            }
+                                            <div class="flex-1 min-w-0">
+                                                <p class="text-sm font-medium text-text-primary truncate">@member.DisplayName</p>
+                                                <LocalTime Utc="member.JoinedAt" Format="date" Class="text-xs text-text-tertiary" />
+                                            </div>
+                                        </a>
+                                    }
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <EmptyState Type="EmptyStateType.NoData" Title="No members found" Description="Member data will appear here after synchronization." />
+                        }
+                    </ChildContent>
+                </Card>
+            </div>
+
+            <Card Title="Activity" Subtitle="Recent command activity">
+                <HeaderActions>
+                    <a href="@($"/Commands?tab=logs&GuildId={GuildId}")" class="text-sm text-accent-blue hover:text-accent-blue/80">View all &rarr;</a>
+                </HeaderActions>
+                <ChildContent>
+                    @if (agg.RecentCommandLogs.Count > 0)
+                    {
+                        <div class="overflow-x-auto hidden md:block">
+                            <table class="min-w-full divide-y divide-border-primary">
+                                <thead class="bg-bg-tertiary">
+                                    <tr>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Command</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Response</th>
+                                        <th class="px-4 py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-border-primary">
+                                    @foreach (var cmd in agg.RecentCommandLogs)
+                                    {
+                                        <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                                            <td class="px-4 py-3 whitespace-nowrap"><span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span></td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">@cmd.Username</td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-text-secondary"><LocalTime Utc="cmd.ExecutedAt" Format="datetime-short" /></td>
+                                            <td class="px-4 py-3 whitespace-nowrap text-sm text-text-secondary">@cmd.ResponseTimeMs ms</td>
+                                            <td class="px-4 py-3 whitespace-nowrap">
+                                                <Badge Text="@(cmd.Success ? "Success" : "Failed")" Variant="@(cmd.Success ? BadgeVariant.Success : BadgeVariant.Error)" Size="BadgeSize.Small" />
+                                            </td>
+                                        </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div class="md:hidden divide-y divide-border-primary">
+                            @foreach (var cmd in agg.RecentCommandLogs)
+                            {
+                                <div class="py-3">
+                                    <div class="flex items-center justify-between mb-1">
+                                        <span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span>
+                                        <Badge Text="@(cmd.Success ? "Success" : "Failed")" Variant="@(cmd.Success ? BadgeVariant.Success : BadgeVariant.Error)" Size="BadgeSize.Small" />
+                                    </div>
+                                    <div class="text-sm text-text-secondary">@cmd.Username &middot; <LocalTime Utc="cmd.ExecutedAt" Format="datetime-short" /> &middot; @cmd.ResponseTimeMs ms</div>
+                                </div>
+                            }
+                        </div>
+                    }
+                    else
+                    {
+                        <EmptyState Type="EmptyStateType.NoData" Title="No command activity yet" Description="No commands have been executed in this server" />
+                    }
+                </ChildContent>
+            </Card>
+        }
+    </ChildContent>
+</GuildContextGate>
+
+@code {
+    private static string RankLabel(int rank) => rank switch
+    {
+        1 => "\U0001F947",
+        2 => "\U0001F948",
+        3 => "\U0001F949",
+        _ => $"#{rank}"
+    };
+}

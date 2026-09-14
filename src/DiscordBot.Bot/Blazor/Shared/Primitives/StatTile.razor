@@ -1,0 +1,29 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@*
+    Small "label over big number" tile - the `bg-bg-primary rounded-lg p-3/p-4` stat block every
+    Guilds/Details dashboard widget repeats (docs/plans/blazor-port-plan.md §5 Phase 4, cluster
+    4d). Not part of the legacy component library (the legacy page built these as raw HTML string
+    fragments inside DashboardWidgetViewModel.BodyContent); pulled out as its own primitive here
+    since six widgets each need several.
+*@
+
+<div class="bg-bg-primary rounded-lg p-3 sm:p-4 @Class">
+    <p class="text-xs text-text-tertiary font-medium mb-1">@Label</p>
+    <p class="text-2xl font-bold @(string.IsNullOrEmpty(ValueClass) ? "text-text-primary" : ValueClass)">@Value</p>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string Label { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired]
+    public string Value { get; set; } = string.Empty;
+
+    /// <summary>Text color utility class for <see cref="Value"/>; defaults to <c>text-text-primary</c> when unset or empty.</summary>
+    [Parameter]
+    public string? ValueClass { get; set; }
+
+    [Parameter]
+    public string? Class { get; set; }
+}

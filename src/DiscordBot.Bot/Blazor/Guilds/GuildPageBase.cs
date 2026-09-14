@@ -165,7 +165,17 @@ public abstract class GuildPageBase : ComponentBase, IDisposable
         return Task.CompletedTask;
     }
 
-    public void Dispose()
+    /// <summary>
+    /// Virtual (not sealed, unlike the lifecycle pair above) so a page that registers its own
+    /// interop cleanup - e.g. a click-outside handle for an in-page dropdown, per
+    /// <c>BrowserInterop.OnClickOutsideAsync</c> - can override it and call
+    /// <c>base.Dispose()</c> alongside its own logic. Framework/DI-driven disposal always goes
+    /// through this virtual slot (the exact reason it can't stay non-virtual: a derived class's
+    /// own <c>public void Dispose()</c> would hide, not override, a non-virtual base method, so
+    /// the renderer's interface-typed call would still land here and skip the derived cleanup
+    /// entirely).
+    /// </summary>
+    public virtual void Dispose()
     {
         _persistingSubscription.Dispose();
         GC.SuppressFinalize(this);
