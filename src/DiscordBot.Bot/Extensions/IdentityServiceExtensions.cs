@@ -2,6 +2,7 @@ using System.Net;
 using AspNet.Security.OAuth.Discord;
 using DiscordBot.Bot.Authorization;
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Account;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
@@ -107,6 +108,10 @@ public static class IdentityServiceExtensions
         services.AddScoped<IDiscordUserInfoService, DiscordUserInfoService>();
         services.AddScoped<IGuildMembershipService, GuildMembershipService>();
         services.AddScoped<IUserDiscordGuildService, UserDiscordGuildService>();
+
+        // Blazor/Pages/Account/LinkDiscord.razor.cs's mutation handlers (unlink, refresh, bot
+        // verification) - see docs/plans/blazor-port-plan.md Phase 4 cluster 4c.
+        services.AddScoped<IDiscordLinkService, DiscordLinkService>();
 
         // Add Discord OAuth Token Refresh background service
         services.AddHostedService<DiscordTokenRefreshService>();
