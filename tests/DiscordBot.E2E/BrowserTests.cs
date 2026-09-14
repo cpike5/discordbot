@@ -903,47 +903,22 @@ public sealed class BrowserTests
     }
 
     /// <summary>
-    /// Smoke-covers four of the other five cluster 4b pages (plan §5 Phase 4) in one pass: each
-    /// renders its main heading or empty state for a seeded guild in web-only mode (no Discord
-    /// gateway, so channel lists are empty and Discord names fall back to raw ids), then exercises
-    /// Welcome's "channel required when enabled" field-error rule and its success-toast/stay-in-
-    /// place save path. AssistantSettings is the fifth page and is deliberately not visited here -
-    /// see the remarks below for why.
+    /// Smoke-covers all five of the other cluster 4b guild pages (plan §5 Phase 4) in one pass:
+    /// each renders its real main heading and its content for a seeded guild in web-only mode (no
+    /// Discord gateway, so channel lists are empty and Discord names fall back to raw ids), then
+    /// exercises AssistantSettings' save round trip and Welcome's "channel required when enabled"
+    /// field-error rule plus its success-toast/stay-in-place save path.
     /// </summary>
     /// <remarks>
-    /// <para>
-    /// This test tolerates a specific pre-existing, non-deterministic infrastructure bug rather
-    /// than asserting around it strictly: on a from-scratch SQLite database (exactly what this
-    /// fixture's fresh-tempdir-per-run db is, and what a real first deployment's
-    /// <c>data/discordbot.db</c> is too), some tables/columns from migrations well before this
-    /// cluster - observed variously across different runs: <c>AssistantGuildSettings.EnabledTools</c>
-    /// (Sept 11), <c>AssistantInteractionLogs.ToolNames</c> (Sept 11), <c>LlmUsageRecords</c>
-    /// (Sept 10), <c>AudioPlaybackLogs</c> (March) - are intermittently missing at app runtime, even
-    /// though <c>dotnet ef migrations has-pending-model-changes</c> reports the model in sync,
-    /// <c>dotnet ef migrations script</c> generates a structurally complete script, and
-    /// <c>dotnet ef database update</c> against a real file applies every migration correctly
-    /// (confirmed by direct schema inspection - the migration *set* is not the bug). The bug is
-    /// specifically in how <c>Program.cs</c>'s <c>db.Database.MigrateAsync()</c> behaves at app
-    /// startup, and both <c>Program.cs</c> and the EF/SQLite plumbing are out of bounds for this
-    /// cluster to fix. It is not caused by this cluster's Blazor pages: it reproduces identically
-    /// against the already-deleted legacy page models, which called the exact same service and
-    /// repository methods, and it has been observed to hit <c>AssistantMetrics</c> and
-    /// <c>AudioModerationLog</c> (both wrap their own queries defensively, but
-    /// <see cref="Blazor.Guilds.GuildContextGate"/>'s own context resolution is not wrapped and can
-    /// itself hit an affected table before a page's own code runs) on different runs, not always
-    /// the same page - see the cluster 4b report for the full repro and root-cause notes.
-    /// </para>
-    /// <para>
-    /// AssistantSettings is skipped entirely (not just tolerated) because triggering this bug
-    /// there was observed to leave the shared app instance's SQLite connectivity (this fixture is
-    /// one host process for the whole collection, not one per test) in a state that broke
-    /// subsequent, unrelated requests for the rest of the run - a blast radius too wide to make
-    /// safe with a per-page tolerance. <c>AssistantSettingsTests.cs</c> (bUnit, which mocks the
-    /// service and never touches a real database) is that page's real coverage until this bug has
-    /// its own fix. The other four pages have not shown that same cross-request blast radius, so
-    /// <see cref="ExpectHeadingOrKnownDbGapAsync"/> lets this test keep covering their happy path
-    /// on the (typical) runs the bug does not strike, without going red on the runs it does.
-    /// </para>
+    /// Earlier versions of this test tolerated an <c>ErrorBoundary</c> fallback or a raw ASP.NET
+    /// exception page in place of each page's real content (via a since-deleted
+    /// <c>ExpectHeadingOrKnownDbGapAsync</c> helper), skipped AssistantSettings entirely, and
+    /// worked around a from-scratch SQLite database intermittently missing tables/columns at app
+    /// startup even though the migration set itself was correct. That gap was in how
+    /// <c>Program.cs</c> resolved the base <c>BotDbContext</c> rather than the provider-specific
+    /// <c>SqliteBotDbContext</c> at startup - fixed by "fix(infra): resolve SqliteBotDbContext at
+    /// startup, not the base BotDbContext" - so a fresh database (exactly what this fixture's
+    /// fresh-tempdir-per-run db is) no longer hits it, and this test asserts strictly again.
     /// </remarks>
     [E2EFact]
     public async Task Test_V_GuildPages_RenderWebOnly()
@@ -957,43 +932,41 @@ public sealed class BrowserTests
 
         // Welcome - matches its own guild-nav tab, so GuildLayout's header shows the tab label.
         await page.GotoAsync($"/Guilds/Welcome/{guildId}");
-        var welcomeRendered = await ExpectHeadingOrKnownDbGapAsync(page, "Welcome");
-        if (welcomeRendered)
-        {
-            await Expect(page.GetByText("Enable Welcome Messages")).ToBeVisibleAsync();
-            await Expect(page.GetByText("Live Preview")).ToBeVisibleAsync();
-        }
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Welcome");
+        await Expect(page.GetByText("Enable Welcome Messages")).ToBeVisibleAsync();
+        await Expect(page.GetByText("Live Preview")).ToBeVisibleAsync();
 
-        // AssistantSettings is deliberately NOT visited here - see the class remarks above.
+        // AssistantSettings - matches its own "assistant" guild-nav tab. The channel checklist
+        // renders empty in this web-only host (no live Discord gateway for
+        // IDiscordChannelResolver.GetTextChannels to read from); saving as-is (assistant disabled
+        // by default on a freshly-created settings row, so there is no channel-required rule in
+        // play) round-trips to a success toast.
+        await page.GotoAsync($"/Guilds/AssistantSettings/{guildId}");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Assistant");
+        await Expect(page.GetByText("No text channels available")).ToBeVisibleAsync();
+        await page.WaitForTimeoutAsync(1_500);
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Settings" }).ClickAsync();
+        await Expect(page.Locator(".toast-success")).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
 
         // AssistantMetrics - route matches no guild-nav tab (its tab points at AssistantSettings'
         // URL instead), so GuildLayout falls back to the guild's own name as the header title.
+        // This host has no OpenRouter:ApiKey configured (BotHostFixture), so IAssistantService is
+        // never registered and the daily-metrics panel renders its "not configured" state, not
+        // "No usage data yet" - see AssistantMetrics.razor.cs's class remarks.
         await page.GotoAsync($"/Guilds/AssistantMetrics/{guildId}");
-        if (await ExpectHeadingOrKnownDbGapAsync(page, "E2E Cluster Guild"))
-        {
-            await Expect(page.GetByText("No usage data yet")).ToBeVisibleAsync();
-        }
+        await Expect(page.Locator("h1")).ToHaveTextAsync("E2E Cluster Guild");
+        await Expect(page.GetByText("The assistant is not configured on this deployment")).ToBeVisibleAsync();
 
         // AudioModerationLog - same "no matching tab" case as AssistantMetrics.
         await page.GotoAsync($"/Guilds/AudioModerationLog/{guildId}");
-        if (await ExpectHeadingOrKnownDbGapAsync(page, "E2E Cluster Guild"))
-        {
-            await Expect(page.Locator("#audioTabs")).ToBeVisibleAsync();
-            await Expect(page.GetByText("No audio playback events found")).ToBeVisibleAsync();
-        }
+        await Expect(page.Locator("h1")).ToHaveTextAsync("E2E Cluster Guild");
+        await Expect(page.Locator("#audioTabs")).ToBeVisibleAsync();
+        await Expect(page.GetByText("No audio playback events found")).ToBeVisibleAsync();
 
         // RatWatch - matches its own guild-nav tab.
         await page.GotoAsync($"/Guilds/RatWatch/{guildId}");
-        if (await ExpectHeadingOrKnownDbGapAsync(page, "Rat Watch"))
-        {
-            await Expect(page.GetByText("No Rat Watches Yet")).ToBeVisibleAsync();
-        }
-
-        // Welcome save-flow round trip only makes sense if Welcome itself rendered above.
-        if (!welcomeRendered)
-        {
-            return;
-        }
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Rat Watch");
+        await Expect(page.GetByText("No Rat Watches Yet")).ToBeVisibleAsync();
 
         // Welcome: enable with no channel selected (web-only mode resolves no Discord channels at
         // all, so there is nothing to pick even if a selector were used) - the manual
@@ -1009,52 +982,6 @@ public sealed class BrowserTests
         await page.Locator("label[for='Input_IsEnabled']").ClickAsync();
         await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Configuration" }).ClickAsync();
         await Expect(page.Locator(".toast-success")).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
-    }
-
-    /// <summary>
-    /// Waits for either <paramref name="expectedHeadingText"/> to appear as this page's
-    /// <c>&lt;h1&gt;</c>, or the shared <c>ErrorBoundary</c>'s "Something went wrong" fallback to
-    /// render instead, and reports which one it was - see the remarks on
-    /// <see cref="Test_V_GuildPages_RenderWebOnly"/> for why a run can hit the latter. Returns
-    /// <see langword="true"/> when the expected heading rendered (callers should go on to assert
-    /// that page's own content) and <see langword="false"/> when the known ErrorBoundary fallback
-    /// rendered instead (callers should skip page-specific assertions for that navigation).
-    /// </summary>
-    private static async Task<bool> ExpectHeadingOrKnownDbGapAsync(IPage page, string expectedHeadingText)
-    {
-        var h1 = page.Locator("h1");
-        var errorBoundaryHeading = page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = "Something went wrong" });
-        // A raw ASP.NET Core unhandled-exception page (no Blazor content rendered at all, so no
-        // <h1> and no ErrorBoundary either) is the same known pre-existing gap manifesting even
-        // harder - see the class remarks.
-        var rawExceptionPage = page.GetByText("An unhandled exception occurred while processing the request.");
-
-        var deadline = DateTime.UtcNow.AddSeconds(20);
-        while (DateTime.UtcNow < deadline)
-        {
-            // CountAsync() reads the current DOM without auto-waiting, unlike TextContentAsync()
-            // on a locator with zero matches, which blocks for the full action timeout.
-            if (await h1.CountAsync() > 0)
-            {
-                var h1Text = await h1.First.TextContentAsync();
-                if (string.Equals(h1Text?.Trim(), expectedHeadingText, StringComparison.Ordinal))
-                {
-                    return true;
-                }
-            }
-
-            if (await errorBoundaryHeading.CountAsync() > 0 || await rawExceptionPage.CountAsync() > 0)
-            {
-                return false;
-            }
-
-            await page.WaitForTimeoutAsync(250);
-        }
-
-        // Neither rendered within the deadline - fall through to a strict assertion so the
-        // failure points at the actual (unexpected, neither-of-the-above) page state.
-        await Expect(h1).ToHaveTextAsync(expectedHeadingText);
-        return true;
     }
 
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>

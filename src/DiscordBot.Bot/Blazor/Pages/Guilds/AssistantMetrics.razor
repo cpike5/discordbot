@@ -4,6 +4,7 @@
 @inherits GuildPageBase
 @rendermode InteractiveServer
 @using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
 
 @*
     Routable replacement for Pages/Guilds/AssistantMetrics.cshtml + AssistantMetricsModel
@@ -96,7 +97,21 @@
                 <p class="text-sm text-text-secondary mt-1">Detailed metrics for each day</p>
             </div>
 
-            @if (Metrics.Count > 0)
+            @if (MetricsLoadFailed)
+            {
+                <div class="p-6">
+                    <Alert Variant="AlertVariant.Error" Title="Couldn't load daily metrics" Message="The usage-metrics query failed. Check the server logs and try reloading the page." />
+                </div>
+            }
+            else if (!AssistantConfigured)
+            {
+                <div class="p-12 text-center">
+                    <Icon Path="@IconPaths.ChartBarSquare" Class="w-12 h-12 text-text-tertiary mx-auto mb-3" />
+                    <p class="text-text-secondary mb-2">The assistant is not configured on this deployment</p>
+                    <p class="text-sm text-text-tertiary">Set OpenRouter:ApiKey to enable the AI assistant and start collecting usage metrics.</p>
+                </div>
+            }
+            else if (Metrics.Count > 0)
             {
                 <div class="overflow-x-auto hidden md:block">
                     <table class="min-w-full divide-y divide-border-primary">
@@ -178,7 +193,13 @@
                 </p>
             </div>
 
-            @if (!HasToolUsageData)
+            @if (ToolUsageLoadFailed)
+            {
+                <div class="p-6">
+                    <Alert Variant="AlertVariant.Error" Title="Couldn't load tool usage" Message="The tool-usage query failed. Check the server logs and try reloading the page." />
+                </div>
+            }
+            else if (!HasToolUsageData)
             {
                 <div class="px-6 py-4 border-b border-border-primary text-sm text-text-secondary">
                     No tool names recorded yet in this window. Interactions logged before tool names were
@@ -186,6 +207,8 @@
                 </div>
             }
 
+            @if (!ToolUsageLoadFailed)
+            {
             <div class="overflow-x-auto hidden md:block">
                 <table class="min-w-full divide-y divide-border-primary">
                     <thead class="bg-bg-tertiary">
@@ -243,6 +266,7 @@
                     </div>
                 }
             </div>
+            }
         </div>
 
         <!-- Prompt Surface -->
@@ -384,7 +408,13 @@
                 <h3 class="text-lg font-semibold text-text-primary">Cost by User</h3>
                 <p class="text-sm text-text-secondary mt-1">Top @CostByUser.Count spenders in this guild over the last 30 days</p>
             </div>
-            @if (CostByUser.Count > 0)
+            @if (CostByUserLoadFailed)
+            {
+                <div class="p-6">
+                    <Alert Variant="AlertVariant.Error" Title="Couldn't load cost by user" Message="The cost-by-user query failed. Check the server logs and try reloading the page." />
+                </div>
+            }
+            else if (CostByUser.Count > 0)
             {
                 <div class="overflow-x-auto hidden md:block">
                     <table class="min-w-full divide-y divide-border-primary">

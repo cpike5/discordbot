@@ -83,6 +83,21 @@ public partial class AssistantMetrics : GuildPageBase
     protected bool HasToolUsageData { get; private set; }
     protected PromptSurfaceReport? PromptSurface { get; private set; }
 
+    /// <summary>False only when no <c>OpenRouter:ApiKey</c> is configured (see the class remarks) -
+    /// the daily-metrics panel renders an explicit "not configured" state rather than the
+    /// zeros/empty-state a genuinely-empty result would show.</summary>
+    protected bool AssistantConfigured { get; private set; } = true;
+
+    /// <summary>True when the daily-metrics query itself threw (assistant configured, but the
+    /// call failed) - rendered as a "couldn't load" <c>Alert</c>, not silently as "no usage data".</summary>
+    protected bool MetricsLoadFailed { get; private set; }
+
+    /// <summary>True when the tool-usage query threw - see <see cref="MetricsLoadFailed"/>.</summary>
+    protected bool ToolUsageLoadFailed { get; private set; }
+
+    /// <summary>True when the cost-by-user query threw - see <see cref="MetricsLoadFailed"/>.</summary>
+    protected bool CostByUserLoadFailed { get; private set; }
+
     protected override async Task OnGuildContextReadyAsync()
     {
         if (Guild is null)
@@ -94,25 +109,38 @@ public partial class AssistantMetrics : GuildPageBase
         var endDate = DateTime.UtcNow.Date;
         var startDate = endDate.AddDays(-30);
 
-        // Null when no OpenRouter:ApiKey is configured - see the class remarks. Metrics stays
-        // empty, which the daily-breakdown table already renders as "No usage data yet".
+        // Null when no OpenRouter:ApiKey is configured - see the class remarks. Distinct from a
+        // failed or genuinely-empty query: the daily-metrics panel renders its own "assistant not
+        // configured" state for this case rather than either "couldn't load" or "no usage data".
         var assistantService = ServiceProvider.GetService<IAssistantService>();
-        Metrics = assistantService is null
-            ? []
-            : await ReadOrEmptyAsync<AssistantUsageMetrics>(async () => (await assistantService.GetUsageMetricsRangeAsync(guildId, startDate, endDate)).ToList(), "usage metrics", guildId);
+        AssistantConfigured = assistantService is not null;
+        if (assistantService is null)
+        {
+            Metrics = [];
+            MetricsLoadFailed = false;
+        }
+        else
+        {
+            var (metrics, metricsFailed) = await ReadOrEmptyAsync<AssistantUsageMetrics>(
+                async () => (await assistantService.GetUsageMetricsRangeAsync(guildId, startDate, endDate)).ToList(), "usage metrics", guildId);
+            Metrics = metrics;
+            MetricsLoadFailed = metricsFailed;
+        }
 
-        var toolUsage = await ReadOrEmptyAsync(
+        var (toolUsage, toolUsageFailed) = await ReadOrEmptyAsync(
             () => InteractionLogRepository.GetToolUsageAsync(guildId, startDate, endDate.AddDays(1).AddTicks(-1)),
             "tool usage", guildId);
         ToolUsage = BuildToolUsageRows(toolUsage);
         HasToolUsageData = toolUsage.Count > 0;
+        ToolUsageLoadFailed = toolUsageFailed;
 
         PromptSurface = await ReadPromptSurfaceAsync(guildId);
 
         var usageQuery = new LlmUsageQuery { From = startDate, To = endDate.AddDays(1).AddTicks(-1), GuildId = guildId };
-        var costByUser = await ReadOrEmptyAsync(
+        var (costByUser, costByUserFailed) = await ReadOrEmptyAsync(
             () => UsageRepository.GetByUserAsync(usageQuery, CostByUserTake),
             "cost-by-user", guildId);
+        CostByUserLoadFailed = costByUserFailed;
         var names = costByUser.Count > 0
             ? await UserResolver.ResolveUsersAsync(costByUser.Select(u => u.UserId))
             : new Dictionary<ulong, (string Username, string? AvatarUrl)>();
@@ -151,6 +179,8 @@ public partial class AssistantMetrics : GuildPageBase
             var totalRequests = TotalQuestions + TotalFailedRequests;
             SuccessRate = totalRequests > 0 ? (double)TotalQuestions / totalRequests * 100 : 100;
         }
+
+        RequestLocalTimeScan();
     }
 
     /// <remarks>
@@ -172,23 +202,26 @@ public partial class AssistantMetrics : GuildPageBase
     }
 
     /// <summary>
-    /// Runs one data source for this page's read-only panels, degrading to an empty result on
-    /// failure instead of taking the whole page down with it - the same "a panel that cannot be
-    /// drawn is not a reason to fail the whole page" posture <see cref="ReadPromptSurfaceAsync"/>
-    /// already uses, extended to every other best-effort query here (each already has its own
-    /// empty-state UI: "No usage data yet", the no-tool-names banner, "No per-user usage recorded
-    /// for this range").
+    /// Runs one data source for this page's read-only panels without taking the whole page down
+    /// with it - the same "a panel that cannot be drawn is not a reason to fail the whole page"
+    /// posture <see cref="ReadPromptSurfaceAsync"/> already uses. Unlike an actually-empty result,
+    /// a caught failure is reported back via the second tuple element so the caller can render a
+    /// "couldn't load" <c>Alert</c> for that panel instead of its normal empty state - an empty
+    /// state reads as "no data", which is misleading for "the query failed". Logged at Error, not
+    /// Warning: the fresh-database schema gap this previously had to tolerate on every load
+    /// (docs/lessons-learned - see "fix(infra): resolve SqliteBotDbContext at startup") is fixed,
+    /// so a hit here past that point is a real problem worth paging attention, not routine noise.
     /// </summary>
-    private async Task<IReadOnlyList<T>> ReadOrEmptyAsync<T>(Func<Task<IReadOnlyList<T>>> query, string panelName, ulong guildId)
+    private async Task<(IReadOnlyList<T> Items, bool Failed)> ReadOrEmptyAsync<T>(Func<Task<IReadOnlyList<T>>> query, string panelName, ulong guildId)
     {
         try
         {
-            return await query();
+            return (await query(), false);
         }
         catch (Exception ex)
         {
-            Logger.LogWarning(ex, "Could not load the {Panel} panel for guild {GuildId}", panelName, guildId);
-            return [];
+            Logger.LogError(ex, "Could not load the {Panel} panel for guild {GuildId}", panelName, guildId);
+            return ([], true);
         }
     }
 

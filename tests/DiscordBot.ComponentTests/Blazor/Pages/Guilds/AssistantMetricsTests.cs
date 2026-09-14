@@ -169,6 +169,45 @@ public class AssistantMetricsTests : BlazorComponentTestContext
         cut.Markup.Should().Contain("Server Not Found");
         _assistantService.Verify(s => s.GetUsageMetricsRangeAsync(It.IsAny<ulong>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
+
+    /// <summary>
+    /// A panel query that throws renders that panel's own "couldn't load" <c>Alert</c> - not the
+    /// misleading empty state a genuinely-empty result would show - see docs review finding 3.
+    /// </summary>
+    [Fact]
+    public void MetricsQueryThrows_RendersCouldNotLoadAlert_NotEmptyState()
+    {
+        _assistantService.Setup(s => s.GetUsageMetricsRangeAsync(GuildId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var cut = RenderPage();
+
+        cut.Markup.Should().Contain("Couldn't load daily metrics");
+        cut.Markup.Should().NotContain("No usage data yet");
+    }
+
+    [Fact]
+    public void ToolUsageQueryThrows_RendersCouldNotLoadAlert()
+    {
+        _interactionLogRepository.Setup(r => r.GetToolUsageAsync(GuildId, It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var cut = RenderPage();
+
+        cut.Markup.Should().Contain("Couldn't load tool usage");
+    }
+
+    [Fact]
+    public void CostByUserQueryThrows_RendersCouldNotLoadAlert_NotEmptyState()
+    {
+        _usageRepository.Setup(r => r.GetByUserAsync(It.IsAny<LlmUsageQuery>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var cut = RenderPage();
+
+        cut.Markup.Should().Contain("Couldn't load cost by user");
+        cut.Markup.Should().NotContain("No per-user usage recorded for this range");
+    }
 }
 
 /// <summary>
@@ -226,8 +265,14 @@ public class AssistantMetricsWithoutAssistantServiceTests : BlazorComponentTestC
                 Tabs: DiscordBot.Bot.Configuration.GuildNavigationConfig.GetTabs())));
     }
 
+    /// <summary>
+    /// With no <see cref="IAssistantService"/> registered (no <c>OpenRouter:ApiKey</c> configured
+    /// - see the class remarks on <see cref="AssistantMetrics"/>), the daily-metrics panel renders
+    /// its own explicit "not configured" state, not the generic "no usage data yet" empty state a
+    /// genuinely-empty (but configured) result would show - see docs review finding 3.
+    /// </summary>
     [Fact]
-    public void NoAssistantServiceRegistered_RendersEmptyState_DoesNotThrow()
+    public void NoAssistantServiceRegistered_RendersNotConfiguredState_DoesNotThrow()
     {
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
         navMan.NavigateTo($"/Guilds/AssistantMetrics/{GuildId}");
@@ -235,6 +280,7 @@ public class AssistantMetricsWithoutAssistantServiceTests : BlazorComponentTestC
 
         var cut = Render<AssistantMetrics>(p => p.Add(x => x.GuildId, (long)GuildId));
 
-        cut.Markup.Should().Contain("No usage data yet");
+        cut.Markup.Should().Contain("The assistant is not configured on this deployment");
+        cut.Markup.Should().NotContain("No usage data yet");
     }
 }
