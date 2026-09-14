@@ -301,14 +301,18 @@ public class LinkDiscordTests : BlazorComponentTestContext
     }
 
     [Fact]
-    public void StatusKey_VerifyCodeSuccess_UsesDetailAsWelcomeName()
+    public void StatusKey_VerifyCodeSuccess_UsesDiscordUsernameFromDatabase_NotDetail()
     {
+        // A crafted "?status=verify-code-success&detail=..." must not put attacker text in the
+        // success banner - the welcome name comes from the freshly loaded user's DiscordUsername
+        // instead, ignoring detail entirely. See LinkDiscord.razor.cs's class remarks.
         SetUser(LinkedUser);
         _tokenService.Setup(s => s.HasValidTokenAsync(LinkedUser.Id, It.IsAny<CancellationToken>())).ReturnsAsync(false);
 
-        var cut = RenderPage("verify-code-success", "SomeDiscordUser");
+        var cut = RenderPage("verify-code-success", "Attacker Text");
 
-        cut.Markup.Should().Contain("Welcome, SomeDiscordUser!");
+        cut.Markup.Should().Contain($"Welcome, {LinkedUser.DiscordUsername}!");
+        cut.Markup.Should().NotContain("Attacker Text");
     }
 
     [Fact]

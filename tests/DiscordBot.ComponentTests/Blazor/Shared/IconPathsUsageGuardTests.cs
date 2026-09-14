@@ -115,6 +115,7 @@ public class IconPathsUsageGuardTests : BlazorComponentTestContext
         Services.AddSingleton(Mock.Of<IAudioService>());
         Services.AddSingleton(Mock.Of<IPlaybackService>());
 
+        SetInteractiveRendererInfo();
         AssertNoLiteralIconPathsInIcons(Render<PrimitivesShowcase>().FindAll("path"), nameof(PrimitivesShowcase));
         AssertNoLiteralIconPathsInIcons(Render<StatusAndHeadersShowcase>().FindAll("path"), nameof(StatusAndHeadersShowcase));
         AssertNoLiteralIconPathsInIcons(Render<FormsShowcase>().FindAll("path"), nameof(FormsShowcase));

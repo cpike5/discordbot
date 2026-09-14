@@ -160,34 +160,39 @@ public sealed class BrowserTests
         await Expect(page.Locator("[data-testid='components-nav']")).ToBeVisibleAsync();
 
         // Toast demo: the "Success" button inside the Toasts section, scoped there since several
-        // other sections (badges, alerts) also render text/labels called "Success".
+        // other sections (badges, alerts) also render text/labels called "Success". The button is
+        // disabled="@(!RendererInfo.IsInteractive)" (NavigationAndOverlaysShowcase.razor) until the
+        // circuit actually attaches, so waiting for it to become enabled first rules out a click
+        // landing in the prerender-only window (see
+        // docs/lessons-learned/blazor-editform-formname-race.md's "Test-side consequence"). That
+        // alone isn't quite enough, though: even once enabled, a click sent the instant the
+        // "disabled" attribute is removed can still race Blazor Server's own client-side event
+        // listener attachment and land in nothing (confirmed empirically against this exact
+        // button - not a hypothesis) - the same class of "a click fired too early is dropped, not
+        // queued" gap <see cref="AssertCounterIncrementsAsync"/> documents and retries around for
+        // the smoke-page counter, so this retries on the same bounded-deadline shape rather than
+        // trusting a single click.
+        // .First: a retried click can land more than once (the toast host stacks them rather than
+        // replacing), and under load a retry is exactly what happens - without .First, a second
+        // stacked toast turns every subsequent assertion into a strict-mode violation (Playwright
+        // refuses to resolve a bare locator to >1 element), which this loop would then misread as
+        // "click didn't land" and retry again, compounding rather than recovering.
         var toastSection = page.Locator("[data-testid='showcase-toasts']");
         var successButton = toastSection.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Success", Exact = true });
-        var toast = page.Locator("[role='alert']").Filter(new LocatorFilterOptions { HasTextString = "Saved successfully." });
+        var toast = page.Locator("[role='alert']").Filter(new LocatorFilterOptions { HasTextString = "Saved successfully." }).First;
 
-        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
-        while (true)
-        {
-            await successButton.ClickAsync();
-            try
-            {
-                await Expect(toast).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 1_000 });
-                break;
-            }
-            catch (PlaywrightException) when (DateTime.UtcNow < deadline)
-            {
-                // Circuit still not connected (or this particular click didn't land) - try again,
-                // same retry shape AssertCounterIncrementsAsync uses for the smoke page.
-            }
-        }
+        await Expect(successButton).ToBeEnabledAsync();
+        await ClickUntilVisibleAsync(successButton, toast);
 
         // Confirm modal demo: open it, then cancel - the modal must close and the result readout
-        // must reflect a cancelled (false) confirmation, not a lingering "none".
+        // must reflect a cancelled (false) confirmation, not a lingering "none". Same
+        // disabled-until-interactive gating plus click-retry as the toast button above.
         var confirmSection = page.Locator("[data-testid='showcase-confirm-modal']");
-        await confirmSection.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete item", Exact = true }).ClickAsync();
-
+        var deleteItemButton = confirmSection.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete item", Exact = true });
         var dialog = page.Locator("#showcase-confirm-plain");
-        await Expect(dialog).ToBeVisibleAsync();
+
+        await Expect(deleteItemButton).ToBeEnabledAsync();
+        await ClickUntilVisibleAsync(deleteItemButton, dialog);
         await dialog.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Cancel", Exact = true }).ClickAsync();
 
         await Expect(dialog).ToBeHiddenAsync();
@@ -1331,7 +1336,11 @@ public sealed class BrowserTests
         await Expect(page.GetByText("Discord Account Required")).ToBeVisibleAsync();
         await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Delete All Data" })).Not.ToBeVisibleAsync();
 
-        LinkSeededAdminToDiscord();
+        var discordUserId = LinkSeededAdminToDiscord();
+        // ConsentType.MessageLogging = 1 - granted, RevokedAt NULL - so the privacy-actions form
+        // below the delete form actually renders a consent row with a live Grant/Revoke button,
+        // needed for the BLOCKING regression check further down.
+        SeedGrantedConsent(discordUserId, consentType: 1);
         await page.GotoAsync("/Account/Privacy");
         await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Delete All Data" })).ToBeVisibleAsync();
 
@@ -1343,10 +1352,28 @@ public sealed class BrowserTests
         // redirected to /landing (Privacy.razor.cs's HandleDeleteDataAsync).
         await Expect(page).ToHaveURLAsync(new Regex(@"/Account/Privacy$"));
         await Expect(page.Locator("#sidebar")).ToBeVisibleAsync();
+
+        // BLOCKING review finding: "Delete My Data" is now its own <EditForm FormName="privacy-delete">,
+        // separate from "privacy-actions" (consent Grant/Revoke + Export) - see Privacy.razor.cs's
+        // class remarks. Before that split, this same confirmation input lived in privacy-actions
+        // alongside the consent toggle above, so pressing Enter here would implicitly submit the
+        // FIRST submit button in that shared form (a consent toggle), not Delete - silently
+        // flipping consent instead of asking for a delete. Prove the fix: press Enter with the
+        // wrong confirmation text and assert both the same validation error appears AND the seeded
+        // consent is untouched (checked directly against the database, not just the DOM, so a
+        // regression that flips it without changing the visible badge text can't hide).
+        var confirmationInput = page.Locator("input[placeholder='Type DELETE to confirm']");
+        await confirmationInput.FillAsync("nope");
+        await confirmationInput.PressAsync("Enter");
+
+        await Expect(page.GetByText("Type DELETE to confirm.")).ToBeVisibleAsync();
+        await Expect(page).ToHaveURLAsync(new Regex(@"/Account/Privacy$"));
+        ConsentIsGranted(discordUserId, consentType: 1).Should().BeTrue(
+            "Enter in the delete confirmation box must submit only the delete form, never the consent Grant/Revoke button in the separate privacy-actions form");
     }
 
-    /// <summary>Sets the seeded SuperAdmin's <c>DiscordUserId</c>/<c>DiscordUsername</c> directly in the database, for <see cref="Test_Z4_Privacy_UnlinkedUser_RendersCallout_AndDeleteRequiresConfirmation"/> - the web-only host has no real Discord OAuth to link an account through.</summary>
-    private void LinkSeededAdminToDiscord()
+    /// <summary>Sets the seeded SuperAdmin's <c>DiscordUserId</c>/<c>DiscordUsername</c> directly in the database, for <see cref="Test_Z4_Privacy_UnlinkedUser_RendersCallout_AndDeleteRequiresConfirmation"/> - the web-only host has no real Discord OAuth to link an account through. Returns the generated Discord user id so a caller can seed/verify per-user rows (e.g. <c>UserConsents</c>) keyed on it.</summary>
+    private ulong LinkSeededAdminToDiscord()
     {
         var discordUserId = 900000000000000050UL + (ulong)Random.Shared.NextInt64(1, 1_000_000);
 
@@ -1357,6 +1384,44 @@ public sealed class BrowserTests
         command.Parameters.AddWithValue("$discordUserId", unchecked((long)discordUserId));
         command.Parameters.AddWithValue("$email", _host.SeededAdminEmail);
         command.ExecuteNonQuery();
+
+        return discordUserId;
+    }
+
+    /// <summary>Inserts an active (<c>RevokedAt</c> NULL) <c>UserConsents</c> row directly, for <see cref="Test_Z4_Privacy_UnlinkedUser_RendersCallout_AndDeleteRequiresConfirmation"/> - the web-only host has no bot to grant consent through <c>/consent grant</c>. <c>UserConsents.DiscordUserId</c> has an FK to <c>Users.Id</c> (the domain <c>User</c>, not <c>AspNetUsers</c>), so this also seeds the minimal required row there first.</summary>
+    private void SeedGrantedConsent(ulong discordUserId, int consentType)
+    {
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+
+        using (var userCommand = connection.CreateCommand())
+        {
+            userCommand.CommandText =
+                "INSERT OR IGNORE INTO Users (Id, Username, Discriminator, FirstSeenAt, LastSeenAt) " +
+                "VALUES ($id, 'e2e-seed', '0', $now, $now)";
+            userCommand.Parameters.AddWithValue("$id", unchecked((long)discordUserId));
+            userCommand.Parameters.AddWithValue("$now", DateTime.UtcNow.ToString("o"));
+            userCommand.ExecuteNonQuery();
+        }
+
+        using var command = connection.CreateCommand();
+        command.CommandText = "INSERT INTO UserConsents (DiscordUserId, ConsentType, GrantedAt, RevokedAt) VALUES ($discordUserId, $consentType, $grantedAt, NULL)";
+        command.Parameters.AddWithValue("$discordUserId", unchecked((long)discordUserId));
+        command.Parameters.AddWithValue("$consentType", consentType);
+        command.Parameters.AddWithValue("$grantedAt", DateTime.UtcNow.ToString("o"));
+        command.ExecuteNonQuery();
+    }
+
+    /// <summary>Reads whether <paramref name="discordUserId"/> currently has an active (<c>RevokedAt</c> NULL) consent row for <paramref name="consentType"/> - the direct-database counterpart to <see cref="SeedGrantedConsent"/>, used to prove a UI interaction did (or, here, did not) change it.</summary>
+    private bool ConsentIsGranted(ulong discordUserId, int consentType)
+    {
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "SELECT COUNT(*) FROM UserConsents WHERE DiscordUserId = $discordUserId AND ConsentType = $consentType AND RevokedAt IS NULL";
+        command.Parameters.AddWithValue("$discordUserId", unchecked((long)discordUserId));
+        command.Parameters.AddWithValue("$consentType", consentType);
+        return Convert.ToInt64(command.ExecuteScalar()) > 0;
     }
 
     private static async Task LoginAsync(IPage page, BotHostFixture host)
@@ -1420,6 +1485,37 @@ public sealed class BrowserTests
             catch (PlaywrightException) when (DateTime.UtcNow < deadline)
             {
                 // Circuit still not connected (or this particular click didn't land) - try again.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Clicks <paramref name="trigger"/> and waits for <paramref name="target"/> to become
+    /// visible, retrying the click on a bounded deadline if it doesn't - the same shape as
+    /// <see cref="AssertCounterIncrementsAsync"/>, generalized for any interactive-only trigger
+    /// gated <c>disabled="@(!RendererInfo.IsInteractive)"</c> (<c>Test_E</c>'s toast/ConfirmModal
+    /// demo buttons). Waiting for the trigger to report enabled first (the caller's job - see
+    /// <c>Test_E</c>) rules out a click landing in the prerender-only window; this loop covers the
+    /// narrower remaining race confirmed empirically against the ConfirmModal button specifically:
+    /// a click sent the instant "disabled" is removed can still beat Blazor Server's own
+    /// client-side event listener attachment and be silently dropped rather than queued, the same
+    /// gap <see cref="AssertCounterIncrementsAsync"/>'s remarks document for the smoke-page
+    /// counter. No blind sleep - each attempt's wait is a short, real "did it work" check.
+    /// </summary>
+    private static async Task ClickUntilVisibleAsync(ILocator trigger, ILocator target)
+    {
+        var deadline = DateTime.UtcNow + TimeSpan.FromSeconds(20);
+        while (true)
+        {
+            await trigger.ClickAsync();
+            try
+            {
+                await Expect(target).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 1_000 });
+                return;
+            }
+            catch (PlaywrightException) when (DateTime.UtcNow < deadline)
+            {
+                // Click didn't land (or produced no visible effect yet) - try again.
             }
         }
     }

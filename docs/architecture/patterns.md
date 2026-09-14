@@ -2175,11 +2175,20 @@ one of these routes replaces `asp-page-handler`. A minimal API endpoint that bin
 `[FromForm]` gets the same antiforgery validation `[ValidateAntiForgeryToken]`/`asp-antiforgery`
 gave a Razor Pages handler automatically, once `app.UseAntiforgery()` is in the pipeline (already
 true here) - no explicit `[ValidateAntiForgeryToken]`/`DisableAntiforgery()` call needed on either
-endpoint. Route strings live as `public const` fields on `Extensions/AccountRoutes` rather than
-being retyped at each call site, since more than one file needs the exact same literal (the cookie
-config's `LoginPath`/`LogoutPath`/`AccessDeniedPath`, the OAuth `OnRemoteFailure` redirect,
-`RedirectToLogin.razor`, `MainNavbar.razor`, and - for `PerformExternalLogin` specifically - any
-other account page whose own Discord-linking action reuses the same challenge endpoint).
+endpoint (proven by `AccountEndpointExtensionsTests.MapAccountEndpoints_PostEndpointsRequireAntiforgery_GetEndpointsDoNot`,
+which builds the real endpoint data via `MapAccountEndpoints` on a `WebApplication` and asserts
+`IAntiforgeryMetadata` directly - the handler-level tests in that same file call the handlers as
+plain delegates and never construct an endpoint, so none of them exercise this). Route strings live
+as `public const` fields on `Extensions/AccountRoutes` (`Login`, `Logout`, `PerformExternalLogin`,
+`ExternalLoginCallback`, `Lockout`, `AccessDenied`, `LinkDiscord`, `Privacy`) rather than being
+retyped at each call site, since more than one file needs the exact same literal: the cookie
+config's `LoginPath`/`LogoutPath`/`AccessDeniedPath` (kept as literal strings there, not a
+reference to this class - `IdentityConfigOptions` lives in `DiscordBot.Core`, which cannot
+reference `DiscordBot.Bot`), the OAuth `OnRemoteFailure` redirect (`IdentityServiceExtensions`),
+`RedirectToLogin.razor`, `MainNavbar.razor`, the legacy `Pages/Shared/_Navbar.cshtml`,
+`AccessDenied.razor`'s "Sign Out" form, and - for `PerformExternalLogin`, `LinkDiscord` and
+`Privacy` specifically - `LinkDiscord.razor`/`LinkDiscord.razor.cs`/`Privacy.razor.cs`'s own
+Discord-linking form and self-redirects.
 
 ### Circuit observability
 

@@ -179,7 +179,7 @@ public static class IdentityServiceExtensions
                     logger.LogWarning(exception, "Discord OAuth remote failure");
 
                     var errorType = ClassifyOAuthError(exception);
-                    context.Response.Redirect($"/Account/Login?authError={errorType}");
+                    context.Response.Redirect($"{AccountRoutes.Login}?authError={errorType}");
                     context.HandleResponse();
                     return Task.CompletedTask;
                 };

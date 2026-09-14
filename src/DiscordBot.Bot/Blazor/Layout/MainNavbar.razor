@@ -97,7 +97,7 @@
                         <Icon Path="@IconPaths.LockClosed" StrokeWidth="1.75" />
                         Privacy &amp; Consent
                     </a>
-                    <form method="post" action="/Account/Logout" class="block">
+                    <form method="post" action="@AccountRoutes.Logout" class="block">
                         <AntiforgeryToken />
                         <button type="submit" role="menuitem" class="user-menu-item danger">
                             <Icon Path="@IconPaths.ArrowRightOnRectangle" StrokeWidth="1.75" />
@@ -109,7 +109,7 @@
         }
         else
         {
-            <a href="/Account/Login" class="btn btn-primary btn-sm ml-2">Sign In</a>
+            <a href="@AccountRoutes.Login" class="btn btn-primary btn-sm ml-2">Sign In</a>
         }
     </div>
 </header>

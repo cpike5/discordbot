@@ -179,7 +179,7 @@
              Razor Page - see DeletedPagesGuardTests. asp-page/asp-page-handler can no longer
              resolve it, so this is a literal action with an explicit antiforgery token (a plain
              <form>, not tag-helper-processed, gets no automatic one). *@
-          <form method="post" action="/Account/Logout" class="block">
+          <form method="post" action="@AccountRoutes.Logout" class="block">
             @Html.AntiForgeryToken()
             <button type="submit" role="menuitem" class="user-menu-item danger">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
@@ -194,7 +194,7 @@
     else
     {
       <!-- Login Button -->
-      <a href="/Account/Login" class="btn btn-primary btn-sm ml-2">Sign In</a>
+      <a href="@AccountRoutes.Login" class="btn btn-primary btn-sm ml-2">Sign In</a>
     }
   </div>
 </header>

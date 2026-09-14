@@ -49,6 +49,7 @@ public class ComponentsPageTests : BlazorComponentTestContext
     [Fact]
     public void RendersAllSixShowcaseSections()
     {
+        SetInteractiveRendererInfo();
         var cut = Render<ComponentsPage>();
 
         foreach (var testId in new[]
@@ -65,6 +66,7 @@ public class ComponentsPageTests : BlazorComponentTestContext
     [Fact]
     public void RendersNavLink_ForEachSection()
     {
+        SetInteractiveRendererInfo();
         var cut = Render<ComponentsPage>();
 
         var nav = cut.Find("[data-testid='components-nav']");
@@ -74,6 +76,7 @@ public class ComponentsPageTests : BlazorComponentTestContext
     [Fact]
     public void RendersToastHostAndLoadingOverlay()
     {
+        SetInteractiveRendererInfo();
         var cut = Render<ComponentsPage>();
 
         // At least one of each: the page's own instance plus NavigationAndOverlaysShowcase's own

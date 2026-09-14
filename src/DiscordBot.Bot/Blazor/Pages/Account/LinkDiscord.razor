@@ -187,7 +187,7 @@ else
 
                     @* Plain <form> to a different route entirely (not a same-page named form) -
                        HTML forms cannot nest, so this must render outside the EditForm below. *@
-                    <form method="post" action="/Account/PerformExternalLogin">
+                    <form method="post" action="@AccountRoutes.PerformExternalLogin">
                         <AntiforgeryToken />
                         <input type="hidden" name="returnUrl" value="@ReturnUrl" />
                         <button type="submit" class="inline-flex items-center justify-center gap-2.5 py-2.5 px-6 text-sm font-semibold text-white bg-discord border border-discord rounded-md transition-colors hover:bg-discord-hover hover:border-discord-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-discord focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">

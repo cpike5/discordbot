@@ -16,6 +16,7 @@ public class NavigationAndOverlaysShowcaseTests : BlazorComponentTestContext
     public void RendersEverySection()
     {
         AddAuthorizedAdmin().SetPolicies("RequireAdmin");
+        SetInteractiveRendererInfo();
         var cut = Render<NavigationAndOverlaysShowcase>();
 
         foreach (var testId in new[]
@@ -34,6 +35,7 @@ public class NavigationAndOverlaysShowcaseTests : BlazorComponentTestContext
     public void InPageTabGroup_SwitchingTabs_ShowsOnlySelectedPanel()
     {
         AddAuthorizedAdmin().SetPolicies("RequireAdmin");
+        SetInteractiveRendererInfo();
         var cut = Render<NavigationAndOverlaysShowcase>();
 
         cut.Find("[data-testid='panel-overview']").Should().NotBeNull();
@@ -49,6 +51,7 @@ public class NavigationAndOverlaysShowcaseTests : BlazorComponentTestContext
     public void ConfirmButton_OpensPlainConfirmModal()
     {
         AddAuthorizedAdmin().SetPolicies("RequireAdmin");
+        SetInteractiveRendererInfo();
         var cut = Render<NavigationAndOverlaysShowcase>();
 
         cut.FindAll("button").Single(b => b.TextContent.Trim() == "Delete item").Click();
@@ -60,6 +63,7 @@ public class NavigationAndOverlaysShowcaseTests : BlazorComponentTestContext
     public void ToastButton_AddsToastToHost()
     {
         AddAuthorizedAdmin().SetPolicies("RequireAdmin");
+        SetInteractiveRendererInfo();
         var cut = Render<NavigationAndOverlaysShowcase>();
 
         cut.FindAll("button").Single(b => b.TextContent.Trim() == "Success").Click();
@@ -71,6 +75,7 @@ public class NavigationAndOverlaysShowcaseTests : BlazorComponentTestContext
     public void Highlight_RendersMarkForBasicExample()
     {
         AddAuthorizedAdmin().SetPolicies("RequireAdmin");
+        SetInteractiveRendererInfo();
         var cut = Render<NavigationAndOverlaysShowcase>();
 
         cut.Find("[data-testid='highlight-basic'] mark").TextContent.Should().Be("fox");
@@ -80,6 +85,7 @@ public class NavigationAndOverlaysShowcaseTests : BlazorComponentTestContext
     public void NotAdmin_RestartBannerSectionRendersEmptyBanner()
     {
         AddAuthorization().SetAuthorized("member").SetRoles("Member");
+        SetInteractiveRendererInfo();
         var cut = Render<NavigationAndOverlaysShowcase>();
 
         cut.Find("[data-testid='showcase-restart-banner']").Should().NotBeNull();

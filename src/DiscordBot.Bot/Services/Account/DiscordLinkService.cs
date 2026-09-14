@@ -169,7 +169,11 @@ public class DiscordLinkService : IDiscordLinkService
             {
                 _logger.LogInformation("Code verified successfully for user {UserId}, linked Discord user {DiscordUserId}",
                     user.Id, result.LinkedDiscordUserId);
-                return new DiscordLinkOperationOutcome(true, "verify-code-success", result.LinkedDiscordUsername ?? "Discord User");
+
+                // No Detail here: the caller's own success banner reads the linked username back
+                // from the database instead of trusting free text round-tripped through the query
+                // string - see DiscordLinkOperationOutcome.Detail's remarks.
+                return new DiscordLinkOperationOutcome(true, "verify-code-success");
             }
 
             _logger.LogWarning("Code verification failed for user {UserId}: {ErrorCode} - {ErrorMessage}",

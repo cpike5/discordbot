@@ -59,8 +59,12 @@
         </div>
         <div class="p-6 space-y-4">
             <div class="flex flex-wrap gap-3">
-                <Button Text="Delete item" Variant="ButtonVariant.Danger" OnClick="ShowPlainConfirm" />
-                <Button Text="Delete server" Variant="ButtonVariant.Danger" OnClick="ShowTypedConfirm" />
+                @* Disabled until the circuit attaches - see docs/lessons-learned/blazor-editform-formname-race.md.
+                   A prerendered click here silently loses its @@onclick (the interactive circuit
+                   isn't attached yet), so the ConfirmModal it targets never opens; gating on
+                   RendererInfo.IsInteractive removes the race instead of retrying around it. *@
+                <Button Text="Delete item" Variant="ButtonVariant.Danger" OnClick="ShowPlainConfirm" IsDisabled="@(!RendererInfo.IsInteractive)" />
+                <Button Text="Delete server" Variant="ButtonVariant.Danger" OnClick="ShowTypedConfirm" IsDisabled="@(!RendererInfo.IsInteractive)" />
             </div>
             <p class="text-sm text-text-secondary" data-testid="confirm-result">Last result: @(_lastConfirmResult?.ToString() ?? "none")</p>
 
@@ -75,10 +79,12 @@
             <h3 class="text-lg font-semibold text-text-primary">Toasts</h3>
         </div>
         <div class="p-6 flex flex-wrap gap-3">
-            <Button Text="Success" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Success("Saved successfully.")' />
-            <Button Text="Info" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Info("New features available.")' />
-            <Button Text="Warning" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Warning("Rate limit approaching.")' />
-            <Button Text="Error" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Error("Something went wrong.", "Error")' />
+            @* Same disabled-until-interactive gating as the ConfirmModal demo above - a toast
+               triggered before the circuit attaches would also be silently lost. *@
+            <Button Text="Success" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Success("Saved successfully.")' IsDisabled="@(!RendererInfo.IsInteractive)" />
+            <Button Text="Info" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Info("New features available.")' IsDisabled="@(!RendererInfo.IsInteractive)" />
+            <Button Text="Warning" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Warning("Rate limit approaching.")' IsDisabled="@(!RendererInfo.IsInteractive)" />
+            <Button Text="Error" Variant="ButtonVariant.Secondary" OnClick='() => ToastService.Error("Something went wrong.", "Error")' IsDisabled="@(!RendererInfo.IsInteractive)" />
         </div>
         <ToastHost />
     </section>

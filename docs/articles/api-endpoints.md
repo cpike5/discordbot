@@ -172,7 +172,7 @@ Signs the current user out. Form field: `returnUrl` (optional).
 
 ### POST /Account/PerformExternalLogin
 
-Issues the Discord OAuth challenge. Form field: `returnUrl` (optional). Posted to by `Login.razor`'s Discord button and Discord-error "Try again" action, and by `Pages/Account/LinkDiscord.cshtml.cs`'s "Link Discord" action (the same endpoint serves both a fresh sign-in and linking an already-authenticated account, since the callback's own linking logic tells the two cases apart).
+Issues the Discord OAuth challenge. Form field: `returnUrl` (optional). Posted to by `Login.razor`'s Discord button and Discord-error "Try again" action, and by `LinkDiscord.razor`'s "Link Discord Account" form (the same endpoint serves both a fresh sign-in and linking an already-authenticated account, since the callback's own linking logic tells the two cases apart). Redirects to `/Account/Login?authError=discord_unconfigured` if Discord OAuth isn't configured.
 
 **Authorization:** None (`[AllowAnonymous]`).
 

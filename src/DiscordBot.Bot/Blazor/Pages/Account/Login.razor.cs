@@ -47,7 +47,7 @@ public partial class Login : ComponentBase
     [SupplyParameterFromQuery(Name = "returnUrl")]
     public string? ReturnUrlQuery { get; set; }
 
-    /// <summary>OAuth error type from the Discord remote-failure redirect: <c>discord_unavailable</c>, <c>discord_expired</c>, or anything else (treated as <c>discord_error</c>).</summary>
+    /// <summary>OAuth error type from the Discord remote-failure redirect or the challenge endpoint: <c>discord_unavailable</c>, <c>discord_expired</c>, <c>discord_unconfigured</c> (OAuth not configured), or anything else (treated as <c>discord_error</c>).</summary>
     [SupplyParameterFromQuery(Name = "authError")]
     public string? AuthError { get; set; }
 
@@ -72,8 +72,9 @@ public partial class Login : ComponentBase
         if (HttpContext.User.Identity?.IsAuthenticated == true)
         {
             Logger.LogDebug("Authenticated user redirected from login page");
+            // NavigateTo throws NavigationException by design (see SignInAsync's own remarks
+            // below) - execution never reaches past this call, so no trailing return is needed.
             NavigationManager.NavigateTo(ReturnUrl);
-            return;
         }
 
         if (!string.IsNullOrEmpty(AuthError))
@@ -86,6 +87,12 @@ public partial class Login : ComponentBase
                 "discord_expired" => (
                     "Login session expired",
                     "Your login session timed out or was already used. Please try signing in again."),
+                // Hit when the Discord challenge endpoint (POST /Account/PerformExternalLogin) is
+                // reached with Discord OAuth unconfigured - the legacy page's exact copy for the
+                // same case (LoginModel.OnPostDiscordLogin).
+                "discord_unconfigured" => (
+                    "Discord login unavailable",
+                    "Discord login is not available."),
                 _ => (
                     "Discord login failed",
                     "Something went wrong during Discord authentication. Please try again.")

@@ -6,10 +6,14 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
+using Microsoft.AspNetCore.Antiforgery;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -125,7 +129,7 @@ public class AccountEndpointExtensionsTests
     #region HandlePerformExternalLogin
 
     [Fact]
-    public void HandlePerformExternalLogin_WhenOAuthNotConfigured_RedirectsToLoginWithDiscordError()
+    public void HandlePerformExternalLogin_WhenOAuthNotConfigured_RedirectsToLoginWithDiscordUnconfigured()
     {
         var signInManager = CreateMockSignInManager();
         var settings = new DiscordOAuthSettings { IsConfigured = false };
@@ -133,7 +137,7 @@ public class AccountEndpointExtensionsTests
         var result = AccountEndpointExtensions.HandlePerformExternalLogin("/dashboard", signInManager.Object, settings);
 
         result.Should().BeOfType<RedirectHttpResult>()
-            .Which.Url.Should().Be("/Account/Login?authError=discord_error");
+            .Which.Url.Should().Be("/Account/Login?authError=discord_unconfigured");
     }
 
     [Fact]
@@ -198,6 +202,56 @@ public class AccountEndpointExtensionsTests
 
         result.Should().BeOfType<RedirectHttpResult>()
             .Which.Url.Should().Be("/Account/Login?authError=discord_error&returnUrl=%2Fdashboard");
+    }
+
+    #endregion
+
+    #region Antiforgery metadata (MapAccountEndpoints)
+
+    /// <summary>
+    /// Builds the real endpoint route data <see cref="AccountEndpointExtensions.MapAccountEndpoints"/>
+    /// produces (via <see cref="WebApplication"/>, which implements <see cref="IEndpointRouteBuilder"/>
+    /// directly - no need to <c>Build()</c>/<c>Run()</c> it) and asserts the antiforgery metadata
+    /// ASP.NET Core infers for each endpoint, rather than trusting the doc comment on
+    /// <see cref="AccountEndpointExtensions"/> that used to cite the handler-level unit tests above
+    /// for this - none of them ever construct an endpoint, so none could have proven it. A minimal
+    /// API that binds any parameter with <c>[FromForm]</c> (both POST handlers do) is decorated
+    /// with <see cref="IAntiforgeryMetadata"/> (<c>RequiresValidation == true</c>) automatically;
+    /// the GET callback binds nothing from form data and carries none.
+    /// </summary>
+    [Fact]
+    public void MapAccountEndpoints_PostEndpointsRequireAntiforgery_GetEndpointsDoNot()
+    {
+        var builder = WebApplication.CreateBuilder();
+
+        // Only registered so RequestDelegateFactory's parameter-source inference recognizes each
+        // type as a DI service rather than guessing it's a JSON request body (which then conflicts
+        // with the handlers' own [FromForm] parameter and throws at endpoint-build time below) -
+        // never resolved, so a throwing factory is fine.
+        builder.Services.AddSingleton<SignInManager<ApplicationUser>>(_ => throw new NotSupportedException());
+        builder.Services.AddSingleton<IAuditLogService>(_ => throw new NotSupportedException());
+        builder.Services.AddSingleton<DiscordOAuthSettings>(_ => throw new NotSupportedException());
+        builder.Services.AddSingleton<IExternalLoginHandler>(_ => throw new NotSupportedException());
+
+        var app = builder.Build();
+
+        app.MapAccountEndpoints();
+
+        var endpoints = ((IEndpointRouteBuilder)app).DataSources
+            .SelectMany(ds => ds.Endpoints)
+            .OfType<RouteEndpoint>()
+            .ToList();
+
+        var logout = endpoints.Single(e => e.RoutePattern.RawText == AccountRoutes.Logout);
+        var performExternalLogin = endpoints.Single(e => e.RoutePattern.RawText == AccountRoutes.PerformExternalLogin);
+        var callback = endpoints.Single(e => e.RoutePattern.RawText == AccountRoutes.ExternalLoginCallback);
+
+        logout.Metadata.GetMetadata<IAntiforgeryMetadata>()?.RequiresValidation.Should().BeTrue(
+            "POST /Account/Logout binds [FromForm] returnUrl and must be antiforgery-validated");
+        performExternalLogin.Metadata.GetMetadata<IAntiforgeryMetadata>()?.RequiresValidation.Should().BeTrue(
+            "POST /Account/PerformExternalLogin binds [FromForm] returnUrl and must be antiforgery-validated");
+        callback.Metadata.GetMetadata<IAntiforgeryMetadata>()?.RequiresValidation.Should().NotBe(true,
+            "GET /Account/ExternalLogin/Callback binds no form data and must not require an antiforgery token");
     }
 
     #endregion

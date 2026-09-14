@@ -94,10 +94,13 @@ else
             </p>
         </div>
 
-        @* One EditForm for every consent toggle, export and delete on this page - see
-           Privacy.razor.cs's class remarks for why this must be a single named form rather than
-           one per action. *@
+        @* One EditForm for every consent toggle and the data export on this page - see
+           Privacy.razor.cs's class remarks for why this must be a single named form shared by
+           those two, and why "Delete My Data" below is deliberately its own separate form. *@
         <EditForm Model="ActionForm" FormName="privacy-actions" OnSubmit="HandleFormActionAsync">
+            @* See the ConsentMarker remarks in Privacy.razor.cs - required so this form's static
+               SSR mapping registers at all. *@
+            <InputText type="hidden" @bind-Value="ActionForm.ConsentMarker" />
             @if (ConsentStatuses.Count > 0)
             {
                 <Card Title="Consent Settings" Subtitle="Control what data the bot can collect and process" Class="mb-6">
@@ -124,9 +127,22 @@ else
                                         }
                                     </div>
                                 </div>
-                                <Button Type="submit" Text="@(consent.IsGranted ? "Revoke" : "Grant")"
-                                        Variant="@(consent.IsGranted ? ButtonVariant.Secondary : ButtonVariant.Accent)" Size="ButtonSize.Small"
-                                        Class="flex-shrink-0" name="ActionForm.ConsentAction" value="@($"{consent.Type}:{(!consent.IsGranted).ToString()}")" />
+                                @* Two-step reveal, same no-JS-required <details>/<summary> pattern LinkDiscord.razor
+                                   uses for Unlink - reproduces the legacy page's confirmConsentToggle JS dialog
+                                   without a circuit. See Privacy.razor.cs's class remarks. *@
+                                <details class="group flex-shrink-0">
+                                    <summary class="inline-flex items-center justify-center px-3 py-1.5 text-sm font-semibold rounded-md cursor-pointer list-none transition-colors @(consent.IsGranted ? "bg-bg-tertiary text-text-primary border border-border-primary hover:bg-bg-hover" : "bg-accent-blue text-white border border-accent-blue hover:bg-accent-blue-hover")">
+                                        @(consent.IsGranted ? "Revoke" : "Grant")
+                                    </summary>
+                                    <div class="mt-2 p-3 w-56 bg-bg-tertiary border border-border-primary rounded-md">
+                                        <p class="text-xs text-text-secondary mb-2">
+                                            Are you sure you want to @(consent.IsGranted ? "revoke" : "grant") consent for @consent.TypeDisplayName?
+                                        </p>
+                                        <Button Type="submit" Text="@(consent.IsGranted ? "Yes, Revoke" : "Yes, Grant")"
+                                                Variant="@(consent.IsGranted ? ButtonVariant.Danger : ButtonVariant.Accent)" Size="ButtonSize.Small"
+                                                Class="w-full" name="ActionForm.ConsentAction" value="@($"{consent.Type}:{(!consent.IsGranted).ToString()}")" />
+                                    </div>
+                                </details>
                             </div>
                         }
                     </div>
@@ -145,7 +161,7 @@ else
                 </div>
             }
 
-            <Card Title="Data Management" Subtitle="Export or delete your personal data" Class="mb-6">
+            <Card Title="Data Management" Subtitle="Export your personal data" Class="mb-6">
                 <div class="space-y-4">
                     <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
                         <div class="w-12 h-12 rounded-full bg-info-bg border border-info-border flex items-center justify-center flex-shrink-0">
@@ -159,7 +175,22 @@ else
                             <Button Type="submit" Text="Export My Data" Variant="ButtonVariant.Accent" IconLeft="@IconPaths.ArrowDownTray" name="ActionForm.ExportAction" value="1" />
                         </div>
                     </div>
+                </div>
 
+                <p class="text-xs text-text-tertiary px-6 pb-6">
+                    Data management actions comply with GDPR Article 15 (Right of Access). You can also use the
+                    <code class="px-1.5 py-0.5 bg-bg-tertiary rounded font-mono text-xs">/privacy</code> commands in Discord.
+                </p>
+            </Card>
+        </EditForm>
+
+        @* Delete My Data is deliberately its OWN named form, not part of "privacy-actions" above -
+           see Privacy.razor.cs's class remarks: sharing one form with the consent Grant/Revoke and
+           Export buttons would let pressing Enter in the confirmation box below implicitly submit
+           whichever of those buttons rendered first, instead of asking for a delete. *@
+        <EditForm Model="DeleteForm" FormName="privacy-delete" OnSubmit="HandleDeleteFormSubmitAsync">
+            <Card Title="Delete Your Data" Subtitle="Permanently remove your personal data" Class="mb-6">
+                <div class="p-6">
                     <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-error-border">
                         <div class="w-12 h-12 rounded-full bg-error-bg border border-error-border flex items-center justify-center flex-shrink-0">
                             <Icon Path="@IconPaths.Trash" Class="w-6 h-6 text-error" />
@@ -171,7 +202,11 @@ else
                             </p>
                             <div class="flex flex-col sm:flex-row gap-3">
                                 <div class="flex-1">
-                                    <InputText @bind-Value="ActionForm.Confirmation" placeholder="Type DELETE to confirm"
+                                    @* This InputText is the only bound field in this form - it both satisfies the
+                                       framework's "a named form needs a real InputBase-derived field" static-mapping
+                                       requirement and is the confirmation itself, so no separate marker field is
+                                       needed here (contrast privacy-actions's ConsentMarker). See the class remarks. *@
+                                    <InputText @bind-Value="DeleteForm.Confirmation" placeholder="Type DELETE to confirm"
                                                class="w-full px-3 py-2 text-sm font-mono text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
                                                aria-label="Type DELETE to confirm" />
                                     @if (DeleteValidationError is not null)
@@ -179,15 +214,15 @@ else
                                         <p class="text-xs text-error mt-1">@DeleteValidationError</p>
                                     }
                                 </div>
-                                <Button Type="submit" Text="Delete All Data" Variant="ButtonVariant.Danger" IconLeft="@IconPaths.Trash" name="ActionForm.DeleteAction" value="1" />
+                                <Button Type="submit" Text="Delete All Data" Variant="ButtonVariant.Danger" IconLeft="@IconPaths.Trash" />
                             </div>
                         </div>
                     </div>
                 </div>
 
                 <p class="text-xs text-text-tertiary px-6 pb-6">
-                    Data management actions comply with GDPR Articles 15 (Right of Access) and 17 (Right to Erasure).
-                    You can also use the <code class="px-1.5 py-0.5 bg-bg-tertiary rounded font-mono text-xs">/privacy</code> commands in Discord.
+                    Deletion complies with GDPR Article 17 (Right to Erasure). You can also use the
+                    <code class="px-1.5 py-0.5 bg-bg-tertiary rounded font-mono text-xs">/privacy</code> commands in Discord.
                 </p>
             </Card>
         </EditForm>

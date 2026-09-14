@@ -1,4 +1,5 @@
 using System.Reflection;
+using AngleSharp.Dom;
 using Bunit;
 using Bunit.TestDoubles;
 using DiscordBot.Bot.Blazor.Pages.Account;
@@ -99,9 +100,10 @@ public class PrivacyTests : BlazorComponentTestContext
     }
 
     /// <summary>
-    /// Sets the given field(s) on the rendered component's <c>ActionForm</c> and invokes
-    /// <c>HandleFormActionAsync</c> - the bUnit stand-in for "a real POST whose clicked submit
-    /// button populated that field" - see the class remarks.
+    /// Sets the given field(s) on the rendered component's <c>ActionForm</c> (consent
+    /// toggles/export - the <c>privacy-actions</c> form) and invokes <c>HandleFormActionAsync</c> -
+    /// the bUnit stand-in for "a real POST whose clicked submit button populated that field" - see
+    /// the class remarks.
     /// </summary>
     private static async Task SubmitActionAsync(IRenderedComponent<Privacy> cut, Action<Privacy.PrivacyActionFormModel> setAction)
     {
@@ -118,6 +120,25 @@ public class PrivacyTests : BlazorComponentTestContext
         // re-render after automatically), invoking a method directly via reflection does not - a
         // test asserting on post-invoke markup (e.g. DeleteValidationError) needs this explicit
         // re-render to see it.
+        cut.Render();
+    }
+
+    /// <summary>
+    /// Sets <c>DeleteForm.Confirmation</c> and invokes <c>HandleDeleteFormSubmitAsync</c> - the
+    /// bUnit stand-in for a real POST to the separate <c>privacy-delete</c> form. See the class
+    /// remarks and <c>Privacy.razor.cs</c>'s on why "Delete My Data" is its own form.
+    /// </summary>
+    private static async Task SubmitDeleteAsync(IRenderedComponent<Privacy> cut, string? confirmation)
+    {
+        var formProperty = typeof(Privacy).GetProperty("DeleteForm", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("DeleteForm property not found on Privacy.");
+        var form = (Privacy.PrivacyDeleteFormModel)formProperty.GetValue(cut.Instance)!;
+        form.Confirmation = confirmation;
+
+        var method = typeof(Privacy).GetMethod("HandleDeleteFormSubmitAsync", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("HandleDeleteFormSubmitAsync method not found on Privacy.");
+        await cut.InvokeAsync(async () => await (Task)method.Invoke(cut.Instance, null)!);
+
         cut.Render();
     }
 
@@ -200,11 +221,7 @@ public class PrivacyTests : BlazorComponentTestContext
             .ReturnsAsync(Array.Empty<ConsentHistoryEntryDto>());
 
         var cut = RenderPage();
-        await SubmitActionAsync(cut, f =>
-        {
-            f.Confirmation = "delete"; // wrong case, must be exactly "DELETE"
-            f.DeleteAction = "1";
-        });
+        await SubmitDeleteAsync(cut, "delete"); // wrong case, must be exactly "DELETE"
 
         cut.Markup.Should().Contain("Type DELETE to confirm.");
         _purgeService.Verify(s => s.CanPurgeUserAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -226,11 +243,7 @@ public class PrivacyTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderPage();
-        await SubmitActionAsync(cut, f =>
-        {
-            f.Confirmation = "DELETE";
-            f.DeleteAction = "1";
-        });
+        await SubmitDeleteAsync(cut, "DELETE");
 
         _purgeService.Verify(s => s.PurgeUserDataAsync(LinkedUser.DiscordUserId!.Value, PurgeInitiator.User, It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
         _signInManager.Verify(s => s.SignOutAsync(), Times.Once);
@@ -238,19 +251,65 @@ public class PrivacyTests : BlazorComponentTestContext
     }
 
     [Fact]
-    public void StatusKey_ExportSuccess_RendersDynamicDetailAsMessage()
+    public void StatusKey_ExportSuccess_RendersFixedCopy_IgnoringDetail()
     {
+        // A crafted "?status=export-success&detail=..." must not put attacker text in the success
+        // banner - export-success renders fixed, static copy and never reads Detail. See
+        // Privacy.razor.cs's class remarks.
         SetUser(LinkedUser);
         _consentService.Setup(s => s.GetConsentStatusAsync(LinkedUser.DiscordUserId!.Value, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<ConsentStatusDto>());
         _consentService.Setup(s => s.GetConsentHistoryAsync(LinkedUser.DiscordUserId!.Value, It.IsAny<CancellationToken>()))
             .ReturnsAsync(Array.Empty<ConsentHistoryEntryDto>());
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
-        navMan.NavigateTo("/Account/Privacy?status=export-success&detail=" + Uri.EscapeDataString("12 records were exported."));
+        navMan.NavigateTo("/Account/Privacy?status=export-success&detail=" + Uri.EscapeDataString("Attacker Text"));
 
         var cut = Render<Privacy>(parameters => parameters.AddCascadingValue(_httpContext));
 
-        cut.Markup.Should().Contain("12 records were exported.");
+        cut.Markup.Should().Contain("Your data has been exported successfully.");
+        cut.Markup.Should().NotContain("Attacker Text");
+    }
+
+    [Fact]
+    public void Linked_DeleteFormIsSeparateFromActionsForm_ContainingOnlyConfirmationAndDeleteButton()
+    {
+        // BLOCKING review finding: the delete confirmation must not share a form with the consent
+        // Grant/Revoke and Export buttons, or pressing Enter in the confirmation box would
+        // implicitly submit whichever of those buttons rendered first (a consent toggle) instead
+        // of asking for a delete. See Privacy.razor.cs's class remarks.
+        SetUser(LinkedUser);
+        _consentService.Setup(s => s.GetConsentStatusAsync(LinkedUser.DiscordUserId!.Value, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new[] { new ConsentStatusDto { Type = (int)ConsentType.AssistantUsage, TypeDisplayName = "Assistant Usage", IsGranted = false } });
+        _consentService.Setup(s => s.GetConsentHistoryAsync(LinkedUser.DiscordUserId!.Value, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ConsentHistoryEntryDto>());
+
+        var cut = RenderPage();
+
+        var forms = cut.FindAll("form").ToList();
+        forms.Should().HaveCountGreaterThan(1, "consent/export and delete must be separate <form> elements");
+
+        // The delete confirmation <input> must live in a *different* <form> than every consent
+        // Grant/Revoke or Export submit button.
+        var confirmationInput = cut.Find("input[aria-label='Type DELETE to confirm']");
+        var deleteForm = confirmationInput.Closest("form")
+            ?? throw new InvalidOperationException("Delete confirmation input is not inside a <form>.");
+
+        deleteForm.QuerySelectorAll("button").Should().ContainSingle(
+            b => b.TextContent.Contains("Delete All Data"),
+            "the delete form's only submit button must be Delete All Data");
+        deleteForm.QuerySelectorAll("button").Should().NotContain(
+            b => b.TextContent.Contains("Grant") || b.TextContent.Contains("Revoke") || b.TextContent.Contains("Export"),
+            "no consent/export button may live inside the delete form");
+        deleteForm.QuerySelectorAll("input[aria-label='Type DELETE to confirm']").Should().ContainSingle(
+            "the DELETE confirmation input must be inside the delete form");
+        // Only visible input is the confirmation (an EditForm's own antiforgery hidden field is
+        // also present, but that's not a consent/export field either way).
+        deleteForm.QuerySelectorAll("input:not([type=hidden])").Should().HaveCount(1,
+            "the delete form's only visible field must be the DELETE confirmation");
+
+        // And the reverse: the form carrying the Export button has no DELETE confirmation input.
+        var actionsForm = cut.FindAll("form").Single(f => f.QuerySelectorAll("button").Any(b => b.TextContent.Contains("Export My Data")));
+        actionsForm.QuerySelectorAll("input[aria-label='Type DELETE to confirm']").Should().BeEmpty();
     }
 
     [Fact]

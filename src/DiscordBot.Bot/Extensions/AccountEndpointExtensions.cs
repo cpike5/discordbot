@@ -30,9 +30,12 @@ namespace DiscordBot.Bot.Extensions;
 /// <c>EditForm</c>/<c>AntiforgeryToken</c> support - see "Blazor Components" &gt; "Hosting model"
 /// in <c>docs/architecture/patterns.md</c>) enforces it for both stacks without double-validating.
 /// No <c>[ValidateAntiForgeryToken]</c>/<c>DisableAntiforgery()</c> call is needed or present here;
-/// confirmed by <c>AccountEndpointExtensionsTests</c> and by the E2E logout/login round trip, both
-/// of which fail with a 400 if the posted <c>&lt;AntiforgeryToken /&gt;</c>/hidden field is
-/// missing or stale.
+/// confirmed by <c>AccountEndpointExtensionsTests.MapAccountEndpoints_PostEndpointsRequireAntiforgery_GetEndpointsDoNot</c>
+/// - which builds the real endpoint data via <c>MapAccountEndpoints</c> on a <c>WebApplication</c>
+/// and asserts <c>IAntiforgeryMetadata.RequiresValidation</c> directly, since the other handler
+/// tests in that file call the handler methods as plain delegates and never construct an endpoint,
+/// so none of them exercise this - and by the E2E logout/login round trip, which fails with a 400
+/// if the posted <c>&lt;AntiforgeryToken /&gt;</c>/hidden field is missing or stale.
 /// </remarks>
 public static class AccountEndpointExtensions
 {
@@ -103,7 +106,7 @@ public static class AccountEndpointExtensions
 
         if (!oauthSettings.IsConfigured)
         {
-            return Results.LocalRedirect($"{AccountRoutes.Login}?authError=discord_error");
+            return Results.LocalRedirect($"{AccountRoutes.Login}?authError=discord_unconfigured");
         }
 
         var redirectUri = $"{AccountRoutes.ExternalLoginCallback}?returnUrl={Uri.EscapeDataString(sanitizedReturnUrl)}";

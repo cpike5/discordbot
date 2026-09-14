@@ -251,7 +251,10 @@ public class DiscordLinkServiceTests
 
         outcome.Succeeded.Should().BeTrue();
         outcome.StatusKey.Should().Be("verify-code-success");
-        outcome.Detail.Should().Be("linked-user");
+        // No Detail on success - the caller reads the linked username back from the database
+        // instead of trusting free text round-tripped through the query string. See
+        // IDiscordLinkService.VerifyCodeAsync's remarks.
+        outcome.Detail.Should().BeNull();
         _mockVerificationService.Verify(s => s.ValidateCodeAsync(user.Id, "ABC123", It.IsAny<CancellationToken>()), Times.Once);
     }
 

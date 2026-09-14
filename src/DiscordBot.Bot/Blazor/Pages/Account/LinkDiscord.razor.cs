@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Account;
 using DiscordBot.Core.DTOs;
@@ -24,9 +25,16 @@ namespace DiscordBot.Bot.Blazor.Pages.Account;
 /// two. The banner copy for the fixed majority of outcomes lives in one place, in
 /// <see cref="StatusBanner"/> below - mirroring Profile's own <c>@@if (Status == "saved")</c>
 /// markup pattern, just centralised into C# because there are ~15 keys instead of 2. A handful of
-/// outcomes carry genuinely dynamic legacy text (a verification service's own error message, the
-/// linked Discord username) that a fixed key can't represent losslessly; those pass the exact
-/// text through as <see cref="Detail"/> instead of duplicating it in a table.
+/// FAILURE outcomes carry genuinely dynamic legacy text (a verification service's own error
+/// message) that a fixed key can't represent losslessly; those pass the exact text through as
+/// <see cref="Detail"/> instead of duplicating it in a table - <see cref="RedirectWithStatus"/>
+/// only ever appends <c>detail</c> for a failed outcome, precisely so a crafted
+/// <c>?status=&lt;success-key&gt;&amp;detail=...</c> URL can never put attacker-chosen text in a
+/// SUCCESS banner. <see cref="StatusBanner"/>'s one success case with dynamic text
+/// (<c>verify-code-success</c>'s "Welcome, {username}!") instead reads <see cref="DiscordUsername"/>,
+/// which <see cref="OnInitializedAsync"/> reloads fresh from the database on the redirect's own
+/// GET - by then the verification has already linked the account, so it reflects the real linked
+/// username, not anything the client supplied.
 /// </para>
 /// <para>
 /// <b>Unlink confirmation.</b> Static SSR has no interactive <c>ConfirmModal</c> (see "Auth in
@@ -139,7 +147,7 @@ public partial class LinkDiscord : ComponentBase
     protected VerificationCode? PendingVerification { get; private set; }
 
     /// <summary>The return URL the plain "Link Discord Account" form sends to the challenge endpoint.</summary>
-    protected const string ReturnUrl = "/Account/LinkDiscord";
+    protected const string ReturnUrl = AccountRoutes.LinkDiscord;
 
     protected override async Task OnInitializedAsync()
     {
@@ -218,7 +226,14 @@ public partial class LinkDiscord : ComponentBase
     private void RedirectWithStatus(DiscordLinkOperationOutcome outcome)
     {
         var url = $"{ReturnUrl}?status={Uri.EscapeDataString(outcome.StatusKey)}";
-        if (outcome.Detail is not null)
+
+        // detail is free text that round-trips through the query string, so it is only ever
+        // trusted for a FAILURE banner (a service's own error message) - a success banner renders
+        // fixed, server-chosen copy so a crafted "?status=verify-code-success&detail=..." URL
+        // cannot put attacker text in a green success alert. See the class remarks and
+        // StatusBanner below, which reads DiscordUsername (freshly reloaded from the database by
+        // OnInitializedAsync on this redirect's own GET) instead of detail for that one case.
+        if (!outcome.Succeeded && outcome.Detail is not null)
         {
             url += $"&detail={Uri.EscapeDataString(outcome.Detail)}";
         }
@@ -247,7 +262,7 @@ public partial class LinkDiscord : ComponentBase
         "verify-init-failed" => (false, Detail ?? "Failed to initiate verification."),
         "verify-init-error" => (false, "An error occurred while initiating verification."),
         "verify-code-empty" => (false, "Please enter a verification code."),
-        "verify-code-success" => (true, $"Discord account successfully linked! Welcome, {Detail ?? "Discord User"}!"),
+        "verify-code-success" => (true, $"Discord account successfully linked! Welcome, {DiscordUsername ?? "Discord User"}!"),
         "verify-code-failed" => (false, Detail ?? "Invalid verification code."),
         "verify-code-error" => (false, "An error occurred while verifying the code."),
         "cancel-success" => (true, "Verification cancelled."),

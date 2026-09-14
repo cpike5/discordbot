@@ -50,9 +50,11 @@ public interface IDiscordLinkService
     /// <summary>
     /// Validates a verification code entered by <paramref name="user"/> and links the Discord
     /// account on success. Mirrors <c>LinkDiscordModel.OnPostVerifyCodeAsync</c>, including the
-    /// hyphen/space stripping and upper-casing performed on the entered code before validation.
-    /// On success, <see cref="DiscordLinkOperationOutcome.Detail"/> carries the linked Discord
-    /// username (or null); on failure it carries the verification service's own error text.
+    /// hyphen/space stripping and upper-casing performed on the entered code before validation. On
+    /// failure, <see cref="DiscordLinkOperationOutcome.Detail"/> carries the verification
+    /// service's own error text; on success it is <see langword="null"/> - the caller renders the
+    /// linked username by reading it back from the database instead, so a crafted redirect URL
+    /// cannot spoof the success banner's text (see <see cref="DiscordLinkOperationOutcome.Detail"/>).
     /// </summary>
     Task<DiscordLinkOperationOutcome> VerifyCodeAsync(ApplicationUser user, string? code, CancellationToken cancellationToken = default);
 
@@ -76,8 +78,13 @@ public interface IDiscordLinkService
 /// majority of outcomes.
 /// </param>
 /// <param name="Detail">
-/// Present only for the handful of outcomes whose legacy banner text is genuinely dynamic at
-/// runtime (a service's own error message, the linked Discord username) - null for every outcome
-/// whose text is fixed and already covered by <see cref="StatusKey"/> alone.
+/// Present only for the handful of FAILURE outcomes whose legacy banner text is genuinely dynamic
+/// at runtime (a service's own error message) - null for every outcome whose text is fixed and
+/// already covered by <see cref="StatusKey"/> alone, and always null on success: the caller
+/// (<c>LinkDiscord.razor.cs</c>'s <c>RedirectWithStatus</c>) never forwards <see cref="Detail"/>
+/// into a success redirect's query string even if a future outcome set it, since that string
+/// would otherwise render verbatim inside a SUCCESS alert with no server-side check that it's
+/// real - a spoofable green banner. A success banner with dynamic text (the linked Discord
+/// username) instead reads it back from the database.
 /// </param>
 public sealed record DiscordLinkOperationOutcome(bool Succeeded, string StatusKey, string? Detail = null);
