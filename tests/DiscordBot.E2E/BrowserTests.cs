@@ -1496,7 +1496,8 @@ public sealed class BrowserTests
         await Expect(page.Locator(".user-tag-removable")).ToContainTextAsync(tagName, new LocatorAssertionsToContainTextOptions { Timeout = 10_000 });
 
         await noteItem.Locator("[tabindex='0']").First.HoverAsync();
-        await Expect(page.Locator("[role='dialog']").First).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
+        // The layout's (hidden) mobile search overlay is also role="dialog", so target the popover's own container.
+        await Expect(page.Locator(".preview-popup-container[role='dialog']").First).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 5_000 });
     }
 
     /// <summary>Seeds one guild and two <c>GuildMembers</c> (with backing <c>Users</c> rows), for <see cref="Test_ZC1_Members_ListSearchModal"/>.</summary>
