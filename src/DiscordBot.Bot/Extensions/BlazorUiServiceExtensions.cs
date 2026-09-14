@@ -21,6 +21,8 @@ public static class BlazorUiServiceExtensions
     /// <c>docs/architecture/patterns.md</c>); and <see cref="IPortalContextProvider"/> (same
     /// scoped-and-memoised shape, wrapping the existing <c>IPortalAccessService</c> - see
     /// "Portal three-state gate" in <c>docs/architecture/patterns.md</c>).
+    /// <c>docs/architecture/patterns.md</c>); and <see cref="IUserGuildSelectorService"/>
+    /// (<c>Search.razor</c>'s guild-intersection seam, plan §5 Phase 3).
     /// </summary>
     /// <param name="services">The service collection to add services to.</param>
     /// <returns>The service collection for chaining.</returns>
@@ -30,6 +32,7 @@ public static class BlazorUiServiceExtensions
         services.AddScoped<ILoadingState, LoadingState>();
         services.AddScoped<IGuildContextProvider, GuildContextProvider>();
         services.AddScoped<IPortalContextProvider, PortalContextProvider>();
+        services.AddScoped<IUserGuildSelectorService, UserGuildSelectorService>();
 
         return services;
     }

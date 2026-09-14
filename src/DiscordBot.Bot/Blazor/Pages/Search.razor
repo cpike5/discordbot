@@ -1,0 +1,610 @@
+@page "/Search"
+@attribute [Authorize(Policy = "RequireViewer")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Search.cshtml + Search.cshtml.cs's SearchModel
+    (docs/plans/blazor-port-plan.md §5 Phase 3, "Search with Highlight as the first interactive
+    page"). Ported alongside the deletion of TagHelpers/HighlightTagHelper.cs (replaced by
+    Blazor/Shared/Primitives/Highlight.razor) and Pages/Search.cshtml(.cs) in the same change, per
+    the route-conflict rule (plan §4.1). See Search.razor.cs for the search/mapping logic this
+    markup renders.
+*@
+
+<PageTitle>Search Results</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <!-- Page Header -->
+    <div class="flex flex-col gap-6 mb-6">
+        <!-- Header with Icon -->
+        <div class="flex items-center gap-3">
+            <div class="p-3 bg-bg-secondary border border-border-primary rounded-lg">
+                <Icon Path="@IconPaths.MagnifyingGlass" Size="IconSize.LG" Class="text-accent-blue" />
+            </div>
+            <div>
+                <h1 class="page-title">Search Results</h1>
+                @if (!string.IsNullOrWhiteSpace(ViewModel.SearchTerm) && ViewModel.HasResults)
+                {
+                    var totalResults = ViewModel.GuildResults.Count +
+                                       ViewModel.CommandLogResults.Count +
+                                       ViewModel.UserResults.Count +
+                                       ViewModel.Commands.Count +
+                                       ViewModel.AuditLogs.Count +
+                                       ViewModel.MessageLogs.Count +
+                                       ViewModel.Pages.Count +
+                                       ViewModel.Reminders.Count +
+                                       ViewModel.ScheduledMessages.Count;
+                    <p class="mt-1 text-text-secondary" data-testid="search-result-count">
+                        Found @totalResults result@(totalResults != 1 ? "s" : "") for <span class="font-semibold text-text-primary">"@ViewModel.SearchTerm"</span>
+                    </p>
+                }
+            </div>
+        </div>
+
+        <!-- Search Input -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+            <form class="flex flex-col sm:flex-row gap-3" data-testid="search-form" @onsubmit="HandleSearchSubmit" @onsubmit:preventDefault="true">
+                <div class="flex-1">
+                    <label for="SearchTerm" class="sr-only">Search</label>
+                    <div class="relative">
+                        <Icon Path="@IconPaths.MagnifyingGlass" Size="IconSize.MD" Class="absolute left-3 top-1/2 -translate-y-1/2 text-text-tertiary" />
+                        <input type="search"
+                               id="SearchTerm"
+                               @bind="SearchBoxValue"
+                               @bind:event="oninput"
+                               placeholder="Search servers, commands, logs, or users..."
+                               class="w-full pl-10 pr-4 py-2.5 text-sm bg-bg-primary border border-border-primary rounded-lg text-text-primary placeholder-text-tertiary focus:border-border-focus focus:ring-1 focus:ring-border-focus transition-colors"
+                               autofocus />
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <Icon Path="@IconPaths.MagnifyingGlass" Size="IconSize.SM" Class="mr-2" />
+                    Search
+                </button>
+            </form>
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ViewModel.ValidationMessage))
+    {
+        <!-- Validation: a term was entered but is shorter than the 2-character minimum. The
+             legacy SearchModel computed this message but the Razor Page never rendered it
+             (Pages/Search.cshtml never referenced ValidationMessage) - surfaced here instead of
+             silently dropped, since a query like "?q=a" would otherwise look identical to the
+             "Start searching" empty state with no explanation. -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12" data-testid="search-validation">
+            <EmptyState Type="EmptyStateType.NoResults" Title="Start searching" Description="@ViewModel.ValidationMessage" Size="EmptyStateSize.Default" />
+        </div>
+    }
+    else if (string.IsNullOrWhiteSpace(ViewModel.SearchTerm))
+    {
+        <!-- Empty State: No Search Term -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12" data-testid="search-empty-start">
+            <EmptyState Type="EmptyStateType.NoResults" Title="Start searching" Description="Enter a search term above to find servers, command logs, or users." Size="EmptyStateSize.Default" />
+        </div>
+    }
+    else if (!ViewModel.HasResults)
+    {
+        <!-- Empty State: No Results Found -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-12" data-testid="search-empty-none">
+            <EmptyState Type="EmptyStateType.NoResults" Title="No results found" Description="@($"No servers, command logs, or users match \"{ViewModel.SearchTerm}\". Try a different search term.")" Size="EmptyStateSize.Default" />
+        </div>
+    }
+    else
+    {
+        <!-- Results Sections -->
+        <div class="space-y-6">
+            <!-- Servers Section -->
+            @if (ViewModel.GuildResults.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-servers">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.BuildingOffice" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Servers</h2>
+                                <Badge Text="@ViewModel.GuildResults.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalGuildResults > ViewModel.GuildResults.Count)
+                            {
+                                <a href="@GuildIndexUrl(ViewModel.SearchTerm)" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalGuildResults results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Server Results Grid -->
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach (var guild in ViewModel.GuildResults)
+                            {
+                                <a href="@GuildDetailsUrl(guild.Id)" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
+                                    <div class="flex items-start gap-3">
+                                        @if (!string.IsNullOrEmpty(guild.IconUrl))
+                                        {
+                                            <img src="@guild.IconUrl" alt="@guild.Name" class="w-12 h-12 rounded-full flex-shrink-0" />
+                                        }
+                                        else
+                                        {
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                @(guild.Name.Length >= 2 ? guild.Name[..2].ToUpper() : guild.Name.ToUpper())
+                                            </div>
+                                        }
+                                        <div class="flex-1 min-w-0">
+                                            <h3 class="font-semibold text-text-primary truncate">@guild.Name</h3>
+                                            <div class="flex items-center gap-3 mt-1 text-xs text-text-secondary">
+                                                @if (guild.MemberCount.HasValue)
+                                                {
+                                                    <span class="flex items-center gap-1">
+                                                        <Icon Path="@IconPaths.UserGroup" Class="w-3.5 h-3.5" />
+                                                        @guild.MemberCount.Value.ToString("N0") members
+                                                    </span>
+                                                }
+                                                <StatusIndicator Status="@(guild.IsActive ? StatusType.Online : StatusType.Offline)" Text="@(guild.IsActive ? "Active" : "Inactive")" DisplayStyle="StatusDisplayStyle.DotWithText" Size="StatusSize.Small" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Command Logs Section -->
+            @if (ViewModel.CommandLogResults.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-command-logs">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.DocumentText" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Command Logs</h2>
+                                <Badge Text="@ViewModel.CommandLogResults.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalCommandLogResults > ViewModel.CommandLogResults.Count)
+                            {
+                                <a href="@CommandLogsViewAllUrl(ViewModel.SearchTerm)" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalCommandLogResults results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Command Log Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var log in ViewModel.CommandLogResults)
+                        {
+                            <a href="@CommandLogDetailsUrl(log.Id)" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-3 flex-wrap">
+                                            <span class="font-mono text-sm font-semibold text-accent-blue">/@log.CommandName</span>
+                                            @if (log.Success)
+                                            {
+                                                <Badge Text="Success" Variant="BadgeVariant.Success" Size="BadgeSize.Small" />
+                                            }
+                                            else
+                                            {
+                                                <Badge Text="Failed" Variant="BadgeVariant.Error" Size="BadgeSize.Small" />
+                                            }
+                                        </div>
+                                        <div class="flex items-center gap-4 mt-1 text-xs text-text-secondary flex-wrap">
+                                            @if (!string.IsNullOrEmpty(log.GuildName))
+                                            {
+                                                <span class="flex items-center gap-1">
+                                                    <Icon Path="@IconPaths.BuildingOffice" Class="w-3.5 h-3.5" />
+                                                    @log.GuildName
+                                                </span>
+                                            }
+                                            <span class="flex items-center gap-1">
+                                                <Icon Path="@IconPaths.User" Class="w-3.5 h-3.5" />
+                                                @log.UserIdentifier
+                                            </span>
+                                            <span class="flex items-center gap-1">
+                                                <Icon Path="@IconPaths.Clock" Class="w-3.5 h-3.5" />
+                                                <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-short"></span>
+                                            </span>
+                                        </div>
+                                    </div>
+                                    <Icon Path="@IconPaths.ChevronRight" Size="IconSize.MD" Class="text-text-tertiary flex-shrink-0 hidden sm:block" />
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Users Section (Admin+ only) -->
+            @if (ViewModel.CanViewUsers && ViewModel.UserResults.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-users">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.UserGroup" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Users</h2>
+                                <Badge Text="@ViewModel.UserResults.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalUserResults > ViewModel.UserResults.Count)
+                            {
+                                <a href="@UsersIndexUrl(ViewModel.SearchTerm)" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalUserResults results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- User Results Grid -->
+                    <div class="p-6">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                            @foreach (var user in ViewModel.UserResults)
+                            {
+                                <a href="@UserDetailsUrl(user.Id)" class="block bg-bg-primary border border-border-primary rounded-lg p-4 hover:border-accent-blue hover:bg-bg-hover transition-all">
+                                    <div class="flex items-start gap-3">
+                                        @if (!string.IsNullOrEmpty(user.AvatarUrl))
+                                        {
+                                            <img src="@user.AvatarUrl" alt="@(user.DisplayName ?? user.Email)" class="w-12 h-12 rounded-full flex-shrink-0" />
+                                        }
+                                        else
+                                        {
+                                            var initials = !string.IsNullOrEmpty(user.DisplayName)
+                                                ? (user.DisplayName.Length >= 2 ? user.DisplayName[..2].ToUpper() : user.DisplayName.ToUpper())
+                                                : user.Email[0].ToString().ToUpper();
+                                            <div class="w-12 h-12 rounded-full bg-gradient-to-br from-accent-blue to-accent-orange flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                                @initials
+                                            </div>
+                                        }
+                                        <div class="flex-1 min-w-0">
+                                            <h3 class="font-semibold text-text-primary truncate">@(user.DisplayName ?? user.Email)</h3>
+                                            <p class="text-xs text-text-tertiary truncate mt-0.5">@user.Email</p>
+                                            <div class="flex items-center gap-2 mt-2">
+                                                @{
+                                                    var roleBadgeVariant = user.Role switch
+                                                    {
+                                                        "SuperAdmin" => BadgeVariant.Orange,
+                                                        "Admin" => BadgeVariant.Blue,
+                                                        "Moderator" => BadgeVariant.Success,
+                                                        _ => BadgeVariant.Default
+                                                    };
+                                                }
+                                                <Badge Text="@user.Role" Variant="roleBadgeVariant" Size="BadgeSize.Small" />
+                                                @if (!user.IsActive)
+                                                {
+                                                    <Badge Text="Inactive" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                                                }
+                                            </div>
+                                        </div>
+                                    </div>
+                                </a>
+                            }
+                        </div>
+                    </div>
+                </div>
+            }
+
+            <!-- Commands Section -->
+            @if (ViewModel.Commands.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-commands">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.ChartBar" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Commands</h2>
+                                <Badge Text="@ViewModel.Commands.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalCommands > ViewModel.Commands.Count && !string.IsNullOrEmpty(ViewModel.CommandsViewAllUrl))
+                            {
+                                <a href="@ViewModel.CommandsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalCommands results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Command Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var cmd in ViewModel.Commands)
+                        {
+                            <a href="@cmd.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-mono text-sm font-semibold text-accent-blue">@cmd.Title</span>
+                                        @if (!string.IsNullOrEmpty(cmd.BadgeText))
+                                        {
+                                            <Badge Text="@cmd.BadgeText" Variant="BadgeVariant.Blue" Size="BadgeSize.Small" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(cmd.Description))
+                                    {
+                                        <p class="text-sm text-text-secondary"><Highlight Text="@cmd.Description" SearchTerm="@ViewModel.SearchTerm" MaxLength="100" /></p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Pages Section -->
+            @if (ViewModel.Pages.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg" data-testid="search-section-pages">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary rounded-t-lg">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.Document" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Pages</h2>
+                                <Badge Text="@ViewModel.Pages.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalPages > ViewModel.Pages.Count && !string.IsNullOrEmpty(ViewModel.PagesViewAllUrl))
+                            {
+                                <a href="@ViewModel.PagesViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalPages results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Page Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var pageItem in ViewModel.Pages)
+                        {
+                            if (pageItem.RequiresGuildContext)
+                            {
+                                <div class="px-6 py-4" data-testid="search-page-result-guild-scoped">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <h3 class="font-semibold text-text-primary"><Highlight Text="@pageItem.Title" SearchTerm="@ViewModel.SearchTerm" /></h3>
+                                                @if (!string.IsNullOrEmpty(pageItem.BadgeText))
+                                                {
+                                                    <Badge Text="@pageItem.BadgeText" Variant="ParseBadgeVariant(pageItem.BadgeVariant)" Size="BadgeSize.Small" />
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(pageItem.Description))
+                                            {
+                                                <p class="text-sm text-text-secondary mt-1"><Highlight Text="@pageItem.Description" SearchTerm="@ViewModel.SearchTerm" MaxLength="100" /></p>
+                                            }
+                                            <div class="mt-2">
+                                                <GuildContextSelector RouteTemplate="@(pageItem.RouteTemplate ?? string.Empty)" Guilds="UserGuilds" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                            else
+                            {
+                                <a href="@pageItem.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors" data-testid="search-page-result">
+                                    <div class="flex items-center justify-between gap-4">
+                                        <div class="flex-1 min-w-0">
+                                            <div class="flex items-center gap-3 flex-wrap">
+                                                <h3 class="font-semibold text-text-primary"><Highlight Text="@pageItem.Title" SearchTerm="@ViewModel.SearchTerm" /></h3>
+                                                @if (!string.IsNullOrEmpty(pageItem.BadgeText))
+                                                {
+                                                    <Badge Text="@pageItem.BadgeText" Variant="ParseBadgeVariant(pageItem.BadgeVariant)" Size="BadgeSize.Small" />
+                                                }
+                                            </div>
+                                            @if (!string.IsNullOrEmpty(pageItem.Description))
+                                            {
+                                                <p class="text-sm text-text-secondary mt-1"><Highlight Text="@pageItem.Description" SearchTerm="@ViewModel.SearchTerm" MaxLength="100" /></p>
+                                            }
+                                        </div>
+                                        <Icon Path="@IconPaths.ChevronRight" Size="IconSize.MD" Class="text-text-tertiary flex-shrink-0 hidden sm:block" />
+                                    </div>
+                                </a>
+                            }
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Audit Logs Section (Admin+ only) -->
+            @if (ViewModel.CanViewUsers && ViewModel.AuditLogs.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-audit-logs">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.DocumentText" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Audit Logs</h2>
+                                <Badge Text="@ViewModel.AuditLogs.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalAuditLogs > ViewModel.AuditLogs.Count && !string.IsNullOrEmpty(ViewModel.AuditLogsViewAllUrl))
+                            {
+                                <a href="@ViewModel.AuditLogsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalAuditLogs results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Audit Log Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var log in ViewModel.AuditLogs)
+                        {
+                            <a href="@log.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary"><Highlight Text="@log.Title" SearchTerm="@ViewModel.SearchTerm" /></span>
+                                        @if (!string.IsNullOrEmpty(log.BadgeText))
+                                        {
+                                            <Badge Text="@log.BadgeText" Variant="ParseBadgeVariant(log.BadgeVariant)" Size="BadgeSize.Small" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(log.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary"><Highlight Text="@log.Subtitle" SearchTerm="@ViewModel.SearchTerm" /></p>
+                                    }
+                                    @if (log.Timestamp.HasValue)
+                                    {
+                                        <p class="text-xs text-text-tertiary">
+                                            <span data-utc="@log.Timestamp.Value.ToString("o")" data-format="datetime-short"></span>
+                                        </p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Message Logs Section (Admin+ only) -->
+            @if (ViewModel.CanViewUsers && ViewModel.MessageLogs.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-message-logs">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.ChatBubbleLeftEllipsis" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Message Logs</h2>
+                                <Badge Text="@ViewModel.MessageLogs.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalMessageLogs > ViewModel.MessageLogs.Count && !string.IsNullOrEmpty(ViewModel.MessageLogsViewAllUrl))
+                            {
+                                <a href="@ViewModel.MessageLogsViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalMessageLogs results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Message Log Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var msg in ViewModel.MessageLogs)
+                        {
+                            <a href="@msg.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary text-sm"><Highlight Text="@msg.Title" SearchTerm="@ViewModel.SearchTerm" MaxLength="60" ShowContext="true" /></span>
+                                        @if (!string.IsNullOrEmpty(msg.BadgeText))
+                                        {
+                                            <Badge Text="@msg.BadgeText" Variant="ParseBadgeVariant(msg.BadgeVariant)" Size="BadgeSize.Small" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(msg.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary"><Highlight Text="@msg.Subtitle" SearchTerm="@ViewModel.SearchTerm" /></p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(msg.Description))
+                                    {
+                                        <p class="text-xs text-text-tertiary">@msg.Description</p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Reminders Section (Admin+ only) -->
+            @if (ViewModel.CanViewUsers && ViewModel.Reminders.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-reminders">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.Bell" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Reminders</h2>
+                                <Badge Text="@ViewModel.Reminders.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalReminders > ViewModel.Reminders.Count && !string.IsNullOrEmpty(ViewModel.RemindersViewAllUrl))
+                            {
+                                <a href="@ViewModel.RemindersViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalReminders results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Reminder Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var reminder in ViewModel.Reminders)
+                        {
+                            <a href="@reminder.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary text-sm"><Highlight Text="@reminder.Title" SearchTerm="@ViewModel.SearchTerm" MaxLength="50" /></span>
+                                        @if (!string.IsNullOrEmpty(reminder.BadgeText))
+                                        {
+                                            <Badge Text="@reminder.BadgeText" Variant="ParseBadgeVariant(reminder.BadgeVariant)" Size="BadgeSize.Small" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(reminder.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary">@reminder.Subtitle</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(reminder.Description))
+                                    {
+                                        <p class="text-xs text-text-tertiary">@reminder.Description</p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+
+            <!-- Scheduled Messages Section (Admin+ only) -->
+            @if (ViewModel.CanViewUsers && ViewModel.ScheduledMessages.Any())
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="search-section-scheduled-messages">
+                    <!-- Section Header -->
+                    <div class="px-6 py-4 border-b border-border-primary bg-bg-tertiary">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <Icon Path="@IconPaths.Clock" Size="IconSize.MD" Class="text-text-secondary" />
+                                <h2 class="text-lg font-semibold text-text-primary">Scheduled Messages</h2>
+                                <Badge Text="@ViewModel.ScheduledMessages.Count.ToString()" Variant="BadgeVariant.Default" Size="BadgeSize.Small" />
+                            </div>
+                            @if (ViewModel.TotalScheduledMessages > ViewModel.ScheduledMessages.Count && !string.IsNullOrEmpty(ViewModel.ScheduledMessagesViewAllUrl))
+                            {
+                                <a href="@ViewModel.ScheduledMessagesViewAllUrl" class="text-sm font-medium text-accent-blue hover:text-accent-blue-hover transition-colors">
+                                    View all @ViewModel.TotalScheduledMessages results →
+                                </a>
+                            }
+                        </div>
+                    </div>
+
+                    <!-- Scheduled Message Results List -->
+                    <div class="divide-y divide-border-primary">
+                        @foreach (var msg in ViewModel.ScheduledMessages)
+                        {
+                            <a href="@msg.Url" class="block px-6 py-4 hover:bg-bg-hover transition-colors">
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <span class="font-semibold text-text-primary text-sm"><Highlight Text="@msg.Title" SearchTerm="@ViewModel.SearchTerm" MaxLength="50" /></span>
+                                        @if (!string.IsNullOrEmpty(msg.BadgeText))
+                                        {
+                                            <Badge Text="@msg.BadgeText" Variant="ParseBadgeVariant(msg.BadgeVariant)" Size="BadgeSize.Small" />
+                                        }
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(msg.Subtitle))
+                                    {
+                                        <p class="text-sm text-text-secondary">@msg.Subtitle</p>
+                                    }
+                                    @if (!string.IsNullOrEmpty(msg.Description))
+                                    {
+                                        <p class="text-xs text-text-tertiary">@msg.Description</p>
+                                    }
+                                </div>
+                            </a>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>

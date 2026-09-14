@@ -81,6 +81,10 @@ public static class IconPaths
     /// <summary>Heroicon <c>book-open</c>. Activity feed empty state.</summary>
     public const string BookOpen = "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2";
 
+    /// <summary>Heroicon <c>building-office</c>. <c>Search.razor</c>'s Servers section header and the
+    /// guild-name meta icon on a Command Log search result (<c>Pages/Search.cshtml</c>, docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string BuildingOffice = "M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4";
+
     /// <summary>Heroicon <c>calendar</c>. <c>_EmphasisToolbar.cshtml</c>'s "say as date" button.</summary>
     public const string Calendar = "M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5";
 
@@ -89,6 +93,10 @@ public static class IconPaths
 
     /// <summary>Heroicon <c>chart-bar-square</c>. Total commands executed metric.</summary>
     public const string ChartBarSquare = "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z";
+
+    /// <summary>Heroicon <c>chat-bubble-left-ellipsis</c>. <c>Search.razor</c>'s Message Logs section
+    /// header (<c>Pages/Search.cshtml</c>, docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string ChatBubbleLeftEllipsis = "M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z";
 
     /// <summary>Heroicon <c>check</c> (v2 coordinates, verified against the published outline SVG). <c>_VoiceSelector.cshtml</c>'s selected indicator, <c>_SortDropdown.cshtml</c>'s selected option, <c>_PresetBar.cshtml</c>, the notification bell "mark all read" button.</summary>
     public const string Check = "M4.5 12.75l6 6 9-13.5";
@@ -139,6 +147,10 @@ public static class IconPaths
     /// (docs/plans/blazor-port-plan.md Phase 3).
     /// </summary>
     public const string DashboardGrid = "M4 5.5A1.5 1.5 0 015.5 4h4A1.5 1.5 0 0111 5.5v4A1.5 1.5 0 019.5 11h-4A1.5 1.5 0 014 9.5v-4zM13 5.5A1.5 1.5 0 0114.5 4h4A1.5 1.5 0 0120 5.5v2A1.5 1.5 0 0118.5 9h-4A1.5 1.5 0 0113 7.5v-2zM4 14.5A1.5 1.5 0 015.5 13h4a1.5 1.5 0 011.5 1.5v4A1.5 1.5 0 019.5 20h-4A1.5 1.5 0 014 18.5v-4zM13 12.5a1.5 1.5 0 011.5-1.5h4a1.5 1.5 0 011.5 1.5v6a1.5 1.5 0 01-1.5 1.5h-4a1.5 1.5 0 01-1.5-1.5v-6z";
+
+    /// <summary>Heroicon <c>document</c>. <c>Search.razor</c>'s Pages section header and non-guild-scoped
+    /// page results (<c>Pages/Search.cshtml</c>, docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string Document = "M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z";
 
     /// <summary>Heroicon <c>document-chart-bar</c>. <c>MainSidebar</c>'s Seq external link, harvested
     /// verbatim from <c>_Sidebar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3).</summary>

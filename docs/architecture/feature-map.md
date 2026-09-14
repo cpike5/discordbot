@@ -612,6 +612,7 @@ Full-text search across logs, audit trails, and moderation cases.
 | **Controllers** | `AutocompleteController` (search suggestions) |
 | **Database Entities** | Various (CommandLog, AuditLog, MessageLog, ModerationCase) |
 | **Key Features** | Full-text search, faceted filtering, pagination, result ranking |
+| **UI** | `Blazor/Pages/Search.razor` (`/Search`, interactive) — first interactive Blazor page (plan §5 Phase 3), replacing `Pages/Search.cshtml` |
 
 ---
 

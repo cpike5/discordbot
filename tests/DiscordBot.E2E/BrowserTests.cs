@@ -522,6 +522,49 @@ public sealed class BrowserTests
     /// </summary>
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
 
+    [E2EFact]
+    public async Task Test_L_Search_LoggedIn_RendersPagesSection()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Search?q=settings");
+
+        await Expect(page.Locator("[data-testid='search-section-pages']")).ToBeVisibleAsync();
+        await Expect(page.Locator("mark.search-highlight").First).ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// Covers <c>Search.razor</c>'s short-query validation state: a term entered but shorter than
+    /// the 2-character minimum shows the validation message instead of silently looking identical
+    /// to the "Start searching" empty state (see the "Deviation" comment on that branch in
+    /// <c>Search.razor</c>).
+    /// </summary>
+    [E2EFact]
+    public async Task Test_M_Search_ShortQuery_ShowsValidation()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Search?q=a");
+
+        await Expect(page.Locator("[data-testid='search-validation']")).ToContainTextAsync("at least 2 characters");
+    }
+
+    /// <summary>
+    /// Opens a browser context pointed at the running host, with requests to Google Fonts
+    /// short-circuited. Every page in the app (App.razor and the legacy _Layout.cshtml alike)
+    /// references fonts.googleapis.com/fonts.gstatic.com; those are unrelated to anything under
+    /// test here, and a render-blocking &lt;link rel="stylesheet"&gt; to a host that is slow or
+    /// unreachable (offline CI runners, a locked-down sandbox) can stall the page load well past
+    /// what a login round trip or a circuit boot should ever take. Aborting them keeps the tests
+    /// fast and deterministic regardless of outbound network conditions.
+    /// </summary>
+
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");

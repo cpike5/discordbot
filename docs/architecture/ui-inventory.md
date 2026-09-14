@@ -57,6 +57,12 @@ replaces a Razor Page rather than proving the hosting foundation.
 | `/Error/500` | `Blazor/Pages/Error/ServerError.razor` | Server error, `[AllowAnonymous]`, static SSR. Replaces `Pages/Error/500.cshtml` + `ServerErrorModel`; `RequestId` is `[SupplyParameterFromQuery]` falling back to `HttpContext.TraceIdentifier`, and exception message/stack trace still gate on `IWebHostEnvironment.IsDevelopment()` via `IExceptionHandlerPathFeature`. Program.cs's `UseExceptionHandler("/Error/500")` reaches it unchanged. |
 
 
+## Blazor Routes (Phase 3, permanent)
+
+| Route | File | Purpose |
+|-------|------|---------|
+| `/Search` | `Blazor/Pages/Search.razor` (+ `Search.razor.cs`) | Unified search across guilds, command logs, users, commands, audit logs, message logs, pages, reminders and scheduled messages, `RequireViewer`-gated (admin-only categories additionally require `RequireAdmin`, checked via `IAuthorizationService` from the component). First interactive page ported off `Pages/Search.cshtml`/`SearchModel` (plan §5 Phase 3) — replaces it and the deleted `TagHelpers/HighlightTagHelper.cs` (now `Blazor/Shared/Primitives/Highlight.razor`) in the same change. Reads the term from `?q=` via `[SupplyParameterFromQuery]`, resolves once per term and persists the mapped `SearchResultsViewModel` across the prerender-to-circuit boundary with `PersistentComponentState` (same pattern as `GuildPageBase`, keyed by term instead of a guild id). The `DiscordSocketClient` guild-intersection `SearchModel` did directly is behind `IUserGuildSelectorService` (`Blazor/Services/`) instead, so it can be mocked in bUnit tests. Renders under `MainLayout`. |
+
 ## Blazor Layouts
 
 `Blazor/Layout/` (plan §4.7/§5 Phase 3). `Routes.razor`'s `DefaultLayout` is still `EmptyLayout`
