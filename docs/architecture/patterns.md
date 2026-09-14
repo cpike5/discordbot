@@ -2227,6 +2227,79 @@ resolved from `HttpContext.RequestServices` inside the method, the one service-l
 this codebase, because changing the constructor would mean touching every derived Portal page model
 for a refactor scoped to the base class alone.
 
+### GuildLayout / PortalLayout
+
+`Blazor/Layout/GuildLayout.razor` and `Blazor/Layout/PortalLayout.razor` (plan §4.7/§5 Phase 3)
+are the two chrome layouts built on top of "GuildContext" and "Portal three-state gate" above.
+Both are static SSR - no `@rendermode` - and neither has a route-parameter binding of its own
+(a layout wraps whatever page routed), so both read the guild id straight off
+`NavigationManager.Uri` (`GuildRoutes.TryGetGuildId`/`Blazor/Portal/PortalRoutes.TryGetGuildId`,
+the latter handling both Portal URL shapes - `/Portal/{Feature}/{guildId}` for the three real
+pages, `/Portal/{guildId}/{page}` for the probe) and call the same memoised provider a page under
+them calls, so the two agree without a cascading parameter crossing the static/interactive
+boundary - see "The static-layout-vs-page resolution rule" above; a page's own
+`@rendermode InteractiveServer` never makes its ancestor layout interactive, so both layouts run
+their resolution exactly once, during the same static render pass a page's own prerender runs in,
+and are never re-rendered once a circuit takes over.
+
+- **A page opts in** with `@layout GuildLayout` or `@layout PortalLayout` at the top of its
+  `.razor` file, the same as any other layout. `GuildLayout` itself carries `@layout MainLayout`,
+  so a guild page gets the full admin shell (sidebar/navbar/toast/loading) plus the guild
+  breadcrumb/header/tab chrome layered on top; `PortalLayout` is **not** nested under
+  `MainLayout` - the Portal is member-facing, reached via a signed link, with no admin sidebar,
+  and the legacy `_PortalLayout.cshtml` was never a child of the admin shell either.
+- **`GuildLayout` renders per `GuildContextResult.Status`.** `Ok`: `Breadcrumb`
+  (`GuildContext.Breadcrumb(pageName)` - `null` for the Overview tab or a route matching no tab,
+  reproducing `BuildBasicBreadcrumb`; the active tab's `Label` otherwise, reproducing
+  `BuildPageBreadcrumb`), `GuildHeader` (`PageTitle` is that same active-tab-label-or-guild-name -
+  no per-page title mechanism reaches this layout; a page sets Blazor's own `<PageTitle>`, the
+  browser tab title, separately and unrelated to this), then the tab nav: `TabGroup
+  Mode="TabGroupMode.Navigation" StyleVariant="TabStyleVariant.Pills"` for desktop
+  (`.hidden sm:block`, matching `GuildNavBarHelper`'s existing `_TabPanel` config) plus a native
+  `<select data-shell-action="navigate-select">` for mobile (`.sm:hidden`) - chosen over a
+  details/summary or a re-implemented dropdown menu because a native select is keyboard- and
+  screen-reader-accessible for free and this layout has no `IJSRuntime` to drive anything more
+  custom; `wwwroot/js/blazor/shell.js` gained one delegated `change` listener for it.
+  `NotFound`/`Forbidden`: the breadcrumb/header/nav are omitted entirely and `@Body` renders
+  unchanged - the page's own `GuildContextGate` (a second, independent call into the same
+  memoised provider - see "GuildContext") is what shows the 404/403 content, not this layout.
+- **`PortalLayout` renders per `PortalAccessOutcome`.** Adds `portal.css` via `<HeadContent>`
+  (`app.css`/`tab-panel.css` are already global in `App.razor`). `GuildNotFound`: the
+  design-system `EmptyState`, same "doesn't exist or has been removed" copy
+  `GuildContextGate`'s own not-found fragment uses for the guild case - the closest available
+  match to "the same copy as today's 404", since the legacy `GuildNotFound` path actually returns
+  a plain `NotFound()` re-executed against the generic, non-Portal `/Error/404`, not any
+  Portal-specific copy. `ShowLanding`/`NotGuildMember`: straight ports of
+  `_PortalLanding.cshtml`/`_PortalUnauthorized.cshtml`. `Authorized`: the ported `_PortalHeader`
+  chrome (icon/name/online-offline badge/`TabGroup StyleVariant="TabStyleVariant.Portal"`
+  Soundboard-TTS-VOX nav) + `@Body`. A `<ToastHost @rendermode="InteractiveServer" />` island
+  renders unconditionally, matching the legacy layout always loading `toast.js`.
+- **`IPortalContextProvider`** (`Blazor/Portal/`, scoped, registered in `AddBlazorUiServices()`)
+  is a thin memoising wrapper over the existing `IPortalAccessService`, added for the same reason
+  `IGuildContextProvider` wraps guild resolution: `PortalAccessService.ResolveAsync` does a real
+  database read plus, once signed in, a `UserManager` lookup and a cache-then-REST guild
+  membership check, and `PortalLayout` plus a `PortalPageBase`-derived page both resolve the same
+  guild id within one scope. `PortalPageBase` (`Blazor/Portal/`) mirrors `GuildPageBase` exactly -
+  same sealed `OnInitializedAsync`/`OnParametersSetAsync` pair, same `PersistentComponentState`
+  round trip across the prerender-to-circuit boundary, same virtual `OnPortalContextReadyAsync()`
+  hook a derived page overrides instead.
+- **Portal script bundle.** `shared/keyboard-shortcuts.js` and `user-preferences.js` are both
+  classified **B** (thin-interop-shim-survives) in `blazor-port-inventory.md` Part 4 and are
+  loaded here as classic scripts (both are self-initializing IIFEs, the same shape `shell.js`
+  already loads this way) for every non-`GuildNotFound` state, matching the legacy layout's
+  "always loaded regardless of state" behavior. Neither is wired to anything yet - the
+  `RegisterShortcut` interop call and `UserPreferences.init(guildId)` both need a real page
+  component to drive them, and no Portal page has been ported yet (the probe is not a real
+  consumer); that wiring is Phase 4f's job. `api-client.js`/`toast.js` are not loaded - both are
+  superseded outright (in-circuit service calls; `ToastHost`/`IToastService`).
+- **Temporary probes.** `Blazor/Pages/Guilds/GuildProbe.razor` (`/Guilds/{guildId:long}/blazor-probe`,
+  `RequireAdmin`, `@inherits GuildPageBase`) and `Blazor/Pages/Portal/PortalProbe.razor`
+  (`/Portal/{guildId:long}/blazor-probe`, `[AllowAnonymous]` - a Portal page branches on outcome
+  rather than gating the route, `@inherits PortalPageBase`) prove both layouts end to end on real,
+  interactive, nested routes, the same role `BlazorProbe.razor` played for Phase 1. Retained until
+  Phase 4b/4f replace them with real ported pages - see "Blazor Routes (Phase 3...)" in
+  `ui-inventory.md`.
+
 ### Gotchas carried over from CLAUDE.md
 
 - **Discord snowflakes are strings** in any component `[Parameter]`, `@bind` target, or JS
