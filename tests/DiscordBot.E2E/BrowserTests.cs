@@ -197,6 +197,53 @@ public sealed class BrowserTests
     }
 
     /// <summary>
+    /// Covers <c>Blazor/Layout/MainLayout.razor</c> (plan §5 Phase 3): the static shell
+    /// (<c>MainSidebar</c>/<c>MainNavbar</c>) now wraps <c>/components</c> via
+    /// <c>@@layout MainLayout</c>, so this is also proof that wrapping the page in real shell
+    /// chrome did not disturb <see cref="Test_E_ComponentsShowcase_TogglesToastAndConfirmModal_WithNoBlazorAssetFailures"/>'s
+    /// toast/modal path - both exercise the same route, ordered to run after it (naming keeps
+    /// <see cref="AlphabeticalOrderer"/>'s top-to-bottom story: login -> smoke -> nested route ->
+    /// auth guard -> components interactivity -> components shell chrome).
+    /// </summary>
+    [E2EFact]
+    public async Task Test_F_ComponentsShowcase_ShowsShellChrome_ForSeededSuperAdmin()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/components");
+        await Expect(page.Locator("#sidebar")).ToBeVisibleAsync();
+        await Expect(page.Locator("#topbar")).ToBeVisibleAsync();
+
+        // The seeded admin is granted the SuperAdmin role (IdentitySeeder), which satisfies both
+        // RequireAdmin and RequireSuperAdmin - the whole Administration group, not just the
+        // Admin-only links within it, must be visible.
+        var administrationGroup = page.Locator(".sidebar-group", new PageLocatorOptions
+        {
+            Has = page.Locator("#admin-nav-heading")
+        });
+        await Expect(administrationGroup).ToBeVisibleAsync();
+        await Expect(administrationGroup.Locator("a[title='Users']")).ToBeVisibleAsync();
+        await Expect(administrationGroup.Locator("a[title='Bulk Purge']")).ToBeVisibleAsync();
+
+        // Sidebar collapse toggle: wwwroot/js/blazor/shell.js adds/removes "sidebar-collapsed" on
+        // <html> and persists it to localStorage (the same key App.razor's pre-paint FOUC-guard
+        // script reads) - only meaningful at the lg: breakpoint the toggle button itself is
+        // visible at (hidden below 1024px, see MainNavbar.razor), so widen the viewport first.
+        await page.SetViewportSizeAsync(1280, 800);
+        var html = page.Locator("html");
+        await Expect(html).Not.ToHaveClassAsync(new Regex(@"(^|\s)sidebar-collapsed(\s|$)"));
+
+        await page.Locator("#sidebarCollapseToggle").ClickAsync();
+        await Expect(html).ToHaveClassAsync(new Regex(@"(^|\s)sidebar-collapsed(\s|$)"));
+
+        await page.Locator("#sidebarCollapseToggle").ClickAsync();
+        await Expect(html).Not.ToHaveClassAsync(new Regex(@"(^|\s)sidebar-collapsed(\s|$)"));
+    }
+
+    /// <summary>
     /// Opens a browser context pointed at the running host, with requests to Google Fonts
     /// short-circuited. Every page in the app (App.razor and the legacy _Layout.cshtml alike)
     /// references fonts.googleapis.com/fonts.gstatic.com; those are unrelated to anything under
@@ -285,7 +332,11 @@ public sealed class BrowserTests
     /// </summary>
     private static async Task AssertCounterIncrementsAsync(IPage page)
     {
-        var status = page.GetByRole(AriaRole.Status);
+        // Scoped to the "Current count" text specifically: since Phase 3, /blazor-smoke and
+        // /admin/blazor-smoke render under MainLayout (plan §5 Phase 3), whose sidebar footer is
+        // also role="status" ("Bot status") - a plain GetByRole(Status) now resolves to two
+        // elements and Playwright's strict mode rejects the ambiguous locator.
+        var status = page.GetByRole(AriaRole.Status).Filter(new LocatorFilterOptions { HasTextString = "Current count" });
         var button = page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Click me" });
         var countChanged = new Regex(@"Current count: [1-9]\d*");
 

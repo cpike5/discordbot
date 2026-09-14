@@ -4,8 +4,10 @@ using DiscordBot.Bot.Services.Realtime;
 using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.ComponentTests.TestHelpers;
 using DiscordBot.Core.DTOs;
+using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.Extensions.DependencyInjection;
+using Moq;
 
 namespace DiscordBot.ComponentTests.Blazor.Pages.Admin;
 
@@ -14,10 +16,21 @@ namespace DiscordBot.ComponentTests.Blazor.Pages.Admin;
 /// (<c>Blazor/Pages/Admin/BlazorProbe.razor</c>, plan §5 Phase 1 deliverable 7). Each test
 /// exercises one of the building blocks the page proves: interactivity, cascading auth state,
 /// toasts, loading state, the debounced event-bus subscription, chart interop call order, and
-/// disposal.
+/// disposal. Phase 3 added a Theme section (section (i)) backed by <see cref="IThemeService"/> -
+/// registered here with an empty theme catalog since none of these tests exercise it directly
+/// (see <c>BlazorProbeThemeTests</c> for that section's own coverage).
 /// </summary>
 public class BlazorProbeTests : BlazorComponentTestContext
 {
+    public BlazorProbeTests()
+    {
+        var themeService = new Mock<IThemeService>();
+        themeService
+            .Setup(s => s.GetActiveThemesAsync(It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<ThemeDto>());
+        Services.AddSingleton(themeService.Object);
+    }
+
     [Fact]
     public void RendersAllSections_WhenAuthorizedAsAdmin()
     {
