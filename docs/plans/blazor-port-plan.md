@@ -677,6 +677,67 @@ in User Secrets:
   investigation above and does not itself carry the `InputBase`/name-prefix/one-form-per-target
   rules — they live only in the lessons-learned note. Left as found; a future pass could fold a
   short cross-reference into `patterns.md` too.
+**Cluster 4d delivered (partial): guild list, guild dashboard, flagged events, Rat Watch
+incidents.** Five pages ported this round, all under `Blazor/Pages/Guilds/`: `Index.razor` (+
+`.razor.cs`, the top-level guild list under `MainLayout`), `Details.razor` (+ `.razor.cs`, the
+guild dashboard under `GuildLayout`), `FlaggedEvents/Index.razor` and `.../Details.razor` (each +
+`.razor.cs`), `RatWatch/Incidents.razor` (+ `.razor.cs`). The rest of cluster 4d's page list
+(`Members/Index`+`Moderation`, `ModerationSettings`, `AudioSettings`, `Admin/Logs`,
+`Admin/Notifications`, `Admin/BulkPurge`, `Admin/UserPurge`, `Admin/Settings`, `Admin/LlmUsage`)
+was owned by concurrent agents in the same round and is not covered here. `Guilds/Index` reuses
+`GuildListViewModel`/`GuildSummaryItem` unchanged; per-row sync stays open to any Moderator (no
+extra gate, matching `IndexModel`), Sync All stays Admin/SuperAdmin-only in both the UI and the
+handler. `Guilds/Details` renders the six dashboard widgets as real `Card`/`EmptyState`/`Badge`/
+new `StatTile` markup against `GuildDetailsAggregateDto` directly, replacing the legacy
+`DashboardWidgetViewModel.BodyContent` raw-HTML-string approach; `GuildLayout`'s `GuildHeader`
+carries no action slot, so the page renders its own action bar (Sync + Edit Settings when
+`GuildContext.CanEdit`, plus a new "More Actions" dropdown with a real Copy Guild ID affordance —
+the legacy page's own `moreActionsDropdown`/`copyToClipboard` script was dead code, wired to no
+markup anywhere, the same class of gap earlier clusters found and fixed rather than reproduced).
+`FlaggedEvents` reuses the existing Tier 1b `SeverityBadge`/`RuleTypeIcon`/`StatusBadge`
+components (`Blazor/Shared/Primitives/`, built ahead of need in an earlier phase with a showcase
+entry and full bUnit coverage) rather than adding new ones; dismiss/acknowledge/take-action call
+`IFlaggedEventService` directly, with the reviewer id resolved from the current user's
+`discord:user_id` claim (`ClaimsPrincipalExtensions.GetDiscordUserId`) — the legacy inline JS read
+a claim named `"DiscordId"`, which no authentication handler in this app ever issues, so that
+value was always empty in production; the port resolves the real claim and refuses the action
+with a toast when it is absent instead of sending an id known to be wrong. `FlaggedEvents/Details`
+fixes the legacy post-dismiss redirect, which targeted the non-existent
+`/Guilds/FlaggedEvents/Index/{guildId}`, to the real list route. `RatWatch/Incidents` stays
+read-only (no cancel/end-vote, matching `IncidentsModel`, which exposed no mutation handler
+either); the incident detail modal loads `IRatWatchService.GetByIdAsync` on demand instead of the
+legacy `?handler=IncidentDetail` JSON endpoint, and CSV export is now built server-side from the
+loaded page's rows (same columns, BOM included) and handed to
+`BrowserInterop.DownloadFileAsync` instead of the legacy client-side embedded-JSON approach.
+`GuildPageBase.Dispose()` becomes `virtual` (`Blazor/Guilds/GuildPageBase.cs`) — a small, additive
+change needed for `Guilds/Details.razor.cs` to release its own click-outside interop handle on
+disposal; a derived class's own non-virtual-hiding `Dispose()` would never run under the
+framework's interface-typed disposal call, only a real override does. Deleted: the five legacy
+`.cshtml`/`.cshtml.cs` pairs, `Pages/Shared/Components/{_SeverityBadge,_RuleTypeIcon,_StatusBadge}.cshtml`
+(each superseded by an existing, already-consumed-nowhere-else Tier 1b component),
+`wwwroot/js/guild-sync.js` (no remaining consumer), `FlaggedEventsController` and its route
+(no remaining consumer after the port — the inline JS it served was the only caller), and the
+three page-model test files (`IndexModelSyncTests`, `DetailsModelTests`, `DetailsModelSyncTests`).
+`DeletedPagesGuardTests.DeletedPageRoutes` gains `/Guilds/Index`, `/Guilds/Details`,
+`/Guilds/FlaggedEvents/Index`, `/Guilds/FlaggedEvents/Details`, `/Guilds/RatWatch/Incidents`; a
+sweep found no other `.cshtml`/`.cshtml.cs` outside the deleted set referencing any of the five
+via `asp-page`/`RedirectToPage`/`Url.Page` (absolute or relative) — every other reference in the
+tree (`Guilds/RatWatch/Analytics.cshtml`, `Guilds/ModerationSettings/Index.cshtml.cs`,
+`GuildNavigationConfig`, `PageMetadataService`, `Blazor/Pages/Guilds/RatWatch/Index.razor`, the
+concurrently-ported Blazor pages) already used a literal href/route string, unaffected by the
+Razor Page's removal.
+
+**Deviations.** `GuildLayout`'s tab-active resolution (`GuildRoutes.ResolveActiveTabId`) matches
+only a tab's exact registered URL or a sub-path under it; since `GuildNavigationConfig`'s
+`moderation`/`ratwatch` tab URLs are `/Guilds/ModerationSettings/{id}`/`/Guilds/RatWatch/{id}`,
+neither `/Guilds/FlaggedEvents/{id}` nor `/Guilds/RatWatch/Incidents/{id}` resolves to an active
+top tab or a non-generic breadcrumb — the same class of gap cluster 4b's `AssistantMetrics`
+already accepted, not a new one. `RatWatch/Incidents`' own Settings/Analytics/Incidents sub-tab
+strip (`TabGroup`, matching `RatWatch/Index.razor`'s pattern) covers that page's own navigation
+regardless. `preview-trigger` spans on `FlaggedEvents`' user cells keep their
+`data-preview-type`/`data-user-id`/`data-context-guild-id` attributes inert, same as cluster 4b's
+`Reminders`/`RatWatch`/`AudioModerationLog` — no `PreviewPopover` wiring exists yet; still a
+follow-up for whichever cluster lands the preview service.
 
 ### Phase 5 — Decommission · 4–6 days · 3–4 PRs
 

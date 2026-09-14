@@ -286,6 +286,22 @@
         </div>
     </section>
 
+    <!-- StatTile -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-stat-tile">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Stat Tile</h3>
+            <p class="text-sm text-text-secondary mt-1">"Label over big number" tile used across the Guild Details dashboard widgets</p>
+        </div>
+        <div class="p-6">
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <StatTile Label="Total" Value="12" />
+                <StatTile Label="Active" Value="9" ValueClass="text-success" />
+                <StatTile Label="Paused" Value="3" ValueClass="text-warning" />
+                <StatTile Label="Failed" Value="0" ValueClass="text-error" />
+            </div>
+        </div>
+    </section>
+
     <!-- LocalTime -->
     <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-local-time">
         <div class="px-6 py-4 border-b border-border-primary">

@@ -21,7 +21,8 @@ public class PrimitivesShowcaseTests : BlazorComponentTestContext
         foreach (var testId in new[]
                  {
                      "showcase-buttons", "showcase-badges", "showcase-alerts", "showcase-cards",
-                     "showcase-skeletons", "showcase-spinners", "showcase-empty-states", "showcase-kbd"
+                     "showcase-skeletons", "showcase-spinners", "showcase-empty-states", "showcase-kbd",
+                     "showcase-stat-tile"
                  })
         {
             cut.Find($"[data-testid='{testId}']").Should().NotBeNull();
