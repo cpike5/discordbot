@@ -29,7 +29,7 @@ product pages.
 |-------|------|---------|
 | `/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Minimal smoke test: `RequireAdmin` auth on a routable component plus one interactive counter button. |
 | `/admin/blazor-smoke` | `Blazor/Pages/BlazorSmoke.razor` | Second `@page` route on the same component as `/blazor-smoke`, guarding a known .NET 10 regression where `blazor.web.js` resolved `_blazor/initializers` relative to a nested path instead of the app base, 404ing and leaving the circuit dead — see `tests/DiscordBot.E2E`. Both the flat and nested Playwright checks run against this one component. |
-| `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, and `BrowserInterop`/`CircuitClientInfoService`. Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and stays retained with the rest of this page — see the note above. |
+| `/admin/blazor-probe` | `Blazor/Pages/Admin/BlazorProbe.razor` | Foundation probe: interactivity, cascading auth state, `IToastService`, `ILoadingState`, the `IDashboardEventBus` real-time subscription (debounced), `ChartInterop`, `BrowserInterop`/`CircuitClientInfoService`, and (Phase 3) `IThemeInterop` — a theme select bound to `IThemeService.GetActiveThemesAsync()` that applies the pick client-side via the interop, then persists it via `IThemeService.SetUserThemeAsync` (no navbar theme toggle exists yet, so this is the interop's only caller — see `docs/articles/blazor-interop.md`). Deliberately a nested route (`/admin/...`) rather than a top-level one, for the same `blazor.web.js` regression `/admin/blazor-smoke` guards. Its "publish test event" button is admin-only and stays retained with the rest of this page — see the note above. As of Phase 3, renders under `MainLayout` (see "Blazor Layouts" below), same as `/blazor-smoke`/`/admin/blazor-smoke`. |
 
 ## Blazor Routes (Phase 2, permanent)
 
@@ -38,7 +38,21 @@ replaces a Razor Page rather than proving the hosting foundation.
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/components` | `Blazor/Pages/Components/ComponentsPage.razor` | Component showcase / design-system reference, `RequireAdmin`-gated. Replaces the former Razor Page `Pages/Components.cshtml` (route `/Components` — ASP.NET Core endpoint routing matches both case-insensitively, so the sidebar's existing link keeps resolving). Composes the six tier showcase sections (`Blazor/Pages/Components/Sections/*Showcase.razor`) behind an anchor nav, plus a `ToastHost`/`LoadingOverlay` so their demos render into something. Renders under `EmptyLayout` (the real `MainLayout` shell lands in Phase 3). See "Blazor components" table below for every component it showcases. |
+| `/components` | `Blazor/Pages/Components/ComponentsPage.razor` | Component showcase / design-system reference, `RequireAdmin`-gated. Replaces the former Razor Page `Pages/Components.cshtml` (route `/Components` — ASP.NET Core endpoint routing matches both case-insensitively, so the sidebar's existing link keeps resolving). Composes the six tier showcase sections (`Blazor/Pages/Components/Sections/*Showcase.razor`) behind an anchor nav. As of Phase 3, renders under `MainLayout` (see "Blazor Layouts" below), which now supplies the shared `ToastHost`/`LoadingOverlay` islands this page used to host itself. See "Blazor components" table below for every component it showcases. |
+
+## Blazor Layouts
+
+`Blazor/Layout/` (plan §4.7/§5 Phase 3). `Routes.razor`'s `DefaultLayout` is still `EmptyLayout`
+(another agent flips it once every remaining Blazor page is ready) — a page opts into
+`MainLayout` explicitly with `@layout MainLayout`, which today is every routed Blazor page
+above (`/blazor-smoke`, `/admin/blazor-smoke`, `/admin/blazor-probe`, `/components`).
+
+| Layout | Render mode | Replaces | Contents |
+| --- | --- | --- | --- |
+| `EmptyLayout` | static SSR | `Layout = null` pages | No chrome — `Routes.razor`'s `DefaultLayout` until every page opts into `MainLayout`. |
+| `MainLayout` | static SSR + islands | `Pages/Shared/_Layout.cshtml` + `_Navbar.cshtml` + `_Sidebar.cshtml` + `_MobileSearchOverlay.cshtml` + root `_ToastContainer.cshtml` | `MainSidebar` (role-gated via `AuthorizeView Policy`, active-link state from `ShellNavigation`), `MainNavbar` (search form, user menu, `NotificationBell` island), `MobileSearchOverlay` (plain `GET /Search` form — no live recent/results panes yet, a recorded Phase 3 deviation from the legacy JS-driven overlay), an `ErrorBoundary` around `@Body`, and `ToastHost`/`LoadingOverlay` islands. Sidebar/navbar/mobile-search interactivity (collapse, drawer, user menu, Ctrl/Cmd+K) is `wwwroot/js/blazor/shell.js`, a classic script loaded after `blazor.web.js` in `App.razor`. See "Blazor Components" in `patterns.md` for the static-shell-plus-islands pattern. |
+
+`GuildLayout`/`PortalLayout`/`LandingLayout` are not built yet — later phases per the port plan.
 
 ---
 

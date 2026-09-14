@@ -1,9 +1,8 @@
 # Blazor JavaScript Interop
 
-Phase 1 of the Blazor port (`docs/plans/blazor-port-plan.md` §4.4, §5) keeps three
-purpose-built JavaScript modules for browser APIs Blazor doesn't cover on its own, each
-wrapped by a thin, scoped C# service. This article documents both sides plus the vendoring
-of Chart.js.
+Phase 1 of the Blazor port (`docs/plans/blazor-port-plan.md` §4.4, §5) keeps purpose-built
+JavaScript modules for browser APIs Blazor doesn't cover on its own, each wrapped by a thin,
+scoped C# service. This article documents both sides plus the vendoring of Chart.js.
 
 ## Modules at a glance
 
@@ -12,16 +11,17 @@ of Chart.js.
 | Charts | `wwwroot/js/blazor/charts.js` | `ChartInterop` | 14 per-page Chart.js CDN tags and `performance/components/chart-utils.js` |
 | Audio | `wwwroot/js/blazor/audio.js` | `AudioInterop` | Preview/duration/upload slivers of `portal-soundboard.js`, `portal-tts.js` |
 | Browser | `wwwroot/js/blazor/browser.js` | `BrowserInterop` | Scattered helpers in `navigation.js`, `quick-actions.js`, `settings.js`, `moderation-settings.js`, `portal-vox.js`, `timezone.js`, `_EmphasisToolbar.cshtml` |
+| Theme | `wwwroot/js/blazor/theme.js` | `ThemeInterop` | The client half of `wwwroot/js/theme.js`'s `ThemeManager` (Phase 3, deferred from Phase 1 — see its own section below) |
 
 None of the legacy Razor Pages or their JavaScript were touched — those pages keep loading
 Chart.js from the CDN and using their own inline scripts until they're individually migrated
-in Phase 4. The three modules here are additive, used only by Blazor components.
+in Phase 4. These modules are additive, used only by Blazor components.
 
 ## The prerender rule
 
-**Call every method on `ChartInterop`, `AudioInterop` and `BrowserInterop` only from
-`OnAfterRenderAsync` or an event handler — never from `OnInitialized`, `OnParametersSet`, or
-a field initializer.** Each wrapper lazily imports its JS module on first call via
+**Call every method on `ChartInterop`, `AudioInterop`, `BrowserInterop` and `ThemeInterop`
+only from `OnAfterRenderAsync` or an event handler — never from `OnInitialized`,
+`OnParametersSet`, or a field initializer.** Each wrapper lazily imports its JS module on first call via
 `IJSRuntime.InvokeAsync<IJSObjectReference>("import", "./js/blazor/<name>.js")`, which
 requires a live circuit. During server-side prerendering there is no browser connection yet,
 so any interop call throws. Guard with `firstRender`:
@@ -44,10 +44,10 @@ protected override async Task OnAfterRenderAsync(bool firstRender)
 services.AddBlazorInterop();
 ```
 
-which registers `ChartInterop`, `AudioInterop` and `BrowserInterop` as **scoped** — one
-instance per circuit, matching the lifetime of the `IJSRuntime` they wrap. Called from
-`Extensions/BlazorServiceExtensions.cs`'s `AddBlazorWeb`, which `Program.cs` calls alongside
-`AddRazorComponents()`.
+which registers `ChartInterop`, `AudioInterop`, `BrowserInterop` and `ThemeInterop` as
+**scoped** — one instance per circuit, matching the lifetime of the `IJSRuntime` they wrap.
+Called from `Extensions/BlazorServiceExtensions.cs`'s `AddBlazorWeb`, which `Program.cs` calls
+alongside `AddRazorComponents()`.
 
 ## Disposal
 
@@ -290,6 +290,55 @@ Task InsertAtSelectionAsync(ElementReference textarea, string text);
 (`{ int Start, int End, string Value }`) are records in
 `Bot/Blazor/Interop/TextSelectionResult.cs`.
 
+## ThemeInterop / theme.js
+
+Deferred from Phase 1 to Phase 3 (`docs/plans/blazor-port-plan.md` §5 Phase 1 "Deferred from
+Phase 1"): theme switching lives in the shell/`Profile`, so there was nothing to call it from
+until `MainLayout` and `Blazor/Pages/Admin/BlazorProbe.razor`'s theme demo existed. Mirrors
+`wwwroot/js/theme.js`'s `ThemeManager` client contract exactly (same cookie name
+`theme-preference`, same localStorage key, same 1-year cookie `max-age`, same `themechange`
+`CustomEvent`) so the legacy and Blazor shells agree on theme state while they coexist — a
+switch made from one is visible on the other's next navigation.
+
+**Does not call the server.** Unlike `ThemeManager.persistToServer` (a `PUT
+/api/theme/preference` fetch), `theme.js` only ever touches the current browser's cookie,
+localStorage and `data-theme` attribute. Persisting a choice so it survives to the user's next
+session/device is a separate, ordinary call to
+`IThemeService.SetUserThemeAsync(userId, themeId)` the caller makes itself — call both
+together for a real "change my theme" flow, as
+`Blazor/Pages/Admin/BlazorProbe.razor`'s demo does (no navbar theme toggle exists yet, so this
+page is the interop's only caller today).
+
+### JS API
+
+| Function | Signature | Notes |
+| --- | --- | --- |
+| `apply` | `(themeKey) => void` | Sets `data-theme` on `<html>`, writes the cookie (`path=/`, `SameSite=Lax`, 1-year `max-age`) and localStorage, dispatches `themechange` (`detail: { themeKey }`) on `window`. |
+| `clear` | `() => void` | Removes the cookie/localStorage/`data-theme` attribute; dispatches `themechange` with `themeKey: null`. |
+| `getCurrent` | `() => string \| null` | Cookie value if set, else localStorage, else `null`. |
+
+### C# API (`ThemeInterop`)
+
+```csharp
+Task ApplyAsync(string themeKey);
+Task ClearAsync();
+Task<string?> GetCurrentAsync();
+```
+
+### Example: apply and persist together
+
+```csharp
+private async Task OnThemeSelectedAsync(ChangeEventArgs e)
+{
+    var themeKey = e.Value?.ToString();
+    var theme = _themes.FirstOrDefault(t => t.ThemeKey == themeKey);
+    if (theme is null) return;
+
+    await ThemeInterop.ApplyAsync(theme.ThemeKey);              // immediate client-side effect
+    await ThemeService.SetUserThemeAsync(_userId, theme.Id);    // durable server-side preference
+}
+```
+
 ## Testing
 
 - **C#** (`tests/DiscordBot.Tests/Blazor/Interop/`): Moq-based tests per wrapper assert the
@@ -313,7 +362,10 @@ Task InsertAtSelectionAsync(ElementReference textarea, string text);
   to register, since none of the three need a real DOM); and `audio.js`'s `releaseAll` (drop
   zones and dropped files only — everything else in that module drives real
   `Audio`/`XMLHttpRequest`/`FormData` APIs Node has no equivalent for, so it stays covered by
-  the C# tests plus review). There is deliberately no `package.json` under `wwwroot/js/blazor/`
+  the C# tests plus review). `theme.js` has no `node --test` file of its own for the same
+  reason — every function touches `document.cookie`/`localStorage`/`window` directly rather
+  than isolating a pure core, so it stays covered by the C# tests (`ThemeInteropTests.cs`) plus
+  review, same as the uncovered parts of `audio.js`. There is deliberately no `package.json` under `wwwroot/js/blazor/`
   or anywhere else under `wwwroot/` — wwwroot is served as static files, so a `package.json`
   there would be publicly fetchable. Instead the `"test"` npm script
   (`src/DiscordBot.Bot/package.json`) passes Node's `--experimental-detect-module` flag, which

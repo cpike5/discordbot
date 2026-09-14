@@ -2069,11 +2069,56 @@ static SSR Blazor pages; it validates the same ASP.NET Core antiforgery token Ra
 | --- | --- |
 | `Blazor/App.razor` | Static root document: `<!DOCTYPE html>`/`<head>` (`<base href="/">`, fonts, `app.css`, pre-paint theme script, sidebar FOUC guard - copied verbatim from `Pages/Shared/_Layout.cshtml`), `<HeadOutlet />`, `<Routes />`, an absolute-path `blazor.web.js` `<script>`. The `<base>` tag and the absolute script `src` both matter: without either, `blazor.web.js` resolves `_blazor/initializers` (and its own script URL) relative to the *current route* instead of the app root, 404ing and leaving the circuit dead on any nested page (e.g. `/admin/blazor-smoke`) - this is the known .NET 10 regression `tests/DiscordBot.E2E`'s nested-route test guards. |
 | `Blazor/Routes.razor` | `Router` + `AuthorizeRouteView` (`DefaultLayout="typeof(EmptyLayout)"`) + `RedirectToLogin` + `FocusOnNavigate`. |
-| `Blazor/Layout/` | `EmptyLayout` (no chrome; today's only layout) and, from Phase 3, `MainLayout`/`GuildLayout`/`PortalLayout`/`LandingLayout`. |
+| `Blazor/Layout/` | `EmptyLayout` (no chrome; still `Routes.razor`'s `DefaultLayout`), `MainLayout`/`MainSidebar`/`MainNavbar`/`MobileSearchOverlay`/`ShellNavigation` (Phase 3 - see below), and later `GuildLayout`/`PortalLayout`/`LandingLayout`. |
 | `Blazor/Shared/` | The design-system component library (Phase 2 - Button, Card, Modal, etc., one `bUnit` test each). |
 | `Blazor/Pages/` | Routable pages, mirroring today's `Pages/` tree as it's ported. |
-| `Blazor/Interop/` | Thin C# wrappers around the interop JS modules (Phase 1+ from a sibling stream - `charts.js`/`audio.js`/`browser.js`). |
-| `Blazor/Services/` | Blazor-specific services: the revalidating auth state provider, circuit observability, and (from a sibling stream) the event bus/toast/loading services. |
+| `Blazor/Interop/` | Thin C# wrappers around the interop JS modules (Phase 1+ - `charts.js`/`audio.js`/`browser.js`/`theme.js`). |
+| `Blazor/Services/` | Blazor-specific services: the revalidating auth state provider, circuit observability, and the event bus/toast/loading services. |
+
+### The static shell + islands pattern (`MainLayout`)
+
+`MainLayout` (plan §4.7/§5 Phase 3) ports `Pages/Shared/_Layout.cshtml` + `_Navbar.cshtml` +
+`_Sidebar.cshtml` + `_MobileSearchOverlay.cshtml` + the root `_ToastContainer.cshtml` into one
+static-SSR layout, composed from `MainSidebar`, `MainNavbar` and `MobileSearchOverlay` (also
+static SSR - same ids/classes as the partials they replace, so `site.css`/`app.css` apply
+unchanged). A page opts in with `@layout MainLayout`; `Routes.razor`'s `DefaultLayout` stays
+`EmptyLayout` until every remaining page has one. `<AuthorizeView Policy="...">` replaces the
+legacy `<authorize policy="...">` tag helper one for one in `MainSidebar`; active-link state
+(the `active` class, `aria-current="page"`) comes from `Blazor/Layout/ShellNavigation.cs`, a
+small pure-string helper (`IsActive(currentPath, exact:, prefixes:)`) matching
+`NavigationManager`'s current URL path against the same exact/prefix rules `_Sidebar.cshtml`
+used to compute from a Razor Pages route value it no longer has.
+
+Live chrome inside the static shell is small interactive islands: `NotificationBell` (in
+`MainNavbar`) and `ToastHost`/`LoadingOverlay` (in `MainLayout` itself) each carry their own
+`@rendermode InteractiveServer` rather than putting a render mode on the layout - see
+"Interactivity is per-page" above. Islands inside a static parent may only receive serializable
+parameters; all three here take none, since their state is entirely scoped-service-driven
+(`IDashboardNotificationQueryService`/the event bus, `IToastService`, `ILoadingState`).
+
+**`data-shell-action` delegation.** `MainLayout`/`MainSidebar`/`MainNavbar` never render
+interactively, so they have no `IJSRuntime` to call and no server-side click handler to bind to
+for sidebar collapse, the mobile drawer, the user menu, or the mobile search overlay. Those
+elements instead carry a `data-shell-action="..."` attribute (`toggle-mobile-sidebar`,
+`toggle-sidebar-collapse`, `toggle-user-menu`, `toggle-mobile-search`, `close-mobile-search`,
+`dismiss-error-ui`) with no inline `onclick=` (Phase 6 adds a CSP that would block it anyway).
+`wwwroot/js/blazor/shell.js`, a classic script (not a module - loaded from `App.razor` after
+`blazor.web.js`) attaches one delegated listener per event type at `document` level, keyed off
+that attribute, once on load. Because the listeners live on `document` rather than the elements
+themselves, they survive Blazor's enhanced navigation swapping the sidebar/navbar markup back
+out from under them - nothing needs to re-register after a client-side route change. The same
+module also restores the persisted `sidebarCollapsed` localStorage state (the key `App.razor`'s
+inline pre-paint FOUC-guard script also reads) and resyncs it on Blazor's `enhancedload` event.
+
+**`ErrorBoundary` only catches static/prerender exceptions.** `MainLayout` wraps `@Body` in an
+`<ErrorBoundary>` with an `ErrorContent` built from the `Alert` component
+(`Variant="AlertVariant.Error"`), matching the design system's alert styling rather than a raw
+stack trace. This only catches exceptions thrown while the static shell (or a static-SSR page
+inside it) renders. An exception inside an `@rendermode InteractiveServer` island's own circuit
+is a **circuit** failure, not something this component-tree `ErrorBoundary` can see - it
+surfaces through Blazor's own reconnect UI instead (`#blazor-error-ui` in `App.razor`, styled
+with design tokens rather than the framework template's default inline colors, dismissed via
+the same `data-shell-action` dispatch as everything else in this section).
 
 ### Auth in components
 
