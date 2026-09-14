@@ -1596,6 +1596,188 @@ public sealed class BrowserTests
         return (guildId, userId, tagName);
     }
 
+    /// <summary>
+    /// Covers <c>Blazor/Pages/Guilds/Index.razor</c> and <c>Details.razor</c> end to end (plan §5
+    /// Phase 4, cluster 4d): the top-level guild list renders a seeded guild's row, and clicking
+    /// into it lands on the dashboard with the action bar (Sync/Edit Settings/More Actions, all
+    /// gated on <c>CanEdit</c> - the seeded SuperAdmin has it) and every widget's empty state (no
+    /// scheduled messages/reminders/members/etc. seeded for this guild).
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZB1_GuildsIndex_ListsSeededGuild_AndOpensDetails()
+    {
+        const ulong guildId = 900000000000000060UL;
+        SeedGuild(guildId, "E2E Guilds Index Guild");
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Guilds");
+        // Both the desktop row and the mobile card render the guild name in the DOM at once
+        // (one hidden via CSS per breakpoint, not removed), so a plain GetByText resolves to
+        // two elements under Playwright's strict mode - scope to the desktop row.
+        var row = page.Locator("[data-testid='guild-row']", new PageLocatorOptions { HasTextString = "E2E Guilds Index Guild" });
+        await Expect(row).ToBeVisibleAsync();
+
+        // The row's navigate-on-click handler only fires once the Interactive Server circuit has
+        // actually connected - a click sent to the (already-visible, statically prerendered) row
+        // before then is simply dropped, not queued (see AssertCounterIncrementsAsync's doc
+        // comment for the same gotcha elsewhere in this file).
+        await page.WaitForTimeoutAsync(1_500);
+        await row.ClickAsync();
+
+        await Expect(page).ToHaveURLAsync(new Regex($@"/Guilds/Details/{guildId}$"), new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+        await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Sync", Exact = true })).ToBeVisibleAsync();
+        await Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Edit Settings" })).ToBeVisibleAsync();
+        await Expect(page.GetByText("More Actions")).ToBeVisibleAsync();
+        await Expect(page.GetByText("No scheduled messages yet")).ToBeVisibleAsync();
+        await Expect(page.GetByText("No reminders yet")).ToBeVisibleAsync();
+        await Expect(page.GetByText("No command activity yet")).ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// Covers <c>Blazor/Pages/Guilds/FlaggedEvents/{Index,Details}.razor</c> end to end (plan §5
+    /// Phase 4, cluster 4d): the list shows a seeded Pending event, its detail page renders the
+    /// event, and confirming Dismiss there navigates back to the list with the row's status badge
+    /// now reading Dismissed - proving both the fixed post-dismiss redirect (the legacy page's own
+    /// inline JS pointed at a route that never existed) and that dismissal actually persisted.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZB2_FlaggedEvents_ListDetailsDismiss()
+    {
+        var (guildId, eventId) = SeedFlaggedEvent();
+        // Dismiss resolves the reviewer id from the signed-in user's linked Discord account
+        // (discord:user_id claim) and refuses the action otherwise - link the seeded SuperAdmin
+        // first, the same escape hatch Test_Z4 uses (the web-only host has no real OAuth to link
+        // an account through).
+        LinkSeededAdminToDiscord();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Guilds/FlaggedEvents/{guildId}");
+        var row = page.Locator("[data-testid='flagged-event-row']");
+        await Expect(row).ToHaveCountAsync(1);
+        await Expect(row).ToContainTextAsync("Pending");
+
+        await row.GetByTitle("View Details").ClickAsync();
+        await Expect(page).ToHaveURLAsync(new Regex($@"/Guilds/FlaggedEvents/{guildId}/{eventId}$"), new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+        await Expect(page.GetByText("Repeated identical messages posted in quick succession")).ToBeVisibleAsync();
+
+        await page.WaitForTimeoutAsync(1_500);
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Dismiss", Exact = true }).ClickAsync();
+        await page.Locator("#flaggedEventConfirmModal").GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Confirm" }).ClickAsync();
+
+        await Expect(page).ToHaveURLAsync(new Regex($@"/Guilds/FlaggedEvents/{guildId}$"), new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+        await Expect(page.Locator("[data-testid='flagged-event-row']")).ToContainTextAsync("Dismissed");
+    }
+
+    /// <summary>
+    /// Covers <c>Blazor/Pages/Guilds/RatWatch/Incidents.razor</c> end to end (plan §5 Phase 4,
+    /// cluster 4d): the default last-30-days filter shows a seeded watch, the row's "View" opens
+    /// the on-demand detail modal (<c>IRatWatchService.GetByIdAsync</c>, not the legacy
+    /// <c>?handler=IncidentDetail</c> JSON endpoint), and CSV export downloads a file whose header
+    /// row matches the server-built columns.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_ZB3_RatWatchIncidents_FilterModalExport()
+    {
+        var (guildId, _) = SeedRatWatch();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        // Wide, explicit date bounds rather than relying on the page's own "last 30 days"
+        // default - the raw-SQL-seeded ScheduledAt below is a plain ISO-8601 string, not run
+        // through Microsoft.Data.Sqlite's own DateTime parameter conversion, so a narrow
+        // default-range comparison against an EF-generated boundary can be format-sensitive.
+        await page.GotoAsync($"/Guilds/RatWatch/Incidents/{guildId}?StartDate=2020-01-01&EndDate=2030-01-01");
+        var row = page.Locator("[data-testid='ratwatch-incident-row']");
+        await Expect(row).ToHaveCountAsync(1);
+
+        // See ZB1's identical comment - a click before the circuit connects is dropped, not queued.
+        await page.WaitForTimeoutAsync(1_500);
+        await row.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "View" }).ClickAsync();
+        var modal = page.Locator("#incidentDetailModal");
+        await Expect(modal).ToBeVisibleAsync();
+        await Expect(modal).ToContainTextAsync("Guilty");
+        await modal.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Close" }).ClickAsync();
+
+        var downloadTask = page.RunAndWaitForDownloadAsync(async () =>
+        {
+            await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Export CSV" }).ClickAsync();
+        });
+        var download = await downloadTask;
+
+        var path = await download.PathAsync();
+        path.Should().NotBeNullOrEmpty();
+        var content = await File.ReadAllTextAsync(path!);
+        content.Should().Contain("Date,Accused,Initiator,Status,Votes For,Votes Against,Custom Message");
+    }
+
+    /// <summary>Seeds one guild and one Pending <c>FlaggedEvents</c> row, for <see cref="Test_ZB2_FlaggedEvents_ListDetailsDismiss"/>.</summary>
+    private (ulong GuildId, Guid EventId) SeedFlaggedEvent()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000070UL + salt;
+        SeedGuild(guildId, "E2E Flagged Events Guild");
+
+        var eventId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO FlaggedEvents (Id, GuildId, UserId, ChannelId, RuleType, Severity, Description, Evidence, Status, ActionTaken, ReviewedByUserId, CreatedAt, ReviewedAt)
+            VALUES ($id, $guildId, $userId, NULL, 0, 2, $description, '{}', 0, NULL, NULL, $createdAt, NULL)
+            """;
+        command.Parameters.AddWithValue("$id", eventId);
+        command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+        command.Parameters.AddWithValue("$userId", unchecked((long)(900000000000000071UL + salt)));
+        command.Parameters.AddWithValue("$description", "Repeated identical messages posted in quick succession");
+        command.Parameters.AddWithValue("$createdAt", now.ToString("O"));
+        command.ExecuteNonQuery();
+
+        return (guildId, eventId);
+    }
+
+    /// <summary>Seeds one guild and one Guilty <c>RatWatches</c> row, for <see cref="Test_ZB3_RatWatchIncidents_FilterModalExport"/>.</summary>
+    private (ulong GuildId, Guid WatchId) SeedRatWatch()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000080UL + salt;
+        SeedGuild(guildId, "E2E Rat Watch Incidents Guild");
+
+        var watchId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO RatWatches (Id, GuildId, ChannelId, AccusedUserId, InitiatorUserId, OriginalMessageId, CustomMessage, ScheduledAt, CreatedAt, Status, NotificationMessageId, VotingMessageId, ClearedAt, VotingStartedAt, VotingEndedAt)
+            VALUES ($id, $guildId, $channelId, $accusedUserId, $initiatorUserId, $messageId, $customMessage, $scheduledAt, $createdAt, 3, NULL, NULL, NULL, $votingStartedAt, $votingEndedAt)
+            """;
+        command.Parameters.AddWithValue("$id", watchId);
+        command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+        command.Parameters.AddWithValue("$channelId", unchecked((long)(900000000000000081UL + salt)));
+        command.Parameters.AddWithValue("$accusedUserId", unchecked((long)(900000000000000082UL + salt)));
+        command.Parameters.AddWithValue("$initiatorUserId", unchecked((long)(900000000000000083UL + salt)));
+        command.Parameters.AddWithValue("$messageId", unchecked((long)(900000000000000084UL + salt)));
+        command.Parameters.AddWithValue("$customMessage", "Said they'd be back in 5 minutes");
+        command.Parameters.AddWithValue("$scheduledAt", now.AddMinutes(-10).ToString("O"));
+        command.Parameters.AddWithValue("$createdAt", now.AddMinutes(-15).ToString("O"));
+        command.Parameters.AddWithValue("$votingStartedAt", now.AddMinutes(-5).ToString("O"));
+        command.Parameters.AddWithValue("$votingEndedAt", now.ToString("O"));
+        command.ExecuteNonQuery();
+
+        return (guildId, watchId);
+    }
+
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");
