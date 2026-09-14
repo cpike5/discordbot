@@ -63,6 +63,16 @@ public sealed class BotHostFixture : IAsyncLifetime
     /// <summary>Password of the admin account seeded via Identity:DefaultAdmin. Override with <c>E2E_ADMIN_PASSWORD</c>.</summary>
     public string SeededAdminPassword => _seededAdminPassword;
 
+    /// <summary>
+    /// Filesystem path to the throwaway SQLite database the running host was started against
+    /// (the same value passed as <c>ConnectionStrings__DefaultConnection</c>'s "Data Source").
+    /// Empty until <see cref="InitializeAsync"/> has resolved it. A test that needs to seed a row
+    /// the host doesn't expose through any UI/API (e.g. a bare <c>Guilds</c> row for a guild the
+    /// bot's Discord client has never seen, since this fixture runs web-only) can open this file
+    /// directly via <c>Microsoft.Data.Sqlite</c> before navigating - see <c>BrowserTests</c>.
+    /// </summary>
+    public string DatabasePath { get; private set; } = string.Empty;
+
     /// <summary>Path to the file the child process's stdout/stderr were captured to.</summary>
     public string LogFilePath { get; private set; } = string.Empty;
 
@@ -101,6 +111,7 @@ public sealed class BotHostFixture : IAsyncLifetime
         Directory.CreateDirectory(_tempDataDir);
 
         var dbPath = Path.Combine(_tempDataDir, "e2e.db");
+        DatabasePath = dbPath;
         var dataProtectionPath = Path.Combine(_tempDataDir, "dp-keys");
 
         var startInfo = new ProcessStartInfo

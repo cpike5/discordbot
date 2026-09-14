@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
 using Microsoft.Playwright;
 using static Microsoft.Playwright.Assertions;
 
@@ -241,6 +242,152 @@ public sealed class BrowserTests
 
         await page.Locator("#sidebarCollapseToggle").ClickAsync();
         await Expect(html).Not.ToHaveClassAsync(new Regex(@"(^|\s)sidebar-collapsed(\s|$)"));
+    }
+
+    /// <summary>
+    /// Covers <c>Blazor/Layout/GuildLayout.razor</c> + <c>GuildProbe.razor</c> (plan §5 Phase 3):
+    /// seeds a bare <c>Guilds</c> row directly into the fixture's throwaway SQLite database (the
+    /// host runs web-only, so there is no live Discord guild to join and no UI flow that creates
+    /// one - <see cref="BotHostFixture.DatabasePath"/> is the fixture's own escape hatch for
+    /// exactly this), then asserts the full guild shell renders: breadcrumb, header with the
+    /// guild's name, the desktop tab strip (Overview through Feature Requests), and the probe
+    /// page's own resolved-context fields. The seeded admin carries the SuperAdmin role
+    /// (IdentitySeeder), which <c>GuildAccessHandler</c> short-circuits - so this needs no guild
+    /// membership setup beyond the bare row <c>IGuildService.GetGuildByIdAsync</c> requires.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_I_GuildProbe_RendersGuildShell_ForSeededGuild()
+    {
+        const ulong guildId = 900000000000000001UL;
+        SeedGuild(guildId, "E2E Probe Guild");
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Guilds/{guildId}/blazor-probe");
+
+        await Expect(page.Locator("nav[aria-label='Breadcrumb']")).ToContainTextAsync("E2E Probe Guild");
+        // GuildHeader's <h1> precedes GuildProbe's own "Guild Context Probe" <h1> in document
+        // order - both are real headings, so .First disambiguates rather than narrowing by a
+        // class/testid GuildHeader doesn't carry. The probe route matches none of
+        // GuildNavigationConfig's tabs, so GuildLayout falls back to the guild's own name as the
+        // header title (see GuildLayout.razor's "headerTitle" comment) rather than a tab label.
+        await Expect(page.Locator("h1").First).ToHaveTextAsync("E2E Probe Guild");
+
+        var tabNav = page.Locator("#guildNav");
+        await Expect(tabNav).ToBeVisibleAsync();
+        foreach (var label in new[]
+                 {
+                     "Overview", "Members", "Moderation", "Messages", "Audio", "Rat Watch",
+                     "Currency", "Reminders", "Welcome", "Assistant", "Feature Requests"
+                 })
+        {
+            await Expect(tabNav.GetByText(label, new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+        }
+
+        await Expect(page.Locator("[data-testid='probe-guild-context']")).ToBeVisibleAsync();
+        await Expect(page.Locator("[data-testid='probe-guild-name']")).ToHaveTextAsync("E2E Probe Guild");
+        await Expect(page.Locator("[data-testid='probe-guild-id']")).ToHaveTextAsync(guildId.ToString());
+        await Expect(page.Locator("[data-testid='probe-can-edit']")).ToHaveTextAsync("True");
+    }
+
+    /// <summary>
+    /// Covers <c>GuildContextGate</c>'s not-found state for a guild id with no matching
+    /// <c>Guilds</c> row: the gate's default "Server Not Found" content renders and
+    /// <c>GuildLayout</c> omits the breadcrumb/header/tab chrome around it - still an HTTP 200
+    /// (this route doesn't wire <c>NavigationManager.NotFound()</c>; the 404 status-code page is
+    /// a different route owned elsewhere), just asserting the rendered content here.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_J_GuildProbe_UnknownGuild_ShowsNotFoundState()
+    {
+        const ulong unknownGuildId = 900000000000000099UL;
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await LoginAsync(page, _host);
+
+        var response = await page.GotoAsync($"/Guilds/{unknownGuildId}/blazor-probe");
+
+        response.Should().NotBeNull();
+        response!.Status.Should().Be(200);
+        await Expect(page.GetByText("Server Not Found")).ToBeVisibleAsync();
+        await Expect(page.Locator("nav[aria-label='Breadcrumb']")).ToHaveCountAsync(0);
+        await Expect(page.Locator("[data-testid='probe-guild-context']")).ToHaveCountAsync(0);
+    }
+
+    /// <summary>
+    /// Covers <c>Blazor/Layout/PortalLayout.razor</c> in web-only mode (plan §5 Phase 3): no live
+    /// Discord gateway connection exists, so <c>PortalAccessService.DiscordGuildExists</c> always
+    /// returns false and every guild resolves
+    /// to <c>PortalAccessOutcome.GuildNotFound</c> regardless of whether a database row exists -
+    /// this is the documented, existing behavior the Phase 3 brief says to keep, not a bug this
+    /// page needs to work around. Anonymous (no login), since <c>PortalProbe</c> is
+    /// <c>[AllowAnonymous]</c>: the whole point of the three-state gate is that an anonymous
+    /// visitor gets a real, non-crashing render. Asserts the GuildNotFound content renders with no
+    /// _blazor/_framework asset failures, the same guard <see cref="Test_C_NestedRoute_CircuitBoots_WithNoBlazorInitializer404"/>
+    /// uses for a different route.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_K_PortalProbe_WebOnly_ShowsGuildNotFound()
+    {
+        const ulong guildId = 900000000000000002UL;
+        SeedGuild(guildId, "E2E Portal Probe Guild");
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        var blazorFailures = new List<string>();
+        page.RequestFailed += (_, request) =>
+        {
+            if (request.Url.Contains("_blazor", StringComparison.OrdinalIgnoreCase)
+                || request.Url.Contains("_framework/blazor", StringComparison.OrdinalIgnoreCase))
+            {
+                blazorFailures.Add($"request failed: {request.Url} ({request.Failure})");
+            }
+        };
+        page.Response += (_, response) =>
+        {
+            var isBlazorAsset = response.Url.Contains("_blazor", StringComparison.OrdinalIgnoreCase)
+                || response.Url.Contains("_framework/blazor", StringComparison.OrdinalIgnoreCase);
+            if (response.Status == 404 && isBlazorAsset)
+            {
+                blazorFailures.Add($"404: {response.Url}");
+            }
+        };
+
+        await page.GotoAsync($"/Portal/{guildId}/blazor-probe");
+
+        await Expect(page.Locator("[data-testid='portal-guild-not-found']")).ToBeVisibleAsync();
+        await Expect(page.GetByText("Server Not Found")).ToBeVisibleAsync();
+
+        blazorFailures.Should().BeEmpty(
+            "no _blazor/_framework request should fail rendering PortalLayout's GuildNotFound state");
+    }
+
+    /// <summary>
+    /// Inserts a bare row into the fixture's throwaway SQLite <c>Guilds</c> table directly - the
+    /// host runs web-only (no Discord gateway), so there is no UI flow or API call that could
+    /// create one otherwise, and <c>IGuildService.GetGuildByIdAsync</c> only ever needs this one
+    /// row to exist (see the .csproj comment on why <c>Microsoft.Data.Sqlite</c> is a direct
+    /// package reference here rather than a transitive one, this project having no reference to
+    /// DiscordBot.Bot/.Infrastructure at all). Opens and closes its own short-lived connection
+    /// rather than holding one open alongside the host's own pooled connections to the same file.
+    /// </summary>
+    private void SeedGuild(ulong guildId, string name)
+    {
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText =
+            "INSERT INTO Guilds (Id, Name, JoinedAt, IsActive) VALUES ($id, $name, $joinedAt, 1)";
+        command.Parameters.AddWithValue("$id", (long)guildId);
+        command.Parameters.AddWithValue("$name", name);
+        command.Parameters.AddWithValue("$joinedAt", DateTime.UtcNow.ToString("O"));
+        command.ExecuteNonQuery();
     }
 
     /// <summary>
