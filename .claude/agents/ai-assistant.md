@@ -209,8 +209,8 @@ a skill.
 - `Services/DmAssistantService` — High-level orchestration (owner DM)
 - `Handlers/AssistantMessageHandler` — Discord message handler (guild)
 - `Handlers/DmAssistantMessageHandler` — Discord message handler (DM)
-- `Pages/Guilds/AssistantSettings.cshtml` — Per-guild config
-- `Pages/Guilds/AssistantMetrics.cshtml` — Usage metrics dashboard, including the **Prompt Surface** panel (`IPromptSurfaceReporter`, per-tool schema size and share of the prefix)
+- `Blazor/Pages/Guilds/AssistantSettings.razor` (Phase 4 cluster 4b) — Per-guild config
+- `Blazor/Pages/Guilds/AssistantMetrics.razor` (Phase 4 cluster 4b) — Usage metrics dashboard, including the **Prompt Surface** panel (`IPromptSurfaceReporter`, per-tool schema size and share of the prefix)
 - `Services/LLM/PromptSurfaceReportService` — `IHostedService`; one Information line per surface at startup saying what the tool array costs. Gated with the rest of the assistant; never fails startup
 - **Repos:** `AssistantGuildSettingsRepository`, `AssistantInteractionLogRepository`, `AssistantUsageMetricsRepository`
 - `Controllers/LlmModelsController` — `api/admin/llm-models` (`RequireAdmin`): catalog list/filter, refresh, enable/disable (slug in the request body — OpenRouter slugs contain `/`); `GetDefaults` delegates entirely to `ILlmModelResolver` (one resolution path, shared with message-send time)

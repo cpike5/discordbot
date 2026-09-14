@@ -170,3 +170,71 @@ public class AssistantMetricsTests : BlazorComponentTestContext
         _assistantService.Verify(s => s.GetUsageMetricsRangeAsync(It.IsAny<ulong>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 }
+
+/// <summary>
+/// Covers <see cref="AssistantMetrics"/> when <see cref="IAssistantService"/> is not registered
+/// at all - <c>AssistantServiceExtensions.AddAssistant</c> only registers it with
+/// <c>OpenRouter:ApiKey</c> configured, which a plain <c>[Inject]</c> would have thrown
+/// constructing the component for (reproduced against the real host in web-only mode; see the
+/// class remarks on <see cref="AssistantMetrics.ServiceProvider"/>). A separate test class since
+/// <see cref="AssistantMetricsTests"/>'s constructor registers a mock unconditionally, and
+/// bUnit's service provider locks once anything resolves from it.
+/// </summary>
+public class AssistantMetricsWithoutAssistantServiceTests : BlazorComponentTestContext
+{
+    private const ulong GuildId = 123456789012345678UL;
+
+    private readonly Mock<IGuildContextProvider> _contextProvider = new();
+
+    public AssistantMetricsWithoutAssistantServiceTests()
+    {
+        Services.AddScoped(_ => _contextProvider.Object);
+
+        var interactionLogRepository = new Mock<IAssistantInteractionLogRepository>();
+        interactionLogRepository.Setup(r => r.GetToolUsageAsync(It.IsAny<ulong>(), It.IsAny<DateTime>(), It.IsAny<DateTime>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<DiscordBot.Core.DTOs.Llm.Reporting.AssistantToolUsage>());
+        Services.AddSingleton(interactionLogRepository.Object);
+
+        var usageRepository = new Mock<ILlmUsageRepository>();
+        usageRepository.Setup(r => r.GetByUserAsync(It.IsAny<Core.DTOs.Llm.Reporting.LlmUsageQuery>(), It.IsAny<int>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(Array.Empty<Core.DTOs.Llm.Reporting.LlmUsageByUser>());
+        Services.AddSingleton(usageRepository.Object);
+
+        var userResolver = new Mock<IDiscordUserResolver>();
+        userResolver.Setup(r => r.ResolveUsersAsync(It.IsAny<IEnumerable<ulong>>()))
+            .ReturnsAsync(new Dictionary<ulong, (string Username, string? AvatarUrl)>());
+        Services.AddSingleton(userResolver.Object);
+
+        var promptSurfaceReporter = new Mock<IPromptSurfaceReporter>();
+        promptSurfaceReporter.Setup(r => r.ReportAsync(It.IsAny<Core.Enums.ToolScopes>(), It.IsAny<ulong?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((PromptSurfaceReport?)null);
+        Services.AddSingleton(promptSurfaceReporter.Object);
+
+        AddBunitPersistentComponentState();
+        AddAuthorizedAdmin();
+
+        _contextProvider.Setup(p => p.GetAsync(GuildId, It.IsAny<System.Security.Claims.ClaimsPrincipal>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync(GuildContextResult.Ok(new GuildContext(
+                Guild: new GuildDto { Id = GuildId, Name = "Test Guild" },
+                GuildId: GuildId,
+                GuildIdString: GuildId.ToString(),
+                IsAppAdmin: true,
+                IsGuildAdmin: false,
+                CanEdit: true,
+                AudioEnabled: true,
+                RatWatchEnabled: true,
+                Tabs: DiscordBot.Bot.Configuration.GuildNavigationConfig.GetTabs())));
+    }
+
+    [Fact]
+    public void NoAssistantServiceRegistered_RendersEmptyState_DoesNotThrow()
+    {
+        var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
+        navMan.NavigateTo($"/Guilds/AssistantMetrics/{GuildId}");
+        SetInteractiveRendererInfo();
+
+        var cut = Render<AssistantMetrics>(p => p.Add(x => x.GuildId, (long)GuildId));
+
+        cut.Markup.Should().Contain("No usage data yet");
+    }
+}
