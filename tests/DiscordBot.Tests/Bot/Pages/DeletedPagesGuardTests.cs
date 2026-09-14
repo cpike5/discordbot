@@ -52,6 +52,8 @@ public class DeletedPagesGuardTests
         "/Account/Login",
         "/Account/ExternalLogin",
         "/Account/Logout",
+        "/Account/LinkDiscord",
+        "/Account/Privacy",
     };
 
     [Fact]

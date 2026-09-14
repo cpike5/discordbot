@@ -1278,6 +1278,87 @@ public sealed class BrowserTests
         return (guildId, requestId);
     }
 
+    /// <summary>
+    /// Covers <c>Blazor/Pages/Account/LinkDiscord.razor</c> (Phase 4 cluster 4c) against this
+    /// fixture's web-only host (<c>Discord:Enabled=false</c>, no OAuth client configured - see
+    /// "Discord:Enabled (web-only mode)" in <c>docs/articles/configuration-guide.md</c>): the
+    /// page still renders its "OAuth Not Configured" copy, and bot verification (which
+    /// authenticates entirely through the Discord bot, never the OAuth client) stays reachable
+    /// and working end to end - see the "Deliberately not preserved" remark in
+    /// <c>LinkDiscord.razor</c> for why this differs from the legacy page's nesting.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_Z3_LinkDiscord_WebOnly_ShowsNotConfigured_AndVerificationFlow()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Account/LinkDiscord");
+        await Expect(page.Locator("h2", new PageLocatorOptions { HasText = "Discord OAuth Not Configured" })).ToBeVisibleAsync();
+        await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Start Verification" })).ToBeVisibleAsync();
+
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Start Verification" }).ClickAsync();
+
+        await Expect(page.GetByText("Verification pending")).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+        await Expect(page.Locator("#VerificationCode")).ToBeVisibleAsync();
+
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Cancel", Exact = true }).ClickAsync();
+
+        await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Start Verification" })).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+        await Expect(page.GetByText("Verification pending")).Not.ToBeVisibleAsync();
+    }
+
+    /// <summary>
+    /// Covers <c>Blazor/Pages/Account/Privacy.razor</c> (Phase 4 cluster 4c): the seeded
+    /// SuperAdmin has no Discord link in this fixture, so the page renders only the
+    /// "Discord Account Required" callout - the Data Management card (export/delete) never
+    /// reaches the DOM for an unlinked user, matching the legacy page exactly (deleting data is
+    /// keyed on the Discord user id, unlike bot verification above, so there is no equivalent
+    /// "make it reachable anyway" fix here). To reach the typed-DELETE-confirmation guard this
+    /// test also checks, it links the same seeded user directly in the database (the web-only
+    /// host has no real Discord OAuth to link through) and reloads - the same raw-SQL seeding
+    /// idiom <see cref="SeedGuild"/> and friends use for their own fixtures.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_Z4_Privacy_UnlinkedUser_RendersCallout_AndDeleteRequiresConfirmation()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Account/Privacy");
+        await Expect(page.GetByText("Discord Account Required")).ToBeVisibleAsync();
+        await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Delete All Data" })).Not.ToBeVisibleAsync();
+
+        LinkSeededAdminToDiscord();
+        await page.GotoAsync("/Account/Privacy");
+        await Expect(page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Delete All Data" })).ToBeVisibleAsync();
+
+        await page.Locator("input[placeholder='Type DELETE to confirm']").FillAsync("delete");
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Delete All Data" }).ClickAsync();
+
+        await Expect(page.GetByText("Type DELETE to confirm.")).ToBeVisibleAsync();
+        // Still on Privacy, still signed in - a real purge would have signed the session out and
+        // redirected to /landing (Privacy.razor.cs's HandleDeleteDataAsync).
+        await Expect(page).ToHaveURLAsync(new Regex(@"/Account/Privacy$"));
+        await Expect(page.Locator("#sidebar")).ToBeVisibleAsync();
+    }
+
+    /// <summary>Sets the seeded SuperAdmin's <c>DiscordUserId</c>/<c>DiscordUsername</c> directly in the database, for <see cref="Test_Z4_Privacy_UnlinkedUser_RendersCallout_AndDeleteRequiresConfirmation"/> - the web-only host has no real Discord OAuth to link an account through.</summary>
+    private void LinkSeededAdminToDiscord()
+    {
+        var discordUserId = 900000000000000050UL + (ulong)Random.Shared.NextInt64(1, 1_000_000);
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = "UPDATE AspNetUsers SET DiscordUserId = $discordUserId, DiscordUsername = 'e2e-seed' WHERE Email = $email";
+        command.Parameters.AddWithValue("$discordUserId", unchecked((long)discordUserId));
+        command.Parameters.AddWithValue("$email", _host.SeededAdminEmail);
+        command.ExecuteNonQuery();
+    }
+
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");

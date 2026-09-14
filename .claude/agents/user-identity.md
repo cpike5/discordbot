@@ -19,7 +19,7 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### User Management
 - **Entities:** `User` (domain entity), `UserConsent`, `UserDiscordGuild`, `VerificationCode`
-- **Services:** `UserManagementService` (995 lines), `ConsentService` (567 lines), `VerificationService`, `VerificationCleanupService`, `UserPurgeService`, `UserDataExportService` (762 lines), `DiscordUserInfoService`, `UserDiscordGuildService`
+- **Services:** `UserManagementService` (995 lines), `ConsentService` (567 lines), `VerificationService`, `VerificationCleanupService`, `UserPurgeService`, `UserDataExportService` (762 lines), `DiscordUserInfoService`, `UserDiscordGuildService`, `DiscordLinkService` (`Services/Account/IDiscordLinkService` — wraps unlink/refresh/verification for `Blazor/Pages/Account/LinkDiscord.razor.cs`, `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4c)
 - **Commands:** `PrivacyModule`, `VerifyAccountModule`, `ConsentModule`
 - **Repos:** `UserRepository`, `UserConsentRepository`
 
@@ -30,6 +30,7 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### Pages
 - **Account (Blazor, Phase 4 cluster 4c):** `Blazor/Pages/Account/Login.razor` (+ `.razor.cs`, static SSR, `EmptyLayout`) is now sign-in — `Pages/Account/{Login,ExternalLogin,Logout}.cshtml(.cs)` are deleted. The email/password flow lives in `Services/Account/IPasswordSignInService`, the Discord OAuth callback flow in `Services/Account/IExternalLoginHandler`, and both are fronted by three `[AllowAnonymous]` minimal-API endpoints in `Extensions/AccountEndpointExtensions.cs` (`POST /Account/Logout`, `POST /Account/PerformExternalLogin` — the Discord challenge, shared by `Login.razor`'s Discord button and `LinkDiscord.cshtml.cs`'s "Link Discord" action — and `GET /Account/ExternalLogin/Callback`). Route strings are `Extensions/AccountRoutes` constants. `Profile`, `Privacy`, `LinkDiscord`, `Lockout`, `AccessDenied` are unchanged from cluster 4a/this cluster's neighbors — `Blazor/Pages/Account/{Profile,Lockout,AccessDenied}.razor` (Blazor) and `Pages/Account/{Privacy,LinkDiscord}.cshtml` (still Razor Pages).
+- **Account:** `Blazor/Pages/Account/{Profile,AccessDenied,Lockout,LinkDiscord,Privacy}.razor` — ported off the matching `.cshtml` in the Blazor port (`docs/plans/blazor-port-plan.md` §5 Phase 4 clusters 4a/4c; LinkDiscord/Privacy in 4c). `Login`, `ExternalLogin`, `Logout` are being ported concurrently (also cluster 4c) alongside minimal-API `PerformExternalLogin`/`Logout` endpoints.
 - **Admin:** `Blazor/Pages/Admin/Users/` (Index, Create, Edit, Details) — ported off `Pages/Admin/Users/*.cshtml` in the Blazor port (`docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4a); `Admin/UserPurge.cshtml` is still a Razor Page
 - **Guild:** `Guilds/Members/` (Index, Moderation)
 

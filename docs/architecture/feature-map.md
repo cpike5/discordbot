@@ -456,9 +456,9 @@ Allows users to link their Discord account to their web portal account by runnin
 |--------|------------|
 | **Discord Commands** | `/verify-account` (VerifyAccountModule) |
 | **Services** | `IVerificationService`, `VerificationCleanupService` |
-| **UI Pages** | Account: Link Discord page (`Account/LinkDiscord`) |
+| **UI Pages** | Account: Link Discord page — Blazor (`Blazor/Pages/Account/LinkDiscord.razor` + `.razor.cs`; ported off `Pages/Account/LinkDiscord.cshtml` in `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4c, see `ui-inventory.md`'s "Blazor Routes (Phase 4, permanent)") — initiate/verify/cancel go through the new `IDiscordLinkService` (`Services/Account/`), a thin wrapper the page calls instead of `IVerificationService` directly |
 | **Database Entities** | `VerificationCode` |
-| **Key Features** | 15-minute code TTL, status tracking (Pending/Completed/Expired/Cancelled), IP address capture, automatic cleanup of expired codes |
+| **Key Features** | 15-minute code TTL, status tracking (Pending/Completed/Expired/Cancelled), IP address capture, automatic cleanup of expired codes. Reachable even when Discord OAuth isn't configured (web-only mode) — verification authenticates entirely through the Discord bot, never the OAuth client. |
 
 **Workflow**:
 1. User visits Account > Link Discord in the portal; a `VerificationCode` is created with `Status = Pending`
@@ -466,6 +466,22 @@ Allows users to link their Discord account to their web portal account by runnin
 3. User runs `/verify-account ABC123` in any Discord server the bot is in
 4. Bot resolves the code, sets `DiscordUserId` on the `VerificationCode`, links accounts, and sets `Status = Completed`
 5. `VerificationCleanupService` periodically purges records with `Status = Expired`
+
+---
+
+### Privacy & Consent (GDPR)
+
+Self-service consent, data export (Article 15) and data deletion (Article 17) for the signed-in
+user, tied to their linked Discord account. Also reachable via Discord's own `/consent`,
+`/privacy` slash commands.
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Commands** | `PrivacyModule`, `ConsentModule` |
+| **UI Pages** | Account: Privacy & Consent page — Blazor (`Blazor/Pages/Account/Privacy.razor` + `.razor.cs`, `.razor.css`; ported off `Pages/Account/Privacy.cshtml` in `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4c, see `ui-inventory.md`'s "Blazor Routes (Phase 4, permanent)") |
+| **Services** | `IConsentService`, `IUserDataExportService`, `IUserPurgeService` |
+| **Database Entities** | `UserConsent`, `VerificationCode` (Discord link is the join key for all three services) |
+| **Key Features** | Per-`ConsentType` grant/revoke with a consent-history timeline; JSON data export with a 7-day download link; full data purge gated on a typed `DELETE` confirmation, `IUserPurgeService.CanPurgeUserAsync` (blocks users with admin roles), and a sign-out + redirect to `/landing` on success — GDPR Article 15 (export) and Article 17 (erasure). The page renders only a "link your Discord account first" callout for a user with no Discord link, since every one of these services is keyed on the Discord user id. |
 
 ---
 
