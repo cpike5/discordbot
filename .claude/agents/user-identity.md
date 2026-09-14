@@ -30,7 +30,7 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### Pages
 - **Account:** Login, ExternalLogin, Profile, Privacy, LinkDiscord, Logout, Lockout, AccessDenied
-- **Admin:** `Admin/Users/` (Index, Create, Edit, Details), `Admin/UserPurge.cshtml`
+- **Admin:** `Blazor/Pages/Admin/Users/` (Index, Create, Edit, Details) — ported off `Pages/Admin/Users/*.cshtml` in the Blazor port (`docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4a); `Admin/UserPurge.cshtml` is still a Razor Page
 - **Guild:** `Guilds/Members/` (Index, Moderation)
 
 ### Key Flows

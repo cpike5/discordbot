@@ -473,10 +473,10 @@ Administrative interface for user CRUD, role assignment, consent management.
 
 | Aspect | Components |
 |--------|------------|
-| **UI Pages** | Admin: User list, create, edit, details pages (`Users/Index.cshtml`, `Users/Create.cshtml`, etc.) |
+| **UI Pages** | Admin: User list, create, edit, details — Blazor (`Blazor/Pages/Admin/Users/{Index,Create,Edit,Details}.razor` + `.razor.cs`; ported off `Pages/Admin/Users/*.cshtml` in `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4a, see `ui-inventory.md`'s "Blazor Routes (Phase 4, permanent)") |
 | **Services** | `IUserManagementService`, `IConsentService` |
 | **Database Entities** | `ApplicationUser`, `UserConsent` |
-| **Controllers** | No dedicated controller; integrated in Razor Pages |
+| **Controllers** | No dedicated controller; integrated in Blazor pages (formerly Razor Pages) |
 | **Key Features** | User CRUD, Discord OAuth integration, consent tracking |
 
 ---

@@ -76,6 +76,27 @@ Cluster 4a also adds `Blazor/Shared/Primitives/LocalTime.razor` (see "Blazor Com
 porting `wwwroot/js/timezone.js`'s `convertDisplayTimes`/`initTimezoneFields`) — the timezone
 conversion `Search`'s own `data-utc` rows were missing since Phase 3 (§5 Phase 3 deviation (c)).
 
+## Blazor Routes (Phase 4, permanent)
+
+First cluster of Phase 4 page migration (plan §5 Phase 4, cluster 4a "Simple admin") — each row
+replaces a `Pages/Admin/Users/*.cshtml` Razor Page, deleted in the same change along with its
+three now-orphaned `ViewModels/Pages/User{List,Form,Detail}ViewModel.cs`. All four are
+`RequireAdmin`-gated (the four `PageMetadataService` entries for these routes previously read
+`RequireSuperAdmin`, a pre-existing mismatch with the actual `[Authorize]` policy on the Razor
+Page this port fixed in the same change) and render under `MainLayout`. Query parameter names are
+unchanged from the legacy `[BindProperty(SupportsGet = true)]`/handler-parameter names so existing
+plain-`href` builders elsewhere (`_Sidebar.cshtml`, `Search.razor.cs`, `UsersSearchProvider`,
+`AuditLogListViewModel`) keep resolving without edits. Timestamps (last login, member since,
+activity log entries) render via the interim `<time datetime data-utc data-format>` contract —
+plain server-rendered UTC text today, becoming `<LocalTime>` once that component lands.
+
+| Route | File | Purpose |
+| --- | --- | --- |
+| `/Admin/Users` | `Blazor/Pages/Admin/Users/Index.razor` (+ `.razor.cs`) | Paginated, filterable (`SearchTerm`/`RoleFilter`/`ActiveFilter`/`DiscordLinkedFilter`/`pageNumber`, all `[SupplyParameterFromQuery]`) user list. Filters submit via `NavigationManager.NavigateTo` (no full page post); results persist across the prerender-to-circuit boundary with `PersistentComponentState`, keyed by the resolved query. Active/inactive toggle is a real `ConfirmModal`-gated action — the legacy `IndexModel.OnPostToggleActiveAsync` handler had no corresponding control in `Index.cshtml`, a dead-handler gap this port closes rather than reproduces. |
+| `/Admin/Users/Create` | `Blazor/Pages/Admin/Users/Create.razor` (+ `.razor.cs`) | `EditForm` + `DataAnnotationsValidator` over a nested `Create.InputModel` (same data annotations as the legacy nested `CreateModel.InputModel`). On success, `IToastService.Success` then `NavigationManager.NavigateTo("/Admin/Users")` — the toast survives the same-circuit navigation. Service failure renders an inline `Alert`. |
+| `/Admin/Users/Edit` | `Blazor/Pages/Admin/Users/Edit.razor` (+ `.razor.cs`), `?id=` | Same form shape as Create, `IsSelf`-gated (own role/active-status fields disabled, matching `EditModel`). Save reloads the model and stays on the page (toast, no navigation) — the faithful port of the legacy `RedirectToPage("Edit", new { id })` self-redirect. Reset-password and unlink-Discord are `ConfirmModal`-gated component methods calling `IUserManagementService` directly; a reset's generated temporary password is shown once in a dismissible success banner with a `BrowserInterop.CopyToClipboardAsync` copy button — hand-rolled rather than through `<Alert>`, since its copy-button row is a block element that can't safely nest inside `<Alert>`'s `<p>`-wrapped `ChildContent` once server-prerendered markup round-trips through the browser's HTML parser. An unresolvable `?id=` renders the design-system "not found" `EmptyState` at HTTP 200 (a Blazor circuit can't set a status code once it's already serving the page) rather than a real 404 — a recorded fidelity deviation. |
+| `/Admin/Users/Details` | `Blazor/Pages/Admin/Users/Details.razor` (+ `.razor.cs`), `?id=` | Read-only profile card (avatar/initials, role `Badge`, `StatusIndicator`, Discord link card or "not linked" state) plus a 20-row activity log (`Badge` per `UserActivityAction`, actor, details, timestamp) or an empty state, permission flags (`CanEdit` etc.) from `IUserManagementService.CanManageUserAsync`. Same unresolvable-`?id=` 200-with-`EmptyState` deviation as Edit. |
+
 ## Blazor Layouts
 
 `Blazor/Layout/` (plan §4.7/§5 Phase 3). `Routes.razor`'s `DefaultLayout` is `MainLayout`, so a
@@ -126,10 +147,6 @@ cluster 4a — see "Blazor Routes (Phase 4, permanent)" above.
 | Route | File | Purpose |
 |-------|------|---------|
 | `/admin/settings` | `Pages/Admin/Settings.cshtml` | Tabbed application settings (General, Features, Commands, Advanced, Bot Control, AI Models, Appearance for SuperAdmins). The **AI Models** tab (`ai-models-settings`, rendered by `wwwroot/js/llm-models.js`) has two parts: an **editable per-mode defaults panel** (guild assistant, DM assistant, feature requests) — one `<select>` per mode, options limited to enabled catalog models, with a source badge (DB/Config/Fallback), a status badge, and price/context detail; saved via its own `<form id="aiModelsDefaultsForm">` (kept out of `#settingsForm` so the catalog toolbar doesn't dirty-mark the page) posted to the standard `?handler=SaveCategory&category=AiModels` path — it *is* a `SettingCategory` (`SettingCategory.AiModels`), so audit logging and reset-to-default are the normal ones; and the **model catalog table** (search/vendor/enabled/available/tools filters, sortable columns, a per-model enable switch, "Refresh from OpenRouter"), which is not a `SettingCategory` and talks to `LlmModelsController` (`api/admin/llm-models`) directly, the same pattern as Bot Control/Appearance. Saving a default takes effect on the next message with no restart (`ILlmModelResolver` cache invalidated by `ISettingsService.SettingsChanged`). |
-| `/admin/users` | `Pages/Admin/Users/Index.cshtml` | User management list |
-| `/admin/users/create` | `Pages/Admin/Users/Create.cshtml` | Create new user |
-| `/admin/users/edit/{id}` | `Pages/Admin/Users/Edit.cshtml` | Edit user details |
-| `/admin/users/{id}` | `Pages/Admin/Users/Details.cshtml` | User details view |
 | `/admin/audit-logs/{id}` | `Pages/Admin/AuditLogs/Details.cshtml` | Audit log entry details |
 | `/admin/message-logs/{id}` | `Pages/Admin/MessageLogs/Details.cshtml` | Message details |
 | `/admin/performance` | `Pages/Admin/Performance/Index.cshtml` | Performance metrics dashboard (tabbed) |
