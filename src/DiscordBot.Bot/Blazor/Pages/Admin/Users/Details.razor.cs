@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -28,6 +29,9 @@ public partial class Details : ComponentBase
     private IUserManagementService UserManagementService { get; set; } = default!;
 
     [Inject]
+    private BrowserInterop BrowserInterop { get; set; } = default!;
+
+    [Inject]
     private ILogger<Details> Logger { get; set; } = default!;
 
     protected UserDto? User { get; private set; }
@@ -36,7 +40,24 @@ public partial class Details : ComponentBase
     protected bool IsLoading { get; private set; } = true;
     protected bool UserNotFound { get; private set; }
 
+    /// <summary>
+    /// True once <see cref="User"/>/<see cref="RecentActivity"/> has (re)rendered new
+    /// <c>&lt;LocalTime&gt;</c> rows the browser's document-level scan in <c>localtime.js</c>
+    /// never fires for on its own - set whenever <see cref="LoadAsync"/> resolves, consumed by the
+    /// next <see cref="OnAfterRenderAsync"/>. Same pattern as <c>Blazor/Pages/Search.razor.cs</c>.
+    /// </summary>
+    private bool _needsLocalTimeScan;
+
     protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsLocalTimeScan)
+        {
+            _needsLocalTimeScan = false;
+            await BrowserInterop.ConvertLocalTimesAsync();
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -84,6 +105,7 @@ public partial class Details : ComponentBase
         User = user;
         RecentActivity = activityLog.Items;
         IsLoading = false;
+        _needsLocalTimeScan = true;
     }
 
     private async Task<ClaimsPrincipal> GetUserAsync()

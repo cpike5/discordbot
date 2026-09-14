@@ -67,7 +67,7 @@
                         </div>
                         <div>
                             <p class="text-base font-medium text-text-primary">@ViewModel.ActorName</p>
-                            <p class="text-sm text-text-secondary">@ViewModel.ActorTypeName</p>
+                            <p class="text-sm text-text-secondary" data-testid="actor-type">@ViewModel.ActorTypeName</p>
                         </div>
                     </div>
                     <div class="space-y-3 pt-3 border-t border-border-secondary">
@@ -263,7 +263,9 @@
                         <Icon Path="@IconPaths.ClipboardCopy" Class="w-4 h-4" />
                         Copy Entry ID
                     </button>
-                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors" aria-label="Export this entry as JSON" @onclick="ExportJsonAsync">
+                    @* Disabled until the interactive circuit has attached - @onclick has nothing to
+                       call before then. See docs/lessons-learned/blazor-editform-formname-race.md. *@
+                    <button type="button" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed" aria-label="Export this entry as JSON" disabled="@(!RendererInfo.IsInteractive)" @onclick="ExportJsonAsync">
                         <Icon Path="@IconPaths.ArrowDownTray" Class="w-4 h-4" />
                         Export JSON
                     </button>

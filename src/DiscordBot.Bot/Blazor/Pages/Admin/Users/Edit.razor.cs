@@ -62,6 +62,43 @@ public partial class Edit : ComponentBase
 
     protected List<SelectOption> RoleOptions => AvailableRoles.Select(r => new SelectOption { Value = r, Text = r }).ToList();
 
+    /// <summary>
+    /// True when <see cref="IUserManagementService.CanManageUserAsync"/> allows
+    /// <c>_currentUserId</c> to manage <see cref="User"/> - always <see langword="false"/> for
+    /// self (that method restricts self-management by design) and for a target whose highest role
+    /// outranks the actor's (e.g. an Admin against a SuperAdmin). Distinct from
+    /// <see cref="CanAccessEdit"/>: this page still lets a user edit their own basic profile
+    /// fields even though they can never "manage" themselves by this method's definition.
+    /// </summary>
+    private bool _targetManageable;
+
+    /// <summary>
+    /// Gates whether this page renders the edit form at all: either editing yourself (basic
+    /// profile fields only - see <see cref="IsSelf"/>'s existing Role/Active-status restriction),
+    /// or the actor has been granted management rights over this specific target via
+    /// <see cref="IUserManagementService.CanManageUserAsync"/>. <see langword="false"/> closes the
+    /// gap the legacy <c>EditModel</c> left open: it rendered the same form regardless of
+    /// <c>CanManageUserAsync</c>, so an Admin could reach <c>/Admin/Users/Edit?id=&lt;anySuperAdmin&gt;</c>
+    /// directly (the link was merely hidden on <c>Details.razor</c>'s <c>CanEdit</c>) and edit,
+    /// reset the password of, or unlink Discord for a user outside their privilege tier.
+    /// </summary>
+    protected bool CanAccessEdit => IsSelf || _targetManageable;
+
+    /// <summary>
+    /// Restores the deleted <c>UserDetailViewModel.CanChangeRole</c> semantics
+    /// (<c>canManage &amp;&amp; !isSelf</c> - see git history, commit 2b0646a). Functionally
+    /// equivalent to <c>!IsSelf</c> whenever the form is actually visible (<see cref="CanAccessEdit"/>
+    /// already requires <see cref="_targetManageable"/> for a non-self target), kept as the full
+    /// formula for clarity and as defense in depth.
+    /// </summary>
+    protected bool CanChangeRole => _targetManageable && !IsSelf;
+
+    /// <summary>Restores <c>UserDetailViewModel.CanResetPassword</c> (<c>canManage &amp;&amp; !isSelf</c>) - hides/refuses password reset for your own account via this admin page, same as an Admin cannot reset a SuperAdmin's.</summary>
+    protected bool CanResetPassword => _targetManageable && !IsSelf;
+
+    /// <summary>Restores <c>UserDetailViewModel.CanUnlinkDiscord</c> (<c>canManage &amp;&amp; user.IsDiscordLinked</c>) - no <c>!IsSelf</c> term in the original either, so this is false for self by the same <c>_targetManageable</c> rule.</summary>
+    protected bool CanUnlinkDiscord => _targetManageable && User is { IsDiscordLinked: true };
+
     private ConfirmModal? _resetPasswordModal;
     private ConfirmModal? _unlinkDiscordModal;
     private string? _currentUserId;
@@ -110,6 +147,7 @@ public partial class Edit : ComponentBase
 
         User = user;
         IsSelf = _currentUserId == user.Id;
+        _targetManageable = await UserManagementService.CanManageUserAsync(_currentUserId, user.Id);
         Input = new InputModel
         {
             UserId = user.Id,
@@ -125,7 +163,7 @@ public partial class Edit : ComponentBase
 
     protected async Task HandleValidSubmit()
     {
-        if (string.IsNullOrEmpty(_currentUserId))
+        if (string.IsNullOrEmpty(_currentUserId) || !CanAccessEdit)
         {
             return;
         }
@@ -156,6 +194,11 @@ public partial class Edit : ComponentBase
 
     protected async Task RequestResetPassword()
     {
+        if (!CanResetPassword)
+        {
+            return;
+        }
+
         if (_resetPasswordModal is not null && await _resetPasswordModal.ShowAsync())
         {
             await ConfirmResetPasswordAsync();
@@ -164,7 +207,7 @@ public partial class Edit : ComponentBase
 
     private async Task ConfirmResetPasswordAsync()
     {
-        if (string.IsNullOrEmpty(_currentUserId) || User is null)
+        if (string.IsNullOrEmpty(_currentUserId) || User is null || !CanResetPassword)
         {
             return;
         }
@@ -187,6 +230,11 @@ public partial class Edit : ComponentBase
 
     protected async Task RequestUnlinkDiscord()
     {
+        if (!CanUnlinkDiscord)
+        {
+            return;
+        }
+
         if (_unlinkDiscordModal is not null && await _unlinkDiscordModal.ShowAsync())
         {
             await ConfirmUnlinkDiscordAsync();
@@ -195,7 +243,7 @@ public partial class Edit : ComponentBase
 
     private async Task ConfirmUnlinkDiscordAsync()
     {
-        if (string.IsNullOrEmpty(_currentUserId) || User is null)
+        if (string.IsNullOrEmpty(_currentUserId) || User is null || !CanUnlinkDiscord)
         {
             return;
         }

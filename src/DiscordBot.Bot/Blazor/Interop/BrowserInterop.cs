@@ -167,19 +167,28 @@ public sealed class BrowserInterop : IAsyncDisposable
     }
 
     /// <summary>
-    /// Re-scans <paramref name="root"/> (default: the whole document) for <c>&lt;LocalTime&gt;</c>
-    /// markup not yet converted, and rewrites it to the viewer's local time - delegates to
-    /// <c>wwwroot/js/blazor/localtime.js</c>'s <c>window.DiscordBotLocalTime.convert</c>, the same
-    /// scan a static SSR page gets for free from that script's own <c>DOMContentLoaded</c>/
-    /// <c>enhancedload</c> hooks. An interactive page calls this from <c>OnAfterRenderAsync</c>
-    /// after rendering rows containing new <c>&lt;LocalTime&gt;</c> instances - the browser never
-    /// re-fires those document-level events for a Blazor re-render, so nothing else would convert
-    /// them.
+    /// Re-scans the whole document for <c>&lt;LocalTime&gt;</c> markup not yet converted (or whose
+    /// <c>data-utc</c> changed since it was last converted), and rewrites it to the viewer's local
+    /// time - delegates to <c>wwwroot/js/blazor/localtime.js</c>'s
+    /// <c>window.DiscordBotLocalTime.convert</c>, the same scan a static SSR page gets for free
+    /// from that script's own <c>DOMContentLoaded</c>/<c>enhancedload</c> hooks. An interactive
+    /// page calls this from <c>OnAfterRenderAsync</c> after rendering rows containing new or
+    /// changed <c>&lt;LocalTime&gt;</c> instances - the browser never re-fires those document-level
+    /// events for a Blazor re-render, so nothing else would convert them.
     /// </summary>
-    public async Task ConvertLocalTimesAsync(ElementReference? root = null)
+    /// <remarks>
+    /// No <c>root</c>/scope parameter: every caller in this codebase re-scans the whole document
+    /// (an <c>ElementReference</c> parameter this method used to accept was never actually passed
+    /// by any of them), and the underlying JS's <c>querySelectorAll</c> only matches *descendants*
+    /// of a given root element, not the root itself - a scoped call would silently miss a
+    /// <c>&lt;LocalTime&gt;</c> passed as the root element itself. Add a real <c>root</c> parameter
+    /// back only alongside a JS-side <c>:scope</c>-aware fix (matching the root too) and a caller
+    /// that actually needs the narrower scope.
+    /// </remarks>
+    public async Task ConvertLocalTimesAsync()
     {
         var module = await ModuleAsync();
-        await module.InvokeVoidAsync("convertLocalTimes", root);
+        await module.InvokeVoidAsync("convertLocalTimes");
     }
 
     /// <summary>

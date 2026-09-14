@@ -2,13 +2,13 @@
 @attribute [Authorize(Policy = "RequireAdmin")]
 @rendermode InteractiveServer
 @layout MainLayout
+@using DiscordBot.Bot.Blazor.Common
 @using DiscordBot.Bot.ViewModels.Components
 
 @*
     Routable replacement for Pages/Admin/Users/Details.cshtml + DetailsModel
     (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4a). See Details.razor.cs for the load
-    logic this markup renders. Timestamps follow the interim <time data-utc data-format> contract
-    (see this cluster's task notes) until the concurrent LocalTime component lands.
+    logic this markup renders. Timestamps render via <LocalTime> (Blazor/Shared/Primitives/LocalTime.razor).
 *@
 
 <PageTitle>User Details</PageTitle>
@@ -57,7 +57,7 @@
                         else
                         {
                             <div class="h-24 w-24 rounded-full bg-accent-blue flex items-center justify-center">
-                                <span class="text-white font-bold text-3xl">@user.Email.Substring(0, 1).ToUpper()</span>
+                                <span class="text-white font-bold text-3xl">@TextHelpers.FirstCharUpper(user.Email)</span>
                             </div>
                         }
                     </div>
@@ -82,15 +82,14 @@
                     <div class="space-y-3 border-t border-border-primary pt-4">
                         <div class="flex justify-between text-sm">
                             <span class="text-text-secondary">Member Since</span>
-                            <time datetime="@user.CreatedAtUtcIso" data-utc="@user.CreatedAtUtcIso" data-format="date"
-                                  class="text-text-primary font-medium">@user.CreatedAt.ToString("MMM d, yyyy")</time>
+                            <LocalTime Utc="user.CreatedAt" Format="date" Class="text-text-primary font-medium" />
                         </div>
                         <div class="flex justify-between text-sm">
                             <span class="text-text-secondary">Last Login</span>
                             <span class="text-text-primary font-medium">
                                 @if (user.LastLoginAt.HasValue)
                                 {
-                                    <time datetime="@user.LastLoginAtUtcIso" data-utc="@user.LastLoginAtUtcIso" data-format="date">@user.LastLoginAt.Value.ToString("MMM d, yyyy")</time>
+                                    <LocalTime Utc="user.LastLoginAt.Value" Format="date" />
                                 }
                                 else
                                 {
@@ -175,7 +174,7 @@
                                                 }
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
-                                                <time datetime="@activity.TimestampUtcIso" data-utc="@activity.TimestampUtcIso" data-format="datetime-short">@activity.Timestamp.ToString("MMM d, h:mm tt")</time>
+                                                <LocalTime Utc="activity.Timestamp" Format="datetime-short" />
                                             </td>
                                         </tr>
                                     }

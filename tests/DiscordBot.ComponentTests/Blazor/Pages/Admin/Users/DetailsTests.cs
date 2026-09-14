@@ -91,6 +91,9 @@ public class DetailsTests : BlazorComponentTestContext
         cut.Markup.Should().Contain("target@example.test");
         cut.Markup.Should().Contain("targetTag");
         cut.FindAll("a[href='/Admin/Users/Edit?id=user-2']").Should().HaveCount(1);
+        // "Member Since" renders through <LocalTime> (Blazor/Shared/Primitives/LocalTime.razor),
+        // not a raw <time data-utc> the review flagged this page for still emitting.
+        cut.Find("time[data-utc][data-format='date']").TextContent.Should().Contain("Jan");
     }
 
     [Fact]

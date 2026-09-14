@@ -204,8 +204,11 @@ public class BrowserInteropTests
     }
 
     [Fact]
-    public async Task ConvertLocalTimesAsync_WithNoRoot_InvokesConvertLocalTimesWithNull()
+    public async Task ConvertLocalTimesAsync_InvokesConvertLocalTimesWithNoArguments()
     {
+        // No `root`/scope argument: every caller re-scans the whole document, and the JS side's
+        // querySelectorAll only matches descendants of a given root anyway - see
+        // BrowserInterop.ConvertLocalTimesAsync's remarks (review finding on this cluster).
         var (_, module, sut) = CreateSut();
 
         await sut.ConvertLocalTimesAsync();
@@ -213,21 +216,7 @@ public class BrowserInteropTests
         module.Verify(
             m => m.InvokeAsync<It.IsAnyType>(
                 "convertLocalTimes",
-                It.Is<object?[]>(a => a.Length == 1 && a[0] == null)),
-            Times.Once);
-    }
-
-    [Fact]
-    public async Task ConvertLocalTimesAsync_WithRoot_InvokesConvertLocalTimesWithTheElement()
-    {
-        var (_, module, sut) = CreateSut();
-
-        await sut.ConvertLocalTimesAsync(default(ElementReference));
-
-        module.Verify(
-            m => m.InvokeAsync<It.IsAnyType>(
-                "convertLocalTimes",
-                It.Is<object?[]>(a => a.Length == 1 && a[0] is ElementReference)),
+                It.Is<object?[]>(a => a.Length == 0)),
             Times.Once);
     }
 

@@ -16,13 +16,21 @@
  *     after an interactive component re-renders new rows, without a second copy of the
  *     conversion logic.
  *
- * Idempotent per node via `data-localtime-converted="1"` (set once a node's text is rewritten) -
- * unlike timezone.js, which re-walks and re-formats every `[data-utc]` node on every call
- * (harmless there because it only ever runs once, on DOMContentLoaded), this script's `convert`
- * can be called many times over the life of one circuit (every enhancedload, every interactive
- * re-render), so a node already converted is skipped rather than reformatted - reformatting is
- * pure but wasted work at scale, and the flag also lets a future caller tell "already handled"
- * apart from "server fallback still showing" if it ever needs to.
+ * Idempotent per node via `data-localtime-converted="<data-utc value>"` (set to the exact
+ * `data-utc` value a node was converted from, once its text is rewritten) - unlike timezone.js,
+ * which re-walks and re-formats every `[data-utc]` node on every call (harmless there because it
+ * only ever runs once, on DOMContentLoaded), this script's `convert` can be called many times over
+ * the life of one circuit (every enhancedload, every interactive re-render), so a node already
+ * converted for its *current* `data-utc` is skipped rather than reformatted - reformatting is pure
+ * but wasted work at scale. Storing the converted value (not just "1") matters because Blazor
+ * reuses DOM nodes across a re-render: when a `<time>` element's row changes (e.g. a fresher
+ * timestamp scrolls into the same table position), Blazor patches that element's `data-utc`
+ * attribute and text content in place but has no reason to touch a `data-localtime-converted`
+ * attribute it doesn't know about - a bare `"1"` marker would then keep matching
+ * `:not([data-localtime-converted="1"])` and the element would be skipped forever, silently
+ * stuck on the server-rendered UTC fallback text Blazor just wrote. Comparing the marker against
+ * the live `data-utc` value instead means a changed timestamp is always seen as new and
+ * reconverted, while a truly-unchanged one is still skipped.
  */
 (function () {
     'use strict';
@@ -72,21 +80,25 @@
     }
 
     /**
-     * Converts every not-yet-converted `[data-utc]` element under `root` (default: the whole
-     * document) to the viewer's local time.
+     * Converts every `[data-utc]` element under `root` (default: the whole document) whose
+     * `data-utc` value hasn't already been converted (see the idempotency note above) to the
+     * viewer's local time.
      *
      * @param {ParentNode} [root]
      */
     function convert(root) {
         var scope = root || document;
-        scope.querySelectorAll('[data-utc]:not([data-localtime-converted="1"])').forEach(function (el) {
+        scope.querySelectorAll('[data-utc]').forEach(function (el) {
             var utc = el.getAttribute('data-utc');
             if (!utc) {
                 return;
             }
+            if (el.getAttribute('data-localtime-converted') === utc) {
+                return;
+            }
             var format = el.getAttribute('data-format') || 'datetime';
             el.textContent = formatLocalTime(utc, optionsForFormat(format));
-            el.setAttribute('data-localtime-converted', '1');
+            el.setAttribute('data-localtime-converted', utc);
         });
     }
 

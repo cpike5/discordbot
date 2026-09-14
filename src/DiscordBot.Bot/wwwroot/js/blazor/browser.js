@@ -260,16 +260,15 @@ export function getTimeZone() {
 // ---------------------------------------------------------------------------
 
 /**
- * Re-scans `root` (default: the whole document) for `[data-utc]` elements not yet converted
- * and rewrites their text to the viewer's local time. A no-op if localtime.js hasn't loaded
- * (e.g. a bUnit test with no real `<script>` tags) — every caller of this from C# already
- * tolerates a best-effort conversion.
- *
- * @param {ParentNode} [root]
+ * Re-scans the whole document for `[data-utc]` elements not yet converted (or whose `data-utc`
+ * changed since it was last converted) and rewrites their text to the viewer's local time. A
+ * no-op if localtime.js hasn't loaded (e.g. a bUnit test with no real `<script>` tags) — every
+ * caller of this from C# already tolerates a best-effort conversion. No `root` parameter — see
+ * BrowserInterop.ConvertLocalTimesAsync's remarks on why a scoped call isn't offered.
  */
-export function convertLocalTimes(root) {
+export function convertLocalTimes() {
     if (typeof window !== 'undefined' && window.DiscordBotLocalTime) {
-        window.DiscordBotLocalTime.convert(root);
+        window.DiscordBotLocalTime.convert();
     }
 }
 

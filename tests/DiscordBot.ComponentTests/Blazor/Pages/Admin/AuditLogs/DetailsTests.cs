@@ -1,4 +1,5 @@
 using Bunit;
+using Bunit.TestDoubles;
 using DiscordBot.Bot.Blazor.Pages.Admin.AuditLogs;
 using DiscordBot.ComponentTests.TestHelpers;
 using DiscordBot.Core.DTOs;
@@ -6,6 +7,7 @@ using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Components;
 using Microsoft.Extensions.DependencyInjection;
 using Moq;
 
@@ -52,9 +54,21 @@ public class DetailsTests : BlazorComponentTestContext
         CorrelationId = correlationId
     };
 
-    private IRenderedComponent<Details> RenderDetails(long id)
+    private IRenderedComponent<Details> RenderDetails(long id, string? returnUrl = null)
     {
         AddBunitPersistentComponentState();
+        SetInteractiveRendererInfo();
+
+        // ReturnUrl is [SupplyParameterFromQuery] - bUnit requires setting it via the query
+        // string (NavigationManager), not ComponentParameterCollectionBuilder.Add, which only
+        // works for a plain [Parameter]. Id is a route parameter ({id:long}), so it's still set
+        // directly below.
+        if (returnUrl is not null)
+        {
+            var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
+            navMan.NavigateTo(navMan.GetUriWithQueryParameter("returnUrl", returnUrl));
+        }
+
         return Render<Details>(p => p.Add(c => c.Id, id));
     }
 
@@ -141,6 +155,30 @@ public class DetailsTests : BlazorComponentTestContext
         json.Should().Contain("\"entryId\": 1");
         json.Should().Contain("\"guild\"");
         json.Should().Contain("Test Guild");
+    }
+
+    [Theory]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("https://evil.example")]
+    [InlineData("//evil.example")]
+    public void UnsafeReturnUrl_FallsBackToLogsPage(string unsafeReturnUrl)
+    {
+        _auditLogService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(BuildLog(1));
+
+        var cut = RenderDetails(1, unsafeReturnUrl);
+
+        cut.Markup.Should().NotContain(unsafeReturnUrl);
+        cut.Markup.Should().Contain("/Admin/Logs?tab=audit");
+    }
+
+    [Fact]
+    public void SafeReturnUrl_IsRendered()
+    {
+        _auditLogService.Setup(s => s.GetByIdAsync(1, It.IsAny<CancellationToken>())).ReturnsAsync(BuildLog(1));
+
+        var cut = RenderDetails(1, "/Admin/Logs?tab=audit&page=2");
+
+        cut.Markup.Should().Contain("/Admin/Logs?tab=audit&amp;page=2");
     }
 
     /// <summary>

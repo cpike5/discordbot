@@ -77,8 +77,13 @@ public partial class Search : ComponentBase, IDisposable
     /// the browser's document-level <c>DOMContentLoaded</c>/<c>enhancedload</c> scan in
     /// <c>localtime.js</c> never fires for - set whenever <see cref="SearchAsync"/> resolves a new
     /// result set (including the persisted-state restore path in <see cref="OnInitializedAsync"/>,
-    /// whose hydration re-render can reset the client-side "already converted" marker Blazor's own
-    /// diff doesn't know to preserve), consumed by the next <see cref="OnAfterRenderAsync"/>.
+    /// whose hydration re-render swaps in a fresh row set that has never been scanned at all),
+    /// consumed by the next <see cref="OnAfterRenderAsync"/>. This does not rely on
+    /// <c>localtime.js</c>'s per-node "already converted" marker being cleared - it isn't, and
+    /// doesn't need to be, now that the marker stores the converted <c>data-utc</c> value itself
+    /// rather than a bare flag (see localtime.js's own idempotency note): an explicit re-scan call
+    /// is still needed here purely because the browser never re-fires those document-level events
+    /// for a Blazor re-render, not because of anything about the marker's state.
     /// </summary>
     private bool _needsLocalTimeScan;
 

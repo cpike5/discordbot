@@ -2,14 +2,14 @@
 @attribute [Authorize(Policy = "RequireAdmin")]
 @rendermode InteractiveServer
 @layout MainLayout
+@using DiscordBot.Bot.Blazor.Common
 @using DiscordBot.Bot.ViewModels.Components
 
 @*
     Routable replacement for Pages/Admin/Users/Index.cshtml + IndexModel
     (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4a "Simple admin"). See Index.razor.cs for
-    the query/persistence/toggle logic this markup renders. Timestamps follow the interim
-    <time data-utc data-format> contract (see this cluster's task notes) until the concurrent
-    LocalTime component lands and every such element in this file switches to it.
+    the query/persistence/toggle logic this markup renders. Timestamps render via <LocalTime>
+    (Blazor/Shared/Primitives/LocalTime.razor).
 *@
 
 <PageTitle>User Management</PageTitle>
@@ -77,7 +77,7 @@
                                         else
                                         {
                                             <div class="h-10 w-10 rounded-full bg-accent-blue flex items-center justify-center">
-                                                <span class="text-white font-medium text-sm">@user.Email.Substring(0, 1).ToUpper()</span>
+                                                <span class="text-white font-medium text-sm">@TextHelpers.FirstCharUpper(user.Email)</span>
                                             </div>
                                         }
                                         <div class="ml-4">
@@ -111,7 +111,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
                                     @if (user.LastLoginAt.HasValue)
                                     {
-                                        <time datetime="@user.LastLoginAtUtcIso" data-utc="@user.LastLoginAtUtcIso" data-format="date">@user.LastLoginAt.Value.ToString("MMM d, yyyy")</time>
+                                        <LocalTime Utc="user.LastLoginAt.Value" Format="date" />
                                     }
                                     else
                                     {
@@ -122,7 +122,9 @@
                                     <div class="flex justify-end gap-2">
                                         <a href="@UserDetailsUrl(user.Id)" class="text-accent-blue hover:text-accent-blue/80">View</a>
                                         <a href="@UserEditUrl(user.Id)" class="text-accent-blue hover:text-accent-blue/80">Edit</a>
-                                        <button type="button" class="text-accent-blue hover:text-accent-blue/80" @onclick="() => RequestToggleActive(user)">
+                                        @* Disabled until the interactive circuit has attached - @onclick has nothing to
+                                           call before then. See docs/lessons-learned/blazor-editform-formname-race.md. *@
+                                        <button type="button" class="text-accent-blue hover:text-accent-blue/80 disabled:opacity-50 disabled:cursor-not-allowed" disabled="@(!RendererInfo.IsInteractive)" @onclick="() => RequestToggleActive(user)">
                                             @(user.IsActive ? "Disable" : "Enable")
                                         </button>
                                     </div>
@@ -153,9 +155,12 @@
         }
     </div>
 
-    <div class="mt-4 text-sm text-text-secondary">
-        Showing @((CurrentPage - 1) * PageSize + 1) to @Math.Min(CurrentPage * PageSize, TotalCount) of @TotalCount users
-    </div>
+    @if (TotalCount > 0)
+    {
+        <div class="mt-4 text-sm text-text-secondary">
+            Showing @((CurrentPage - 1) * PageSize + 1) to @Math.Min(CurrentPage * PageSize, TotalCount) of @TotalCount users
+        </div>
+    }
 </div>
 
 <ConfirmModal @ref="_toggleModal" Id="toggle-active-modal" Title="@(_pendingToggleUser?.IsActive == true ? "Disable User" : "Enable User")"

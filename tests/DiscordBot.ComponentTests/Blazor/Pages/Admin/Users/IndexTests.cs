@@ -64,6 +64,7 @@ public class IndexTests : BlazorComponentTestContext
                 It.IsAny<CancellationToken>()))
             .ReturnsAsync(Page(BuildUser("u1", "alice@example.test")));
 
+        SetInteractiveRendererInfo();
         var cut = Render<IndexPage>();
 
         cut.FindAll("[data-testid='users-row']").Should().HaveCount(1);
@@ -78,6 +79,7 @@ public class IndexTests : BlazorComponentTestContext
         AddBunitPersistentComponentState();
         _service.Setup(s => s.GetUsersAsync(It.IsAny<UserSearchQueryDto>(), It.IsAny<CancellationToken>())).ReturnsAsync(Page());
 
+        SetInteractiveRendererInfo();
         var cut = Render<IndexPage>();
 
         cut.FindAll("[data-testid='users-row']").Should().BeEmpty();
@@ -92,6 +94,7 @@ public class IndexTests : BlazorComponentTestContext
         _service.Setup(s => s.GetUsersAsync(It.IsAny<UserSearchQueryDto>(), It.IsAny<CancellationToken>())).ReturnsAsync(Page());
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
+        SetInteractiveRendererInfo();
         var cut = Render<IndexPage>();
         cut.Find("#SearchTerm").Input("alice");
         cut.Find("#RoleFilter").Change("Admin");
@@ -110,6 +113,7 @@ public class IndexTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
         navMan.NavigateTo("/Admin/Users?SearchTerm=bob&RoleFilter=Admin&ActiveFilter=true");
 
+        SetInteractiveRendererInfo();
         Render<IndexPage>();
 
         _service.Verify(s => s.GetUsersAsync(It.Is<UserSearchQueryDto>(q => q.SearchTerm == "bob" && q.Role == "Admin" && q.IsActive == true), It.IsAny<CancellationToken>()), Times.Once);
@@ -122,6 +126,7 @@ public class IndexTests : BlazorComponentTestContext
         AddBunitPersistentComponentState();
         _service.Setup(s => s.GetUsersAsync(It.IsAny<UserSearchQueryDto>(), It.IsAny<CancellationToken>())).ReturnsAsync(Page());
 
+        SetInteractiveRendererInfo();
         var cut = Render<IndexPage>();
 
         cut.FindAll("a[href='/Admin/Users/Create']").Should().BeEmpty();
@@ -139,6 +144,7 @@ public class IndexTests : BlazorComponentTestContext
         _service.Setup(s => s.SetUserActiveStatusAsync("u1", false, CurrentUserId, null, It.IsAny<CancellationToken>()))
             .ReturnsAsync(UserManagementResult.Success());
 
+        SetInteractiveRendererInfo();
         var cut = Render<IndexPage>();
         cut.FindAll("button").Single(b => b.TextContent.Trim() == "Disable").Click();
 
@@ -161,6 +167,7 @@ public class IndexTests : BlazorComponentTestContext
             .ReturnsAsync(new PaginatedResponseDto<UserDto> { Items = users, Page = 1, PageSize = 20, TotalCount = 45 });
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
+        SetInteractiveRendererInfo();
         var cut = Render<IndexPage>();
         cut.InvokeAsync(() => cut.FindComponent<DiscordBot.Bot.Blazor.Shared.Pagination>().Instance.OnPageChanged.InvokeAsync(2));
 

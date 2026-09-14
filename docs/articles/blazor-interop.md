@@ -267,7 +267,7 @@ interactive component's C# code can call through `BrowserInterop`.
 | `getSelection` | `(textarea) => { start, end, value }` | |
 | `setSelection` | `(textarea, start, end) => void` | Focuses the textarea and sets the range. |
 | `insertAtSelection` | `(textarea, text) => void` | Replaces the selection, moves the caret, dispatches a bubbling `input` event so Blazor two-way bindings observe the change. |
-| `convertLocalTimes` | `(root?) => void` | Delegates to `window.DiscordBotLocalTime.convert(root)` (a no-op if `localtime.js` hasn't loaded). Re-scans `root` (default: the whole document) for `<LocalTime>` markup not yet converted. |
+| `convertLocalTimes` | `() => void` | Delegates to `window.DiscordBotLocalTime.convert()` (a no-op if `localtime.js` hasn't loaded). Re-scans the whole document for `<LocalTime>` markup not yet converted. No scope parameter - every caller re-scans the whole document, and `querySelectorAll` only matches descendants of a given root, so a naive scoped call would miss a `<LocalTime>` passed as the root itself; see `ConvertLocalTimesAsync`'s remarks. |
 | `downloadFile` | `(fileName, content, contentType?) => void` | Builds a `Blob`, a temporary object URL and a synthetic `<a download>` click, then revokes the URL - the client-side-download mechanism `Pages/Admin/AuditLogs/Details.cshtml`'s inline "Export JSON" script used (Phase 4 cluster 4a). `contentType` defaults to `"application/json"`. |
 
 ### C# API (`BrowserInterop`)
@@ -290,7 +290,7 @@ Task OffClickOutsideAsync(int handle);
 Task<TextSelectionResult> GetSelectionAsync(ElementReference textarea);
 Task SetSelectionAsync(ElementReference textarea, int start, int end);
 Task InsertAtSelectionAsync(ElementReference textarea, string text);
-Task ConvertLocalTimesAsync(ElementReference? root = null);
+Task ConvertLocalTimesAsync();
 Task DownloadFileAsync(string fileName, string content, string contentType = "application/json");
 ```
 

@@ -1,4 +1,5 @@
 using System.Security.Claims;
+using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Blazor.Shared;
 using DiscordBot.Bot.ViewModels.Components;
@@ -66,6 +67,9 @@ public partial class Index : ComponentBase, IDisposable
     private PersistentComponentState ApplicationState { get; set; } = default!;
 
     [Inject]
+    private BrowserInterop BrowserInterop { get; set; } = default!;
+
+    [Inject]
     private ILogger<Index> Logger { get; set; } = default!;
 
     protected IReadOnlyList<UserDto> Users { get; private set; } = [];
@@ -87,6 +91,15 @@ public partial class Index : ComponentBase, IDisposable
     private string? _currentUserId;
     private PersistingComponentStateSubscription _persistingSubscription;
     private (string? SearchTerm, string? RoleFilter, bool? ActiveFilter, bool? DiscordLinkedFilter, int PageNumber) _resolvedQuery;
+
+    /// <summary>
+    /// True once <see cref="Users"/> has (re)rendered new <c>&lt;LocalTime&gt;</c> rows the
+    /// browser's document-level scan in <c>localtime.js</c> never fires for on its own - set
+    /// whenever <see cref="LoadAsync"/> resolves a new result set (including the persisted-state
+    /// restore path in <see cref="OnInitializedAsync"/>), consumed by the next
+    /// <see cref="OnAfterRenderAsync"/>. Same pattern as <c>Blazor/Pages/Search.razor.cs</c>.
+    /// </summary>
+    private bool _needsLocalTimeScan;
 
     private string PersistenceKey => $"Admin.Users.Index.{SearchTerm}.{RoleFilter}.{ActiveFilter}.{DiscordLinkedFilter}.{PageNumber}";
 
@@ -110,10 +123,20 @@ public partial class Index : ComponentBase, IDisposable
             _currentUserId = restored.CurrentUserId;
             _resolvedQuery = CurrentQuery;
             IsLoading = false;
+            _needsLocalTimeScan = true;
         }
         else
         {
             await LoadAsync();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_needsLocalTimeScan)
+        {
+            _needsLocalTimeScan = false;
+            await BrowserInterop.ConvertLocalTimesAsync();
         }
     }
 
@@ -175,6 +198,7 @@ public partial class Index : ComponentBase, IDisposable
         CanCreateUsers = user.IsInRole("Admin") || user.IsInRole("SuperAdmin");
 
         IsLoading = false;
+        _needsLocalTimeScan = true;
     }
 
     private async Task<ClaimsPrincipal> GetUserAsync()

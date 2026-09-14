@@ -630,10 +630,11 @@ public sealed class BrowserTests
         await Expect(page.Locator("span.badge", new PageLocatorOptions { HasTextString = "Not Linked" })).ToBeVisibleAsync();
 
         // Proof wwwroot/js/blazor/localtime.js actually ran: the "Member Since" <LocalTime>
-        // element is marked converted and its text no longer matches the server-rendered UTC
-        // fallback ("MMM d, yyyy" - see LocalTime.razor's FallbackText).
+        // element is marked converted (data-localtime-converted holds the data-utc value it was
+        // converted from - see localtime.js's idempotency note) and its text no longer matches
+        // the server-rendered UTC fallback ("MMM d, yyyy" - see LocalTime.razor's FallbackText).
         var memberSinceTime = page.Locator("time[data-utc]").First;
-        await Expect(memberSinceTime).ToHaveAttributeAsync("data-localtime-converted", "1");
+        await Expect(memberSinceTime).ToHaveAttributeAsync("data-localtime-converted", new Regex(".+"));
 
         // Two themes are seeded (AddThemeSupport migration): "Discord Dark" (key "discord-dark",
         // the system default) and "Purple Dusk" (key "purple-dusk") - pick whichever option isn't
@@ -687,9 +688,10 @@ public sealed class BrowserTests
     /// tables (the same <see cref="BotHostFixture.DatabasePath"/> escape hatch
     /// <see cref="SeedGuild"/> uses - there is no UI flow that creates these rows in web-only
     /// mode), then each Details page is opened and asserted to render its key fields plus a
-    /// client-side-converted <c>&lt;time data-localtime-converted="1"&gt;</c> - proof
-    /// <c>localtime.js</c>/<c>BrowserInterop.ConvertLocalTimesAsync</c> actually ran, the same
-    /// assertion shape <see cref="Test_P_Profile_RendersAndSavesTheme"/> uses.
+    /// client-side-converted <c>&lt;time data-localtime-converted&gt;</c> (the marker holds the
+    /// <c>data-utc</c> value it was converted from, not a bare <c>"1"</c> - see localtime.js) -
+    /// proof <c>localtime.js</c>/<c>BrowserInterop.ConvertLocalTimesAsync</c> actually ran, the
+    /// same assertion shape <see cref="Test_P_Profile_RendersAndSavesTheme"/> uses.
     /// </summary>
     [E2EFact]
     public async Task Test_S_LogDetails_RenderForSeededRows()
@@ -702,22 +704,25 @@ public sealed class BrowserTests
 
         await page.GotoAsync($"/Admin/AuditLogs/Details/{auditLogId}");
         await Expect(page.Locator("h1")).ToHaveTextAsync("Audit Entry Details");
-        await Expect(page.Locator("body")).ToContainTextAsync("System");
+        // Scoped to the Actor Information card's actor-type cell rather than the whole page body:
+        // "System" (the seeded row's ActorType) is a common enough word that an unscoped
+        // body-text match would pass even if this field rendered something else entirely.
+        await Expect(page.Locator("[data-testid='actor-type']")).ToContainTextAsync("System");
         await Expect(page.Locator("body")).ToContainTextAsync("BotStarted");
-        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", "1");
+        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", new Regex(".+"));
 
         await page.GotoAsync($"/Admin/MessageLogs/Details/{messageLogId}");
         await Expect(page.Locator("h1")).ToHaveTextAsync("Message Details");
         await Expect(page.Locator("body")).ToContainTextAsync("Hello from the E2E seed");
         await Expect(page.Locator("body")).ToContainTextAsync("e2e-log-user");
         await Expect(page.Locator("body")).ToContainTextAsync("E2E Log Details Guild");
-        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", "1");
+        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", new Regex(".+"));
 
         await page.GotoAsync($"/CommandLogs/Details/{commandLogId}");
         await Expect(page.Locator("h1")).ToContainTextAsync("ping");
         await Expect(page.Locator("body")).ToContainTextAsync("E2E Log Details Guild");
         await Expect(page.Locator("body")).ToContainTextAsync("e2e-log-user");
-        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", "1");
+        await Expect(page.Locator("time[data-utc]").First).ToHaveAttributeAsync("data-localtime-converted", new Regex(".+"));
     }
 
     /// <summary>
@@ -771,11 +776,13 @@ public sealed class BrowserTests
     /// shared <see cref="BotHostFixture.DatabasePath"/> - xUnit constructs a fresh
     /// <see cref="BrowserTests"/> instance per test method, but the collection fixture's database
     /// file is one file for the whole run. The <c>CommandLogs.Id</c> parameter is bound as the
-    /// <see cref="Guid"/> value itself, not <c>.ToString()</c> - Microsoft.Data.Sqlite's native
-    /// GUID support serializes a <see cref="Guid"/> parameter as the same 16-byte blob EF Core's
-    /// own <c>TEXT</c>-affinity GUID column mapping writes, so a hex-string parameter would bind
-    /// as a different SQLite storage class and never match <c>CommandLogService.GetByIdAsync</c>'s
-    /// own EF-issued lookup.
+    /// <see cref="Guid"/> value itself, not <c>.ToString()</c> - Microsoft.Data.Sqlite binds a
+    /// <see cref="Guid"/> parameter as <c>TEXT</c> (its canonical hyphenated string form), the
+    /// same storage class and format EF Core's own <c>TEXT</c>-affinity GUID column mapping
+    /// writes, so passing the value directly matches what <c>CommandLogService.GetByIdAsync</c>'s
+    /// own EF-issued lookup reads back. A hand-rolled <c>.ToString()</c> would very likely produce
+    /// the identical string and also work here - the point is to bind the typed value and let the
+    /// driver own the conversion, not to work around some other serialization on either side.
     /// </remarks>
     private (ulong GuildId, long AuditLogId, long MessageLogId, Guid CommandLogId) SeedLogRows()
     {
@@ -846,7 +853,14 @@ public sealed class BrowserTests
         return (guildId, auditLogId, messageLogId, commandLogId);
     }
 
-    /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
+    /// <summary>
+    /// Covers the Admin/Users Blazor cluster end to end (docs/plans/blazor-port-plan.md Phase 4
+    /// cluster 4a): create a user, view its Details, edit its display name, reset its password via
+    /// the confirm modal, then toggle it inactive from the Index list - the full round trip a real
+    /// admin would drive through the UI, including every "first interaction on a freshly navigated
+    /// page" EditForm submit/button race described in
+    /// docs/lessons-learned/blazor-editform-formname-race.md.
+    /// </summary>
     [E2EFact]
     public async Task Test_R_Users_CreateEditDetails_RoundTrip()
     {

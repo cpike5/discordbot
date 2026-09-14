@@ -79,25 +79,24 @@ Cluster 4a also adds `Blazor/Shared/Primitives/LocalTime.razor` (see "Blazor Com
 porting `wwwroot/js/timezone.js`'s `convertDisplayTimes`/`initTimezoneFields`) — the timezone
 conversion `Search`'s own `data-utc` rows were missing since Phase 3 (§5 Phase 3 deviation (c)).
 
-## Blazor Routes (Phase 4, permanent)
-
-First cluster of Phase 4 page migration (plan §5 Phase 4, cluster 4a "Simple admin") — each row
-replaces a `Pages/Admin/Users/*.cshtml` Razor Page, deleted in the same change along with its
-three now-orphaned `ViewModels/Pages/User{List,Form,Detail}ViewModel.cs`. All four are
-`RequireAdmin`-gated (the four `PageMetadataService` entries for these routes previously read
-`RequireSuperAdmin`, a pre-existing mismatch with the actual `[Authorize]` policy on the Razor
-Page this port fixed in the same change) and render under `MainLayout`. Query parameter names are
-unchanged from the legacy `[BindProperty(SupportsGet = true)]`/handler-parameter names so existing
-plain-`href` builders elsewhere (`_Sidebar.cshtml`, `Search.razor.cs`, `UsersSearchProvider`,
-`AuditLogListViewModel`) keep resolving without edits. Timestamps (last login, member since,
-activity log entries) render via the interim `<time datetime data-utc data-format>` contract —
-plain server-rendered UTC text today, becoming `<LocalTime>` once that component lands.
+The same cluster (4a "Simple admin") also ports the `Pages/Admin/Users/*.cshtml` Razor Pages below,
+deleted in the same change along with their three now-orphaned
+`ViewModels/Pages/User{List,Form,Detail}ViewModel.cs`. All four are `RequireAdmin`-gated (the four
+`PageMetadataService` entries for these routes previously read `RequireSuperAdmin`, a pre-existing
+mismatch with the actual `[Authorize]` policy on the Razor Page this port fixed in the same change)
+and render under `MainLayout`. Query parameter names are unchanged from the legacy
+`[BindProperty(SupportsGet = true)]`/handler-parameter names so existing plain-`href` builders
+elsewhere (`_Sidebar.cshtml`, `Search.razor.cs`, `AuditLogListViewModel`) keep resolving without
+edits — `UsersSearchProvider`'s own `ViewAllUrl` builder did *not* match (it built `?search=`
+against a page that binds `SearchTerm`, a pre-existing bug predating this port that a later review
+of this cluster caught and fixed). Timestamps (last login, member since, activity log entries)
+render via `<LocalTime>`, same as the rest of this cluster.
 
 | Route | File | Purpose |
 | --- | --- | --- |
 | `/Admin/Users` | `Blazor/Pages/Admin/Users/Index.razor` (+ `.razor.cs`) | Paginated, filterable (`SearchTerm`/`RoleFilter`/`ActiveFilter`/`DiscordLinkedFilter`/`pageNumber`, all `[SupplyParameterFromQuery]`) user list. Filters submit via `NavigationManager.NavigateTo` (no full page post); results persist across the prerender-to-circuit boundary with `PersistentComponentState`, keyed by the resolved query. Active/inactive toggle is a real `ConfirmModal`-gated action — the legacy `IndexModel.OnPostToggleActiveAsync` handler had no corresponding control in `Index.cshtml`, a dead-handler gap this port closes rather than reproduces. |
 | `/Admin/Users/Create` | `Blazor/Pages/Admin/Users/Create.razor` (+ `.razor.cs`) | `EditForm` + `DataAnnotationsValidator` over a nested `Create.InputModel` (same data annotations as the legacy nested `CreateModel.InputModel`). On success, `IToastService.Success` then `NavigationManager.NavigateTo("/Admin/Users")` — the toast survives the same-circuit navigation. Service failure renders an inline `Alert`. |
-| `/Admin/Users/Edit` | `Blazor/Pages/Admin/Users/Edit.razor` (+ `.razor.cs`), `?id=` | Same form shape as Create, `IsSelf`-gated (own role/active-status fields disabled, matching `EditModel`). Save reloads the model and stays on the page (toast, no navigation) — the faithful port of the legacy `RedirectToPage("Edit", new { id })` self-redirect. Reset-password and unlink-Discord are `ConfirmModal`-gated component methods calling `IUserManagementService` directly; a reset's generated temporary password is shown once in a dismissible success banner with a `BrowserInterop.CopyToClipboardAsync` copy button — hand-rolled rather than through `<Alert>`, since its copy-button row is a block element that can't safely nest inside `<Alert>`'s `<p>`-wrapped `ChildContent` once server-prerendered markup round-trips through the browser's HTML parser. An unresolvable `?id=` renders the design-system "not found" `EmptyState` at HTTP 200 (a Blazor circuit can't set a status code once it's already serving the page) rather than a real 404 — a recorded fidelity deviation. |
+| `/Admin/Users/Edit` | `Blazor/Pages/Admin/Users/Edit.razor` (+ `.razor.cs`), `?id=` | Same form shape as Create, `IsSelf`-gated (own role/active-status fields disabled, matching `EditModel`) and additionally gated on `IUserManagementService.CanManageUserAsync` (`CanAccessEdit`): a target the actor cannot manage (e.g. an Admin against a SuperAdmin) renders an access-denied `EmptyState` instead of the form — a review-flagged gap the legacy `EditModel` left open (it rendered unconditionally; only `Details.razor`'s "Edit User" link was hidden). Save reloads the model and stays on the page (toast, no navigation) — the faithful port of the legacy `RedirectToPage("Edit", new { id })` self-redirect. Reset-password and unlink-Discord are `ConfirmModal`-gated component methods calling `IUserManagementService` directly, each additionally hidden/refused unless `CanManageUserAsync` allows it (restoring the deleted `UserDetailViewModel.CanResetPassword`/`CanUnlinkDiscord` formulas); a reset's generated temporary password is shown once in a dismissible success banner with a `BrowserInterop.CopyToClipboardAsync` copy button — hand-rolled rather than through `<Alert>`, since its copy-button row is a block element that can't safely nest inside `<Alert>`'s `<p>`-wrapped `ChildContent` once server-prerendered markup round-trips through the browser's HTML parser. An unresolvable `?id=` renders the design-system "not found" `EmptyState` at HTTP 200 (a Blazor circuit can't set a status code once it's already serving the page) rather than a real 404 — a recorded fidelity deviation. |
 | `/Admin/Users/Details` | `Blazor/Pages/Admin/Users/Details.razor` (+ `.razor.cs`), `?id=` | Read-only profile card (avatar/initials, role `Badge`, `StatusIndicator`, Discord link card or "not linked" state) plus a 20-row activity log (`Badge` per `UserActivityAction`, actor, details, timestamp) or an empty state, permission flags (`CanEdit` etc.) from `IUserManagementService.CanManageUserAsync`. Same unresolvable-`?id=` 200-with-`EmptyState` deviation as Edit. |
 
 ## Blazor Layouts
