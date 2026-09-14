@@ -67,7 +67,10 @@ public class LogoutModel : PageModel
             return LocalRedirect(returnUrl);
         }
 
-        // Redirect to landing page after logout (instead of login page)
-        return RedirectToPage("/Landing");
+        // Redirect to landing page after logout (instead of login page). This is a plain path,
+        // not RedirectToPage, because /Landing is a Blazor page (Blazor/Pages/Landing.razor,
+        // routed at "/landing") now, not a Razor Page - RedirectToPage would look for a deleted
+        // "/Landing" Razor Page and throw InvalidOperationException at execution time.
+        return LocalRedirect("/landing");
     }
 }

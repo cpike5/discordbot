@@ -442,7 +442,6 @@ public sealed class BrowserTests
         }
     }
 
-    /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
     [E2EFact]
     public async Task Test_G_Landing_Anonymous_RendersHero_WithoutLoginRedirect()
     {
@@ -515,13 +514,10 @@ public sealed class BrowserTests
         await Expect(page.Locator("body")).ToContainTextAsync("e2e-request-abc");
     }
     /// <summary>
-    /// Opens a page off <paramref name="context"/> and, when <see cref="BotHostFixture.LogDirectory"/>
-    /// is set (i.e. E2E_ENABLED=1), appends its console messages and uncaught page errors to
-    /// <c>browser-console.log</c> in that same per-run directory alongside host.log - so a
-    /// failure in CI leaves both the server's and the browser's own account of what happened.
+    /// Covers <c>Search.razor</c>'s Pages results section rendering, with the search term
+    /// highlighted in the results - the Blazor replacement for the deleted
+    /// <c>HighlightTagHelper</c> (docs/plans/blazor-port-plan.md §5 Phase 3).
     /// </summary>
-    /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
-
     [E2EFact]
     public async Task Test_L_Search_LoggedIn_RendersPagesSection()
     {
@@ -556,15 +552,61 @@ public sealed class BrowserTests
     }
 
     /// <summary>
-    /// Opens a browser context pointed at the running host, with requests to Google Fonts
-    /// short-circuited. Every page in the app (App.razor and the legacy _Layout.cshtml alike)
-    /// references fonts.googleapis.com/fonts.gstatic.com; those are unrelated to anything under
-    /// test here, and a render-blocking &lt;link rel="stylesheet"&gt; to a host that is slow or
-    /// unreachable (offline CI runners, a locked-down sandbox) can stall the page load well past
-    /// what a login round trip or a circuit boot should ever take. Aborting them keeps the tests
-    /// fast and deterministic regardless of outbound network conditions.
+    /// Regression coverage for the Phase 3 review finding that <c>Pages/Account/Logout.cshtml.cs</c>'s
+    /// <c>OnPostAsync</c> 500'd on sign-out with no <c>returnUrl</c> - it called
+    /// <c>RedirectToPage("/Landing")</c>, a Razor Page deleted by this same round, and now uses
+    /// <c>LocalRedirect("/landing")</c> instead. Drives the real navbar logout form
+    /// (<c>MainNavbar.razor</c>'s <c>#userMenuButton</c> opens the dropdown, then its plain POST
+    /// form with no <c>returnUrl</c> field submits) end to end and asserts the browser lands on
+    /// <c>/landing</c> with a 200, not a 500.
     /// </summary>
+    [E2EFact]
+    public async Task Test_O_Logout_FromShell_LandsOnLanding()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
 
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/components");
+        await Expect(page.Locator("#userMenuButton")).ToBeVisibleAsync();
+
+        // The logout <form> gets no data-enhance-nav opt-out, so Blazor Web App's default
+        // enhanced navigation intercepts this same-origin POST as a fetch rather than a full
+        // browser navigation - the URL bar updates via history.pushState with no Frame "Load"
+        // event ever firing, which is why RunAndWaitForNavigationAsync (confirmed empirically:
+        // it reliably times out waiting for that event here) can't be used to capture the
+        // response. The POST and its redirect still go out as real HTTP requests either way, so
+        // recording every response's status during the click - the same approach Test_E uses for
+        // its own _blazor/_framework failure check - proves the redirect chain didn't 500 without
+        // depending on which navigation mode actually ran.
+        var failedResponses = new List<string>();
+        page.Response += (_, response) =>
+        {
+            if (response.Status >= 500
+                && (response.Url.Contains("/Account/Logout", StringComparison.OrdinalIgnoreCase)
+                    || response.Url.Contains("/landing", StringComparison.OrdinalIgnoreCase)))
+            {
+                failedResponses.Add($"{response.Status}: {response.Url}");
+            }
+        };
+
+        await page.Locator("#userMenuButton").ClickAsync();
+        var userMenu = page.Locator("#userMenu");
+        await Expect(userMenu).ToHaveClassAsync(new Regex(@"(^|\s)active(\s|$)"));
+
+        // The submit button carries an explicit role="menuitem" (it's an item inside the
+        // role="menu" dropdown), which overrides its implicit <button> role - GetByRole needs the
+        // accessible role actually in effect, not the element's default one.
+        await userMenu.GetByRole(AriaRole.Menuitem, new LocatorGetByRoleOptions { Name = "Sign out" }).ClickAsync();
+
+        await Expect(page).ToHaveURLAsync(new Regex(@"/landing$"));
+        await Expect(page.Locator("h1")).ToHaveTextAsync(new Regex(@"^\s*Discord Bot\s*$"));
+
+        failedResponses.Should().BeEmpty("the sign-out form POST's redirect chain must not end in a 500");
+    }
+
+    /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");
