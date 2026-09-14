@@ -121,7 +121,11 @@ public static class GuildNavigationConfig
                 Id = "feature-requests",
                 Label = "Feature Requests",
                 PageName = "/Guilds/FeatureRequests/Index",
-                UrlPattern = "/Guilds/{guildId}/FeatureRequests",
+                // The real route is /Guilds/FeatureRequests/{guildId} (Blazor/Pages/Guilds/FeatureRequests/Index.razor's
+                // @page), not /Guilds/{guildId}/FeatureRequests - this pattern had never matched the actual Razor Page
+                // route either (a pre-existing mismatch fixed alongside the Phase 4 cluster 4b Blazor port; see
+                // docs/plans/blazor-port-plan.md cluster 4b "Facts").
+                UrlPattern = "/Guilds/FeatureRequests/{guildId}",
                 Order = 11,
                 IconOutline = "M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4",
                 IconSolid = "M9 2a1 1 0 000 2h2a1 1 0 100-2H9z M4 5a2 2 0 012-2 3 3 0 003 3h2a3 3 0 003-3 2 2 0 012 2v11a2 2 0 01-2 2H6a2 2 0 01-2-2V5zm9 8a1 1 0 10-2 0v3a1 1 0 102 0v-3zm-3.293-1.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4a1 1 0 00-1.414-1.414L11 12.586l-1.293-1.293z"

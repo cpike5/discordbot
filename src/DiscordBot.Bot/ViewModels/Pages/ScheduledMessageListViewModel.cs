@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 
@@ -171,39 +172,12 @@ public class ScheduledMessageListItem
     /// <summary>
     /// Gets the status display text (Active, Paused, or Expired).
     /// </summary>
-    public string StatusDisplay
-    {
-        get
-        {
-            if (!IsEnabled)
-                return "Paused";
-
-            if (Frequency == ScheduleFrequency.Once && LastExecutedAt.HasValue)
-                return "Expired";
-
-            if (Frequency == ScheduleFrequency.Once && NextExecutionAt.HasValue && NextExecutionAt.Value < DateTime.UtcNow)
-                return "Expired";
-
-            return "Active";
-        }
-    }
+    public string StatusDisplay => ScheduledMessageStatusDisplay.Label(IsEnabled, Frequency, LastExecutedAt, NextExecutionAt);
 
     /// <summary>
     /// Gets the badge variant for the status.
     /// </summary>
-    public string StatusBadgeVariant
-    {
-        get
-        {
-            return StatusDisplay switch
-            {
-                "Active" => "Success",
-                "Paused" => "Warning",
-                "Expired" => "Default",
-                _ => "Default"
-            };
-        }
-    }
+    public string StatusBadgeVariant => ScheduledMessageStatusDisplay.Variant(StatusDisplay).ToString();
 
     /// <summary>
     /// Gets the message preview (truncated content or title).

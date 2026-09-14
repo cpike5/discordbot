@@ -2301,6 +2301,24 @@ and are never re-rendered once a circuit takes over.
   Phase 4b/4f replace them with real ported pages - see "Blazor Routes (Phase 3...)" in
   `ui-inventory.md`.
 
+### Paged list pages
+
+Standardised on `Blazor/Common/PagedQuery.cs` (plan §5 Phase 4, cluster 4b) rather than each guild
+list page inventing its own page/size fields: a `record` of `PageNumber` (clamped ≥ 1),
+`PageSize` (clamped to [1, 100], default per page), `SortBy`/`SortDescending`, built once per load
+via `PagedQuery.FromQuery(pageNumber, pageSize, sortBy, sortDescending, defaultPageSize,
+legacyPage)` and rendered with `Blazor/Shared/Navigation/Pagination.razor` in link mode
+(`BaseUrl="@PageUrl" PageParameterName="pageNumber"` - `PageSizeParameterName` defaults to
+`pageSize`). A page binds the matching `[SupplyParameterFromQuery]` names (`pageNumber`,
+`pageSize`, `sortBy`, `sortDescending`; a filter like a status enum keeps its own query name,
+e.g. `status`) and, since a query-string-only change doesn't re-trigger `GuildPageBase`'s sealed
+`OnParametersSetAsync` (see "GuildContext" above), reloads via an `OnParametersSet()` override
+that fire-and-forgets the reload and calls `StateHasChanged()` itself -
+`Blazor/Pages/Guilds/FeatureRequests/Index.razor.cs` is the reference example. `legacyPage` lets
+`FromQuery` fall back to an old `?page=` value when `pageNumber` is absent, so bookmarks and
+existing plain-`href` widget links (e.g. `Guilds/Details`) built before this standardisation keep
+resolving without an edit on their end.
+
 ### Gotchas carried over from CLAUDE.md
 
 - **Discord snowflakes are strings** in any component `[Parameter]`, `@bind` target, or JS

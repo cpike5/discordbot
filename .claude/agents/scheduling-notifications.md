@@ -15,12 +15,13 @@ You are a domain expert for the **Scheduling & Notifications** stream of a Disco
 - **Services:** `ScheduledMessageService` (702 lines), `ScheduledMessageExecutionService`
 - **Commands:** `ScheduleModule`, `ScheduleComponentModule`
 - **Controller:** `ScheduledMessagesController`
-- **Pages:** `Guilds/ScheduledMessages/` (Index, Create, Edit)
+- **Pages:** `Blazor/Pages/Guilds/ScheduledMessages/` (Index, Create, Edit) — `RequireAdmin`; shared `ScheduledMessageInputModel`/`ScheduledMessageForm.razor` between Create/Edit; timezone-aware via `BrowserInterop.GetTimeZoneAsync` + `TimezoneHelper`
 
 ### Reminders
 - **Entity:** `Reminder`; **Enum:** `ReminderStatus`; **Config:** `ReminderOptions`
-- **Services:** `ReminderService`, `ReminderExecutionService`
+- **Services:** `ReminderService`, `ReminderExecutionService`, `IReminderUserResolver` (admin-list Discord username resolution, mockable seam over `DiscordSocketClient`)
 - **Commands:** `ReminderModule`
+- **Pages:** `Blazor/Pages/Guilds/Reminders/Index.razor` — `GuildAccess` only (no app role required)
 
 ### Notifications
 - **Entity:** `UserNotification`; **Enum:** `NotificationType`; **Config:** `NotificationOptions`, `NotificationRetentionOptions`

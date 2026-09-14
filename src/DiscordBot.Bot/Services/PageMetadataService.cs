@@ -164,6 +164,18 @@ public class PageMetadataService : IPageMetadataService
             },
             new()
             {
+                Name = "Feature Requests",
+                Route = "/Guilds/FeatureRequests",
+                Description = "Review community feature request submissions",
+                Section = "Guild",
+                RequiredPolicy = "RequireAdmin",
+                IconName = "light-bulb",
+                Keywords = new[] { "feature requests", "suggestions", "ideas", "requests" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/FeatureRequests/{guildId}"
+            },
+            new()
+            {
                 Name = "Public Leaderboard",
                 Route = "/Guilds/Leaderboard",
                 Description = "Public Rat Watch leaderboard",

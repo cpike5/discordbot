@@ -171,14 +171,14 @@
                     Description = "",
                     IconSvgPath = "M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z",
                     PrimaryActionText = "Create Scheduled Message",
-                    PrimaryActionUrl = Url.Page("ScheduledMessages/Create", new { guildId = guild.Id })
+                    PrimaryActionUrl = $"/Guilds/ScheduledMessages/Create/{guild.Id}"
                 };
             }
 
             var scheduledMessagesWidget = new DashboardWidgetViewModel
             {
                 Title = "Scheduled Messages",
-                DetailUrl = Url.Page("ScheduledMessages/Index", new { guildId = guild.Id }),
+                DetailUrl = $"/Guilds/ScheduledMessages/{guild.Id}",
                 BodyContent = scheduledMessagesBody,
                 EmptyState = scheduledMessagesEmpty,
                 ColSpan = 1
@@ -381,7 +381,7 @@
             var remindersWidget = new DashboardWidgetViewModel
             {
                 Title = "Reminders",
-                DetailUrl = Url.Page("Reminders/Index", new { guildId = guild.Id }),
+                DetailUrl = $"/Guilds/Reminders/{guild.Id}",
                 BodyContent = remindersBody,
                 EmptyState = remindersEmpty,
                 ColSpan = 1

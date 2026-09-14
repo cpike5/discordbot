@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Services;
+using DiscordBot.Bot.Services.Reminders;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Interfaces;
 using Microsoft.Extensions.Configuration;
@@ -46,6 +47,9 @@ public static class ScheduledServicesExtensions
 
         // Reminder service (scoped for per-request)
         services.AddScoped<IReminderService, ReminderService>();
+
+        // Discord user resolution for the Reminders admin list (Blazor/Pages/Guilds/Reminders/Index)
+        services.AddScoped<IReminderUserResolver, DiscordReminderUserResolver>();
 
         // Background service for reminder execution
         services.AddHostedService<ReminderExecutionService>();

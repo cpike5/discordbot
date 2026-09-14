@@ -1,0 +1,25 @@
+@page "/Guilds/ScheduledMessages/Create/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+
+@*
+    Routable replacement for Pages/Guilds/ScheduledMessages/Create.cshtml + CreateModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). Form fields are the shared
+    ScheduledMessageForm.razor; see Create.razor.cs for the timezone-aware default and submit logic.
+*@
+
+<PageTitle>Create Scheduled Message</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        <EditForm Model="Input" OnValidSubmit="HandleValidSubmit">
+            <DataAnnotationsValidator />
+            <ScheduledMessageForm Input="Input" Channels="AvailableChannels" DetectedTimeZone="@DetectedTimeZone"
+                                   SubmitLabel="Create Message" CancelUrl="@($"/Guilds/ScheduledMessages/{GuildId}")"
+                                   ErrorMessage="@ErrorMessage" />
+        </EditForm>
+    </ChildContent>
+</GuildContextGate>

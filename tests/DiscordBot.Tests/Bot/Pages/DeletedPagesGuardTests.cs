@@ -43,6 +43,12 @@ public class DeletedPagesGuardTests
         "/Guilds/AssistantMetrics",
         "/Guilds/AudioModerationLog/Index",
         "/Guilds/RatWatch/Index",
+        "/Guilds/FeatureRequests/Index",
+        "/Guilds/FeatureRequests/Details",
+        "/Guilds/Reminders/Index",
+        "/Guilds/ScheduledMessages/Index",
+        "/Guilds/ScheduledMessages/Create",
+        "/Guilds/ScheduledMessages/Edit",
     };
 
     [Fact]

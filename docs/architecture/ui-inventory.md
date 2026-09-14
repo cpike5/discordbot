@@ -106,6 +106,28 @@ render via `<LocalTime>`, same as the rest of this cluster.
 | `/Admin/Users/Edit` | `Blazor/Pages/Admin/Users/Edit.razor` (+ `.razor.cs`), `?id=` | Same form shape as Create, `IsSelf`-gated (own role/active-status fields disabled, matching `EditModel`) and additionally gated on `IUserManagementService.CanManageUserAsync` (`CanAccessEdit`): a target the actor cannot manage (e.g. an Admin against a SuperAdmin) renders an access-denied `EmptyState` instead of the form — a review-flagged gap the legacy `EditModel` left open (it rendered unconditionally; only `Details.razor`'s "Edit User" link was hidden). Save reloads the model and stays on the page (toast, no navigation) — the faithful port of the legacy `RedirectToPage("Edit", new { id })` self-redirect. Reset-password and unlink-Discord are `ConfirmModal`-gated component methods calling `IUserManagementService` directly, each additionally hidden/refused unless `CanManageUserAsync` allows it (restoring the deleted `UserDetailViewModel.CanResetPassword`/`CanUnlinkDiscord` formulas); a reset's generated temporary password is shown once in a dismissible success banner with a `BrowserInterop.CopyToClipboardAsync` copy button — hand-rolled rather than through `<Alert>`, since its copy-button row is a block element that can't safely nest inside `<Alert>`'s `<p>`-wrapped `ChildContent` once server-prerendered markup round-trips through the browser's HTML parser. An unresolvable `?id=` renders the design-system "not found" `EmptyState` at HTTP 200 (a Blazor circuit can't set a status code once it's already serving the page) rather than a real 404 — a recorded fidelity deviation. |
 | `/Admin/Users/Details` | `Blazor/Pages/Admin/Users/Details.razor` (+ `.razor.cs`), `?id=` | Read-only profile card (avatar/initials, role `Badge`, `StatusIndicator`, Discord link card or "not linked" state) plus a 20-row activity log (`Badge` per `UserActivityAction`, actor, details, timestamp) or an empty state, permission flags (`CanEdit` etc.) from `IUserManagementService.CanManageUserAsync`. Same unresolvable-`?id=` 200-with-`EmptyState` deviation as Edit. |
 
+Cluster 4b ("Simple guild") ports the first pages under `GuildLayout` proper (the Phase 3 probe,
+`Blazor/Pages/Guilds/GuildProbe.razor`, is retired by a sibling cluster in the same round). All six
+below are `@inherits GuildPageBase`, render inside `GuildContextGate`, and use the new
+`Blazor/Common/PagedQuery.cs` (`PageNumber`/`PageSize`/`SortBy`/`SortDescending`, clamped; a
+`ToQueryString` helper) plus `Blazor/Shared/Navigation/Pagination.razor` in link mode
+(`PageParameterName="pageNumber"`) for their list pages — each also accepts the legacy `?page=`
+query name as a fallback so old bookmarks and the `Guilds/Details` widget links keep resolving.
+`GuildNavigationConfig`'s `feature-requests` tab `UrlPattern` was `/Guilds/{guildId}/FeatureRequests`,
+which never matched the real Razor Page route either — fixed to `/Guilds/FeatureRequests/{guildId}`
+in the same change.
+
+| Route | File | Purpose |
+| --- | --- | --- |
+| `/Guilds/FeatureRequests/{guildId:long}` | `Blazor/Pages/Guilds/FeatureRequests/Index.razor` (+ `.razor.cs`) | `RequireAdmin`. Replaces `Pages/Guilds/FeatureRequests/Index.cshtml` + `IndexModel`. Status filter (`Select`), desktop table + mobile cards, `Blazor/Common/FeatureRequestStatusDisplay.cs` for the status badge (was duplicated 3× across the legacy Index/Details pages), `<LocalTime>` for the submitted date. |
+| `/Guilds/FeatureRequests/{guildId:long}/{id:guid}` | `Blazor/Pages/Guilds/FeatureRequests/Details.razor` (+ `.razor.cs`) | `RequireAdmin`. Replaces `Pages/Guilds/FeatureRequests/Details.cshtml` + `DetailsModel`. Approve/Reject are component methods calling `IFeatureRequestService.UpdateStatusAsync` with the reviewer id from the `discord:user_id` claim; the review-notes box and "Approve"/"Approve Anyway" wording are gated on status (Submitted/GeneratingDocs/DocsGenerated vs. DocGenFailed). `GatheredRequirements` deserializes to `Core.Models.FeatureRequests.GatheredRequirements` with a `<pre>` fallback. Not-found/guild-mismatch renders an `EmptyState` at HTTP 200. |
+| `/Guilds/Reminders/{guildId:long}` | `Blazor/Pages/Guilds/Reminders/Index.razor` (+ `.razor.cs`) | Only the `GuildAccess` policy applies (no app role required — `[Authorize]` with no policy, enforced by `GuildContextProvider`/`GuildPageBase`, matching the legacy page's bare `[Authorize(Policy = "GuildAccess")]`). Replaces `Pages/Guilds/Reminders/Index.cshtml` + `IndexModel`. Four stat cards, status filter, `ConfirmModal`-gated cancel (Pending only). Per-row Discord user resolution goes through the new `IReminderUserResolver`/`DiscordReminderUserResolver` seam (`Bot/Services/Reminders/`) instead of a raw `DiscordSocketClient` lookup inline, so it's mockable in bUnit; falls back to `"Unknown ({id})"` exactly as the legacy inline lookup did. |
+| `/Guilds/ScheduledMessages/{guildId:long}` | `Blazor/Pages/Guilds/ScheduledMessages/Index.razor` (+ `.razor.cs`) | `RequireAdmin`. Replaces `Pages/Guilds/ScheduledMessages/Index.cshtml` + `IndexModel`. Status badge/dot and schedule description come from `Blazor/Common/ScheduledMessageStatusDisplay.cs` (was duplicated between the list view model and the Edit page's own status helpers); toggle (pause/resume) and delete (`ConfirmModal`) are component methods. |
+| `/Guilds/ScheduledMessages/Create/{guildId:long}` | `Blazor/Pages/Guilds/ScheduledMessages/Create.razor` (+ `.razor.cs`) | `RequireAdmin`. Replaces `Pages/Guilds/ScheduledMessages/Create.cshtml` + `CreateModel`. Shares `ScheduledMessageInputModel` and the `ScheduledMessageForm.razor` field markup with Edit. Defaults `NextExecutionAt` to local-now + 5 minutes (rounded up to the next 5-minute mark) once `BrowserInterop.GetTimeZoneAsync()` resolves the viewer's IANA zone; submits convert that local value to UTC via `TimezoneHelper.ConvertToUtc`. Cron is required (and validated via `IScheduledMessageService.ValidateCronExpressionAsync`) only when Frequency is Custom. |
+| `/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}` | `Blazor/Pages/Guilds/ScheduledMessages/Edit.razor` (+ `.razor.cs`) | `RequireAdmin`. Replaces `Pages/Guilds/ScheduledMessages/Edit.cshtml` + `EditModel`. Same shared form as Create, prefilled from the stored UTC `NextExecutionAt` converted to the detected local zone (`TimezoneHelper.ConvertFromUtc`) rather than a client-side JS conversion; also adds status badge/Delete (`ConfirmModal`). The channel `Select`'s options always include the currently-selected channel even when `IDiscordChannelResolver.GetTextChannels` can't resolve it (no live gateway, or a deleted channel) — without that, the rendered `<select required>` matches no `<option>` and the browser's own HTML5 validation silently blocks the submit event from ever reaching Blazor. |
+
+`ScheduledMessageForm.razor` (shared, not itself routable) holds the Create/Edit field markup: title/content/channel, the schedule-type radio cards, `<InputDate Type="InputDateType.DateTimeLocal">` for the next-run time with a `.timezone-indicator`-style caption, the cron field (Custom only), and a live Discord-styled message preview (HTML-encoded, newline → `<br>`, reactive on every keystroke — no JS needed since `TextArea`'s `@bind-Value` re-renders the component).
+
 ## Blazor Layouts
 
 `Blazor/Layout/` (plan §4.7/§5 Phase 3). `Routes.razor`'s `DefaultLayout` is `MainLayout`, so a
@@ -167,6 +189,9 @@ cluster 4a — see "Blazor Routes (Phase 4, permanent)" above.
 
 ### Guild Pages (Per-Server Management)
 
+Reminders, Scheduled Messages, and Feature Requests moved to Blazor in Phase 4 cluster 4b — see
+"Blazor Routes (Phase 4, permanent)" above.
+
 | Route | File | Purpose |
 |-------|------|---------|
 | `/guild/{guildId}` | `Pages/Guilds/Index.cshtml` | Guild overview/dashboard |
@@ -174,10 +199,6 @@ cluster 4a — see "Blazor Routes (Phase 4, permanent)" above.
 | `/guild/{guildId}/members/moderation/{memberId}` | `Pages/Guilds/Members/Moderation.cshtml` | Member moderation actions |
 | `/guild/{guildId}/members/{memberId}` | `Pages/Guilds/Members/_MemberDetailModal.cshtml` | Member detail popup |
 | `/guild/{guildId}/moderation-settings` | `Pages/Guilds/ModerationSettings/Index.cshtml` | Moderation rules configuration |
-| `/guild/{guildId}/reminders` | `Pages/Guilds/Reminders/Index.cshtml` | Scheduled reminders manager |
-| `/guild/{guildId}/scheduled-messages` | `Pages/Guilds/ScheduledMessages/Index.cshtml` | Scheduled messages list |
-| `/guild/{guildId}/scheduled-messages/create` | `Pages/Guilds/ScheduledMessages/Create.cshtml` | Create scheduled message |
-| `/guild/{guildId}/scheduled-messages/edit/{id}` | `Pages/Guilds/ScheduledMessages/Edit.cshtml` | Edit scheduled message |
 | `/guild/{guildId}/analytics` | `Pages/Guilds/Analytics/Index.cshtml` | Analytics overview |
 | `/guild/{guildId}/analytics/engagement` | `Pages/Guilds/Analytics/Engagement.cshtml` | Engagement metrics |
 | `/guild/{guildId}/analytics/moderation` | `Pages/Guilds/Analytics/Moderation.cshtml` | Moderation analytics |

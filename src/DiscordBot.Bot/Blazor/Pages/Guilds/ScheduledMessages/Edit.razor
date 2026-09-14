@@ -1,0 +1,58 @@
+@page "/Guilds/ScheduledMessages/Edit/{guildId:long}/{id:guid}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Guilds/ScheduledMessages/Edit.cshtml + EditModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). Form fields are the shared
+    ScheduledMessageForm.razor plus a status badge and Delete action; see Edit.razor.cs for the
+    load/timezone/submit/delete logic.
+*@
+
+<PageTitle>Edit Scheduled Message</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        @if (NotFoundState)
+        {
+            <EmptyState Type="EmptyStateType.NoData" Title="Scheduled message not found"
+                        Description="It may have been deleted, or belongs to a different server."
+                        PrimaryActionText="Back to Scheduled Messages" PrimaryActionHref="@($"/Guilds/ScheduledMessages/{GuildId}")" />
+        }
+        else
+        {
+            <div class="mb-4 flex items-center gap-3 text-sm text-text-secondary" data-testid="scheduled-message-status">
+                <Badge Text="@StatusLabel" Variant="ScheduledMessageStatusDisplay.Variant(StatusLabel)" Size="BadgeSize.Small" />
+                <span>Created <LocalTime Utc="CreatedAt" Format="date" /></span>
+                @if (LastExecutedAt.HasValue)
+                {
+                    <span>· Last sent <LocalTime Utc="LastExecutedAt.Value" Format="datetime-short" /></span>
+                }
+            </div>
+
+            <EditForm Model="Input" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+                <ScheduledMessageForm Input="Input" Channels="AvailableChannels" DetectedTimeZone="@DetectedTimeZone"
+                                       SubmitLabel="Save Changes" CancelUrl="@($"/Guilds/ScheduledMessages/{GuildId}")"
+                                       ErrorMessage="@ErrorMessage">
+                    <ExtraActions>
+                        <button type="button" disabled="@(!RendererInfo.IsInteractive)" @onclick="RequestDelete"
+                                class="inline-flex items-center justify-center gap-2 px-6 py-2.5 text-sm font-medium text-error bg-transparent border border-error/40 rounded-md hover:bg-error/10 transition-colors disabled:opacity-50">
+                            <Icon Path="@IconPaths.Trash" Class="w-4 h-4" />
+                            Delete
+                        </button>
+                    </ExtraActions>
+                </ScheduledMessageForm>
+            </EditForm>
+        }
+    </ChildContent>
+</GuildContextGate>
+
+<ConfirmModal @ref="_deleteModal" Id="delete-scheduled-message-edit-modal" Title="Delete Scheduled Message"
+              Message="Are you sure you want to delete this scheduled message? This action cannot be undone."
+              ConfirmText="Delete" CancelText="Cancel" Variant="ConfirmationVariant.Danger" />

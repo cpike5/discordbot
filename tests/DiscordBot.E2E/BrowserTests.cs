@@ -1059,6 +1059,240 @@ public sealed class BrowserTests
 
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
 
+    /// <summary>
+    /// Covers the ScheduledMessages Blazor cluster (docs/plans/blazor-port-plan.md Phase 4 cluster
+    /// 4b) end to end: list, edit (prefill + save), pause/resume toggle, and delete. The channel
+    /// select renders empty in this web-only host (no live Discord gateway for
+    /// <c>IDiscordChannelResolver.GetTextChannels</c> to read from), so - per the cluster brief -
+    /// the message itself is seeded directly via SQLite (the same <see cref="BotHostFixture.DatabasePath"/>
+    /// escape hatch <see cref="SeedGuild"/> uses) rather than created through the UI; leaving the
+    /// channel select untouched on Edit still round-trips correctly since Blazor's two-way binding
+    /// keeps <c>Input.ChannelId</c> in C# memory regardless of what the empty dropdown displays.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_W_ScheduledMessages_CreateListEditDelete_RoundTrip()
+    {
+        var (guildId, messageId) = SeedScheduledMessage();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        // Index shows the seeded row.
+        await page.GotoAsync($"/Guilds/ScheduledMessages/{guildId}");
+        var row = page.Locator("[data-testid='scheduled-message-row']");
+        await Expect(row).ToHaveCountAsync(1);
+        await Expect(row).ToContainTextAsync("E2E nightly digest");
+        await Expect(row).ToContainTextAsync("Active");
+
+        // Edit: prefill shows the seeded title/content and a populated local datetime, then save
+        // an edited title.
+        await row.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = "Edit" }).ClickAsync();
+        await page.WaitForTimeoutAsync(1_500);
+        await Expect(page.Locator("#Input_Title")).ToHaveValueAsync("E2E nightly digest");
+        await Expect(page.Locator("#Input_Content")).ToHaveValueAsync("Here's what happened today.");
+        await Expect(page.Locator("#Input_NextExecutionAt")).Not.ToHaveValueAsync(string.Empty);
+
+        await page.Locator("#Input_Title").FillAsync("E2E nightly digest (edited)");
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Changes" }).ClickAsync();
+        await Expect(page).ToHaveURLAsync(new Regex($@"/Guilds/ScheduledMessages/{guildId}$"), new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+        await Expect(page.Locator(".toast-success")).ToBeVisibleAsync();
+        await Expect(row).ToContainTextAsync("E2E nightly digest (edited)");
+
+        // Pause/resume toggle. A fresh page load (rather than trusting the server-side redirect
+        // above to have left a settled, already-attached circuit behind) gives this the same
+        // predictable "just navigated, wait for the circuit" shape Test_R's Index toggle uses.
+        await page.GotoAsync($"/Guilds/ScheduledMessages/{guildId}");
+        await page.WaitForTimeoutAsync(1_500);
+        await row.Locator("button[title='Pause']").ClickAsync();
+        await Expect(row).ToContainTextAsync("Paused", new LocatorAssertionsToContainTextOptions { Timeout = 20_000 });
+
+        // A fresh page load (rather than a second click straight on the row the Pause toggle just
+        // re-rendered) for the same reason as above: toggling is not idempotent, so a retry-click
+        // loop here (the AssertCounterIncrementsAsync shape) risks flipping the state back and
+        // forth if an earlier click actually landed before its own assertion observed it - unlike
+        // a pure counter increment, a missed-vs-landed click can't be told apart from the outside.
+        // A clean reload avoids the ambiguity entirely.
+        await page.GotoAsync($"/Guilds/ScheduledMessages/{guildId}");
+        await page.WaitForTimeoutAsync(1_500);
+        await row.Locator("button[title='Resume']").ClickAsync();
+        await Expect(row).ToContainTextAsync("Active", new LocatorAssertionsToContainTextOptions { Timeout = 20_000 });
+
+        // Delete via the confirm modal -> empty state. A fresh page load first, rather than
+        // deleting straight off the same circuit the Resume toggle just used: a second
+        // GetByIdAsync + DbSet.Update() fetch/save of the same entity's tracked instance within
+        // one long-lived circuit-scoped DbContext, followed by a third GetByIdAsync for Delete,
+        // can throw EF's "already being tracked" InvalidOperationException from
+        // ScheduledMessageRepository's tracked (Include-based) GetByIdAsync + Repository.UpdateAsync's
+        // DbSet.Update() re-attach - a pre-existing Repository<T> gap the old per-request Razor
+        // Pages architecture never exercised (fresh DbContext per POST) but a Blazor circuit's
+        // single long-lived scope can. See docs/lessons-learned/scheduled-message-repeated-update-tracking.md.
+        await page.GotoAsync($"/Guilds/ScheduledMessages/{guildId}");
+        await page.WaitForTimeoutAsync(1_500);
+        await row.Locator("button[title='Delete']").ClickAsync();
+        var deleteModal = page.Locator("#delete-scheduled-message-modal");
+        await Expect(deleteModal).ToBeVisibleAsync();
+        await deleteModal.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Delete" }).ClickAsync();
+        await Expect(page.GetByText("No Scheduled Messages")).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+
+        _ = messageId; // asserted indirectly via the row content above
+    }
+
+    /// <summary>
+    /// Covers the Reminders Blazor cluster (cluster 4b) end to end: a seeded Pending reminder for
+    /// an unresolvable Discord user id renders "Unknown (id)" (there is no live gateway/REST user
+    /// in this web-only host - <see cref="DiscordBot.Bot.Services.Reminders.DiscordReminderUserResolver"/>'s
+    /// documented fallback), and can be cancelled via the confirm modal.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_X_Reminders_ListAndCancel()
+    {
+        var (guildId, reminderId, userId) = SeedReminder();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Guilds/Reminders/{guildId}");
+        var row = page.Locator("[data-testid='reminder-row']");
+        await Expect(row).ToHaveCountAsync(1);
+        await Expect(row).ToContainTextAsync($"Unknown ({userId})");
+        await Expect(row).ToContainTextAsync("Pending");
+
+        await page.WaitForTimeoutAsync(1_500);
+        await row.Locator("button[title='Cancel Reminder']").ClickAsync();
+        var cancelModal = page.Locator("#cancel-reminder-modal");
+        await Expect(cancelModal).ToBeVisibleAsync();
+        await cancelModal.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Cancel Reminder" }).ClickAsync();
+
+        await Expect(row).ToContainTextAsync("Cancelled", new LocatorAssertionsToContainTextOptions { Timeout = 20_000 });
+        await Expect(row.Locator("button[title='Cancel Reminder']")).ToHaveCountAsync(0);
+
+        _ = reminderId; // asserted indirectly via the row content above
+    }
+
+    /// <summary>
+    /// Covers the FeatureRequests Blazor cluster (cluster 4b) end to end: a seeded Submitted
+    /// request lists, opens to Details, and Approve flips it to the Approved badge (reviewer id
+    /// comes from the seeded SuperAdmin's <c>discord:user_id</c> claim - see
+    /// <c>IdentitySeeder</c>/<c>BotHostFixture</c>).
+    /// </summary>
+    [E2EFact]
+    public async Task Test_Y_FeatureRequests_ListDetailsApprove()
+    {
+        var (guildId, requestId) = SeedFeatureRequest();
+
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync($"/Guilds/FeatureRequests/{guildId}");
+        var row = page.Locator("[data-testid='feature-request-row']");
+        await Expect(row).ToHaveCountAsync(1);
+        await Expect(row).ToContainTextAsync("Submitted");
+        await Expect(row).ToContainTextAsync("Add an /export command");
+
+        await row.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = "View Details" }).ClickAsync();
+        await Expect(page.Locator("[data-testid='feature-request-details']")).ToBeVisibleAsync();
+        await page.WaitForTimeoutAsync(1_500);
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Approve", Exact = true }).ClickAsync();
+
+        await Expect(page.Locator("[data-testid='feature-request-details']")).ToContainTextAsync("Approved", new LocatorAssertionsToContainTextOptions { Timeout = 20_000 });
+
+        await page.GotoAsync($"/Guilds/FeatureRequests/{guildId}");
+        await Expect(row).ToContainTextAsync("Approved");
+        _ = requestId; // asserted indirectly via the row content above
+    }
+
+    /// <summary>Seeds one <c>Guilds</c> row and one <c>ScheduledMessages</c> row referencing it, for <see cref="Test_W_ScheduledMessages_CreateListEditDelete_RoundTrip"/>.</summary>
+    private (ulong GuildId, Guid MessageId) SeedScheduledMessage()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000020UL + salt;
+        SeedGuild(guildId, "E2E Scheduled Messages Guild");
+
+        var messageId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO ScheduledMessages (Id, GuildId, ChannelId, Title, Content, CronExpression, Frequency, IsEnabled, LastExecutedAt, NextExecutionAt, CreatedAt, CreatedBy, UpdatedAt)
+            VALUES ($id, $guildId, $channelId, $title, $content, NULL, 3, 1, NULL, $nextExecutionAt, $createdAt, 'e2e-seed', $updatedAt)
+            """;
+        command.Parameters.AddWithValue("$id", messageId);
+        command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+        command.Parameters.AddWithValue("$channelId", unchecked((long)(900000000000000021UL + salt)));
+        command.Parameters.AddWithValue("$title", "E2E nightly digest");
+        command.Parameters.AddWithValue("$content", "Here's what happened today.");
+        command.Parameters.AddWithValue("$nextExecutionAt", now.AddHours(2).ToString("O"));
+        command.Parameters.AddWithValue("$createdAt", now.ToString("O"));
+        command.Parameters.AddWithValue("$updatedAt", now.ToString("O"));
+        command.ExecuteNonQuery();
+
+        return (guildId, messageId);
+    }
+
+    /// <summary>Seeds one <c>Guilds</c> row and one Pending <c>Reminders</c> row referencing it, for <see cref="Test_X_Reminders_ListAndCancel"/>.</summary>
+    private (ulong GuildId, Guid ReminderId, ulong UserId) SeedReminder()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000030UL + salt;
+        SeedGuild(guildId, "E2E Reminders Guild");
+
+        var reminderId = Guid.NewGuid();
+        var userId = 900000000000000031UL + salt;
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO Reminders (Id, GuildId, ChannelId, UserId, Message, TriggerAt, CreatedAt, DeliveredAt, Status, DeliveryAttempts, LastError)
+            VALUES ($id, $guildId, $channelId, $userId, $message, $triggerAt, $createdAt, NULL, 0, 0, NULL)
+            """;
+        command.Parameters.AddWithValue("$id", reminderId);
+        command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+        command.Parameters.AddWithValue("$channelId", unchecked((long)(900000000000000032UL + salt)));
+        command.Parameters.AddWithValue("$userId", unchecked((long)userId));
+        command.Parameters.AddWithValue("$message", "E2E stand-up reminder");
+        command.Parameters.AddWithValue("$triggerAt", now.AddHours(1).ToString("O"));
+        command.Parameters.AddWithValue("$createdAt", now.ToString("O"));
+        command.ExecuteNonQuery();
+
+        return (guildId, reminderId, userId);
+    }
+
+    /// <summary>Seeds one <c>Guilds</c> row and one Submitted <c>FeatureRequests</c> row referencing it, for <see cref="Test_Y_FeatureRequests_ListDetailsApprove"/>.</summary>
+    private (ulong GuildId, Guid RequestId) SeedFeatureRequest()
+    {
+        var salt = (ulong)Random.Shared.NextInt64(1, 1_000_000);
+        var guildId = 900000000000000040UL + salt;
+        SeedGuild(guildId, "E2E Feature Requests Guild");
+
+        var requestId = Guid.NewGuid();
+        var now = DateTime.UtcNow;
+
+        using var connection = new SqliteConnection($"Data Source={_host.DatabasePath}");
+        connection.Open();
+        using var command = connection.CreateCommand();
+        command.CommandText = """
+            INSERT INTO FeatureRequests (Id, GuildId, SubmittedByUserId, Title, Description, GatheredRequirements, ConsolidatedSummary, Status, ReviewedByUserId, ReviewedAt, ReviewNotes, DocBranchName, DocPath, DocGenError, CreatedAt, UpdatedAt)
+            VALUES ($id, $guildId, $userId, $title, $description, NULL, NULL, 0, NULL, NULL, NULL, NULL, NULL, NULL, $createdAt, $updatedAt)
+            """;
+        command.Parameters.AddWithValue("$id", requestId);
+        command.Parameters.AddWithValue("$guildId", unchecked((long)guildId));
+        command.Parameters.AddWithValue("$userId", unchecked((long)(900000000000000041UL + salt)));
+        command.Parameters.AddWithValue("$title", "Add an /export command");
+        command.Parameters.AddWithValue("$description", "Add an /export command");
+        command.Parameters.AddWithValue("$createdAt", now.ToString("O"));
+        command.Parameters.AddWithValue("$updatedAt", now.ToString("O"));
+        command.ExecuteNonQuery();
+
+        return (guildId, requestId);
+    }
+
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");

@@ -256,7 +256,8 @@ Personal reminders delivered via DM with flexible time parsing (relative and abs
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | `/remind set`, `/remind list`, `/remind cancel` (ReminderModule) |
-| **Services** | `IReminderService`, `ITimeParsingService`, `ReminderExecutionService` |
+| **Services** | `IReminderService`, `ITimeParsingService`, `ReminderExecutionService`, `IReminderUserResolver` (Discord username resolution for the admin list, with a REST fallback) |
+| **UI Pages** | `/Guilds/Reminders/{guildId}` (Blazor, `GuildAccess`-gated only, no app role required) - stats cards, status filter, admin cancel |
 | **Database Entities** | `Reminder` |
 | **Configuration** | `ReminderOptions` (max reminders per user, min/max advance time) |
 | **Key Features** | Time parsing (10m, 2h, tomorrow 3pm, etc.), DM delivery, pagination |
@@ -343,7 +344,7 @@ Admin-configurable recurring messages sent to specified channels. Supports cron 
 |--------|------------|
 | **Discord Commands** | `/schedule-list`, `/schedule-create`, `/schedule-edit`, `/schedule-delete` (ScheduleModule, ScheduleComponentModule) |
 | **Services** | `IScheduledMessageService`, `ScheduledMessageExecutionService`, `IInteractionStateService` |
-| **UI Pages** | Admin: Scheduled messages management with CRUD operations |
+| **UI Pages** | `/Guilds/ScheduledMessages/{guildId}` + `Create`/`Edit` (Blazor, `RequireAdmin`) - list with toggle/delete, create/edit form with a live message preview and timezone-aware next-run time (detected IANA zone, converted to/from UTC) |
 | **Database Entities** | `ScheduledMessage` |
 | **Key Features** | Cron expression support, frequency options (daily, weekly, monthly, custom), enable/disable, pagination |
 
@@ -393,6 +394,7 @@ AI-powered feature request submission with optional multi-step DM conversation f
 | **Discord Commands** | `/feature-request` (FeatureRequestModule, FeatureRequestComponentModule) |
 | **Handlers** | `FeatureRequestDmHandler` (multi-step DM conversation) |
 | **Services** | `IFeatureRequestService`, `FeatureRequestConversationService`, `InputValidationService`, `PromptInjectionFilter`, `FeatureRequestToolProvider` |
+| **UI Pages** | `/Guilds/FeatureRequests/{guildId}` + `/{id}` (Blazor, `RequireAdmin`) - status-filtered list, details with status-gated Approve/Reject (review notes, reviewer id from the `discord:user_id` claim) |
 | **Database Entities** | `FeatureRequest`, `FeatureRequestRejection` |
 | **Configuration** | `FeatureRequestsOptions` (`FeatureRequests` section) |
 | **Key Features** | Direct submit for detailed requests (100+ chars), multi-step DM conversation for brief requests, AI requirements gathering, prompt injection filtering, configurable conversation timeout and turn limits, doc generation integration |
