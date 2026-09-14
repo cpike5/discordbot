@@ -1,3 +1,4 @@
+using System.Reflection;
 using Bunit;
 using Bunit.TestDoubles;
 using DiscordBot.Bot.Blazor.Pages.Account;
@@ -20,12 +21,18 @@ namespace DiscordBot.ComponentTests.Blazor.Pages.Account;
 
 /// <summary>
 /// Covers the static SSR port of Pages/Account/LinkDiscord.cshtml + LinkDiscordModel
-/// (docs/plans/blazor-port-plan.md Phase 4 cluster 4c): the three top-level states (not
-/// configured / linked / not linked), the status banner per key, and the unlink two-step
-/// confirmation. Mutation handlers are exercised by submitting the rendered <c>&lt;EditForm&gt;</c>
-/// - bUnit invokes that specific form's own <c>OnValidSubmit</c> delegate directly (it does not
-/// need to simulate the real static-SSR FormName/"_handler" routing to pick the right one among
-/// several), the same approach <c>ProfileTests</c> uses for its single form.
+/// (docs/plans/blazor-port-plan.md Phase 4 cluster 4c): the linked/not-linked states, the status
+/// banner per key, and the unlink two-step confirmation. The page has exactly one named form
+/// dispatched by which submit button's own <c>name</c>/<c>value</c> posted (see
+/// <c>LinkDiscord.razor.cs</c>'s class remarks) - a real static-SSR HTTP mechanism bUnit cannot
+/// exercise (it renders the live component tree directly, with no HTTP form-mapping pipeline
+/// behind it), so a mutation test here sets the relevant <c>ActionForm.*Action</c> field directly
+/// via reflection (the same "reflection stands in for a same-assembly caller" pattern
+/// <c>Admin/Users/EditTests.cs</c> uses for its own <c>protected</c> handlers) and invokes
+/// <c>HandleFormActionAsync</c> - exactly what a real POST would have produced by the time that
+/// method runs. The end-to-end HTTP mechanics (the correct field prefix, the form actually being
+/// found) are verified separately, directly against a running host, not by any automated test in
+/// this repo - see the cluster's PR/session notes.
 /// </summary>
 public class LinkDiscordTests : BlazorComponentTestContext
 {
@@ -89,6 +96,28 @@ public class LinkDiscordTests : BlazorComponentTestContext
         return Render<LinkDiscord>(parameters => parameters.AddCascadingValue(_httpContext));
     }
 
+    /// <summary>
+    /// Sets the given <c>*Action</c> field on the rendered component's <c>ActionForm</c> and
+    /// invokes <c>HandleFormActionAsync</c> - the bUnit stand-in for "a real POST whose clicked
+    /// submit button populated that one field" - see the class remarks.
+    /// </summary>
+    private static async Task SubmitActionAsync(IRenderedComponent<LinkDiscord> cut, Action<LinkDiscord.LinkActionFormModel> setAction)
+    {
+        var formProperty = typeof(LinkDiscord).GetProperty("ActionForm", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("ActionForm property not found on LinkDiscord.");
+        var form = (LinkDiscord.LinkActionFormModel)formProperty.GetValue(cut.Instance)!;
+        setAction(form);
+
+        var method = typeof(LinkDiscord).GetMethod("HandleFormActionAsync", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("HandleFormActionAsync method not found on LinkDiscord.");
+        await cut.InvokeAsync(async () => await (Task)method.Invoke(cut.Instance, null)!);
+
+        // Unlike a real EditForm submit event (which bUnit's own Submit()/TriggerEvent helpers
+        // re-render after automatically), invoking a method directly via reflection does not - a
+        // test asserting on post-invoke markup needs this explicit re-render to see it.
+        cut.Render();
+    }
+
     [Fact]
     public void OAuthNotConfigured_ShowsNotConfiguredMessage_AndNoLinkForm()
     {
@@ -116,8 +145,7 @@ public class LinkDiscordTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderPage();
-        var initiateForm = cut.FindAll("form").First(f => f.QuerySelector("button")?.TextContent.Contains("Start Verification") == true);
-        await cut.InvokeAsync(() => initiateForm.Submit());
+        await SubmitActionAsync(cut, f => f.InitiateVerificationAction = "1");
 
         navMan.Uri.Should().Contain("status=verify-init-success");
     }
@@ -171,8 +199,7 @@ public class LinkDiscordTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderPage();
-        var unlinkForm = cut.FindAll("form").First(f => f.QuerySelector("button")?.TextContent.Contains("Yes, Unlink") == true);
-        await cut.InvokeAsync(() => unlinkForm.Submit());
+        await SubmitActionAsync(cut, f => f.UnlinkAction = "1");
 
         navMan.Uri.Should().Contain("status=unlink-success");
         _linkService.Verify(s => s.UnlinkAsync(LinkedUser, It.IsAny<CancellationToken>()), Times.Once);
@@ -188,14 +215,13 @@ public class LinkDiscordTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderPage();
-        var refreshForm = cut.FindAll("form").First(f => f.QuerySelector("button")?.TextContent.Contains("Refresh Data") == true);
-        await cut.InvokeAsync(() => refreshForm.Submit());
+        await SubmitActionAsync(cut, f => f.RefreshAction = "1");
 
         navMan.Uri.Should().Contain("status=refresh-success");
     }
 
     [Fact]
-    public async Task NotLinked_SubmittingInitiateVerification_ThenShowsCodeEntry_AfterReload()
+    public async Task NotLinked_SubmittingInitiateVerification_Succeeds()
     {
         SetUser(UnlinkedUser);
         _linkService.Setup(s => s.InitiateBotVerificationAsync(UnlinkedUser, It.IsAny<string?>(), It.IsAny<CancellationToken>()))
@@ -203,10 +229,46 @@ public class LinkDiscordTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderPage();
-        var initiateForm = cut.FindAll("form").First(f => f.QuerySelector("button")?.TextContent.Contains("Start Verification") == true);
-        await cut.InvokeAsync(() => initiateForm.Submit());
+        await SubmitActionAsync(cut, f => f.InitiateVerificationAction = "1");
 
         navMan.Uri.Should().Contain("status=verify-init-success");
+    }
+
+    [Fact]
+    public async Task NotLinked_SubmittingVerifyCode_CallsService_WithTheTypedCode()
+    {
+        SetUser(UnlinkedUser);
+        _verificationService.Setup(s => s.GetPendingVerificationAsync(UnlinkedUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new VerificationCode { Id = Guid.NewGuid(), ApplicationUserId = UnlinkedUser.Id, ExpiresAt = DateTime.UtcNow.AddMinutes(10) });
+        _linkService.Setup(s => s.VerifyCodeAsync(UnlinkedUser, "ABC123", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DiscordLinkOperationOutcome(true, "verify-code-success", "someone"));
+        var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
+
+        var cut = RenderPage();
+        await SubmitActionAsync(cut, f =>
+        {
+            f.VerificationCode = "ABC123";
+            f.VerifyCodeAction = "1";
+        });
+
+        navMan.Uri.Should().Contain("status=verify-code-success");
+        _linkService.Verify(s => s.VerifyCodeAsync(UnlinkedUser, "ABC123", It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task NotLinked_SubmittingCancelVerification_CallsService()
+    {
+        SetUser(UnlinkedUser);
+        _verificationService.Setup(s => s.GetPendingVerificationAsync(UnlinkedUser.Id, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new VerificationCode { Id = Guid.NewGuid(), ApplicationUserId = UnlinkedUser.Id, ExpiresAt = DateTime.UtcNow.AddMinutes(10) });
+        _linkService.Setup(s => s.CancelVerificationAsync(UnlinkedUser, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new DiscordLinkOperationOutcome(true, "cancel-success"));
+        var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
+
+        var cut = RenderPage();
+        await SubmitActionAsync(cut, f => f.CancelVerificationAction = "1");
+
+        navMan.Uri.Should().Contain("status=cancel-success");
     }
 
     [Fact]
@@ -220,7 +282,7 @@ public class LinkDiscordTests : BlazorComponentTestContext
 
         cut.Markup.Should().Contain("Verification pending");
         cut.Markup.Should().Contain("Verification Code");
-        cut.FindAll("form").Any(f => f.QuerySelector("button") is { } b && b.TextContent.Contains("Cancel")).Should().BeTrue();
+        cut.FindAll("button").Any(b => b.TextContent.Contains("Cancel")).Should().BeTrue();
     }
 
     [Theory]

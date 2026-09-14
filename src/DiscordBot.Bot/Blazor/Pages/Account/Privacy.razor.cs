@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -25,28 +24,41 @@ namespace DiscordBot.Bot.Blazor.Pages.Account;
 /// <see cref="Detail"/>.
 /// </para>
 /// <para>
-/// <b>Delete-all-data's typed confirmation is ordinary <c>DataAnnotations</c> validation</b>
-/// (<see cref="DeleteDataFormModel.Confirmation"/> requires the literal text <c>DELETE</c>), not a
-/// redirect-driven status key: a mismatched confirmation never reaches
-/// <see cref="HandleDeleteDataAsync"/> at all (<c>EditForm</c>'s <c>OnValidSubmit</c> only fires
-/// once <see cref="DataAnnotationsValidator"/> passes), so it renders inline via
-/// <c>ValidationMessage</c> on the same request, the same way any other <c>EditForm</c> validation
-/// failure does. This replaces the legacy page's client-side <c>quickActions.typedConfirm</c>
-/// JS dialog and its <c>fetch('?handler=DeleteData')</c> JSON round trip - see "Auth in
-/// components" in <c>docs/architecture/patterns.md</c> for why static SSR has neither
-/// <c>IJSRuntime</c> nor a use for that JSON contract. On an actual purge success the user's
-/// session ends (<c>SignInManager.SignOutAsync</c>) and the response redirects to
-/// <c>/landing</c>, so nothing about the purge itself needs a status banner.
+/// <b>ONE named form for the whole page, and every button name carries the bound-model
+/// prefix.</b> Every consent toggle, "Export My Data" and "Delete My Data" share exactly one
+/// <c>[SupplyParameterFromForm(FormName = "privacy-actions")]</c>-bound <see cref="ActionForm"/>,
+/// wrapped in one <c>&lt;EditForm&gt;</c> around the entire linked-state card stack - see
+/// <c>LinkDiscord.razor.cs</c>'s class remarks for the two verified static-SSR constraints this
+/// works around (curl-confirmed against this exact page and a from-scratch minimal repro,
+/// matching the publicly reported dotnet/aspnetcore issues #55808, #55893, #54854): a named
+/// form's static mapping never registers without at least one real <c>InputBase</c>-derived bound
+/// field present in the render (here, <see cref="PrivacyActionFormModel.Confirmation"/>'s
+/// <c>InputText</c> - always rendered once linked, since the Data Management card isn't itself
+/// conditional, so no separate marker field is needed the way <c>LinkDiscord</c> needs one), and a
+/// posted field only binds when its name carries the exact
+/// <c>"ActionForm.{ModelPropertyName}"</c> prefix Blazor's own bound inputs emit - a plain
+/// <c>name="ExportAction"</c> would be silently dropped; it must be
+/// <c>name="ActionForm.ExportAction"</c>. <see cref="HandleFormActionAsync"/> dispatches by which
+/// of <see cref="PrivacyActionFormModel.ConsentAction"/> (encoded <c>"{type}:{grant}"</c>, since
+/// one consent row's Grant/Revoke button needs to carry *two* values and only the clicked
+/// button's own <c>name</c>/<c>value</c> pair is ever posted), <see cref="PrivacyActionFormModel.ExportAction"/>,
+/// or <see cref="PrivacyActionFormModel.DeleteAction"/> is non-null - each populated only by its
+/// own button, not by data annotations or client script.
 /// </para>
 /// <para>
-/// <b>Consent toggle forms are pinned to the two <see cref="ConsentType"/> members that exist
-/// today</b> (<see cref="MessageLoggingConsentForm"/>/<see cref="AssistantUsageConsentForm"/>) -
-/// <c>[SupplyParameterFromForm(FormName = ...)]</c> requires a compile-time constant FormName per
-/// bound property, which an open-ended <c>@@foreach</c> over whatever <see cref="ConsentType"/>
-/// values the service returns cannot supply. A consent type without a matching form here (none
-/// today) renders its status only, with no toggle control - see
-/// <see cref="GetConsentFormName"/>'s remarks. Extend this pair, not the loop, when
-/// <see cref="ConsentType"/> grows.
+/// <b>Delete-all-data's typed confirmation is checked inside <see cref="HandleFormActionAsync"/>
+/// itself</b>, not via <c>DataAnnotationsValidator</c> (dropped along with the per-action
+/// <c>EditForm</c>s above, since <c>OnSubmit</c> always fires regardless of validity): a
+/// mismatched <see cref="PrivacyActionFormModel.Confirmation"/> sets
+/// <see cref="DeleteValidationError"/> and returns without redirecting, so the page re-renders in
+/// place showing the error - the same "stay on the page, show the problem" outcome
+/// <c>ValidationMessage</c> would have given, just decided in C# instead of an attribute. This
+/// replaces the legacy page's client-side <c>quickActions.typedConfirm</c> JS dialog and its
+/// <c>fetch('?handler=DeleteData')</c> JSON round trip entirely - see "Auth in components" in
+/// <c>docs/architecture/patterns.md</c> for why static SSR has neither <c>IJSRuntime</c> nor a use
+/// for that JSON contract. On an actual purge success the user's session ends
+/// (<c>SignInManager.SignOutAsync</c>) and the response redirects to <c>/landing</c>, so nothing
+/// about the purge itself needs a status banner.
 /// </para>
 /// </remarks>
 public partial class Privacy : ComponentBase
@@ -81,20 +93,16 @@ public partial class Privacy : ComponentBase
     [SupplyParameterFromQuery(Name = "detail")]
     protected string? Detail { get; set; }
 
-    [SupplyParameterFromForm(FormName = MessageLoggingFormName)]
-    protected EmptyFormModel MessageLoggingConsentForm { get; set; } = new();
+    /// <summary>The page's one and only named form - see the class remarks.</summary>
+    [SupplyParameterFromForm(FormName = "privacy-actions")]
+    protected PrivacyActionFormModel ActionForm { get; set; } = new();
 
-    [SupplyParameterFromForm(FormName = AssistantUsageFormName)]
-    protected EmptyFormModel AssistantUsageConsentForm { get; set; } = new();
-
-    [SupplyParameterFromForm(FormName = "export-data")]
-    protected EmptyFormModel ExportDataForm { get; set; } = new();
-
-    [SupplyParameterFromForm(FormName = "delete-data")]
-    protected DeleteDataFormModel DeleteDataForm { get; set; } = new();
-
-    protected const string MessageLoggingFormName = "consent-message-logging";
-    protected const string AssistantUsageFormName = "consent-assistant-usage";
+    /// <summary>
+    /// Set by <see cref="HandleFormActionAsync"/> when Delete My Data was submitted with anything
+    /// other than the literal text "DELETE" - rendered inline next to the confirmation input
+    /// instead of redirecting. See the class remarks.
+    /// </summary>
+    protected string? DeleteValidationError { get; private set; }
 
     protected bool UserNotFound { get; private set; }
     protected ApplicationUser? User { get; private set; }
@@ -136,26 +144,41 @@ public partial class Privacy : ComponentBase
     }
 
     /// <summary>
-    /// The FormName for the given <see cref="ConsentType"/> value, or null when there is no form
-    /// wired up for it yet - see the class remarks.
+    /// The page's one submit handler - dispatches by which action field the clicked submit
+    /// button populated. See the class remarks.
     /// </summary>
-    protected static string? GetConsentFormName(int type) => (ConsentType)type switch
+    protected async Task HandleFormActionAsync()
     {
-        ConsentType.MessageLogging => MessageLoggingFormName,
-        ConsentType.AssistantUsage => AssistantUsageFormName,
-        _ => null
-    };
+        if (User is null)
+        {
+            return;
+        }
 
-    protected object? GetConsentFormModel(int type) => (ConsentType)type switch
-    {
-        ConsentType.MessageLogging => MessageLoggingConsentForm,
-        ConsentType.AssistantUsage => AssistantUsageConsentForm,
-        _ => null
-    };
+        if (ActionForm.ConsentAction is not null)
+        {
+            await HandleToggleConsentAsync(ActionForm.ConsentAction);
+        }
+        else if (ActionForm.ExportAction is not null)
+        {
+            await HandleExportDataAsync();
+        }
+        else if (ActionForm.DeleteAction is not null)
+        {
+            await HandleDeleteDataAsync();
+        }
+    }
 
-    protected async Task HandleToggleConsentAsync(int type, bool grant)
+    /// <param name="encoded">The clicked consent button's own value, "{type}:{grant}".</param>
+    private async Task HandleToggleConsentAsync(string encoded)
     {
-        Logger.LogTrace("Entering {MethodName} with type={Type}, grant={Grant}", nameof(HandleToggleConsentAsync), type, grant);
+        Logger.LogTrace("Entering {MethodName} with encoded={Encoded}", nameof(HandleToggleConsentAsync), encoded);
+
+        var parts = encoded.Split(':', 2);
+        if (parts.Length != 2 || !int.TryParse(parts[0], out var type) || !bool.TryParse(parts[1], out var grant))
+        {
+            RedirectWithStatus("consent-error");
+            return;
+        }
 
         if (User is null || !DiscordUserId.HasValue)
         {
@@ -202,7 +225,7 @@ public partial class Privacy : ComponentBase
         }
     }
 
-    protected async Task HandleExportDataAsync()
+    private async Task HandleExportDataAsync()
     {
         Logger.LogTrace("Entering {MethodName}", nameof(HandleExportDataAsync));
 
@@ -242,12 +265,19 @@ public partial class Privacy : ComponentBase
     }
 
     /// <summary>
-    /// Only reachable once <see cref="DeleteDataFormModel.Confirmation"/> has already validated as
-    /// the literal text "DELETE" - see the class remarks.
+    /// Checks the typed confirmation itself (see the class remarks) before doing anything
+    /// irreversible.
     /// </summary>
-    protected async Task HandleDeleteDataAsync()
+    private async Task HandleDeleteDataAsync()
     {
         Logger.LogTrace("Entering {MethodName}", nameof(HandleDeleteDataAsync));
+
+        if (!string.Equals(ActionForm.Confirmation, "DELETE", StringComparison.Ordinal))
+        {
+            Logger.LogWarning("User {UserId} submitted delete-data without the typed DELETE confirmation", User!.Id);
+            DeleteValidationError = "Type DELETE to confirm.";
+            return;
+        }
 
         if (User is null || !DiscordUserId.HasValue)
         {
@@ -343,20 +373,19 @@ public partial class Privacy : ComponentBase
         _ => null
     };
 
-    /// <summary>Marker model for a same-page <see cref="EditForm"/> with no real input fields.</summary>
-    public sealed class EmptyFormModel
-    {
-    }
-
     /// <summary>
-    /// Form-bound model for the "Delete My Data" form. <see cref="Confirmation"/> must be the
-    /// literal text "DELETE" - the server-side replacement for the legacy page's client-side
-    /// typed-confirmation JS dialog (see the class remarks).
+    /// The page's one form-bound model. Exactly one of <see cref="ConsentAction"/>,
+    /// <see cref="ExportAction"/> or <see cref="DeleteAction"/> is non-null on any given submit -
+    /// populated only by the specific submit button that was clicked (its own
+    /// <c>name</c>/<c>value</c> pair), never by data annotations or client script. See the class
+    /// remarks.
     /// </summary>
-    public sealed class DeleteDataFormModel
+    public sealed class PrivacyActionFormModel
     {
-        [Required(ErrorMessage = "Type DELETE to confirm.")]
-        [RegularExpression("^DELETE$", ErrorMessage = "Type DELETE to confirm.")]
+        /// <summary>The clicked consent Grant/Revoke button's own value, encoded "{type}:{grant}".</summary>
+        public string? ConsentAction { get; set; }
+        public string? ExportAction { get; set; }
+        public string? DeleteAction { get; set; }
         public string? Confirmation { get; set; }
     }
 }

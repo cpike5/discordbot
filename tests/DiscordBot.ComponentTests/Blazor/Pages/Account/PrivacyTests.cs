@@ -1,3 +1,4 @@
+using System.Reflection;
 using Bunit;
 using Bunit.TestDoubles;
 using DiscordBot.Bot.Blazor.Pages.Account;
@@ -22,10 +23,15 @@ namespace DiscordBot.ComponentTests.Blazor.Pages.Account;
 /// Covers the static SSR port of Pages/Account/Privacy.cshtml + PrivacyModel
 /// (docs/plans/blazor-port-plan.md Phase 4 cluster 4c): the not-linked callout, consent cards
 /// against mocked statuses, consent history, and the delete-all-data form's typed-confirmation
-/// validation. The delete form's happy path (typed "DELETE", purge succeeds, sign-out + redirect
-/// to /landing) is exercised here directly - bUnit's fake <c>SignInManager</c> mock lets the whole
-/// handler run without a real circuit, unlike a real static-SSR POST (Playwright's job for the
-/// end-to-end redirect mechanics: <c>Test_Z4</c>).
+/// validation. The page has exactly one named form dispatched by which submit button's own
+/// <c>name</c>/<c>value</c> posted (see <c>Privacy.razor.cs</c>'s class remarks) - a real
+/// static-SSR HTTP mechanism bUnit cannot exercise, so a mutation test here sets the relevant
+/// <c>ActionForm</c> field(s) directly via reflection (the same "reflection stands in for a
+/// same-assembly caller" pattern <c>Admin/Users/EditTests.cs</c> uses for its own
+/// <c>protected</c> handlers) and invokes <c>HandleFormActionAsync</c> - exactly what a real POST
+/// would have produced by the time that method runs. The end-to-end HTTP mechanics are verified
+/// separately, directly against a running host, not by any automated test in this repo - see the
+/// cluster's PR/session notes.
 /// </summary>
 public class PrivacyTests : BlazorComponentTestContext
 {
@@ -92,6 +98,29 @@ public class PrivacyTests : BlazorComponentTestContext
         return Render<Privacy>(parameters => parameters.AddCascadingValue(_httpContext));
     }
 
+    /// <summary>
+    /// Sets the given field(s) on the rendered component's <c>ActionForm</c> and invokes
+    /// <c>HandleFormActionAsync</c> - the bUnit stand-in for "a real POST whose clicked submit
+    /// button populated that field" - see the class remarks.
+    /// </summary>
+    private static async Task SubmitActionAsync(IRenderedComponent<Privacy> cut, Action<Privacy.PrivacyActionFormModel> setAction)
+    {
+        var formProperty = typeof(Privacy).GetProperty("ActionForm", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("ActionForm property not found on Privacy.");
+        var form = (Privacy.PrivacyActionFormModel)formProperty.GetValue(cut.Instance)!;
+        setAction(form);
+
+        var method = typeof(Privacy).GetMethod("HandleFormActionAsync", BindingFlags.NonPublic | BindingFlags.Instance)
+            ?? throw new InvalidOperationException("HandleFormActionAsync method not found on Privacy.");
+        await cut.InvokeAsync(async () => await (Task)method.Invoke(cut.Instance, null)!);
+
+        // Unlike a real EditForm submit event (which bUnit's own Submit()/TriggerEvent helpers
+        // re-render after automatically), invoking a method directly via reflection does not - a
+        // test asserting on post-invoke markup (e.g. DeleteValidationError) needs this explicit
+        // re-render to see it.
+        cut.Render();
+    }
+
     [Fact]
     public void NotLinked_RendersCallout_LinkingToLinkDiscord()
     {
@@ -136,8 +165,7 @@ public class PrivacyTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderPage();
-        var form = cut.FindAll("form").First(f => f.QuerySelector("button")?.TextContent.Contains("Grant") == true);
-        await cut.InvokeAsync(() => form.Submit());
+        await SubmitActionAsync(cut, f => f.ConsentAction = $"{(int)ConsentType.AssistantUsage}:True");
 
         navMan.Uri.Should().Contain("status=consent-updated");
         _consentService.Verify(s => s.GrantConsentAsync(LinkedUser.DiscordUserId!.Value, ConsentType.AssistantUsage, It.IsAny<CancellationToken>()), Times.Once);
@@ -163,7 +191,7 @@ public class PrivacyTests : BlazorComponentTestContext
     }
 
     [Fact]
-    public void Linked_DeleteForm_SubmittingWithoutTypingDelete_ShowsValidationError_AndDoesNotPurge()
+    public async Task Linked_DeleteForm_SubmittingWithoutTypingDelete_ShowsValidationError_AndDoesNotPurge()
     {
         SetUser(LinkedUser);
         _consentService.Setup(s => s.GetConsentStatusAsync(LinkedUser.DiscordUserId!.Value, It.IsAny<CancellationToken>()))
@@ -172,9 +200,11 @@ public class PrivacyTests : BlazorComponentTestContext
             .ReturnsAsync(Array.Empty<ConsentHistoryEntryDto>());
 
         var cut = RenderPage();
-        var deleteForm = cut.FindAll("form").First(f => f.QuerySelector("button")?.TextContent.Contains("Delete All Data") == true);
-        deleteForm.QuerySelector("input[placeholder='Type DELETE to confirm']")!.Change("delete"); // wrong case, must be exactly "DELETE"
-        deleteForm.Submit();
+        await SubmitActionAsync(cut, f =>
+        {
+            f.Confirmation = "delete"; // wrong case, must be exactly "DELETE"
+            f.DeleteAction = "1";
+        });
 
         cut.Markup.Should().Contain("Type DELETE to confirm.");
         _purgeService.Verify(s => s.CanPurgeUserAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -196,9 +226,11 @@ public class PrivacyTests : BlazorComponentTestContext
         var navMan = (BunitNavigationManager)Services.GetRequiredService<NavigationManager>();
 
         var cut = RenderPage();
-        var deleteForm = cut.FindAll("form").First(f => f.QuerySelector("button")?.TextContent.Contains("Delete All Data") == true);
-        deleteForm.QuerySelector("input[placeholder='Type DELETE to confirm']")!.Change("DELETE");
-        await cut.InvokeAsync(() => deleteForm.Submit());
+        await SubmitActionAsync(cut, f =>
+        {
+            f.Confirmation = "DELETE";
+            f.DeleteAction = "1";
+        });
 
         _purgeService.Verify(s => s.PurgeUserDataAsync(LinkedUser.DiscordUserId!.Value, PurgeInitiator.User, It.IsAny<string?>(), It.IsAny<CancellationToken>()), Times.Once);
         _signInManager.Verify(s => s.SignOutAsync(), Times.Once);

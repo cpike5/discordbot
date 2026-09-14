@@ -1,4 +1,3 @@
-using System.ComponentModel.DataAnnotations;
 using DiscordBot.Bot.Services;
 using DiscordBot.Bot.Services.Account;
 using DiscordBot.Core.DTOs;
@@ -39,15 +38,52 @@ namespace DiscordBot.Bot.Blazor.Pages.Account;
 /// plain second click is proportionate.
 /// </para>
 /// <para>
-/// <b>Every same-page action is an <see cref="EditForm"/> with a distinct <c>FormName</c></b>,
-/// including the ones with no real input fields (bound to <see cref="EmptyFormModel"/>) - the only
-/// mechanism this codebase has confirmed dispatches a POST to one specific handler on a static SSR
-/// page with several of them (see docs/architecture/patterns.md "Blazor Components" and the
-/// anthropic-skills:blazor forms reference: <c>FormName</c> is mandatory for SSR forms, and only
-/// <c>EditForm</c> auto-wires an <c>OnValidSubmit</c> callback to it). The one exception is the
-/// "Link Discord Account" action, which is a plain <c>&lt;form&gt;</c> posting to a *different*
-/// route (<c>POST /Account/PerformExternalLogin</c>, the minimal-API Discord challenge endpoint
-/// built alongside this cluster) rather than a same-page handler.
+/// <b>ONE named form for the whole page, dispatched by which submit button fired - two verified
+/// static-SSR constraints shape it.</b> An earlier version of this page gave every action
+/// (unlink, refresh, initiate/verify/cancel verification) its own
+/// <c>&lt;EditForm FormName="..."&gt;</c>, each containing only a plain submit button. That
+/// reproduces a real .NET static SSR framework failure this codebase had never hit before -
+/// confirmed with curl against this exact page (bypassing any client JS, so not a Playwright/
+/// enhanced-navigation artifact) and against a from-scratch minimal repro page, isolating two
+/// independent, always-present requirements the framework's static form mapping has for a
+/// <c>[SupplyParameterFromForm(FormName = ...)]</c>-bound form to work at all - matching the
+/// publicly reported dotnet/aspnetcore issues #55808, #55893, #54854:
+/// <list type="number">
+/// <item>The form's mapping registration itself never succeeds unless the render also contains at
+/// least one real <c>InputBase</c>-derived bound field (<c>InputText</c>, etc.) - a form
+/// containing only plain <c>&lt;button name=/value=&gt;</c> pairs and no bound input is never
+/// recognized as "a form on this page" at all (400: "Cannot submit the form 'x' because no form
+/// on the page currently has that name" - or, once far enough to start rendering it, a 500 inside
+/// <c>EndpointHtmlRenderer.ProcessNamedSubmitEventAdditions</c>/<c>FindFormMappingContext</c>,
+/// "The renderer does not have a component with ID N"). <see cref="LinkActionFormModel.FormMarker"/>
+/// is a hidden, otherwise-unused <c>InputText</c> in each <c>EditForm</c> below that exists solely
+/// to satisfy this.
+/// </item>
+/// <item>A posted field only binds through <c>[SupplyParameterFromForm]</c> when its name carries
+/// the exact <c>"{ComponentPropertyName}.{ModelPropertyName}"</c> prefix Blazor's own
+/// <c>InputBase</c>-derived components emit for their own bound fields - a bare
+/// <c>name="UnlinkAction"</c> is silently dropped; it must be
+/// <c>name="ActionForm.UnlinkAction"</c> (verified the same way: posting an unprefixed field came
+/// back null, the prefixed one bound correctly).
+/// </item>
+/// </list>
+/// bUnit never caught either constraint because it invokes <c>OnValidSubmit</c> directly against
+/// the component instance and never exercises the real static-form-mapping HTTP path (see
+/// <c>docs/lessons-learned/blazor-editform-formname-race.md</c> for the same "bUnit can't see
+/// this" gap on a different static/interactive-boundary bug). The fix here goes further than just
+/// satisfying both constraints per action: exactly one
+/// <c>[SupplyParameterFromForm(FormName = "link-discord-actions")]</c>-bound <see cref="ActionForm"/>
+/// for the entire page, wrapped in one or two (mutually exclusive per render) <c>&lt;EditForm&gt;</c>
+/// elements sharing that same FormName, so there is only ever one form-mapping concern to satisfy
+/// per request rather than five. <see cref="HandleFormActionAsync"/> dispatches by which of the
+/// per-action <c>*Action</c> fields is non-null - plain HTML's "only the clicked submit button's
+/// name/value pair is included in the POST" behaviour, not a Blazor mechanism, so it needs no
+/// <see cref="DataAnnotationsValidator"/>/<see cref="Microsoft.AspNetCore.Components.Forms.EditForm.OnValidSubmit"/>
+/// gating - <see cref="Microsoft.AspNetCore.Components.Forms.EditForm.OnSubmit"/> always fires and
+/// the handler itself decides what to do. The "Link Discord Account" OAuth challenge is still a
+/// separate plain <c>&lt;form&gt;</c> posting to a different route entirely
+/// (<c>POST /Account/PerformExternalLogin</c>) - HTML forms cannot nest, so it renders as a
+/// sibling of <see cref="ActionForm"/>'s <c>EditForm</c>, never inside it.
 /// </para>
 /// </remarks>
 public partial class LinkDiscord : ComponentBase
@@ -85,20 +121,9 @@ public partial class LinkDiscord : ComponentBase
     [SupplyParameterFromQuery(Name = "detail")]
     protected string? Detail { get; set; }
 
-    [SupplyParameterFromForm(FormName = "unlink")]
-    protected EmptyFormModel UnlinkForm { get; set; } = new();
-
-    [SupplyParameterFromForm(FormName = "refresh-discord-data")]
-    protected EmptyFormModel RefreshForm { get; set; } = new();
-
-    [SupplyParameterFromForm(FormName = "initiate-verification")]
-    protected EmptyFormModel InitiateVerificationForm { get; set; } = new();
-
-    [SupplyParameterFromForm(FormName = "cancel-verification")]
-    protected EmptyFormModel CancelVerificationForm { get; set; } = new();
-
-    [SupplyParameterFromForm(FormName = "verify-code")]
-    protected VerifyCodeFormModel VerifyCodeForm { get; set; } = new();
+    /// <summary>The page's one and only named form - see the class remarks.</summary>
+    [SupplyParameterFromForm(FormName = "link-discord-actions")]
+    protected LinkActionFormModel ActionForm { get; set; } = new();
 
     protected bool UserNotFound { get; private set; }
     protected ApplicationUser? User { get; private set; }
@@ -156,60 +181,38 @@ public partial class LinkDiscord : ComponentBase
         }
     }
 
-    protected async Task HandleUnlinkAsync()
+    /// <summary>
+    /// The page's one submit handler - dispatches by which action field the clicked submit
+    /// button populated. See the class remarks.
+    /// </summary>
+    protected async Task HandleFormActionAsync()
     {
         if (User is null)
         {
             return;
         }
 
-        var outcome = await LinkService.UnlinkAsync(User);
-        RedirectWithStatus(outcome);
-    }
-
-    protected async Task HandleRefreshAsync()
-    {
-        if (User is null)
+        if (ActionForm.UnlinkAction is not null)
         {
-            return;
+            RedirectWithStatus(await LinkService.UnlinkAsync(User));
         }
-
-        var outcome = await LinkService.RefreshDiscordDataAsync(User);
-        RedirectWithStatus(outcome);
-    }
-
-    protected async Task HandleInitiateVerificationAsync()
-    {
-        if (User is null)
+        else if (ActionForm.RefreshAction is not null)
         {
-            return;
+            RedirectWithStatus(await LinkService.RefreshDiscordDataAsync(User));
         }
-
-        var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
-        var outcome = await LinkService.InitiateBotVerificationAsync(User, ipAddress);
-        RedirectWithStatus(outcome);
-    }
-
-    protected async Task HandleVerifyCodeAsync()
-    {
-        if (User is null)
+        else if (ActionForm.InitiateVerificationAction is not null)
         {
-            return;
+            var ipAddress = HttpContext.Connection.RemoteIpAddress?.ToString();
+            RedirectWithStatus(await LinkService.InitiateBotVerificationAsync(User, ipAddress));
         }
-
-        var outcome = await LinkService.VerifyCodeAsync(User, VerifyCodeForm.VerificationCode);
-        RedirectWithStatus(outcome);
-    }
-
-    protected async Task HandleCancelVerificationAsync()
-    {
-        if (User is null)
+        else if (ActionForm.CancelVerificationAction is not null)
         {
-            return;
+            RedirectWithStatus(await LinkService.CancelVerificationAsync(User));
         }
-
-        var outcome = await LinkService.CancelVerificationAsync(User);
-        RedirectWithStatus(outcome);
+        else if (ActionForm.VerifyCodeAction is not null)
+        {
+            RedirectWithStatus(await LinkService.VerifyCodeAsync(User, ActionForm.VerificationCode));
+        }
     }
 
     private void RedirectWithStatus(DiscordLinkOperationOutcome outcome)
@@ -252,15 +255,26 @@ public partial class LinkDiscord : ComponentBase
         _ => null
     };
 
-    /// <summary>Marker model for a same-page <see cref="EditForm"/> with no real input fields.</summary>
-    public sealed class EmptyFormModel
+    /// <summary>
+    /// The page's one form-bound model. Exactly one of the <c>*Action</c> fields is non-null on
+    /// any given submit - populated only by the specific submit button that was clicked (its own
+    /// <c>name</c>/<c>value</c> pair), never by data annotations or client script. See the class
+    /// remarks.
+    /// </summary>
+    public sealed class LinkActionFormModel
     {
-    }
+        /// <summary>
+        /// Unused otherwise - exists only so this form always contains at least one real
+        /// <c>InputBase</c>-derived bound field, which the framework's static form mapping
+        /// requires to register the form at all. See the class remarks.
+        /// </summary>
+        public string? FormMarker { get; set; } = "1";
 
-    /// <summary>Form-bound model for the verification code entry form.</summary>
-    public sealed class VerifyCodeFormModel
-    {
-        [Required(ErrorMessage = "Please enter a verification code.")]
+        public string? UnlinkAction { get; set; }
+        public string? RefreshAction { get; set; }
+        public string? InitiateVerificationAction { get; set; }
+        public string? CancelVerificationAction { get; set; }
+        public string? VerifyCodeAction { get; set; }
         public string? VerificationCode { get; set; }
     }
 }
