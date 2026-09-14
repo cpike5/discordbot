@@ -1130,6 +1130,65 @@ public sealed class BrowserTests
         _ = requestId; // asserted indirectly via the row content above
     }
 
+    /// <summary>
+    /// Covers the static SSR port of Pages/Account/Login.cshtml + LoginModel end to end
+    /// (docs/plans/blazor-port-plan.md Phase 4 cluster 4c): a wrong password re-renders the same
+    /// page with an error alert and no redirect (not a Blazor <c>NavigationException</c> gone
+    /// wrong), a correct password with <c>?returnUrl=/components</c> lands there instead of the
+    /// default dashboard, and an externally-controlled <c>?returnUrl=https://evil.example</c> is
+    /// rejected (<c>LocalUrl.IsLocal</c>) and falls back to <c>/</c> rather than leaving the
+    /// browser on an attacker-controlled URL.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_Z1_Login_BadPassword_ShowsError_And_ReturnUrl_RoundTrips()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await page.GotoAsync("/Account/Login");
+        await page.Locator("#email").FillAsync(_host.SeededAdminEmail);
+        await page.Locator("#password").FillAsync("definitely-the-wrong-password");
+        await page.Locator("#login-form button[type=submit]").ClickAsync();
+
+        await Expect(page.GetByText("Sign-in failed")).ToBeVisibleAsync();
+        await Expect(page).ToHaveURLAsync(new Regex(@"/Account/Login"));
+
+        await page.GotoAsync("/Account/Login?returnUrl=%2Fcomponents");
+        await page.Locator("#email").FillAsync(_host.SeededAdminEmail);
+        await page.Locator("#password").FillAsync(_host.SeededAdminPassword);
+        await page.Locator("#login-form button[type=submit]").ClickAsync();
+
+        await Expect(page).ToHaveURLAsync($"{_host.BaseUrl}/components", new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+
+        // Still authenticated from the login above - revisiting /Account/Login now takes the
+        // "already authenticated" branch in Login.razor.cs's OnInitialized, which sanitizes and
+        // redirects immediately (no credentials needed), exercising the same LocalUrl.IsLocal
+        // check the OnValidSubmit path uses.
+        await page.GotoAsync("/Account/Login?returnUrl=https%3A%2F%2Fevil.example");
+
+        await Expect(page).ToHaveURLAsync($"{_host.BaseUrl}/", new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+    }
+
+    /// <summary>
+    /// Covers the <c>?authError=</c> contract Login.razor.cs preserves from
+    /// <c>LoginModel.OnGet</c>: <c>discord_unavailable</c> shows its title plus the Discord status
+    /// link, <c>discord_expired</c> shows its own copy with no status link.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_Z2_Login_AuthError_Renders()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await page.GotoAsync("/Account/Login?authError=discord_unavailable");
+        await Expect(page.GetByText("Discord is currently unavailable")).ToBeVisibleAsync();
+        await Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Discord status" })).ToBeVisibleAsync();
+
+        await page.GotoAsync("/Account/Login?authError=discord_expired");
+        await Expect(page.GetByText("Login session expired")).ToBeVisibleAsync();
+        await Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Discord status" })).ToHaveCountAsync(0);
+    }
+
     /// <summary>Seeds one <c>Guilds</c> row and one <c>ScheduledMessages</c> row referencing it, for <see cref="Test_W_ScheduledMessages_CreateListEditDelete_RoundTrip"/>.</summary>
     private (ulong GuildId, Guid MessageId) SeedScheduledMessage()
     {
