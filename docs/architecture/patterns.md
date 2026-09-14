@@ -2144,6 +2144,43 @@ opens. `BlazorCircuitHandler.OnCircuitOpenedAsync` reads `IHttpContextAccessor.H
 *is* available at that one moment) and populates the scoped `CircuitClientInfoService`;
 components read IP/UA from that service instead of `HttpContext`.
 
+### Static-SSR account pages
+
+Sign-in/sign-out (`docs/plans/blazor-port-plan.md` Phase 4 cluster 4c) is the model for every
+account page that stays static SSR (`Login`, `Profile`, `Lockout`, `AccessDenied`, `Privacy`,
+`LinkDiscord`): no `@rendermode`, `HttpContext` cascaded freely per "Auth in components" above,
+and the sign-in/OAuth logic itself pulled into a plain scoped service (`IPasswordSignInService`,
+`IExternalLoginHandler`, both in `Services/Account/`) so it is unit-testable without bUnit or a
+running host - the component is left with only query/form wiring and turning a returned outcome
+into a `NavigationManager.NavigateTo` or a rendered error.
+
+**`FormName` IS required on a static SSR `EditForm`, unlike an interactive one.** This inverts the
+interactive `EditForm` rule (deviation (b) in the port plan's Phase 4a section): an interactive
+`EditForm` always posts back through its own circuit regardless of `FormName`, so that page's rule
+is "don't set it unless a static no-JS fallback is deliberately implemented end to end." A page
+that never goes `@rendermode InteractiveServer` has no circuit to post back through - the browser's
+own POST is the only mechanism - so `FormName` (`Login.razor`'s `FormName="login"`,
+`Profile.razor`'s `FormName="profile-theme"`) is how ASP.NET Core's form-value binder
+(`[SupplyParameterFromForm]`) tells one page's form apart from another's on the same route.
+`EditForm` still emits its own `<AntiforgeryToken />` hidden input automatically; a plain
+`<form>` that isn't an `EditForm` (the Discord challenge button, the logout button) needs an
+explicit `<AntiforgeryToken />` instead.
+
+**The Discord challenge and sign-out live behind minimal-API endpoints, not the page itself.**
+`Extensions/AccountEndpointExtensions.cs`'s `MapAccountEndpoints()` (mapped from `Program.cs` next
+to `MapRazorPages()`) owns `POST /Account/Logout`, `POST /Account/PerformExternalLogin` (the
+Discord `Results.Challenge`), and `GET /Account/ExternalLogin/Callback` - a static SSR page has no
+"page handler" the way a Razor Page did, so a plain `<form method="post" action="...">` posting to
+one of these routes replaces `asp-page-handler`. A minimal API endpoint that binds a parameter with
+`[FromForm]` gets the same antiforgery validation `[ValidateAntiForgeryToken]`/`asp-antiforgery`
+gave a Razor Pages handler automatically, once `app.UseAntiforgery()` is in the pipeline (already
+true here) - no explicit `[ValidateAntiForgeryToken]`/`DisableAntiforgery()` call needed on either
+endpoint. Route strings live as `public const` fields on `Extensions/AccountRoutes` rather than
+being retyped at each call site, since more than one file needs the exact same literal (the cookie
+config's `LoginPath`/`LogoutPath`/`AccessDeniedPath`, the OAuth `OnRemoteFailure` redirect,
+`RedirectToLogin.razor`, `MainNavbar.razor`, and - for `PerformExternalLogin` specifically - any
+other account page whose own Discord-linking action reuses the same challenge endpoint).
+
 ### Circuit observability
 
 `BlazorCircuitHandler : CircuitHandler` (`Blazor/Services/`, registered scoped - one instance per

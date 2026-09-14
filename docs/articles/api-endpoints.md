@@ -18,6 +18,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/Account/Logout` | POST | Sign the current user out, redirect to a sanitized `returnUrl` or `/landing` |
+| `/Account/PerformExternalLogin` | POST | Issue the Discord OAuth challenge |
+| `/Account/ExternalLogin/Callback` | GET | Discord OAuth callback - sign in, link, or create the account |
 | `/api/health` | GET | Health check with database connectivity |
 | `/metrics` | GET | OpenTelemetry metrics (Prometheus format) |
 | `/api/metrics/health` | GET | Overall bot health status |
@@ -142,6 +145,52 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/theme/current` | GET | Get user's current effective theme |
 | `/api/theme/user` | POST | Set user's theme preference |
 | `/api/theme/default` | POST | Set system default theme (SuperAdmin) |
+
+---
+
+## Account Endpoints
+
+Three minimal-API endpoints (`Extensions/AccountEndpointExtensions.cs`, `MapAccountEndpoints()`)
+replacing the POST/GET handlers `Pages/Account/{Login,ExternalLogin,Logout}.cshtml.cs` used to
+carry, now that those Razor Pages are gone in favor of the static SSR
+`Blazor/Pages/Account/Login.razor` (docs/plans/blazor-port-plan.md Phase 4 cluster 4c). All three
+are `[AllowAnonymous]` - a signed-out visitor must be able to reach every one of them - and are not
+part of the versioned `/api/` surface; they exist to be posted to from a browser form, not called
+programmatically.
+
+### POST /Account/Logout
+
+Signs the current user out. Form field: `returnUrl` (optional).
+
+**Authorization:** None (`[AllowAnonymous]`) - any request carrying the auth cookie is signed out; an anonymous POST is a no-op sign-out.
+
+**Antiforgery:** Required automatically - binding a `[FromForm]` parameter on a minimal API endpoint makes ASP.NET Core apply the same antiforgery validation `[ValidateAntiForgeryToken]`/`asp-antiforgery` give a Razor Pages handler, once `app.UseAntiforgery()` is in the pipeline (already true here for Blazor's own `EditForm` support). No `[ValidateAntiForgeryToken]` attribute is written explicitly.
+
+**Behavior:** Audit-logs the sign-out (while the user principal is still available), calls `SignInManager.SignOutAsync()`, then redirects to `returnUrl` if it is a sanitized local path (`LocalUrl.IsLocal` + `ReturnUrlHelper.Sanitize`), otherwise to `/landing`.
+
+**Response:** `302 Found` (a `Results.LocalRedirect`).
+
+### POST /Account/PerformExternalLogin
+
+Issues the Discord OAuth challenge. Form field: `returnUrl` (optional). Posted to by `Login.razor`'s Discord button and Discord-error "Try again" action, and by `Pages/Account/LinkDiscord.cshtml.cs`'s "Link Discord" action (the same endpoint serves both a fresh sign-in and linking an already-authenticated account, since the callback's own linking logic tells the two cases apart).
+
+**Authorization:** None (`[AllowAnonymous]`).
+
+**Antiforgery:** Required automatically, same as `/Account/Logout` above.
+
+**Behavior:** When Discord OAuth isn't configured, redirects to `/Account/Login?authError=discord_error`. Otherwise builds a `RedirectUri` of `/Account/ExternalLogin/Callback?returnUrl=<sanitized returnUrl>` and returns `Results.Challenge` for the `Discord` authentication scheme (the OAuth handshake itself, including the `/signin-discord` middleware callback, is unchanged).
+
+**Response:** `302 Found` (challenge redirect to Discord, or the `discord_error` redirect above).
+
+### GET /Account/ExternalLogin/Callback
+
+The Discord OAuth callback. Query parameters: `returnUrl`, `remoteError` (set by the OAuth middleware on a remote failure).
+
+**Authorization:** None (`[AllowAnonymous]`).
+
+**Behavior:** Delegates to `IExternalLoginHandler` (`Services/Account/`) - remote-failure short-circuit, external login info lookup, token extraction from the external-auth cookie, sign-in-or-link-or-create, token/guild-membership storage, audit logging - then turns the outcome into a redirect: success to the sanitized `returnUrl`, a locked-out account to `/Account/Lockout`, any failure to `/Account/Login?authError=discord_error&returnUrl=...`.
+
+**Response:** `302 Found`.
 
 ---
 

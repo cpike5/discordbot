@@ -29,12 +29,12 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 - **Handlers:** `ActivityEventTrackingHandler`, `MemberEventHandler`
 
 ### Pages
-- **Account:** Login, ExternalLogin, Profile, Privacy, LinkDiscord, Logout, Lockout, AccessDenied
+- **Account (Blazor, Phase 4 cluster 4c):** `Blazor/Pages/Account/Login.razor` (+ `.razor.cs`, static SSR, `EmptyLayout`) is now sign-in — `Pages/Account/{Login,ExternalLogin,Logout}.cshtml(.cs)` are deleted. The email/password flow lives in `Services/Account/IPasswordSignInService`, the Discord OAuth callback flow in `Services/Account/IExternalLoginHandler`, and both are fronted by three `[AllowAnonymous]` minimal-API endpoints in `Extensions/AccountEndpointExtensions.cs` (`POST /Account/Logout`, `POST /Account/PerformExternalLogin` — the Discord challenge, shared by `Login.razor`'s Discord button and `LinkDiscord.cshtml.cs`'s "Link Discord" action — and `GET /Account/ExternalLogin/Callback`). Route strings are `Extensions/AccountRoutes` constants. `Profile`, `Privacy`, `LinkDiscord`, `Lockout`, `AccessDenied` are unchanged from cluster 4a/this cluster's neighbors — `Blazor/Pages/Account/{Profile,Lockout,AccessDenied}.razor` (Blazor) and `Pages/Account/{Privacy,LinkDiscord}.cshtml` (still Razor Pages).
 - **Admin:** `Blazor/Pages/Admin/Users/` (Index, Create, Edit, Details) — ported off `Pages/Admin/Users/*.cshtml` in the Blazor port (`docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4a); `Admin/UserPurge.cshtml` is still a Razor Page
 - **Guild:** `Guilds/Members/` (Index, Moderation)
 
 ### Key Flows
-- **Discord OAuth:** External login → callback → account linking → token storage
+- **Discord OAuth:** `Login.razor`'s Discord button (or `LinkDiscord.cshtml.cs`'s "Link Discord") → `POST /Account/PerformExternalLogin` challenge → `/signin-discord` middleware callback (unchanged) → `GET /Account/ExternalLogin/Callback` → `IExternalLoginHandler` (sign-in existing login, or link/create by Discord id / email / brand-new) → token storage
 - **Verification:** Discord ↔ web account linking via `VerificationCode`
 - **Data export:** `UserDataExportService` generates GDPR-compliant data packages
 - **User purge:** `UserPurgeService` removes all user data across ALL tables — cascading delete
