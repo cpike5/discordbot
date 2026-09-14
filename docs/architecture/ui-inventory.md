@@ -61,7 +61,20 @@ replaces a Razor Page rather than proving the hosting foundation.
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/Search` | `Blazor/Pages/Search.razor` (+ `Search.razor.cs`) | Unified search across guilds, command logs, users, commands, audit logs, message logs, pages, reminders and scheduled messages, `RequireViewer`-gated (admin-only categories additionally require `RequireAdmin`, checked via `IAuthorizationService` from the component). First interactive page ported off `Pages/Search.cshtml`/`SearchModel` (plan §5 Phase 3) — replaces it and the deleted `TagHelpers/HighlightTagHelper.cs` (now `Blazor/Shared/Primitives/Highlight.razor`) in the same change. Reads the term from `?q=` via `[SupplyParameterFromQuery]`, resolves once per term and persists the mapped `SearchResultsViewModel` across the prerender-to-circuit boundary with `PersistentComponentState` (same pattern as `GuildPageBase`, keyed by term instead of a guild id). The `DiscordSocketClient` guild-intersection `SearchModel` did directly is behind `IUserGuildSelectorService` (`Blazor/Services/`) instead, so it can be mocked in bUnit tests. Renders under `MainLayout`. |
+| `/Search` | `Blazor/Pages/Search.razor` (+ `Search.razor.cs`) | Unified search across guilds, command logs, users, commands, audit logs, message logs, pages, reminders and scheduled messages, `RequireViewer`-gated (admin-only categories additionally require `RequireAdmin`, checked via `IAuthorizationService` from the component). First interactive page ported off `Pages/Search.cshtml`/`SearchModel` (plan §5 Phase 3) — replaces it and the deleted `TagHelpers/HighlightTagHelper.cs` (now `Blazor/Shared/Primitives/Highlight.razor`) in the same change. Reads the term from `?q=` via `[SupplyParameterFromQuery]`, resolves once per term and persists the mapped `SearchResultsViewModel` across the prerender-to-circuit boundary with `PersistentComponentState` (same pattern as `GuildPageBase`, keyed by term instead of a guild id). The `DiscordSocketClient` guild-intersection `SearchModel` did directly is behind `IUserGuildSelectorService` (`Blazor/Services/`) instead, so it can be mocked in bUnit tests. Renders under `MainLayout`. Its Command Log/Audit Log rows now use `<LocalTime>` (Phase 4 cluster 4a, see below) instead of a raw `data-utc` span — `OnAfterRenderAsync` calls `BrowserInterop.ConvertLocalTimesAsync()` whenever results changed, since the browser's document-level scan never fires for an in-circuit re-render. |
+
+## Blazor Routes (Phase 4, permanent)
+
+| Route | File | Purpose |
+| --- | --- | --- |
+| `/Account/Profile` | `Blazor/Pages/Account/Profile.razor` (+ `Profile.razor.cs`) | Static SSR, `[Authorize]`, default `MainLayout`. Replaces `Pages/Account/Profile.cshtml` + `ProfileModel` (cluster 4a) — identity card, theme `<EditForm>` (the library's `Select<int?>` bound with an explicit `Name="Input.SelectedThemeId"` since it isn't `InputBase`-derived and so doesn't infer a posted field name), and the "Member Since"/"Last Login" fields now use `<LocalTime>`. The theme save posts, appends the `theme-preference` cookie via the cascaded `HttpContext`, then redirects to `?status=saved\|error` (`[SupplyParameterFromQuery]`) — no `TempData` in a static SSR page. |
+| `/Account/AccessDenied` | `Blazor/Pages/Account/AccessDenied.razor` | Static SSR, `[AllowAnonymous]`, `@layout EmptyLayout`. Replaces `Pages/Account/AccessDenied.cshtml` + `AccessDeniedModel` — `[SupplyParameterFromQuery] ReturnUrl` shows the "Attempted URL" line; "Sign Out" is a plain `<form method="post" action="/Account/Logout">` with an explicit `<AntiforgeryToken />` (not an `EditForm`, so the token isn't automatic — contrast `Profile`). `IdentityConfigOptions.AccessDeniedPath` still points at this literal route. |
+| `/Account/Lockout` | `Blazor/Pages/Account/Lockout.razor` | Static SSR, `[AllowAnonymous]`, `@layout EmptyLayout`. Replaces `Pages/Account/Lockout.cshtml` + `LockoutModel` — static copy, no code-behind logic to port. |
+
+Cluster 4a also adds `Blazor/Shared/Primitives/LocalTime.razor` (see "Blazor Components" below) and
+`wwwroot/js/blazor/localtime.js` (a classic script, loaded from `App.razor` after `shell.js`,
+porting `wwwroot/js/timezone.js`'s `convertDisplayTimes`/`initTimezoneFields`) — the timezone
+conversion `Search`'s own `data-utc` rows were missing since Phase 3 (§5 Phase 3 deviation (c)).
 
 ## Blazor Layouts
 
@@ -103,10 +116,10 @@ the cshtml's inline `onclick`, so they survive the `script-src 'self'` CSP plann
 | `/account/external-login` | `Pages/Account/ExternalLogin.cshtml` | External OAuth flow handler |
 | `/account/link-discord` | `Pages/Account/LinkDiscord.cshtml` | Link Discord account to profile |
 | `/account/logout` | `Pages/Account/Logout.cshtml` | Sign out handler |
-| `/account/access-denied` | `Pages/Account/AccessDenied.cshtml` | Authorization failure page |
-| `/account/lockout` | `Pages/Account/Lockout.cshtml` | Account lockout notification |
 | `/account/privacy` | `Pages/Account/Privacy.cshtml` | Privacy policy page |
-| `/account/profile` | `Pages/Account/Profile.cshtml` | User profile settings |
+
+`/account/access-denied`, `/account/lockout` and `/account/profile` moved to Blazor in Phase 4
+cluster 4a — see "Blazor Routes (Phase 4, permanent)" above.
 
 ### Admin Pages
 
@@ -324,18 +337,19 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 
 ## Blazor Components
 
-The Phase 2 component library (`docs/plans/blazor-port-plan.md` §5 "Phase 2", complete) at
-`src/DiscordBot.Bot/Blazor/Shared/` — 62 components across 7 groups, each namespaced
-`DiscordBot.Bot.Blazor.Shared` regardless of which group subfolder it lives in. See
-`docs/articles/blazor-components.md` for parameters, source partials, and documented fidelity
-deviations per component, and the "Status" section there for what each tier delivered. This table
-supersedes the "Reusable Components" partials above one entry at a time as their consuming pages
-are ported in Phase 4 — until then both the partial and its Blazor equivalent exist.
+The Phase 2 component library (`docs/plans/blazor-port-plan.md` §5 "Phase 2", complete), plus
+additions from later phases, at `src/DiscordBot.Bot/Blazor/Shared/` — 63 components across 7
+groups, each namespaced `DiscordBot.Bot.Blazor.Shared` regardless of which group subfolder it
+lives in. See `docs/articles/blazor-components.md` for parameters, source partials, and documented
+fidelity deviations per component, and the "Status" section there for what each tier delivered.
+This table supersedes the "Reusable Components" partials above one entry at a time as their
+consuming pages are ported in Phase 4 — until then both the partial and its Blazor equivalent
+exist.
 
 | Group | Components |
 | --- | --- |
 | **Icons** (1) | `Icon` (+ the `IconPaths` static class of named `d` path constants) |
-| **Primitives** (17) | `Alert`, `Badge`, `Button`, `Card`, `DashboardWidget`, `EmptyState`, `GuildStatsCard`, `HeroMetricCard`, `Highlight`, `Kbd`, `LoadingSpinner`, `RuleTypeIcon`, `SeverityBadge`, `Skeleton`, `SkeletonCard`, `StatusBadge`, `StatusIndicator` |
+| **Primitives** (18) | `Alert`, `Badge`, `Button`, `Card`, `DashboardWidget`, `EmptyState`, `GuildStatsCard`, `HeroMetricCard`, `Highlight`, `Kbd`, `LoadingSpinner`, `LocalTime`, `RuleTypeIcon`, `SeverityBadge`, `Skeleton`, `SkeletonCard`, `StatusBadge`, `StatusIndicator` |
 | **Forms** (10) | `Autocomplete`, `DateRangeFilter`, `FilterPanel`, `FormField`, `Select`, `SettingField`, `SortDropdown`, `TextArea`, `TextInput`, `Toggle` |
 | **Navigation** (7) | `Breadcrumb`, `GuildContextSelector`, `GuildHeader`, `PageHeader`, `Pagination`, `TabGroup`, `TabPanel` |
 | **Overlays** (7) | `ConfirmModal`, `GuildPreviewPopoverContent`, `LoadingOverlay`, `Modal`, `PreviewPopover`, `ToastHost`, `UserPreviewPopoverContent` |
@@ -343,8 +357,8 @@ are ported in Phase 4 — until then both the partial and its Blazor equivalent 
 | **Tts** (7) | `EmphasisToolbar`, `ModeSwitcher`, `PauseModal`, `PresetBar`, `SsmlPreview`, `StyleSelector`, `VoiceSelector` |
 
 Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Blazor/Shared/`
-(mirroring this same group structure); the full library plus the `/components` showcase page is
-595 tests as of 2026-09-13 (566 at the end of Phase 2) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
+(mirroring this same group structure); the full library plus the `/components` showcase page and
+every ported page is 736 tests as of 2026-09-14 (595 before Phase 4 cluster 4a) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
 
 ---
 

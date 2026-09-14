@@ -606,6 +606,80 @@ public sealed class BrowserTests
         failedResponses.Should().BeEmpty("the sign-out form POST's redirect chain must not end in a 500");
     }
 
+    /// <summary>
+    /// Covers the static SSR port of Pages/Account/Profile.cshtml + ProfileModel end to end
+    /// (docs/plans/blazor-port-plan.md Phase 4 cluster 4a): identity display, the "Not Linked"
+    /// Discord badge (the seeded SuperAdmin carries no Discord link), the client-side
+    /// <c>&lt;LocalTime&gt;</c> conversion this cluster adds, and a real theme save round trip -
+    /// select a different theme, submit the plain POST form, land on <c>?status=saved</c>, then
+    /// reload and confirm both the select and the document's <c>data-theme</c> persisted.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_P_Profile_RendersAndSavesTheme()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Account/Profile");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Profile");
+        // Scoped past MainLayout's own sidebar section headings (also <h2>s - "Overview",
+        // "Administration", "Developer").
+        await Expect(page.Locator("#main-content h2")).ToHaveTextAsync("System Administrator");
+        await Expect(page.Locator("span.badge", new PageLocatorOptions { HasTextString = "Not Linked" })).ToBeVisibleAsync();
+
+        // Proof wwwroot/js/blazor/localtime.js actually ran: the "Member Since" <LocalTime>
+        // element is marked converted and its text no longer matches the server-rendered UTC
+        // fallback ("MMM d, yyyy" - see LocalTime.razor's FallbackText).
+        var memberSinceTime = page.Locator("time[data-utc]").First;
+        await Expect(memberSinceTime).ToHaveAttributeAsync("data-localtime-converted", "1");
+
+        // Two themes are seeded (AddThemeSupport migration): "Discord Dark" (key "discord-dark",
+        // the system default) and "Purple Dusk" (key "purple-dusk") - pick whichever option isn't
+        // already selected so this test doesn't need to guess numeric theme ids.
+        var select = page.Locator("select#SelectedThemeId");
+        var selectedText = await select.Locator("option:checked").TextContentAsync();
+        var targetLabel = selectedText?.Trim() == "Purple Dusk" ? "Discord Dark" : "Purple Dusk";
+        var targetKey = targetLabel == "Purple Dusk" ? "purple-dusk" : "discord-dark";
+        var targetOption = select.Locator("option", new LocatorLocatorOptions { HasText = targetLabel });
+        var targetValue = await targetOption.GetAttributeAsync("value");
+        targetValue.Should().NotBeNullOrEmpty();
+
+        await select.SelectOptionAsync(new SelectOptionValue { Value = targetValue });
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Preferences" }).ClickAsync();
+
+        await Expect(page).ToHaveURLAsync(new Regex(@"/Account/Profile\?status=saved$"));
+        await Expect(page.GetByText("Theme preference saved successfully.")).ToBeVisibleAsync();
+
+        await page.ReloadAsync();
+        await Expect(page.Locator("select#SelectedThemeId")).ToHaveValueAsync(targetValue!);
+        await Expect(page.Locator("html")).ToHaveAttributeAsync("data-theme", targetKey);
+    }
+
+    /// <summary>
+    /// Covers the static SSR ports of Pages/Account/AccessDenied.cshtml and Lockout.cshtml
+    /// (docs/plans/blazor-port-plan.md Phase 4 cluster 4a), both [AllowAnonymous] and reachable
+    /// without signing in - <c>AccessDenied</c> additionally showing the "Attempted URL" line
+    /// when a <c>?returnUrl=</c> is present, matching <c>ForbiddenTests</c>'/Test_N's coverage of
+    /// the sibling error pages.
+    /// </summary>
+    [E2EFact]
+    public async Task Test_Q_AccessDenied_And_Lockout_RenderAnonymously()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+
+        await page.GotoAsync("/Account/AccessDenied?returnUrl=/x");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Access Denied");
+        await Expect(page.Locator("body")).ToContainTextAsync("Attempted URL:");
+        await Expect(page.Locator("body")).ToContainTextAsync("/x");
+
+        await page.GotoAsync("/Account/Lockout");
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Account Locked");
+        await Expect(page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Return to Login" })).ToBeVisibleAsync();
+    }
+
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {

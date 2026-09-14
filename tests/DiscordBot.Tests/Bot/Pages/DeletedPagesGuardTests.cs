@@ -27,6 +27,9 @@ public class DeletedPagesGuardTests
         "/Error/403",
         "/Error/404",
         "/Error/500",
+        "/Account/Profile",
+        "/Account/AccessDenied",
+        "/Account/Lockout",
     };
 
     [Fact]

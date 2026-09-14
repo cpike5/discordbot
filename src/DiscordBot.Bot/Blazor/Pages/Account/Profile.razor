@@ -1,0 +1,209 @@
+@page "/Account/Profile"
+@attribute [Authorize]
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+@*
+    Static SSR port of Pages/Account/Profile.cshtml + ProfileModel (docs/plans/blazor-port-plan.md
+    Phase 4 cluster 4a). No @@rendermode - matches the legacy page, which never needed JS beyond
+    a plain POST. Renders under the default MainLayout (no @@layout override), same as the legacy
+    page's _Layout.
+
+    <EditForm> renders its own <AntiforgeryToken/> hidden input automatically once FormName is set
+    and antiforgery services are registered (Program.cs's app.UseAntiforgery(), see "Hosting model"
+    in docs/architecture/patterns.md) - verified by ProfileTests' antiforgery-field assertion; no
+    explicit <AntiforgeryToken/> needed here (contrast MainNavbar's plain <form>, which isn't an
+    EditForm and does need one explicitly).
+
+    The theme <select> is the library's Select<TValue> (Blazor/Shared/Forms/Select.razor) bound
+    with @@bind-Value plus an explicit Name="Input.SelectedThemeId" - Select isn't InputBase-derived,
+    so (unlike the framework's own InputSelect) it doesn't infer a posted field name from the
+    binding expression; Name has to spell out the "Input.<property>" path [SupplyParameterFromForm]
+    expects for a complex model (see Profile.razor.cs's remarks). TValue=int? lets the placeholder
+    ("Select a theme...") round-trip as a real null through BindConverter, matching
+    ProfileModel.SelectedThemeId's own int? shape - the [Required] on ThemeInputModel gives the
+    browser-native "required" a server-side backstop.
+*@
+
+<PageTitle>Profile - Discord Bot Admin</PageTitle>
+
+@if (UserNotFound)
+{
+    <Alert Variant="AlertVariant.Error" Title="User not found" Message="Your account could not be loaded." />
+}
+else
+{
+    <div class="mb-8">
+        <h1 class="page-title">Profile</h1>
+        <p class="page-subtitle">Manage your account and preferences</p>
+    </div>
+
+    @if (Status == "saved")
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Success" Title="Success" Message="Theme preference saved successfully." />
+        </div>
+    }
+    else if (Status == "error")
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Title="Error" Message="Failed to save theme preference. Please try again." />
+        </div>
+    }
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+        <!-- LEFT COLUMN: User Identity & Account Info -->
+        <div class="space-y-6">
+            <Card>
+                <div class="flex flex-col items-center text-center mb-6">
+                    @if (!string.IsNullOrEmpty(DiscordAvatarUrl))
+                    {
+                        <img src="@DiscordAvatarUrl" alt="@DisplayName" class="w-20 h-20 rounded-full mb-4" />
+                    }
+                    else
+                    {
+                        <div class="w-20 h-20 rounded-full flex items-center justify-center text-2xl font-bold text-white mb-4" style="background: linear-gradient(135deg, var(--color-accent-orange, #e6602b) 0%, var(--color-accent-blue, #3d9ad6) 100%);">
+                            @(string.Join("", DisplayName.Split(' ').Take(2).Select(w => w.FirstOrDefault())).ToUpper())
+                        </div>
+                    }
+                    <h2 class="text-xl font-bold text-text-primary">@DisplayName</h2>
+                    @if (!string.IsNullOrEmpty(Email))
+                    {
+                        <p class="text-sm text-text-secondary mt-1">@Email</p>
+                    }
+                </div>
+
+                <div class="border-t border-border-primary pt-6 pb-6">
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-sm font-medium text-text-primary">Discord Account</p>
+                            @if (HasDiscordLinked)
+                            {
+                                <p class="text-sm text-text-secondary mt-1">@@@DiscordUsername</p>
+                                <p class="text-xs text-text-tertiary mt-1">ID: @DiscordUserId</p>
+                            }
+                            else
+                            {
+                                <p class="text-sm text-text-tertiary mt-1">Not linked</p>
+                            }
+                        </div>
+                        @if (HasDiscordLinked)
+                        {
+                            <Badge Text="Linked" Variant="BadgeVariant.Success" IsPill="true" IconLeft="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" />
+                        }
+                        else
+                        {
+                            <Badge Text="Not Linked" Variant="BadgeVariant.Warning" IsPill="true" IconLeft="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" />
+                        }
+                    </div>
+                </div>
+
+                <div class="border-t border-border-primary pt-6">
+                    <div class="space-y-4">
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Access Level</p>
+                            <Badge Text="@GetRoleDisplayName(UserRole)" Variant="GetRoleBadgeVariant(UserRole)" IconLeft="M13 6a3 3 0 11-6 0 3 3 0 016 0zM18 8a2 2 0 11-4 0 2 2 0 014 0zM14 15a4 4 0 00-8 0v1h8v-1zM6 8a2 2 0 11-4 0 2 2 0 014 0zM16 18v-3a5.972 5.972 0 00-.75-2.906A3.005 3.005 0 0119 15v3h-3zM4.75 12.094A5.973 5.973 0 004 15v3H1v-3a3 3 0 013.75-2.906z" />
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Member Since</p>
+                            <p class="text-sm text-text-primary font-medium">
+                                <LocalTime Utc="CreatedAt" Format="date" />
+                            </p>
+                        </div>
+
+                        <div>
+                            <p class="text-xs text-text-tertiary uppercase tracking-wide mb-2">Last Login</p>
+                            <p class="text-sm text-text-primary font-medium">
+                                @if (LastLoginAt.HasValue)
+                                {
+                                    <LocalTime Utc="LastLoginAt.Value" Format="datetime-short" Title="@FormatLastLogin(LastLoginAt.Value)" />
+                                }
+                                else
+                                {
+                                    <span class="text-text-tertiary">Never</span>
+                                }
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </Card>
+
+            <div class="space-y-2">
+                <a href="/Account/Privacy" class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-tertiary">
+                    <Icon Path="@IconPaths.LockClosed" Class="w-4 h-4" />
+                    Privacy Settings
+                </a>
+                @if (!HasDiscordLinked)
+                {
+                    <a href="/Account/LinkDiscord" class="w-full inline-flex items-center justify-center gap-2 py-2.5 px-4 text-sm font-medium text-text-primary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-tertiary">
+                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                        </svg>
+                        Link Discord Account
+                    </a>
+                }
+            </div>
+        </div>
+
+        <!-- RIGHT COLUMN: Theme & Quick Links -->
+        <div class="space-y-6">
+            <Card Title="Theme Preference" Subtitle="Choose your preferred color scheme">
+                <EditForm Model="Input" OnValidSubmit="SaveThemeAsync" FormName="profile-theme">
+                    <DataAnnotationsValidator />
+
+                    <div class="space-y-4">
+                        <Select TValue="int?" Id="SelectedThemeId" Name="Input.SelectedThemeId"
+                                Label="Color Scheme" Placeholder="Select a theme..." Options="ThemeOptions"
+                                IsRequired="true" HelpText="Your theme preference is synced across all devices."
+                                @bind-Value="Input.SelectedThemeId" />
+
+                        @if (!string.IsNullOrEmpty(CurrentThemeName))
+                        {
+                            <div class="p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-sm font-medium text-text-primary">Current theme:</span>
+                                    <span class="text-sm text-text-secondary">@CurrentThemeName</span>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <span class="text-xs text-text-tertiary">Source:</span>
+                                    <Badge Text="@CurrentThemeSource.ToString()" Variant="GetSourceBadgeVariant(CurrentThemeSource)" Size="BadgeSize.Small" />
+                                </div>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="flex items-center justify-end gap-3 pt-6 mt-6 border-t border-border-primary">
+                        <a href="/Account/Profile" class="inline-flex items-center justify-center py-2 px-4 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md transition-colors hover:bg-bg-tertiary">
+                            Cancel
+                        </a>
+                        <Button Type="submit" Text="Save Preferences" Variant="ButtonVariant.Primary" IconLeft="@IconPaths.Check" />
+                    </div>
+                </EditForm>
+            </Card>
+
+            <Card Title="Quick Links">
+                <div class="space-y-3">
+                    <a href="/Account/Privacy" class="flex items-center gap-2 text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                        <Icon Path="@IconPaths.InformationCircle" Class="w-4 h-4" />
+                        Privacy &amp; Consent
+                    </a>
+                    @if (!HasDiscordLinked)
+                    {
+                        <a href="/Account/LinkDiscord" class="flex items-center gap-2 text-accent-blue hover:text-accent-blue-hover text-sm font-medium transition-colors">
+                            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.658 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+                            </svg>
+                            Link Discord Account
+                        </a>
+                    }
+                </div>
+            </Card>
+
+            <Alert Variant="AlertVariant.Info" Title="Sync your preferences" Message="Your theme and notification settings will be automatically applied when you log in from any device." />
+        </div>
+
+    </div>
+}
