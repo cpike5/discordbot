@@ -128,9 +128,12 @@ public static class IconPaths
     /// <summary>Heroicon <c>code-bracket</c>. "CommandError" notification type icon.</summary>
     public const string CodeBracket = "M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4";
 
-    /// <summary>Heroicon <c>cog</c> (v1 coordinates). <c>MainSidebar</c>'s Settings link, harvested
-    /// verbatim from <c>Pages/Shared/_Sidebar.cshtml</c> (docs/plans/blazor-port-plan.md Phase 3).</summary>
-    public const string Cog = "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z";
+    /// <summary>Heroicon <c>cog</c> (v1 coordinates), with the gear's inner circle as a second
+    /// subpath (same two-<c>&lt;path&gt;</c>-worth-of-<c>d</c> shape as <see cref="Eye"/>).
+    /// <c>MainSidebar</c>'s Settings link, harvested verbatim from
+    /// <c>Pages/Shared/_Sidebar.cshtml</c>'s two <c>&lt;path&gt;</c> elements
+    /// (docs/plans/blazor-port-plan.md Phase 3).</summary>
+    public const string Cog = "M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z M15 12a3 3 0 11-6 0 3 3 0 016 0z";
 
     /// <summary>Heroicon <c>currency-dollar</c>. <c>MainSidebar</c>'s LLM Usage and Currency links
     /// (the same path in both places in <c>_Sidebar.cshtml</c>), harvested verbatim

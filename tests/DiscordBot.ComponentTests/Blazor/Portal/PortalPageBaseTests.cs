@@ -136,4 +136,31 @@ public class PortalPageBaseTests : BlazorComponentTestContext
             Times.Once,
             "the reconnected instance should restore from persisted state, not call the provider again");
     }
+
+    /// <summary>
+    /// Regression coverage for the Phase 3 review finding: <c>{guildId:long}</c> accepts zero and
+    /// negative values, which <c>PortalRoutes</c> shares <c>GuildRoutes</c>'s <c>\d+</c>-based
+    /// matching for and so never resolves - <c>PortalLayout</c> would render no chrome for such a
+    /// URL while this page, unguarded, unchecked-cast the negative/zero <c>long</c> to a huge,
+    /// meaningless <c>ulong</c> and asked the provider to look it up anyway. <c>PortalPageBase</c>
+    /// now short-circuits to GuildNotFound without ever calling the provider.
+    /// </summary>
+    [Theory]
+    [InlineData(0L)]
+    [InlineData(-1L)]
+    [InlineData(long.MinValue)]
+    public void OnInitialized_RendersGuildNotFound_WithoutCallingProvider_WhenGuildIdIsNonPositive(long guildId)
+    {
+        AddBunitPersistentComponentState();
+        AddAuthorization().SetAuthorized("member");
+        var mockProvider = RegisterMockProvider();
+
+        var cut = Render<TestPortalPage>(p => p.Add(x => x.GuildId, guildId));
+
+        cut.Find("[data-testid='outcome']").TextContent.Should().Be("GuildNotFound");
+        cut.FindAll("[data-testid='guild-name']").Should().BeEmpty();
+        mockProvider.Verify(
+            p => p.GetAsync(It.IsAny<ulong>(), It.IsAny<ClaimsPrincipal>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
 }

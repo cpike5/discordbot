@@ -49,9 +49,12 @@ public abstract class GuildPageBase : ComponentBase, IDisposable
     protected bool IsLoading { get; private set; } = true;
 
     private PersistingComponentStateSubscription _persistingSubscription;
-    private ulong? _resolvedGuildId;
 
-    private string PersistenceKey => $"GuildPageBase.GuildContext.{(ulong)GuildId}";
+    // long, not ulong, for the same reason GuildId itself is - see ResolveAsync for where (and
+    // why) the ulong cast actually happens.
+    private long? _resolvedGuildId;
+
+    private string PersistenceKey => $"GuildPageBase.GuildContext.{GuildId}";
 
     protected sealed override async Task OnInitializedAsync()
     {
@@ -61,7 +64,7 @@ public abstract class GuildPageBase : ComponentBase, IDisposable
         {
             Result = restored;
             IsLoading = false;
-            _resolvedGuildId = (ulong)GuildId;
+            _resolvedGuildId = GuildId;
         }
         else
         {
@@ -73,7 +76,7 @@ public abstract class GuildPageBase : ComponentBase, IDisposable
 
     protected sealed override async Task OnParametersSetAsync()
     {
-        if (_resolvedGuildId != (ulong)GuildId)
+        if (_resolvedGuildId != GuildId)
         {
             await ResolveAsync();
             await OnGuildContextReadyAsync();
@@ -90,13 +93,26 @@ public abstract class GuildPageBase : ComponentBase, IDisposable
     private async Task ResolveAsync()
     {
         IsLoading = true;
+        _resolvedGuildId = GuildId;
+
+        if (GuildId <= 0)
+        {
+            // {guildId:long} accepts zero and negative values, which GuildRoutes.TryGetGuildId's
+            // \d+ regex never matches - GuildLayout then renders no chrome for the exact same
+            // URL this page treats as a route. Fail this out as NotFound directly instead of
+            // unchecked-casting a negative/zero long to a huge, meaningless ulong and asking
+            // IGuildContextProvider to look that up.
+            Result = GuildContextResult.NotFound();
+            IsLoading = false;
+            return;
+        }
+
         var guildId = (ulong)GuildId;
         var user = AuthenticationStateTask is not null
             ? (await AuthenticationStateTask).User
             : new ClaimsPrincipal(new ClaimsIdentity());
 
         Result = await ContextProvider.GetAsync(guildId, user);
-        _resolvedGuildId = guildId;
         IsLoading = false;
     }
 

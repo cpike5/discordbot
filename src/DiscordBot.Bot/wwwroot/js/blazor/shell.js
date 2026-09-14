@@ -205,7 +205,12 @@
 
     document.addEventListener('change', function (event) {
         var target = event.target.closest ? event.target.closest('[data-shell-action="navigate-select"]') : null;
-        if (target && target.value) {
+        // Only ever a same-origin relative path in practice (the <option> values come from
+        // GuildNavigationConfig's own tab URLs), but this is still effectively attacker-influenced
+        // navigation if anything ever renders an <option value> from unsanitized data - guard to a
+        // path that starts with "/" and isn't "//" (a scheme-relative URL, e.g. "//evil.example",
+        // which the browser would treat as a full off-origin navigation despite the leading "/").
+        if (target && target.value && target.value.charAt(0) === '/' && target.value.charAt(1) !== '/') {
             window.location.href = target.value;
         }
     });
