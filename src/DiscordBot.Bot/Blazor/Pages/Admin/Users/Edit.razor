@@ -77,7 +77,7 @@
             <div class="px-6 py-4 border-b border-border-primary">
                 <h2 class="text-lg font-semibold text-text-primary">User Information</h2>
             </div>
-            <EditForm Model="Input" OnValidSubmit="HandleValidSubmit" FormName="edit-user" class="p-6 space-y-6">
+            <EditForm Model="Input" OnValidSubmit="HandleValidSubmit" class="p-6 space-y-6">
                 <DataAnnotationsValidator />
 
                 <TextInput Id="Input_Email" Label="Email Address" Type="email" IsRequired="true" @bind-Value="Input.Email" />

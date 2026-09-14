@@ -681,6 +681,81 @@ public sealed class BrowserTests
     }
 
     /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
+    [E2EFact]
+    public async Task Test_R_Users_CreateEditDetails_RoundTrip()
+    {
+        await using var context = await NewContextAsync();
+        var page = await NewPageAsync(context);
+        await LoginAsync(page, _host);
+
+        await page.GotoAsync("/Admin/Users");
+        await Expect(page.Locator("[data-testid='users-row']").Filter(new LocatorFilterOptions { HasTextString = _host.SeededAdminEmail })).ToBeVisibleAsync();
+
+        // Create. An EditForm's submit is only handled by the Interactive Server circuit once
+        // that circuit has actually attached to this freshly-navigated-to page's DOM - a real,
+        // observed race (a click fired earlier is either a silent no-op with no FormName set, as
+        // here, or - with one set - routes into Blazor Web App's static/antiforgery-protected
+        // form-post fallback instead, which this page does not implement). The explicit settle
+        // wait below is a pragmatic stand-in for a reliable "the circuit is attached" signal,
+        // which this codebase does not expose (see AssertCounterIncrementsAsync's own doc comment
+        // on the same underlying gap for a plain button click). Every "submit"-shaped click after
+        // this one gets the same treatment.
+        await page.GotoAsync("/Admin/Users/Create");
+        await page.WaitForTimeoutAsync(1_500);
+        const string email = "e2e-user@example.test";
+        await page.Locator("#Input_Email").FillAsync(email);
+        await page.Locator("#Input_Password").FillAsync("E2eStrongP@ss1");
+        await page.Locator("#Input_ConfirmPassword").FillAsync("E2eStrongP@ss1");
+        await page.Locator("#Input_Role").SelectOptionAsync("Viewer");
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Create User" }).ClickAsync();
+        await Expect(page).ToHaveURLAsync(new Regex(@"/Admin/Users$"), new PageAssertionsToHaveURLOptions { Timeout = 20_000 });
+
+        await Expect(page.Locator(".toast-success")).ToBeVisibleAsync();
+        var newRow = page.Locator("[data-testid='users-row']").Filter(new LocatorFilterOptions { HasTextString = email });
+        await Expect(newRow).ToBeVisibleAsync();
+
+        // Details.
+        await newRow.GetByRole(AriaRole.Link, new LocatorGetByRoleOptions { Name = "View" }).ClickAsync();
+        await Expect(page.Locator("h1")).ToHaveTextAsync("User Details");
+        // GetByText(email) alone is ambiguous here - it also matches the activity-log JSON blob
+        // and the success toast's still-lingering text - so scope to the profile heading.
+        await Expect(page.GetByRole(AriaRole.Heading, new PageGetByRoleOptions { Name = email })).ToBeVisibleAsync();
+
+        // Edit: change display name, save.
+        await page.GetByRole(AriaRole.Link, new PageGetByRoleOptions { Name = "Edit User" }).ClickAsync();
+        await Expect(page.Locator("h1")).ToHaveTextAsync("Edit User");
+        await page.WaitForTimeoutAsync(1_500);
+        await page.Locator("#Input_DisplayName").FillAsync("E2E Test User");
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Save Changes" }).ClickAsync();
+        await Expect(page.Locator(".toast-success")).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+
+        // Reset password via the confirm modal.
+        await page.GetByRole(AriaRole.Button, new PageGetByRoleOptions { Name = "Reset Password", Exact = true }).ClickAsync();
+        var resetModal = page.Locator("#resetPasswordModal");
+        await Expect(resetModal).ToBeVisibleAsync();
+        await resetModal.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Reset Password" }).ClickAsync();
+        // "temporary password" alone is ambiguous (it also matches the Reset Password row's
+        // static help text), so assert it scoped to the generated-password alert specifically.
+        var generatedPassword = page.Locator("[data-testid='generated-password']");
+        await Expect(generatedPassword).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+        await Expect(generatedPassword).ToContainTextAsync("temporary password");
+
+        // Toggle active from Index. The button itself is a plain @onclick, not a <form>, but it
+        // is still the first interaction on this freshly (hard-)navigated page, so it needs the
+        // same settle wait as the two form submits above.
+        await page.GotoAsync("/Admin/Users");
+        var toggleRow = page.Locator("[data-testid='users-row']").Filter(new LocatorFilterOptions { HasTextString = email });
+        await Expect(toggleRow.GetByText("Active", new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync();
+        await page.WaitForTimeoutAsync(1_500);
+        await toggleRow.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Disable" }).ClickAsync();
+        var toggleModal = page.Locator("#toggle-active-modal");
+        await Expect(toggleModal).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+        await toggleModal.GetByRole(AriaRole.Button, new LocatorGetByRoleOptions { Name = "Disable" }).ClickAsync();
+        await Expect(toggleRow.GetByText("Inactive", new LocatorGetByTextOptions { Exact = true })).ToBeVisibleAsync(new LocatorAssertionsToBeVisibleOptions { Timeout = 20_000 });
+    }
+
+    /// <summary>Fills and submits the email/password form on /Account/Login and waits for the redirect to complete.</summary>
+
     private static async Task LoginAsync(IPage page, BotHostFixture host)
     {
         await page.GotoAsync("/Account/Login");
