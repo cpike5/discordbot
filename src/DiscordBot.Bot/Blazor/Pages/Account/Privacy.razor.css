@@ -1,0 +1,17 @@
+/* Ported from Pages/Account/Privacy.cshtml's inline <style> (timeline styles only - the toggle
+   switch styles went away with the switch control itself, replaced by plain Grant/Revoke
+   buttons - see Privacy.razor.cs's class remarks on the consent-toggle form design). Draws the
+   vertical connecting line between consent-history entries. */
+.privacy-timeline-item::before {
+    content: '';
+    position: absolute;
+    left: 1rem;
+    top: 2.25rem;
+    bottom: -0.5rem;
+    width: 2px;
+    background-color: var(--color-border-primary);
+}
+
+.privacy-timeline-item:last-child::before {
+    display: none;
+}

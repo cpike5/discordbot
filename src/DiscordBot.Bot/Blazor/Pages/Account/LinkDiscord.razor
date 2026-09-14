@@ -1,0 +1,292 @@
+@page "/Account/LinkDiscord"
+@attribute [Authorize]
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+@*
+    Static SSR port of Pages/Account/LinkDiscord.cshtml + LinkDiscordModel
+    (docs/plans/blazor-port-plan.md Phase 4 cluster 4c). No @@rendermode - the legacy page never
+    needed JS beyond plain POSTs. Renders under the default MainLayout, same as the legacy page's
+    _Layout. See LinkDiscord.razor.cs's class remarks for the status-key banner mechanism and the
+    unlink two-step design.
+
+    Two top-level states, not three: IsDiscordLinked, or not. "OAuth not configured" is a
+    modifier *within* the not-linked state (it hides the OAuth Link button and its own copy,
+    nothing else) rather than a separate branch - the legacy page nested bot verification inside
+    "OAuth is configured", even though verification authenticates entirely through the Discord
+    bot and never touches the OAuth client, making it unreachable in web-only/no-OAuth mode for
+    no functional reason. Deliberately not preserved; every same-page action is an EditForm with
+    a distinct FormName (only the Discord OAuth challenge is a plain form, since it posts to a
+    different route entirely).
+*@
+
+<PageTitle>Discord Account - Discord Bot Admin</PageTitle>
+
+@if (UserNotFound)
+{
+    <Alert Variant="AlertVariant.Error" Title="User not found" Message="Your account could not be loaded." />
+}
+else
+{
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-text-primary mb-2">Discord Account</h1>
+        <p class="text-text-secondary">Link your Discord account for seamless authentication and guild management</p>
+    </div>
+
+    @if (StatusBanner is { } banner)
+    {
+        <div class="mb-6">
+            <Alert Variant="@(banner.IsSuccess ? AlertVariant.Success : AlertVariant.Error)"
+                   Title="@(banner.IsSuccess ? "Success" : "Error")" Message="@banner.Message" />
+        </div>
+    }
+
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
+
+        @if (IsDiscordLinked)
+        {
+            <div>
+                <div class="flex items-start gap-4 mb-6 pb-6 border-b border-border-primary">
+                    @if (!string.IsNullOrEmpty(DiscordAvatarUrl))
+                    {
+                        <img src="@DiscordAvatarUrl" alt="Discord Avatar" class="w-16 h-16 rounded-full border-2 border-accent-blue" />
+                    }
+                    else
+                    {
+                        <div class="w-16 h-16 rounded-full bg-bg-tertiary border-2 border-border-primary flex items-center justify-center">
+                            <svg class="w-8 h-8 text-text-tertiary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="@DiscordLogoPath" />
+                            </svg>
+                        </div>
+                    }
+
+                    <div class="flex-1">
+                        <div class="flex items-center gap-2 mb-1">
+                            <h2 class="text-xl font-semibold text-text-primary">@(DiscordUsername ?? "Discord User")</h2>
+                            <Badge Text="Linked" Variant="BadgeVariant.Success" />
+                        </div>
+                        @if (DiscordUserId.HasValue)
+                        {
+                            <p class="text-sm text-text-secondary font-mono">ID: @DiscordUserId.Value</p>
+                        }
+                        @if (HasValidToken)
+                        {
+                            <p class="text-xs text-success mt-1 flex items-center gap-1">
+                                <Icon Path="@IconPaths.CheckCircle" Class="w-3.5 h-3.5" />
+                                OAuth token active
+                            </p>
+                        }
+                        else
+                        {
+                            <p class="text-xs text-warning mt-1 flex items-center gap-1">
+                                <Icon Path="@IconPaths.ExclamationTriangle" Class="w-3.5 h-3.5" />
+                                OAuth token expired - re-link to refresh
+                            </p>
+                        }
+                    </div>
+                </div>
+
+                @if (HasValidToken && UserGuilds.Count > 0)
+                {
+                    <div class="mb-6">
+                        <h3 class="text-sm font-semibold text-text-primary mb-3">Your Administered Guilds (@UserGuilds.Count)</h3>
+                        <div class="space-y-2">
+                            @foreach (var guild in UserGuilds)
+                            {
+                                <div class="flex items-center gap-3 p-3 bg-bg-primary rounded-md border border-border-secondary">
+                                    @if (!string.IsNullOrEmpty(guild.IconUrl))
+                                    {
+                                        <img src="@guild.IconUrl" alt="@guild.Name icon" class="w-10 h-10 rounded-full flex-shrink-0" />
+                                    }
+                                    else
+                                    {
+                                        <div class="w-10 h-10 rounded-full bg-bg-tertiary flex items-center justify-center flex-shrink-0">
+                                            <span class="text-text-secondary text-sm font-semibold">@guild.Name.Substring(0, Math.Min(2, guild.Name.Length)).ToUpper()</span>
+                                        </div>
+                                    }
+                                    <div class="flex-1 min-w-0">
+                                        <p class="text-sm font-medium text-text-primary truncate">@guild.Name</p>
+                                        <p class="text-xs text-text-tertiary font-mono">ID: @guild.Id</p>
+                                    </div>
+                                    <Badge Text="@(guild.Owner ? "Owner" : "Admin")" Variant="@(guild.Owner ? BadgeVariant.Orange : BadgeVariant.Blue)" Class="flex-shrink-0" />
+                                </div>
+                            }
+                        </div>
+                    </div>
+                }
+                else if (HasValidToken)
+                {
+                    <div class="mb-6 p-4 bg-info-bg border border-info-border rounded-md">
+                        <p class="text-sm text-info">
+                            You are not an administrator in any Discord servers. You need Administrator or Manage Server permissions to manage guilds through this admin panel.
+                        </p>
+                    </div>
+                }
+
+                <div class="flex items-center justify-between py-4 border-t border-border-primary border-b">
+                    <div>
+                        <p class="text-sm font-medium text-text-primary">Refresh Discord Data</p>
+                        <p class="text-xs text-text-tertiary mt-0.5">Fetch the latest guilds and permissions from Discord</p>
+                    </div>
+                    <EditForm Model="RefreshForm" FormName="refresh-discord-data" OnValidSubmit="HandleRefreshAsync">
+                        <Button Type="submit" Text="Refresh Data" Variant="ButtonVariant.Accent" IconLeft="@IconPaths.ArrowPath" />
+                    </EditForm>
+                </div>
+
+                <div class="pt-4">
+                    <details class="group">
+                        <summary class="inline-flex items-center justify-center py-2 px-4 text-sm font-semibold text-white bg-error border border-error rounded-md transition-colors hover:bg-error/80 cursor-pointer list-none">
+                            Unlink Discord
+                        </summary>
+                        <div class="mt-3 p-4 bg-error-bg border border-error-border rounded-md">
+                            <p class="text-sm text-error mb-3">
+                                Are you sure you want to unlink your Discord account? This will remove guild management access.
+                            </p>
+                            <EditForm Model="UnlinkForm" FormName="unlink" OnValidSubmit="HandleUnlinkAsync">
+                                <Button Type="submit" Text="Yes, Unlink Discord" Variant="ButtonVariant.Danger" />
+                            </EditForm>
+                        </div>
+                    </details>
+                </div>
+            </div>
+        }
+        else
+        {
+            <div class="text-center py-8">
+                @if (!IsDiscordOAuthConfigured)
+                {
+                    <!--
+                        OAuth isn't configured, but bot verification below doesn't depend on it
+                        (it authenticates entirely through the Discord bot, not the OAuth client)
+                        - see LinkDiscord.razor.cs's class remarks for why this differs from the
+                        legacy page, which nested verification under "OAuth is configured" even
+                        though nothing about it actually needs OAuth.
+                    -->
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-warning-bg border-2 border-warning-border rounded-full mb-4">
+                        <Icon Path="@IconPaths.ExclamationTriangle" Class="w-8 h-8 text-warning" />
+                    </div>
+                    <h2 class="text-xl font-semibold text-text-primary mb-2">Discord OAuth Not Configured</h2>
+                    <p class="text-text-secondary text-sm max-w-md mx-auto mb-6">
+                        Discord OAuth authentication is not configured on this server, so "Link Discord Account" isn't available. You can still link your account via the Discord bot below.
+                    </p>
+                }
+                else
+                {
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                        <svg class="w-10 h-10 text-text-secondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                            <path d="@DiscordLogoPath" />
+                        </svg>
+                    </div>
+                    <h2 class="text-xl font-semibold text-text-primary mb-2">No Discord Account Linked</h2>
+                    <p class="text-text-secondary text-sm mb-6 max-w-md mx-auto">
+                        Link your Discord account to enable seamless authentication and access guild management features.
+                    </p>
+
+                    <form method="post" action="/Account/PerformExternalLogin">
+                        <AntiforgeryToken />
+                        <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+                        <button type="submit" class="inline-flex items-center justify-center gap-2.5 py-2.5 px-6 text-sm font-semibold text-white bg-discord border border-discord rounded-md transition-colors hover:bg-discord-hover hover:border-discord-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-discord focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                                <path d="@DiscordLogoPath" />
+                            </svg>
+                            Link Discord Account
+                        </button>
+                    </form>
+
+                    <div class="mt-6 p-4 bg-info-bg border border-info-border rounded-md text-left max-w-md mx-auto">
+                        <p class="text-xs text-info">
+                            <strong>Note:</strong> You'll be redirected to Discord to authorize this application. We only request the permissions necessary for guild management and authentication.
+                        </p>
+                    </div>
+
+                    <div class="relative my-8 max-w-md mx-auto">
+                        <div class="absolute inset-0 flex items-center">
+                            <div class="w-full border-t border-border-primary"></div>
+                        </div>
+                        <div class="relative flex justify-center text-xs">
+                            <span class="px-3 bg-bg-secondary text-text-tertiary">or</span>
+                        </div>
+                    </div>
+                }
+
+                @if (!HasPendingVerification)
+                {
+                    <div class="max-w-md mx-auto text-left">
+                        <div class="flex items-start gap-3 mb-4">
+                            <div class="flex-shrink-0 w-10 h-10 bg-bg-tertiary rounded-lg flex items-center justify-center">
+                                <Icon Path="@IconPaths.Bolt" Class="w-5 h-5 text-text-secondary" />
+                            </div>
+                            <div>
+                                <h3 class="text-base font-semibold text-text-primary">Link via Discord Bot</h3>
+                                <p class="text-sm text-text-secondary mt-1">
+                                    Already in a server with the bot? Link your account by running a command in Discord and entering a verification code here.
+                                </p>
+                            </div>
+                        </div>
+
+                        <EditForm Model="InitiateVerificationForm" FormName="initiate-verification" OnValidSubmit="HandleInitiateVerificationAsync">
+                            <Button Type="submit" Text="Start Verification" Variant="ButtonVariant.Secondary" IconLeft="@IconPaths.Bolt" Class="w-full" />
+                        </EditForm>
+                    </div>
+                }
+                else
+                {
+                    <div class="max-w-md mx-auto text-left">
+                        <div class="p-4 bg-info-bg border border-info-border rounded-lg mb-6">
+                            <div class="flex items-start gap-3">
+                                <Icon Path="@IconPaths.InformationCircle" Class="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                                <div class="text-sm text-info">
+                                    <p class="font-semibold mb-1">Complete verification in Discord</p>
+                                    <ol class="list-decimal list-inside space-y-1 text-info/90">
+                                        <li>Open Discord and go to a server with the bot</li>
+                                        <li>Run the command <code class="px-1.5 py-0.5 bg-info/20 rounded font-mono text-xs">/verify-account</code></li>
+                                        <li>Enter the code you receive below</li>
+                                    </ol>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between mb-4">
+                            <span class="text-sm text-text-secondary">Verification pending</span>
+                            <span class="text-xs text-warning flex items-center gap-1.5">
+                                <Icon Path="@IconPaths.Clock" Class="w-3.5 h-3.5" />
+                                Expires <LocalTime Utc="PendingVerification!.ExpiresAt" Format="time" />
+                            </span>
+                        </div>
+
+                        <EditForm Model="VerifyCodeForm" FormName="verify-code" OnValidSubmit="HandleVerifyCodeAsync">
+                            <DataAnnotationsValidator />
+                            <div class="mb-4">
+                                <label for="VerificationCode" class="block text-sm font-semibold text-text-primary mb-2">
+                                    Verification Code
+                                </label>
+                                <InputText @bind-Value="VerifyCodeForm.VerificationCode" id="VerificationCode" maxlength="7"
+                                           placeholder="ABC-123" autocomplete="off"
+                                           class="w-full px-4 py-3 text-2xl font-mono uppercase text-center tracking-widest text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors hover:border-border-focus focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20" />
+                                <p class="mt-2 text-xs text-text-tertiary">
+                                    Enter the 6-character code from the Discord bot
+                                </p>
+                            </div>
+
+                            <div class="flex gap-3">
+                                <Button Type="submit" Text="Verify" Variant="ButtonVariant.Primary" IconLeft="@IconPaths.Check" Class="flex-1" />
+                            </div>
+                        </EditForm>
+
+                        <EditForm Model="CancelVerificationForm" FormName="cancel-verification" OnValidSubmit="HandleCancelVerificationAsync" class="mt-3">
+                            <Button Type="submit" Text="Cancel" Variant="ButtonVariant.Ghost" Class="w-full" />
+                        </EditForm>
+                    </div>
+                }
+            </div>
+        }
+    </div>
+}
+
+@code {
+    // Discord's logo mark, same path data as the legacy page's inline SVG - IconPaths has no
+    // Discord brand icon (it only carries generic Heroicons), so this stays local rather than
+    // being added to that shared, brand-neutral set.
+    private const string DiscordLogoPath = "M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z";
+}
