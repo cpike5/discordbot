@@ -17,6 +17,15 @@
 
 <GuildContextGate Result="Result">
     <ChildContent Context="guild">
+        @if (LoadFailed)
+        {
+            <div class="mb-6">
+                <Alert Variant="AlertVariant.Error" Title="Couldn't load Rat Watch data" Message="Something went wrong loading this page. Try reloading." />
+            </div>
+        }
+        else
+        {
+
         @if (!string.IsNullOrEmpty(SettingsError))
         {
             <div class="mb-6">
@@ -316,8 +325,8 @@
                 @if (TotalPages > 1)
                 {
                     <div class="px-6 py-4 border-t border-border-primary">
-                        <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" TotalItems="TotalWatches" PageSize="CurrentPageSize"
-                                    Style="PaginationStyle.Compact" OnPageChanged="HandlePageChanged" />
+                        <Pagination CurrentPage="Query.PageNumber" TotalPages="TotalPages" TotalItems="TotalWatches" PageSize="Query.PageSize"
+                                    Style="PaginationStyle.Compact" BaseUrl="@PageUrl" PageParameterName="pageNumber" />
                     </div>
                 }
             </div>
@@ -329,6 +338,8 @@
                             Title="No Rat Watches Yet"
                             Description="No accountability watches have been created in this server. Use the &quot;Rat Watch&quot; context menu on a message in Discord to start one." />
             </div>
+        }
+
         }
 
         <ConfirmModal @ref="_cancelModal" Id="cancelWatchModal" Title="Cancel Rat Watch" Message="@CancelModalMessage"

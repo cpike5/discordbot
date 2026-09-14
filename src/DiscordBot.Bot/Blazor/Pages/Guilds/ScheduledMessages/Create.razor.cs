@@ -64,19 +64,23 @@ public partial class Create : GuildPageBase
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Own post-render work (defaulting <see cref="Input"/>'s next-execution time from the
+    /// viewer's detected timezone) alongside <see cref="GuildPageBase"/>'s local-time-scan
+    /// handling - calls <c>base.OnAfterRenderAsync(firstRender)</c> even though this page renders
+    /// no <c>&lt;LocalTime&gt;</c> today, so a future one added here isn't silently skipped.
+    /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await base.OnAfterRenderAsync(firstRender);
+
         if (firstRender && !_defaultApplied)
         {
             _defaultApplied = true;
             DetectedTimeZone = await BrowserInterop.GetTimeZoneAsync();
 
             var localNow = TimezoneHelper.ConvertFromUtc(DateTime.UtcNow, DetectedTimeZone);
-            var withMargin = localNow.AddMinutes(5);
-            var roundedMinute = (withMargin.Minute / 5 + 1) * 5;
-            var rounded = new DateTime(withMargin.Year, withMargin.Month, withMargin.Day, withMargin.Hour, 0, 0)
-                .AddMinutes(roundedMinute);
-            Input.NextExecutionAt = rounded;
+            Input.NextExecutionAt = RoundUpToNextFiveMinutes(localNow.AddMinutes(5));
             StateHasChanged();
         }
     }
@@ -113,7 +117,22 @@ public partial class Create : GuildPageBase
             return;
         }
 
-        var nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt.Value, DetectedTimeZone);
+        DateTime nextExecutionUtc;
+        try
+        {
+            nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt.Value, DetectedTimeZone);
+        }
+        catch (ArgumentException)
+        {
+            // The chosen local time falls in a DST spring-forward gap (e.g. America/Toronto
+            // 2026-03-08 02:30, which never occurs as clocks jump from 2:00 to 3:00) -
+            // TimeZoneInfo.ConvertTimeToUtc throws for a time that doesn't exist rather than
+            // guessing which side of the gap was meant. Surface it as a field validation message
+            // instead of letting it escape this handler and crash the circuit.
+            ErrorMessage = "That time doesn't exist in your timezone (it falls in a daylight saving time change). Please choose a different time.";
+            return;
+        }
+
         var userId = await GetCurrentUserIdAsync();
 
         var createDto = new ScheduledMessageCreateDto
@@ -152,5 +171,21 @@ public partial class Create : GuildPageBase
 
         var user = (await AuthenticationStateTask).User;
         return user.Identity?.Name ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value ?? "Unknown";
+    }
+
+    /// <summary>
+    /// Rounds <paramref name="value"/> up to the next 5-minute mark, leaving it unchanged if it is
+    /// already on one. Extracted as a pure, publicly-testable method (rather than inline math in
+    /// <see cref="OnAfterRenderAsync"/>) since the rest of that method depends on
+    /// <see cref="BrowserInterop.GetTimeZoneAsync"/> and <see cref="DateTime.UtcNow"/>, neither of
+    /// which a plain unit test can control.
+    /// </summary>
+    public static DateTime RoundUpToNextFiveMinutes(DateTime value)
+    {
+        // Ceiling division: (Minute + 4) / 5 leaves an exact multiple of 5 unchanged (e.g. :20 stays
+        // :20) and still rounds any other minute up to the next mark (e.g. :21 -> :25) - unlike
+        // (Minute / 5 + 1) * 5, which always added a full 5 minutes even when already on a mark.
+        var roundedMinute = (value.Minute + 4) / 5 * 5;
+        return new DateTime(value.Year, value.Month, value.Day, value.Hour, 0, 0, value.Kind).AddMinutes(roundedMinute);
     }
 }

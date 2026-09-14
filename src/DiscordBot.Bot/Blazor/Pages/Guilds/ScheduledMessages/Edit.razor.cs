@@ -1,5 +1,5 @@
-using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Blazor.Interop;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Blazor.Shared;
@@ -118,10 +118,20 @@ public partial class Edit : GuildPageBase
         {
             ApplyDetectedTimeZoneToInput();
         }
+
+        RequestLocalTimeScan();
     }
 
+    /// <summary>
+    /// Own post-render work (detecting the viewer's timezone) alongside
+    /// <see cref="GuildPageBase"/>'s local-time-scan handling - calls
+    /// <c>base.OnAfterRenderAsync(firstRender)</c> so <see cref="GuildPageBase.RequestLocalTimeScan"/>
+    /// (requested from <see cref="LoadAsync"/> above) still runs.
+    /// </summary>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
+        await base.OnAfterRenderAsync(firstRender);
+
         if (firstRender && !_timeZoneApplied)
         {
             DetectedTimeZone = await BrowserInterop.GetTimeZoneAsync();
@@ -173,7 +183,18 @@ public partial class Edit : GuildPageBase
             return;
         }
 
-        var nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt.Value, DetectedTimeZone);
+        DateTime nextExecutionUtc;
+        try
+        {
+            nextExecutionUtc = TimezoneHelper.ConvertToUtc(Input.NextExecutionAt.Value, DetectedTimeZone);
+        }
+        catch (ArgumentException)
+        {
+            // See the identical note in Create.razor.cs's HandleValidSubmit: a DST spring-forward
+            // gap (e.g. America/Toronto 2026-03-08 02:30) has no corresponding UTC instant.
+            ErrorMessage = "That time doesn't exist in your timezone (it falls in a daylight saving time change). Please choose a different time.";
+            return;
+        }
 
         var updateDto = new ScheduledMessageUpdateDto
         {

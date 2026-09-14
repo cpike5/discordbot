@@ -27,7 +27,11 @@
             </div>
         </div>
 
-        @if (Items.Count == 0)
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load feature requests" Message="Something went wrong loading this list. Try reloading the page." Class="mb-6" />
+        }
+        else if (Items.Count == 0)
         {
             <EmptyState Type="EmptyStateType.NoResults" Title="No feature requests found"
                         Description="@(StatusFilter.HasValue ? "Try adjusting your filters." : "No feature requests have been submitted yet.")" />

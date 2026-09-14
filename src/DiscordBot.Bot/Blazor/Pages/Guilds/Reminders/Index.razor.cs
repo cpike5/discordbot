@@ -54,8 +54,12 @@ public partial class Index : GuildPageBase
     [Inject]
     private NavigationManager NavigationManager { get; set; } = default!;
 
+    [Inject]
+    private ILogger<Index> Logger { get; set; } = default!;
+
     protected IReadOnlyList<ReminderRow> Rows { get; private set; } = [];
     protected int TotalCount { get; private set; }
+    protected bool LoadFailed { get; private set; }
     protected PagedQuery Query { get; private set; } = new(1, PageSize);
     protected int TotalPages => Query.PageSize > 0 ? (int)Math.Ceiling((double)TotalCount / Query.PageSize) : 0;
 
@@ -67,6 +71,9 @@ public partial class Index : GuildPageBase
     private ConfirmModal? _cancelModal;
     private ReminderRow? _pendingCancel;
     private (ReminderStatus?, int?, int?) _resolvedQuery;
+
+    /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>'s field of the same name.</summary>
+    private int _loadGeneration;
 
     protected string ToggleModalMessage => _pendingCancel is null
         ? string.Empty
@@ -89,7 +96,7 @@ public partial class Index : GuildPageBase
 
         if (Guild is not null && _resolvedQuery != CurrentQueryKey)
         {
-            _ = ReloadAndRerenderAsync();
+            _ = InvokeAsync(ReloadAndRerenderAsync);
         }
     }
 
@@ -103,27 +110,51 @@ public partial class Index : GuildPageBase
 
     private async Task LoadAsync()
     {
+        var generation = ++_loadGeneration;
+        LoadFailed = false;
         _resolvedQuery = CurrentQueryKey;
         Query = PagedQuery.FromQuery(PageNumber, null, defaultPageSize: PageSize, legacyPage: LegacyPage);
 
         var guildId = (ulong)GuildId;
-        var (reminders, total) = await ReminderRepository.GetByGuildAsync(guildId, Query.PageNumber, Query.PageSize, Status);
-        var (statTotal, statPending, statDeliveredToday, statFailed) = await ReminderRepository.GetGuildStatsAsync(guildId);
 
-        TotalCount = total;
-        StatTotal = statTotal;
-        StatPending = statPending;
-        StatDeliveredToday = statDeliveredToday;
-        StatFailed = statFailed;
-
-        var rows = new List<ReminderRow>();
-        foreach (var reminder in reminders)
+        try
         {
-            var userInfo = await UserResolver.ResolveAsync(guildId, reminder.UserId);
-            rows.Add(new ReminderRow(reminder, userInfo.Username, userInfo.AvatarUrl));
-        }
+            var (reminders, total) = await ReminderRepository.GetByGuildAsync(guildId, Query.PageNumber, Query.PageSize, Status);
+            var (statTotal, statPending, statDeliveredToday, statFailed) = await ReminderRepository.GetGuildStatsAsync(guildId);
 
-        Rows = rows;
+            var rows = new List<ReminderRow>();
+            foreach (var reminder in reminders)
+            {
+                var userInfo = await UserResolver.ResolveAsync(guildId, reminder.UserId);
+                rows.Add(new ReminderRow(reminder, userInfo.Username, userInfo.AvatarUrl));
+            }
+
+            if (generation != _loadGeneration)
+            {
+                // A newer load (another query-string change, or a cancel-then-reload) already
+                // superseded this one - its result wins.
+                return;
+            }
+
+            TotalCount = total;
+            StatTotal = statTotal;
+            StatPending = statPending;
+            StatDeliveredToday = statDeliveredToday;
+            StatFailed = statFailed;
+            Rows = rows;
+            RequestLocalTimeScan();
+        }
+        catch (Exception ex)
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            Logger.LogError(ex, "Failed to load reminders for guild {GuildId}", guildId);
+            LoadFailed = true;
+            Toast.Error("Failed to load reminders.");
+        }
     }
 
     protected string PageUrl => $"/Guilds/Reminders/{GuildId}{FilterSuffix}";

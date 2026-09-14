@@ -95,6 +95,64 @@ public class IndexTests : BlazorComponentTestContext
         _ratWatchService.Verify(s => s.GetGuildSettingsAsync(It.IsAny<ulong>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
+    /// <summary>
+    /// Covers docs review finding 8: pagination is now <see cref="Bot.Blazor.Common.PagedQuery"/> +
+    /// link-mode <c>Pagination</c>, so a page 2 link is a real <c>&lt;a href&gt;</c> carrying
+    /// <c>pageNumber=2</c> (browser back/forward works) rather than a callback-mode
+    /// <c>&lt;button&gt;</c> that only mutated in-memory state.
+    /// </summary>
+    [Fact]
+    public void MultiplePages_RendersPageLinkWithPageNumberQueryString()
+    {
+        _ratWatchService.Setup(s => s.GetByGuildAsync(GuildId, 1, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Enumerable.Range(0, 20).Select(i => MakeWatch(Guid.NewGuid())).ToArray(), 25));
+
+        var cut = RenderPage();
+
+        var link = cut.FindAll("a").SingleOrDefault(a => a.GetAttribute("href")?.Contains("pageNumber=2") == true);
+        link.Should().NotBeNull("page 2 should render as a real link, not a callback-mode button");
+    }
+
+    /// <summary>Navigating straight to a <c>?pageNumber=</c> URL (a bookmark, or browser back/forward
+    /// after a page-link click) loads that page directly - no client-side callback state needed.</summary>
+    [Fact]
+    public void NavigatingToPageNumberQuery_LoadsThatPage()
+    {
+        _ratWatchService.Setup(s => s.GetByGuildAsync(GuildId, 2, 20, It.IsAny<CancellationToken>()))
+            .ReturnsAsync((new[] { MakeWatch(Guid.NewGuid()) }, 25));
+
+        var cut = RenderPage($"/Guilds/RatWatch/{GuildId}?pageNumber=2");
+
+        cut.WaitForAssertion(() =>
+            _ratWatchService.Verify(s => s.GetByGuildAsync(GuildId, 2, 20, It.IsAny<CancellationToken>()), Times.Once));
+    }
+
+    /// <summary>A failed load renders the "couldn't load" alert instead of a misleading empty state.</summary>
+    [Fact]
+    public void LoadThrows_RendersCouldNotLoadAlert_NotEmptyState()
+    {
+        _ratWatchService.Setup(s => s.GetGuildSettingsAsync(GuildId, It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var cut = RenderPage();
+
+        cut.Markup.Should().Contain("Couldn't load Rat Watch data");
+        cut.Markup.Should().NotContain("No Rat Watches Yet");
+    }
+
+    private static RatWatchDto MakeWatch(Guid id) => new()
+    {
+        Id = id,
+        GuildId = GuildId,
+        AccusedUserId = 1,
+        AccusedUsername = "accused",
+        InitiatorUserId = 2,
+        InitiatorUsername = "initiator",
+        Status = RatWatchStatus.Pending,
+        ScheduledAt = DateTime.UtcNow,
+        CreatedAt = DateTime.UtcNow
+    };
+
     [Fact]
     public void EditSettings_InvalidTimezone_ShowsErrorAndDoesNotSave()
     {

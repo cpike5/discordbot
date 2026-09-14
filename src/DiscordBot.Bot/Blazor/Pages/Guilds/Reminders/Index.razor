@@ -67,7 +67,11 @@
             </div>
         </div>
 
-        @if (TotalCount > 0)
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load reminders" Message="Something went wrong loading this list. Try reloading the page." />
+        }
+        else if (TotalCount > 0)
         {
             <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
                 <div class="overflow-x-auto">

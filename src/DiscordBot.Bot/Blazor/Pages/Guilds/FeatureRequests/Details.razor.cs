@@ -39,9 +39,13 @@ public partial class Details : GuildPageBase
 
     protected FeatureRequest? Item { get; private set; }
     protected bool NotFoundState { get; private set; }
+    protected bool LoadFailed { get; private set; }
     protected string ReviewNotes { get; set; } = string.Empty;
 
     private Guid _resolvedId;
+
+    /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>'s field of the same name.</summary>
+    private int _loadGeneration;
 
     protected GatheredRequirements? Gathered { get; private set; }
 
@@ -63,7 +67,7 @@ public partial class Details : GuildPageBase
 
         if (Guild is not null && _resolvedId != Id)
         {
-            _ = ReloadAndRerenderAsync();
+            _ = InvokeAsync(ReloadAndRerenderAsync);
         }
     }
 
@@ -75,17 +79,43 @@ public partial class Details : GuildPageBase
 
     private async Task LoadAsync()
     {
+        var generation = ++_loadGeneration;
+        LoadFailed = false;
         _resolvedId = Id;
-        Item = await Service.GetByIdAsync(Id);
-        NotFoundState = Item is null || Item.GuildId != (ulong)GuildId;
-        if (NotFoundState)
-        {
-            Item = null;
-            Gathered = null;
-            return;
-        }
 
-        Gathered = TryParseGathered(Item!.GatheredRequirements);
+        try
+        {
+            var item = await Service.GetByIdAsync(Id);
+            if (generation != _loadGeneration)
+            {
+                // A newer load (a different Id navigated to, or a review action's reload) already
+                // superseded this one - its result wins.
+                return;
+            }
+
+            Item = item;
+            NotFoundState = Item is null || Item.GuildId != (ulong)GuildId;
+            if (NotFoundState)
+            {
+                Item = null;
+                Gathered = null;
+                return;
+            }
+
+            Gathered = TryParseGathered(Item!.GatheredRequirements);
+            RequestLocalTimeScan();
+        }
+        catch (Exception ex)
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            Logger.LogError(ex, "Failed to load feature request {RequestId} for guild {GuildId}", Id, GuildId);
+            LoadFailed = true;
+            Toast.Error("Failed to load this feature request.");
+        }
     }
 
     private static GatheredRequirements? TryParseGathered(string? json)

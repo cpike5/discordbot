@@ -2196,7 +2196,18 @@ Phase 3):
   during prerender and again when the circuit reconnects. A derived page overrides the virtual
   `OnGuildContextReadyAsync()` hook for its own data loading instead of the lifecycle methods
   directly, which are sealed so that bookkeeping can't be bypassed by accident. Exposes `Result`,
-  `Guild` (shorthand for `Result?.Context`), and `IsLoading` as `protected`.
+  `Guild` (shorthand for `Result?.Context`), and `IsLoading` as `protected`. Also carries the
+  local-time-scan bookkeeping every page that renders `<LocalTime>` and can re-render its data
+  needs: a protected `RequestLocalTimeScan()` a page calls at the end of every successful
+  load/reload, and a virtual `OnAfterRenderAsync` override (not sealed, since a page with its own
+  post-render work - `ScheduledMessages/Edit.razor.cs` detecting the viewer's timezone - overrides
+  it too and calls `base.OnAfterRenderAsync(firstRender)` alongside its own logic) that runs the
+  scan when requested. `localtime.js`'s document-level scan only fires once, on the very first
+  render, so a page whose rows can change after that (paging, a filter, an action that reloads the
+  list) without this would show the raw UTC fallback for any row rendered afterward - this was
+  originally per-page boilerplate (see `Blazor/Pages/Admin/Users/Index.razor.cs`, still its own
+  copy since it isn't a guild page) before being lifted into `GuildPageBase` so a guild list/detail
+  page gets it for free.
 - **`GuildContextGate.razor`** renders the four states a `GuildContextResult` can be in - still
   loading, not found, forbidden, or the page via a `RenderFragment<GuildContext> ChildContent` -
   with `NotFoundContent`/`ForbiddenContent`/`LoadingContent` parameters to override any of the
@@ -2304,7 +2315,11 @@ and are never re-rendered once a circuit takes over.
 ### Paged list pages
 
 Standardised on `Blazor/Common/PagedQuery.cs` (plan §5 Phase 4, cluster 4b) rather than each guild
-list page inventing its own page/size fields: a `record` of `PageNumber` (clamped ≥ 1),
+list page inventing its own page/size fields - all four paged guild lists (`FeatureRequests/Index`,
+`Reminders/Index`, `RatWatch/Index`, `AudioModerationLog/Index`) share it, the latter two ported
+onto it after initially shipping hand-rolled component-state paging (a one-time `_seeded` flag,
+callback-mode `Pagination`) that changed the URL without the URL ever being the source of truth,
+so browser back/forward across a page change did nothing. A `record` of `PageNumber` (clamped ≥ 1),
 `PageSize` (clamped to [1, 100], default per page), `SortBy`/`SortDescending`, built once per load
 via `PagedQuery.FromQuery(pageNumber, pageSize, sortBy, sortDescending, defaultPageSize,
 legacyPage)` and rendered with `Blazor/Shared/Navigation/Pagination.razor` in link mode
@@ -2312,12 +2327,28 @@ legacyPage)` and rendered with `Blazor/Shared/Navigation/Pagination.razor` in li
 `pageSize`). A page binds the matching `[SupplyParameterFromQuery]` names (`pageNumber`,
 `pageSize`, `sortBy`, `sortDescending`; a filter like a status enum keeps its own query name,
 e.g. `status`) and, since a query-string-only change doesn't re-trigger `GuildPageBase`'s sealed
-`OnParametersSetAsync` (see "GuildContext" above), reloads via an `OnParametersSet()` override
-that fire-and-forgets the reload and calls `StateHasChanged()` itself -
-`Blazor/Pages/Guilds/FeatureRequests/Index.razor.cs` is the reference example. `legacyPage` lets
-`FromQuery` fall back to an old `?page=` value when `pageNumber` is absent, so bookmarks and
-existing plain-`href` widget links (e.g. `Guilds/Details`) built before this standardisation keep
-resolving without an edit on their end.
+`OnParametersSetAsync` (see "GuildContext" above), reloads via an `OnParametersSet()` override -
+still synchronous, since that lifecycle method can't be awaited and the async pair is sealed.
+`legacyPage` lets `FromQuery` fall back to an old `?page=` value when `pageNumber` is absent, so
+bookmarks and existing plain-`href` widget links (e.g. `Guilds/Details`) built before this
+standardisation keep resolving without an edit on their end.
+
+That synchronous hook still has to kick off an async reload somehow, and two mistakes are easy to
+make there: a bare `_ = ReloadAsync()` leaves the task's exceptions unobserved (a failed query
+becomes a silently-stuck loading spinner, or - worse - an exception that surfaces somewhere
+unrelated later), and two query-string changes landing in quick succession can race, with the
+first load's slower response overwriting the second, newer one's result. `Blazor/Pages/Guilds/FeatureRequests/Index.razor.cs`
+is the reference example for avoiding both: the hook dispatches through `InvokeAsync(ReloadAndRerenderAsync)`
+rather than a bare fire-and-forget, so the reload runs on the renderer's synchronization context
+like any other UI-driven call; `LoadAsync` itself increments a private `_loadGeneration` counter at
+the top, captures that value, and checks it again after every `await` before writing to any
+`protected` state - a load whose generation no longer matches the field (a newer load started
+while this one was in flight) discards its result instead of applying it; and the whole body after
+the counter increment is wrapped in `try`/`catch`, logging at Error, toasting, and setting a
+`LoadFailed` flag the markup renders as an `Alert` in place of the list - never a plain empty
+state, which would read as "there's nothing here" rather than "the query failed". A handler that
+reloads directly (a cancel, an approve/reject) can just `await LoadAsync()` - the generation counter
+still protects it against a slower `OnParametersSet`-triggered reload finishing after it.
 
 ### Gotchas carried over from CLAUDE.md
 

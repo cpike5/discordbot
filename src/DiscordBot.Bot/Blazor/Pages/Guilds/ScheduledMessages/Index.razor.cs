@@ -95,6 +95,7 @@ public partial class Index : GuildPageBase
 
         Messages = listViewModel.Messages;
         TotalCount = total;
+        RequestLocalTimeScan();
     }
 
     protected string PageUrl => $"/Guilds/ScheduledMessages/{GuildId}";

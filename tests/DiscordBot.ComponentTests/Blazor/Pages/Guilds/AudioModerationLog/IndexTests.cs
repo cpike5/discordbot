@@ -134,6 +134,43 @@ public class IndexTests : BlazorComponentTestContext
         cut.Markup.Should().NotContain("Try adjusting your filters");
     }
 
+    /// <summary>
+    /// Covers docs review finding 8: pagination is now <see cref="Bot.Blazor.Common.PagedQuery"/> +
+    /// link-mode <c>Pagination</c>, so a page 2 link is a real <c>&lt;a href&gt;</c> carrying
+    /// <c>pageNumber=2</c> (and the current filters) rather than a callback-mode <c>&lt;button&gt;</c>
+    /// that only mutated in-memory state.
+    /// </summary>
+    [Fact]
+    public void MultiplePages_RendersPageLinkPreservingFilters()
+    {
+        _repository.Setup(r => r.GetPagedAsync(
+                GuildId, 1, 25, AudioFeatureType.Soundboard, It.IsAny<ulong?>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
+            .ReturnsAsync((Enumerable.Range(0, 25).Select(i => new Core.Entities.AudioPlaybackLog
+            {
+                UserId = 111, FeatureType = AudioFeatureType.Soundboard, ContentName = $"clip-{i}", PlayedAt = DateTime.UtcNow
+            }).ToArray(), 50));
+
+        var cut = RenderPage($"/Guilds/AudioModerationLog/{GuildId}?FeatureFilter={(int)AudioFeatureType.Soundboard}");
+
+        var hasPageTwoLink = cut.FindAll("a").Any(a =>
+            a.GetAttribute("href")?.Contains("pageNumber=2") == true && a.GetAttribute("href")!.Contains("FeatureFilter="));
+        hasPageTwoLink.Should().BeTrue("the page-2 link should be a real href preserving the active filter, not a callback-mode button");
+    }
+
+    /// <summary>A failed load renders the "couldn't load" alert instead of a misleading empty state.</summary>
+    [Fact]
+    public void LoadThrows_RendersCouldNotLoadAlert_NotEmptyState()
+    {
+        _repository.Setup(r => r.GetPagedAsync(
+                GuildId, It.IsAny<int>(), It.IsAny<int>(), It.IsAny<AudioFeatureType?>(), It.IsAny<ulong?>(), It.IsAny<DateTime?>(), It.IsAny<DateTime?>(), It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var cut = RenderPage($"/Guilds/AudioModerationLog/{GuildId}");
+
+        cut.Markup.Should().Contain("Couldn't load the audio log");
+        cut.Markup.Should().NotContain("No audio playback events found");
+    }
+
     [Fact]
     public void UnknownGuild_RendersNotFoundGate()
     {

@@ -18,7 +18,11 @@
 
 <GuildContextGate Result="Result">
     <ChildContent Context="guild">
-        @if (NotFoundState)
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load this feature request" Message="Something went wrong loading it. Try reloading the page." />
+        }
+        else if (NotFoundState)
         {
             <EmptyState Type="EmptyStateType.NoData" Title="Feature request not found"
                         Description="It may have been removed, or belongs to a different server."

@@ -115,4 +115,27 @@ public class CreateTests : BlazorComponentTestContext
         captured.GuildId.Should().Be(GuildId);
         captured.ChannelId.Should().Be(55UL);
     }
+
+    /// <summary>
+    /// Covers docs review finding 7: a submitted local time that falls in a DST spring-forward
+    /// gap (America/Toronto jumps 02:00 -> 03:00 on 2026-03-08, so 02:30 never occurs) must show a
+    /// field validation message instead of letting <see cref="TimezoneHelper.ConvertToUtc"/>'s
+    /// <see cref="ArgumentException"/> escape <c>HandleValidSubmit</c> and crash the circuit.
+    /// </summary>
+    [Fact]
+    public void ValidSubmit_TimeInDstSpringForwardGap_ShowsFieldError_DoesNotThrow_OrCallCreateAsync()
+    {
+        var cut = RenderCreate();
+        cut.Find("#Input_Title").Input("Nightly digest");
+        cut.Find("#Input_Content").Input("Here's what happened today");
+        cut.Find("#Input_ChannelId").Change("55");
+        var gapLocalTime = new DateTime(2026, 3, 8, 2, 30, 0);
+        cut.Find("#Input_NextExecutionAt").Change(gapLocalTime.ToString("yyyy-MM-ddTHH:mm"));
+
+        var submit = () => cut.Find("form").Submit();
+
+        submit.Should().NotThrow();
+        cut.WaitForAssertion(() => cut.Markup.Should().Contain("doesn't exist in your timezone"));
+        _service.Verify(s => s.CreateAsync(It.IsAny<ScheduledMessageCreateDto>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
 }

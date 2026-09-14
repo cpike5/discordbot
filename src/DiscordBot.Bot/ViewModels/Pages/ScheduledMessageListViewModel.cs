@@ -1,4 +1,4 @@
-using DiscordBot.Bot.Blazor.Common;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
 

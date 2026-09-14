@@ -1,5 +1,6 @@
 using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
+using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -41,13 +42,27 @@ public partial class Index : GuildPageBase
     [Inject]
     private IFeatureRequestService Service { get; set; } = default!;
 
+    [Inject]
+    private IToastService Toast { get; set; } = default!;
+
+    [Inject]
+    private ILogger<Index> Logger { get; set; } = default!;
+
     protected IReadOnlyList<FeatureRequest> Items { get; private set; } = [];
     protected int Total { get; private set; }
     protected bool IsLoadingItems { get; private set; } = true;
+    protected bool LoadFailed { get; private set; }
     protected PagedQuery Query { get; private set; } = new(1, PageSize);
     protected int TotalPages => Query.PageSize > 0 ? (int)Math.Ceiling((double)Total / Query.PageSize) : 0;
 
     private (FeatureRequestStatus?, int?, int?) _resolvedQuery;
+
+    /// <summary>
+    /// Incremented at the start of every <see cref="LoadAsync"/> so a superseded load (two
+    /// query-string changes in quick succession) doesn't clobber a later one's results with its
+    /// own once it finally finishes - see <see cref="LoadAsync"/>.
+    /// </summary>
+    private int _loadGeneration;
 
     protected override async Task OnGuildContextReadyAsync()
     {
@@ -64,10 +79,12 @@ public partial class Index : GuildPageBase
     /// again) when <c>GuildId</c> itself changes - a query-string-only change (a new
     /// <see cref="StatusFilter"/> or page, the same guild) leaves its sealed
     /// <c>OnParametersSetAsync</c> a no-op. This unsealed synchronous hook is the one place left to
-    /// notice that and kick off a reload; it fires-and-forgets <see cref="LoadAsync"/> (calling
-    /// <see cref="ComponentBase.StateHasChanged"/> itself when done) rather than blocking the
-    /// render pass on it, the same trade-off <c>Blazor/Pages/Admin/Users/Index.razor.cs</c> avoids
-    /// only because it isn't guild-scoped and can safely override the async hook directly.
+    /// notice that and kick off a reload. It dispatches through <see cref="ComponentBase.InvokeAsync(Action)"/>
+    /// rather than a bare fire-and-forget task, so a two-query-changes-in-a-row race can't leave an
+    /// unobserved exception (<see cref="LoadAsync"/> itself catches and surfaces one anyway - see
+    /// there) and the reload runs on the renderer's synchronization context like every other
+    /// UI-driven call; <c>Blazor/Pages/Admin/Users/Index.razor.cs</c> avoids needing this only
+    /// because it isn't guild-scoped and can safely override the async hook directly.
     /// </summary>
     protected override void OnParametersSet()
     {
@@ -75,7 +92,7 @@ public partial class Index : GuildPageBase
 
         if (Guild is not null && _resolvedQuery != CurrentQueryKey)
         {
-            _ = ReloadAndRerenderAsync();
+            _ = InvokeAsync(ReloadAndRerenderAsync);
         }
     }
 
@@ -89,14 +106,44 @@ public partial class Index : GuildPageBase
 
     private async Task LoadAsync()
     {
+        var generation = ++_loadGeneration;
         IsLoadingItems = true;
+        LoadFailed = false;
         _resolvedQuery = CurrentQueryKey;
         Query = PagedQuery.FromQuery(PageNumber, null, defaultPageSize: PageSize, legacyPage: LegacyPage);
 
-        var (items, total) = await Service.GetByGuildIdAsync((ulong)GuildId, StatusFilter, Query.PageNumber, Query.PageSize);
-        Items = items.ToList();
-        Total = total;
-        IsLoadingItems = false;
+        try
+        {
+            var (items, total) = await Service.GetByGuildIdAsync((ulong)GuildId, StatusFilter, Query.PageNumber, Query.PageSize);
+            if (generation != _loadGeneration)
+            {
+                // A newer load has already started (another query-string change landed while this
+                // one was in flight) - its result wins, not this stale one.
+                return;
+            }
+
+            Items = items.ToList();
+            Total = total;
+            RequestLocalTimeScan();
+        }
+        catch (Exception ex)
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
+
+            Logger.LogError(ex, "Failed to load feature requests for guild {GuildId}", GuildId);
+            LoadFailed = true;
+            Toast.Error("Failed to load feature requests.");
+        }
+        finally
+        {
+            if (generation == _loadGeneration)
+            {
+                IsLoadingItems = false;
+            }
+        }
     }
 
     protected string PageUrl => $"/Guilds/FeatureRequests/{GuildId}{FilterSuffix}";

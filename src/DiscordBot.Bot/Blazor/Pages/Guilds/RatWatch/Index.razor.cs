@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Blazor.Common;
 using DiscordBot.Bot.Blazor.Guilds;
 using DiscordBot.Bot.Blazor.Services;
 using DiscordBot.Bot.Blazor.Shared;
@@ -23,17 +24,20 @@ namespace DiscordBot.Bot.Blazor.Pages.Guilds.RatWatch;
 /// redirect-back-to-Index semantics reproduced as "reload in place" (there is nowhere else to
 /// redirect to - this already is Index).
 /// </remarks>
+/// <remarks>
+/// Pagination is standardised on <see cref="PagedQuery"/> + link-mode <c>Pagination</c>, matching
+/// <c>FeatureRequests/Index.razor.cs</c>/<c>Reminders/Index.razor.cs</c> (docs/architecture/patterns.md,
+/// "Paged list pages") rather than hand-rolling page state behind a one-time <c>_seeded</c> flag
+/// and a callback-mode <c>Pagination</c> that changed the URL without ever reloading for it - so
+/// browser back/forward across a page change here now reloads like every other paged guild list.
+/// </remarks>
 public partial class Index : GuildPageBase
 {
-    private const int DefaultPageSize = 20;
+    private const int PageSize = 20;
 
     [SupplyParameterFromQuery(Name = "pageNumber")]
     [Parameter]
-    public int PageNumber { get; set; } = 1;
-
-    [SupplyParameterFromQuery(Name = "pageSize")]
-    [Parameter]
-    public int PageSize { get; set; } = DefaultPageSize;
+    public int? PageNumber { get; set; }
 
     [Inject]
     private IRatWatchService RatWatchService { get; set; } = default!;
@@ -45,9 +49,6 @@ public partial class Index : GuildPageBase
     private IToastService Toast { get; set; } = default!;
 
     [Inject]
-    private NavigationManager Nav { get; set; } = default!;
-
-    [Inject]
     private ILogger<Index> Logger { get; set; } = default!;
 
     protected GuildRatWatchSettings Settings { get; private set; } = new();
@@ -55,9 +56,10 @@ public partial class Index : GuildPageBase
     protected IReadOnlyList<RatLeaderboardEntryViewModel> Leaderboard { get; private set; } = [];
     protected RatWatchAnalyticsSummaryDto? AnalyticsSummary { get; private set; }
     protected int TotalWatches { get; private set; }
-    protected int CurrentPage { get; private set; } = 1;
-    protected int CurrentPageSize { get; private set; } = DefaultPageSize;
-    protected int TotalPages => CurrentPageSize > 0 ? (int)Math.Ceiling((double)TotalWatches / CurrentPageSize) : 0;
+    protected bool LoadFailed { get; private set; }
+    protected PagedQuery Query { get; private set; } = new(1, PageSize);
+    protected int TotalPages => Query.PageSize > 0 ? (int)Math.Ceiling((double)TotalWatches / Query.PageSize) : 0;
+    protected string PageUrl => $"/Guilds/RatWatch/{GuildId}";
 
     protected int PendingCount => Watches.Count(w => w.Status == RatWatchStatus.Pending);
     protected int VotingCount => Watches.Count(w => w.Status == RatWatchStatus.Voting);
@@ -71,7 +73,10 @@ public partial class Index : GuildPageBase
     private ConfirmModal? _endVoteModal;
     private RatWatchItemViewModel? _pendingWatch;
 
-    private bool _seeded;
+    private int? _resolvedPageNumber;
+
+    /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>'s field of the same name.</summary>
+    private int _loadGeneration;
 
     protected override async Task OnGuildContextReadyAsync()
     {
@@ -80,34 +85,71 @@ public partial class Index : GuildPageBase
             return;
         }
 
-        if (!_seeded)
-        {
-            _seeded = true;
-            CurrentPage = Math.Max(1, PageNumber);
-            CurrentPageSize = PageSize is < 1 or > 100 ? DefaultPageSize : PageSize;
-        }
-
         await LoadAsync();
+    }
+
+    /// <summary>See the identical note on <c>FeatureRequests/Index.razor.cs</c>.</summary>
+    protected override void OnParametersSet()
+    {
+        base.OnParametersSet();
+
+        if (Guild is not null && _resolvedPageNumber != PageNumber)
+        {
+            _ = InvokeAsync(ReloadAndRerenderAsync);
+        }
+    }
+
+    private async Task ReloadAndRerenderAsync()
+    {
+        await LoadAsync();
+        StateHasChanged();
     }
 
     private async Task LoadAsync()
     {
+        var generation = ++_loadGeneration;
+        LoadFailed = false;
+        _resolvedPageNumber = PageNumber;
+        Query = PagedQuery.FromQuery(PageNumber, null, defaultPageSize: PageSize);
+
         var guildId = (ulong)GuildId;
 
-        Settings = await RatWatchService.GetGuildSettingsAsync(guildId);
-        SeedSettingsInput();
+        try
+        {
+            var settings = await RatWatchService.GetGuildSettingsAsync(guildId);
+            var (watches, totalCount) = await RatWatchService.GetByGuildAsync(guildId, Query.PageNumber, Query.PageSize);
+            var leaderboard = await RatWatchService.GetLeaderboardAsync(guildId, 10);
+            var analyticsSummary = await RatWatchRepository.GetAnalyticsSummaryAsync(guildId, null, null);
 
-        var (watches, totalCount) = await RatWatchService.GetByGuildAsync(guildId, CurrentPage, CurrentPageSize);
-        Watches = watches.Select(w => RatWatchItemViewModel.FromDto(w, Settings.VotingDurationMinutes)).ToList();
-        TotalWatches = totalCount;
+            if (generation != _loadGeneration)
+            {
+                // A newer load (another page change, or a settings/cancel/end-vote reload) already
+                // superseded this one - its result wins.
+                return;
+            }
 
-        var leaderboard = await RatWatchService.GetLeaderboardAsync(guildId, 10);
-        Leaderboard = leaderboard.Select(RatLeaderboardEntryViewModel.FromDto).ToList();
+            Settings = settings;
+            SeedSettingsInput();
+            Watches = watches.Select(w => RatWatchItemViewModel.FromDto(w, Settings.VotingDurationMinutes)).ToList();
+            TotalWatches = totalCount;
+            Leaderboard = leaderboard.Select(RatLeaderboardEntryViewModel.FromDto).ToList();
+            AnalyticsSummary = analyticsSummary;
+            RequestLocalTimeScan();
 
-        AnalyticsSummary = await RatWatchRepository.GetAnalyticsSummaryAsync(guildId, null, null);
+            Logger.LogDebug("Retrieved {Count} watches for guild {GuildId} (page {Page} of {TotalPages})",
+                Watches.Count, guildId, Query.PageNumber, TotalPages);
+        }
+        catch (Exception ex)
+        {
+            if (generation != _loadGeneration)
+            {
+                return;
+            }
 
-        Logger.LogDebug("Retrieved {Count} watches for guild {GuildId} (page {Page} of {TotalPages})",
-            Watches.Count, guildId, CurrentPage, TotalPages);
+            Logger.LogError(ex, "Failed to load Rat Watch data for guild {GuildId}", guildId);
+            LoadFailed = true;
+            Toast.Error("Failed to load Rat Watch data.");
+        }
     }
 
     private void SeedSettingsInput()
@@ -255,30 +297,6 @@ public partial class Index : GuildPageBase
     protected string EndVoteModalMessage => _pendingWatch is null
         ? string.Empty
         : $"Are you sure you want to end voting for {_pendingWatch.AccusedUsername}? Current tally: {_pendingWatch.GuiltyVotes} Guilty, {_pendingWatch.NotGuiltyVotes} Not Guilty. The verdict will be determined based on current votes.";
-
-    protected async Task HandlePageChanged(int page)
-    {
-        CurrentPage = page;
-        Nav.NavigateTo(BuildUrl(), replace: true);
-        await LoadAsync();
-        StateHasChanged();
-    }
-
-    private string BuildUrl()
-    {
-        var basePath = $"/Guilds/RatWatch/{GuildId}";
-        var parts = new List<string>();
-        if (CurrentPage > 1)
-        {
-            parts.Add($"pageNumber={CurrentPage}");
-        }
-        if (CurrentPageSize != DefaultPageSize)
-        {
-            parts.Add($"pageSize={CurrentPageSize}");
-        }
-
-        return parts.Count == 0 ? basePath : $"{basePath}?{string.Join('&', parts)}";
-    }
 
     /// <summary>Local status→style mapping for the "Recent Watches" table's inline pill (the
     /// legacy page's inline switch expressions) - not shared with any other ported page.</summary>

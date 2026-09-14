@@ -1,7 +1,7 @@
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Enums;
 
-namespace DiscordBot.Bot.Blazor.Common;
+namespace DiscordBot.Bot.Helpers;
 
 /// <summary>
 /// The Active/Paused/Expired status computation duplicated three times for scheduled messages -
@@ -12,6 +12,12 @@ namespace DiscordBot.Bot.Blazor.Common;
 /// <see cref="ScheduledMessageListViewModel.ScheduledMessageListItem"/>'s own properties now
 /// delegate here too, so the list and the edit page can never drift.
 /// </summary>
+/// <remarks>
+/// Lives in <c>Helpers/</c>, not <c>Blazor/Common/</c>, even though every current caller is a
+/// Blazor page: <c>ViewModels/Pages/ScheduledMessageListViewModel.cs</c> is the legacy Razor Pages
+/// view-model tree, which must stay framework-neutral (no reference to the Blazor tree it is being
+/// ported away from) - see docs review finding on cluster 4b.
+/// </remarks>
 public static class ScheduledMessageStatusDisplay
 {
     /// <summary>"Active", "Paused", or "Expired" - the exact wording the legacy pages used.</summary>

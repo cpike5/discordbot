@@ -76,7 +76,11 @@
             </EditForm>
         </div>
 
-        @if (LogEntries.Count == 0)
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load the audio log" Message="Something went wrong loading this list. Try reloading the page." Class="mb-6" />
+        }
+        else if (LogEntries.Count == 0)
         {
             <EmptyState Type="EmptyStateType.NoData"
                         Title="No audio playback events found"
@@ -174,16 +178,16 @@
             @if (TotalPages > 1)
             {
                 <div class="mt-6">
-                    <Pagination CurrentPage="CurrentPage" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="CurrentPageSize"
+                    <Pagination CurrentPage="Query.PageNumber" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="Query.PageSize"
                                 Style="PaginationStyle.Full" ShowPageSizeSelector="true" ShowItemCount="true"
-                                OnPageChanged="HandlePageChanged" OnPageSizeChanged="HandlePageSizeChanged" />
+                                BaseUrl="@PageUrl" PageParameterName="pageNumber" />
                 </div>
             }
 
             @if (TotalCount > 0)
             {
-                var startItem = (CurrentPage - 1) * CurrentPageSize + 1;
-                var endItem = Math.Min(CurrentPage * CurrentPageSize, TotalCount);
+                var startItem = (Query.PageNumber - 1) * Query.PageSize + 1;
+                var endItem = Math.Min(Query.PageNumber * Query.PageSize, TotalCount);
                 <div class="mt-4 text-sm text-text-secondary">
                     Showing @startItem to @endItem of @TotalCount.ToString("N0") entries
                 </div>
