@@ -60,6 +60,20 @@ gates. What a new page needs to know:
   `DeletedPagesGuardTests.DeletedPageRoutes` (`tests/DiscordBot.Tests/Bot/Pages/`) in the same PR —
   a stale reference to a deleted page fails silently (empty form action, or an
   `InvalidOperationException` at request time) rather than at compile time.
+- That sweep must include the *relative* forms too (`RedirectToPage("./Leaf")`, `asp-page="Leaf"`,
+  resolved against the referencing file's own folder), not just the absolute `"/Route"` form —
+  cluster 4a's review caught `Login.cshtml.cs`/`ExternalLogin.cshtml.cs` still redirecting to
+  `./Lockout` after `Lockout` became a Blazor page, so `DeletedPagesGuardTests` now scans for both.
+- Any `EditForm` on an `@rendermode InteractiveServer` page: no `FormName` unless a static
+  no-JS/prerender-window fallback is deliberately implemented end to end (`EditForm` always emits
+  `method="post"` regardless of `FormName` — don't add one to "fix" a GET that was never happening);
+  disable the submit/action button (`disabled="@(!RendererInfo.IsInteractive)"`, with a
+  "Connecting…" hint) until the circuit attaches, so a click in the prerender window is prevented
+  rather than silently discarded; Playwright waits for that button to become enabled instead of a
+  blind sleep. See `docs/lessons-learned/blazor-editform-formname-race.md`.
+- An interactive page's not-found (or similarly circuit-only) state renders the design-system
+  `EmptyState` component at HTTP 200, never a real 404 status — once a circuit is live there is no
+  way left to set the response status code. Repo-wide convention since cluster 4a.
 
 ## Domain Map
 

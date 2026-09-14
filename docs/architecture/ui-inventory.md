@@ -375,7 +375,8 @@ exist.
 
 Every component has a bUnit test class under `tests/DiscordBot.ComponentTests/Blazor/Shared/`
 (mirroring this same group structure); the full library plus the `/components` showcase page and
-every ported page is 736 tests as of 2026-09-14 (595 before Phase 4 cluster 4a) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
+every ported page is 778 tests as of 2026-09-14, now that cluster 4a is complete (706 at the end of
+Phase 3) (`docs/articles/testing-guide.md` "Component (bUnit) tests").
 
 ---
 
@@ -396,18 +397,11 @@ every ported page is 736 tests as of 2026-09-14 (595 before Phase 4 cluster 4a) 
 
 ### User Management
 
-**Pages:**
-- `/admin/users` - User list with pagination
-- `/admin/users/create` - Create user form
-- `/admin/users/edit/{id}` - Edit user form
-- `/admin/users/{id}` - User details view
-
-**Components:**
-- FormInput, FormSelect, FormToggle
-- Button, Alert
-- Badge (for status/roles)
-- Pagination
-- Card
+Moved to Blazor in Phase 4 cluster 4a — see `/Admin/Users`, `/Admin/Users/Create`,
+`/Admin/Users/Edit`, `/Admin/Users/Details` under "Blazor Routes (Phase 4, permanent)" above (now
+`EditForm`/`ConfirmModal`/`LocalTime`-based, with `Edit`/`Details` gated on
+`IUserManagementService.CanManageUserAsync`) rather than the `FormInput`/`FormSelect`/`FormToggle`
+partials this section originally described.
 
 **Purpose:** CRUD operations for system users
 

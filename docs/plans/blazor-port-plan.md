@@ -323,7 +323,7 @@ Order is by rising complexity so the component library hardens on easy pages fir
 
 | Cluster | Pages | Notes |
 | --- | --- | --- |
-| 4a Simple admin | `Admin/Users` ×4, `Admin/AuditLogs/Details`, `Admin/MessageLogs/Details`, `CommandLogs/Details`, `Account/Profile`, `Account/AccessDenied`, `Account/Lockout` | Classic forms → `EditForm`; TempData flash → `IToastService`. Client-side JSON download on AuditLogs details → `browser.js`. First cluster with a timestamped list (`AuditLogs`/`MessageLogs`/`CommandLogs` details) — adds the `browser.js` timezone conversion (or a `LocalTime` component) that `Search`'s own `data-utc` rows (§5 Phase 3 deviation (c)) pick up at the same time. |
+| 4a Simple admin | `Admin/Users` ×4, `Admin/AuditLogs/Details`, `Admin/MessageLogs/Details`, `CommandLogs/Details`, `Account/Profile`, `Account/AccessDenied`, `Account/Lockout` | **Done.** Classic forms → `EditForm`; TempData flash → `IToastService`. Client-side JSON download on AuditLogs details → `browser.js`. First cluster with a timestamped list (`AuditLogs`/`MessageLogs`/`CommandLogs` details) — adds the `browser.js` timezone conversion (or a `LocalTime` component) that `Search`'s own `data-utc` rows (§5 Phase 3 deviation (c)) pick up at the same time. |
 | 4b Simple guild | `Guilds/Edit`, `Welcome`, `AssistantSettings`, `AssistantMetrics`, `FeatureRequests` ×2, `Reminders`, `ScheduledMessages` ×3, `AudioModerationLog`, `RatWatch/Index` | First consumers of `GuildLayout`. ScheduledMessages needs timezone capture via `browser.js` and the live preview pane. Standardise on one pagination state type here. `AssistantSettings` now has a Tool Access checklist (with the "default set" banner) and `AssistantMetrics` three more server-rendered tables; both are still S/M with no charts. |
 | 4c Account | `Login`, `ExternalLogin`, `LinkDiscord`, `Logout`, `Privacy` + minimal-API endpoints | Static SSR. Preserve the `?authError` contract, `returnUrl` sanitising and `OnRemoteFailure` redirect. Verify with Playwright against a stubbed OAuth provider or a manual checklist. Remove jQuery and `_ValidationScriptsPartial`. Fix the dead `LoginWith2fa` branch (either remove or leave a documented no-op). `Login` is now a single centred card (the brand side panel and its CSS were removed on `main`); port that composition. |
 | 4d Lists and settings | `Guilds/Index`, `Guilds/Details`, `Members/Index` (+ detail modal), `Members/Moderation`, `FlaggedEvents` ×2, `ModerationSettings`, `AudioSettings`, `Admin/Logs` (unified; stubs become redirects), `Admin/Notifications`, `Admin/BulkPurge` (wire real progress from the event bus), `Admin/UserPurge`, `Admin/Settings`, `Admin/LlmUsage`, `RatWatch/Incidents` | Three save patterns collapse to component methods calling services. `Admin/Settings` and `ModerationSettings` get `TabGroup` + dirty tracking via `EditContext` + `beforeunload` guard. CSV exports become minimal-API GET endpoints. `Admin/Settings`'s AI Models tab (`llm-models.js`: lazily loaded OpenRouter catalog, allowlist, per-mode defaults) becomes its own component inside the settings `TabGroup`, loading on first activation and calling the catalog service directly; `LlmModelsController` retires with it. `Admin/LlmUsage`'s per-user drill-down (`llm-usage.js`) becomes a paged component call; `LlmUsageController` retires with it. |
@@ -331,6 +331,84 @@ Order is by rising complexity so the component library hardens on easy pages fir
 | 4f Audio | `Guilds/Soundboard`, `Guilds/TextToSpeech`, `Guilds/VOX`, `Portal/Soundboard`, `Portal/TTS`, `Portal/VOX` | Hardest cluster. `audio.js` for preview and upload; `VoiceChannelPanel` on the event bus; Tier 5 TTS components; `<Virtualize>` for the sound grid. VOX browser preview (a commented-out stub today) is implemented: add the clip stream endpoint and reuse `audio.js`. Portal pages keep the three-state gate and the stream/upload endpoints. The portal sound card now carries `Price`/`CurrencySymbol` and shows the price badge; the play action surfaces a charge refusal (402 from the charge seam) as a warning toast, not a failure. |
 | 4g Public | `Guilds/PublicLeaderboard` | `EmptyLayout`, anonymous, its own three-state gate. |
 | 4h Currency | `Admin/Currency`, `Guilds/Currency/Index`, `Guilds/Currency/Details`, `Guilds/Currency/Prices` + the `CurrencyWalletPanel` component | Added on `main` after the survey (§2.1). One cluster because the four pages share `_CurrencyWalletPanel` and 1,062 lines of class-A currency JS. Needs `GuildLayout`, `TabGroup` and `Modal`, so any time after 4d. `CurrencyWalletPanel` is the one new shared component: holder list, paged ledger, mint/fine/adjust modal, with `CanMint`/`CanFine`/`CanAdminister` from `ICurrencyAccessService`; `Admin/Currency` hosts it with no currency selected until one is picked. `Prices` passes the row's feature key (`CurrencyFeatureKeys.Soundboard(soundId)`) through untouched. Decide here whether `CurrenciesController`/`WalletsController`/`PricesController` stay as a real ledger API (X) or retire (P) with their access checks moving into the component's service calls; the reconcile check stays server-side either way. |
+
+**Cluster 4a delivered.** Ten pages ported, all under `Blazor/Pages/`: `Account/AccessDenied.razor`,
+`Account/Lockout.razor`, `Account/Profile.razor` (+ `.razor.cs`), `Admin/Users/Index.razor` (+
+`.razor.cs`), `Admin/Users/Create.razor` (+ `.razor.cs`), `Admin/Users/Edit.razor` (+ `.razor.cs`),
+`Admin/Users/Details.razor` (+ `.razor.cs`), `Admin/AuditLogs/Details.razor` (+ `.razor.cs` and
+`.razor.css`), `Admin/MessageLogs/Details.razor` (+ `.razor.cs`), `CommandLogs/Details.razor` (+
+`.razor.cs`). Each deleted its `.cshtml`/`.cshtml.cs` pair and PageModel tests; the three
+now-orphaned `ViewModels/Pages/User{List,Form,Detail}ViewModel.cs` went with them. New shared
+pieces: `Blazor/Shared/Primitives/LocalTime.razor` + `wwwroot/js/blazor/localtime.js` (a faithful,
+idempotent port of `wwwroot/js/timezone.js`'s `convertDisplayTimes`/`initTimezoneFields`, loaded
+from `App.razor` after `shell.js`) and two new `BrowserInterop` methods,
+`ConvertLocalTimesAsync()` (re-scans the document for `<LocalTime>` markup after an interactive
+re-render — a static page needs nothing, since the script's own `DOMContentLoaded`/`enhancedload`
+hooks cover it) and `DownloadFileAsync()` (Blob + object-URL download, replacing the AuditLogs
+Details page's inline "Export JSON" script; the JSON body is built server-side with
+`System.Text.Json`). `Search`'s own `data-utc` rows (§5 Phase 3 deviation (c)) pick up the same
+conversion in the same change. `Blazor/Common/LocalUrl.cs` (`IsLocal`) validates a
+`[SupplyParameterFromQuery] returnUrl` is a same-origin relative path before it is rendered into an
+`href` or passed to `NavigationManager.NavigateTo` — added after review found `AuditLogs/Details`
+echoing `?returnUrl=` unvalidated (an open-redirect/`javascript:` URI risk), and reusable by any
+later cluster that echoes a return URL. `tests/DiscordBot.Tests/Bot/Pages/DeletedPagesGuardTests.cs`
+was extended twice: once for this cluster's ten new routes in `DeletedPageRoutes`, and once (review
+finding, see below) to also catch a *relative* `RedirectToPage("./Leaf")`/`asp-page="Leaf"`
+reference to a deleted page, scoped to that page's own former folder so it doesn't false-positive
+on an unrelated same-named page elsewhere (`Guilds/Edit`, `ScheduledMessages/Edit`, etc.).
+`PageMetadataService`'s four `Admin/Users/*` entries claimed `RequireSuperAdmin`; the actual
+`[Authorize]` policy on the Razor Pages they described was always `RequireAdmin` — fixed as part of
+the port. `UsersSearchProvider.ViewAllUrl` built `?search=` against a page that binds `SearchTerm`,
+so "View all" from global search silently dropped the term; fixed to build `?SearchTerm=`.
+`Admin/Users/Edit` now gates the whole form on `IUserManagementService.CanManageUserAsync` (an
+Admin acting on a SuperAdmin, or any actor acting on themselves through this path, renders an
+access-denied `EmptyState` instead of the form) — new enforcement versus the legacy `EditModel`,
+which rendered the form unconditionally and relied only on `Details.cshtml` hiding the "Edit User"
+link. Reset-password and unlink-Discord are similarly gated. Test totals: 778 bUnit (up from 706 at
+the end of Phase 3), 20 Playwright (up from 15: new scenarios `Test_P`–`Test_T` cover `Profile`
+render/theme-save, `AccessDenied`/`Lockout` anonymous rendering, an `Admin/Users`
+create/edit/details round trip, `AuditLogs`/`MessageLogs`/`CommandLogs` details rendering for
+seeded rows, and the AuditLogs Export JSON download), 5,162 unit.
+
+**Deviations and rules.**
+
+- (a) An interactive page's not-found state renders the design-system `EmptyState` component at
+  HTTP 200, not a real 404 — once a Blazor circuit is live there is no way to set a response status
+  code. First applied here (`Admin/AuditLogs/Details`, `Admin/MessageLogs/Details`,
+  `Admin/Users/Edit`, `Admin/Users/Details` for an unresolvable id); the repo-wide convention every
+  later interactive page's not-found state follows.
+- (b) The interactive `EditForm` rule, as finally verified end to end against a real host (not
+  assumed) and written up in `docs/lessons-learned/blazor-editform-formname-race.md`: `EditForm`
+  always emits `method="post"` regardless of `FormName`; do not set `FormName` unless a static
+  no-JS/prerender-window fallback is deliberately implemented end to end (antiforgery token,
+  `[SupplyParameterFromForm]`, a way to tell a real postback from a fresh load) — this admin
+  console has no such case today, so `Create.razor`/`Edit.razor` carry no `FormName`. Every
+  submit/action button on a freshly rendered interactive page is disabled
+  (`disabled="@(!RendererInfo.IsInteractive)"`, with a "Connecting…" hint) until the circuit
+  actually attaches, closing the window where a click reaches no handler at all. `tests/DiscordBot.E2E/BrowserTests.cs`
+  waits for that button to become enabled (`Expect(button).ToBeEnabledAsync()`) instead of a blind
+  `page.WaitForTimeoutAsync`. This is the rule every later cluster's `EditForm`s follow.
+- (c) `data-utc` conversion needs nothing on a static SSR page (the document-level
+  `DOMContentLoaded`/`enhancedload` scan in `localtime.js` covers it for free); an interactive page
+  calls `BrowserInterop.ConvertLocalTimesAsync()` from `OnAfterRenderAsync` whenever it renders new
+  or changed `<LocalTime>` rows, since the browser never re-fires those document events for an
+  in-circuit re-render.
+- (d) `PreviewPopover` was **not** wired up for the Author/Guild preview popups on
+  `Admin/MessageLogs/Details` — they render as plain text instead. No Blazor-callable preview
+  service exists yet; the lookup logic lives only in `PreviewController`, called today by
+  `preview-popup.js`. Out of scope for this cluster; a follow-up for cluster 4d, when the Members
+  pages need the same preview.
+- (e) Review caught one real regression from this cluster's own deletions: `Pages/Account/Login.cshtml.cs`
+  and `Pages/Account/ExternalLogin.cshtml.cs` both sent a locked-out sign-in to
+  `RedirectToPage("./Lockout")` — a relative reference that threw once `Lockout` became a Blazor
+  page with no Razor Page route behind it. Fixed to a literal `Redirect("/Account/Lockout")`, and
+  is exactly why `DeletedPagesGuardTests` now matches the relative forms too, not just the absolute
+  `"/Route"` form.
+- (f) A password reset's generated temporary password is shown exactly once, in a dismissible
+  success banner on `Admin/Users/Edit` with a copy-to-clipboard button
+  (`BrowserInterop.CopyToClipboardAsync`) — it is never put in a toast, never logged (only the
+  fact that a reset happened is logged, not the value), and never persisted anywhere beyond the
+  component's in-memory state for that render.
 
 ### Phase 5 — Decommission · 4–6 days · 3–4 PRs
 
