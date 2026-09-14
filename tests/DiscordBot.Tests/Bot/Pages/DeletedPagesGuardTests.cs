@@ -61,6 +61,11 @@ public class DeletedPagesGuardTests
         "/Guilds/FlaggedEvents/Index",
         "/Guilds/FlaggedEvents/Details",
         "/Guilds/RatWatch/Incidents",
+        "/Admin/Logs",
+        "/Admin/Notifications",
+        "/Admin/BulkPurge",
+        "/Admin/UserPurge",
+        "/Admin/LlmUsage",
     };
 
     [Fact]

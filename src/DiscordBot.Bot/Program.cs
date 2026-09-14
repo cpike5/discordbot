@@ -324,6 +324,7 @@ try
     app.MapRazorComponents<DiscordBot.Bot.Blazor.App>()
         .AddInteractiveServerRenderMode();
     app.MapAccountEndpoints();
+    app.MapAdminLogsEndpoints();
     app.MapLegacyRouteRedirects();
 
     // Map SignalR hub for real-time dashboard

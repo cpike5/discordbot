@@ -1,0 +1,117 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Admin.Logs.Tabs
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Message log filters/table/paging - the "messages" tab of Blazor/Pages/Admin/Logs/Index.razor,
+    ported from IndexModel.LoadMessageLogsAsync + the message-log half of the legacy
+    Pages/Admin/Logs/Tabs/_MessagesTab.cshtml. Query names are preserved exactly (AuthorId,
+    MessageGuildId, ChannelId, MessageSource, MessageStartDate, MessageEndDate, MessageSearchTerm,
+    messagePageNumber, MessagePageSize) since Services/Search/MessageLogsSearchProvider builds
+    links against them. The legacy "Export" link (a nonexistent /Api/MessageLogs/Export) is
+    dropped - message log export was never implemented.
+*@
+
+@if (LoadFailed)
+{
+    <Alert Variant="AlertVariant.Error" Title="Couldn't load message logs" Message="Something went wrong loading this data. Try reloading." />
+}
+else
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <form @onsubmit="HandleFilterSubmit" @onsubmit:preventDefault="true" class="space-y-4" data-testid="messages-filter-form">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Autocomplete Id="authorFilter" Label="Author" SearchFunc="SearchAuthorsAsync"
+                              @bind-Value="AuthorIdInput" DisplayText="@AuthorDisplayText" Placeholder="Search by username..." />
+                <Autocomplete Id="guildFilter" Label="Guild" SearchFunc="SearchGuildsAsync"
+                              @bind-Value="GuildIdInput" DisplayText="@GuildDisplayText" Placeholder="Search by guild name..." />
+                <Autocomplete Id="channelFilter" Label="Channel" SearchFunc="SearchChannelsAsync"
+                              @bind-Value="ChannelIdInput" DisplayText="@ChannelDisplayText" Placeholder="@(string.IsNullOrEmpty(GuildIdInput) ? "Select a guild first" : "Search by channel name...")" />
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Select TValue="string" Id="sourceFilter" Label="Source" @bind-Value="SourceInput" Placeholder="All sources" Options="SourceOptions" />
+                <TextInput Id="messageSearchTerm" Label="Search Content" @bind-Value="SearchTermInput" Placeholder="Message content..." />
+            </div>
+
+            <DateRangeFilter Start="StartInput" StartChanged="v => StartInput = v" End="EndInput" EndChanged="v => EndInput = v" />
+
+            <div class="flex justify-end gap-2">
+                <button type="button" class="btn btn-secondary" @onclick="HandleClearFilters">Clear</button>
+                <button type="submit" class="btn btn-primary">
+                    <Icon Path="@IconPaths.MagnifyingGlass" Class="w-4 h-4 mr-2" />
+                    Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        @if (IsLoading)
+        {
+            <div class="p-8 text-center text-text-secondary">Loading...</div>
+        }
+        else if (Messages.Count == 0)
+        {
+            <div class="p-8">
+                <EmptyState Type="EmptyStateType.NoResults" Title="No messages found" Description="Try adjusting your search or filters" />
+            </div>
+        }
+        else
+        {
+            <div class="overflow-x-auto hidden sm:block">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Author</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Source</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Content</th>
+                            <th class="px-6 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var message in Messages)
+                        {
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors" data-testid="message-row">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary"><LocalTime Utc="message.Timestamp" Format="datetime-short" /></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">@(message.AuthorUsername ?? message.AuthorId.ToString())</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                                    @(message.Source == MessageSource.DirectMessage ? "DM" : (message.GuildName ?? "Server") + " / " + (message.ChannelName ?? message.ChannelId.ToString()))
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-secondary max-w-md truncate" title="@message.Content">@message.Content</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <a href="@($"/Admin/MessageLogs/Details?id={message.Id}")" class="text-accent-blue hover:text-accent-blue/80">View</a>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sm:hidden divide-y divide-border-primary">
+                @foreach (var message in Messages)
+                {
+                    <div class="p-4" data-testid="message-card">
+                        <div class="flex justify-between items-start mb-1">
+                            <span class="text-sm font-medium text-text-primary">@(message.AuthorUsername ?? message.AuthorId.ToString())</span>
+                            <LocalTime Utc="message.Timestamp" Format="datetime-short" Class="text-xs text-text-tertiary" />
+                        </div>
+                        <p class="text-sm text-text-secondary truncate">@message.Content</p>
+                        <a href="@($"/Admin/MessageLogs/Details?id={message.Id}")" class="text-xs text-accent-blue hover:text-accent-blue/80">View details</a>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="px-6 py-4 border-t border-border-primary">
+                    <Pagination CurrentPage="PageNumber" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="PageSize"
+                                Style="PaginationStyle.Compact" BaseUrl="@PageUrl" PageParameterName="messagePageNumber" />
+                </div>
+            }
+        }
+    </div>
+}

@@ -505,6 +505,36 @@ public class PageMetadataService : IPageMetadataService
                 RequiredPolicy = "RequireSuperAdmin",
                 Keywords = new[] { "gdpr", "purge", "delete data", "user purge", "privacy" }
             },
+            new()
+            {
+                Name = "Bulk Purge",
+                Route = "/Admin/BulkPurge",
+                Description = "Bulk delete historical records across every guild",
+                Section = "Admin",
+                IconName = "trash",
+                RequiredPolicy = "RequireSuperAdmin",
+                Keywords = new[] { "bulk purge", "delete", "cleanup", "retention" }
+            },
+            new()
+            {
+                Name = "Notifications",
+                Route = "/Admin/Notifications",
+                Description = "Notification history",
+                Section = "Admin",
+                IconName = "bell",
+                RequiredPolicy = "RequireViewer",
+                Keywords = new[] { "notifications", "alerts", "history" }
+            },
+            new()
+            {
+                Name = "LLM Usage",
+                Route = "/Admin/LlmUsage",
+                Description = "Token and cost usage across the assistant",
+                Section = "Admin",
+                IconName = "cpu-chip",
+                RequiredPolicy = "RequireAdmin",
+                Keywords = new[] { "llm", "usage", "cost", "tokens", "openrouter" }
+            },
 
             // Account Pages (Public/Authenticated)
             new()
