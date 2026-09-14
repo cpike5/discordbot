@@ -1,0 +1,74 @@
+@page "/Admin/Users/Create"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Admin/Users/Create.cshtml + CreateModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4a). See Create.razor.cs for InputModel
+    and the create/error logic this markup renders.
+*@
+
+<PageTitle>Create User</PageTitle>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <Breadcrumb Items="@(new List<BreadcrumbItem> { new() { Label = "Users", Url = "/Admin/Users" }, new() { Label = "Create", IsCurrent = true } })" />
+
+    <div class="mb-6">
+        <h1 class="text-2xl font-bold text-text-primary">Create New User</h1>
+        <p class="mt-1 text-sm text-text-secondary">Add a new user to the system</p>
+    </div>
+
+    @if (!string.IsNullOrEmpty(ErrorMessage))
+    {
+        <div class="mb-6">
+            <Alert Variant="AlertVariant.Error" Message="@ErrorMessage" IsDismissible="true" OnDismiss="() => ErrorMessage = null" />
+        </div>
+    }
+
+    <div class="bg-bg-secondary border border-border-primary rounded-lg">
+        <EditForm Model="Input" OnValidSubmit="HandleValidSubmit" FormName="create-user" class="p-6 space-y-6">
+            <DataAnnotationsValidator />
+
+            <TextInput Id="Input_Email" Label="Email Address" Type="email" Placeholder="user@example.com"
+                       IsRequired="true" HelpText="This will be the user's login email"
+                       @bind-Value="Input.Email" />
+
+            <TextInput Id="Input_DisplayName" Label="Display Name" Placeholder="John Doe"
+                       HelpText="Optional friendly name for display in the UI"
+                       @bind-Value="Input.DisplayName" />
+
+            <TextInput Id="Input_Password" Label="Password" Type="password" Placeholder="Enter a secure password"
+                       IsRequired="true" HelpText="Must be at least 8 characters"
+                       @bind-Value="Input.Password" />
+
+            <TextInput Id="Input_ConfirmPassword" Label="Confirm Password" Type="password" Placeholder="Re-enter password"
+                       IsRequired="true" @bind-Value="Input.ConfirmPassword" />
+
+            <Select TValue="string" Id="Input_Role" Label="Role" Options="RoleOptions" IsRequired="true"
+                    HelpText="The role determines what permissions the user has" @bind-Value="Input.Role" />
+
+            <Toggle Id="Input_SendWelcomeEmail" Label="Send welcome email to new user" @bind-Value="Input.SendWelcomeEmail" />
+
+            <div class="border-t border-border-primary pt-6">
+                <div class="flex justify-end gap-3">
+                    <a href="/Admin/Users" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">
+                        <Icon Path="@IconPaths.Plus" Class="w-5 h-5 mr-2" />
+                        Create User
+                    </button>
+                </div>
+            </div>
+        </EditForm>
+    </div>
+
+    <div class="mt-6">
+        <Alert Variant="AlertVariant.Info" Title="About User Creation" ShowIcon="true">
+            - The user's email will be automatically confirmed<br />
+            - Users will be able to log in immediately after creation<br />
+            - The password must meet complexity requirements<br />
+            - You can only assign roles that you have permission to manage
+        </Alert>
+    </div>
+</div>

@@ -439,7 +439,10 @@ public class PageMetadataService : IPageMetadataService
                 Keywords = new[] { "api", "rate limits", "discord api", "api metrics" }
             },
 
-            // SuperAdmin Pages (RequireSuperAdmin policy)
+            // Admin Pages (the four Users pages below actually require only RequireAdmin -
+            // Pages/Admin/Users/*.cshtml.cs carries [Authorize(Policy = "RequireAdmin")], not
+            // RequireSuperAdmin as this metadata previously claimed; fixed in the Blazor port,
+            // docs/plans/blazor-port-plan.md §5 Phase 4 cluster 4a)
             new()
             {
                 Name = "Users",
@@ -447,7 +450,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "User account management",
                 Section = "Admin",
                 IconName = "user-group",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "accounts", "management", "users", "admin users" }
             },
             new()
@@ -457,7 +460,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "View user profile and roles",
                 Section = "Admin",
                 IconName = "user-circle",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "user profile", "roles", "permissions" }
             },
             new()
@@ -467,7 +470,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Create new user account",
                 Section = "Admin",
                 IconName = "user-plus",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "new user", "add user", "create account" }
             },
             new()
@@ -477,7 +480,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Edit user account and permissions",
                 Section = "Admin",
                 IconName = "pencil",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "edit user", "modify user", "user settings" }
             },
             new()

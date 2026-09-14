@@ -234,6 +234,9 @@ public static class IconPaths
     /// <summary>Heroicon <c>pause</c> (bars-only, matching the real Heroicons v1 <c>pause-circle</c> glyph with its ring stripped - the other candidate matched no published Heroicons revision). Activity feed pause/resume toggle and <c>_EmphasisToolbar.cshtml</c>'s "insert pause" button.</summary>
     public const string Pause = "M10 9v6m4-6v6";
 
+    /// <summary>Heroicon <c>pencil-square</c>. "Edit User" action in <c>_UserDetails.cshtml</c>'s header (Phase 4 cluster 4a).</summary>
+    public const string PencilSquare = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z";
+
     /// <summary>Heroicon <c>play</c>. Activity feed pause/resume toggle, playing state.</summary>
     public const string Play = "M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z";
 
