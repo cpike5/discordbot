@@ -483,6 +483,8 @@ user, tied to their linked Discord account. Also reachable via Discord's own `/c
 | **Database Entities** | `UserConsent`, `VerificationCode` (Discord link is the join key for all three services) |
 | **Key Features** | Per-`ConsentType` grant/revoke with a consent-history timeline; JSON data export with a 7-day download link; full data purge gated on a typed `DELETE` confirmation, `IUserPurgeService.CanPurgeUserAsync` (blocks users with admin roles), and a sign-out + redirect to `/landing` on success — GDPR Article 15 (export) and Article 17 (erasure). The page renders only a "link your Discord account first" callout for a user with no Discord link, since every one of these services is keyed on the Discord user id. |
 
+**Admin-initiated purge.** `/Admin/UserPurge` (`Blazor/Pages/Admin/UserPurge/Index.razor`, `RequireSuperAdmin`, Phase 4 cluster 4d) is the same `IUserPurgeService` driven for any Discord user id by an admin — GET-driven preview, `ConfirmModal` with the looked-up Discord id itself as the required typed text. `/Admin/BulkPurge` (`Blazor/Pages/Admin/BulkPurge/Index.razor`, `RequireSuperAdmin`, same cluster) is unrelated to a specific user — `IBulkPurgeService` bulk-deletes an entity type (Messages/AuditLogs/CommandLogs/ModerationCases) over a date range/guild, with a live progress bar driven by `IDashboardEventBus`'s `BulkPurgeProgressEvent`.
+
 ---
 
 ### User Management
@@ -507,9 +509,9 @@ Comprehensive audit trail of administrative actions with filtering, search, and 
 |--------|------------|
 | **Discord Commands** | Automatic logging on action |
 | **Services** | `IAuditLogService` (with fluent builder API) |
-| **UI Pages** | Admin: Audit log viewer with filtering, search, export |
+| **UI Pages** | Admin: `/Admin/Logs?tab=audit` (`Blazor/Pages/Admin/Logs/Tabs/AuditTab.razor`, Phase 4 cluster 4d, unified with Message Logging below into one tabbed page) — filtering, search, expand/collapse detail |
 | **Database Entities** | `AuditLog` |
-| **Controllers** | `AuditLogsController` (API for querying, filtering, export) |
+| **Controllers** | `AuditLogsController` (API for querying, filtering) plus the minimal-API `GET /api/admin/audit-logs/export` (`Extensions/AdminLogsEndpointExtensions.cs`, CSV built by `Services/AdminLogsCsvExporter.cs`) which replaced the legacy page handler |
 | **Key Features** | User action attribution, timestamp recording, resource tracking, full-text search, CSV export |
 
 **Fluent Builder Example**:
@@ -546,7 +548,7 @@ Optional comprehensive message logging for auditing and investigation.
 | Aspect | Components |
 |--------|------------|
 | **Services** | `IMessageLogService`, `MessageLoggingHandler` |
-| **UI Pages** | Admin: Message log viewer with search and filtering |
+| **UI Pages** | Admin: `/Admin/Logs?tab=messages` (`Blazor/Pages/Admin/Logs/Tabs/MessagesTab.razor`, Phase 4 cluster 4d, unified with Audit Logging above into one tabbed page); `/Admin/AuditLogs` and `/Admin/MessageLogs` stay minimal-API redirects to `?tab=` (`Extensions/LegacyRedirectExtensions.cs`) |
 | **Database Entities** | `MessageLog` |
 | **Controllers** | `MessagesController` (API for querying) |
 | **Key Features** | Message content tracking, edit/delete history, author attribution, searchable content, retention policies |
@@ -578,9 +580,9 @@ In-app and real-time notifications for important events.
 | Aspect | Components |
 |--------|------------|
 | **Services** | `INotificationService`, `AlertMonitoringService`, `NotificationRetentionService` |
-| **UI Pages** | Admin: Notifications inbox |
+| **UI Pages** | Admin: `/Admin/Notifications` (`Blazor/Pages/Admin/Notifications/Index.razor`, Phase 4 cluster 4d) — bulk mark-read/delete and per-row toggle/delete call `INotificationService` directly through `ScopedOperations`, no controller round trip |
 | **Database Entities** | `UserNotification` |
-| **Controllers** | `NotificationsController` (API for querying, marking read) |
+| **Controllers** | None — `NotificationsController` retired with the Blazor port; `notification-history.js` deleted |
 | **Real-time** | SignalR for live notification push |
 | **Key Features** | Event-driven notifications, user preferences, retention policies, read/unread state |
 
@@ -734,8 +736,8 @@ breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-p
 | **Database Entity** | `LlmUsageRecord` (table `LlmUsageRecords`) — one row per user message: `Timestamp`, `Mode`, `UserId`, `GuildId?`, `Model`, `InputTokens`/`OutputTokens`/`CachedTokens`/`CacheWriteTokens`, `LlmCalls`, `ToolCalls`, `CostUsd`, `CostSource` (`Billed`/`Estimated`), `LatencyMs`, `Success`, `InteractionLogId?`. No message text is stored — the per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`, both now carrying a nullable `Model` column) keep that. |
 | **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` and `FeatureRequestConversationService` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
 | **Repository** | `ILlmUsageRepository` / `LlmUsageRepository` (`Infrastructure/Data/Repositories`) — `GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync` (all grouped over `LlmUsageQuery`: date range + optional guild/mode/user), `GetRecordsAsync` (paged raw rows), plus `AddRangeAsync`/`DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` for the write, retention, and GDPR paths. Grouped queries sum `CostUsd` as `double` and cast back to `decimal` — SQLite's EF provider cannot translate `Sum(decimal)` — so the same query shape works on both providers. |
-| **Controller** | `LlmUsageController` (`api/admin/llm-usage`, `RequireAdmin`) — `GET summary` (totals + by-user/model/mode/day over a validated range, default last 30 days, max 366 days), `GET records` (paged rows, `pageSize` capped at 200). Resolves Discord display names via `IDiscordUserResolver` and emits every ID as a string. |
-| **Web Pages** | `/admin/llm-usage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/Guilds/AssistantMetrics/{guildId}` (`Blazor/Pages/Guilds/AssistantMetrics.razor`, Phase 4 cluster 4b) has a "Cost by User" table sourced from the same repository, filtered by guild. |
+| **Controller** | None — `LlmUsageController` retired in Phase 4 cluster 4d; the Blazor page calls `ILlmUsageRepository` directly (range default/clamp logic lives on in `Services/LlmUsageRangeHelper.cs`, the one surviving copy of what the controller and page model used to duplicate). |
+| **Web Pages** | `/Admin/LlmUsage` (`Blazor/Pages/Admin/LlmUsage/Index.razor`, Phase 4 cluster 4d) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down now a paged component method straight over `ILlmUsageRepository.GetRecordsAsync` (`wwwroot/js/llm-usage.js` deleted). `/Guilds/AssistantMetrics/{guildId}` (`Blazor/Pages/Guilds/AssistantMetrics.razor`, Phase 4 cluster 4b) has a "Cost by User" table sourced from the same repository, filtered by guild. |
 | **Retention** | `AssistantInteractionLogRetentionService` sweeps `LlmUsageRecords` (via `DeleteOlderThanAsync`) on the same `Assistant:Privacy:InteractionLogRetentionDays` cadence as the interaction logs — no new retention option. |
 | **GDPR** | `UserPurgeService` and `UserDataExportService` include `LlmUsageRecords` (`DeleteByUserAsync` / `CountByUserAsync` + export) alongside the interaction logs. |
 | **Key Rule** | Granularity is one row per user message (`LlmCalls` counts calls across the agentic loop), not one row per LLM call — keeps the table small and matches what the breakdowns need. |

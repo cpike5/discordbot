@@ -28,6 +28,7 @@ You are a domain expert for the **Scheduling & Notifications** stream of a Disco
 - **Services:** `NotificationService` (675 lines), `NotificationRetentionService`
 - **Notifiers:** `PerformanceNotifier`, `AudioNotifier`, `DashboardNotifier`, `DashboardUpdateService`
 - **Multi-channel:** Discord DM (PerformanceNotifier, AudioNotifier) + web dashboard (DashboardNotifier via SignalR)
+- **Pages:** `Blazor/Pages/Admin/Notifications/Index.razor` (Phase 4 cluster 4d, `RequireViewer`) — replaces `Pages/Admin/Notifications/Index.cshtml`; bulk mark-read/delete and per-row toggle/delete call `INotificationService` directly through `ScopedOperations`, reloading in place. `NotificationsController` and `wwwroot/js/notification-history.js` retired with it (no other consumer).
 
 ### Time Parsing
 - `TimeParsingService` (598 lines) — Natural language ("in 2 hours", "next Tuesday at 3pm") → DateTime

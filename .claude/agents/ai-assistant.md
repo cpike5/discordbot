@@ -261,8 +261,9 @@ implementation) so pre-ledger direct-construction tests keep compiling without p
 Production DI always supplies the real recorder via the context factories.
 
 This PR ships the ledger's write path, read path (`ILlmUsageRepository`'s grouped queries), and
-the entity/migrations. The `/admin/llm-usage` page / `LlmUsageController` / guild-metrics
-"cost by user" table are separate work building on `ILlmUsageRepository`.
+the entity/migrations. The `/Admin/LlmUsage` page (`Blazor/Pages/Admin/LlmUsage/Index.razor`,
+Phase 4 cluster 4d — `LlmUsageController` retired, the page calls `ILlmUsageRepository` directly)
+and the guild-metrics "cost by user" table are separate work building on `ILlmUsageRepository`.
 
 **Retention, purge, and export are wired up** (previously the guild/DM assistant interaction
 logs had no cleanup at all — `IAssistantInteractionLogRepository.DeleteOlderThanAsync` and

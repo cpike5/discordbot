@@ -27,6 +27,20 @@ Phase 2 needed to touch them) until Phase 4 replaces them with real nested pages
 tests for `Blazor/` live in `tests/DiscordBot.ComponentTests` (see "Component (bUnit) Tests" in
 `docs/articles/testing-guide.md`).
 
+**Cluster 4d (partial): five Admin pages.** `Blazor/Pages/Admin/{Logs,Notifications,BulkPurge,UserPurge,LlmUsage}/Index.razor`
+(+ `.razor.cs`) replace the matching `.cshtml`(`.cs`) pairs. `Admin/Logs` unifies the legacy
+Audit Logs/Message Logs tabs into one page (`?tab=messages\|audit`, default messages) with each
+tab its own component (`Tabs/MessagesTab.razor`/`Tabs/AuditTab.razor`) — `/Admin/AuditLogs`/
+`/Admin/MessageLogs` stay minimal-API redirects, unchanged. `LlmUsageController` and
+`NotificationsController` retire with their pages (no other consumer); the audit CSV export
+becomes a minimal-API `GET /api/admin/audit-logs/export` (`Extensions/AdminLogsEndpointExtensions.cs`).
+`BulkPurge`'s progress bar subscribes to `IDashboardEventBus`'s `BulkPurgeProgressEvent` live,
+replacing dead legacy markup. A Discord snowflake or nullable enum bound via
+`[SupplyParameterFromQuery]` must be exposed as `string`/`int` with a computed typed property —
+`QueryParameterValueSupplier` (the framework class behind that attribute) has no built-in
+`ulong`/arbitrary-`enum` support and throws `InvalidOperationException` at first render otherwise,
+even for a page that never actually receives a value for that parameter.
+
 **Component library (Phase 2, complete).** `src/DiscordBot.Bot/Blazor/Shared/` has 62 components
 across 7 groups (Icons, Primitives, Forms, Navigation, Overlays, Widgets, Tts) — every one derived
 from a shipped Graphite v2 partial under `Pages/Shared/Components/`, one bUnit test class each. Full

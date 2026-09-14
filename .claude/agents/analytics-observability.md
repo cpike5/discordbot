@@ -39,6 +39,7 @@ You are a domain expert for the **Analytics & Observability** stream of a Discor
   - `IDashboardNotificationQueryService` / `DashboardNotificationQueryService` — per-user notification summary/list/mark-read/dismiss, resolving the scoped `INotificationService` from a fresh DI scope per call
   Registered as scoped services in `PerformanceMetricsServiceExtensions.AddPerformanceMetrics`. Tests split accordingly: `Hubs/DashboardHubTests.cs` (connection/group lifecycle + auth short-circuit) plus `Services/Dashboard/DashboardMetricsServiceTests.cs` and `Services/Dashboard/DashboardNotificationQueryServiceTests.cs`.
 - **Services:** `DashboardUpdateService`, `PerformanceMetricsBroadcastService`
+- **`BulkPurgeProgressEvent`** (`Services/Realtime/Events/BulkPurgeEvents.cs`) dual-publishes the SignalR `bulk-purge` group broadcast onto `IDashboardEventBus`; `Blazor/Pages/Admin/BulkPurge/Index.razor.cs` (Phase 4 cluster 4d) subscribes to it directly for a real live progress bar instead of the legacy page's dead `#progress-container` markup, unsubscribing on completion.
 
 ### Observability Infrastructure
 - **Serilog:** `LoggingServiceExtensions`

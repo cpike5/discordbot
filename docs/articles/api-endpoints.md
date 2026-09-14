@@ -5704,11 +5704,18 @@ is used as-is.
 
 ---
 
-### LLM Usage Ledger Endpoints
+### LLM Usage Ledger Endpoints (retired)
 
-Admin-only endpoints (`LlmUsageController`) over the `LlmUsageRecord` ledger — one row per user
+**Retired in Phase 4 cluster 4d** (docs/plans/blazor-port-plan.md): `LlmUsageController` and both
+endpoints below no longer exist. `/Admin/LlmUsage` (`Blazor/Pages/Admin/LlmUsage/Index.razor.cs`)
+now calls `ILlmUsageRepository` directly for the summary, and its per-user drill-down is a paged
+component method over `ILlmUsageRepository.GetRecordsAsync` instead of a client fetch to
+`records` below — see "Blazor Routes (Phase 4, permanent)" in `ui-inventory.md`. Kept here,
+unindented from "retired", as the shape reference for anything still reading the ledger directly.
+
+Admin-only endpoints over the `LlmUsageRecord` ledger — one row per user
 message across every `LlmMode` (guild assistant, DM assistant, feature requests). Backed by
-`ILlmUsageRepository`; powers `/Admin/LlmUsage` and the "Cost by User" table on
+`ILlmUsageRepository`; powered `/Admin/LlmUsage` and the "Cost by User" table on
 `/guild/{guildId}/assistant-metrics`. Discord IDs are emitted as strings. Cost is a decimal USD
 amount.
 
@@ -5811,6 +5818,37 @@ Paged raw ledger rows, newest first — backs the per-user drill-down panel on `
   "pageSize": 50
 }
 ```
+
+---
+
+### Admin Logs Export
+
+Minimal-API replacement for the deleted `Pages/Admin/Logs/Index.cshtml.cs`'s `OnGetExportAsync`
+page handler (Phase 4 cluster 4d), mapped in `Extensions/AdminLogsEndpointExtensions.cs` and called
+from `Blazor/Pages/Admin/Logs/Tabs/AuditTab.razor`'s plain `<a href>` Export CSV link. Notifications
+and the other four cluster-4d pages have no equivalent API — they call their services directly from
+the Blazor page/component.
+
+**Authorization:** `RequireAdmin` policy.
+
+#### GET /api/admin/audit-logs/export
+
+Streams every audit log row matching the given filters as a CSV file (`text/csv`,
+`audit-logs-{yyyyMMdd-HHmmss}.csv`). No pagination — the filtered result set is exported in full.
+
+**Query Parameters:** `category`, `action`, `actorId`, `targetType`, `auditGuildId`,
+`auditStartDate`, `auditEndDate`, `auditSearchTerm`, `userTimezone` — same filters and names as the
+audit tab's own load, including the `userTimezone` local-day-boundary conversion
+(`Core/Utilities/TimezoneHelper.cs`).
+
+**Response: 200 OK**, `Content-Type: text/csv`, one row per matching audit log entry, header:
+
+```
+Timestamp,Category,Action,Actor,Target Type,Target ID,Guild,Details,IP Address,Correlation ID
+```
+
+CSV building is `Services/AdminLogsCsvExporter.cs` (`BuildCsv`/`BuildFileName`/`EscapeCsv`), a plain
+static helper independently unit-testable without a running host.
 
 ---
 

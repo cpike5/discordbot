@@ -556,6 +556,8 @@ Lightweight helper classes for common formatting, validation, and calculation ta
 | `SearchDisplayHelper` | Bot/Helpers | Search result display formatting and presentation |
 | `SearchScoringHelper` | Bot/Helpers | Search result relevance scoring and ranking |
 | `ServiceActivityHelper` | Bot/Tracing | Eliminates ~757 lines of tracing boilerplate across 10 services |
+| `AdminLogsCsvExporter` | Bot/Services | Builds the audit-log export CSV (header/rows/filename/escaping) behind `GET /api/admin/audit-logs/export`; independently unit-testable, no DI |
+| `LlmUsageRangeHelper` | Bot/Services | Resolves and clamps an LLM usage date range (default 30 days, cap 366); the one surviving copy after `LlmUsageController` retired |
 
 ---
 
