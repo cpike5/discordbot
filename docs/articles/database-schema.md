@@ -29,8 +29,8 @@ unaffected, and so is any SQLite database you have only ever migrated with
 **What was wrong.** `Migrations/Sqlite` contains two lineages — 40 superseded migrations attributed
 to the base `BotDbContext`, and the current set attributed to `SqliteBotDbContext`. The application
 registered the base context, and EF Core matches a migration to a context by exact runtime type, so
-startup migration silently applied only the first 40 and stopped. Affected databases have 57 tables
-instead of 78 and are missing `FeatureRequests`, `LlmModels`, `LlmUsageRecords`,
+startup migration silently applied only the first 40 and stopped. Affected databases have 55 tables
+instead of 76 and are missing `FeatureRequests`, `LlmModels`, `LlmUsageRecords`,
 `AudioPlaybackLogs`, `UserPreferences`, `VoxMessageHistory`, `UserSoundFavorites`, the
 virtual-currency tables, and several later columns. Nothing was logged; `/health` stayed green.
 

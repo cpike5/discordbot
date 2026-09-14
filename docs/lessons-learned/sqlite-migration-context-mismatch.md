@@ -89,8 +89,9 @@ they only add new tables and columns. It is a no-op on a fresh database, on an a
 one, and on PostgreSQL, so it is safe on every boot.
 
 **The delta turned out to be one column.** Comparing the two end states object by object -
-`sqlite_master` plus `PRAGMA table_info` for all 57 tables, built by migrating the base context and
-the re-baseline separately into two temp files - showed them identical apart from
+`sqlite_master` plus `PRAGMA table_info` across the legacy chain's 55 tables and the current
+lineage's 76, built by migrating the base context and the re-baseline separately into two temp
+files - showed them identical apart from
 `GuildModerationConfigs.IsEnabled`, the column the re-baseline migration is actually named for.
 That is the whole point of a re-baseline scaffolded as a model diff: it re-describes the schema the
 legacy chain had already built, so almost none of it is new. This is why the repair is a single

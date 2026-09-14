@@ -2350,6 +2350,60 @@ state, which would read as "there's nothing here" rather than "the query failed"
 reloads directly (a cancel, an approve/reject) can just `await LoadAsync()` - the generation counter
 still protects it against a slower `OnParametersSet`-triggered reload finishing after it.
 
+### Per-operation scopes
+
+Services and `BotDbContext` are scoped, and a Blazor Server circuit is one DI scope for its whole
+life (plan §4.1 "Data access in components") - so a page that injects a service with `[Inject]`
+the ordinary way holds the *same* instance, and the same `DbContext` with everything it has ever
+tracked, for as long as the circuit stays open. That is fine for a read: `AsNoTracking()` queries
+don't accumulate anything the tracker cares about. It is not fine for a mutation: `DbSet.Update()`/
+`DbSet.Remove()` attach the whole reachable graph as tracked and never detach it after
+`SaveChangesAsync`, so a second fetch-mutate-save of the same entity later in the same circuit
+fetches a fresh, different instance for a key the first call left tracked, and EF's identity map
+throws "already tracked" - see `docs/lessons-learned/scheduled-message-repeated-update-tracking.md`
+for the full failure and why the fix is not in `Repository<T>` itself.
+
+**Rule: every mutation, and the reload that follows it, resolves its service through a fresh scope
+via `Blazor/Common/ScopedOperations.cs` instead of the page's injected instance.** `ScopedOperations`
+is a set of `IServiceScopeFactory` extension methods - `RunAsync<TService>(Func<TService, Task>)`,
+`RunAsync<TService, TResult>(Func<TService, Task<TResult>>)`, and two-service overloads for a
+handler that needs two services from the same operation (e.g. a fetch-mutate-save that must stay on
+one `DbContext`) - each doing `await using var scope = scopeFactory.CreateAsyncScope();` then
+resolving with `GetRequiredService` and disposing the scope (and its `DbContext`) the moment the
+call returns. A page injects `IServiceScopeFactory` alongside its normal `[Inject]` services and
+writes `await ScopeFactory.RunAsync<IScheduledMessageService>(s => s.UpdateAsync(id, dto))` in place
+of `await ScheduledMessageService.UpdateAsync(id, dto)`, then reloads through another `RunAsync`
+call rather than calling the page's own `LoadAsync()` directly (a page whose load method is shared
+between the initial load and a post-mutation reload takes the service as a parameter -
+`LoadAsync(IScheduledMessageService service)` - so the initial call passes the injected instance and
+the reload passes `ScopeFactory.RunAsync<IScheduledMessageService>(LoadAsync)`, method-group-converted
+straight into the `Func<TService, Task>` the two share). The initial load in
+`OnGuildContextReadyAsync`/`OnInitializedAsync` may keep using the page's injected, circuit-scoped
+service - it's read-only, so there's nothing for a later call in the same circuit to collide with.
+
+Every interactive page ported in Phase 4 clusters 4a/4b follows this: `Admin/Users/{Index,Create,Edit}`,
+`Guilds/{Edit,Welcome,AssistantSettings}`, `RatWatch/Index`, `FeatureRequests/{Index,Details}`,
+`Reminders/Index`, `ScheduledMessages/{Index,Create,Edit}`. A bUnit test that registers its mocks
+as singletons (the norm in this codebase's component tests) needs no change for this: a child scope
+still resolves the same singleton instance, only a *scoped* mock would behave differently, and none
+of these tests register one that way.
+
+`Repository<T>.UpdateAsync`/`DeleteAsync` themselves are back to their original, unconditional
+`DbSet.Update(entity)`/`DbSet.Remove(entity)` bodies - an earlier attempt fixed the "already tracked"
+crash generically there instead, by walking the incoming entity's reachable graph and detaching any
+stale tracked entry for the same key before attaching. That was reverted: it can silently detach (and
+so lose) another concurrent caller's still-pending edit to the same entity, turning a loud exception
+into a quiet dropped update, and it reads keys via reflection, which breaks for an entity with a
+shadow key. Per-operation scopes fix the actual root cause - the circuit-scoped `DbContext` - instead
+of papering over its symptom in the generic repository.
+
+**Known pre-existing behaviour, not changed here.** `Repository<T>.UpdateAsync` calls
+`DbSet.Update(entity)`, which marks every `Include`d navigation on the entity as `Modified` too, not
+just the entity itself - so saving a `ScheduledMessage` (whose `ScheduledMessageRepository.GetByIdAsync`
+includes `Guild`) also rewrites the `Guilds` row it was fetched with, even though nothing about the
+guild changed. Per-operation scopes don't make this better or worse (a fresh `DbContext` still walks
+the same graph); it's tracked as a follow-up for its own PR, not addressed here.
+
 ### Gotchas carried over from CLAUDE.md
 
 - **Discord snowflakes are strings** in any component `[Parameter]`, `@bind` target, or JS
