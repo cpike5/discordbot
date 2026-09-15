@@ -17,7 +17,7 @@ You are a domain expert for the **Community & Engagement** stream of a Discord b
 - **Services:** `RatWatch/RatWatchService` (1,159 lines), `RatWatchStatusService`, `RatWatchExecutionService`
 - **Commands:** `RatWatchModule`, `RatWatchComponentModule`
 - **Controllers:** `WatchlistController`
-- **Pages:** `Guilds/RatWatch/` (Index, Incidents, Analytics), `Guilds/PublicLeaderboard.cshtml`, `Admin/RatWatchAnalytics.cshtml`
+- **Pages:** `Guilds/RatWatch/Analytics.cshtml`, `Guilds/PublicLeaderboard.cshtml`, `Admin/RatWatchAnalytics.cshtml` (still Razor Pages); `Blazor/Pages/Guilds/RatWatch/{Index,Incidents}.razor` (Phase 4 clusters 4b/4d)
 - **Repos:** `RatWatchRepository`, `RatRecordRepository`, `RatVoteRepository`, `GuildRatWatchSettingsRepository`
 - **Analytics:** `RatWatchAnalyticsDtos` — separate from main analytics stream
 

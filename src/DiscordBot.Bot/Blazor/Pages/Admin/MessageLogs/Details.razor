@@ -1,0 +1,211 @@
+@page "/Admin/MessageLogs/Details/{id:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Core.Enums
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Admin/MessageLogs/Details.cshtml + DetailsModel
+    (docs/plans/blazor-port-plan.md Phase 4 cluster 4a). See Details.razor.cs for the load logic;
+    the Author/Guild preview popups were wired to UserPreview/GuildPreview in cluster 4d.
+*@
+
+<PageTitle>@(Message is not null ? $"Message #{Message.Id}" : "Message Details")</PageTitle>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div class="mb-6">
+        <a href="/Admin/Logs?tab=messages" class="inline-flex items-center gap-2 text-sm text-text-secondary hover:text-text-primary transition-colors">
+            <Icon Path="@IconPaths.ArrowLeft" Class="w-4 h-4" />
+            Back to Message Logs
+        </a>
+    </div>
+
+    @if (NotFound)
+    {
+        <EmptyState Type="EmptyStateType.NoData"
+                    Size="EmptyStateSize.Large"
+                    Title="Message Not Found"
+                    Description="This message log entry doesn't exist or has been removed."
+                    PrimaryActionText="Back to Message Logs"
+                    PrimaryActionHref="/Admin/Logs?tab=messages" />
+    }
+    else if (Message is null)
+    {
+        <div class="flex items-center justify-center py-16">
+            <LoadingSpinner Message="Loading message..." />
+        </div>
+    }
+    else
+    {
+        var isDM = Message.Source == MessageSource.DirectMessage;
+
+        <!-- Main Card -->
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <!-- Card Header -->
+            <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                <div class="flex items-center gap-3">
+                    <h1 class="text-xl font-bold text-text-primary">Message Details</h1>
+                    <Badge Text="@(isDM ? "DM" : "Server")" Variant="@(isDM ? BadgeVariant.Blue : BadgeVariant.Success)" />
+                </div>
+            </div>
+
+            <!-- Card Body -->
+            <div class="p-6 space-y-6">
+                <!-- Message Info Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Message Info</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Discord Message ID</span>
+                            <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Message.DiscordMessageId</code>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Timestamp</span>
+                            <span class="text-sm text-text-primary"><LocalTime Utc="Message.Timestamp" Format="datetime-seconds" /></span>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Logged At</span>
+                            <span class="text-sm text-text-primary"><LocalTime Utc="Message.LoggedAt" Format="datetime-seconds" /></span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Author Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Author</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                        <div class="flex items-center gap-4">
+                            <div class="h-12 w-12 rounded-full bg-accent-blue flex items-center justify-center">
+                                <span class="text-white font-medium text-lg">@AuthorInitials</span>
+                            </div>
+                            <div>
+                                <div class="text-base font-medium text-text-primary">
+                                    <UserPreview UserId="Message.AuthorId" GuildId="@((long?)Message.GuildId)">@(Message.AuthorUsername ?? "(Unknown)")</UserPreview>
+                                </div>
+                                <div class="text-sm text-text-secondary">Discord User</div>
+                            </div>
+                        </div>
+                        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                            <span class="text-sm text-text-secondary">Author ID</span>
+                            <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Message.AuthorId</code>
+                        </div>
+                        @if (!string.IsNullOrEmpty(Message.AuthorUsername))
+                        {
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Username</span>
+                                <span class="text-sm text-text-primary">@Message.AuthorUsername</span>
+                            </div>
+                        }
+                    </div>
+                </section>
+
+                <!-- Location Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Location</h2>
+                    @if (isDM)
+                    {
+                        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                            <div class="flex items-center gap-3">
+                                <div class="w-10 h-10 rounded-full bg-accent-blue/20 flex items-center justify-center">
+                                    <Icon Path="@IconPaths.ChatBubbleLeftEllipsis" Class="w-5 h-5 text-accent-blue" />
+                                </div>
+                                <div>
+                                    <div class="text-base font-medium text-text-primary">Direct Message</div>
+                                    <div class="text-sm text-text-secondary">This message was sent via DM to the bot</div>
+                                </div>
+                            </div>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="bg-bg-primary border border-border-secondary rounded-lg p-4 space-y-4">
+                            @if (Message.GuildId.HasValue)
+                            {
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <span class="text-sm text-text-secondary">Guild ID</span>
+                                    <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Message.GuildId.Value</code>
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(Message.GuildName))
+                            {
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <span class="text-sm text-text-secondary">Guild Name</span>
+                                    <span class="text-sm text-text-primary">
+                                        <GuildPreview GuildId="Message.GuildId!.Value">@Message.GuildName</GuildPreview>
+                                    </span>
+                                </div>
+                            }
+                            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <span class="text-sm text-text-secondary">Channel ID</span>
+                                <code class="text-sm font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Message.ChannelId</code>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Message.ChannelName))
+                            {
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                    <span class="text-sm text-text-secondary">Channel Name</span>
+                                    <span class="text-sm text-text-primary">@Message.ChannelName</span>
+                                </div>
+                            }
+                        </div>
+                    }
+                </section>
+
+                <!-- Content Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Content</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                        <p class="text-sm text-text-primary whitespace-pre-wrap leading-relaxed">@Message.Content</p>
+                    </div>
+                </section>
+
+                <!-- Metadata Section -->
+                <section>
+                    <h2 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-4">Metadata</h2>
+                    <div class="bg-bg-primary border border-border-secondary rounded-lg p-4">
+                        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Has Attachments</span>
+                                <Badge Text="@(Message.HasAttachments ? "Yes" : "No")" Variant="@(Message.HasAttachments ? BadgeVariant.Success : BadgeVariant.Error)" Style="BadgeStyle.Subtle" IsPill="true" />
+                            </div>
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Has Embeds</span>
+                                <Badge Text="@(Message.HasEmbeds ? "Yes" : "No")" Variant="@(Message.HasEmbeds ? BadgeVariant.Success : BadgeVariant.Error)" Style="BadgeStyle.Subtle" IsPill="true" />
+                            </div>
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Is Reply</span>
+                                <Badge Text="@(Message.ReplyToMessageId.HasValue ? "Yes" : "No")" Variant="@(Message.ReplyToMessageId.HasValue ? BadgeVariant.Success : BadgeVariant.Error)" Style="BadgeStyle.Subtle" IsPill="true" />
+                            </div>
+                            <div class="flex items-center justify-between sm:flex-col sm:items-start gap-2">
+                                <span class="text-sm text-text-secondary">Reply To Message ID</span>
+                                @if (Message.ReplyToMessageId.HasValue)
+                                {
+                                    <code class="text-xs font-mono text-text-primary bg-bg-tertiary px-2 py-1 rounded">@Message.ReplyToMessageId.Value</code>
+                                }
+                                else
+                                {
+                                    <span class="text-sm text-text-tertiary">-</span>
+                                }
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Card Footer -->
+            <div class="flex items-center justify-between px-6 py-4 border-t border-border-primary bg-bg-primary/50">
+                <a href="/Admin/Logs?tab=messages" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-secondary bg-transparent border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+                    <Icon Path="@IconPaths.ArrowLeft" Class="w-4 h-4" />
+                    Back to List
+                </a>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private string AuthorInitials =>
+        !string.IsNullOrEmpty(Message?.AuthorUsername)
+            ? Message.AuthorUsername[..Math.Min(2, Message.AuthorUsername.Length)].ToUpperInvariant()
+            : "?";
+}

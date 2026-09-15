@@ -151,7 +151,6 @@
 - `ModTagsController` — CRUD operations
 - `ModerationConfigController` — get/update guild config
 - `NotificationsController` — list, mark read, mark all read
-- `UserModerationController` — history lookup, permission checks
 - `UserPreferencesController` — get/update preferences
 - `PortalSoundboardController` — OAuth context, sound list
 - `PortalVoxController` — OAuth context, clip list

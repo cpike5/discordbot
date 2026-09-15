@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Realtime;
+using RealtimeEvents = DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.SignalR;
@@ -12,6 +14,7 @@ namespace DiscordBot.Bot.Services;
 public class DashboardUpdateService : IDashboardUpdateService
 {
     private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<DashboardUpdateService> _logger;
 
     // SignalR event names - keep consistent with client-side handlers
@@ -24,12 +27,15 @@ public class DashboardUpdateService : IDashboardUpdateService
     /// Initializes a new instance of the <see cref="DashboardUpdateService"/> class.
     /// </summary>
     /// <param name="hubContext">The SignalR hub context for DashboardHub.</param>
+    /// <param name="eventBus">The in-process dashboard event bus, dual-published to alongside the hub.</param>
     /// <param name="logger">The logger instance.</param>
     public DashboardUpdateService(
         IHubContext<DashboardHub> hubContext,
+        IDashboardEventBus eventBus,
         ILogger<DashboardUpdateService> logger)
     {
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -46,6 +52,10 @@ public class DashboardUpdateService : IDashboardUpdateService
             await _hubContext.Clients.All.SendAsync(
                 BotStatusUpdatedEvent,
                 status,
+                cancellationToken);
+
+            await _eventBus.PublishAsync(
+                new RealtimeEvents.BotStatusBroadcastEvent { Status = status },
                 cancellationToken);
         }
         catch (Exception ex)
@@ -71,6 +81,10 @@ public class DashboardUpdateService : IDashboardUpdateService
             await _hubContext.Clients.All.SendAsync(
                 CommandExecutedEvent,
                 update,
+                cancellationToken);
+
+            await _eventBus.PublishAsync(
+                new RealtimeEvents.CommandExecutedEvent { Update = update },
                 cancellationToken);
         }
         catch (Exception ex)
@@ -104,6 +118,10 @@ public class DashboardUpdateService : IDashboardUpdateService
                 GuildActivityEvent,
                 update,
                 cancellationToken);
+
+            await _eventBus.PublishAsync(
+                new RealtimeEvents.GuildActivityEvent { GuildId = update.GuildId, Update = update },
+                cancellationToken);
         }
         catch (Exception ex)
         {
@@ -129,6 +147,8 @@ public class DashboardUpdateService : IDashboardUpdateService
                 StatsUpdatedEvent,
                 stats,
                 cancellationToken);
+
+            await _eventBus.PublishAsync(new RealtimeEvents.StatsUpdatedEvent { Stats = stats }, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -153,6 +173,10 @@ public class DashboardUpdateService : IDashboardUpdateService
             await _hubContext.Clients.Group(groupName).SendAsync(
                 GuildActivityEvent,
                 update,
+                cancellationToken);
+
+            await _eventBus.PublishAsync(
+                new RealtimeEvents.GuildActivityEvent { GuildId = guildId, Update = update },
                 cancellationToken);
         }
         catch (Exception ex)

@@ -1,0 +1,298 @@
+@inherits LayoutComponentBase
+@namespace DiscordBot.Bot.Blazor.Layout
+@using System.Security.Claims
+@using DiscordBot.Bot.Blazor.Portal
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Services.Portal
+@using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Components.Authorization
+@inject IPortalContextProvider ContextProvider
+@inject NavigationManager Nav
+
+@*
+    Static SSR (no @@rendermode here, same "Interactivity is per-page" rule as MainLayout/
+    GuildLayout). Replaces Pages/Portal/_PortalLayout.cshtml + Shared/_PortalHeader.cshtml +
+    Shared/_PortalLanding.cshtml + Shared/_PortalUnauthorized.cshtml (plan §4.7/§5 Phase 3) for
+    pages that opt in via "@@layout PortalLayout".
+
+    NOT nested under MainLayout ("@@layout MainLayout" is absent here) - the Portal is its own
+    audience (member-facing, reached via a signed link, no admin sidebar/navbar/breadcrumb; see
+    "Portal three-state gate" in docs/architecture/patterns.md) and the legacy _PortalLayout.cshtml
+    was never a child of the main admin _Layout.cshtml either. Unlike the old Razor Pages version
+    this can no longer own its own &lt;html&gt;/&lt;head&gt; - App.razor is the one root document
+    for every Blazor route now (plan §5 Phase 1) - so portal.css (not loaded by App.razor, unlike
+    app.css/tab-panel.css which every Blazor route needs) is added via &lt;HeadContent&gt; instead,
+    which projects into App.razor's &lt;HeadOutlet /&gt;.
+
+    Same resolve-once-per-request shape as GuildLayout: runs during the static render pass (a
+    page's own @@rendermode InteractiveServer never makes its ancestor layout interactive - see
+    GuildLayout's header comment for the full reasoning), calling IPortalContextProvider itself
+    rather than the page - the memoisation in that provider is what keeps a PortalPageBase-derived
+    page's own call to the same guild id from hitting IPortalAccessService (a real DB + Discord
+    client + membership check) twice.
+
+    PortalRoutes.TryGetGuildId has no route-parameter binding to rely on either, same as
+    GuildRoutes - a URI with no guild id renders @@Body with no chrome (not expected for anything
+    using this layout today).
+
+    Four states, matching IPortalAccessService's PortalAccessOutcome exactly:
+      - GuildNotFound: reuses the design-system EmptyState with the same "doesn't exist or has
+        been removed" copy GuildContextGate's own NotFound fragment uses for the analogous guild
+        case (docs/architecture/patterns.md, "GuildContext") - the closest thing to "the same copy
+        as today's 404" that exists, since PortalPageModelBase's GuildNotFound path today actually
+        returns a plain NotFound() action result re-executed against the generic, non-Portal-
+        specific /Error/404 page, not any Portal-flavored copy.
+      - ShowLanding: a straight port of _PortalLanding.cshtml/PortalLandingViewModel (anonymous
+        visitor, or signed in with no Discord account linked - "Sign in with Discord" to LoginUrl).
+      - NotGuildMember: a straight port of _PortalUnauthorized.cshtml/PortalUnauthorizedViewModel.
+        Note this is reachable content here in a way it barely was in the legacy Razor Pages flow -
+        every real caller of PortalPageModelBase.GetAuthResultAction() short-circuits this same
+        outcome straight to Forbid() before ever reaching the VOX page's own (effectively dead)
+        _PortalUnauthorized branch; rendering it directly, as this brief asks for, is a deliberate
+        improvement over that inconsistency, not a fidelity gap.
+      - Authorized: the ported _PortalHeader.cshtml chrome (icon/name/online-offline badge/
+        Soundboard-TTS-VOX tab nav) + @@Body.
+
+    Script bundle: api-client.js and toast.js are not loaded - both are superseded outright
+    (ToastHost/IToastService for toast.js per the Consolidations table in
+    docs/articles/blazor-components.md; api-client.js's fetch-wrapper-plus-antiforgery-token
+    plumbing has nothing left to wrap once a page calls a service in-circuit instead of an
+    endpoint - blazor-port-inventory.md classifies its shape as **D**, obsolete under Blazor).
+    shared/keyboard-shortcuts.js and user-preferences.js are both classified **B** (thin-interop-
+    shim-survives) in blazor-port-inventory.md Part 4 - loaded via <HeadContent> below, as classic
+    scripts (both are self-initializing IIFEs with no module system, the same shape
+    wwwroot/js/blazor/shell.js already loads this way), unconditionally rather than only from the
+    Authorized branch's markup: a <script> tag inside @@Body-adjacent markup only runs once, on
+    the very first full-page load, because Blazor's enhanced navigation never executes <script>
+    elements it swaps into the DOM on a later render - and this component re-renders on every
+    guild id change even without a full reload. <HeadContent> has neither problem and matches the
+    legacy layout's own "always loaded, regardless of which state you're viewing" behavior.
+    Neither script is wired up further in this PR: keyboard-shortcuts.js's own `RegisterShortcut`
+    interop call (plan §4.4) and user-preferences.js's `UserPreferences.init(...)` call both need a
+    real page component to drive them, and no Portal page has been ported yet (PortalProbe is a
+    temporary probe, not a real consumer) - that wiring lands with the actual Tier 5/Phase 4f audio
+    components.
+*@
+
+<HeadContent>
+    <link rel="stylesheet" href="/css/portal.css" />
+    @* keyboard-shortcuts.js/user-preferences.js used to live as plain <script> tags inside the
+       Authorized-only branch of this component's body markup below - which is (a) never executed
+       for the other three states, breaking this layout's "always loaded, regardless of which
+       state you're viewing" parity claim (see the header comment's "Script bundle" paragraph),
+       and (b) not re-executed by Blazor's enhanced navigation at all when this component
+       re-renders under it, since enhanced navigation only diffs/patches the DOM and never runs
+       <script> elements it swaps in. <HeadContent> scripts don't have that problem - they load
+       once with the rest of <head> and persist across this component's own re-renders. Neither
+       script is wired up to anything yet (RegisterShortcut/UserPreferences.init calls land with
+       the real Tier 5/Phase 4f audio components), so only the *loading* fixed here, not the
+       wiring - that's still Phase 4f's job. *@
+    <script src="/js/shared/keyboard-shortcuts.js"></script>
+    <script src="/js/user-preferences.js"></script>
+</HeadContent>
+
+@if (!PortalRoutes.TryGetGuildId(Nav.Uri, out var guildId))
+{
+    @Body
+}
+else if (_result is null)
+{
+    <div class="flex items-center justify-center py-16">
+        <LoadingSpinner Message="Loading portal..." />
+    </div>
+}
+else if (_result.Outcome == PortalAccessOutcome.GuildNotFound)
+{
+    <div class="min-h-screen flex items-center justify-center px-4 py-8" data-testid="portal-guild-not-found">
+        <EmptyState Type="EmptyStateType.NoData"
+                    Size="EmptyStateSize.Large"
+                    Title="Server Not Found"
+                    Description="This server doesn't exist or has been removed."
+                    PrimaryActionText="Go to Dashboard"
+                    PrimaryActionHref="/" />
+    </div>
+}
+else
+{
+    var context = _result.Context!;
+
+    if (_result.Outcome == PortalAccessOutcome.ShowLanding)
+    {
+        <div class="landing-container" data-testid="portal-landing">
+            <div class="landing-card">
+                <div class="landing-guild-icon">
+                    @if (!string.IsNullOrEmpty(context.IconUrl))
+                    {
+                        <img src="@context.IconUrl" alt="@context.GuildName" />
+                    }
+                    else
+                    {
+                        <span class="landing-guild-icon-placeholder">@GuildInitial(context.GuildName)</span>
+                    }
+                </div>
+
+                <h1 class="landing-guild-name">@context.GuildName</h1>
+                <span class="landing-portal-badge">Portal</span>
+                <p class="landing-description">Sign in with Discord to access the member portal for @context.GuildName.</p>
+
+                <a href="@_result.LoginUrl" class="landing-discord-button" data-testid="portal-login-link">
+                    <svg class="landing-discord-logo" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189z" />
+                    </svg>
+                    Sign in with Discord
+                </a>
+
+                <div class="landing-permissions-notice">
+                    <div class="landing-permissions-title">What we'll request</div>
+                    <div class="landing-permissions-item">
+                        <span class="landing-permission-icon">&#10003;</span>
+                        <span>Access to see your server memberships</span>
+                    </div>
+                    <div class="landing-permissions-item">
+                        <span class="landing-permission-icon">&#10003;</span>
+                        <span>Your Discord username and avatar</span>
+                    </div>
+                </div>
+
+                <p class="landing-footer-text">
+                    By logging in, you agree to our <a href="/Account/Privacy">Privacy Policy</a>
+                </p>
+            </div>
+        </div>
+    }
+    else if (_result.Outcome == PortalAccessOutcome.NotGuildMember)
+    {
+        <div class="portal-unauthorized" data-testid="portal-unauthorized">
+            <div class="unauthorized-content">
+                <div class="unauthorized-icon">
+                    <Icon Path="@IconPaths.LockClosed" Size="IconSize.LG" />
+                </div>
+                <h2>Access Restricted</h2>
+                <p>You must be a member of <strong>@context.GuildName</strong> to access this portal.</p>
+                <a href="/" class="btn-secondary">Return Home</a>
+            </div>
+        </div>
+    }
+    else
+    {
+        var activeTabId = ResolveActiveTab(Nav.Uri);
+        var tabs = BuildTabs(context.GuildIdString);
+
+        <header class="portal-header" data-testid="portal-header">
+            <div class="header-content">
+                <div class="header-top">
+                    <div class="header-left">
+                        <div class="guild-icon">
+                            @if (!string.IsNullOrEmpty(context.IconUrl))
+                            {
+                                <img src="@context.IconUrl" alt="@context.GuildName icon" />
+                            }
+                            else
+                            {
+                                <div class="guild-icon-fallback">@GuildInitial(context.GuildName)</div>
+                            }
+                        </div>
+                        <div class="header-text">
+                            <h1 data-testid="portal-guild-name">@context.GuildName Portal</h1>
+                            <p>Member access for @context.GuildName</p>
+                        </div>
+                    </div>
+                    <div class="status-badge @(context.IsBotOnline ? "online" : "offline")" data-testid="portal-status-badge">
+                        <span class="status-dot"></span>
+                        @(context.IsBotOnline ? "Online" : "Offline")
+                    </div>
+                </div>
+
+                <TabGroup Id="portalTabs"
+                          Tabs="tabs"
+                          ActiveTabId="@activeTabId"
+                          Mode="TabGroupMode.Navigation"
+                          StyleVariant="TabStyleVariant.Portal"
+                          AriaLabel="Portal sections" />
+            </div>
+        </header>
+
+        <div data-testid="portal-body">
+            @Body
+        </div>
+    }
+}
+
+<ToastHost @rendermode="InteractiveServer" />
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private PortalAccessResult? _result;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (!PortalRoutes.TryGetGuildId(Nav.Uri, out var guildId))
+        {
+            return;
+        }
+
+        var user = AuthenticationStateTask is not null
+            ? (await AuthenticationStateTask).User
+            : new ClaimsPrincipal(new ClaimsIdentity());
+
+        var returnPath = new Uri(Nav.Uri).AbsolutePath;
+
+        _result = await ContextProvider.GetAsync(guildId, user, returnPath);
+    }
+
+    private static string GuildInitial(string guildName) =>
+        guildName.Length > 0 ? guildName[..1].ToUpperInvariant() : "?";
+
+    // Ported straight from _PortalHeader.cshtml's inline TabItemViewModel list - these three
+    // paths aren't decorative literals inside a UI component, they're the exact same hardcoded
+    // per-tab icon data the legacy partial carried (the same "config data, not a component
+    // literal" precedent GuildLayout follows for GuildNavigationConfig's GuildNavItem.IconOutline -
+    // TabItem.IconPath's own doc calls an IconPaths constant an example, not a requirement).
+    private static IReadOnlyList<TabItem> BuildTabs(string guildIdString) =>
+    [
+        new TabItem
+        {
+            Id = "soundboard",
+            Label = "Soundboard",
+            Subtitle = "Play uploaded sounds",
+            Href = $"/Portal/Soundboard/{guildIdString}",
+            IconPath = "M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+        },
+        new TabItem
+        {
+            Id = "tts",
+            Label = "Text-to-Speech",
+            Subtitle = "Text-to-speech with voices",
+            Href = $"/Portal/TTS/{guildIdString}",
+            IconPath = "M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
+        },
+        new TabItem
+        {
+            Id = "vox",
+            Label = "VOX",
+            Subtitle = "Half-Life style announcements",
+            Href = $"/Portal/VOX/{guildIdString}",
+            IconPath = "M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"
+        }
+    ];
+
+    private static string? ResolveActiveTab(string uri)
+    {
+        var path = new Uri(uri).AbsolutePath;
+        if (path.Contains("/Portal/Soundboard/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "soundboard";
+        }
+        if (path.Contains("/Portal/TTS/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "tts";
+        }
+        if (path.Contains("/Portal/VOX/", StringComparison.OrdinalIgnoreCase))
+        {
+            return "vox";
+        }
+        return null;
+    }
+}

@@ -82,9 +82,18 @@ public class ServiceCollectionExtensionsTests
         using var provider = BuildProvider("Data Source=data/discordbot.db");
         using var scope = provider.CreateScope();
 
+        // Must be the concrete SqliteBotDbContext, not the base BotDbContext: every migration
+        // since 20260219205009_AddIsEnabledToGuildModerationConfig carries
+        // [DbContext(typeof(SqliteBotDbContext))] (see CLAUDE.md "Database and migrations"), so
+        // resolving/migrating the base type here would silently discover only the older,
+        // BotDbContext-attributed migrations and stop - Program.cs's startup
+        // `db.Database.MigrateAsync()` would "succeed" having created a fraction of the schema.
+        // This test previously asserted BeOfType<BotDbContext>() (matching its own then-buggy
+        // registration, not its name) - see docs/plans/blazor-port-plan.md Phase 4 cluster 4b's
+        // report for how this was found (an E2E FeatureRequests seed failing with "no such table").
         var context = scope.ServiceProvider.GetRequiredService<BotDbContext>();
 
-        context.Should().BeOfType<BotDbContext>();
+        context.Should().BeOfType<SqliteBotDbContext>();
     }
 
     [Fact]

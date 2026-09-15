@@ -8,6 +8,117 @@ color: cyan
 
 You are a domain expert for the **Web UI & Portal** stream of a Discord bot management system built on .NET with clean architecture (Core → Infrastructure → Bot).
 
+## Blazor Port (in progress)
+
+The web UI is being ported from Razor Pages to Blazor, cluster by cluster
+(`docs/plans/blazor-port-plan.md`). Both stacks coexist under `src/DiscordBot.Bot/` until
+the port finishes: `Pages/` (below, legacy, being ported) and `Blazor/` (new UI - Blazor
+Web App, Interactive Server only, per-page interactivity: `Routes.razor` stays static SSR,
+each page opts in with `@rendermode InteractiveServer`). A page's `.cshtml`/`.cshtml.cs` is
+deleted in the same PR that adds its `.razor` replacement, so at any point some pages are
+still `Pages/` and some are `Blazor/Pages/` - check which one exists before editing. New UI
+work goes in `Blazor/`, not `Pages/`. Phase 1 (hosting, auth plumbing, circuit
+observability) and Phase 2 (the component library) are done; see "Blazor components" in
+`docs/architecture/patterns.md` for the hosting model, the `HttpContext`-is-prerender-only rule,
+and where things live under `Blazor/`. `Blazor/Pages/Admin/BlazorProbe.razor`
+(`/admin/blazor-probe`) and `Blazor/Pages/BlazorSmoke.razor` (`/blazor-smoke`) are temporary Phase
+1 proof pages, retained (not deleted at the end of Phase 2 as originally planned — nothing in
+Phase 2 needed to touch them) until Phase 4 replaces them with real nested pages; bUnit component
+tests for `Blazor/` live in `tests/DiscordBot.ComponentTests` (see "Component (bUnit) Tests" in
+`docs/articles/testing-guide.md`).
+
+**Cluster 4d (partial): five Admin pages.** `Blazor/Pages/Admin/{Logs,Notifications,BulkPurge,UserPurge,LlmUsage}/Index.razor`
+(+ `.razor.cs`) replace the matching `.cshtml`(`.cs`) pairs. `Admin/Logs` unifies the legacy
+Audit Logs/Message Logs tabs into one page (`?tab=messages\|audit`, default messages) with each
+tab its own component (`Tabs/MessagesTab.razor`/`Tabs/AuditTab.razor`) — `/Admin/AuditLogs`/
+`/Admin/MessageLogs` stay minimal-API redirects, unchanged. `LlmUsageController` and
+`NotificationsController` retire with their pages (no other consumer); the audit CSV export
+becomes a minimal-API `GET /api/admin/audit-logs/export` (`Extensions/AdminLogsEndpointExtensions.cs`).
+`BulkPurge`'s progress bar subscribes to `IDashboardEventBus`'s `BulkPurgeProgressEvent` live,
+replacing dead legacy markup. A Discord snowflake or nullable enum bound via
+`[SupplyParameterFromQuery]` must be exposed as `string`/`int` with a computed typed property —
+`QueryParameterValueSupplier` (the framework class behind that attribute) has no built-in
+`ulong`/arbitrary-`enum` support and throws `InvalidOperationException` at first render otherwise,
+even for a page that never actually receives a value for that parameter.
+
+**Component library (Phase 2, complete).** `src/DiscordBot.Bot/Blazor/Shared/` has 62 components
+across 7 groups (Icons, Primitives, Forms, Navigation, Overlays, Widgets, Tts) — every one derived
+from a shipped Graphite v2 partial under `Pages/Shared/Components/`, one bUnit test class each. Full
+reference, parameters, and documented fidelity deviations: `docs/articles/blazor-components.md`;
+the group/component list: the "Blazor Components" table in `docs/architecture/ui-inventory.md`. The
+showcase page moved too: `Blazor/Pages/Components/ComponentsPage.razor` at `/components` replaced
+`Pages/Components.cshtml`, which is deleted. New reusable UI work goes in `Blazor/Shared/` under the
+matching group, following the "Component contract" in `blazor-components.md` — not as a new
+`Pages/Shared/Components/` partial.
+
+**Shell and layouts (Phase 3, complete).** `Blazor/Layout/` now has all five layouts —
+`MainLayout` (the admin shell: sidebar/navbar/toast/loading, driven by
+`wwwroot/js/blazor/shell.js`'s `data-shell-action` handlers), `GuildLayout`, `PortalLayout`,
+`LandingLayout`, `EmptyLayout` — and `Routes.razor`'s `DefaultLayout` is `MainLayout`, plus
+`IThemeInterop` (theme switching), deferred from Phase 1, landed alongside them. See
+"GuildContext"/"Portal three-state gate"/"GuildLayout / PortalLayout" in
+`docs/architecture/patterns.md` for the resolve-once-and-persist mechanics behind both context
+gates. What a new page needs to know:
+
+- A new Blazor page gets `MainLayout` (the admin shell) by default; opt out with `@layout` instead
+  of writing chrome of your own.
+- A guild page declares `@inherits GuildPageBase` + `@layout GuildLayout` and wraps its markup in
+  `<GuildContextGate Result="Result">` (`Blazor/Guilds/`).
+- A Portal page declares `@inherits PortalPageBase` + `@layout PortalLayout` (`Blazor/Portal/`).
+- A static-SSR-only page (no `@rendermode`) opts into `@layout EmptyLayout` (error pages, and later
+  `PublicLeaderboard`) or `@layout LandingLayout` (marketing-only, `/landing`).
+- Shell behavior (sidebar collapse, drawer, user menu, mobile search) lives in
+  `wwwroot/js/blazor/shell.js` via `data-shell-action`, not a component event handler.
+- Whenever a Phase 4 cluster deletes a `.cshtml`, sweep `Pages/**` for
+  `asp-page`/`RedirectToPage`/`Url.Page` references to its route and add the route to
+  `DeletedPagesGuardTests.DeletedPageRoutes` (`tests/DiscordBot.Tests/Bot/Pages/`) in the same PR —
+  a stale reference to a deleted page fails silently (empty form action, or an
+  `InvalidOperationException` at request time) rather than at compile time.
+- That sweep must include the *relative* forms too (`RedirectToPage("./Leaf")`, `asp-page="Leaf"`,
+  resolved against the referencing file's own folder), not just the absolute `"/Route"` form —
+  cluster 4a's review caught `Login.cshtml.cs`/`ExternalLogin.cshtml.cs` still redirecting to
+  `./Lockout` after `Lockout` became a Blazor page, so `DeletedPagesGuardTests` now scans for both.
+- Any `EditForm` on an `@rendermode InteractiveServer` page: no `FormName` unless a static
+  no-JS/prerender-window fallback is deliberately implemented end to end (`EditForm` always emits
+  `method="post"` regardless of `FormName` — don't add one to "fix" a GET that was never happening);
+  disable the submit/action button (`disabled="@(!RendererInfo.IsInteractive)"`, with a
+  "Connecting…" hint) until the circuit attaches, so a click in the prerender window is prevented
+  rather than silently discarded; Playwright waits for that button to become enabled instead of a
+  blind sleep. See `docs/lessons-learned/blazor-editform-formname-race.md`.
+- A static SSR page (no `@rendermode` at all — `Login`, `LinkDiscord`, `Privacy`, `Profile`: see
+  "Static-SSR account pages" in `docs/architecture/patterns.md`) has the opposite `EditForm` rule:
+  `FormName` **is** required, since the browser's own POST is the only submission mechanism. It
+  also needs at least one real `InputBase`-derived bound field in the render (add a hidden
+  `InputText` marker if nothing else qualifies) or the named form's static mapping never
+  registers, and every posted field name must carry its exact
+  `"{ComponentPropertyName}.{ModelPropertyName}"` prefix or it's silently dropped. Group actions
+  into one `EditForm` per implicit-submit target, not one per action — a shared form is fine only
+  when no free-text field in it could have Enter fire a different action's button by accident.
+  None of this is visible to bUnit, which never exercises the real static-form-mapping HTTP path;
+  verify against a real running host. See the second section of
+  `docs/lessons-learned/blazor-editform-formname-race.md`, and the example pages at
+  `Blazor/Pages/Account/{Login,LinkDiscord,Privacy}.razor` plus their minimal-API endpoints in
+  `Extensions/AccountEndpointExtensions.cs`.
+- An interactive page's not-found (or similarly circuit-only) state renders the design-system
+  `EmptyState` component at HTTP 200, never a real 404 status — once a circuit is live there is no
+  way left to set the response status code. Repo-wide convention since cluster 4a.
+- Any mutation handler (and the reload that follows it) resolves its service through
+  `Blazor/Common/ScopedOperations.cs`'s `IServiceScopeFactory.RunAsync` extension methods instead
+  of the page's injected, circuit-scoped instance — a circuit's DI scope, and therefore its
+  `BotDbContext`, lives for the whole circuit, so a second call against the injected instance can
+  collide with the first call's still-tracked entity graph. Never inject a mutating service
+  directly into a page field and call it from an event handler. See "Per-operation scopes" in
+  `docs/architecture/patterns.md` and `docs/lessons-learned/scheduled-message-repeated-update-tracking.md`.
+- A paginated list page uses `Blazor/Common/PagedQuery.cs` (`PageNumber`/`PageSize`/`SortBy`/
+  `SortDescending`, clamped; `FromQuery`/`ToQueryString`) rather than inventing its own paging
+  state, paired with `Blazor/Shared/Navigation/Pagination.razor` in link mode. Query names are
+  `pageNumber`/`pageSize`/`sortBy`/`sortDescending`; `FromQuery`'s `legacyPage` parameter accepts
+  an old `?page=` link without a redirect. See "Paged list pages" in `docs/architecture/patterns.md`.
+- A guild list/detail page that renders `<LocalTime>` and can re-render its rows after the first
+  load (paging, a filter, an action that reloads the list) must call `GuildPageBase`'s protected
+  `RequestLocalTimeScan()` at the end of every load/reload — `localtime.js`'s document-level scan
+  only ever fires once, so a row rendered afterward would otherwise show the raw UTC fallback.
+
 ## Domain Map
 
 ### Shared Component Library (25+ components)
@@ -25,7 +136,9 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - **Input:** `_AutocompleteInput`
 - **Previews:** `_GuildPreviewPopup`
 - **Currency:** `_CurrencyWalletPanel` — holder list + ledger + the mint/fine/adjust modal for one currency, filled by `wwwroot/js/currency/currency-wallets.js`. `CanMint`/`CanFine`/`CanAdminister` decide which actions render at all; `window.CurrencyWallets.setCurrency(id, symbol)` repoints it (the bot-wide page starts with none selected).
-- **Showcase:** `Components.cshtml` — living reference, keep updated when adding components
+- **Showcase:** `Blazor/Pages/Components/ComponentsPage.razor` at `/components` (the Blazor
+  showcase described above replaced `Components.cshtml`) — living reference, keep updated when
+  adding components
 
 ### Layouts
 - `_Layout.cshtml` — Main application layout
@@ -100,6 +213,17 @@ Loaded globally in `_Layout.cshtml`:
 <span class="preview-trigger" data-preview-type="guild"
       data-guild-id="@item.GuildId">@item.GuildName</span>
 ```
+
+**Blazor equivalent (Phase 4 cluster 4d):** the lookup logic behind `PreviewController` (`api/preview/*`)
+moved to `IPreviewService` (`Bot/Services/Preview/PreviewService.cs`, registered in
+`ApplicationServiceExtensions`); the controller is now a thin wrapper over it, still serving
+`preview-popup.js` for pages that haven't been ported. A Blazor page writes
+`<UserPreview UserId="@item.UserId" GuildId="@GuildId">@item.Username</UserPreview>` or
+`<GuildPreview GuildId="@item.GuildId">@item.GuildName</GuildPreview>`
+(`Blazor/Shared/Overlays/`) instead of the `preview-trigger` markup above — both call
+`IPreviewService` through a fresh `IServiceScopeFactory` scope and render through the generic
+`PreviewPopover` component (`Blazor/Shared/Overlays/PreviewPopover.razor`, Phase 2) via
+`UserPreviewContent`/`GuildPreviewContent`.
 
 ## Gotchas
 

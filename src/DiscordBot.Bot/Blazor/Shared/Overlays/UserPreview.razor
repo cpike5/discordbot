@@ -1,0 +1,57 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+
+@*
+    Convenience wrapper: <UserPreview UserId="@m.UserId" GuildId="@GuildId">@m.DisplayName</UserPreview>
+    replaces a page's own PreviewPopover+UserPreviewContent wiring (docs/plans/blazor-port-plan.md
+    Phase 4 cluster 4d) - the pages ported so far (Reminders/Index, RatWatch/Index,
+    AudioModerationLog/Index, Admin/MessageLogs/Details) all carry the same inert preview-trigger
+    markup this replaces (deviation (b)/(d) in the 4b/4a port-plan notes).
+
+    IPreviewService is resolved from a fresh IServiceScopeFactory scope per load, not injected
+    directly - PreviewPopover's Loader runs on demand (hover/focus/click), well after this
+    component's own render, and a scope born this late in the circuit's life is cheap and avoids
+    holding a live BotDbContext for the component's entire lifetime (docs/architecture/patterns.md
+    "Blazor Components" § Per-operation scopes - this is a read, not a mutation, but the same
+    "don't hold a scoped service longer than the one call needs" reasoning applies to a component
+    that may never actually open its popover).
+*@
+
+<PreviewPopover TModel="UserPreviewDto" Kind="PreviewKind.User" Id="@UserId.ToString()" GuildId="@GuildIdString"
+                Loader="LoadAsync" Placement="Placement" Class="@Class" AdditionalAttributes="AdditionalAttributes">
+    <ContentTemplate Context="model">
+        <UserPreviewContent Model="model" GuildId="@((ulong?)GuildId)" />
+    </ContentTemplate>
+    <ChildContent>
+        @ChildContent
+    </ChildContent>
+</PreviewPopover>
+
+@code {
+    [Parameter, EditorRequired] public ulong UserId { get; set; }
+
+    /// <summary>Optional guild context - <c>long</c> (not <c>ulong</c>) so a guild page can pass
+    /// its own <c>GuildPageBase.GuildId</c> straight through without a cast, matching
+    /// <c>GuildContext.GuildId</c>/route-parameter convention elsewhere in the Blazor tree.</summary>
+    [Parameter] public long? GuildId { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public PopoverPlacement Placement { get; set; } = PopoverPlacement.Below;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private string? GuildIdString => GuildId?.ToString();
+
+    private async Task<UserPreviewDto?> LoadAsync()
+    {
+        var guildId = GuildId.HasValue ? (ulong)GuildId.Value : (ulong?)null;
+        return await ScopeFactory.RunAsync<IPreviewService, UserPreviewDto?>(
+            s => s.GetUserPreviewAsync(UserId, guildId, CancellationToken.None));
+    }
+}

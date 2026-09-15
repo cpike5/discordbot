@@ -1,0 +1,136 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Admin.Logs.Tabs
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Audit log filters/table/paging/export - the "audit" tab of Blazor/Pages/Admin/Logs/Index.razor,
+    ported from IndexModel.LoadAuditLogsAsync/OnGetExportAsync. Query names are preserved exactly
+    (Category, Action, ActorId, TargetType, AuditGuildId, AuditStartDate, AuditEndDate,
+    AuditSearchTerm, auditPageNumber, AuditPageSize, UserTimezone) since
+    Services/Search/AuditLogsSearchProvider and AuditLogCard.razor build links against them. CSV
+    export now hits the minimal-API GET /api/admin/audit-logs/export (Extensions/AdminLogsEndpointExtensions.cs)
+    instead of a page handler.
+*@
+
+@if (LoadFailed)
+{
+    <Alert Variant="AlertVariant.Error" Title="Couldn't load audit logs" Message="Something went wrong loading this data. Try reloading." />
+}
+else
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+        <form @onsubmit="HandleFilterSubmit" @onsubmit:preventDefault="true" class="space-y-4" data-testid="audit-filter-form">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Select TValue="string" Id="categoryFilter" Label="Category" @bind-Value="CategoryInput" Placeholder="All categories" Options="CategoryOptions" />
+                <Select TValue="string" Id="actionFilter" Label="Action" @bind-Value="ActionInput" Placeholder="All actions" Options="ActionOptions" />
+                <Select TValue="string" Id="auditGuildFilter" Label="Guild" @bind-Value="AuditGuildIdInput" Placeholder="All guilds" Options="GuildOptions" />
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <Autocomplete Id="actorFilter" Label="Actor" SearchFunc="SearchActorsAsync"
+                              @bind-Value="ActorIdInput" DisplayText="@ActorDisplayText" Placeholder="Search by username..." />
+                <TextInput Id="targetTypeFilter" Label="Target Type" @bind-Value="TargetTypeInput" Placeholder="e.g. GuildModerationConfig" />
+                <TextInput Id="auditSearchTerm" Label="Search" @bind-Value="SearchTermInput" Placeholder="Search details..." />
+            </div>
+
+            <DateRangeFilter Start="StartInput" StartChanged="v => StartInput = v" End="EndInput" EndChanged="v => EndInput = v" />
+
+            <div class="flex flex-wrap justify-end gap-2">
+                <a href="@ExportUrl" class="btn btn-secondary">
+                    <Icon Path="@IconPaths.ArrowDownTray" Class="w-4 h-4 mr-2" />
+                    Export CSV
+                </a>
+                <button type="button" class="btn btn-secondary" disabled="@(!RendererInfo.IsInteractive)" @onclick="HandleClearFilters">Clear</button>
+                <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">
+                    <Icon Path="@IconPaths.MagnifyingGlass" Class="w-4 h-4 mr-2" />
+                    Search
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+        @if (IsLoading)
+        {
+            <div class="p-8 text-center text-text-secondary">Loading...</div>
+        }
+        else if (Logs.Count == 0)
+        {
+            <div class="p-8">
+                <EmptyState Type="EmptyStateType.NoResults" Title="No audit logs found" Description="Try adjusting your search or filters" />
+            </div>
+        }
+        else
+        {
+            <div class="overflow-x-auto hidden sm:block">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Category</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Action</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Actor</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Guild</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Details</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var log in Logs)
+                        {
+                            <tr class="hover:bg-bg-tertiary/50 transition-colors cursor-pointer" data-testid="audit-row" @onclick="() => ToggleExpanded(log.Id)">
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary"><LocalTime Utc="log.Timestamp" Format="datetime-short" /></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><Badge Text="@log.Category" Size="BadgeSize.Small" /></td>
+                                <td class="px-6 py-4 whitespace-nowrap"><Badge Text="@log.Action" Size="BadgeSize.Small" /></td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-primary">@log.ActorName</td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">@log.GetGuildDisplay()</td>
+                                <td class="px-6 py-4 text-sm text-text-secondary max-w-xs truncate" title="@log.DetailsSummary">@log.DetailsSummary</td>
+                            </tr>
+                            @if (_expanded.Contains(log.Id))
+                            {
+                                <tr>
+                                    <td colspan="6" class="px-6 py-4 bg-bg-tertiary/30">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+                                            <div><span class="text-text-tertiary">Target:</span> @log.TargetType @log.TargetId</div>
+                                            <div><span class="text-text-tertiary">IP Address:</span> @(log.IpAddress ?? "-")</div>
+                                            <div><span class="text-text-tertiary">Correlation ID:</span> @(log.CorrelationId ?? "-")</div>
+                                            <div><a href="@($"/Admin/AuditLogs/Details?id={log.Id}")" class="text-accent-blue hover:text-accent-blue/80">View full details</a></div>
+                                        </div>
+                                        @if (log.HasDetails)
+                                        {
+                                            <pre class="mt-2 p-3 bg-bg-primary rounded-md text-xs overflow-x-auto">@log.FormattedDetails</pre>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="sm:hidden divide-y divide-border-primary">
+                @foreach (var log in Logs)
+                {
+                    <div class="p-4" data-testid="audit-card" @onclick="() => ToggleExpanded(log.Id)">
+                        <div class="flex justify-between items-start mb-1">
+                            <Badge Text="@log.Action" Size="BadgeSize.Small" />
+                            <LocalTime Utc="log.Timestamp" Format="datetime-short" Class="text-xs text-text-tertiary" />
+                        </div>
+                        <p class="text-sm text-text-primary">@log.ActorName</p>
+                        <p class="text-xs text-text-secondary truncate">@log.DetailsSummary</p>
+                        <a href="@($"/Admin/AuditLogs/Details?id={log.Id}")" class="text-xs text-accent-blue hover:text-accent-blue/80">View details</a>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <div class="px-6 py-4 border-t border-border-primary">
+                    <Pagination CurrentPage="PageNumber" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="PageSize"
+                                Style="PaginationStyle.Compact" BaseUrl="@PageUrl" PageParameterName="auditPageNumber" />
+                </div>
+            }
+        }
+    </div>
+}

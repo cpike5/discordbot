@@ -1,0 +1,187 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@typeparam TValue
+@using System.Globalization
+@using System.Linq.Expressions
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _FormSelect.cshtml / FormSelectViewModel, wrapped in FormField. Same
+   Value/ValueChanged/ValueExpression + optional EditContext pattern as TextInput.razor (see the
+   comment there). TValue is converted to/from the <option value="..."> strings with the same
+   BindConverter the framework's own InputSelect<TValue> uses, so this behaves like InputSelect for
+   any TValue an <option> string can round-trip (string, enum, int, Guid, ...).
+
+   TValue is unconstrained, so `TValue?` is erased to plain TValue for a value-type TValue (no
+   `where TValue : struct` here to turn it into Nullable<TValue> - see the C# spec on nullable
+   annotations for unconstrained type parameters). Concretely: bind an enum/int TValue and "no
+   selection" is TValue's default, not null - only a reference-type TValue (string, a class) gets a
+   genuinely nullable Value. This mirrors the framework's own InputSelect<TValue> exactly.
+
+   AllowMultiple does not attempt to generalize the single-value TValue binding to a collection
+   (per the tier brief, "AllowMultiple for TValue collections if feasible or a separate MultiSelect
+   note" - a generic multi-select bound through the same TValue would need a second, incompatible
+   BindConverter shape per call site). Instead, when AllowMultiple is set, Value/ValueChanged are
+   ignored and selection is reported through SelectedValues/SelectedValuesChanged as a plain
+   IReadOnlyList<string> of the selected <option> values - the caller owns mapping those back to
+   whatever domain type it needs, the same way a raw <select multiple> would. *@
+
+<FormField Label="@Label" For="@Id" HelpText="@HelpText" ValidationState="ValidationState"
+           ValidationMessage="@ValidationMessage" IsRequired="IsRequired" Class="@Class"
+           FooterContent="@Footer">
+    <div class="relative">
+        <select id="@Id"
+                name="@(Name ?? Id)"
+                class="@SelectClasses"
+                required="@IsRequired"
+                disabled="@IsDisabled"
+                multiple="@AllowMultiple"
+                value="@(AllowMultiple ? null : CurrentValueAsString)"
+                aria-describedby="@DescribedByIds"
+                aria-invalid="@(ValidationState == ValidationState.Error ? "true" : null)"
+                @attributes="AdditionalAttributes"
+                @onchange="HandleChange">
+            @if (!string.IsNullOrEmpty(Placeholder) && !AllowMultiple)
+            {
+                <option value="" disabled>@Placeholder</option>
+            }
+
+            @if (OptionGroups is { Count: > 0 })
+            {
+                @foreach (var group in OptionGroups)
+                {
+                    <optgroup label="@group.Label">
+                        @foreach (var option in group.Options)
+                        {
+                            <option value="@option.Value" disabled="@option.IsDisabled" selected="@(AllowMultiple && IsSelected(option.Value))">@option.Text</option>
+                        }
+                    </optgroup>
+                }
+            }
+            else
+            {
+                @foreach (var option in Options)
+                {
+                    <option value="@option.Value" disabled="@option.IsDisabled" selected="@(AllowMultiple && IsSelected(option.Value))">@option.Text</option>
+                }
+            }
+        </select>
+
+        <div class="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+            <Icon Path="@IconPaths.ChevronDown" Class="w-5 h-5 text-text-tertiary" />
+        </div>
+    </div>
+</FormField>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string? Placeholder { get; set; } = "Select an option";
+    [Parameter] public List<SelectOption> Options { get; set; } = new();
+    [Parameter] public List<SelectOptionGroup>? OptionGroups { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public InputSize Size { get; set; } = InputSize.Medium;
+    [Parameter] public ValidationState ValidationState { get; set; } = ValidationState.None;
+    [Parameter] public string? ValidationMessage { get; set; }
+    [Parameter] public bool IsRequired { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+    [Parameter] public bool AllowMultiple { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public TValue? Value { get; set; }
+    [Parameter] public EventCallback<TValue?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<TValue?>>? ValueExpression { get; set; }
+
+    [Parameter] public IReadOnlyList<string> SelectedValues { get; set; } = Array.Empty<string>();
+    [Parameter] public EventCallback<IReadOnlyList<string>> SelectedValuesChanged { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [CascadingParameter] private EditContext? CascadedEditContext { get; set; }
+
+    private FieldIdentifier? _fieldIdentifier;
+
+    protected override void OnParametersSet()
+    {
+        _fieldIdentifier = ValueExpression is not null ? FieldIdentifier.Create(ValueExpression) : null;
+    }
+
+    // Matches InputBase<TValue>'s own default FormatValueAsString (value?.ToString()) rather than
+    // BindConverter.TryConvertToString - that method throws InvalidCastException for a TValue it
+    // doesn't specifically recognize (an enum included), it does not degrade to false/null.
+    private string? CurrentValueAsString => AllowMultiple ? null : Value?.ToString();
+
+    private bool IsSelected(string optionValue) => AllowMultiple
+        ? SelectedValues.Contains(optionValue)
+        : optionValue == CurrentValueAsString;
+
+    private async Task HandleChange(ChangeEventArgs e)
+    {
+        if (AllowMultiple)
+        {
+            var selected = e.Value switch
+            {
+                string[] arr => arr,
+                IEnumerable<object> objs => objs.Select(o => o?.ToString() ?? string.Empty).ToArray(),
+                _ => Array.Empty<string>()
+            };
+            SelectedValues = selected;
+            await SelectedValuesChanged.InvokeAsync(SelectedValues);
+            return;
+        }
+
+        var raw = e.Value?.ToString();
+        if (BindConverter.TryConvertTo<TValue>(raw, CultureInfo.CurrentCulture, out var newValue))
+        {
+            Value = newValue;
+            await ValueChanged.InvokeAsync(newValue);
+            if (CascadedEditContext is not null && _fieldIdentifier is { } field)
+            {
+                CascadedEditContext.NotifyFieldChanged(field);
+            }
+        }
+    }
+
+    private string? DescribedByIds => FormField.ComputeDescribedByIds(Id, HelpText, ValidationState, ValidationMessage);
+
+    private string SizeClasses => Size switch
+    {
+        InputSize.Small => "py-1.5 px-3 text-xs",
+        InputSize.Large => "py-3 px-4 text-base",
+        _ => "py-2.5 px-3.5 text-sm"
+    };
+
+    private string ValidationClasses => ValidationState switch
+    {
+        ValidationState.Error => "border-error focus:border-error focus:ring-error/15",
+        ValidationState.Success => "border-success focus:border-success focus:ring-success/15",
+        ValidationState.Warning => "border-warning focus:border-warning focus:ring-warning/15",
+        _ => "border-border-primary focus:border-accent-blue focus:ring-accent-blue/15"
+    };
+
+    private string SelectClasses
+    {
+        get
+        {
+            var classes = $"w-full {SizeClasses} pr-10 text-text-primary bg-bg-primary border {ValidationClasses} rounded-md appearance-none transition-colors focus:outline-none focus:ring-[3px]";
+            classes = IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+
+            // See TextInput.razor's InputClasses comment - same EditContext modified/valid/invalid
+            // class appended here so a <select> inside an <EditForm> gets the same styling.
+            if (CascadedEditContext is not null && _fieldIdentifier is { } fieldId)
+            {
+                // See TextInput.razor's InputClasses comment on why this isn't named "field".
+                classes = $"{classes} {CascadedEditContext.FieldCssClass(fieldId)}";
+            }
+
+            return classes;
+        }
+    }
+
+    private RenderFragment? Footer => @<text>
+        @if (CascadedEditContext is not null && ValueExpression is not null)
+        {
+            <ValidationMessage For="ValueExpression" class="flex items-center gap-1.5 text-xs text-error" />
+        }
+    </text>;
+}

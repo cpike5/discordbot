@@ -83,9 +83,22 @@ public static class ServiceCollectionExtensions
         }
         else
         {
-            services.AddBotDbContext<BotDbContext>(options =>
+            // Register the provider-specific SqliteBotDbContext, not the base BotDbContext -
+            // every migration since 20260219205009_AddIsEnabledToGuildModerationConfig carries
+            // [DbContext(typeof(SqliteBotDbContext))] (the Sqlite/Postgres migration-set split;
+            // see CLAUDE.md "Database and migrations"), so EF Core's migrator only discovers them
+            // against that concrete type. Resolving/migrating the base BotDbContext type here (as
+            // this used to do, mirroring the pre-split code) silently stops applying migrations
+            // right after the last BotDbContext-attributed one - Program.cs's startup
+            // `db.Database.MigrateAsync()` would complete "successfully" having created only a
+            // fraction of the schema (nothing from AddFeatureRequests, AddLlmModels,
+            // AddVirtualCurrency, etc. onward), with no error at all. Forward BotDbContext to the
+            // same SqliteBotDbContext instance, exactly like the Postgres branch above, so every
+            // other caller that injects the base type keeps working unchanged.
+            services.AddBotDbContext<SqliteBotDbContext>(options =>
                 options.UseSqlite(connectionString, sqlite =>
                     sqlite.MigrationsAssembly("DiscordBot.Infrastructure")));
+            services.AddScoped<BotDbContext>(sp => sp.GetRequiredService<SqliteBotDbContext>());
         }
 
         // Register repositories (generic repository + convention-scanned concrete repositories)

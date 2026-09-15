@@ -1,0 +1,64 @@
+/* Ported verbatim from the <style> block in _FormToggle.cshtml (Component contract, point 6: an
+   inline <style> block in a partial moves to that component's .razor.css isolation file). */
+
+.form-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.form-toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.form-toggle-track {
+    position: relative;
+    display: inline-block;
+    width: 2.75rem;
+    height: 1.5rem;
+    background-color: var(--color-border-primary);
+    border-radius: 9999px;
+    flex-shrink: 0;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.form-toggle-thumb {
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: var(--color-text-primary);
+    border-radius: 50%;
+    transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+}
+
+.form-toggle:hover .form-toggle-track {
+    background-color: var(--color-bg-hover);
+}
+
+.form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
+    background-color: var(--color-accent-orange-hover);
+}
+
+.form-toggle-input:focus-visible + .form-toggle-track {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+}
+
+.form-toggle-input:checked + .form-toggle-track {
+    background-color: var(--color-accent-orange);
+}
+
+.form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+    transform: translateX(1.25rem);
+    background-color: white;
+}
+
+.form-toggle-input:disabled + .form-toggle-track {
+    opacity: 0.6;
+    cursor: not-allowed;
+}

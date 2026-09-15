@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Playwright browser (E2E) tests. Boots the real DiscordBot.Bot.dll in web-only mode
+    (Discord:Enabled=false) against a throwaway SQLite database and drives it with headless
+    Chromium. See docs/articles/testing-guide.md "Browser (Playwright) tests" and
+    docs/plans/blazor-port-plan.md §6.
+
+    The whole suite is gated behind E2E_ENABLED=1 (see E2EFactAttribute) so a plain
+    `dotnet test DiscordBot.sln` stays green on machines without Chromium - tests report as
+    Skipped, not failed, when the variable is unset.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="coverlet.collector" Version="6.0.0" />
+    <PackageReference Include="FluentAssertions" Version="8.10.0" />
+    <!-- Not a transitive dependency: this project has no reference to Bot or Infrastructure
+         (it drives DiscordBot.Bot.dll as a black-box child process, see BotHostFixture), so
+         seeding a row directly into the fixture's throwaway SQLite database (BrowserTests'
+         GuildProbe coverage) needs its own reference. Pinned to the same version
+         DiscordBot.Infrastructure's Microsoft.EntityFrameworkCore.Sqlite package pulls in. -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="10.0.12" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageReference Include="Microsoft.Playwright" Version="1.62.0" />
+    <PackageReference Include="xunit" Version="2.9.3" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Using Include="Xunit" />
+  </ItemGroup>
+
+</Project>

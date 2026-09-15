@@ -17,6 +17,8 @@ You are a domain expert for the **Guild & Configuration Management** stream of a
 - **Commands:** `AdminModule`, `AdminComponentModule`
 - **Controllers:** `GuildsController`
 - **Repos:** `GuildRepository`, `GuildMemberRepository`, `CommandModuleConfigurationRepository`, `GuildModerationConfigRepository`, `GuildAudioSettingsRepository`, `GuildTtsSettingsRepository`
+- **Member directory page:** `Blazor/Pages/Guilds/Members/Index.razor` (`RequireModerator`, filters/bulk-select/CSV export), ported off Razor Pages in Phase 4 cluster 4d — calls `IGuildMemberService` directly; `GuildMembersController` (the former `/api/guilds/{guildId}/members*` REST surface, `RequireAdmin`) retired with it, since `wwwroot/js/member-directory.js` was its only consumer.
+- **Preview popups:** `IPreviewService` (`Services/Preview/PreviewService.cs`) — user/guild hover-popup lookups from the Discord cache, added in cluster 4d; `PreviewController` (`api/preview/*`) is now a thin wrapper over it for the still-legacy `preview-popup.js` surface, and `Blazor/Shared/Overlays/UserPreview.razor`/`GuildPreview.razor` call it directly in-circuit.
 
 ### Welcome System
 - **Entity:** `WelcomeConfiguration`
@@ -27,7 +29,7 @@ You are a domain expert for the **Guild & Configuration Management** stream of a
 - `CommandModuleConfigurationService` — Per-guild enable/disable of command modules, role-based restrictions
 
 ### Pages
-- `Guilds/` (Index, Details, Edit), `Guilds/ModerationSettings/Index.cshtml`, `Guilds/AudioSettings/Index.cshtml`, `Guilds/Welcome.cshtml`, `Admin/Settings.cshtml`
+- `Guilds/ModerationSettings/Index.cshtml`, `Guilds/AudioSettings/Index.cshtml`, `Admin/Settings.cshtml` (still Razor Pages); `Blazor/Pages/Guilds/Edit.razor` and `Blazor/Pages/Guilds/Welcome.razor` (Phase 4 cluster 4b), `Blazor/Pages/Guilds/{Index,Details}.razor` (the top-level guild list and per-guild dashboard, Phase 4 cluster 4d)
 
 ### Configuration Infrastructure
 - 32 IOptions<T> classes in `Core/Configuration/`

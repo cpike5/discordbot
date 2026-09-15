@@ -1,0 +1,37 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+
+@*
+    DTO-facing counterpart of UserPreviewContent.razor - see its top-of-file note. DetailsUrl/
+    SettingsUrl reproduce preview-popup.js's renderGuildContent literal hrefs
+    (/Guilds/Details/{id}, /Guilds/Edit/{id}); both routes stay on the legacy Razor Pages side of
+    the port for now (Pages/Guilds/{Index,Details} are owned by a different cluster), so these are
+    plain literal hrefs rather than NavigationManager.NavigateTo targets - unaffected either way
+    once that cluster ports them, since the routes themselves don't change.
+*@
+
+<GuildPreviewPopoverContent Model="ToViewModel()" Class="@Class" AdditionalAttributes="AdditionalAttributes" />
+
+@code {
+    [Parameter, EditorRequired] public GuildPreviewDto Model { get; set; } = null!;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private GuildPreviewViewModel ToViewModel() => new()
+    {
+        GuildId = Model.GuildId,
+        Name = Model.Name,
+        IconUrl = Model.IconUrl,
+        MemberCount = Model.MemberCount,
+        OnlineMemberCount = Model.OnlineMemberCount,
+        OwnerUsername = Model.OwnerUsername,
+        BotJoinedAt = Model.BotJoinedAt,
+        ActiveFeatures = Model.ActiveFeatures,
+        IsActive = Model.IsActive,
+        DetailsUrl = $"/Guilds/Details/{Model.GuildId}",
+        SettingsUrl = $"/Guilds/Edit/{Model.GuildId}"
+    };
+}

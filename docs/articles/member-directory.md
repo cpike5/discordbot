@@ -172,7 +172,7 @@ Clicking "View" on a member opens a modal with detailed information:
 - **Activity**: Last active timestamp with relative time
 - **Status**: Active/inactive indicator
 
-The modal is implemented in `Pages/Guilds/Members/_MemberDetailModal.cshtml` and loaded via AJAX using the `/api/guilds/{guildId}/members/{userId}` endpoint.
+As of the Blazor port (Phase 4 cluster 4d), the page is `Blazor/Pages/Guilds/Members/Index.razor` (`+ .razor.cs`), an interactive component - the modal is a `Modal` instance fed directly by `IGuildMemberService.GetMemberAsync` in-circuit, not an AJAX call against a REST endpoint. `GuildMembersController` (the former `/api/guilds/{guildId}/members*` endpoints) was retired with the port; `member-directory.js` and `Pages/Guilds/Members/_MemberDetailModal.cshtml` are gone.
 
 ### Pagination
 
@@ -237,20 +237,19 @@ Members with null `LastActiveAt` are sorted to the end when sorting by last acti
 
 ### Export All (Filtered)
 
-The "Export CSV" button in the page header exports all members matching the current filters:
-- **Route**: `GET /Guilds/{guildId}/Members/Export`
-- **Behavior**: Redirects to API endpoint with current query parameters
-- **Limit**: 10,000 rows maximum
-- **Pagination**: Ignored (exports all matching members)
+The "Export All (current filter, max 10k)" button builds the CSV in-circuit via
+`IGuildMemberService.ExportMembersToCsvAsync` (current filters, no `UserIds`, `maxRows: 10000`)
+and hands it to the browser with `BrowserInterop.DownloadFileAsync` - there is no longer a
+`GET /Guilds/{guildId}/Members?handler=Export` link or redirect (that link pointed at a
+nonexistent Razor Page handler even before the port) or a `GET /api/guilds/{guildId}/members/export`
+REST round trip.
 
 ### Export Selected (Bulk)
 
-The "Export Selected" button in the bulk actions toolbar exports only selected members:
-- **Route**: `GET /api/guilds/{guildId}/members/export`
-- **Query Params**: `userIds` (repeated for each selected user)
-- **Format**: `?userIds=123&userIds=456&userIds=789`
-- **Limit**: 10,000 rows maximum
-- **JavaScript**: `exportSelected()` function in `member-directory.js`
+The "Export Selected" button in the bulk actions toolbar builds the CSV the same way, scoped to
+the selected `UserIds`, and downloads it the same way - `GuildMembersController` (the former
+`/api/guilds/{guildId}/members/export` endpoint) was retired with this port, since
+`member-directory.js` was its only consumer.
 
 ### CSV Format
 
@@ -301,48 +300,22 @@ Member queries are optimized with:
 - **Pagination**: Uses SKIP/TAKE for efficient paging
 - **Role Joins**: Eager loads role data to avoid N+1 queries
 
-## API Integration
+## Service Integration
 
-The Member Directory page integrates with the following API endpoints:
-
-### List Members
-- **Endpoint**: `GET /api/guilds/{guildId}/members`
-- **Usage**: Fetch paginated member list for table display
-- **Response**: `PaginatedResponseDto<GuildMemberDto>`
-- **Authorization**: Admin+
-
-### Get Member Details
-- **Endpoint**: `GET /api/guilds/{guildId}/members/{userId}`
-- **Usage**: Load individual member data for detail modal
-- **Response**: `GuildMemberDto`
-- **Authorization**: Admin+
-
-### Export Members
-- **Endpoint**: `GET /api/guilds/{guildId}/members/export`
-- **Usage**: Generate CSV export of filtered members
-- **Response**: CSV file download
-- **Authorization**: Admin+
-
-For detailed API documentation, see [api-endpoints.md](api-endpoints.md#member-directory-endpoints).
+As of the Blazor port (Phase 4 cluster 4d) the page calls `IGuildMemberService` directly, in-circuit
+- there is no longer a REST API surface for it. `GuildMembersController`
+(`GET /api/guilds/{guildId}/members`, `GET /api/guilds/{guildId}/members/{userId}`,
+`GET /api/guilds/{guildId}/members/export`, all `RequireAdmin`) was retired with this port; note
+this page's own policy was always `RequireModerator`, one level below the controller's - calling
+the service directly means this page's own policy now governs. See
+[api-endpoints.md](api-endpoints.md) for the removal note.
 
 ## JavaScript Dependencies
 
-The Member Directory page uses the following JavaScript modules:
-
-**File:** `wwwroot/js/member-directory.js`
-
-**Functions:**
-- `viewMemberDetails(userId)`: Opens detail modal and loads member data via AJAX
-- `exportSelected()`: Builds export URL with selected user IDs and triggers download
-- `selectAll()`: Toggles selection state for all members on current page
-- `deselectAll()`: Clears all member selections
-- `updateBulkActionsToolbar()`: Shows/hides bulk actions toolbar based on selection count
-- Role multi-select dropdown toggle and selection handling
-- Filter panel toggle and state management
-
-**Dependencies:**
-- Modern browser with ES6 support
-- No external JavaScript libraries required (vanilla JS)
+None - as of the Blazor port (Phase 4 cluster 4d) the page is an interactive Blazor component
+(`Blazor/Pages/Guilds/Members/Index.razor`); selection, the detail modal, filtering, and CSV
+export are all component state and direct service calls. `wwwroot/js/member-directory.js` was
+deleted with the port.
 
 ## Related Documentation
 

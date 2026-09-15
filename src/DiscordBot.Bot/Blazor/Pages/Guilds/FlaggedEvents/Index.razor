@@ -1,0 +1,224 @@
+@page "/Guilds/FlaggedEvents/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@attribute [Authorize(Policy = "GuildAccess")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+@inject NavigationManager Nav
+
+@*
+    Routable replacement for Pages/Guilds/FlaggedEvents/Index.cshtml + IndexModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4d). See Index.razor.cs for the
+    filter/bulk-select/dismiss/acknowledge logic this markup renders.
+*@
+
+<PageTitle>Flagged Events</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load flagged events" Message="Something went wrong loading this list. Try reloading the page." Class="mb-6" />
+        }
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+                <Select TValue="string" Id="filterRuleType" Label="Rule Type" Placeholder="" Options="RuleTypeOptions" Value="@(FilterRuleTypeValue?.ToString() ?? "")" ValueChanged="v => Navigate(v, FilterSeverityValue, FilterStatusValue, FilterDateFrom, FilterDateTo)" />
+                <Select TValue="string" Id="filterSeverity" Label="Severity" Placeholder="" Options="SeverityOptions" Value="@(FilterSeverityValue?.ToString() ?? "")" ValueChanged="v => Navigate(FilterRuleTypeValue, v, FilterStatusValue, FilterDateFrom, FilterDateTo)" />
+                <Select TValue="string" Id="filterStatus" Label="Status" Placeholder="" Options="StatusOptions" Value="@(FilterStatusValue?.ToString() ?? "")" ValueChanged="v => Navigate(FilterRuleTypeValue, FilterSeverityValue, v, FilterDateFrom, FilterDateTo)" />
+                <div>
+                    <label for="filterDateFrom" class="block text-sm font-medium text-text-secondary mb-1">From Date</label>
+                    <input type="date" id="filterDateFrom" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary"
+                           value="@EffectiveDateFrom.ToString("yyyy-MM-dd")" @onchange="e => Navigate(FilterRuleTypeValue, FilterSeverityValue, FilterStatusValue, ParseDate(e.Value), FilterDateTo)" />
+                </div>
+                <div>
+                    <label for="filterDateTo" class="block text-sm font-medium text-text-secondary mb-1">To Date</label>
+                    <input type="date" id="filterDateTo" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary"
+                           value="@EffectiveDateTo.ToString("yyyy-MM-dd")" @onchange="e => Navigate(FilterRuleTypeValue, FilterSeverityValue, FilterStatusValue, FilterDateFrom, ParseDate(e.Value))" />
+                </div>
+            </div>
+            <div class="flex items-center justify-end gap-3 mt-4">
+                <a href="@($"/Guilds/FlaggedEvents/{GuildId}")" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">Clear Filters</a>
+            </div>
+        </div>
+
+        @if (SelectedIds.Count > 0)
+        {
+            <div class="bg-accent-blue/10 border border-accent-blue/30 rounded-lg px-5 py-3 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <Icon Path="@IconPaths.CheckCircle" Class="w-5 h-5 text-accent-blue" />
+                    <span class="text-sm font-medium text-text-primary">@SelectedIds.Count event(s) selected</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <button type="button" class="btn btn-secondary btn-sm" disabled="@IsBusy" @onclick="ClearSelection">Clear Selection</button>
+                    <button type="button" class="btn btn-secondary btn-sm" disabled="@IsBusy" @onclick="HandleBulkDismissAsync">Dismiss Selected</button>
+                    <button type="button" class="btn btn-accent btn-sm" disabled="@IsBusy" @onclick="HandleBulkAcknowledgeAsync">Acknowledge Selected</button>
+                </div>
+            </div>
+        }
+
+        @if (Events.Count == 0)
+        {
+            <EmptyState Type="EmptyStateType.NoResults" Title="No flagged events found"
+                        Description="@(HasActiveFilters ? "Try adjusting your filters." : "No auto-moderation events have been detected yet.")" />
+        }
+        else
+        {
+            <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6">
+                <table class="min-w-full divide-y divide-border-primary">
+                    <thead class="bg-bg-tertiary">
+                        <tr>
+                            <th scope="col" class="w-12 px-4 py-3">
+                                <input type="checkbox" aria-label="Select all events" checked="@(Events.Count > 0 && SelectedIds.Count == Events.Count)"
+                                       @onchange="e => ToggleSelectAll((bool)e.Value!)" class="w-4 h-4 rounded border-border-primary text-accent-blue" />
+                            </th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Severity</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Rule</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Channel</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Timestamp</th>
+                            <th scope="col" class="px-4 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-4 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-border-primary">
+                        @foreach (var evt in Events)
+                        {
+                            <tr class="hover:bg-bg-hover transition-colors" data-testid="flagged-event-row">
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <input type="checkbox" aria-label="@($"Select event from {evt.Username}")" checked="@SelectedIds.Contains(evt.Id)"
+                                           @onchange="e => ToggleSelected(evt.Id, (bool)e.Value!)" class="w-4 h-4 rounded border-border-primary text-accent-blue" />
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap"><SeverityBadge Severity="evt.Severity" /></td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <span class="text-sm font-medium text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@GuildId">@evt.Username</span>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap">
+                                    <div class="flex items-center gap-2">
+                                        <RuleTypeIcon RuleType="evt.RuleType" />
+                                        <span class="text-sm text-text-primary">@evt.RuleType</span>
+                                    </div>
+                                </td>
+                                <td class="px-4 py-4 whitespace-nowrap"><span class="text-sm text-text-secondary">@(evt.ChannelId > 0 ? $"#{evt.ChannelName}" : "N/A")</span></td>
+                                <td class="px-4 py-4 whitespace-nowrap"><LocalTime Utc="evt.CreatedAt" Format="datetime" Class="text-sm text-text-secondary" /></td>
+                                <td class="px-4 py-4 whitespace-nowrap"><StatusBadge Status="evt.Status" /></td>
+                                <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium">
+                                    <div class="flex items-center justify-end gap-2">
+                                        @if (evt.Status == FlaggedEventStatus.Pending)
+                                        {
+                                            <button type="button" class="text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50" disabled="@IsBusy" @onclick="() => HandleDismissAsync(evt.Id)" title="Dismiss">
+                                                <Icon Path="@IconPaths.XMark" Class="w-5 h-5" />
+                                            </button>
+                                        }
+                                        <a href="@DetailsUrl(evt.Id)" class="text-accent-blue hover:text-accent-blue/80 transition-colors" title="View Details">
+                                            <Icon Path="@IconPaths.Eye" Class="w-5 h-5" />
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="md:hidden space-y-4 mb-6">
+                @foreach (var evt in Events)
+                {
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-4" data-testid="flagged-event-card">
+                        <div class="flex items-start justify-between mb-3">
+                            <div class="flex items-center gap-3">
+                                <input type="checkbox" aria-label="@($"Select event from {evt.Username}")" checked="@SelectedIds.Contains(evt.Id)"
+                                       @onchange="e => ToggleSelected(evt.Id, (bool)e.Value!)" class="w-4 h-4 rounded border-border-primary text-accent-blue" />
+                                <SeverityBadge Severity="evt.Severity" />
+                            </div>
+                            <StatusBadge Status="evt.Status" />
+                        </div>
+                        <div class="space-y-2">
+                            <div class="flex items-center gap-2">
+                                <span class="text-sm font-semibold text-text-secondary">User:</span>
+                                <span class="text-sm text-text-primary preview-trigger" data-preview-type="user" data-user-id="@evt.UserId" data-context-guild-id="@GuildId">@evt.Username</span>
+                            </div>
+                            <div class="flex items-center gap-2">
+                                <RuleTypeIcon RuleType="evt.RuleType" />
+                                <span class="text-sm text-text-primary">@evt.RuleType</span>
+                            </div>
+                            @if (evt.ChannelId > 0)
+                            {
+                                <div class="text-sm text-text-secondary">#@evt.ChannelName</div>
+                            }
+                            <LocalTime Utc="evt.CreatedAt" Format="datetime" Class="text-xs text-text-tertiary" />
+                        </div>
+                        <div class="flex items-center justify-end gap-2 mt-4 pt-4 border-t border-border-primary">
+                            @if (evt.Status == FlaggedEventStatus.Pending)
+                            {
+                                <button type="button" class="px-3 py-1.5 text-sm text-text-secondary hover:text-text-primary transition-colors disabled:opacity-50" disabled="@IsBusy" @onclick="() => HandleDismissAsync(evt.Id)">Dismiss</button>
+                            }
+                            <a href="@DetailsUrl(evt.Id)" class="px-3 py-1.5 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">View Details</a>
+                        </div>
+                    </div>
+                }
+            </div>
+
+            @if (TotalPages > 1)
+            {
+                <Pagination CurrentPage="Query.PageNumber" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="Query.PageSize"
+                            BaseUrl="@PageUrl" PageParameterName="pageNumber" />
+            }
+        }
+    </ChildContent>
+</GuildContextGate>
+
+@code {
+    private static readonly List<SelectOption> RuleTypeOptions =
+    [
+        new() { Value = "", Text = "All Types" },
+        new() { Value = ((int)RuleType.Spam).ToString(), Text = "Spam" },
+        new() { Value = ((int)RuleType.Content).ToString(), Text = "Content" },
+        new() { Value = ((int)RuleType.Raid).ToString(), Text = "Raid" }
+    ];
+
+    private static readonly List<SelectOption> SeverityOptions =
+    [
+        new() { Value = "", Text = "All Levels" },
+        new() { Value = ((int)Severity.Low).ToString(), Text = "Low" },
+        new() { Value = ((int)Severity.Medium).ToString(), Text = "Medium" },
+        new() { Value = ((int)Severity.High).ToString(), Text = "High" },
+        new() { Value = ((int)Severity.Critical).ToString(), Text = "Critical" }
+    ];
+
+    private static readonly List<SelectOption> StatusOptions =
+    [
+        new() { Value = "", Text = "All Statuses" },
+        new() { Value = ((int)FlaggedEventStatus.Pending).ToString(), Text = "Pending" },
+        new() { Value = ((int)FlaggedEventStatus.Dismissed).ToString(), Text = "Dismissed" },
+        new() { Value = ((int)FlaggedEventStatus.Acknowledged).ToString(), Text = "Acknowledged" },
+        new() { Value = ((int)FlaggedEventStatus.Actioned).ToString(), Text = "Actioned" }
+    ];
+
+    private static DateTime? ParseDate(object? value)
+        => DateTime.TryParse(value?.ToString(), out var date) ? date : null;
+
+    private void Navigate(int? ruleType, int? severity, int? status, DateTime? dateFrom, DateTime? dateTo)
+    {
+        var parts = new List<string>();
+        if (ruleType.HasValue) parts.Add($"FilterRuleType={ruleType}");
+        if (severity.HasValue) parts.Add($"FilterSeverity={severity}");
+        if (status.HasValue) parts.Add($"FilterStatus={status}");
+        if (dateFrom.HasValue) parts.Add($"FilterDateFrom={dateFrom:yyyy-MM-dd}");
+        if (dateTo.HasValue) parts.Add($"FilterDateTo={dateTo:yyyy-MM-dd}");
+        Nav.NavigateTo(parts.Count == 0 ? $"/Guilds/FlaggedEvents/{GuildId}" : $"/Guilds/FlaggedEvents/{GuildId}?{string.Join('&', parts)}");
+    }
+
+    private void Navigate(int? ruleType, int? severity, string status, DateTime? dateFrom, DateTime? dateTo)
+        => Navigate(ruleType, severity, string.IsNullOrEmpty(status) ? null : int.Parse(status), dateFrom, dateTo);
+
+    private void Navigate(int? ruleType, string severity, int? status, DateTime? dateFrom, DateTime? dateTo)
+        => Navigate(ruleType, string.IsNullOrEmpty(severity) ? null : int.Parse(severity), status, dateFrom, dateTo);
+
+    private void Navigate(string ruleType, int? severity, int? status, DateTime? dateFrom, DateTime? dateTo)
+        => Navigate(string.IsNullOrEmpty(ruleType) ? null : int.Parse(ruleType), severity, status, dateFrom, dateTo);
+}

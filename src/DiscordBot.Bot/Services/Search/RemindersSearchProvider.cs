@@ -71,7 +71,7 @@ public class RemindersSearchProvider : ISearchProvider
                     ReminderStatus.Cancelled => "secondary",
                     _                        => "secondary"
                 },
-                Url = $"/Guilds/{x.Reminder.GuildId}/Reminders",
+                Url = $"/Guilds/Reminders/{x.Reminder.GuildId}",
                 RelevanceScore = SearchScoringHelper.Clamp(x.Score),
                 Timestamp = x.Reminder.CreatedAt,
                 Metadata = new Dictionary<string, string>

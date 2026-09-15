@@ -1,0 +1,164 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Interop
+@inject BrowserInterop BrowserInterop
+
+@*
+    Ported from _EmphasisToolbar.cshtml. Two behaviors change because this component does not own
+    the target <textarea> element the way the inline script did (docs/plans/blazor-port-inventory.md
+    Part 3 §5.1 flags this partial as "genuinely needs IJSRuntime interop even after a rewrite"):
+
+    1. Show/hide-on-selection + getBoundingClientRect positioning is replaced with a toolbar that's
+       simply visible whenever the parent renders it, anchored via CSS (position: absolute under a
+       position: relative wrapper the caller places around the textarea + this component) instead
+       of a JS-computed inline top/left - see the Tier 5 task's explicit instruction and
+       EmphasisToolbar.razor.css. The mobile bottom-sheet behavior needed no such computation in the
+       source (already plain position: fixed) and ports unchanged.
+    2. The global Ctrl+B/Ctrl+E shortcuts were registered directly on the textarea's own keydown
+       listener; since this component cannot attach a listener to an element it doesn't render and
+       the Tier 5 interop surface has no generic "register a DOM listener" call, they are not wired
+       automatically. HandleShortcutAsync is exposed publicly so a hosting page's own textarea
+       @@onkeydown can forward Ctrl+B/Ctrl+E into it if it wants that behavior.
+
+    Selection handling itself matches the source exactly: a format action reads the *current*
+    selectionStart/End/value from the DOM via BrowserInterop.GetSelectionAsync (valid even though
+    clicking a toolbar button already moved focus off the textarea - selectionStart/End persist
+    across blur), computes the replacement with SsmlMarkers, then writes it back with
+    SetSelectionAsync (re-select the original range) + InsertAtSelectionAsync (replace it).
+
+    Fidelity deviation: IconPaths.Pause (the "insert pause" button) now renders the bars-only
+    fragment of the real Heroicons v1 pause-circle glyph instead of this component's original
+    hand-approximated coordinates, per the IconPaths merge (docs/plans/blazor-port-plan.md §5
+    Phase 2 step 1) - the name collided with ActivityFeed's usage, and that candidate is the one
+    that traces back to a real published Heroicons revision.
+*@
+
+<div class="emphasis-toolbar @Class" role="toolbar" aria-label="Text formatting toolbar"
+     data-target="@TextareaId" @attributes="AdditionalAttributes">
+
+    <button type="button" class="emphasis-toolbar__button emphasis-toolbar__button--strong @(EmphasisSupported ? "" : "emphasis-toolbar__button--emphasis-disabled")"
+            title="@("Strong Emphasis" + (ShowKeyboardShortcuts ? " (Ctrl+B)" : ""))"
+            aria-label="Apply strong emphasis to selected text"
+            aria-disabled="@(!EmphasisSupported)"
+            @onclick="@(() => ApplyFormattingAsync("emphasis", level: "strong"))">
+        <strong>B</strong>
+    </button>
+
+    <button type="button" class="emphasis-toolbar__button emphasis-toolbar__button--moderate @(EmphasisSupported ? "" : "emphasis-toolbar__button--emphasis-disabled")"
+            title="@("Moderate Emphasis" + (ShowKeyboardShortcuts ? " (Ctrl+E)" : ""))"
+            aria-label="Apply moderate emphasis to selected text"
+            aria-disabled="@(!EmphasisSupported)"
+            @onclick="@(() => ApplyFormattingAsync("emphasis", level: "moderate"))">
+        <Icon Path="@IconPaths.Bolt" />
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <button type="button" class="emphasis-toolbar__button" title="Insert Pause" aria-label="Insert pause at cursor position"
+            @onclick='@(() => ApplyFormattingAsync("pause"))'>
+        <Icon Path="@IconPaths.Pause" />
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <button type="button" class="emphasis-toolbar__button" title="Say as Number" aria-label="Format selected text as number"
+            @onclick='@(() => ApplyFormattingAsync("say-as", interpretAs: "cardinal"))'>
+        <strong>#</strong>
+    </button>
+
+    <button type="button" class="emphasis-toolbar__button" title="Say as Date" aria-label="Format selected text as date"
+            @onclick='@(() => ApplyFormattingAsync("say-as", interpretAs: "date"))'>
+        <Icon Path="@IconPaths.Calendar" />
+    </button>
+
+    <div class="emphasis-toolbar__separator"></div>
+
+    <button type="button" class="emphasis-toolbar__button" title="Clear Formatting" aria-label="Remove formatting from selected text"
+            @onclick='@(() => ApplyFormattingAsync("clear"))'>
+        <Icon Path="@IconPaths.XMark" />
+    </button>
+
+    @if (!EmphasisSupported)
+    {
+        <p class="emphasis-toolbar__notice" role="status" aria-live="polite"><em>Emphasis is not supported by this voice.</em></p>
+    }
+</div>
+
+@code {
+    /// <summary>The target textarea. Required for every formatting action.</summary>
+    [Parameter] public ElementReference TextareaRef { get; set; }
+
+    /// <summary>The target textarea's HTML id, reproduced on <c>data-target</c> for parity with the
+    /// source partial; purely informational; interop always goes through <see cref="TextareaRef"/>.</summary>
+    [Parameter] public string? TextareaId { get; set; }
+
+    [Parameter] public string Value { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> ValueChanged { get; set; }
+    [Parameter] public bool ShowKeyboardShortcuts { get; set; } = true;
+    [Parameter] public bool EmphasisSupported { get; set; } = true;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    /// <summary>Lets a hosting page forward a Ctrl+B/Ctrl+E keydown from its own textarea into this
+    /// toolbar (see the header comment, point 2). No-ops for any other key.</summary>
+    public Task HandleShortcutAsync(string key) => key.ToLowerInvariant() switch
+    {
+        "b" => ApplyFormattingAsync("emphasis", level: "strong"),
+        "e" => ApplyFormattingAsync("emphasis", level: "moderate"),
+        _ => Task.CompletedTask
+    };
+
+    private async Task ApplyFormattingAsync(string action, string? level = null, string? interpretAs = null)
+    {
+        if (action == "emphasis" && !EmphasisSupported)
+        {
+            return;
+        }
+
+        TextSelectionResult selection;
+        try
+        {
+            selection = await BrowserInterop.GetSelectionAsync(TextareaRef);
+        }
+        catch (JSException)
+        {
+            return;
+        }
+
+        if (selection.Start == selection.End && action != "pause")
+        {
+            return;
+        }
+
+        // GetSelectionAsync's Value is already just the selected substring (browser.js's
+        // getSelection: `textarea.value.substring(selectionStart, selectionEnd)`) - the *full*
+        // text lives in the Value *parameter* the page passes down, which is why this component
+        // takes one at all rather than re-reading the DOM for it.
+        var selectedText = selection.Value;
+
+        var newText = action switch
+        {
+            "emphasis" => SsmlMarkers.WrapEmphasis(selectedText, level ?? "moderate"),
+            "pause" => SsmlMarkers.PauseMarker(500),
+            "say-as" => SsmlMarkers.WrapSayAs(selectedText, interpretAs ?? "cardinal"),
+            "clear" => SsmlMarkers.StripMarkers(selectedText),
+            _ => selectedText
+        };
+
+        var before = selection.Start <= Value.Length ? Value[..selection.Start] : Value;
+        var after = selection.End <= Value.Length ? Value[selection.End..] : string.Empty;
+        var newFullValue = before + newText + after;
+
+        try
+        {
+            await BrowserInterop.SetSelectionAsync(TextareaRef, selection.Start, selection.End);
+            await BrowserInterop.InsertAtSelectionAsync(TextareaRef, newText);
+        }
+        catch (JSException)
+        {
+        }
+
+        await ValueChanged.InvokeAsync(newFullValue);
+    }
+}

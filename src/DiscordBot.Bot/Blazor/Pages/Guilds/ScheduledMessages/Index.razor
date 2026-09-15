@@ -1,0 +1,140 @@
+@page "/Guilds/ScheduledMessages/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Bot.ViewModels.Pages
+
+@*
+    Routable replacement for Pages/Guilds/ScheduledMessages/Index.cshtml + IndexModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). See Index.razor.cs for the
+    load/toggle/delete logic this markup renders.
+*@
+
+<PageTitle>Scheduled Messages</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        <div class="flex justify-end mb-6">
+            <a href="/Guilds/ScheduledMessages/Create/@GuildId" class="btn btn-primary inline-flex items-center gap-2">
+                <Icon Path="@IconPaths.Plus" Class="w-5 h-5" />
+                Create New
+            </a>
+        </div>
+
+        @if (TotalCount > 0)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full min-w-[800px]">
+                        <thead class="bg-bg-tertiary border-b border-border-primary">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Message Preview</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Channel</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Schedule</th>
+                                <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Next Run</th>
+                                <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="divide-y divide-border-primary">
+                            @foreach (var message in Messages)
+                            {
+                                <tr class="hover:bg-bg-hover transition-colors @(message.StatusDisplay == "Expired" ? "opacity-60" : "")" data-testid="scheduled-message-row">
+                                    <td class="px-6 py-4">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @StatusBgClass(message.StatusDisplay)">
+                                            <span class="w-1.5 h-1.5 rounded-full @ScheduledMessageStatusDisplay.DotClass(message.StatusDisplay) mr-1.5"></span>
+                                            @message.StatusDisplay
+                                        </span>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="max-w-xs">
+                                            <p class="text-sm text-text-primary truncate">@message.MessagePreview</p>
+                                            <p class="text-xs text-text-tertiary mt-0.5">Created <LocalTime Utc="message.CreatedAt" Format="date" /></p>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-2 text-sm text-text-primary">
+                                            <Icon Path="@IconPaths.Hashtag" Class="w-4 h-4 text-text-tertiary" />
+                                            @message.ChannelName
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center gap-2">
+                                            <Icon Path="@IconPaths.Clock" Class="w-4 h-4 text-text-tertiary flex-shrink-0" />
+                                            <span class="text-sm text-text-primary">@message.ScheduleDescription</span>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        @if (message.IsEnabled && message.NextExecutionAt.HasValue && message.NextRunUtcIso is not null)
+                                        {
+                                            <LocalTime Utc="message.NextExecutionAt.Value" Format="datetime-short" Class="text-sm text-text-primary" />
+                                        }
+                                        else
+                                        {
+                                            <span class="text-sm text-text-tertiary">--</span>
+                                        }
+                                    </td>
+                                    <td class="px-6 py-4">
+                                        <div class="flex items-center justify-end gap-1">
+                                            <a href="@EditUrl(message.Id)" class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors" title="Edit">
+                                                <Icon Path="@IconPaths.PencilSquare" Class="w-4 h-4" />
+                                            </a>
+                                            @if (message.StatusDisplay != "Expired")
+                                            {
+                                                <button type="button" disabled="@(!RendererInfo.IsInteractive)" @onclick="() => ToggleAsync(message)"
+                                                        class="p-2 text-text-secondary @(message.IsEnabled ? "hover:text-warning hover:bg-warning/10" : "hover:text-success hover:bg-success/10") rounded-md transition-colors disabled:opacity-50"
+                                                        title="@(message.IsEnabled ? "Pause" : "Resume")">
+                                                    <Icon Path="@(message.IsEnabled ? IconPaths.Pause : IconPaths.Play)" Class="w-4 h-4" />
+                                                </button>
+                                            }
+                                            <button type="button" disabled="@(!RendererInfo.IsInteractive)" @onclick="() => RequestDelete(message)"
+                                                    class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors disabled:opacity-50"
+                                                    title="Delete">
+                                                <Icon Path="@IconPaths.Trash" Class="w-4 h-4" />
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
+
+                @if (TotalPages > 1)
+                {
+                    <div class="px-6 py-4 border-t border-border-primary">
+                        <Pagination CurrentPage="Query.PageNumber" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="Query.PageSize"
+                                    BaseUrl="@PageUrl" PageParameterName="pageNumber" />
+                    </div>
+                }
+            </div>
+        }
+        else
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center">
+                <EmptyState Type="EmptyStateType.FirstTime" Title="No Scheduled Messages"
+                            Description="You haven't created any scheduled messages yet. Create your first one to automate messages in your server."
+                            PrimaryActionText="Create First Message" PrimaryActionHref="@($"/Guilds/ScheduledMessages/Create/{GuildId}")" />
+            </div>
+        }
+    </ChildContent>
+</GuildContextGate>
+
+<ConfirmModal @ref="_deleteModal" Id="delete-scheduled-message-modal" Title="Delete Scheduled Message" Message="@DeleteModalMessage"
+              ConfirmText="Delete" CancelText="Cancel" Variant="ConfirmationVariant.Danger" />
+
+@code {
+    private static string StatusBgClass(string status) => status switch
+    {
+        "Active" => "bg-success/20 text-success",
+        "Paused" => "bg-warning/20 text-warning",
+        _ => "bg-bg-tertiary text-text-tertiary"
+    };
+
+    private string EditUrl(Guid id) => $"/Guilds/ScheduledMessages/Edit/{GuildId}/{id}";
+}

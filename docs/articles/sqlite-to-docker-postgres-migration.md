@@ -41,7 +41,7 @@ This guide walks through migrating from a **manual (non-Docker) installation usi
 
 - **Docker Engine** 24.0+ with Docker Compose v2
 - **Access to your existing SQLite database file** (default: `data/discordbot.db`)
-- **.NET 8 SDK** installed (for running the `migrate-data` command from source)
+- **.NET 10 SDK** installed (for running the `migrate-data` command from source)
 - Your existing Discord bot token, OAuth client ID, and client secret
 
 Verify Docker is installed:

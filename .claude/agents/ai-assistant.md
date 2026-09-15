@@ -209,8 +209,8 @@ a skill.
 - `Services/DmAssistantService` — High-level orchestration (owner DM)
 - `Handlers/AssistantMessageHandler` — Discord message handler (guild)
 - `Handlers/DmAssistantMessageHandler` — Discord message handler (DM)
-- `Pages/Guilds/AssistantSettings.cshtml` — Per-guild config
-- `Pages/Guilds/AssistantMetrics.cshtml` — Usage metrics dashboard, including the **Prompt Surface** panel (`IPromptSurfaceReporter`, per-tool schema size and share of the prefix)
+- `Blazor/Pages/Guilds/AssistantSettings.razor` (Phase 4 cluster 4b) — Per-guild config
+- `Blazor/Pages/Guilds/AssistantMetrics.razor` (Phase 4 cluster 4b) — Usage metrics dashboard, including the **Prompt Surface** panel (`IPromptSurfaceReporter`, per-tool schema size and share of the prefix)
 - `Services/LLM/PromptSurfaceReportService` — `IHostedService`; one Information line per surface at startup saying what the tool array costs. Gated with the rest of the assistant; never fails startup
 - **Repos:** `AssistantGuildSettingsRepository`, `AssistantInteractionLogRepository`, `AssistantUsageMetricsRepository`
 - `Controllers/LlmModelsController` — `api/admin/llm-models` (`RequireAdmin`): catalog list/filter, refresh, enable/disable (slug in the request body — OpenRouter slugs contain `/`); `GetDefaults` delegates entirely to `ILlmModelResolver` (one resolution path, shared with message-send time)
@@ -261,8 +261,9 @@ implementation) so pre-ledger direct-construction tests keep compiling without p
 Production DI always supplies the real recorder via the context factories.
 
 This PR ships the ledger's write path, read path (`ILlmUsageRepository`'s grouped queries), and
-the entity/migrations. The `/admin/llm-usage` page / `LlmUsageController` / guild-metrics
-"cost by user" table are separate work building on `ILlmUsageRepository`.
+the entity/migrations. The `/Admin/LlmUsage` page (`Blazor/Pages/Admin/LlmUsage/Index.razor`,
+Phase 4 cluster 4d — `LlmUsageController` retired, the page calls `ILlmUsageRepository` directly)
+and the guild-metrics "cost by user" table are separate work building on `ILlmUsageRepository`.
 
 **Retention, purge, and export are wired up** (previously the guild/DM assistant interaction
 logs had no cleanup at all — `IAssistantInteractionLogRepository.DeleteOlderThanAsync` and

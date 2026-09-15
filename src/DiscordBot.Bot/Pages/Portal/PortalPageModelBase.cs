@@ -1,11 +1,13 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Services.Portal;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace DiscordBot.Bot.Pages.Portal;
 
@@ -14,25 +16,44 @@ namespace DiscordBot.Bot.Pages.Portal;
 /// Provides common authorization logic while supporting the landing page UX pattern
 /// where unauthenticated users see a landing page instead of being redirected.
 /// </summary>
+/// <remarks>
+/// <see cref="CheckPortalAuthorizationAsync"/> delegates to <see cref="IPortalAccessService"/>
+/// (<c>docs/plans/blazor-port-plan.md</c> §4.2, Phase 3) rather than running the three-state check
+/// inline - the logic is shared with a future Blazor <c>PortalLayout</c>. The
+/// <see cref="PortalAuthResult"/> enum and this class's public surface are unchanged so
+/// <c>Portal/Soundboard</c>, <c>Portal/TTS</c>, <c>Portal/VOX</c> and the shared
+/// <c>_PortalLanding</c>/<c>_PortalHeader</c> partials keep working without modification.
+/// </remarks>
 public abstract class PortalPageModelBase : PageModel
 {
-    private readonly IGuildService _guildService;
     private readonly DiscordSocketClient _discordClient;
-    private readonly UserManager<ApplicationUser> _userManager;
     private readonly ILogger _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="PortalPageModelBase"/> class.
     /// </summary>
+    /// <remarks>
+    /// This constructor's parameter list cannot change without also touching every derived
+    /// Portal page model (Soundboard/TTS/VOX <c>IndexModel</c>), which is out of scope for this
+    /// refactor - so rather than take <see cref="IPortalAccessService"/> as a fifth constructor
+    /// parameter, it is resolved lazily from <see cref="PageModel.HttpContext"/>'s
+    /// <c>RequestServices</c> the one time <see cref="CheckPortalAuthorizationAsync"/> needs it.
+    /// This is the one service-locator exception in the codebase; see "Portal three-state gate"
+    /// in <c>docs/architecture/patterns.md</c>.
+    /// </remarks>
     protected PortalPageModelBase(
         IGuildService guildService,
         DiscordSocketClient discordClient,
         UserManager<ApplicationUser> userManager,
         ILogger logger)
     {
-        _guildService = guildService;
+        // guildService and userManager are no longer used directly here - IPortalAccessService
+        // (resolved in CheckPortalAuthorizationAsync) owns that lookup now - but both stay as
+        // constructor parameters so every derived page model's existing
+        // `: base(guildService, discordClient, userManager, logger)` call keeps compiling.
+        _ = guildService;
+        _ = userManager;
         _discordClient = discordClient;
-        _userManager = userManager;
         _logger = logger;
     }
 
@@ -135,89 +156,64 @@ public abstract class PortalPageModelBase : PageModel
         _logger.LogInformation("User {UserId} accessing {PortalName} Portal for guild {GuildId}",
             User.Identity?.Name ?? "anonymous", portalName, guildId);
 
-        // Get guild info - return NotFound if not found (don't reveal guild doesn't exist)
-        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-        if (guild == null)
+        var portalAccessService = HttpContext.RequestServices.GetRequiredService<IPortalAccessService>();
+        var returnPath = HttpContext.Request.Path.ToString();
+        var access = await portalAccessService.ResolveAsync(guildId, User, returnPath, cancellationToken);
+
+        if (access.Outcome == PortalAccessOutcome.GuildNotFound)
         {
-            _logger.LogWarning("Guild {GuildId} not found", guildId);
             return (PortalAuthResult.GuildNotFound, null);
         }
 
-        // Check if Discord guild is available
-        var socketGuild = _discordClient.GetGuild(guildId);
-        if (socketGuild == null)
-        {
-            _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
-            return (PortalAuthResult.GuildNotFound, null);
-        }
-
-        // Set basic guild info for landing page (needed for both auth states)
+        // Every other outcome carries a Context - set the properties every Portal page/partial
+        // reads regardless of outcome (needed for both the landing page and the full portal).
+        var portalContext = access.Context!;
         GuildId = guildId;
-        GuildName = guild.Name;
-        GuildIconUrl = guild.IconUrl;
-        IsOnline = _discordClient.ConnectionState == Discord.ConnectionState.Connected;
+        GuildName = portalContext.GuildName;
+        GuildIconUrl = portalContext.IconUrl;
+        IsOnline = portalContext.IsBotOnline;
+        LoginUrl = access.LoginUrl;
 
-        // Build login URL with return URL
-        var returnUrl = HttpContext.Request.Path.ToString();
-        LoginUrl = $"/Account/Login?returnUrl={Uri.EscapeDataString(returnUrl)}";
-
-        // Check authentication state
-        IsAuthenticated = User.Identity?.IsAuthenticated ?? false;
-
-        if (!IsAuthenticated)
+        // IPortalAccessService.PortalContext deliberately doesn't carry the Discord.Net
+        // SocketGuild (see its XML doc) - PortalAuthContext still does, for the three Portal
+        // Index pages that read context.SocketGuild directly for voice-channel listing, so it's
+        // rebuilt here from the guild id the service already confirmed exists. GetGuild is an
+        // in-memory gateway-cache read, not a network call, so re-resolving it is cheap.
+        var socketGuild = _discordClient.GetGuild(guildId);
+        if (socketGuild is null)
         {
-            _logger.LogDebug("Unauthenticated user viewing landing page for guild {GuildId}", guildId);
-            return (PortalAuthResult.ShowLandingPage, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+            // The gateway cache lost the guild between IPortalAccessService's own existence check
+            // and this re-lookup (e.g. the bot was removed from the guild in between) - every
+            // outcome below builds a PortalAuthContext that assumes a non-null SocketGuild
+            // (Soundboard/TTS/VOX Index pages dereference context!.SocketGuild unconditionally
+            // once GetAuthResultAction lets them past ShowLandingPage), so this must short-circuit
+            // to GuildNotFound the same way the original inline check always did, rather than let
+            // ToAuthContext silently return a null Context for an "Authorized" result.
+            return (PortalAuthResult.GuildNotFound, null);
         }
 
-        // User is authenticated - check guild membership
-        var user = await _userManager.GetUserAsync(User);
-        if (user == null || !user.DiscordUserId.HasValue)
+        switch (access.Outcome)
         {
-            _logger.LogDebug("User not found or no Discord linked, showing landing page for guild {GuildId}", guildId);
-            IsAuthenticated = false; // Treat as unauthenticated for UI purposes
-            return (PortalAuthResult.ShowLandingPage, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
+            case PortalAccessOutcome.ShowLanding:
+                IsAuthenticated = false;
+                return (PortalAuthResult.ShowLandingPage, ToAuthContext(portalContext.Guild, socketGuild));
+
+            case PortalAccessOutcome.NotGuildMember:
+                IsAuthenticated = true;
+                return (PortalAuthResult.NotGuildMember, ToAuthContext(portalContext.Guild, socketGuild));
+
+            case PortalAccessOutcome.Authorized:
+                IsAuthenticated = true;
+                IsAuthorized = true;
+                return (PortalAuthResult.Authorized, ToAuthContext(portalContext.Guild, socketGuild));
+
+            default:
+                return (PortalAuthResult.GuildNotFound, null);
         }
-
-        // SuperAdmins and Admins bypass guild membership checks (consistent with PortalGuildMemberAuthorizationHandler)
-        if (User.IsInRole(IdentitySeeder.Roles.SuperAdmin) || User.IsInRole(IdentitySeeder.Roles.Admin))
-        {
-            _logger.LogDebug("Admin user {DiscordUserId} granted portal access for guild {GuildId}",
-                user.DiscordUserId.Value, guildId);
-            IsAuthorized = true;
-            return (PortalAuthResult.Authorized, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
-        }
-
-        // Check if user is a member of the guild (cache first, then REST API fallback)
-        var guildUser = socketGuild.GetUser(user.DiscordUserId.Value);
-        if (guildUser == null)
-        {
-            // Cache miss - try REST API (AlwaysDownloadUsers is false, so cache may be incomplete)
-            try
-            {
-                var restUser = await _discordClient.Rest.GetGuildUserAsync(guildId, user.DiscordUserId.Value);
-                if (restUser == null)
-                {
-                    _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
-                        user.DiscordUserId.Value, guildId);
-                    return (PortalAuthResult.NotGuildMember, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
-                }
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to verify guild membership via REST for user {DiscordUserId} in guild {GuildId}",
-                    user.DiscordUserId.Value, guildId);
-                return (PortalAuthResult.NotGuildMember, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
-            }
-        }
-
-        // User is authenticated and authorized
-        IsAuthorized = true;
-        _logger.LogDebug("User {DiscordUserId} authorized for {PortalName} Portal in guild {GuildId}",
-            user.DiscordUserId.Value, portalName, guildId);
-
-        return (PortalAuthResult.Authorized, new PortalAuthContext { Guild = guild, SocketGuild = socketGuild });
     }
+
+    private static PortalAuthContext? ToAuthContext(GuildDto guild, SocketGuild? socketGuild) =>
+        socketGuild is null ? null : new PortalAuthContext { Guild = guild, SocketGuild = socketGuild };
 
     /// <summary>
     /// Converts a <see cref="PortalAuthResult"/> to the appropriate <see cref="IActionResult"/>.

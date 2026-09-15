@@ -1,0 +1,189 @@
+@page "/Guilds/FeatureRequests/{guildId:long}/{id:guid}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Core.Enums
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Guilds/FeatureRequests/Details.cshtml + DetailsModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). See Details.razor.cs for the
+    load/approve/reject logic this markup renders.
+*@
+
+<PageTitle>Feature Request Details</PageTitle>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        @if (LoadFailed)
+        {
+            <Alert Variant="AlertVariant.Error" Title="Couldn't load this feature request" Message="Something went wrong loading it. Try reloading the page." />
+        }
+        else if (NotFoundState)
+        {
+            <EmptyState Type="EmptyStateType.NoData" Title="Feature request not found"
+                        Description="It may have been removed, or belongs to a different server."
+                        PrimaryActionText="Back to Feature Requests" PrimaryActionHref="@($"/Guilds/FeatureRequests/{GuildId}")" />
+        }
+        else if (Item is not null)
+        {
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6" data-testid="feature-request-details">
+                <div class="lg:col-span-2 space-y-6">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="flex items-center gap-2">
+                                <span class="text-xs font-mono text-text-tertiary">#@Item.Id.ToString("N")[..8].ToUpperInvariant()</span>
+                                <Badge Text="@FeatureRequestStatusDisplay.Label(Item.Status)" Variant="FeatureRequestStatusDisplay.Variant(Item.Status)" Size="BadgeSize.Small" />
+                            </div>
+                            <LocalTime Utc="Item.CreatedAt" Format="datetime" Class="text-sm text-text-tertiary" />
+                        </div>
+
+                        <div class="space-y-4">
+                            <div>
+                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Description</h3>
+                                <p class="text-text-primary whitespace-pre-wrap">@Item.Description</p>
+                            </div>
+                            <div>
+                                <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Submitter</h3>
+                                <p class="text-text-primary text-sm">User ID: <span class="font-mono">@Item.SubmittedByUserId</span></p>
+                            </div>
+                        </div>
+                    </div>
+
+                    @if (!string.IsNullOrEmpty(Item.GatheredRequirements))
+                    {
+                        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                            <h2 class="text-lg font-semibold text-text-primary mb-4">Gathered Requirements</h2>
+                            @if (Gathered is not null)
+                            {
+                                <div class="space-y-4">
+                                    @if (!string.IsNullOrEmpty(Gathered.ProblemStatement))
+                                    {
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Problem Statement</h3>
+                                            <p class="text-text-primary">@Gathered.ProblemStatement</p>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Gathered.SuccessCriteria))
+                                    {
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Success Criteria</h3>
+                                            <p class="text-text-primary">@Gathered.SuccessCriteria</p>
+                                        </div>
+                                    }
+                                    @if (!string.IsNullOrEmpty(Gathered.Priority))
+                                    {
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Priority</h3>
+                                            <p class="text-text-primary">@Gathered.Priority</p>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            else
+                            {
+                                <pre class="bg-bg-primary border border-border-primary rounded-md p-4 text-sm text-text-primary overflow-x-auto">@Item.GatheredRequirements</pre>
+                            }
+                        </div>
+                    }
+
+                    @if (!string.IsNullOrEmpty(Item.DocBranchName) || !string.IsNullOrEmpty(Item.DocGenError))
+                    {
+                        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                            <h2 class="text-lg font-semibold text-text-primary mb-4">Documentation Generation</h2>
+                            @if (!string.IsNullOrEmpty(Item.DocBranchName))
+                            {
+                                <div class="space-y-3">
+                                    <div>
+                                        <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Branch</h3>
+                                        <p class="text-accent-blue font-mono text-sm">@Item.DocBranchName</p>
+                                    </div>
+                                    @if (!string.IsNullOrEmpty(Item.DocPath))
+                                    {
+                                        <div>
+                                            <h3 class="text-sm font-semibold text-text-secondary uppercase tracking-wider mb-1">Doc Path</h3>
+                                            <p class="text-text-primary font-mono text-sm">@Item.DocPath</p>
+                                        </div>
+                                    }
+                                </div>
+                            }
+                            @if (!string.IsNullOrEmpty(Item.DocGenError))
+                            {
+                                <div class="mt-4">
+                                    <h3 class="text-sm font-semibold text-error uppercase tracking-wider mb-1">Error</h3>
+                                    <pre class="bg-bg-primary border border-error/30 rounded-md p-3 text-sm text-error overflow-x-auto">@Item.DocGenError</pre>
+                                </div>
+                            }
+                        </div>
+                    }
+
+                    @if (Item.ReviewedAt.HasValue)
+                    {
+                        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                            <h2 class="text-lg font-semibold text-text-primary mb-4">Review Information</h2>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <span class="text-sm text-text-secondary">Reviewed by:</span>
+                                    <p class="text-text-primary text-sm font-mono">@(Item.ReviewedByUserId?.ToString() ?? "Unknown")</p>
+                                </div>
+                                <div>
+                                    <span class="text-sm text-text-secondary">Reviewed at:</span>
+                                    <p class="text-text-primary"><LocalTime Utc="Item.ReviewedAt.Value" Format="datetime" /></p>
+                                </div>
+                            </div>
+                            @if (!string.IsNullOrEmpty(Item.ReviewNotes))
+                            {
+                                <div class="mt-4">
+                                    <span class="text-sm text-text-secondary">Notes:</span>
+                                    <p class="text-text-primary mt-1">@Item.ReviewNotes</p>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+
+                <div class="lg:col-span-1">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 sticky top-6">
+                        <h2 class="text-lg font-semibold text-text-primary mb-4">Actions</h2>
+
+                        @if (ShowReviewActions)
+                        {
+                            <div class="mb-4">
+                                <label for="reviewNotes" class="block text-sm font-medium text-text-secondary mb-1">Review Notes (optional)</label>
+                                <textarea id="reviewNotes" rows="3" @bind="ReviewNotes"
+                                          class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary text-sm focus:ring-2 focus:ring-accent-blue focus:border-accent-blue"
+                                          placeholder="Add notes for the record..."></textarea>
+                            </div>
+
+                            <div class="space-y-3">
+                                <button type="button" disabled="@(!RendererInfo.IsInteractive)" @onclick="ApproveAsync"
+                                        class="w-full px-4 py-2 bg-success text-white font-medium rounded-md hover:bg-success-hover transition-colors disabled:opacity-50">
+                                    @(ShowApproveAnyway ? "Approve Anyway" : "Approve")
+                                </button>
+                                <button type="button" disabled="@(!RendererInfo.IsInteractive)" @onclick="RejectAsync"
+                                        class="w-full px-4 py-2 bg-text-tertiary/20 text-text-primary font-medium rounded-md hover:bg-text-tertiary/30 transition-colors disabled:opacity-50">
+                                    Reject
+                                </button>
+                            </div>
+                        }
+                        else
+                        {
+                            <div class="text-center text-sm text-text-secondary">
+                                This request has been <span class="font-medium">@FeatureRequestStatusDisplay.Label(Item.Status).ToLowerInvariant()</span>.
+                            </div>
+                        }
+
+                        <div class="mt-6 pt-4 border-t border-border-primary">
+                            <a href="/Guilds/FeatureRequests/@GuildId" class="text-sm text-accent-blue hover:text-accent-blue/80 transition-colors">
+                                &larr; Back to Feature Requests
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    </ChildContent>
+</GuildContextGate>

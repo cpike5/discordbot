@@ -1,0 +1,139 @@
+@page "/Admin/Notifications"
+@attribute [Authorize(Policy = "RequireViewer")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Routable replacement for Pages/Admin/Notifications/Index.cshtml + IndexModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4d). Bulk actions and per-row toggle/delete
+    call INotificationService directly through ScopedOperations and refresh the list in place - no
+    NotificationsController round trip. See Index.razor.cs for filter/selection/mutation logic.
+*@
+
+<PageTitle>Notifications</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <PageHeader Title="Notifications" Subtitle="Your notification history" />
+
+    @if (LoadFailed)
+    {
+        <Alert Variant="AlertVariant.Error" Title="Couldn't load notifications" Message="Something went wrong loading this data. Try reloading." />
+    }
+    else
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
+            <form @onsubmit="HandleFilterSubmit" @onsubmit:preventDefault="true" class="space-y-4" data-testid="notifications-filter-form">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <Select TValue="string" Id="typeFilter" Label="Type" @bind-Value="TypeInput" Placeholder="All types" Options="TypeOptions" />
+                    <Select TValue="string" Id="readFilter" Label="Status" @bind-Value="IsReadInput" Placeholder="All" Options="ReadOptions" />
+                    <Select TValue="string" Id="severityFilter" Label="Severity" @bind-Value="SeverityInput" Placeholder="All severities" Options="SeverityOptions" />
+                    <Select TValue="string" Id="guildFilter" Label="Guild" @bind-Value="GuildIdInput" Placeholder="All guilds" Options="GuildOptions" />
+                </div>
+
+                <TextInput Id="searchTerm" Label="Search" @bind-Value="SearchTermInput" Placeholder="Title or message..." />
+
+                <DateRangeFilter Start="StartInput" StartChanged="v => StartInput = v" End="EndInput" EndChanged="v => EndInput = v" />
+
+                <div class="flex justify-end gap-2">
+                    <button type="button" class="btn btn-secondary" disabled="@(!RendererInfo.IsInteractive)" @onclick="HandleClearFilters">Clear</button>
+                    <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">
+                        <Icon Path="@IconPaths.MagnifyingGlass" Class="w-4 h-4 mr-2" />
+                        Search
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-2 mb-4">
+            <div class="flex items-center gap-2">
+                @if (SelectedIds.Count > 0)
+                {
+                    <span class="text-sm text-text-secondary">@SelectedIds.Count selected</span>
+                    <button type="button" class="btn btn-secondary btn-sm" disabled="@(!RendererInfo.IsInteractive)" @onclick="MarkSelectedReadAsync">Mark Read</button>
+                    <button type="button" class="btn btn-secondary btn-sm text-error" disabled="@(!RendererInfo.IsInteractive)" @onclick="DeleteSelectedAsync">Delete Selected</button>
+                }
+            </div>
+            <div class="flex items-center gap-2">
+                <button type="button" class="btn btn-secondary btn-sm" disabled="@(!RendererInfo.IsInteractive)" @onclick="MarkAllReadAsync">
+                    <Icon Path="@IconPaths.Check" Class="w-4 h-4 mr-1" />
+                    Mark All Read
+                </button>
+                <button type="button" class="btn btn-secondary btn-sm text-error" disabled="@(!RendererInfo.IsInteractive)" @onclick="RequestDeleteAll">
+                    <Icon Path="@IconPaths.Trash" Class="w-4 h-4 mr-1" />
+                    Delete All
+                </button>
+            </div>
+        </div>
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            @if (IsLoading)
+            {
+                <div class="p-8 text-center text-text-secondary">Loading...</div>
+            }
+            else if (Notifications.Count == 0)
+            {
+                <div class="p-8">
+                    <EmptyState Type="EmptyStateType.NoResults" Title="No notifications found" Description="Try adjusting your search or filters" />
+                </div>
+            }
+            else
+            {
+                <div class="divide-y divide-border-primary">
+                    @foreach (var n in Notifications)
+                    {
+                        <div class="flex items-start gap-3 p-4 @(n.IsRead ? "" : "bg-accent-blue/5")" data-testid="notification-row" data-notification-id="@n.Id" data-read="@n.IsRead.ToString().ToLowerInvariant()">
+                            <input type="checkbox" class="mt-1" checked="@SelectedIds.Contains(n.Id)" @onchange="e => ToggleSelected(n.Id, (bool)e.Value!)" />
+                            <div class="flex-1 min-w-0">
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <Badge Text="@n.TypeDisplay" Size="BadgeSize.Small" />
+                                    @if (!string.IsNullOrEmpty(n.SeverityDisplay))
+                                    {
+                                        <Badge Text="@n.SeverityDisplay" Size="BadgeSize.Small" />
+                                    }
+                                    @if (!n.IsRead)
+                                    {
+                                        <span class="w-2 h-2 rounded-full bg-accent-blue" aria-label="Unread"></span>
+                                    }
+                                    <LocalTime Utc="n.CreatedAt" Format="datetime-short" Class="text-xs text-text-tertiary ml-auto" />
+                                </div>
+                                <p class="text-sm font-medium text-text-primary mt-1">@n.Title</p>
+                                <p class="text-sm text-text-secondary">@n.Message</p>
+                                @if (!string.IsNullOrEmpty(n.GuildName))
+                                {
+                                    <p class="text-xs text-text-tertiary mt-1">@n.GuildName</p>
+                                }
+                            </div>
+                            <div class="flex items-center gap-1">
+                                <button type="button" class="p-1.5 text-text-secondary hover:text-accent-blue rounded-md" title="@(n.IsRead ? "Mark unread" : "Mark read")"
+                                        disabled="@(!RendererInfo.IsInteractive)" @onclick="() => ToggleReadAsync(n)">
+                                    <Icon Path="@(n.IsRead ? IconPaths.EnvelopeOpen : IconPaths.Check)" Class="w-4 h-4" />
+                                </button>
+                                <button type="button" class="p-1.5 text-text-secondary hover:text-error rounded-md" title="Delete"
+                                        disabled="@(!RendererInfo.IsInteractive)" @onclick="() => DeleteOneAsync(n.Id)">
+                                    <Icon Path="@IconPaths.Trash" Class="w-4 h-4" />
+                                </button>
+                            </div>
+                        </div>
+                    }
+                </div>
+
+                @if (TotalPages > 1)
+                {
+                    <div class="px-6 py-4 border-t border-border-primary">
+                        <Pagination CurrentPage="Query.PageNumber" TotalPages="TotalPages" TotalItems="TotalCount" PageSize="Query.PageSize"
+                                    Style="PaginationStyle.Compact" BaseUrl="@PageUrl" PageParameterName="pageNumber" />
+                    </div>
+                }
+            }
+        </div>
+    }
+</div>
+
+<ConfirmModal @ref="_deleteAllModal" Id="deleteAllModal" Title="Delete All Notifications"
+              Message="This will permanently delete every notification in your history. Type DELETE to confirm."
+              RequiredText="DELETE" InputLabel="Type DELETE to confirm"
+              ConfirmText="Delete All" Variant="ConfirmationVariant.Danger" />

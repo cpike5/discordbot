@@ -14,6 +14,7 @@ namespace DiscordBot.Bot.Controllers;
 [ApiController]
 [Route("api/[controller]")]
 [Produces("application/json")]
+[Authorize(Policy = "RequireViewer")]
 public class AlertsController : ControllerBase
 {
     private readonly IPerformanceAlertService _alertService;

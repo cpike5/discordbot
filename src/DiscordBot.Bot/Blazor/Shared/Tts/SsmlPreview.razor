@@ -1,0 +1,102 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Interop
+@inject BrowserInterop BrowserInterop
+
+@*
+    Ported from _SsmlPreview.cshtml. The regex-based XML syntax highlighter
+    (ssmlPreview_highlightSyntax) is ported to C# in SsmlSyntaxHighlighter rather than kept as JS -
+    it needs no DOM access, only string-in/string-out. Clipboard copy goes through
+    BrowserInterop.CopyToClipboardAsync (docs/articles/blazor-interop.md). Collapse state is local
+    component state seeded from StartCollapsed, same "self-manage" pattern Card.razor uses for
+    IsCollapsible.
+*@
+
+<div class="ssml-preview @Class" data-collapsed="@(_collapsed ? "true" : "false")" @attributes="AdditionalAttributes">
+
+    <button type="button" class="ssml-preview__header" @onclick="ToggleCollapsed"
+            aria-expanded="@(!_collapsed ? "true" : "false")">
+        <div class="ssml-preview__header-left">
+            <svg class="ssml-preview__chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+            <span class="ssml-preview__title">SSML Preview (Read-only)</span>
+        </div>
+
+        @if (ShowCharacterCount)
+        {
+            <span class="ssml-preview__char-count" role="status" aria-live="polite">@CharCountLabel</span>
+        }
+    </button>
+
+    <div class="ssml-preview__content @(_collapsed ? "collapsed" : "")">
+        <pre class="ssml-preview__code" role="region" aria-label="SSML markup preview" tabindex="0">@((MarkupString)Highlighted)</pre>
+
+        <div class="ssml-preview__footer">
+            <button type="button" class="ssml-preview__copy-btn" @onclick="CopyAsync" aria-label="Copy SSML to clipboard">
+                <Icon Path="@IconPaths.DocumentDuplicate" />
+                <span>Copy SSML</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+@code {
+    [Parameter] public string Ssml { get; set; } = string.Empty;
+    [Parameter] public int PlainLength { get; set; }
+    [Parameter] public bool StartCollapsed { get; set; } = true;
+    [Parameter] public bool ShowCharacterCount { get; set; } = true;
+    [Parameter] public EventCallback OnCopy { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private bool _collapsed;
+    private bool _initialized;
+
+    protected override void OnParametersSet()
+    {
+        if (!_initialized)
+        {
+            _collapsed = StartCollapsed;
+            _initialized = true;
+        }
+    }
+
+    private string Highlighted => SsmlSyntaxHighlighter.Highlight(Ssml);
+
+    private string CharCountLabel
+    {
+        get
+        {
+            var ssmlLength = Ssml.Length;
+            if (ssmlLength == 0)
+            {
+                return "0 chars";
+            }
+
+            var overhead = PlainLength > 0 ? (int)Math.Round((ssmlLength - PlainLength) / (double)PlainLength * 100) : 0;
+            return $"{ssmlLength} chars ({PlainLength} plain text, +{overhead}% markup)";
+        }
+    }
+
+    private void ToggleCollapsed() => _collapsed = !_collapsed;
+
+    private async Task CopyAsync()
+    {
+        bool copied;
+        try
+        {
+            copied = await BrowserInterop.CopyToClipboardAsync(Ssml);
+        }
+        catch (JSException)
+        {
+            copied = false;
+        }
+
+        if (copied)
+        {
+            await OnCopy.InvokeAsync();
+        }
+    }
+}

@@ -85,7 +85,10 @@ public class UsersSearchProvider : ISearchProvider
             Items = items,
             TotalCount = users.TotalCount,
             HasMore = users.TotalCount > maxResults,
-            ViewAllUrl = $"/Admin/Users?search={Uri.EscapeDataString(searchTerm)}"
+            // Admin/Users/Index.razor binds this as "SearchTerm" (SupplyParameterFromQuery), not
+            // "search" - a pre-existing bug this cluster's review caught: the old query name never
+            // matched anything the page reads, so "View all" silently dropped the search term.
+            ViewAllUrl = $"/Admin/Users?SearchTerm={Uri.EscapeDataString(searchTerm)}"
         };
     }
 }

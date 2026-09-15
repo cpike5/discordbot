@@ -1,0 +1,100 @@
+@inject DiscordBot.Core.Interfaces.IThemeService ThemeService
+<!DOCTYPE html>
+<html lang="en" data-theme="@_themeKey">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#0f1114" />
+    <!-- Required by every Blazor Web App (present in the framework's own project template but
+         missing here): blazor.web.js resolves its own framework endpoints, notably
+         _blazor/initializers, against this base rather than the current route. Without it a
+         nested page (e.g. /admin/blazor-smoke) requests ".../admin/_blazor/initializers", 404s,
+         and the circuit never boots - the exact .NET 10 regression
+         tests/DiscordBot.E2E's nested-route check exists to catch, and the actual root cause of
+         it (see also the absolute /_framework/blazor.web.js src below, needed for the same
+         reason on the initial script load itself). -->
+    <base href="/" />
+    <link rel="icon" type="image/svg+xml" href="/images/logo.svg" />
+    <title>Discord Bot Admin</title>
+    <!-- Blocking theme application script - runs before first paint to prevent flash.
+         Copied verbatim from Pages/Shared/_Layout.cshtml so both shells agree while they
+         coexist (see "Blazor components" in docs/architecture/patterns.md). -->
+    <script>
+        (function() {
+            try {
+                var match = document.cookie.match(/theme-preference=([^;]+)/);
+                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
+                if (theme) document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+    <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <!-- Compiled Tailwind CSS (built from site.css via npm run build:css) -->
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/tab-panel.css" />
+    <!-- Early sidebar state restoration to prevent FOUC (Flash of Unstyled Content). Copied
+         verbatim from Pages/Shared/_Layout.cshtml. -->
+    <script>
+        (function() {
+            try {
+                if (localStorage.getItem('sidebarCollapsed') === 'true' && window.innerWidth >= 1024) {
+                    document.documentElement.classList.add('sidebar-collapsed');
+                }
+            } catch (e) {}
+        })();
+    </script>
+    <HeadOutlet />
+</head>
+<body class="bg-bg-primary text-text-primary font-sans antialiased">
+    <Routes />
+
+    <!-- Blazor's own reconnect/unhandled-error UI (the standard Blazor Web App template
+         element, by the fixed id "blazor-error-ui" the framework looks for) - toggled to
+         style.display:"block" by the framework itself when a circuit error/disconnect happens.
+         Styled with design tokens rather than the template's inline "lightyellow". The Reload
+         link is a plain same-page navigation (no JS needed - a full reload always clears a dead
+         circuit); Dismiss goes through shell.js's data-shell-action dispatch (see MainLayout's
+         "ErrorBoundary" note in docs/architecture/patterns.md: this is the circuit-level
+         counterpart to that component-level boundary - a circuit crash isn't something an
+         ErrorBoundary inside the circuit can catch). -->
+    <div id="blazor-error-ui" style="display: none;" class="fixed inset-x-0 bottom-0 z-50 flex items-center justify-between gap-4 border-t border-border-primary bg-bg-secondary px-4 py-3 text-sm text-text-primary shadow-lg" data-nosnippet>
+        <span>
+            An unhandled error has occurred.
+            <a href="." class="reload underline text-accent-orange ml-1">Reload</a>
+        </span>
+        <button type="button" data-shell-action="dismiss-error-ui" class="dismiss btn btn-ghost btn-sm" aria-label="Dismiss">✕</button>
+    </div>
+
+    <!-- Absolute, matching every other resource link in this file - belt-and-braces alongside
+         the <base> tag above, which is what actually makes this (and blazor.web.js's own
+         internal _blazor/initializers request) resolve correctly from a nested route. -->
+    <script src="/_framework/blazor.web.js"></script>
+    <!-- MainLayout shell behaviour (sidebar collapse/drawer, user menu, mobile search, Ctrl/Cmd+K)
+         - classic script, loaded after blazor.web.js so window.Blazor exists for its
+         enhanced-navigation resync hook. See wwwroot/js/blazor/shell.js and "Blazor Components"
+         in docs/architecture/patterns.md. -->
+    <script src="/js/blazor/shell.js"></script>
+    <!-- Converts every <LocalTime> component's [data-utc] markup to the viewer's local time -
+         classic script, loaded after shell.js for the same "window.Blazor exists for its
+         enhanced-navigation resync hook" reason. See wwwroot/js/blazor/localtime.js,
+         Blazor/Shared/Primitives/LocalTime.razor and "BrowserInterop / browser.js" in
+         docs/articles/blazor-interop.md. -->
+    <script src="/js/blazor/localtime.js"></script>
+</body>
+</html>
+
+@code {
+    // App.razor renders once, synchronously with the HTTP request that opens the circuit (it is
+    // never re-rendered inside the circuit itself), so resolving the theme here - the same way
+    // Pages/Shared/_Layout.cshtml does with @inject IThemeService - is safe: this is the one
+    // Blazor component allowed to depend on request-scoped services this freely.
+    private string _themeKey = "dark";
+
+    protected override async Task OnInitializedAsync()
+    {
+        _themeKey = await ThemeService.GetCurrentThemeKeyAsync();
+    }
+}

@@ -24,6 +24,8 @@ Quick reference guide for common patterns and conventions used throughout the Di
 18. [MonitoredBackgroundService](#monitoredbackgroundservice)
 19. [IMemoryReportable](#imemoryreportable)
 20. [Per-Guild Locking](#per-guild-locking)
+21. [Blazor Components](#blazor-components)
+22. [Real-time event bus](#real-time-event-bus)
 
 ---
 
@@ -2030,6 +2032,505 @@ if (_guildLocks.TryRemove(guildId, out var removedLock))
 | `PlaybackService` | Sound playback queue and active stream per guild |
 | `SpamDetectionService` | Message frequency windows per guild |
 | `RaidDetectionService` | Join event detection windows per guild |
+
+---
+
+## Blazor Components
+
+The web UI is being ported from Razor Pages to Blazor, one page/cluster at a time (see
+`docs/plans/blazor-port-plan.md`). Both stacks coexist under `src/DiscordBot.Bot/` until the
+port finishes: `Pages/` (Razor Pages, legacy, being ported) and `Blazor/` (new UI). New UI work
+goes in `Blazor/`; do not add new Razor Pages.
+
+### Hosting model
+
+**Blazor Web App, Interactive Server only** - no WebAssembly, no Auto. Page/component models
+inject `DiscordSocketClient`, repositories and ~60 service interfaces directly, the same as
+Razor Pages do today; server render keeps that possible without standing up an API for each one.
+
+**Interactivity is per-page, not global.** `Blazor/Routes.razor` stays static SSR (no
+`@rendermode` on `<Routes />`); each page opts in individually with `@rendermode
+InteractiveServer` at the top of its `.razor` file. Shell chrome (sidebar, navbar) will be
+static SSR with small interactive islands (notification bell, toast host) once the layouts land
+in Phase 3 - don't put a render mode on a whole layout.
+
+Registration lives in `Extensions/BlazorServiceExtensions.cs` (`AddBlazorWeb(IServiceCollection,
+IWebHostEnvironment)`, called from `Program.cs` next to `AddWebServices()`) and follows the same
+DI-registration-by-extension-method pattern as everything else - see
+[DI Registration](#di-registration). `Program.cs` maps `MapRazorComponents<Blazor.App>()
+.AddInteractiveServerRenderMode()` next to `MapRazorPages()`, and calls `app.UseAntiforgery()`
+immediately after `app.UseAuthorization()` (required for `EditForm`/`<AntiforgeryToken />` on
+static SSR Blazor pages; it validates the same ASP.NET Core antiforgery token Razor Pages'
+`[ValidateAntiForgeryToken]`/`asp-antiforgery` already use, so the two don't double-validate).
+
+### Where things live
+
+| Folder | Contents |
+| --- | --- |
+| `Blazor/App.razor` | Static root document: `<!DOCTYPE html>`/`<head>` (`<base href="/">`, fonts, `app.css`, pre-paint theme script, sidebar FOUC guard - copied verbatim from `Pages/Shared/_Layout.cshtml`), `<HeadOutlet />`, `<Routes />`, an absolute-path `blazor.web.js` `<script>`. The `<base>` tag and the absolute script `src` both matter: without either, `blazor.web.js` resolves `_blazor/initializers` (and its own script URL) relative to the *current route* instead of the app root, 404ing and leaving the circuit dead on any nested page (e.g. `/admin/blazor-smoke`) - this is the known .NET 10 regression `tests/DiscordBot.E2E`'s nested-route test guards. |
+| `Blazor/Routes.razor` | `Router` + `AuthorizeRouteView` (`DefaultLayout="typeof(MainLayout)"`, `NotFoundPage="typeof(NotFound)"`) + `RedirectToLogin` + `FocusOnNavigate`. |
+| `Blazor/Layout/` | `EmptyLayout` (no chrome; an opt-in layout for pages that declare `@layout EmptyLayout`, e.g. the error pages - `Routes.razor`'s `DefaultLayout` is `MainLayout`), `MainLayout`/`MainSidebar`/`MainNavbar`/`MobileSearchOverlay`/`ShellNavigation` (Phase 3 - see below), and later `GuildLayout`/`PortalLayout`/`LandingLayout`. |
+| `Blazor/Shared/` | The design-system component library (Phase 2 - Button, Card, Modal, etc., one `bUnit` test each). |
+| `Blazor/Pages/` | Routable pages, mirroring today's `Pages/` tree as it's ported. |
+| `Blazor/Interop/` | Thin C# wrappers around the interop JS modules (Phase 1+ - `charts.js`/`audio.js`/`browser.js`/`theme.js`). |
+| `Blazor/Services/` | Blazor-specific services: the revalidating auth state provider, circuit observability, and the event bus/toast/loading services. |
+
+### The static shell + islands pattern (`MainLayout`)
+
+`MainLayout` (plan §4.7/§5 Phase 3) ports `Pages/Shared/_Layout.cshtml` + `_Navbar.cshtml` +
+`_Sidebar.cshtml` + `_MobileSearchOverlay.cshtml` + the root `_ToastContainer.cshtml` into one
+static-SSR layout, composed from `MainSidebar`, `MainNavbar` and `MobileSearchOverlay` (also
+static SSR - same ids/classes as the partials they replace, so `site.css`/`app.css` apply
+unchanged). `Routes.razor`'s `DefaultLayout` is `MainLayout` itself, so a routed page gets the
+admin shell unless it opts out with `@layout EmptyLayout` (or another named layout, e.g.
+`LandingLayout`/`GuildLayout`/`PortalLayout`). `<AuthorizeView Policy="...">` replaces the
+legacy `<authorize policy="...">` tag helper one for one in `MainSidebar`; active-link state
+(the `active` class, `aria-current="page"`) comes from `Blazor/Layout/ShellNavigation.cs`, a
+small pure-string helper (`IsActive(currentPath, exact:, prefixes:)`) matching
+`NavigationManager`'s current URL path against the same exact/prefix rules `_Sidebar.cshtml`
+used to compute from a Razor Pages route value it no longer has.
+
+Live chrome inside the static shell is small interactive islands: `NotificationBell` (in
+`MainNavbar`) and `ToastHost`/`LoadingOverlay` (in `MainLayout` itself) each carry their own
+`@rendermode InteractiveServer` rather than putting a render mode on the layout - see
+"Interactivity is per-page" above. Islands inside a static parent may only receive serializable
+parameters; all three here take none, since their state is entirely scoped-service-driven
+(`IDashboardNotificationQueryService`/the event bus, `IToastService`, `ILoadingState`).
+
+**`data-shell-action` delegation.** `MainLayout`/`MainSidebar`/`MainNavbar` never render
+interactively, so they have no `IJSRuntime` to call and no server-side click handler to bind to
+for sidebar collapse, the mobile drawer, the user menu, or the mobile search overlay. Those
+elements instead carry a `data-shell-action="..."` attribute (`toggle-mobile-sidebar`,
+`toggle-sidebar-collapse`, `toggle-user-menu`, `toggle-mobile-search`, `close-mobile-search`,
+`dismiss-error-ui`) with no inline `onclick=` (Phase 6 adds a CSP that would block it anyway).
+`wwwroot/js/blazor/shell.js`, a classic script (not a module - loaded from `App.razor` after
+`blazor.web.js`) attaches one delegated listener per event type at `document` level, keyed off
+that attribute, once on load. Because the listeners live on `document` rather than the elements
+themselves, they survive Blazor's enhanced navigation swapping the sidebar/navbar markup back
+out from under them - nothing needs to re-register after a client-side route change. The same
+module also restores the persisted `sidebarCollapsed` localStorage state (the key `App.razor`'s
+inline pre-paint FOUC-guard script also reads) and resyncs it on Blazor's `enhancedload` event.
+
+**`ErrorBoundary` only catches static/prerender exceptions.** `MainLayout` wraps `@Body` in an
+`<ErrorBoundary>` with an `ErrorContent` built from the `Alert` component
+(`Variant="AlertVariant.Error"`), matching the design system's alert styling rather than a raw
+stack trace. This only catches exceptions thrown while the static shell (or a static-SSR page
+inside it) renders. An exception inside an `@rendermode InteractiveServer` island's own circuit
+is a **circuit** failure, not something this component-tree `ErrorBoundary` can see - it
+surfaces through Blazor's own reconnect UI instead (`#blazor-error-ui` in `App.razor`, styled
+with design tokens rather than the framework template's default inline colors, dismissed via
+the same `data-shell-action` dispatch as everything else in this section).
+
+### Auth in components
+
+**`HttpContext` is only available during prerendering, never once the Interactive Server circuit
+is live.** Static SSR pages (Identity/account pages, per §4.2 of the port plan) can inject
+`HttpContext` freely; any `@rendermode InteractiveServer` component cannot - use
+`[CascadingParameter] Task<AuthenticationState>` or the injected `AuthenticationStateProvider`
+instead, and never inject `IHttpContextAccessor` into an interactive component (it throws or
+returns null once the circuit is running).
+
+A circuit outlives the auth cookie that created it, and today's per-request
+`DiscordClaimsTransformation` does not run again inside a circuit. `RevalidatingIdentityAuthenticationStateProvider`
+(`Blazor/Services/`, registered scoped as `AuthenticationStateProvider`) closes that gap: every
+30 minutes it re-checks, via a fresh `UserManager<ApplicationUser>` scope, that the user still
+exists, isn't locked out, and (when the store supports it) that the security-stamp claim on the
+circuit's principal still matches. A failed check ends the circuit; the next navigation forces a
+real sign-in.
+
+Because `HttpContext` disappears once a circuit is running, anything a component would have read
+off it for audit logging - caller IP, user agent - has to be captured once, when the circuit
+opens. `BlazorCircuitHandler.OnCircuitOpenedAsync` reads `IHttpContextAccessor.HttpContext` (it
+*is* available at that one moment) and populates the scoped `CircuitClientInfoService`;
+components read IP/UA from that service instead of `HttpContext`.
+
+### Static-SSR account pages
+
+Sign-in/sign-out (`docs/plans/blazor-port-plan.md` Phase 4 cluster 4c) is the model for every
+account page that stays static SSR (`Login`, `Profile`, `Lockout`, `AccessDenied`, `Privacy`,
+`LinkDiscord`): no `@rendermode`, `HttpContext` cascaded freely per "Auth in components" above,
+and the sign-in/OAuth logic itself pulled into a plain scoped service (`IPasswordSignInService`,
+`IExternalLoginHandler`, both in `Services/Account/`) so it is unit-testable without bUnit or a
+running host - the component is left with only query/form wiring and turning a returned outcome
+into a `NavigationManager.NavigateTo` or a rendered error.
+
+**`FormName` IS required on a static SSR `EditForm`, unlike an interactive one.** This inverts the
+interactive `EditForm` rule (deviation (b) in the port plan's Phase 4a section): an interactive
+`EditForm` always posts back through its own circuit regardless of `FormName`, so that page's rule
+is "don't set it unless a static no-JS fallback is deliberately implemented end to end." A page
+that never goes `@rendermode InteractiveServer` has no circuit to post back through - the browser's
+own POST is the only mechanism - so `FormName` (`Login.razor`'s `FormName="login"`,
+`Profile.razor`'s `FormName="profile-theme"`) is how ASP.NET Core's form-value binder
+(`[SupplyParameterFromForm]`) tells one page's form apart from another's on the same route.
+`EditForm` still emits its own `<AntiforgeryToken />` hidden input automatically; a plain
+`<form>` that isn't an `EditForm` (the Discord challenge button, the logout button) needs an
+explicit `<AntiforgeryToken />` instead.
+
+**The Discord challenge and sign-out live behind minimal-API endpoints, not the page itself.**
+`Extensions/AccountEndpointExtensions.cs`'s `MapAccountEndpoints()` (mapped from `Program.cs` next
+to `MapRazorPages()`) owns `POST /Account/Logout`, `POST /Account/PerformExternalLogin` (the
+Discord `Results.Challenge`), and `GET /Account/ExternalLogin/Callback` - a static SSR page has no
+"page handler" the way a Razor Page did, so a plain `<form method="post" action="...">` posting to
+one of these routes replaces `asp-page-handler`. A minimal API endpoint that binds a parameter with
+`[FromForm]` gets the same antiforgery validation `[ValidateAntiForgeryToken]`/`asp-antiforgery`
+gave a Razor Pages handler automatically, once `app.UseAntiforgery()` is in the pipeline (already
+true here) - no explicit `[ValidateAntiForgeryToken]`/`DisableAntiforgery()` call needed on either
+endpoint (proven by `AccountEndpointExtensionsTests.MapAccountEndpoints_PostEndpointsRequireAntiforgery_GetEndpointsDoNot`,
+which builds the real endpoint data via `MapAccountEndpoints` on a `WebApplication` and asserts
+`IAntiforgeryMetadata` directly - the handler-level tests in that same file call the handlers as
+plain delegates and never construct an endpoint, so none of them exercise this). Route strings live
+as `public const` fields on `Extensions/AccountRoutes` (`Login`, `Logout`, `PerformExternalLogin`,
+`ExternalLoginCallback`, `Lockout`, `AccessDenied`, `LinkDiscord`, `Privacy`) rather than being
+retyped at each call site, since more than one file needs the exact same literal: the cookie
+config's `LoginPath`/`LogoutPath`/`AccessDeniedPath` (kept as literal strings there, not a
+reference to this class - `IdentityConfigOptions` lives in `DiscordBot.Core`, which cannot
+reference `DiscordBot.Bot`), the OAuth `OnRemoteFailure` redirect (`IdentityServiceExtensions`),
+`RedirectToLogin.razor`, `MainNavbar.razor`, the legacy `Pages/Shared/_Navbar.cshtml`,
+`AccessDenied.razor`'s "Sign Out" form, and - for `PerformExternalLogin`, `LinkDiscord` and
+`Privacy` specifically - `LinkDiscord.razor`/`LinkDiscord.razor.cs`/`Privacy.razor.cs`'s own
+Discord-linking form and self-redirects.
+
+### Circuit observability
+
+`BlazorCircuitHandler : CircuitHandler` (`Blazor/Services/`, registered scoped - one instance per
+circuit) logs "Blazor circuit opened"/"closed" at Information with the user ID, circuit ID and a
+correlation ID (reused from the opening request via `HttpContextExtensions.GetCorrelationId()` if
+present, otherwise generated the same way `CorrelationIdMiddleware` does), and records
+`blazor.circuits.opened_total` / `blazor.circuits.active` via `Metrics/BlazorMetrics.cs` (same
+`IMeterFactory` pattern as `BotMetrics`/`ApiMetrics`, registered in `OpenTelemetryExtensions`).
+Circuit interactions travel over the SignalR hub, never an HTTP request, so they never pass
+through `ApiMetricsMiddleware` or `UseSerilogRequestLogging` - see the circuit notes in
+`docs/articles/metrics.md` and `docs/articles/tracing.md`.
+
+### GuildContext
+
+`Blazor/Guilds/` (namespace `DiscordBot.Bot.Blazor.Guilds`) replaces the ~27 independent
+`IGuildService.GetGuildByIdAsync` + breadcrumb/header/nav builds `Pages/Guilds/GuildPageModelBase.cs`
+repeats today with one resolve-once-per-route pipeline (`docs/plans/blazor-port-plan.md` §4.7,
+Phase 3):
+
+- **`IGuildContextProvider`** (`GuildContextProvider`, registered scoped in `AddBlazorUiServices()`)
+  loads the guild (`GuildContextStatus.NotFound` on a miss), authorizes the user against the
+  consolidated `GuildAccess` policy via `IAuthorizationService.AuthorizeAsync(user, guildId,
+  "GuildAccess")` - passing the guild id as the `resource` argument, which `GuildAccessHandler`
+  checks before any route/query value, specifically for this non-HTTP caller
+  (`GuildContextStatus.Forbidden` on a deny) - then computes `CanEdit`
+  (`IsGuildAdmin || IsAppAdmin`, the same rule `Pages/Guilds/Details.cshtml.cs` uses), the
+  `AudioEnabled`/`RatWatchEnabled` feature flags, and takes the tab list from
+  `GuildNavigationConfig.GetTabs()`. The result is a `GuildContext` record - plain, JSON-serializable,
+  no `ClaimsPrincipal` - wrapped in a `GuildContextResult` (`NotFound | Forbidden | Ok`).
+- **It's scoped and memoised** because one HTTP request's prerender and one circuit's lifetime are
+  each exactly one DI scope, and a guild page plus the `GuildLayout` wrapping it both resolve the
+  same guild id within that one scope - the provider caches its result per `guildId` (a `Dictionary`
+  keyed by guild id, not by user, since one scope belongs to one user) so the second caller costs
+  nothing. This is why it's registered `AddScoped`, not `AddSingleton` - a singleton's cache would
+  leak across users and never expire.
+- **The static-layout-vs-page resolution rule:** during prerender, the static `GuildLayout` and the
+  interactive page it wraps share the request's DI scope, so whichever resolves first populates the
+  memoisation cache for the other. Once the circuit takes over, the page gets a *new* scope (a fresh
+  `IGuildContextProvider`, cache empty again) - `GuildLayout` obtains the guild id itself via
+  `GuildRoutes.TryGetGuildId(NavigationManager.Uri, out var guildId)` (it has no route-parameter
+  binding of its own) and calls the same provider a page derived from `GuildPageBase` calls, so
+  the two agree without a cascading parameter carrying it across the static/interactive boundary
+  (cascading values don't cross that boundary at all - see "Auth in components" above).
+- **`GuildPageBase : ComponentBase`** is what a routable guild page derives from: declares
+  `[Parameter] public long GuildId { get; set; }` (routes are `{guildId:long}` - no `ulong`
+  route-constraint type exists), resolves via `IGuildContextProvider` in a sealed
+  `OnInitializedAsync`/`OnParametersSetAsync` pair (re-resolving only when `GuildId` changes),
+  and persists the `GuildContextResult` with `PersistentComponentState.RegisterOnPersisting`/
+  `TryTakeFromJson` so the provider - and everything it calls - runs once per page load, not once
+  during prerender and again when the circuit reconnects. A derived page overrides the virtual
+  `OnGuildContextReadyAsync()` hook for its own data loading instead of the lifecycle methods
+  directly, which are sealed so that bookkeeping can't be bypassed by accident. Exposes `Result`,
+  `Guild` (shorthand for `Result?.Context`), and `IsLoading` as `protected`. Also carries the
+  local-time-scan bookkeeping every page that renders `<LocalTime>` and can re-render its data
+  needs: a protected `RequestLocalTimeScan()` a page calls at the end of every successful
+  load/reload, and a virtual `OnAfterRenderAsync` override (not sealed, since a page with its own
+  post-render work - `ScheduledMessages/Edit.razor.cs` detecting the viewer's timezone - overrides
+  it too and calls `base.OnAfterRenderAsync(firstRender)` alongside its own logic) that runs the
+  scan when requested. `localtime.js`'s document-level scan only fires once, on the very first
+  render, so a page whose rows can change after that (paging, a filter, an action that reloads the
+  list) without this would show the raw UTC fallback for any row rendered afterward - this was
+  originally per-page boilerplate (see `Blazor/Pages/Admin/Users/Index.razor.cs`, still its own
+  copy since it isn't a guild page) before being lifted into `GuildPageBase` so a guild list/detail
+  page gets it for free.
+- **`GuildContextGate.razor`** renders the four states a `GuildContextResult` can be in - still
+  loading, not found, forbidden, or the page via a `RenderFragment<GuildContext> ChildContent` -
+  with `NotFoundContent`/`ForbiddenContent`/`LoadingContent` parameters to override any of the
+  default `EmptyState` fragments. A guild page's markup is typically just
+  `<GuildContextGate Result="Result"><ChildContent Context="guild"> ... </ChildContent></GuildContextGate>`.
+- **`GuildLayout` reuses the same provider** rather than a second lookup path: it resolves the
+  guild id from the URI via `GuildRoutes.TryGetGuildId`, the active tab via
+  `GuildRoutes.ResolveActiveTabId`, and calls `IGuildContextProvider.GetAsync` itself to render the
+  breadcrumb/header/nav chrome - memoisation is what keeps that from being a second guild load when
+  the page underneath it also resolves the same guild id.
+
+### Portal three-state gate
+
+The Portal's anonymous-landing / authenticated-non-member-forbidden / member-portal gate
+(`Pages/Portal/PortalPageModelBase.CheckPortalAuthorizationAsync`) is implemented once in
+`IPortalAccessService`/`PortalAccessService` (`Bot/Services/Portal/`, scoped) rather than inline in
+the page model, so a future Blazor `PortalLayout` can reuse the exact same ordering: guild lookup,
+Discord client lookup, auth state, Discord-link check, Admin/SuperAdmin bypass, then a
+cache-then-REST guild membership check. `ResolveAsync` returns a `PortalAccessResult`
+(`GuildNotFound | ShowLanding | NotGuildMember | Authorized`, each carrying the login URL except
+`GuildNotFound`) with a `PortalContext` payload scoped to what `_PortalHeader`/`_PortalLanding`
+need (guild DTO, name, icon, bot-online flag) - deliberately narrower than
+`PortalPageModelBase.PortalAuthContext`, which still carries the Discord.Net `SocketGuild` the three
+Portal Index pages (Soundboard/TTS/VOX) read directly for voice-channel listing.
+`PortalPageModelBase.CheckPortalAuthorizationAsync` now delegates to this service and rebuilds that
+`SocketGuild` from the id `IPortalAccessService` already confirmed exists (an in-memory gateway-cache
+read, not a network call). Its constructor's parameter list is unchanged - `IPortalAccessService` is
+resolved from `HttpContext.RequestServices` inside the method, the one service-locator exception in
+this codebase, because changing the constructor would mean touching every derived Portal page model
+for a refactor scoped to the base class alone.
+
+### GuildLayout / PortalLayout
+
+`Blazor/Layout/GuildLayout.razor` and `Blazor/Layout/PortalLayout.razor` (plan §4.7/§5 Phase 3)
+are the two chrome layouts built on top of "GuildContext" and "Portal three-state gate" above.
+Both are static SSR - no `@rendermode` - and neither has a route-parameter binding of its own
+(a layout wraps whatever page routed), so both read the guild id straight off
+`NavigationManager.Uri` (`GuildRoutes.TryGetGuildId`/`Blazor/Portal/PortalRoutes.TryGetGuildId`,
+the latter handling both Portal URL shapes - `/Portal/{Feature}/{guildId}` for the three real
+pages, `/Portal/{guildId}/{page}` for the probe) and call the same memoised provider a page under
+them calls, so the two agree without a cascading parameter crossing the static/interactive
+boundary - see "The static-layout-vs-page resolution rule" above; a page's own
+`@rendermode InteractiveServer` never makes its ancestor layout interactive, so both layouts run
+their resolution exactly once, during the same static render pass a page's own prerender runs in,
+and are never re-rendered once a circuit takes over.
+
+- **A page opts in** with `@layout GuildLayout` or `@layout PortalLayout` at the top of its
+  `.razor` file, the same as any other layout. `GuildLayout` itself carries `@layout MainLayout`,
+  so a guild page gets the full admin shell (sidebar/navbar/toast/loading) plus the guild
+  breadcrumb/header/tab chrome layered on top; `PortalLayout` is **not** nested under
+  `MainLayout` - the Portal is member-facing, reached via a signed link, with no admin sidebar,
+  and the legacy `_PortalLayout.cshtml` was never a child of the admin shell either.
+- **`GuildLayout` renders per `GuildContextResult.Status`.** `Ok`: `Breadcrumb`
+  (`GuildContext.Breadcrumb(pageName)` - `null` for the Overview tab or a route matching no tab,
+  reproducing `BuildBasicBreadcrumb`; the active tab's `Label` otherwise, reproducing
+  `BuildPageBreadcrumb`), `GuildHeader` (`PageTitle` is that same active-tab-label-or-guild-name -
+  no per-page title mechanism reaches this layout; a page sets Blazor's own `<PageTitle>`, the
+  browser tab title, separately and unrelated to this), then the tab nav: `TabGroup
+  Mode="TabGroupMode.Navigation" StyleVariant="TabStyleVariant.Pills"` for desktop
+  (`.hidden sm:block`, matching `GuildNavBarHelper`'s existing `_TabPanel` config) plus a native
+  `<select data-shell-action="navigate-select">` for mobile (`.sm:hidden`) - chosen over a
+  details/summary or a re-implemented dropdown menu because a native select is keyboard- and
+  screen-reader-accessible for free and this layout has no `IJSRuntime` to drive anything more
+  custom; `wwwroot/js/blazor/shell.js` gained one delegated `change` listener for it.
+  `NotFound`/`Forbidden`: the breadcrumb/header/nav are omitted entirely and `@Body` renders
+  unchanged - the page's own `GuildContextGate` (a second, independent call into the same
+  memoised provider - see "GuildContext") is what shows the 404/403 content, not this layout.
+- **`PortalLayout` renders per `PortalAccessOutcome`.** Adds `portal.css` via `<HeadContent>`
+  (`app.css`/`tab-panel.css` are already global in `App.razor`). `GuildNotFound`: the
+  design-system `EmptyState`, same "doesn't exist or has been removed" copy
+  `GuildContextGate`'s own not-found fragment uses for the guild case - the closest available
+  match to "the same copy as today's 404", since the legacy `GuildNotFound` path actually returns
+  a plain `NotFound()` re-executed against the generic, non-Portal `/Error/404`, not any
+  Portal-specific copy. `ShowLanding`/`NotGuildMember`: straight ports of
+  `_PortalLanding.cshtml`/`_PortalUnauthorized.cshtml`. `Authorized`: the ported `_PortalHeader`
+  chrome (icon/name/online-offline badge/`TabGroup StyleVariant="TabStyleVariant.Portal"`
+  Soundboard-TTS-VOX nav) + `@Body`. A `<ToastHost @rendermode="InteractiveServer" />` island
+  renders unconditionally, matching the legacy layout always loading `toast.js`.
+- **`IPortalContextProvider`** (`Blazor/Portal/`, scoped, registered in `AddBlazorUiServices()`)
+  is a thin memoising wrapper over the existing `IPortalAccessService`, added for the same reason
+  `IGuildContextProvider` wraps guild resolution: `PortalAccessService.ResolveAsync` does a real
+  database read plus, once signed in, a `UserManager` lookup and a cache-then-REST guild
+  membership check, and `PortalLayout` plus a `PortalPageBase`-derived page both resolve the same
+  guild id within one scope. `PortalPageBase` (`Blazor/Portal/`) mirrors `GuildPageBase` exactly -
+  same sealed `OnInitializedAsync`/`OnParametersSetAsync` pair, same `PersistentComponentState`
+  round trip across the prerender-to-circuit boundary, same virtual `OnPortalContextReadyAsync()`
+  hook a derived page overrides instead.
+- **Portal script bundle.** `shared/keyboard-shortcuts.js` and `user-preferences.js` are both
+  classified **B** (thin-interop-shim-survives) in `blazor-port-inventory.md` Part 4 and are
+  loaded here as classic scripts (both are self-initializing IIFEs, the same shape `shell.js`
+  already loads this way) for every non-`GuildNotFound` state, matching the legacy layout's
+  "always loaded regardless of state" behavior. Neither is wired to anything yet - the
+  `RegisterShortcut` interop call and `UserPreferences.init(guildId)` both need a real page
+  component to drive them, and no Portal page has been ported yet (the probe is not a real
+  consumer); that wiring is Phase 4f's job. `api-client.js`/`toast.js` are not loaded - both are
+  superseded outright (in-circuit service calls; `ToastHost`/`IToastService`).
+- **Temporary probes.** `Blazor/Pages/Guilds/GuildProbe.razor` (`/Guilds/{guildId:long}/blazor-probe`,
+  `RequireAdmin`, `@inherits GuildPageBase`) and `Blazor/Pages/Portal/PortalProbe.razor`
+  (`/Portal/{guildId:long}/blazor-probe`, `[AllowAnonymous]` - a Portal page branches on outcome
+  rather than gating the route, `@inherits PortalPageBase`) prove both layouts end to end on real,
+  interactive, nested routes, the same role `BlazorProbe.razor` played for Phase 1. Retained until
+  Phase 4b/4f replace them with real ported pages - see "Blazor Routes (Phase 3...)" in
+  `ui-inventory.md`.
+
+### Paged list pages
+
+Standardised on `Blazor/Common/PagedQuery.cs` (plan §5 Phase 4, cluster 4b) rather than each guild
+list page inventing its own page/size fields - all four paged guild lists (`FeatureRequests/Index`,
+`Reminders/Index`, `RatWatch/Index`, `AudioModerationLog/Index`) share it, the latter two ported
+onto it after initially shipping hand-rolled component-state paging (a one-time `_seeded` flag,
+callback-mode `Pagination`) that changed the URL without the URL ever being the source of truth,
+so browser back/forward across a page change did nothing. A `record` of `PageNumber` (clamped ≥ 1),
+`PageSize` (clamped to [1, 100], default per page), `SortBy`/`SortDescending`, built once per load
+via `PagedQuery.FromQuery(pageNumber, pageSize, sortBy, sortDescending, defaultPageSize,
+legacyPage)` and rendered with `Blazor/Shared/Navigation/Pagination.razor` in link mode
+(`BaseUrl="@PageUrl" PageParameterName="pageNumber"` - `PageSizeParameterName` defaults to
+`pageSize`). A page binds the matching `[SupplyParameterFromQuery]` names (`pageNumber`,
+`pageSize`, `sortBy`, `sortDescending`; a filter like a status enum keeps its own query name,
+e.g. `status`) and, since a query-string-only change doesn't re-trigger `GuildPageBase`'s sealed
+`OnParametersSetAsync` (see "GuildContext" above), reloads via an `OnParametersSet()` override -
+still synchronous, since that lifecycle method can't be awaited and the async pair is sealed.
+`legacyPage` lets `FromQuery` fall back to an old `?page=` value when `pageNumber` is absent, so
+bookmarks and existing plain-`href` widget links (e.g. `Guilds/Details`) built before this
+standardisation keep resolving without an edit on their end.
+
+That synchronous hook still has to kick off an async reload somehow, and two mistakes are easy to
+make there: a bare `_ = ReloadAsync()` leaves the task's exceptions unobserved (a failed query
+becomes a silently-stuck loading spinner, or - worse - an exception that surfaces somewhere
+unrelated later), and two query-string changes landing in quick succession can race, with the
+first load's slower response overwriting the second, newer one's result. `Blazor/Pages/Guilds/FeatureRequests/Index.razor.cs`
+is the reference example for avoiding both: the hook dispatches through `InvokeAsync(ReloadAndRerenderAsync)`
+rather than a bare fire-and-forget, so the reload runs on the renderer's synchronization context
+like any other UI-driven call; `LoadAsync` itself increments a private `_loadGeneration` counter at
+the top, captures that value, and checks it again after every `await` before writing to any
+`protected` state - a load whose generation no longer matches the field (a newer load started
+while this one was in flight) discards its result instead of applying it; and the whole body after
+the counter increment is wrapped in `try`/`catch`, logging at Error, toasting, and setting a
+`LoadFailed` flag the markup renders as an `Alert` in place of the list - never a plain empty
+state, which would read as "there's nothing here" rather than "the query failed". A handler that
+reloads directly (a cancel, an approve/reject) can just `await LoadAsync()` - the generation counter
+still protects it against a slower `OnParametersSet`-triggered reload finishing after it.
+
+### Per-operation scopes
+
+Services and `BotDbContext` are scoped, and a Blazor Server circuit is one DI scope for its whole
+life (plan §4.1 "Data access in components") - so a page that injects a service with `[Inject]`
+the ordinary way holds the *same* instance, and the same `DbContext` with everything it has ever
+tracked, for as long as the circuit stays open. That is fine for a read: `AsNoTracking()` queries
+don't accumulate anything the tracker cares about. It is not fine for a mutation: `DbSet.Update()`/
+`DbSet.Remove()` attach the whole reachable graph as tracked and never detach it after
+`SaveChangesAsync`, so a second fetch-mutate-save of the same entity later in the same circuit
+fetches a fresh, different instance for a key the first call left tracked, and EF's identity map
+throws "already tracked" - see `docs/lessons-learned/scheduled-message-repeated-update-tracking.md`
+for the full failure and why the fix is not in `Repository<T>` itself.
+
+**Rule: every mutation, and the reload that follows it, resolves its service through a fresh scope
+via `Blazor/Common/ScopedOperations.cs` instead of the page's injected instance.** `ScopedOperations`
+is a set of `IServiceScopeFactory` extension methods - `RunAsync<TService>(Func<TService, Task>)`,
+`RunAsync<TService, TResult>(Func<TService, Task<TResult>>)`, and two-service overloads for a
+handler that needs two services from the same operation (e.g. a fetch-mutate-save that must stay on
+one `DbContext`) - each doing `await using var scope = scopeFactory.CreateAsyncScope();` then
+resolving with `GetRequiredService` and disposing the scope (and its `DbContext`) the moment the
+call returns. A page injects `IServiceScopeFactory` alongside its normal `[Inject]` services and
+writes `await ScopeFactory.RunAsync<IScheduledMessageService>(s => s.UpdateAsync(id, dto))` in place
+of `await ScheduledMessageService.UpdateAsync(id, dto)`, then reloads through another `RunAsync`
+call rather than calling the page's own `LoadAsync()` directly (a page whose load method is shared
+between the initial load and a post-mutation reload takes the service as a parameter -
+`LoadAsync(IScheduledMessageService service)` - so the initial call passes the injected instance and
+the reload passes `ScopeFactory.RunAsync<IScheduledMessageService>(LoadAsync)`, method-group-converted
+straight into the `Func<TService, Task>` the two share). The initial load in
+`OnGuildContextReadyAsync`/`OnInitializedAsync` may keep using the page's injected, circuit-scoped
+service - it's read-only, so there's nothing for a later call in the same circuit to collide with.
+
+Every interactive page ported in Phase 4 clusters 4a/4b follows this: `Admin/Users/{Index,Create,Edit}`,
+`Guilds/{Edit,Welcome,AssistantSettings}`, `RatWatch/Index`, `FeatureRequests/{Index,Details}`,
+`Reminders/Index`, `ScheduledMessages/{Index,Create,Edit}`. A bUnit test that registers its mocks
+as singletons (the norm in this codebase's component tests) needs no change for this: a child scope
+still resolves the same singleton instance, only a *scoped* mock would behave differently, and none
+of these tests register one that way.
+
+`Repository<T>.UpdateAsync`/`DeleteAsync` themselves are back to their original, unconditional
+`DbSet.Update(entity)`/`DbSet.Remove(entity)` bodies - an earlier attempt fixed the "already tracked"
+crash generically there instead, by walking the incoming entity's reachable graph and detaching any
+stale tracked entry for the same key before attaching. That was reverted: it can silently detach (and
+so lose) another concurrent caller's still-pending edit to the same entity, turning a loud exception
+into a quiet dropped update, and it reads keys via reflection, which breaks for an entity with a
+shadow key. Per-operation scopes fix the actual root cause - the circuit-scoped `DbContext` - instead
+of papering over its symptom in the generic repository.
+
+**Known pre-existing behaviour, not changed here.** `Repository<T>.UpdateAsync` calls
+`DbSet.Update(entity)`, which marks every `Include`d navigation on the entity as `Modified` too, not
+just the entity itself - so saving a `ScheduledMessage` (whose `ScheduledMessageRepository.GetByIdAsync`
+includes `Guild`) also rewrites the `Guilds` row it was fetched with, even though nothing about the
+guild changed. Per-operation scopes don't make this better or worse (a fresh `DbContext` still walks
+the same graph); it's tracked as a follow-up for its own PR, not addressed here.
+
+### Gotchas carried over from CLAUDE.md
+
+- **Discord snowflakes are strings** in any component `[Parameter]`, `@bind` target, or JS
+  interop call - the same rule as `'@Model.GuildId'` in Razor Pages. A `ulong` id is fine inside
+  C# logic; the moment it crosses into markup or `IJSRuntime.InvokeAsync`, convert it to `string`
+  first, or the last digits round off silently in JavaScript.
+- **`Discord:Enabled=false` (web-only mode)** works the same for Blazor pages as for Razor
+  Pages - it's how the host runs for UI testing without a bot token or gateway connection. See
+  "Running it locally" in `CLAUDE.md` and `docs/articles/configuration-guide.md`.
+
+## Real-time event bus
+
+`IDashboardEventBus` (`Bot/Services/Realtime/DashboardEventBus.cs`) is an in-process pub/sub bus
+that every SignalR dashboard broadcaster dual-publishes to alongside its
+`IHubContext<DashboardHub>` send, so a Blazor Server component gets the same real-time data a
+browser SignalR client gets, without a client connection. Full detail, event catalog, and the
+dual-publish rule for new broadcasters live in `docs/articles/signalr-realtime.md`, "In-process
+event bus" — this section is the component-authoring side of that same pattern.
+
+### Subscribing and rendering
+
+```csharp
+public partial class VoiceChannelPanel : ComponentBase, IDisposable
+{
+    [Parameter] public ulong GuildId { get; set; }
+
+    [Inject] private IDashboardEventBus EventBus { get; set; } = default!;
+
+    private IDisposable? _subscription;
+    private readonly Debouncer _debouncer = new();
+    private QueueUpdatedDto? _queue;
+
+    protected override void OnInitialized()
+    {
+        // Guild-scoped overload: only this guild's events reach the handler, one line, no
+        // `if (evt.GuildId != GuildId) return;` boilerplate.
+        _subscription = EventBus.Subscribe<QueueUpdatedEvent>(GuildId, (evt, _) =>
+        {
+            _debouncer.Debounce(TimeSpan.FromSeconds(1), async ct =>
+            {
+                _queue = evt.Queue;
+                await InvokeAsync(StateHasChanged);
+            });
+            return Task.CompletedTask;
+        });
+        base.OnInitialized();
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+        _debouncer.Dispose();
+    }
+}
+```
+
+### Rules
+
+1. **Filter by guild** with the guild-scoped `Subscribe` overload (`Subscribe<TEvent>(guildId, handler)`)
+   for any event deriving from `GuildScopedEvent`, instead of subscribing broadly and filtering
+   by hand.
+2. **Debounce or coalesce to ≤1 Hz re-render.** High-frequency events (playback progress, a burst
+   of guild activity) must not drive `StateHasChanged` faster than about once a second; use
+   `Blazor/Common/Debouncer.cs`.
+3. **Unsubscribe in `Dispose`.** Failing to dispose the handle `Subscribe` returns leaks a
+   delegate that closes over the component; the bus catches a handler that throws (logged at
+   Warning) so a torn-down component can't fault the publisher, but a leaked subscription still
+   does pointless work forever.
+4. **Call `InvokeAsync(StateHasChanged)`.** A published event is delivered on whichever thread
+   called `PublishAsync` — a background service's timer thread, a request thread handling a hub
+   call, another circuit entirely — never automatically on this component's synchronization
+   context.
+
+### Toast, loading, and debounce services
+
+`Bot/Blazor/Services/IToastService` and `ILoadingState` are the scoped (per-circuit) UI-state
+counterparts to today's `wwwroot/js/toast.js` and the loading-overlay JS: inject them into a
+component, call `Toast.Success(...)` / `Loading.Begin(...)`, and subscribe to their `Changed`
+event the same way as the bus (`InvokeAsync(StateHasChanged)`). `Blazor/Common/Debouncer.cs` is
+the general-purpose trailing-edge debounce used above and anywhere else a component coalesces
+bursty input (a search box, a filter change) into one action.
 
 ---
 

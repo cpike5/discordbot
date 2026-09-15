@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Realtime;
+using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.SignalR;
@@ -11,18 +13,22 @@ namespace DiscordBot.Bot.Services;
 public class DashboardNotifier : IDashboardNotifier
 {
     private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<DashboardNotifier> _logger;
 
     /// <summary>
     /// Initializes a new instance of the <see cref="DashboardNotifier"/> class.
     /// </summary>
     /// <param name="hubContext">The SignalR hub context.</param>
+    /// <param name="eventBus">The in-process dashboard event bus, dual-published to alongside the hub.</param>
     /// <param name="logger">The logger.</param>
     public DashboardNotifier(
         IHubContext<DashboardHub> hubContext,
+        IDashboardEventBus eventBus,
         ILogger<DashboardNotifier> logger)
     {
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -35,6 +41,8 @@ public class DashboardNotifier : IDashboardNotifier
             "BotStatusUpdated",
             status,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new BotStatusUpdatedEvent { Status = status }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -55,6 +63,10 @@ public class DashboardNotifier : IDashboardNotifier
             eventName,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(
+            new DashboardGuildUpdateEvent { GuildId = guildId, EventName = eventName, Data = data },
+            cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -68,6 +80,10 @@ public class DashboardNotifier : IDashboardNotifier
         await _hubContext.Clients.All.SendAsync(
             eventName,
             data,
+            cancellationToken);
+
+        await _eventBus.PublishAsync(
+            new DashboardBroadcastEvent { EventName = eventName, Data = data },
             cancellationToken);
     }
 }

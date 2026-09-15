@@ -1,0 +1,31 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.Blazor.Common
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Interfaces
+@using Microsoft.Extensions.DependencyInjection
+@inject IServiceScopeFactory ScopeFactory
+
+@* Guild counterpart of UserPreview.razor - see its top-of-file note for the scope-per-load rationale. *@
+
+<PreviewPopover TModel="GuildPreviewDto" Kind="PreviewKind.Guild" Id="@GuildId.ToString()"
+                Loader="LoadAsync" Placement="Placement" Class="@Class" AdditionalAttributes="AdditionalAttributes">
+    <ContentTemplate Context="model">
+        <GuildPreviewContent Model="model" />
+    </ContentTemplate>
+    <ChildContent>
+        @ChildContent
+    </ChildContent>
+</PreviewPopover>
+
+@code {
+    [Parameter, EditorRequired] public ulong GuildId { get; set; }
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+    [Parameter] public PopoverPlacement Placement { get; set; } = PopoverPlacement.Below;
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private Task<GuildPreviewDto?> LoadAsync() =>
+        ScopeFactory.RunAsync<IPreviewService, GuildPreviewDto?>(s => s.GetGuildPreviewAsync(GuildId, CancellationToken.None));
+}

@@ -218,6 +218,55 @@ public class TimezoneHelperTests
             "12:00 PM PST should be 8:00 PM UTC (PST is UTC-8)");
     }
 
+    /// <summary>
+    /// Covers docs review finding 7: clocks in America/Toronto (and every other US/Canada zone
+    /// observing DST) jump from 02:00 to 03:00 on the spring-forward date, so any local time in
+    /// [02:00, 03:00) that day never occurs. <see cref="TimeZoneInfo.ConvertTimeToUtc(DateTime, TimeZoneInfo)"/>
+    /// throws <see cref="ArgumentException"/> for such a time rather than guessing which side of
+    /// the gap was meant - <c>Blazor/Pages/Guilds/ScheduledMessages/Create.razor.cs</c>/
+    /// <c>Edit.razor.cs</c>'s <c>HandleValidSubmit</c> catch this and show a field validation
+    /// message instead of letting it crash the circuit.
+    /// </summary>
+    [Fact]
+    public void ConvertToUtc_LocalTimeInDstSpringForwardGap_ThrowsArgumentException()
+    {
+        // 2026-03-08 is DST spring-forward in America/Toronto: 02:00 -> 03:00. 02:30 never occurs.
+        var localDateTime = new DateTime(2026, 3, 8, 2, 30, 0);
+        const string timezone = "America/Toronto";
+
+        var act = () => TimezoneHelper.ConvertToUtc(localDateTime, timezone);
+
+        act.Should().Throw<ArgumentException>("02:30 on the spring-forward date does not exist in America/Toronto");
+    }
+
+    /// <summary>A local time just before the gap (still standard time) converts normally.</summary>
+    [Fact]
+    public void ConvertToUtc_LocalTimeJustBeforeDstGap_ConvertsCorrectly()
+    {
+        var localDateTime = new DateTime(2026, 3, 8, 1, 59, 0);
+        const string timezone = "America/Toronto";
+
+        var result = TimezoneHelper.ConvertToUtc(localDateTime, timezone);
+
+        result.Kind.Should().Be(DateTimeKind.Utc);
+        result.Should().Be(new DateTime(2026, 3, 8, 6, 59, 0, DateTimeKind.Utc),
+            "01:59 EST (UTC-5) is still before the spring-forward gap");
+    }
+
+    /// <summary>A local time just after the gap (already daylight time) converts normally.</summary>
+    [Fact]
+    public void ConvertToUtc_LocalTimeJustAfterDstGap_ConvertsCorrectly()
+    {
+        var localDateTime = new DateTime(2026, 3, 8, 3, 0, 0);
+        const string timezone = "America/Toronto";
+
+        var result = TimezoneHelper.ConvertToUtc(localDateTime, timezone);
+
+        result.Kind.Should().Be(DateTimeKind.Utc);
+        result.Should().Be(new DateTime(2026, 3, 8, 7, 0, 0, DateTimeKind.Utc),
+            "03:00 EDT (UTC-4) is the first valid instant after the spring-forward gap");
+    }
+
     #endregion
 
     #region ConvertFromUtc Tests

@@ -2,7 +2,14 @@
 
 **Version:** 1.4
 **Last Updated:** 2026-02-19
-**Target Framework:** .NET 8 Razor Pages with Tailwind CSS
+**Target Framework:** .NET 10 Razor Pages with Tailwind CSS
+
+> **Blazor port in progress.** [`docs/articles/blazor-components.md`](blazor-components.md)
+> documents the Blazor component library being built at `src/DiscordBot.Bot/Blazor/Shared/`
+> (`docs/plans/blazor-port-plan.md` Phase 2) and supersedes this guide's entries one partial at a
+> time, as each is retired in Phase 4. Until a partial's page is migrated, the entry below is
+> still the ground truth for it; once retired, its row here is removed and
+> `blazor-components.md` is the reference.
 
 ---
 

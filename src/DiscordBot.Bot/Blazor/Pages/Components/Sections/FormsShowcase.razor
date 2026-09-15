@@ -1,0 +1,295 @@
+@namespace DiscordBot.Bot.Blazor.Pages.Components.Sections
+@using System.ComponentModel.DataAnnotations
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+@using DiscordBot.Core.Enums
+
+@* Non-routable showcase section for the Tier 2 form components, mirroring the "Form Inputs"/"Form
+   Selects" sections of Pages/Components.cshtml plus every other Tier 2 component the legacy page
+   never demonstrated (Toggle, Autocomplete, FilterPanel, SortDropdown, DateRangeFilter,
+   SettingField all have no equivalent section there - see
+   docs/plans/blazor-port-inventory.md Part 3 §2.2/§4). A later agent composes the routable
+   /components page from this and the sibling *Showcase.razor files the other tiers add
+   (docs/articles/blazor-components.md "Component contract", point 10). *@
+
+<div class="space-y-8" data-testid="forms-showcase">
+    <!-- Text Inputs -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-text-input">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Text Inputs</h3>
+            <p class="text-sm text-text-secondary mt-1">Single-line text fields with validation</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div class="max-w-md">
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Basic Input</h4>
+                <TextInput Id="showcase-basic-input" Label="Username" Placeholder="Enter a username"
+                           @bind-Value="_basicText" HelpText="Letters, numbers and underscores only" />
+            </div>
+
+            <div class="max-w-md space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Sizes</h4>
+                <TextInput Id="showcase-input-sm" Label="Small" Size="InputSize.Small" Placeholder="Small input" />
+                <TextInput Id="showcase-input-md" Label="Medium" Size="InputSize.Medium" Placeholder="Medium input" />
+                <TextInput Id="showcase-input-lg" Label="Large" Size="InputSize.Large" Placeholder="Large input" />
+            </div>
+
+            <div class="max-w-md">
+                <h4 class="text-sm font-semibold text-text-primary mb-3">With Icon and Character Count</h4>
+                <TextInput Id="showcase-input-icon" Label="Search" Type="search" Placeholder="Search..."
+                           IconLeft="@IconPaths.MagnifyingGlass" MaxLength="40" ShowCharacterCount="true"
+                           @bind-Value="_iconText" />
+            </div>
+
+            <div class="max-w-md space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Validation States</h4>
+                <TextInput Id="showcase-input-success" Label="Success" Value="valid-value" ValidationState="ValidationState.Success" ValidationMessage="Looks good!" />
+                <TextInput Id="showcase-input-warning" Label="Warning" Value="borderline" ValidationState="ValidationState.Warning" ValidationMessage="This value is unusual." />
+                <TextInput Id="showcase-input-error" Label="Error" Value="" ValidationState="ValidationState.Error" ValidationMessage="This field is required." IsRequired="true" />
+                <TextInput Id="showcase-input-disabled" Label="Disabled" Value="Can't touch this" IsDisabled="true" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Text Area -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-text-area">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Text Area</h3>
+            <p class="text-sm text-text-secondary mt-1">Multi-line text field</p>
+        </div>
+        <div class="p-6 max-w-md">
+            <TextArea Id="showcase-textarea" Label="Message" Rows="4" Placeholder="Enter your message..."
+                      MaxLength="200" ShowCharacterCount="true" @bind-Value="_textAreaValue"
+                      HelpText="Supports Discord markdown formatting" />
+        </div>
+    </section>
+
+    <!-- Selects -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-select">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Selects</h3>
+            <p class="text-sm text-text-secondary mt-1">Dropdown selection fields</p>
+        </div>
+        <div class="p-6 space-y-6">
+            <div class="max-w-md">
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Basic Select</h4>
+                <Select TValue="string" Id="showcase-basic-select" Label="Log Level" Options="_logLevels" @bind-Value="_selectedLogLevel" />
+            </div>
+
+            <div class="max-w-md">
+                <h4 class="text-sm font-semibold text-text-primary mb-3">With Option Groups</h4>
+                <Select TValue="string" Id="showcase-grouped-select" Label="Channel" OptionGroups="_channelGroups" @bind-Value="_selectedChannel" />
+            </div>
+
+            <div class="max-w-md space-y-4">
+                <h4 class="text-sm font-semibold text-text-primary mb-3">Validation States</h4>
+                <Select TValue="string" Id="showcase-select-error" Label="Required Choice" Options="_logLevels"
+                        ValidationState="ValidationState.Error" ValidationMessage="Choose an option." IsRequired="true" />
+                <Select TValue="string" Id="showcase-select-disabled" Label="Disabled" Options="_logLevels" IsDisabled="true" />
+            </div>
+        </div>
+    </section>
+
+    <!-- Toggle -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-toggle">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Toggle</h3>
+            <p class="text-sm text-text-secondary mt-1">Boolean switch control</p>
+        </div>
+        <div class="p-6 space-y-4">
+            <Toggle Id="showcase-toggle-basic" Label="Enable notifications" Description="Send an alert when this triggers"
+                    @bind-Value="_toggleValue" />
+            <Toggle Id="showcase-toggle-disabled" Label="Disabled toggle" IsDisabled="true" Value="true" />
+        </div>
+    </section>
+
+    <!-- Setting Field -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-setting-field">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Setting Field</h3>
+            <p class="text-sm text-text-secondary mt-1">Dispatches to Toggle/Select/TextInput by SettingDataType</p>
+        </div>
+        <div class="p-6 grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <SettingField Setting="_boolSetting" OnValueChanged="HandleSettingChanged" />
+            <SettingField Setting="_choiceSetting" OnValueChanged="HandleSettingChanged" />
+            <SettingField Setting="_numberSetting" OnValueChanged="HandleSettingChanged" />
+            <SettingField Setting="_textSetting" OnValueChanged="HandleSettingChanged" />
+        </div>
+    </section>
+
+    <!-- Autocomplete -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-autocomplete">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Autocomplete</h3>
+            <p class="text-sm text-text-secondary mt-1">Type-ahead search with keyboard navigation</p>
+        </div>
+        <div class="p-6 max-w-md">
+            <Autocomplete Id="showcase-autocomplete" Label="Command" Placeholder="Search commands..."
+                          SearchFunc="SearchCommands" @bind-Value="_selectedCommandId"
+                          HelpText="Type at least 2 characters" />
+        </div>
+    </section>
+
+    <!-- Filter Panel + Sort Dropdown + Date Range Filter -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-filter-panel">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">Filter Panel</h3>
+            <p class="text-sm text-text-secondary mt-1">Collapsible filter shell composing SortDropdown and DateRangeFilter</p>
+        </div>
+        <div class="p-6 space-y-4">
+            <div class="flex items-center gap-3">
+                <span class="text-sm text-text-secondary">Sort:</span>
+                <SortDropdown Id="showcase-sort" Options="_sortOptions" @bind-Value="_sortValue" />
+            </div>
+
+            <FilterPanel Title="Filters" DefaultExpanded="true" ActiveFilterCount="_activeFilterCount">
+                <DateRangeFilter Id="showcase-date-range" @bind-Start="_filterStart" @bind-End="_filterEnd" />
+            </FilterPanel>
+        </div>
+    </section>
+
+    <!-- EditForm integration -->
+    <section class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden" data-testid="showcase-edit-form">
+        <div class="px-6 py-4 border-b border-border-primary">
+            <h3 class="text-lg font-semibold text-text-primary">EditForm Integration</h3>
+            <p class="text-sm text-text-secondary mt-1">DataAnnotationsValidator errors surface through each input's ValidationMessage</p>
+        </div>
+        <div class="p-6 max-w-md">
+            <EditForm Model="_formModel" OnValidSubmit="HandleValidSubmit" FormName="showcase-forms-editform">
+                <DataAnnotationsValidator />
+                <div class="space-y-4">
+                    <TextInput Id="showcase-form-name" Label="Display Name" IsRequired="true"
+                               @bind-Value="_formModel.Name" />
+                    <TextInput Id="showcase-form-email" Label="Email" Type="email" IsRequired="true"
+                               @bind-Value="_formModel.Email" />
+                    <Button Text="Submit" Type="submit" Variant="ButtonVariant.Primary" />
+                    @if (_submitted)
+                    {
+                        <p class="text-sm text-success" data-testid="showcase-form-submitted">Submitted successfully.</p>
+                    }
+                </div>
+            </EditForm>
+        </div>
+    </section>
+</div>
+
+@code {
+    private string _basicText = string.Empty;
+    private string _iconText = string.Empty;
+    private string _textAreaValue = string.Empty;
+    private bool _toggleValue = true;
+    private string _selectedLogLevel = "info";
+    private string _selectedChannel = string.Empty;
+    private string? _selectedCommandId;
+    private string _sortValue = "name-asc";
+    private DateOnly? _filterStart;
+    private DateOnly? _filterEnd;
+    private bool _submitted;
+
+    private readonly List<SelectOption> _logLevels = new()
+    {
+        new SelectOption { Value = "debug", Text = "Debug" },
+        new SelectOption { Value = "info", Text = "Info" },
+        new SelectOption { Value = "warning", Text = "Warning" },
+        new SelectOption { Value = "error", Text = "Error" }
+    };
+
+    private readonly List<SelectOptionGroup> _channelGroups = new()
+    {
+        new SelectOptionGroup
+        {
+            Label = "Text Channels",
+            Options = new List<SelectOption> { new() { Value = "general", Text = "#general" }, new() { Value = "bot-log", Text = "#bot-log" } }
+        },
+        new SelectOptionGroup
+        {
+            Label = "Voice Channels",
+            Options = new List<SelectOption> { new() { Value = "lobby", Text = "Lobby" }, new() { Value = "afk", Text = "AFK" } }
+        }
+    };
+
+    private readonly List<SortOption> _sortOptions = new()
+    {
+        new SortOption { Value = "name-asc", Label = "Name (A-Z)" },
+        new SortOption { Value = "name-desc", Label = "Name (Z-A)" },
+        new SortOption { Value = "newest", Label = "Newest First" }
+    };
+
+    private int? _activeFilterCount => _filterStart.HasValue || _filterEnd.HasValue ? 1 : null;
+
+    private readonly SettingDto _boolSetting = new()
+    {
+        Key = "showcase:bool",
+        Value = "true",
+        DataType = SettingDataType.Boolean,
+        DisplayName = "Enable Feature",
+        Description = "Turns the showcase feature on or off.",
+        RequiresRestart = true
+    };
+
+    private readonly SettingDto _choiceSetting = new()
+    {
+        Key = "showcase:choice",
+        Value = "Info",
+        DataType = SettingDataType.String,
+        DisplayName = "Log Level",
+        Description = "Minimum severity to log.",
+        AllowedValues = new List<string> { "Debug", "Info", "Warning", "Error" }
+    };
+
+    private readonly SettingDto _numberSetting = new()
+    {
+        Key = "showcase:number",
+        Value = "30",
+        DataType = SettingDataType.Integer,
+        DisplayName = "Timeout (seconds)",
+        Description = "How long to wait before giving up."
+    };
+
+    private readonly SettingDto _textSetting = new()
+    {
+        Key = "showcase:text",
+        Value = "https://example.com/webhook",
+        DataType = SettingDataType.String,
+        DisplayName = "Webhook URL",
+        Description = "Where to send outgoing notifications."
+    };
+
+    private static readonly IReadOnlyList<AutocompleteItem> DemoCommands = new List<AutocompleteItem>
+    {
+        new("ping", "/ping", "Utility"),
+        new("play", "/play", "Voice"),
+        new("kick", "/kick", "Moderation"),
+        new("ban", "/ban", "Moderation"),
+        new("remind", "/remind", "Utility")
+    };
+
+    private void HandleSettingChanged((string Key, string Value) change)
+    {
+        // In a real settings page this would stage the change for a save/restart-required flow -
+        // the showcase only needs to prove the callback fires with the right (Key, Value) pair.
+    }
+
+    private Task<IReadOnlyList<AutocompleteItem>> SearchCommands(string term, CancellationToken ct)
+    {
+        var results = DemoCommands
+            .Where(c => c.Text.Contains(term, StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        return Task.FromResult<IReadOnlyList<AutocompleteItem>>(results);
+    }
+
+    private ShowcaseFormModel _formModel = new();
+
+    private void HandleValidSubmit() => _submitted = true;
+
+    private sealed class ShowcaseFormModel
+    {
+        [Required(ErrorMessage = "Name is required.")]
+        [StringLength(50)]
+        public string Name { get; set; } = string.Empty;
+
+        [Required(ErrorMessage = "Email is required.")]
+        [EmailAddress(ErrorMessage = "Enter a valid email address.")]
+        public string Email { get; set; } = string.Empty;
+    }
+}

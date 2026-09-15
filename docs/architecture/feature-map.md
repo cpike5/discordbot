@@ -110,7 +110,7 @@ Unified playback log tracking all audio feature usage (soundboard, TTS, VOX) for
 | Aspect | Components |
 |--------|------------|
 | **Services** | `IAudioModerationLogService`, `IAudioPlaybackLogRepository` |
-| **UI Pages** | Admin: Audio moderation log (`/guilds/{guildId}/audio-moderation-log`) |
+| **UI Pages** | Admin: Audio moderation log — `/Guilds/AudioModerationLog/{guildId}` (`Blazor/Pages/Guilds/AudioModerationLog/Index.razor`, Phase 4 cluster 4b) |
 | **Database Entities** | `AudioPlaybackLog` |
 | **Enums** | `AudioFeatureType` (Soundboard, Tts, Vox) |
 | **Key Features** | Fire-and-forget logging via `IBackgroundTaskRunner`, content name truncation (200 chars), per-guild/per-user filtering |
@@ -256,7 +256,8 @@ Personal reminders delivered via DM with flexible time parsing (relative and abs
 | Aspect | Components |
 |--------|------------|
 | **Discord Commands** | `/remind set`, `/remind list`, `/remind cancel` (ReminderModule) |
-| **Services** | `IReminderService`, `ITimeParsingService`, `ReminderExecutionService` |
+| **Services** | `IReminderService`, `ITimeParsingService`, `ReminderExecutionService`, `IReminderUserResolver` (Discord username resolution for the admin list, with a REST fallback) |
+| **UI Pages** | `/Guilds/Reminders/{guildId}` (Blazor, `GuildAccess`-gated only, no app role required) - stats cards, status filter, admin cancel |
 | **Database Entities** | `Reminder` |
 | **Configuration** | `ReminderOptions` (max reminders per user, min/max advance time) |
 | **Key Features** | Time parsing (10m, 2h, tomorrow 3pm, etc.), DM delivery, pagination |
@@ -343,7 +344,7 @@ Admin-configurable recurring messages sent to specified channels. Supports cron 
 |--------|------------|
 | **Discord Commands** | `/schedule-list`, `/schedule-create`, `/schedule-edit`, `/schedule-delete` (ScheduleModule, ScheduleComponentModule) |
 | **Services** | `IScheduledMessageService`, `ScheduledMessageExecutionService`, `IInteractionStateService` |
-| **UI Pages** | Admin: Scheduled messages management with CRUD operations |
+| **UI Pages** | `/Guilds/ScheduledMessages/{guildId}` + `Create`/`Edit` (Blazor, `RequireAdmin`) - list with toggle/delete, create/edit form with a live message preview and timezone-aware next-run time (detected IANA zone, converted to/from UTC) |
 | **Database Entities** | `ScheduledMessage` |
 | **Key Features** | Cron expression support, frequency options (daily, weekly, monthly, custom), enable/disable, pagination |
 
@@ -393,6 +394,7 @@ AI-powered feature request submission with optional multi-step DM conversation f
 | **Discord Commands** | `/feature-request` (FeatureRequestModule, FeatureRequestComponentModule) |
 | **Handlers** | `FeatureRequestDmHandler` (multi-step DM conversation) |
 | **Services** | `IFeatureRequestService`, `FeatureRequestConversationService`, `InputValidationService`, `PromptInjectionFilter`, `FeatureRequestToolProvider` |
+| **UI Pages** | `/Guilds/FeatureRequests/{guildId}` + `/{id}` (Blazor, `RequireAdmin`) - status-filtered list, details with status-gated Approve/Reject (review notes, reviewer id from the `discord:user_id` claim) |
 | **Database Entities** | `FeatureRequest`, `FeatureRequestRejection` |
 | **Configuration** | `FeatureRequestsOptions` (`FeatureRequests` section) |
 | **Key Features** | Direct submit for detailed requests (100+ chars), multi-step DM conversation for brief requests, AI requirements gathering, prompt injection filtering, configurable conversation timeout and turn limits, doc generation integration |
@@ -454,9 +456,9 @@ Allows users to link their Discord account to their web portal account by runnin
 |--------|------------|
 | **Discord Commands** | `/verify-account` (VerifyAccountModule) |
 | **Services** | `IVerificationService`, `VerificationCleanupService` |
-| **UI Pages** | Account: Link Discord page (`Account/LinkDiscord`) |
+| **UI Pages** | Account: Link Discord page — Blazor (`Blazor/Pages/Account/LinkDiscord.razor` + `.razor.cs`; ported off `Pages/Account/LinkDiscord.cshtml` in `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4c, see `ui-inventory.md`'s "Blazor Routes (Phase 4, permanent)") — initiate/verify/cancel go through the new `IDiscordLinkService` (`Services/Account/`), a thin wrapper the page calls instead of `IVerificationService` directly |
 | **Database Entities** | `VerificationCode` |
-| **Key Features** | 15-minute code TTL, status tracking (Pending/Completed/Expired/Cancelled), IP address capture, automatic cleanup of expired codes |
+| **Key Features** | 15-minute code TTL, status tracking (Pending/Completed/Expired/Cancelled), IP address capture, automatic cleanup of expired codes. Reachable even when Discord OAuth isn't configured (web-only mode) — verification authenticates entirely through the Discord bot, never the OAuth client. |
 
 **Workflow**:
 1. User visits Account > Link Discord in the portal; a `VerificationCode` is created with `Status = Pending`
@@ -467,16 +469,34 @@ Allows users to link their Discord account to their web portal account by runnin
 
 ---
 
+### Privacy & Consent (GDPR)
+
+Self-service consent, data export (Article 15) and data deletion (Article 17) for the signed-in
+user, tied to their linked Discord account. Also reachable via Discord's own `/consent`,
+`/privacy` slash commands.
+
+| Aspect | Components |
+|--------|------------|
+| **Discord Commands** | `PrivacyModule`, `ConsentModule` |
+| **UI Pages** | Account: Privacy & Consent page — Blazor (`Blazor/Pages/Account/Privacy.razor` + `.razor.cs`, `.razor.css`; ported off `Pages/Account/Privacy.cshtml` in `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4c, see `ui-inventory.md`'s "Blazor Routes (Phase 4, permanent)") |
+| **Services** | `IConsentService`, `IUserDataExportService`, `IUserPurgeService` |
+| **Database Entities** | `UserConsent`, `VerificationCode` (Discord link is the join key for all three services) |
+| **Key Features** | Per-`ConsentType` grant/revoke with a consent-history timeline; JSON data export with a 7-day download link; full data purge gated on a typed `DELETE` confirmation, `IUserPurgeService.CanPurgeUserAsync` (blocks users with admin roles), and a sign-out + redirect to `/landing` on success — GDPR Article 15 (export) and Article 17 (erasure). The page renders only a "link your Discord account first" callout for a user with no Discord link, since every one of these services is keyed on the Discord user id. |
+
+**Admin-initiated purge.** `/Admin/UserPurge` (`Blazor/Pages/Admin/UserPurge/Index.razor`, `RequireSuperAdmin`, Phase 4 cluster 4d) is the same `IUserPurgeService` driven for any Discord user id by an admin — GET-driven preview, `ConfirmModal` with the looked-up Discord id itself as the required typed text. `/Admin/BulkPurge` (`Blazor/Pages/Admin/BulkPurge/Index.razor`, `RequireSuperAdmin`, same cluster) is unrelated to a specific user — `IBulkPurgeService` bulk-deletes an entity type (Messages/AuditLogs/CommandLogs/ModerationCases) over a date range/guild, with a live progress bar driven by `IDashboardEventBus`'s `BulkPurgeProgressEvent`.
+
+---
+
 ### User Management
 
 Administrative interface for user CRUD, role assignment, consent management.
 
 | Aspect | Components |
 |--------|------------|
-| **UI Pages** | Admin: User list, create, edit, details pages (`Users/Index.cshtml`, `Users/Create.cshtml`, etc.) |
+| **UI Pages** | Admin: User list, create, edit, details — Blazor (`Blazor/Pages/Admin/Users/{Index,Create,Edit,Details}.razor` + `.razor.cs`; ported off `Pages/Admin/Users/*.cshtml` in `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4a, see `ui-inventory.md`'s "Blazor Routes (Phase 4, permanent)") |
 | **Services** | `IUserManagementService`, `IConsentService` |
 | **Database Entities** | `ApplicationUser`, `UserConsent` |
-| **Controllers** | No dedicated controller; integrated in Razor Pages |
+| **Controllers** | No dedicated controller; integrated in Blazor pages (formerly Razor Pages) |
 | **Key Features** | User CRUD, Discord OAuth integration, consent tracking |
 
 ---
@@ -489,9 +509,9 @@ Comprehensive audit trail of administrative actions with filtering, search, and 
 |--------|------------|
 | **Discord Commands** | Automatic logging on action |
 | **Services** | `IAuditLogService` (with fluent builder API) |
-| **UI Pages** | Admin: Audit log viewer with filtering, search, export |
+| **UI Pages** | Admin: `/Admin/Logs?tab=audit` (`Blazor/Pages/Admin/Logs/Tabs/AuditTab.razor`, Phase 4 cluster 4d, unified with Message Logging below into one tabbed page) — filtering, search, expand/collapse detail |
 | **Database Entities** | `AuditLog` |
-| **Controllers** | `AuditLogsController` (API for querying, filtering, export) |
+| **Controllers** | `AuditLogsController` (API for querying, filtering) plus the minimal-API `GET /api/admin/audit-logs/export` (`Extensions/AdminLogsEndpointExtensions.cs`, CSV built by `Services/AdminLogsCsvExporter.cs`) which replaced the legacy page handler |
 | **Key Features** | User action attribution, timestamp recording, resource tracking, full-text search, CSV export |
 
 **Fluent Builder Example**:
@@ -528,7 +548,7 @@ Optional comprehensive message logging for auditing and investigation.
 | Aspect | Components |
 |--------|------------|
 | **Services** | `IMessageLogService`, `MessageLoggingHandler` |
-| **UI Pages** | Admin: Message log viewer with search and filtering |
+| **UI Pages** | Admin: `/Admin/Logs?tab=messages` (`Blazor/Pages/Admin/Logs/Tabs/MessagesTab.razor`, Phase 4 cluster 4d, unified with Audit Logging above into one tabbed page); `/Admin/AuditLogs` and `/Admin/MessageLogs` stay minimal-API redirects to `?tab=` (`Extensions/LegacyRedirectExtensions.cs`) |
 | **Database Entities** | `MessageLog` |
 | **Controllers** | `MessagesController` (API for querying) |
 | **Key Features** | Message content tracking, edit/delete history, author attribution, searchable content, retention policies |
@@ -560,9 +580,9 @@ In-app and real-time notifications for important events.
 | Aspect | Components |
 |--------|------------|
 | **Services** | `INotificationService`, `AlertMonitoringService`, `NotificationRetentionService` |
-| **UI Pages** | Admin: Notifications inbox |
+| **UI Pages** | Admin: `/Admin/Notifications` (`Blazor/Pages/Admin/Notifications/Index.razor`, Phase 4 cluster 4d) — bulk mark-read/delete and per-row toggle/delete call `INotificationService` directly through `ScopedOperations`, no controller round trip |
 | **Database Entities** | `UserNotification` |
-| **Controllers** | `NotificationsController` (API for querying, marking read) |
+| **Controllers** | None — `NotificationsController` retired with the Blazor port; `notification-history.js` deleted |
 | **Real-time** | SignalR for live notification push |
 | **Key Features** | Event-driven notifications, user preferences, retention policies, read/unread state |
 
@@ -612,6 +632,7 @@ Full-text search across logs, audit trails, and moderation cases.
 | **Controllers** | `AutocompleteController` (search suggestions) |
 | **Database Entities** | Various (CommandLog, AuditLog, MessageLog, ModerationCase) |
 | **Key Features** | Full-text search, faceted filtering, pagination, result ranking |
+| **UI** | `Blazor/Pages/Search.razor` (`/Search`, interactive) — first interactive Blazor page (plan §5 Phase 3), replacing `Pages/Search.cshtml` |
 
 ---
 
@@ -715,8 +736,8 @@ breakdowns by user, model, mode, and day. See `docs/plans/llm-model-management-p
 | **Database Entity** | `LlmUsageRecord` (table `LlmUsageRecords`) — one row per user message: `Timestamp`, `Mode`, `UserId`, `GuildId?`, `Model`, `InputTokens`/`OutputTokens`/`CachedTokens`/`CacheWriteTokens`, `LlmCalls`, `ToolCalls`, `CostUsd`, `CostSource` (`Billed`/`Estimated`), `LatencyMs`, `Success`, `InteractionLogId?`. No message text is stored — the per-mode interaction logs (`AssistantInteractionLog`, `DmAssistantInteractionLog`, both now carrying a nullable `Model` column) keep that. |
 | **Write path** | `ILlmUsageRecorder` / `LlmUsageRecorder` (bounded-channel queue, same posture as the audit log queue) + `LlmUsageRecordProcessor` (background worker draining the queue, batched inserts via `ILlmUsageRepository.AddRangeAsync`); called from `AssistantMessagePipeline` and `FeatureRequestConversationService` after each reply. `NoOpUsageRecorder` is the fallback when the feature/queue is unavailable. |
 | **Repository** | `ILlmUsageRepository` / `LlmUsageRepository` (`Infrastructure/Data/Repositories`) — `GetTotalsAsync`, `GetByUserAsync`, `GetByModelAsync`, `GetByModeAsync`, `GetByDayAsync` (all grouped over `LlmUsageQuery`: date range + optional guild/mode/user), `GetRecordsAsync` (paged raw rows), plus `AddRangeAsync`/`DeleteOlderThanAsync`/`DeleteByUserAsync`/`CountByUserAsync` for the write, retention, and GDPR paths. Grouped queries sum `CostUsd` as `double` and cast back to `decimal` — SQLite's EF provider cannot translate `Sum(decimal)` — so the same query shape works on both providers. |
-| **Controller** | `LlmUsageController` (`api/admin/llm-usage`, `RequireAdmin`) — `GET summary` (totals + by-user/model/mode/day over a validated range, default last 30 days, max 366 days), `GET records` (paged rows, `pageSize` capped at 200). Resolves Discord display names via `IDiscordUserResolver` and emits every ID as a string. |
-| **Web Pages** | `/admin/llm-usage` (`Pages/Admin/LlmUsage.cshtml`) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down (`wwwroot/js/llm-usage.js` fetches `api/admin/llm-usage/records` for the clicked user). `/guild/{guildId}/assistant-metrics` (`Pages/Guilds/AssistantMetrics.cshtml`) gains a "Cost by User" table sourced from the same repository, injected directly into `AssistantMetricsModel` and filtered by guild. |
+| **Controller** | None — `LlmUsageController` retired in Phase 4 cluster 4d; the Blazor page calls `ILlmUsageRepository` directly (range default/clamp logic lives on in `Services/LlmUsageRangeHelper.cs`, the one surviving copy of what the controller and page model used to duplicate). |
+| **Web Pages** | `/Admin/LlmUsage` (`Blazor/Pages/Admin/LlmUsage/Index.razor`, Phase 4 cluster 4d) — portal-wide dashboard, hero totals, breakdowns, per-user drill-down now a paged component method straight over `ILlmUsageRepository.GetRecordsAsync` (`wwwroot/js/llm-usage.js` deleted). `/Guilds/AssistantMetrics/{guildId}` (`Blazor/Pages/Guilds/AssistantMetrics.razor`, Phase 4 cluster 4b) has a "Cost by User" table sourced from the same repository, filtered by guild. |
 | **Retention** | `AssistantInteractionLogRetentionService` sweeps `LlmUsageRecords` (via `DeleteOlderThanAsync`) on the same `Assistant:Privacy:InteractionLogRetentionDays` cadence as the interaction logs — no new retention option. |
 | **GDPR** | `UserPurgeService` and `UserDataExportService` include `LlmUsageRecords` (`DeleteByUserAsync` / `CountByUserAsync` + export) alongside the interaction logs. |
 | **Key Rule** | Granularity is one row per user message (`LlmCalls` counts calls across the agentic loop), not one row per LLM call — keeps the table small and matches what the breakdowns need. |
@@ -735,7 +756,7 @@ whether the model actually uses them well. Design in
 | **Prompt-surface measurement** | `PromptSurface` / `PromptSurfaceMeasurement` / `PromptSurfaceTool` (`DiscordBot.Agents`) — per-tool characters through the real wire serialization (`OpenRouterMessageMapper` + `OpenRouterJson.Options`), the array total, and tokens as characters ÷ 4 |
 | **Reporter** | `IPromptSurfaceReporter` (`Infrastructure/Abstractions/LLM`) / `PromptSurfaceReporter` (`Infrastructure/Services/LLM`) — rebuilds a surface as a run sees it (allow-list decorator, skill session, `SkillToolSet.Compose`), so it counts the per-request prefix rather than everything the registry holds. Registered ungated; returns null when no API key is configured |
 | **Startup report** | `PromptSurfaceReportService` (`Bot/Services/LLM`) — one Information line per surface: tools advertised of tools registered, schema characters, estimated tokens, characters held back by skills, and the three largest tools |
-| **Web page** | `/guild/{guildId}/assistant-metrics` gains a **Prompt Surface** panel: four summary tiles and a per-tool table with each tool's share of the prefix, marking the ones this guild turned off and the ones a skill is holding back |
+| **Web page** | `/Guilds/AssistantMetrics/{guildId}` (`Blazor/Pages/Guilds/AssistantMetrics.razor`, Phase 4 cluster 4b) has a **Prompt Surface** panel: four summary tiles and a per-tool table with each tool's share of the prefix, marking the ones this guild turned off and the ones a skill is holding back |
 | **Per-tool specs** | `docs/tools/<tool_name>.md` — status, surfaces, purpose, dependencies, the verbatim model-facing description, an input table, and every result shape with its `failed_result` marker. Template and index in [`docs/tools/README.md`](../tools/README.md). Written when a tool is touched; the original `assistant-tool-catalog.md` is archived under `docs/specs/archive/` |
 | **Contract test** | `ToolContractTests` (`tests/DiscordBot.Tests/Services/LLM/`) over every registered tool, found by reflection (`TestHelpers/RegisteredAgentTools`): name shape and uniqueness, description length, object schema with described properties and resolvable `required` names, a `ToolCatalog` entry both ways, the `Mutation` refusal through the real `AgentToolProvider`, and a missing argument classified `failed_result`. `SkillContractTests` checks every skill file's named tools resolve on its own surface |
 | **Evals** | `tests/DiscordBot.Evals` — a dozen cases through the real loop, the real OpenRouter client and the real tools over throwaway SQLite. Asserts only machine-checkable facts (which tools were called, which skills activated, what rows exist), never what the reply says. Skipped when `OpenRouter:ApiKey` is absent, so CI stays free and green |

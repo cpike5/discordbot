@@ -1,0 +1,46 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.DTOs
+
+@*
+    Adapts an IPreviewService-sourced UserPreviewDto (docs/plans/blazor-port-plan.md Phase 4
+    cluster 4d) onto the existing UserPreviewPopoverContent (Phase 2, built against the richer
+    UserPreviewViewModel - ProfileUrl/ModerationHistoryUrl the DTO itself has no reason to carry,
+    since those are web-app routes, not preview data) rather than duplicating that markup a second
+    time. GuildId is the same optional guild context UserPreview.razor's own GuildId parameter
+    carries - when present, both links point at this guild's Moderation profile for the user,
+    exactly the "use current guild context if available" rule preview-popup.js's renderUserContent
+    applies via activeTrigger.dataset.contextGuildId; when absent, Profile falls back to the Admin
+    Users directory (Mod History has no guild-less equivalent, so it's omitted).
+*@
+
+<UserPreviewPopoverContent Model="ToViewModel()" Class="@Class" AdditionalAttributes="AdditionalAttributes" />
+
+@code {
+    [Parameter, EditorRequired] public UserPreviewDto Model { get; set; } = null!;
+    [Parameter] public ulong? GuildId { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private UserPreviewViewModel ToViewModel() => new()
+    {
+        UserId = Model.UserId,
+        Username = Model.Username,
+        DisplayName = Model.DisplayName,
+        AvatarUrl = Model.AvatarUrl,
+        MemberSince = Model.MemberSince,
+        Roles = Model.Roles,
+        LastActive = Model.LastActive,
+        IsVerified = Model.IsVerified,
+        HasActiveModeration = Model.HasActiveModeration,
+        GuildId = GuildId,
+        ProfileUrl = GuildId.HasValue
+            ? $"/Guilds/{GuildId}/Members/{Model.UserId}/Moderation"
+            : $"/Admin/Users/Details?id={Model.UserId}",
+        ModerationHistoryUrl = GuildId.HasValue
+            ? $"/Guilds/{GuildId}/Members/{Model.UserId}/Moderation"
+            : null
+    };
+}

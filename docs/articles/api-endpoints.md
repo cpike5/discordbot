@@ -10,7 +10,7 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 **API Version:** 1.0
 
-**Authentication:** None (MVP - authentication to be added in future releases)
+**Authentication:** ASP.NET Identity cookie auth (plus Discord OAuth for guild-scoped pages). Most endpoints require at least the `RequireViewer` policy; see the **Authorization** line under each endpoint below for its specific policy.
 
 ---
 
@@ -18,6 +18,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
+| `/Account/Logout` | POST | Sign the current user out, redirect to a sanitized `returnUrl` or `/landing` |
+| `/Account/PerformExternalLogin` | POST | Issue the Discord OAuth challenge |
+| `/Account/ExternalLogin/Callback` | GET | Discord OAuth callback - sign in, link, or create the account |
 | `/api/health` | GET | Health check with database connectivity |
 | `/metrics` | GET | OpenTelemetry metrics (Prometheus format) |
 | `/api/metrics/health` | GET | Overall bot health status |
@@ -64,9 +67,9 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/guilds/{guildId}/scheduled-messages/{id}` | DELETE | Delete scheduled message |
 | `/api/guilds/{guildId}/scheduled-messages/{id}/execute` | POST | Execute scheduled message immediately |
 | `/api/guilds/{guildId}/scheduled-messages/validate-cron` | POST | Validate cron expression |
-| `/api/guilds/{guildId}/members` | GET | List guild members (filtered, paginated) |
-| `/api/guilds/{guildId}/members/{userId}` | GET | Get specific guild member by user ID |
-| `/api/guilds/{guildId}/members/export` | GET | Export guild members to CSV |
+| ~~`/api/guilds/{guildId}/members`~~ | ~~GET~~ | **Retired in Phase 4 cluster 4d** (`GuildMembersController` deleted — `wwwroot/js/member-directory.js` was its only consumer). `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. |
+| ~~`/api/guilds/{guildId}/members/{userId}`~~ | ~~GET~~ | Retired with the row above. |
+| ~~`/api/guilds/{guildId}/members/export`~~ | ~~GET~~ | Retired with the row above — CSV export now built in-circuit via `IGuildMemberService.ExportMembersToCsvAsync` + `BrowserInterop.DownloadFileAsync`. |
 | `/api/commands/list` | GET | Get command list tab (HTML partial) |
 | `/api/commands/logs` | GET | Get execution logs tab with filters (HTML partial) |
 | `/api/commands/analytics` | GET | Get analytics tab with charts (HTML partial) |
@@ -82,27 +85,28 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/messages/user/{userId}` | DELETE | Delete all messages for a user (GDPR) |
 | `/api/messages/cleanup` | POST | Manually trigger message cleanup |
 | `/api/messages/export` | GET | Export messages to CSV |
-| `/api/guilds/{guildId}/flagged-events` | GET | List pending flagged events |
-| `/api/guilds/{guildId}/flagged-events/{id}` | GET | Get specific flagged event |
-| `/api/guilds/{guildId}/flagged-events/{id}/dismiss` | POST | Dismiss flagged event |
-| `/api/guilds/{guildId}/flagged-events/{id}/acknowledge` | POST | Acknowledge flagged event |
-| `/api/guilds/{guildId}/flagged-events/{id}/action` | POST | Take action on flagged event |
 | `/api/guilds/{guildId}/cases` | GET | List moderation cases |
 | `/api/guilds/{guildId}/cases/{caseId}` | GET | Get case by GUID ID |
 | `/api/guilds/{guildId}/cases/number/{caseNumber}` | GET | Get case by case number |
 | `/api/guilds/{guildId}/cases` | POST | Create moderation case |
 | `/api/guilds/{guildId}/cases/number/{caseNumber}/reason` | PATCH | Update case reason |
-| `/api/guilds/{guildId}/users/{userId}/cases` | GET | Get user's cases |
-| `/api/guilds/{guildId}/users/{userId}/notes` | GET | Get user's mod notes |
-| `/api/guilds/{guildId}/users/{userId}/notes` | POST | Create mod note |
-| `/api/guilds/{guildId}/users/{userId}/flags` | GET | Get user's flagged events |
-| `/api/guilds/{guildId}/users/{userId}/tags` | GET | Get user's tags |
 | `/api/guilds/{guildId}/tags` | GET | List guild tags |
 | `/api/guilds/{guildId}/tags` | POST | Create tag |
 | `/api/guilds/{guildId}/tags/{tagName}` | DELETE | Delete tag |
 | `/api/guilds/{guildId}/tags/import-templates` | POST | Import template tags |
-| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | POST | Apply tag to user |
-| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | DELETE | Remove tag from user |
+| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | POST | Apply tag to user (`ModTagsController` — see note below) |
+| `/api/guilds/{guildId}/users/{userId}/tags/{tagName}` | DELETE | Remove tag from user (`ModTagsController` — see note below) |
+
+> **`UserModerationController` retired in Phase 4 cluster 4d** (docs/plans/blazor-port-plan.md,
+> the Blazor port of `Members/Moderation`). It duplicated `GET .../cases`, `GET`/`POST .../notes`,
+> `DELETE .../notes/{noteId}`, `GET .../flags`, and `GET .../tags` with no `ModTagsController`
+> equivalent (removed above), plus `POST`/`DELETE .../tags/{tagName}` (the two rows above), which
+> *did* duplicate `ModTagsController.ApplyTag`/`RemoveTag` at the exact same route — an ambiguous
+> match ASP.NET Core only discovered at request time. `wwwroot/js/user-moderation-profile.js` was
+> its only consumer and retired with it; `Blazor/Pages/Guilds/Members/Moderation.razor` calls
+> `IModerationService`/`IModNoteService`/`IModTagService`/`IFlaggedEventService` directly.
+> `ControllerRouteConflictTests` (`tests/DiscordBot.Tests/Bot/Controllers/`) now guards against a
+> repeat by reflecting over every controller action for a shared HTTP method + route template.
 | `/api/guilds/{guildId}/watchlist` | GET | List watchlist |
 | `/api/guilds/{guildId}/watchlist` | POST | Add user to watchlist |
 | `/api/guilds/{guildId}/watchlist/{userId}` | DELETE | Remove user from watchlist |
@@ -142,6 +146,52 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/theme/current` | GET | Get user's current effective theme |
 | `/api/theme/user` | POST | Set user's theme preference |
 | `/api/theme/default` | POST | Set system default theme (SuperAdmin) |
+
+---
+
+## Account Endpoints
+
+Three minimal-API endpoints (`Extensions/AccountEndpointExtensions.cs`, `MapAccountEndpoints()`)
+replacing the POST/GET handlers `Pages/Account/{Login,ExternalLogin,Logout}.cshtml.cs` used to
+carry, now that those Razor Pages are gone in favor of the static SSR
+`Blazor/Pages/Account/Login.razor` (docs/plans/blazor-port-plan.md Phase 4 cluster 4c). All three
+are `[AllowAnonymous]` - a signed-out visitor must be able to reach every one of them - and are not
+part of the versioned `/api/` surface; they exist to be posted to from a browser form, not called
+programmatically.
+
+### POST /Account/Logout
+
+Signs the current user out. Form field: `returnUrl` (optional).
+
+**Authorization:** None (`[AllowAnonymous]`) - any request carrying the auth cookie is signed out; an anonymous POST is a no-op sign-out.
+
+**Antiforgery:** Required automatically - binding a `[FromForm]` parameter on a minimal API endpoint makes ASP.NET Core apply the same antiforgery validation `[ValidateAntiForgeryToken]`/`asp-antiforgery` give a Razor Pages handler, once `app.UseAntiforgery()` is in the pipeline (already true here for Blazor's own `EditForm` support). No `[ValidateAntiForgeryToken]` attribute is written explicitly.
+
+**Behavior:** Audit-logs the sign-out (while the user principal is still available), calls `SignInManager.SignOutAsync()`, then redirects to `returnUrl` if it is a sanitized local path (`LocalUrl.IsLocal` + `ReturnUrlHelper.Sanitize`), otherwise to `/landing`.
+
+**Response:** `302 Found` (a `Results.LocalRedirect`).
+
+### POST /Account/PerformExternalLogin
+
+Issues the Discord OAuth challenge. Form field: `returnUrl` (optional). Posted to by `Login.razor`'s Discord button and Discord-error "Try again" action, and by `LinkDiscord.razor`'s "Link Discord Account" form (the same endpoint serves both a fresh sign-in and linking an already-authenticated account, since the callback's own linking logic tells the two cases apart). Redirects to `/Account/Login?authError=discord_unconfigured` if Discord OAuth isn't configured.
+
+**Authorization:** None (`[AllowAnonymous]`).
+
+**Antiforgery:** Required automatically, same as `/Account/Logout` above.
+
+**Behavior:** When Discord OAuth isn't configured, redirects to `/Account/Login?authError=discord_unconfigured`. Otherwise builds a `RedirectUri` of `/Account/ExternalLogin/Callback?returnUrl=<sanitized returnUrl>` and returns `Results.Challenge` for the `Discord` authentication scheme (the OAuth handshake itself, including the `/signin-discord` middleware callback, is unchanged).
+
+**Response:** `302 Found` (challenge redirect to Discord, or the `discord_unconfigured` redirect above).
+
+### GET /Account/ExternalLogin/Callback
+
+The Discord OAuth callback. Query parameters: `returnUrl`, `remoteError` (set by the OAuth middleware on a remote failure).
+
+**Authorization:** None (`[AllowAnonymous]`).
+
+**Behavior:** Delegates to `IExternalLoginHandler` (`Services/Account/`) - remote-failure short-circuit, external login info lookup, token extraction from the external-auth cookie, sign-in-or-link-or-create, token/guild-membership storage, audit logging - then turns the outcome into a redirect: success to the sanitized `returnUrl`, a locked-out account to `/Account/Lockout`, any failure to `/Account/Login?authError=discord_error&returnUrl=...`.
+
+**Response:** `302 Found`.
 
 ---
 
@@ -1747,6 +1797,8 @@ GET /api/alerts/stats?days=30
 
 Returns current bot status including uptime, latency, and connection information.
 
+**Authorization:** `RequireViewer` policy
+
 **Response: 200 OK**
 
 ```json
@@ -1783,6 +1835,8 @@ Returns current bot status including uptime, latency, and connection information
 
 Returns list of guilds currently connected to the bot via Discord gateway.
 
+**Authorization:** `RequireViewer` policy
+
 **Response: 200 OK**
 
 ```json
@@ -1817,6 +1871,8 @@ Returns list of guilds currently connected to the bot via Discord gateway.
 
 Restarts the bot. **Note:** Currently not supported and will return 500 error.
 
+**Authorization:** `RequireSuperAdmin` policy
+
 **Response: 202 Accepted**
 
 ```json
@@ -1839,6 +1895,8 @@ Restarts the bot. **Note:** Currently not supported and will return 500 error.
 ### POST /api/bot/shutdown
 
 Initiates graceful shutdown of the bot.
+
+**Authorization:** `RequireSuperAdmin` policy
 
 **Response: 202 Accepted**
 
@@ -2039,6 +2097,8 @@ Synchronizes guild data from Discord to the database. Creates or updates the gui
 
 ### GET /api/guilds/{guildId}/members
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Retrieves a paginated, filtered, and sorted list of guild members. Supports comprehensive filtering by search term, roles, join date, activity date, and active status.
 
 **Authorization:** Admin+
@@ -2206,6 +2266,8 @@ GET /api/guilds/123456789012345678/members?roleIds=111222333444555666&roleIds=77
 
 ### GET /api/guilds/{guildId}/members/{userId}
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Returns detailed information for a specific guild member by user ID.
 
 **Authorization:** Admin+
@@ -2265,6 +2327,8 @@ Returns detailed information for a specific guild member by user ID.
 ---
 
 ### GET /api/guilds/{guildId}/members/export
+
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
 
 Exports guild members matching the query criteria to a CSV file for external analysis or archival. Limited to 10,000 rows maximum.
 
@@ -3302,6 +3366,8 @@ Validates a cron expression for correctness before creating or updating a schedu
 
 ### GET /api/guilds/{guildId}/members
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Returns a paginated list of guild members with advanced filtering, searching, and sorting capabilities.
 
 **Authorization:** Admin+
@@ -3440,6 +3506,8 @@ GET /api/guilds/123456789012345678/members?SearchTerm=john&RoleIds=1112223334445
 
 ### GET /api/guilds/{guildId}/members/{userId}
 
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
+
 Returns detailed information for a specific guild member.
 
 **Authorization:** Admin+
@@ -3510,6 +3578,8 @@ GET /api/guilds/123456789012345678/members/987654321098765432
 ---
 
 ### GET /api/guilds/{guildId}/members/export
+
+> **Retired in Phase 4 cluster 4d** — `GuildMembersController` was deleted; `Blazor/Pages/Guilds/Members/Index.razor` calls `IGuildMemberService` directly. Kept here for historical reference only.
 
 Exports guild members to a CSV file with optional filtering. Pagination is ignored; all matching members are exported up to the 10,000 row limit.
 
@@ -4504,290 +4574,13 @@ Returned when the user does not have SuperAdmin role.
 
 ## Moderation Endpoints
 
-The moderation system provides comprehensive tools for managing flagged events, moderation cases, user notes, tags, and watchlists. All endpoints require Admin authorization.
+The moderation system provides comprehensive tools for managing moderation cases, user notes, tags, and watchlists. All endpoints require Admin authorization.
 
 **Authorization:** All moderation endpoints require `RequireAdmin` policy.
 
-### Flagged Events Endpoints
-
-Flagged events are automatically detected potential violations (spam, toxicity, etc.) that require moderator review.
-
-#### GET /api/guilds/{guildId}/flagged-events
-
-Returns all pending flagged events for a guild with pagination.
-
-**Authorization:** Admin+
-
-**URL Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `guildId` | ulong | Discord guild snowflake ID |
-
-**Query Parameters:**
-
-| Parameter | Type | Default | Description |
-|-----------|------|---------|-------------|
-| `page` | integer | 1 | Page number (1-based) |
-| `pageSize` | integer | 20 | Items per page (max: 100) |
-
-**Example Request:**
-
-```
-GET /api/guilds/123456789012345678/flagged-events?page=1&pageSize=20
-```
-
-**Response: 200 OK**
-
-```json
-{
-  "items": [
-    {
-      "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-      "guildId": 123456789012345678,
-      "userId": 987654321098765432,
-      "username": "SpamUser#1234",
-      "eventType": "Spam",
-      "severity": "Medium",
-      "description": "Repeated message detected: 5 identical messages in 10 seconds",
-      "detectedAt": "2024-12-08T15:30:00Z",
-      "status": "Pending",
-      "reviewedById": null,
-      "reviewedAt": null,
-      "actionTaken": null
-    }
-  ],
-  "page": 1,
-  "pageSize": 20,
-  "totalCount": 1,
-  "totalPages": 1,
-  "hasNextPage": false,
-  "hasPreviousPage": false
-}
-```
-
-**Response Fields:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `items` | array | Array of FlaggedEventDto objects |
-| `page` | integer | Current page number (1-based) |
-| `pageSize` | integer | Items per page |
-| `totalCount` | integer | Total number of items |
-| `totalPages` | integer | Total number of pages |
-| `hasNextPage` | boolean | Whether there are more pages |
-| `hasPreviousPage` | boolean | Whether there are previous pages |
-
-**FlaggedEventDto Fields:**
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | Guid | Unique flagged event identifier |
-| `guildId` | ulong | Guild ID where event occurred |
-| `userId` | ulong | User ID who triggered the event |
-| `username` | string? | Username for display (nullable) |
-| `eventType` | string | Type of violation (Spam, Toxicity, etc.) |
-| `severity` | string | Severity level (Low, Medium, High, Critical) |
-| `description` | string | Event description |
-| `detectedAt` | datetime | When event was detected |
-| `status` | string | Review status (Pending, Dismissed, Acknowledged, Actioned) |
-| `reviewedById` | ulong? | Moderator who reviewed (nullable) |
-| `reviewedAt` | datetime? | Review timestamp (nullable) |
-| `actionTaken` | string? | Action description if actioned (nullable) |
-
-**Response: 400 Bad Request**
-
-```json
-{
-  "message": "Invalid page size",
-  "detail": "Page size must be between 1 and 100.",
-  "statusCode": 400,
-  "traceId": "00-abc123-def456-00"
-}
-```
-
----
-
-#### GET /api/guilds/{guildId}/flagged-events/{id}
-
-Returns a specific flagged event by ID.
-
-**Authorization:** Admin+
-
-**URL Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `guildId` | ulong | Discord guild snowflake ID |
-| `id` | Guid | Flagged event unique identifier |
-
-**Response: 200 OK**
-
-```json
-{
-  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "guildId": 123456789012345678,
-  "userId": 987654321098765432,
-  "username": "SpamUser#1234",
-  "eventType": "Spam",
-  "severity": "Medium",
-  "description": "Repeated message detected: 5 identical messages in 10 seconds",
-  "detectedAt": "2024-12-08T15:30:00Z",
-  "status": "Pending",
-  "reviewedById": null,
-  "reviewedAt": null,
-  "actionTaken": null
-}
-```
-
-**Response: 404 Not Found**
-
-```json
-{
-  "message": "Flagged event not found",
-  "detail": "No flagged event with ID a1b2c3d4-e5f6-7890-abcd-ef1234567890 exists for guild 123456789012345678.",
-  "statusCode": 404,
-  "traceId": "00-abc123-def456-00"
-}
-```
-
----
-
-#### POST /api/guilds/{guildId}/flagged-events/{id}/dismiss
-
-Dismisses a flagged event (marks as not requiring action).
-
-**Authorization:** Admin+
-
-**URL Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `guildId` | ulong | Discord guild snowflake ID |
-| `id` | Guid | Flagged event unique identifier |
-
-**Request Body:**
-
-```json
-{
-  "reviewerId": 111222333444555666
-}
-```
-
-**Request Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
-
-**Response: 200 OK**
-
-```json
-{
-  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "guildId": 123456789012345678,
-  "userId": 987654321098765432,
-  "username": "SpamUser#1234",
-  "eventType": "Spam",
-  "severity": "Medium",
-  "description": "Repeated message detected: 5 identical messages in 10 seconds",
-  "detectedAt": "2024-12-08T15:30:00Z",
-  "status": "Dismissed",
-  "reviewedById": 111222333444555666,
-  "reviewedAt": "2024-12-08T16:00:00Z",
-  "actionTaken": null
-}
-```
-
----
-
-#### POST /api/guilds/{guildId}/flagged-events/{id}/acknowledge
-
-Acknowledges a flagged event (marks as seen but not yet actioned).
-
-**Authorization:** Admin+
-
-**URL Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `guildId` | ulong | Discord guild snowflake ID |
-| `id` | Guid | Flagged event unique identifier |
-
-**Request Body:**
-
-```json
-{
-  "reviewerId": 111222333444555666
-}
-```
-
-**Response: 200 OK**
-
-Returns updated FlaggedEventDto with status "Acknowledged".
-
----
-
-#### POST /api/guilds/{guildId}/flagged-events/{id}/action
-
-Takes action on a flagged event (marks as actioned and records action taken).
-
-**Authorization:** Admin+
-
-**URL Parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `guildId` | ulong | Discord guild snowflake ID |
-| `id` | Guid | Flagged event unique identifier |
-
-**Request Body:**
-
-```json
-{
-  "reviewerId": 111222333444555666,
-  "action": "User warned and message deleted"
-}
-```
-
-**Request Fields:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `reviewerId` | ulong | Yes | Moderator's Discord user ID |
-| `action` | string | Yes | Description of action taken |
-
-**Response: 200 OK**
-
-```json
-{
-  "id": "a1b2c3d4-e5f6-7890-abcd-ef1234567890",
-  "guildId": 123456789012345678,
-  "userId": 987654321098765432,
-  "username": "SpamUser#1234",
-  "eventType": "Spam",
-  "severity": "Medium",
-  "description": "Repeated message detected: 5 identical messages in 10 seconds",
-  "detectedAt": "2024-12-08T15:30:00Z",
-  "status": "Actioned",
-  "reviewedById": 111222333444555666,
-  "reviewedAt": "2024-12-08T16:00:00Z",
-  "actionTaken": "User warned and message deleted"
-}
-```
-
-**Response: 400 Bad Request**
-
-```json
-{
-  "message": "Invalid request",
-  "detail": "Action description is required.",
-  "statusCode": 400,
-  "traceId": "00-abc123-def456-00"
-}
-```
-
----
+Flagged Events had its own `FlaggedEventsController` here until Phase 4 cluster 4d of the Blazor
+port: `Blazor/Pages/Guilds/FlaggedEvents/{Index,Details}.razor` (its only consumer) moved to
+calling `IFlaggedEventService` directly, so the controller and this section retired with it.
 
 ### Moderation Cases Endpoints
 
@@ -5065,6 +4858,8 @@ User-specific moderation endpoints provide access to all moderation data for a p
 
 #### GET /api/guilds/{guildId}/users/{userId}/cases
 
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
+
 Returns all moderation cases for a specific user with pagination.
 
 **Authorization:** Admin+
@@ -5090,6 +4885,8 @@ Returns paginated ModerationCaseDto objects for the user.
 ---
 
 #### GET /api/guilds/{guildId}/users/{userId}/notes
+
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
 
 Returns all moderator notes for a specific user.
 
@@ -5134,6 +4931,8 @@ Returns all moderator notes for a specific user.
 
 #### POST /api/guilds/{guildId}/users/{userId}/notes
 
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
+
 Creates a new moderator note for a user.
 
 **Authorization:** Admin+
@@ -5169,6 +4968,8 @@ Returns created ModNoteDto object.
 
 #### GET /api/guilds/{guildId}/users/{userId}/flags
 
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
+
 Returns all flagged events for a specific user.
 
 **Authorization:** Admin+
@@ -5187,6 +4988,8 @@ Returns array of FlaggedEventDto objects for the user.
 ---
 
 #### GET /api/guilds/{guildId}/users/{userId}/tags
+
+> **Retired in Phase 4 cluster 4d** - `UserModerationController` was deleted (`wwwroot/js/user-moderation-profile.js` was its only consumer); `Blazor/Pages/Guilds/Members/Moderation.razor` calls the underlying service directly. Kept here for historical reference only.
 
 Returns all tags applied to a specific user.
 
@@ -5414,6 +5217,8 @@ Or if invalid template names provided:
 
 #### POST /api/guilds/{guildId}/users/{userId}/tags/{tagName}
 
+> **`UserModerationController`'s copy of this endpoint retired in Phase 4 cluster 4d** - it duplicated `ModTagsController`'s identical route (an ambiguous match at runtime, see the summary table note above). `ModTagsController` is the sole owner now; this section documents its behaviour, which is unchanged.
+
 Applies a tag to a user.
 
 **Authorization:** Admin+
@@ -5458,6 +5263,8 @@ Returns UserModTagDto object.
 ---
 
 #### DELETE /api/guilds/{guildId}/users/{userId}/tags/{tagName}
+
+> **`UserModerationController`'s copy of this endpoint retired in Phase 4 cluster 4d** - it duplicated `ModTagsController`'s identical route (an ambiguous match at runtime, see the summary table note above). `ModTagsController` is the sole owner now; this section documents its behaviour, which is unchanged.
 
 Removes a tag from a user.
 
@@ -5897,11 +5704,18 @@ is used as-is.
 
 ---
 
-### LLM Usage Ledger Endpoints
+### LLM Usage Ledger Endpoints (retired)
 
-Admin-only endpoints (`LlmUsageController`) over the `LlmUsageRecord` ledger — one row per user
+**Retired in Phase 4 cluster 4d** (docs/plans/blazor-port-plan.md): `LlmUsageController` and both
+endpoints below no longer exist. `/Admin/LlmUsage` (`Blazor/Pages/Admin/LlmUsage/Index.razor.cs`)
+now calls `ILlmUsageRepository` directly for the summary, and its per-user drill-down is a paged
+component method over `ILlmUsageRepository.GetRecordsAsync` instead of a client fetch to
+`records` below — see "Blazor Routes (Phase 4, permanent)" in `ui-inventory.md`. Kept here,
+unindented from "retired", as the shape reference for anything still reading the ledger directly.
+
+Admin-only endpoints over the `LlmUsageRecord` ledger — one row per user
 message across every `LlmMode` (guild assistant, DM assistant, feature requests). Backed by
-`ILlmUsageRepository`; powers `/Admin/LlmUsage` and the "Cost by User" table on
+`ILlmUsageRepository`; powered `/Admin/LlmUsage` and the "Cost by User" table on
 `/guild/{guildId}/assistant-metrics`. Discord IDs are emitted as strings. Cost is a decimal USD
 amount.
 
@@ -6004,6 +5818,37 @@ Paged raw ledger rows, newest first — backs the per-user drill-down panel on `
   "pageSize": 50
 }
 ```
+
+---
+
+### Admin Logs Export
+
+Minimal-API replacement for the deleted `Pages/Admin/Logs/Index.cshtml.cs`'s `OnGetExportAsync`
+page handler (Phase 4 cluster 4d), mapped in `Extensions/AdminLogsEndpointExtensions.cs` and called
+from `Blazor/Pages/Admin/Logs/Tabs/AuditTab.razor`'s plain `<a href>` Export CSV link. Notifications
+and the other four cluster-4d pages have no equivalent API — they call their services directly from
+the Blazor page/component.
+
+**Authorization:** `RequireAdmin` policy.
+
+#### GET /api/admin/audit-logs/export
+
+Streams every audit log row matching the given filters as a CSV file (`text/csv`,
+`audit-logs-{yyyyMMdd-HHmmss}.csv`). No pagination — the filtered result set is exported in full.
+
+**Query Parameters:** `category`, `action`, `actorId`, `targetType`, `auditGuildId`,
+`auditStartDate`, `auditEndDate`, `auditSearchTerm`, `userTimezone` — same filters and names as the
+audit tab's own load, including the `userTimezone` local-day-boundary conversion
+(`Core/Utilities/TimezoneHelper.cs`).
+
+**Response: 200 OK**, `Content-Type: text/csv`, one row per matching audit log entry, header:
+
+```
+Timestamp,Category,Action,Actor,Target Type,Target ID,Guild,Details,IP Address,Correlation ID
+```
+
+CSV building is `Services/AdminLogsCsvExporter.cs` (`BuildCsv`/`BuildFileName`/`EscapeCsv`), a plain
+static helper independently unit-testable without a running host.
 
 ---
 

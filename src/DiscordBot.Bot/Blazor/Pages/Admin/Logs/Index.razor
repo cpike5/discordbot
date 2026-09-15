@@ -1,0 +1,39 @@
+@page "/Admin/Logs"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.Blazor.Pages.Admin.Logs.Tabs
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Admin/Logs/Index.cshtml + IndexModel, unifying the legacy
+    Admin/AuditLogs and Admin/MessageLogs pages (docs/plans/blazor-port-plan.md §5 Phase 4,
+    cluster 4d). /Admin/AuditLogs and /Admin/MessageLogs stay minimal-API redirects to here
+    (Extensions/LegacyRedirectExtensions.cs) - unchanged by this cluster. See Index.razor.cs for
+    the tab-selection logic; Tabs/MessagesTab.razor and Tabs/AuditTab.razor own each tab's own
+    filters/paging/data, loaded only while active.
+*@
+
+<PageTitle>Logs</PageTitle>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <PageHeader Title="Logs" Subtitle="Message history and system audit trail" />
+
+    <TabGroup Id="logsTabs" Mode="TabGroupMode.Navigation" StyleVariant="TabStyleVariant.Underline"
+              AriaLabel="Logs navigation" ActiveTabId="@ActiveTab" Class="mb-6" Tabs="@Tabs" />
+
+    @if (ActiveTab == "messages")
+    {
+        <MessagesTab />
+    }
+    else if (ActiveTab == "audit")
+    {
+        <AuditTab />
+    }
+    else
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+            <EmptyState Type="EmptyStateType.NoData" Title="Application Logs" Description="Coming soon." />
+        </div>
+    }
+</div>

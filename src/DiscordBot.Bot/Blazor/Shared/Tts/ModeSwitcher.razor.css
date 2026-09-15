@@ -1,0 +1,14 @@
+/* Ported from _ModeSwitcher.cshtml's inline <style> block (mobile-only; the segmented control
+   itself is plain Tailwind utility classes in ModeSwitcher.razor). The source scoped this by
+   #@Model.ContainerId; CSS isolation gives every ModeSwitcher instance the same scoping for free. */
+@media (max-width: 767px) {
+    .tts-mode-switcher {
+        flex-direction: column;
+    }
+
+    .tts-mode-switcher button[role="tab"] {
+        width: 100%;
+        min-height: 44px;
+        padding: 0.75rem 1rem;
+    }
+}

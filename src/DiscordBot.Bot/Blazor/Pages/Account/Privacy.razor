@@ -1,0 +1,311 @@
+@page "/Account/Privacy"
+@attribute [Authorize]
+@using DiscordBot.Bot.Blazor.Shared
+@using DiscordBot.Bot.ViewModels.Components
+@using Microsoft.AspNetCore.Components.Forms
+
+@*
+    Static SSR port of Pages/Account/Privacy.cshtml + PrivacyModel
+    (docs/plans/blazor-port-plan.md Phase 4 cluster 4c). No @@rendermode - the legacy page's only
+    JS (a typed-confirm dialog and a consent-toggle confirm dialog) is replaced by a plain submit
+    dispatched server-side - see Privacy.razor.cs's class remarks, in particular why every
+    consent toggle/export/delete action shares exactly one named EditForm instead of one each.
+    Renders under the default MainLayout, same as the legacy page's _Layout.
+*@
+
+<PageTitle>Privacy &amp; Consent - Discord Bot Admin</PageTitle>
+
+@if (UserNotFound)
+{
+    <Alert Variant="AlertVariant.Error" Title="User not found" Message="Your account could not be loaded." />
+}
+else
+{
+    <div class="mb-8">
+        <h1 class="text-3xl font-bold text-text-primary mb-2">Privacy &amp; Consent</h1>
+        <p class="text-text-secondary">Manage your data privacy preferences and consent settings for the Discord bot</p>
+    </div>
+
+    @if (StatusBanner is { } banner)
+    {
+        <div class="mb-6">
+            <Alert Variant="@(banner.IsSuccess ? AlertVariant.Success : AlertVariant.Error)"
+                   Title="@(banner.IsSuccess ? "Success" : "Error")" Message="@banner.Message" />
+        </div>
+    }
+
+    @if (!IsDiscordLinked)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg">
+            <div class="p-4 bg-warning-bg border border-warning-border rounded-md mb-6">
+                <div class="flex items-start gap-3">
+                    <Icon Path="@IconPaths.ExclamationTriangle" Class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                    <div>
+                        <p class="text-sm font-semibold text-warning">Discord Account Required</p>
+                        <p class="text-sm text-warning/90 mt-1">
+                            You need to link your Discord account before managing consent preferences. Your consent settings are tied to your Discord user ID.
+                        </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="text-center py-8">
+                <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                    <svg class="w-10 h-10 text-text-secondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="@DiscordLogoPath" />
+                    </svg>
+                </div>
+                <h2 class="text-xl font-semibold text-text-primary mb-2">Link Your Discord Account</h2>
+                <p class="text-text-secondary text-sm mb-6 max-w-md mx-auto">
+                    To manage your privacy preferences, please link your Discord account first.
+                </p>
+
+                <a href="/Account/LinkDiscord" class="inline-flex items-center justify-center gap-2.5 py-2.5 px-6 text-sm font-semibold text-white bg-discord border border-discord rounded-md transition-colors hover:bg-discord-hover hover:border-discord-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-discord focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="@DiscordLogoPath" />
+                    </svg>
+                    Link Discord Account
+                </a>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg mb-6">
+            <div class="flex items-center gap-4 pb-4 border-b border-border-primary mb-4">
+                <div class="w-12 h-12 rounded-full bg-bg-tertiary border-2 border-accent-blue flex items-center justify-center">
+                    <svg class="w-6 h-6 text-text-secondary" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="@DiscordLogoPath" />
+                    </svg>
+                </div>
+                <div class="flex-1">
+                    <div class="flex items-center gap-2">
+                        <h2 class="text-lg font-semibold text-text-primary">@(DiscordUsername ?? "Discord User")</h2>
+                        <Badge Text="Linked" Variant="BadgeVariant.Success" />
+                    </div>
+                    @if (DiscordUserId.HasValue)
+                    {
+                        <p class="text-sm text-text-secondary font-mono">ID: @DiscordUserId.Value</p>
+                    }
+                </div>
+            </div>
+            <p class="text-sm text-text-secondary">
+                Your consent preferences are managed for this Discord account. Changes will apply to all servers where the bot is present.
+            </p>
+        </div>
+
+        @* One EditForm for every consent toggle and the data export on this page - see
+           Privacy.razor.cs's class remarks for why this must be a single named form shared by
+           those two, and why "Delete My Data" below is deliberately its own separate form. *@
+        <EditForm Model="ActionForm" FormName="privacy-actions" OnSubmit="HandleFormActionAsync">
+            @* See the ConsentMarker remarks in Privacy.razor.cs - required so this form's static
+               SSR mapping registers at all. *@
+            <InputText type="hidden" @bind-Value="ActionForm.ConsentMarker" />
+            @if (ConsentStatuses.Count > 0)
+            {
+                <Card Title="Consent Settings" Subtitle="Control what data the bot can collect and process" Class="mb-6">
+                    <div class="space-y-4">
+                        @foreach (var consent in ConsentStatuses)
+                        {
+                            <div class="flex items-start justify-between gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                                <div class="flex-1">
+                                    <p class="text-base font-semibold text-text-primary">@consent.TypeDisplayName</p>
+                                    <p class="text-sm text-text-secondary mt-1">@consent.Description</p>
+                                    <div class="mt-3 flex items-center gap-2">
+                                        @if (consent.IsGranted)
+                                        {
+                                            <Badge Text="Enabled" Variant="BadgeVariant.Success" />
+                                            @if (consent.GrantedAt.HasValue)
+                                            {
+                                                <span class="text-xs text-text-tertiary">Since <LocalTime Utc="consent.GrantedAt.Value" Format="date" /></span>
+                                            }
+                                        }
+                                        else
+                                        {
+                                            <Badge Text="Disabled" Variant="BadgeVariant.Default" />
+                                            <span class="text-xs text-text-tertiary">Never enabled</span>
+                                        }
+                                    </div>
+                                </div>
+                                @* Two-step reveal, same no-JS-required <details>/<summary> pattern LinkDiscord.razor
+                                   uses for Unlink - reproduces the legacy page's confirmConsentToggle JS dialog
+                                   without a circuit. See Privacy.razor.cs's class remarks. *@
+                                <details class="group flex-shrink-0">
+                                    <summary class="inline-flex items-center justify-center px-3 py-1.5 text-sm font-semibold rounded-md cursor-pointer list-none transition-colors @(consent.IsGranted ? "bg-bg-tertiary text-text-primary border border-border-primary hover:bg-bg-hover" : "bg-accent-blue text-white border border-accent-blue hover:bg-accent-blue-hover")">
+                                        @(consent.IsGranted ? "Revoke" : "Grant")
+                                    </summary>
+                                    <div class="mt-2 p-3 w-56 bg-bg-tertiary border border-border-primary rounded-md">
+                                        <p class="text-xs text-text-secondary mb-2">
+                                            Are you sure you want to @(consent.IsGranted ? "revoke" : "grant") consent for @consent.TypeDisplayName?
+                                        </p>
+                                        <Button Type="submit" Text="@(consent.IsGranted ? "Yes, Revoke" : "Yes, Grant")"
+                                                Variant="@(consent.IsGranted ? ButtonVariant.Danger : ButtonVariant.Accent)" Size="ButtonSize.Small"
+                                                Class="w-full" name="ActionForm.ConsentAction" value="@($"{consent.Type}:{(!consent.IsGranted).ToString()}")" />
+                                    </div>
+                                </details>
+                            </div>
+                        }
+                    </div>
+                </Card>
+            }
+            else
+            {
+                <div class="bg-bg-secondary border border-border-primary rounded-lg p-12 text-center mb-6">
+                    <div class="inline-flex items-center justify-center w-16 h-16 bg-bg-tertiary rounded-xl mb-4">
+                        <Icon Path="@IconPaths.LockClosed" Class="w-10 h-10 text-text-secondary" />
+                    </div>
+                    <h3 class="text-xl font-semibold text-text-primary mb-2">No Consent Preferences</h3>
+                    <p class="text-text-secondary text-sm max-w-md mx-auto">
+                        You haven't set any consent preferences yet. Consent preferences will appear here once you interact with bot features that require consent.
+                    </p>
+                </div>
+            }
+
+            <Card Title="Data Management" Subtitle="Export your personal data" Class="mb-6">
+                <div class="space-y-4">
+                    <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                        <div class="w-12 h-12 rounded-full bg-info-bg border border-info-border flex items-center justify-center flex-shrink-0">
+                            <Icon Path="@IconPaths.ArrowDownTray" Class="w-6 h-6 text-info" />
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-base font-semibold text-text-primary mb-1">Export My Data</h4>
+                            <p class="text-sm text-text-secondary mb-3">
+                                Download all your data in a portable JSON format. The export will be available for 7 days.
+                            </p>
+                            <Button Type="submit" Text="Export My Data" Variant="ButtonVariant.Accent" IconLeft="@IconPaths.ArrowDownTray" name="ActionForm.ExportAction" value="1" />
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-xs text-text-tertiary px-6 pb-6">
+                    Data management actions comply with GDPR Article 15 (Right of Access). You can also use the
+                    <code class="px-1.5 py-0.5 bg-bg-tertiary rounded font-mono text-xs">/privacy</code> commands in Discord.
+                </p>
+            </Card>
+        </EditForm>
+
+        @* Delete My Data is deliberately its OWN named form, not part of "privacy-actions" above -
+           see Privacy.razor.cs's class remarks: sharing one form with the consent Grant/Revoke and
+           Export buttons would let pressing Enter in the confirmation box below implicitly submit
+           whichever of those buttons rendered first, instead of asking for a delete. *@
+        <EditForm Model="DeleteForm" FormName="privacy-delete" OnSubmit="HandleDeleteFormSubmitAsync">
+            <Card Title="Delete Your Data" Subtitle="Permanently remove your personal data" Class="mb-6">
+                <div class="p-6">
+                    <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-error-border">
+                        <div class="w-12 h-12 rounded-full bg-error-bg border border-error-border flex items-center justify-center flex-shrink-0">
+                            <Icon Path="@IconPaths.Trash" Class="w-6 h-6 text-error" />
+                        </div>
+                        <div class="flex-1">
+                            <h4 class="text-base font-semibold text-text-primary mb-1">Delete My Data</h4>
+                            <p class="text-sm text-text-secondary mb-3">
+                                Permanently delete all your data from our system. This action cannot be undone. Type <strong>DELETE</strong> below to confirm.
+                            </p>
+                            <div class="flex flex-col sm:flex-row gap-3">
+                                <div class="flex-1">
+                                    @* This InputText is the only bound field in this form - it both satisfies the
+                                       framework's "a named form needs a real InputBase-derived field" static-mapping
+                                       requirement and is the confirmation itself, so no separate marker field is
+                                       needed here (contrast privacy-actions's ConsentMarker). See the class remarks. *@
+                                    <InputText @bind-Value="DeleteForm.Confirmation" placeholder="Type DELETE to confirm"
+                                               class="w-full px-3 py-2 text-sm font-mono text-text-primary bg-bg-primary border border-border-primary rounded-md focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                                               aria-label="Type DELETE to confirm" />
+                                    @if (DeleteValidationError is not null)
+                                    {
+                                        <p class="text-xs text-error mt-1">@DeleteValidationError</p>
+                                    }
+                                </div>
+                                <Button Type="submit" Text="Delete All Data" Variant="ButtonVariant.Danger" IconLeft="@IconPaths.Trash" />
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <p class="text-xs text-text-tertiary px-6 pb-6">
+                    Deletion complies with GDPR Article 17 (Right to Erasure). You can also use the
+                    <code class="px-1.5 py-0.5 bg-bg-tertiary rounded font-mono text-xs">/privacy</code> commands in Discord.
+                </p>
+            </Card>
+        </EditForm>
+
+        @if (ConsentHistory.Count > 0)
+        {
+            <Card Title="Consent History" Subtitle="A record of all consent changes for your account" Class="mb-6">
+                <div class="space-y-0">
+                    @for (var i = 0; i < ConsentHistory.Count; i++)
+                    {
+                        var entry = ConsentHistory[i];
+                        var isGranted = entry.Action.Equals("Granted", StringComparison.OrdinalIgnoreCase);
+                        var isLast = i == ConsentHistory.Count - 1;
+
+                        <div class="privacy-timeline-item relative pl-10 @(isLast ? "pb-0" : "pb-6")">
+                            <div class="absolute left-0 top-1 w-8 h-8 rounded-full @(isGranted ? "bg-success-bg border border-success-border" : "bg-error-bg border border-error-border") flex items-center justify-center">
+                                <Icon Path="@(isGranted ? IconPaths.Check : IconPaths.XMark)" Class="@("w-4 h-4 " + (isGranted ? "text-success" : "text-error"))" />
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-sm font-semibold text-text-primary">@entry.TypeDisplayName</span>
+                                    <Badge Text="@entry.Action" Variant="@(isGranted ? BadgeVariant.Success : BadgeVariant.Error)" Size="BadgeSize.Small" />
+                                </div>
+                                <p class="text-xs text-text-tertiary"><LocalTime Utc="entry.Timestamp" Format="datetime-short" /></p>
+                                <p class="text-sm text-text-secondary mt-1">Consent @entry.Action.ToLower() via @entry.Source</p>
+                            </div>
+                        </div>
+                    }
+                </div>
+            </Card>
+        }
+
+        <Card Title="AI Assistant" Subtitle="Information about AI-powered features" Class="mb-6">
+            <div class="space-y-4">
+                <div class="flex items-start gap-4 p-4 bg-bg-primary rounded-lg border border-border-secondary">
+                    <div class="w-12 h-12 rounded-full bg-accent-blue/10 border border-accent-blue/20 flex items-center justify-center flex-shrink-0">
+                        <Icon Path="@IconPaths.QuestionMarkCircle" Class="w-6 h-6 text-accent-blue" />
+                    </div>
+                    <div class="flex-1">
+                        <h4 class="text-base font-semibold text-text-primary mb-1">Powered by AI</h4>
+                        <p class="text-sm text-text-secondary mb-3">
+                            This bot uses a large language model to answer questions about bot features.
+                            When you ask the bot a question (by mentioning it), your question is sent to OpenRouter,
+                            which routes it to the model provider serving the configured model.
+                        </p>
+                        <div class="space-y-2 text-sm text-text-secondary">
+                            <p><strong class="text-text-primary">Data Processed:</strong> Your question text and Discord user ID (for rate limiting)</p>
+                            <p><strong class="text-text-primary">Data Retained:</strong> Questions and responses are logged for debugging and usage metrics (30-day retention)</p>
+                            <p><strong class="text-text-primary">Third Parties:</strong> Questions are processed by OpenRouter (<a href="https://openrouter.ai/privacy" target="_blank" rel="noopener noreferrer" class="text-accent-blue hover:underline">OpenRouter Privacy Policy</a>) and by the model provider it routes to, which depends on the model this instance is configured to use.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="p-4 bg-warning-bg border border-warning-border rounded-md">
+                    <div class="flex items-start gap-3">
+                        <Icon Path="@IconPaths.ExclamationTriangle" Class="w-5 h-5 text-warning flex-shrink-0 mt-0.5" />
+                        <div class="text-sm text-warning">
+                            <p class="font-semibold mb-1">Consent Required</p>
+                            <p class="text-warning/90">
+                                You must grant consent via <code class="px-1.5 py-0.5 bg-warning/20 rounded font-mono text-xs">/consent grant AssistantUsage</code> before using the AI assistant.
+                                The assistant will not respond to your questions until consent is granted.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </Card>
+
+        <div class="p-4 bg-info-bg border border-info-border rounded-md">
+            <div class="flex items-start gap-3">
+                <Icon Path="@IconPaths.InformationCircle" Class="w-5 h-5 text-info flex-shrink-0 mt-0.5" />
+                <div class="text-sm text-info">
+                    <p class="font-semibold mb-1">Managing Consent via Discord</p>
+                    <p class="text-info/90">
+                        You can also manage your consent preferences directly in Discord using the <code class="px-1.5 py-0.5 bg-info/20 rounded font-mono text-xs">/consent</code> slash command. Changes made via Discord will be reflected here.
+                    </p>
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@code {
+    // Discord's logo mark - see LinkDiscord.razor's identical constant/comment.
+    private const string DiscordLogoPath = "M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.245.195.372.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.442a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.21 0 2.176 1.077 2.157 2.38 0 1.312-.946 2.38-2.157 2.38z";
+}

@@ -1,0 +1,104 @@
+@page "/Admin/BulkPurge"
+@attribute [Authorize(Policy = "RequireSuperAdmin")]
+@rendermode InteractiveServer
+@layout MainLayout
+@implements IAsyncDisposable
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Routable replacement for Pages/Admin/BulkPurge.cshtml + BulkPurgeModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4d). Preview/Execute call
+    IBulkPurgeService through ScopedOperations; the progress bar is driven by a live
+    IDashboardEventBus subscription to BulkPurgeProgressEvent, not a poll - see Index.razor.cs.
+*@
+
+<PageTitle>Bulk Purge</PageTitle>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <PageHeader Title="Bulk Purge" Subtitle="Permanently delete historical records across every guild" />
+
+    <Alert Variant="AlertVariant.Warning" Title="Destructive operation" Message="Purged records cannot be recovered. Preview before executing." Class="mb-6" />
+
+    @if (ResultMessage is not null)
+    {
+        <Alert Variant="@(PurgeResult?.Success == true ? AlertVariant.Success : AlertVariant.Error)" Message="@ResultMessage" IsDismissible="true" OnDismiss="() => ResultMessage = null" Class="mb-6" />
+    }
+
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+        <h2 class="text-lg font-semibold text-text-primary mb-4">Entity Type</h2>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6" data-testid="entity-type-cards">
+            @foreach (var entityType in Enum.GetValues<BulkPurgeEntityType>())
+            {
+                <button type="button" data-testid="entity-type-card"
+                        class="@("text-left p-4 border rounded-lg transition-colors " + (EntityType == entityType ? "border-accent-orange bg-accent-orange/5" : "border-border-primary hover:bg-bg-hover"))"
+                        disabled="@(!RendererInfo.IsInteractive)"
+                        @onclick="() => SelectEntityType(entityType)">
+                    <span class="block font-medium text-text-primary">@entityType</span>
+                </button>
+            }
+        </div>
+        @if (EntityTypeError is not null)
+        {
+            <p class="text-sm text-error mb-4">@EntityTypeError</p>
+        }
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+            <div>
+                <label for="startDate" class="block text-sm font-medium text-text-secondary mb-1">Start Date</label>
+                <input type="date" id="startDate" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary" @bind="StartDate" />
+            </div>
+            <div>
+                <label for="endDate" class="block text-sm font-medium text-text-secondary mb-1">End Date</label>
+                <input type="date" id="endDate" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary" @bind="EndDate" />
+            </div>
+        </div>
+        @if (DateError is not null)
+        {
+            <p class="text-sm text-error mb-4">@DateError</p>
+        }
+
+        <TextInput Id="guildIdInput" Label="Guild ID (optional)" @bind-Value="GuildIdInput" Placeholder="Leave blank for all guilds"
+                   ValidationState="@(GuildIdError is null ? ValidationState.None : ValidationState.Error)" ValidationMessage="@GuildIdError" />
+
+        <div class="flex justify-end gap-2 mt-6">
+            <button type="button" class="btn btn-secondary" disabled="@(!RendererInfo.IsInteractive || IsBusy)" @onclick="PreviewAsync">
+                Preview
+            </button>
+            <button type="button" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive || IsBusy || PreviewResult?.Success != true)" @onclick="RequestExecute">
+                Execute Purge
+            </button>
+        </div>
+    </div>
+
+    @if (PreviewResult is not null)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mt-6" data-testid="preview-result">
+            @if (PreviewResult.Success)
+            {
+                <p class="text-sm text-text-secondary">Estimated records to delete (@PreviewResult.DateRange):</p>
+                <p class="text-3xl font-bold text-warning mt-1">@PreviewResult.EstimatedCount.ToString("N0")</p>
+            }
+            else
+            {
+                <p class="text-sm text-error">@PreviewResult.ErrorMessage</p>
+            }
+        </div>
+    }
+
+    @if (IsPurging)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mt-6" data-testid="purge-progress">
+            <p class="text-sm text-text-secondary mb-2">@(ProgressMessage ?? "Purging...")</p>
+            <div class="w-full bg-bg-tertiary rounded-full h-3 overflow-hidden">
+                <div class="bg-accent-orange h-3 transition-all" style="width: @(ProgressPercent)%"></div>
+            </div>
+            <p class="text-xs text-text-tertiary mt-1">@ProgressPercent% (@ProgressProcessed / @ProgressTotal)</p>
+        </div>
+    }
+</div>
+
+<ConfirmModal @ref="_executeModal" Id="executePurgeModal" Title="Execute Bulk Purge"
+              Message="@($"This will permanently delete approximately {PreviewResult?.EstimatedCount:N0} {EntityType} records. This cannot be undone. Type CONFIRM to proceed.")"
+              RequiredText="CONFIRM" InputLabel="Type CONFIRM to proceed"
+              ConfirmText="Execute Purge" Variant="ConfirmationVariant.Danger" />

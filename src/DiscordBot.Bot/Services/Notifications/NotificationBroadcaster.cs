@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Realtime;
+using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.SignalR;
@@ -14,15 +16,18 @@ public class NotificationBroadcaster : INotificationBroadcaster
 {
     private readonly IHubContext<DashboardHub> _hubContext;
     private readonly INotificationRepository _repository;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<NotificationBroadcaster> _logger;
 
     public NotificationBroadcaster(
         IHubContext<DashboardHub> hubContext,
         INotificationRepository repository,
+        IDashboardEventBus eventBus,
         ILogger<NotificationBroadcaster> logger)
     {
         _hubContext = hubContext;
         _repository = repository;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -44,6 +49,13 @@ public class NotificationBroadcaster : INotificationBroadcaster
             await _hubContext.Clients
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            await _eventBus.PublishAsync(
+                new NotificationReceivedEvent { UserId = userId, Notification = notificationDto },
+                cancellationToken);
+            await _eventBus.PublishAsync(
+                new NotificationCountChangedEvent { UserId = userId, Summary = summary },
+                cancellationToken);
 
             _logger.LogDebug(
                 "Broadcast notification {NotificationId} to user {UserId}",
@@ -78,6 +90,13 @@ public class NotificationBroadcaster : INotificationBroadcaster
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
 
+            await _eventBus.PublishAsync(
+                new NotificationMarkedReadEvent { UserId = userId, NotificationId = notificationId },
+                cancellationToken);
+            await _eventBus.PublishAsync(
+                new NotificationCountChangedEvent { UserId = userId, Summary = summary },
+                cancellationToken);
+
             _logger.LogDebug(
                 "Broadcast notification {NotificationId} marked as read to user {UserId}",
                 notificationId,
@@ -104,6 +123,10 @@ public class NotificationBroadcaster : INotificationBroadcaster
             await _hubContext.Clients
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            await _eventBus.PublishAsync(
+                new NotificationCountChangedEvent { UserId = userId, Summary = summary },
+                cancellationToken);
 
             _logger.LogDebug(
                 "Broadcast notification count change to user {UserId}: TotalUnread={TotalUnread}",
@@ -135,6 +158,11 @@ public class NotificationBroadcaster : INotificationBroadcaster
             await _hubContext.Clients
                 .User(userId)
                 .SendAsync(DashboardHub.OnNotificationCountChanged, summary, cancellationToken);
+
+            await _eventBus.PublishAsync(new AllNotificationsReadEvent { UserId = userId }, cancellationToken);
+            await _eventBus.PublishAsync(
+                new NotificationCountChangedEvent { UserId = userId, Summary = summary },
+                cancellationToken);
 
             _logger.LogDebug(
                 "Broadcast all notifications read to user {UserId}",

@@ -82,7 +82,7 @@ ffprobe -version
 
 ### Step 2: Install Native Libraries (libsodium and opus)
 
-The native DLLs must be in your build output directory (e.g., `bin/Debug/net8.0/`):
+The native DLLs must be in your build output directory (e.g., `bin/Debug/net10.0/`):
 - `libsodium.dll`
 - `opus.dll`
 

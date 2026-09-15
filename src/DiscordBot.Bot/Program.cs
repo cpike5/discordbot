@@ -3,6 +3,7 @@ using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Hubs;
 using DiscordBot.Bot.Middleware;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Infrastructure.Data.Migrations;
 using DiscordBot.Infrastructure.Extensions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -125,7 +126,7 @@ try
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
         // Clear known networks/proxies to accept headers from any proxy
         // This is necessary when running behind multiple proxies (e.g., Cloudflare -> nginx)
-        options.KnownNetworks.Clear();
+        options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
 
@@ -135,6 +136,9 @@ try
 
     // Add Identity, Discord OAuth, and authorization policies
     builder.Services.AddIdentityServices(builder.Configuration);
+
+    // Sign-in/sign-out flows behind the Account minimal-API endpoints and Blazor/Pages/Account/Login.razor
+    builder.Services.AddAccountServices();
 
     // ==========================================
     // Application Services
@@ -203,6 +207,11 @@ try
     // Add Web API services (controllers, Razor Pages, HttpClient)
     builder.Services.AddWebServices();
 
+    // Add the Blazor Web App hosting foundation (Interactive Server, per-page interactivity)
+    // alongside Razor Pages/controllers, until every page is ported. See "Blazor components"
+    // in docs/architecture/patterns.md and docs/plans/blazor-port-plan.md.
+    builder.Services.AddBlazorWeb(builder.Environment);
+
     // Add SignalR for real-time dashboard updates
     builder.Services.AddSignalRServices(builder.Environment);
 
@@ -217,6 +226,15 @@ try
     using (var scope = app.Services.CreateScope())
     {
         var db = scope.ServiceProvider.GetRequiredService<BotDbContext>();
+
+        // A SQLite database created before the SqliteBotDbContext registration fix has only the
+        // superseded BotDbContext lineage in __EFMigrationsHistory, which makes MigrateAsync try to
+        // re-create tables that already exist. This brings that history up to the re-baseline first;
+        // it is a no-op on a fresh database, on an already-repaired one, and on PostgreSQL.
+        await SqliteLegacyHistoryRepair.RepairAsync(
+            db,
+            scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger(nameof(SqliteLegacyHistoryRepair)));
+
         await db.Database.MigrateAsync();
     }
 
@@ -295,9 +313,19 @@ try
 
     app.UseAuthorization();
 
+    // Required for Blazor's EditForm/AntiforgeryToken support on static SSR pages/components.
+    // Razor Pages' own [ValidateAntiForgeryToken]/asp-antiforgery handling is unaffected - both
+    // validate the same ASP.NET Core antiforgery token, they don't double-validate.
+    app.UseAntiforgery();
+
     app.MapControllers();
     app.MapDiscordBotHealthChecks();
     app.MapRazorPages();
+    app.MapRazorComponents<DiscordBot.Bot.Blazor.App>()
+        .AddInteractiveServerRenderMode();
+    app.MapAccountEndpoints();
+    app.MapAdminLogsEndpoints();
+    app.MapLegacyRouteRedirects();
 
     // Map SignalR hub for real-time dashboard
     app.MapHub<DashboardHub>("/hubs/dashboard");

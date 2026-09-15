@@ -19,6 +19,61 @@ The application supports two database providers selected via the `Database:Provi
 
 See [environment-configuration.md](environment-configuration.md) for the `Database:Provider` config key reference, and [docker-deployment.md](docker-deployment.md) / [linux-deployment.md](linux-deployment.md) for provider-specific setup steps.
 
+## Upgrading a SQLite database created before the migration-context fix
+
+**Who this applies to.** Any SQLite deployment whose database file was created or migrated by the
+application itself between late February 2026 and this release. PostgreSQL deployments are
+unaffected, and so is any SQLite database you have only ever migrated with
+`dotnet ef database update --context SqliteBotDbContext`.
+
+**What was wrong.** `Migrations/Sqlite` contains two lineages — 40 superseded migrations attributed
+to the base `BotDbContext`, and the current set attributed to `SqliteBotDbContext`. The application
+registered the base context, and EF Core matches a migration to a context by exact runtime type, so
+startup migration silently applied only the first 40 and stopped. Affected databases have 55 tables
+instead of 76 and are missing `FeatureRequests`, `LlmModels`, `LlmUsageRecords`,
+`AudioPlaybackLogs`, `UserPreferences`, `VoxMessageHistory`, `UserSoundFavorites`, the
+virtual-currency tables, and several later columns. Nothing was logged; `/health` stayed green.
+
+**What happens automatically on the first boot after upgrading.** Nothing is required of you. Before
+migrating, the application now runs `SqliteLegacyHistoryRepair`, which:
+
+1. Detects the pre-fix history and adds the single column that the
+   `20260219205009_AddIsEnabledToGuildModerationConfig` re-baseline introduces —
+   `GuildModerationConfigs.IsEnabled`, defaulted to enabled so guilds that already had moderation
+   configured keep it.
+2. Records that re-baseline as applied, so EF does not try to re-create tables you already have.
+3. Lets the normal startup migration apply everything after it, creating the missing tables and
+   columns.
+
+It logs a single `Warning` line naming what it repaired. It is a no-op on a database that is already
+current and on PostgreSQL, so it costs nothing on later boots. Your existing data is not moved,
+rebuilt, or rewritten: the repair only adds one column and one history row.
+
+**What to back up first.** Copy the database file before the first boot on the new version — by
+default `data/discordbot.db`, plus the `-wal` and `-shm` files beside it if present. Stop the
+service first so the copy is consistent:
+
+```bash
+sudo systemctl stop discordbot
+sudo cp -a /opt/discordbot/data/discordbot.db /opt/discordbot-backups/discordbot.db.$(date +%Y%m%d_%H%M%S)
+sudo systemctl start discordbot
+```
+
+The `update-from-release.sh` script already takes a timestamped backup of the whole deployment
+directory (see [linux-deployment.md](linux-deployment.md)); that copy includes the database.
+
+**If startup fails.** The repair refuses to act — and says so in the log — when a database carries
+pre-fix history but does not have the schema that lineage produces, rather than recording a
+migration that did not really run. In that case restore the backup and upgrade through an earlier
+release first, or migrate the file manually with
+`dotnet ef database update --context SqliteBotDbContext`. Background and the full analysis are in
+[../lessons-learned/sqlite-migration-context-mismatch.md](../lessons-learned/sqlite-migration-context-mismatch.md).
+
+**Two sets of default rows are restored too.** The re-baseline recreated `Themes` and
+`PerformanceAlertConfigs` without their seed rows, so fresh SQLite installs had neither a default
+theme nor any alert thresholds. Two data-only migrations re-insert them with `INSERT OR IGNORE`, so
+a database that already has those rows is left untouched.
+
 ## Provider Type Mapping
 
 EF Core maps C# types differently depending on the active provider. The table below shows the storage type used in each case.

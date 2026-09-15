@@ -32,10 +32,13 @@ You are a domain expert for the **Moderation & Safety** stream of a Discord bot 
 - `ModerationActionModule`, `ModerationHistoryModule`, `ModNoteModule`, `ModTagModule`, `ModStatsModule`, `FlaggedEventComponentModule`
 
 ### Controllers
-- `ModerationCasesController`, `ModerationConfigController`, `UserModerationController`, `ModTagsController`, `FlaggedEventsController`, `BulkPurgeController`
+- `ModerationCasesController`, `ModerationConfigController`, `ModTagsController`, `BulkPurgeController`
+- `FlaggedEventsController` retired in Phase 4 cluster 4d once `Blazor/Pages/Guilds/FlaggedEvents/` (its only consumer) moved to calling `IFlaggedEventService` directly.
+- `UserModerationController` retired in Phase 4 cluster 4d (Blazor port): its cases/notes/flags/tags-by-user endpoints duplicated `ModTagsController`'s user-tag routes (an ambiguous-route bug fixed by the deletion) and its only consumer, `wwwroot/js/user-moderation-profile.js`, retired with the page below.
 
 ### Pages
-- `Guilds/Members/Moderation.cshtml`, `Guilds/FlaggedEvents/` (Index, Details), `Guilds/ModerationSettings/Index.cshtml`, `Admin/BulkPurge.cshtml`
+- `Blazor/Pages/Guilds/Members/Moderation.razor` (`+ .razor.cs`) — ported off Razor Pages in cluster 4d; calls `IModerationService`/`IModNoteService`/`IModTagService`/`IFlaggedEventService` directly rather than through a controller.
+- `Blazor/Pages/Guilds/FlaggedEvents/{Index,Details}.razor` (Phase 4 cluster 4d); `Guilds/ModerationSettings/Index.cshtml`, `Admin/BulkPurge.cshtml` (still Razor Pages)
 
 ### Repositories (7)
 - `ModerationCaseRepository`, `ModNoteRepository`, `ModTagRepository`, `UserModTagRepository`, `WatchlistRepository`, `FlaggedEventRepository`, `GuildModerationConfigRepository`

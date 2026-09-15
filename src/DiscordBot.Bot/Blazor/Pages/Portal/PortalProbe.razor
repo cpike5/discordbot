@@ -1,0 +1,72 @@
+@page "/Portal/{guildId:long}/blazor-probe"
+@attribute [AllowAnonymous]
+@layout PortalLayout
+@inherits PortalPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Portal
+@using DiscordBot.Bot.Services.Portal
+
+@*
+    Temporary Phase 3 probe page (docs/plans/blazor-port-plan.md §5 Phase 3), proving
+    PortalLayout + PortalPageBase + IPortalContextProvider work together end to end on a real
+    routable, interactive Portal page - the same role GuildProbe.razor plays on the guild side.
+    [AllowAnonymous], not [Authorize]: Portal pages branch on PortalAccessOutcome themselves rather
+    than gating the route - an anonymous visitor is a valid state (ShowLanding), not a rejected
+    request. Retained until Phase 4f replaces it with the first real ported Portal page.
+*@
+
+<PageTitle>Portal Blazor Probe</PageTitle>
+
+@if (IsLoading)
+{
+    <div class="flex items-center justify-center py-16" data-testid="probe-portal-loading">
+        <LoadingSpinner Message="Loading portal context..." />
+    </div>
+}
+else if (Result is not null)
+{
+    <div class="space-y-6 max-w-3xl mx-auto px-4 py-8" data-testid="probe-portal-context">
+        <div>
+            <h1 class="page-title">Portal Context Probe</h1>
+            <p class="mt-1 text-sm text-text-secondary">
+                Temporary Phase 3 page proving <code class="font-mono">PortalLayout</code>,
+                <code class="font-mono">PortalPageBase</code> and
+                <code class="font-mono">IPortalContextProvider</code> resolve, cascade and render
+                correctly for a real interactive Portal route.
+            </p>
+        </div>
+
+        <section class="card">
+            <div class="card-header">
+                <h2 class="card-title">Resolved PortalAccessResult</h2>
+            </div>
+            <div class="card-body">
+                <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <dt class="text-text-secondary">Outcome</dt>
+                        <dd class="font-mono text-text-primary" data-testid="probe-portal-outcome">@Result.Outcome</dd>
+                    </div>
+                    <div>
+                        <dt class="text-text-secondary">Login URL</dt>
+                        <dd class="font-mono text-text-primary break-all" data-testid="probe-portal-login-url">@(string.IsNullOrEmpty(Result.LoginUrl) ? "(none)" : Result.LoginUrl)</dd>
+                    </div>
+                    @if (PortalGuild is not null)
+                    {
+                        <div>
+                            <dt class="text-text-secondary">Guild name</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-portal-guild-name">@PortalGuild.GuildName</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">Guild id</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-portal-guild-id">@PortalGuild.GuildIdString</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">Bot online</dt>
+                            <dd class="font-mono text-text-primary" data-testid="probe-portal-bot-online">@PortalGuild.IsBotOnline</dd>
+                        </div>
+                    }
+                </dl>
+            </div>
+        </section>
+    </div>
+}

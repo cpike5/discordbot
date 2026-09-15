@@ -1,0 +1,74 @@
+@page "/Admin/UserPurge"
+@attribute [Authorize(Policy = "RequireSuperAdmin")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Admin/UserPurge.cshtml + UserPurgeModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4d). GDPR data purge for one Discord user,
+    identified by DiscordUserId in the query string. See Index.razor.cs.
+*@
+
+<PageTitle>User Purge</PageTitle>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <PageHeader Title="User Purge" Subtitle="Permanently delete a Discord user's data (GDPR)" />
+
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 mb-6">
+        <form @onsubmit="HandleLookup" @onsubmit:preventDefault="true" class="flex items-end gap-3" data-testid="user-purge-lookup-form">
+            <div class="flex-1">
+                <TextInput Id="discordUserId" Label="Discord User ID" @bind-Value="DiscordUserIdInput" Placeholder="e.g. 123456789012345678"
+                           ValidationState="@(LookupError is null ? ValidationState.None : ValidationState.Error)" ValidationMessage="@LookupError" />
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">Look Up</button>
+        </form>
+    </div>
+
+    @if (ResultMessage is not null)
+    {
+        <Alert Variant="@(PurgeResult?.Success == true ? AlertVariant.Success : AlertVariant.Error)" Message="@ResultMessage" Class="mb-6" />
+    }
+
+    @if (CannotPurgeReason is not null)
+    {
+        <Alert Variant="AlertVariant.Warning" Title="This user cannot be purged" Message="@CannotPurgeReason" Class="mb-6" />
+    }
+
+    @if (ShowPreview && PreviewResult is not null)
+    {
+        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden mb-6" data-testid="user-purge-preview">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Data to be deleted</h2>
+            </div>
+            <table class="min-w-full divide-y divide-border-primary">
+                <tbody class="divide-y divide-border-primary">
+                    @foreach (var (category, count) in PreviewResult.DeletedCounts.Where(kv => kv.Value > 0))
+                    {
+                        <tr data-testid="user-purge-preview-row">
+                            <td class="px-6 py-3 text-sm text-text-primary">
+                                @DisplayCategory(category)
+                                @if (category.EndsWith("_Anonymized", StringComparison.OrdinalIgnoreCase))
+                                {
+                                    <Badge Text="Anonymized" Size="BadgeSize.Small" Class="ml-2" />
+                                }
+                            </td>
+                            <td class="px-6 py-3 text-sm text-text-secondary text-right">@count.ToString("N0")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+
+        <div class="flex justify-end">
+            <button type="button" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)" @onclick="RequestPurge">
+                Purge This User's Data
+            </button>
+        </div>
+    }
+</div>
+
+<ConfirmModal @ref="_purgeModal" Id="userPurgeModal" Title="Confirm User Data Purge"
+              Message="@($"This will permanently delete all data for Discord user {DiscordUserId}. This cannot be undone. Type the Discord user ID to confirm.")"
+              RequiredText="@DiscordUserId" InputLabel="@($"Type {DiscordUserId} to confirm")"
+              ConfirmText="Purge User Data" Variant="ConfirmationVariant.Danger" />

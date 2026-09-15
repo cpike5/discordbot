@@ -1,0 +1,193 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+
+@*
+    Ported from _PauseModal.cshtml. Tier 3 builds a shared Modal component (docs/articles/blazor-components.md
+    "Consolidations" table lists _ConfirmationModal + _TypedConfirmationModal -> ConfirmModal, built
+    in parallel in this same phase) - this component does NOT depend on it, per the Tier 5 task, and
+    inlines the dialog markup instead, kept structurally consistent with _ConfirmationModal.cshtml's
+    shape (backdrop + role="dialog" + header/content/footer bg-bg-secondary/border-border-primary
+    panel) for later consolidation. window.pauseModal.open/close/insert becomes ShowAsync() (an
+    awaitable that resolves with the chosen duration, or null on cancel) plus OnInsert for
+    event-driven callers; the manual focus trap becomes a local Escape-key handler instead of
+    BrowserInterop.TrapFocusAsync, since this component needs no interop.
+*@
+
+@if (_isOpen)
+{
+    <div class="fixed inset-0 z-[var(--z-modal)] @Class" role="dialog" aria-modal="true" aria-labelledby="@_titleId"
+         @onkeydown="HandleKeyDownAsync" @attributes="AdditionalAttributes">
+        <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" @onclick="CancelAsync" aria-hidden="true"></div>
+
+        <div class="fixed inset-0 flex items-center justify-center p-4">
+            <div class="bg-bg-secondary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
+                <div class="flex items-center justify-between px-6 py-4 border-b border-border-primary">
+                    <h2 id="@_titleId" class="text-lg font-semibold text-text-primary">@Title</h2>
+                    <button type="button" @onclick="CancelAsync"
+                            class="inline-flex items-center justify-center w-8 h-8 rounded-md bg-transparent hover:bg-bg-hover border-0 text-text-secondary hover:text-text-primary transition-colors text-2xl leading-none"
+                            aria-label="Close">
+                        &times;
+                    </button>
+                </div>
+
+                <div class="p-6">
+                    <div class="mb-6">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">Pause Duration</label>
+                        <div class="flex flex-col gap-4">
+                            <div class="flex items-baseline justify-between">
+                                <div class="text-4xl font-bold text-accent-blue">@_duration</div>
+                                <div class="text-sm text-text-secondary ml-2">milliseconds</div>
+                            </div>
+                            <input type="range"
+                                   class="w-full h-2 rounded-full bg-border-primary outline-none cursor-pointer appearance-none"
+                                   style="@SliderGradientStyle"
+                                   min="@MinDuration" max="@MaxDuration" step="@Step"
+                                   value="@_duration"
+                                   @ref="_sliderRef"
+                                   @oninput="HandleSliderInput"
+                                   aria-label="Pause duration slider" />
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">Quick Select</label>
+                        <div class="grid grid-cols-3 gap-3">
+                            @foreach (var preset in QuickPresets)
+                            {
+                                var isActive = preset == _duration;
+                                <button type="button" @onclick="() => SelectPreset(preset)"
+                                        class="flex flex-col items-center justify-center gap-2 p-4 bg-bg-tertiary hover:bg-bg-hover border-2 rounded-lg font-medium transition-all @(isActive ? "border-accent-blue" : "border-border-primary")">
+                                    <span class="text-sm font-semibold @(isActive ? "text-accent-blue" : "text-text-primary")">@(preset)ms</span>
+                                    <span class="text-xs @(isActive ? "text-accent-blue" : "text-text-secondary")">@PresetLabel(preset)</span>
+                                </button>
+                            }
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-semibold uppercase tracking-wider text-text-secondary mb-3">Live Preview</label>
+                        <div class="bg-bg-tertiary border border-border-primary rounded-lg p-4">
+                            <div class="text-sm text-text-secondary mb-3">Example text with pause:</div>
+                            <div class="bg-bg-secondary border-l-4 border-accent-blue p-3 rounded-sm font-mono text-accent-blue break-all">
+                                Hello <span class="text-accent-blue">[<svg class="inline align-middle mr-0.5" fill="currentColor" viewBox="0 0 24 24" width="12" height="12"><path d="M6 4h4v16H6V4zm8 0h4v16h-4V4z"/></svg>@(_duration)ms]</span> World
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
+                    <button type="button" @onclick="CancelAsync"
+                            class="flex-1 px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
+                        @CancelText
+                    </button>
+                    <button type="button" @onclick="InsertAsync"
+                            class="flex-1 px-4 py-2 bg-accent-orange hover:bg-accent-orange-hover text-white font-medium text-sm rounded-md transition-colors">
+                        @InsertText
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public string Title { get; set; } = "Insert Pause";
+    [Parameter] public int MinDuration { get; set; } = 100;
+    [Parameter] public int MaxDuration { get; set; } = 3000;
+    [Parameter] public int Step { get; set; } = 100;
+    [Parameter] public int DefaultDuration { get; set; } = 500;
+    [Parameter] public EventCallback<int> OnInsert { get; set; }
+    [Parameter] public string InsertText { get; set; } = "Insert Pause";
+    [Parameter] public string CancelText { get; set; } = "Cancel";
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    private static readonly int[] QuickPresets = { 250, 500, 1000 };
+
+    private bool _isOpen;
+    private int _duration;
+    private ElementReference _sliderRef;
+    private TaskCompletionSource<int?>? _tcs;
+    private readonly string _titleId = $"pauseModalTitle-{Guid.NewGuid():N}";
+
+    /// <summary>Set by <see cref="ShowAsync"/>, consumed in <see cref="OnAfterRenderAsync"/> once
+    /// the render that reveals the modal has committed - see VoiceSelector.razor's
+    /// identically-named field for why this replaces a fire-and-forget
+    /// <c>await Task.Yield(); await elementRef.FocusAsync();</c>.</summary>
+    private bool _pendingSliderFocus;
+
+    private string SliderGradientStyle
+    {
+        get
+        {
+            var range = MaxDuration - MinDuration;
+            var pct = range <= 0 ? 0 : Math.Clamp((_duration - MinDuration) * 100.0 / range, 0, 100);
+            var pctStr = pct.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+            return $"background-image: linear-gradient(to right, var(--color-accent-blue) 0%, var(--color-accent-blue) {pctStr}%, var(--color-border-primary) {pctStr}%, var(--color-border-primary) 100%);";
+        }
+    }
+
+    private static string PresetLabel(int ms) => ms switch
+    {
+        <= 250 => "Short",
+        >= 1000 => "Long",
+        _ => "Medium"
+    };
+
+    /// <summary>Opens the modal and returns the chosen duration once the user inserts it, or
+    /// <see langword="null"/> if they cancel/close it - the C# equivalent of
+    /// <c>window.pauseModal.open(id)</c> plus awaiting its eventual
+    /// insert/close, replacing the source's <c>window.pauseModal</c> namespace.</summary>
+    public Task<int?> ShowAsync()
+    {
+        _duration = DefaultDuration;
+        _isOpen = true;
+        _tcs = new TaskCompletionSource<int?>();
+        _pendingSliderFocus = true;
+        StateHasChanged();
+        return _tcs.Task;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_pendingSliderFocus)
+        {
+            _pendingSliderFocus = false;
+            try
+            {
+                await _sliderRef.FocusAsync();
+            }
+            catch (Exception)
+            {
+                // Best-effort: focusing is a UX nicety, not correctness.
+            }
+        }
+    }
+
+    private void HandleSliderInput(ChangeEventArgs e)
+    {
+        if (int.TryParse(e.Value?.ToString(), out var value))
+        {
+            _duration = Math.Clamp(value, MinDuration, MaxDuration);
+        }
+    }
+
+    private void SelectPreset(int preset) => _duration = Math.Clamp(preset, MinDuration, MaxDuration);
+
+    private async Task InsertAsync()
+    {
+        _isOpen = false;
+        _tcs?.TrySetResult(_duration);
+        await OnInsert.InvokeAsync(_duration);
+    }
+
+    private Task CancelAsync()
+    {
+        _isOpen = false;
+        _tcs?.TrySetResult(null);
+        return Task.CompletedTask;
+    }
+
+    private Task HandleKeyDownAsync(KeyboardEventArgs e) => e.Key == "Escape" ? CancelAsync() : Task.CompletedTask;
+}

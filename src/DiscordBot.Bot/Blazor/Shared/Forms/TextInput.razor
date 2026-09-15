@@ -1,0 +1,152 @@
+@namespace DiscordBot.Bot.Blazor.Shared
+@using System.Linq.Expressions
+@using DiscordBot.Bot.ViewModels.Components
+
+@* Ported from _FormInput.cshtml / FormInputViewModel, wrapped in FormField. Not InputBase<string>
+   -derived: InputBase<T> throws unless a cascading EditContext is present, which would break the
+   "works standalone with @bind-Value" half of the Tier 2 contract. Instead this exposes the
+   Value/ValueChanged/ValueExpression trio the Razor compiler recognizes for @bind-Value (works
+   with no ancestor at all) and, when a CascadingParameter EditContext is present, additionally
+   notifies it on input and renders the framework's own <ValidationMessage/> against
+   ValueExpression - so DataAnnotationsValidator errors show up too, alongside (not instead of) the
+   explicit ValidationState/ValidationMessage parameters ported from FormInputViewModel. *@
+
+<FormField Label="@Label" For="@Id" HelpText="@HelpText" ValidationState="ValidationState"
+           ValidationMessage="@ValidationMessage" IsRequired="IsRequired" Class="@Class"
+           FooterContent="@Footer">
+    <div class="relative">
+        @if (!string.IsNullOrEmpty(IconLeft))
+        {
+            <div class="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                <Icon Path="@IconLeft" Class="w-5 h-5 text-text-tertiary" />
+            </div>
+        }
+
+        <input type="@Type"
+               id="@Id"
+               name="@(Name ?? Id)"
+               class="@InputClasses"
+               placeholder="@Placeholder"
+               value="@Value"
+               @oninput="HandleInput"
+               disabled="@IsDisabled"
+               readonly="@IsReadOnly"
+               required="@IsRequired"
+               aria-required="@(IsRequired ? "true" : null)"
+               maxlength="@MaxLength"
+               aria-describedby="@DescribedByIds"
+               aria-invalid="@(ValidationState == ValidationState.Error ? "true" : null)"
+               @attributes="AdditionalAttributes" />
+
+        @if (!string.IsNullOrEmpty(IconRight))
+        {
+            <div class="absolute right-3 top-1/2 -translate-y-1/2">
+                <Icon Path="@IconRight" Class="w-5 h-5 text-text-tertiary" />
+            </div>
+        }
+    </div>
+</FormField>
+
+@code {
+    [Parameter, EditorRequired] public string Id { get; set; } = string.Empty;
+    [Parameter] public string? Name { get; set; }
+    [Parameter] public string? Label { get; set; }
+    [Parameter] public string Type { get; set; } = "text";
+    [Parameter] public string? Placeholder { get; set; }
+    [Parameter] public string? HelpText { get; set; }
+    [Parameter] public InputSize Size { get; set; } = InputSize.Medium;
+    [Parameter] public ValidationState ValidationState { get; set; } = ValidationState.None;
+    [Parameter] public string? ValidationMessage { get; set; }
+    [Parameter] public bool IsRequired { get; set; }
+    [Parameter] public bool IsDisabled { get; set; }
+    [Parameter] public bool IsReadOnly { get; set; }
+    [Parameter] public string? IconLeft { get; set; }
+    [Parameter] public string? IconRight { get; set; }
+    [Parameter] public int? MaxLength { get; set; }
+    [Parameter] public bool ShowCharacterCount { get; set; }
+    [Parameter] public string? Class { get; set; }
+
+    [Parameter] public string? Value { get; set; }
+    [Parameter] public EventCallback<string?> ValueChanged { get; set; }
+    [Parameter] public Expression<Func<string?>>? ValueExpression { get; set; }
+
+    [Parameter(CaptureUnmatchedValues = true)]
+    public Dictionary<string, object>? AdditionalAttributes { get; set; }
+
+    [CascadingParameter] private EditContext? CascadedEditContext { get; set; }
+
+    private FieldIdentifier? _fieldIdentifier;
+
+    protected override void OnParametersSet()
+    {
+        _fieldIdentifier = ValueExpression is not null ? FieldIdentifier.Create(ValueExpression) : null;
+    }
+
+    private async Task HandleInput(ChangeEventArgs e)
+    {
+        var newValue = e.Value?.ToString();
+        Value = newValue;
+        await ValueChanged.InvokeAsync(newValue);
+        if (CascadedEditContext is not null && _fieldIdentifier is { } field)
+        {
+            CascadedEditContext.NotifyFieldChanged(field);
+        }
+    }
+
+    private string? DescribedByIds => FormField.ComputeDescribedByIds(Id, HelpText, ValidationState, ValidationMessage);
+
+    private string SizeClasses => Size switch
+    {
+        InputSize.Small => "py-1.5 px-3 text-xs",
+        InputSize.Large => "py-3 px-4 text-base",
+        _ => "py-2.5 px-3.5 text-sm"
+    };
+
+    private string ValidationClasses => ValidationState switch
+    {
+        ValidationState.Error => "border-error focus:border-error focus:ring-error/15",
+        ValidationState.Success => "border-success focus:border-success focus:ring-success/15",
+        ValidationState.Warning => "border-warning focus:border-warning focus:ring-warning/15",
+        _ => "border-border-primary focus:border-accent-blue focus:ring-accent-blue/15"
+    };
+
+    private string InputClasses
+    {
+        get
+        {
+            var paddingLeft = !string.IsNullOrEmpty(IconLeft) ? "pl-10" : "";
+            var paddingRight = !string.IsNullOrEmpty(IconRight) ? "pr-10" : "";
+            var classes = $"w-full {SizeClasses} {paddingLeft} {paddingRight} text-text-primary bg-bg-primary border {ValidationClasses} rounded-md placeholder-text-tertiary transition-colors focus:outline-none focus:ring-[3px]";
+            classes = IsDisabled ? $"{classes} bg-bg-secondary text-text-tertiary cursor-not-allowed opacity-60" : classes;
+
+            // Appends the EditContext's modified/valid/invalid class (empty string when there is
+            // no cascaded EditContext, or none of those apply yet) - the same class InputBase<T>'s
+            // own CssClass computes, so an <EditForm>-hosted TextInput picks up the framework's
+            // validation styling.
+            if (CascadedEditContext is not null && _fieldIdentifier is { } fieldId)
+            {
+                // Local variable deliberately not named "field" - C#'s "field" contextual
+                // keyword (property backing-field access) takes over that identifier inside a
+                // property getter like this one and silently resolves to the wrong (string) type.
+                classes = $"{classes} {CascadedEditContext.FieldCssClass(fieldId)}";
+            }
+
+            return classes;
+        }
+    }
+
+    // Character count and the EditContext-sourced <ValidationMessage/> both live below the
+    // FormField's own None/Success/Warning/Error message (see FormField.razor's FooterContent doc).
+    private RenderFragment? Footer => @<text>
+        @if (CascadedEditContext is not null && ValueExpression is not null)
+        {
+            <ValidationMessage For="ValueExpression" class="flex items-center gap-1.5 text-xs text-error" />
+        }
+        @if (ShowCharacterCount && MaxLength.HasValue)
+        {
+            <div class="flex justify-end">
+                <span class="text-xs text-text-tertiary">@(Value?.Length ?? 0)/@MaxLength.Value</span>
+            </div>
+        }
+    </text>;
+}

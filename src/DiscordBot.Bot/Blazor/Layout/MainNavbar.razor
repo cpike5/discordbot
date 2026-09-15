@@ -1,0 +1,153 @@
+@namespace DiscordBot.Bot.Blazor.Layout
+@using System.Security.Claims
+@using DiscordBot.Core.Entities
+@using Microsoft.AspNetCore.Identity
+@inject UserManager<ApplicationUser> UserManager
+
+@*
+    Static SSR - part of MainLayout, ports Pages/Shared/_Navbar.cshtml one for one (same ids and
+    classes - see "Blazor Components" in docs/architecture/patterns.md). Sidebar
+    toggle/collapse/mobile-search buttons are data-shell-action attributes for
+    wwwroot/js/blazor/shell.js's delegated listeners rather than @onclick handlers or the legacy
+    onclick="..." calls, since this component is never interactive. The notification bell and
+    toast/loading chrome are real interactive islands (NotificationBell below; ToastHost/
+    LoadingOverlay in MainLayout) rather than the old notification-bell.js/SignalR client.
+
+    Current user: [CascadingParameter] Task<AuthenticationState> gives the signed-in name/claims
+    (works in static SSR same as an interactive component); the avatar URL and email need a real
+    ApplicationUser row, looked up once via the scoped UserManager in OnInitializedAsync (static
+    SSR components may inject/use scoped services freely - only HttpContext itself disappears
+    outside prerendering, and this component never goes interactive). Guarded null throughout in
+    case the principal's user id no longer resolves to a user (deleted account, stale cookie).
+
+    Logout: POST /Account/Logout is now the AccountEndpointExtensions minimal API (Phase 4 cluster
+    4c), not a Razor Page - a plain literal action, since there is no page for a tag helper to
+    resolve. <AntiforgeryToken /> supplies the same __RequestVerificationToken field the endpoint's
+    [FromForm] binding automatically requires (UseAntiforgery() runs for both stacks - see "Blazor
+    Components" > "Hosting model" in patterns.md, and AccountEndpointExtensions' own remarks for
+    how a [FromForm] minimal API gets antiforgery validation without an explicit attribute).
+*@
+
+<header class="topbar navbar-redesign" id="topbar">
+    <div class="topbar-left">
+        <button id="sidebarToggle" type="button" data-shell-action="toggle-mobile-sidebar" class="topbar-icon-btn lg:hidden" aria-label="Toggle sidebar menu" aria-expanded="false" aria-controls="sidebar">
+            <Icon Path="@IconPaths.Bars3" StrokeWidth="1.75" />
+        </button>
+
+        <button id="sidebarCollapseToggle" type="button" data-shell-action="toggle-sidebar-collapse" class="topbar-icon-btn hidden lg:inline-flex" aria-label="Toggle sidebar" title="Collapse sidebar">
+            <Icon Path="@IconPaths.ChevronDoubleLeft" id="sidebarCollapseIcon" Class="transition-transform" StrokeWidth="1.75" />
+        </button>
+
+        <a href="/" class="topbar-brand lg:hidden">
+            <img src="/images/logo.svg" alt="" />
+            <span class="hidden sm:block">Bot Admin</span>
+        </a>
+    </div>
+
+    <form class="topbar-search hidden md:block" role="search" method="get" action="/Search">
+        <div class="search-container relative w-full">
+            <Icon Path="@IconPaths.MagnifyingGlass" Class="topbar-search-icon" StrokeWidth="2" />
+            <label for="navbar-search" class="sr-only">Search servers, commands, logs</label>
+            <input type="search" id="navbar-search" name="q" placeholder="Search servers, commands, logs…" class="topbar-search-input" autocomplete="off" />
+            <div class="topbar-search-kbd">
+                <kbd class="search-kbd">
+                    <span id="kbd-mac" class="hidden">⌘</span>
+                    <span id="kbd-other">Ctrl</span>
+                </kbd>
+                <kbd class="search-kbd">K</kbd>
+            </div>
+        </div>
+    </form>
+
+    <div class="topbar-right">
+        <button type="button" data-shell-action="toggle-mobile-search" class="topbar-icon-btn md:hidden" aria-label="Search">
+            <Icon Path="@IconPaths.MagnifyingGlass" StrokeWidth="2" />
+        </button>
+
+        <NotificationBell @rendermode="InteractiveServer" />
+
+        @if (_isAuthenticated)
+        {
+            <div class="topbar-divider hidden sm:block"></div>
+
+            <div class="relative">
+                <button id="userMenuButton" type="button" data-shell-action="toggle-user-menu" class="topbar-user" aria-label="User menu" aria-expanded="false" aria-haspopup="menu" aria-controls="userMenu">
+                    @if (!string.IsNullOrEmpty(_avatarUrl))
+                    {
+                        <img src="@_avatarUrl" alt="" class="topbar-avatar" />
+                    }
+                    else
+                    {
+                        <span class="topbar-avatar" aria-hidden="true">@_initials</span>
+                    }
+                    <span class="topbar-user-name">@_displayName</span>
+                    <Icon Path="@IconPaths.ChevronDown" Class="topbar-user-caret" StrokeWidth="2" />
+                </button>
+
+                <div id="userMenu" class="user-menu-dropdown" role="menu" aria-label="User menu options">
+                    <div class="user-menu-header">
+                        <p class="user-menu-name">@_displayName</p>
+                        <p class="user-menu-email">@_email</p>
+                    </div>
+                    <a href="/Account/Profile" role="menuitem" class="user-menu-item">
+                        <Icon Path="@IconPaths.User" StrokeWidth="1.75" />
+                        Profile
+                    </a>
+                    <a href="/Account/Privacy" role="menuitem" class="user-menu-item">
+                        <Icon Path="@IconPaths.LockClosed" StrokeWidth="1.75" />
+                        Privacy &amp; Consent
+                    </a>
+                    <form method="post" action="@AccountRoutes.Logout" class="block">
+                        <AntiforgeryToken />
+                        <button type="submit" role="menuitem" class="user-menu-item danger">
+                            <Icon Path="@IconPaths.ArrowRightOnRectangle" StrokeWidth="1.75" />
+                            Sign out
+                        </button>
+                    </form>
+                </div>
+            </div>
+        }
+        else
+        {
+            <a href="@AccountRoutes.Login" class="btn btn-primary btn-sm ml-2">Sign In</a>
+        }
+    </div>
+</header>
+
+@code {
+    [CascadingParameter] private Task<AuthenticationState>? AuthenticationStateTask { get; set; }
+
+    private bool _isAuthenticated;
+    private string _displayName = "User";
+    private string _initials = string.Empty;
+    private string? _avatarUrl;
+    private string? _email;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (AuthenticationStateTask is null)
+        {
+            return;
+        }
+
+        var authState = await AuthenticationStateTask;
+        var principal = authState.User;
+        _isAuthenticated = principal.Identity?.IsAuthenticated == true;
+
+        if (!_isAuthenticated)
+        {
+            return;
+        }
+
+        var user = await UserManager.GetUserAsync(principal);
+        _displayName = user?.DisplayName ?? user?.Email ?? principal.Identity?.Name ?? "User";
+        _initials = string.Join(
+            string.Empty,
+            _displayName.Split(' ', StringSplitOptions.RemoveEmptyEntries)
+                .Take(2)
+                .Select(w => w[0]))
+            .ToUpperInvariant();
+        _avatarUrl = user?.DiscordAvatarUrl;
+        _email = user?.Email;
+    }
+}

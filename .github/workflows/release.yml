@@ -6,7 +6,7 @@ on:
       - 'v*'  # Trigger on version tags like v0.1.0, v1.2.3
 
 env:
-  DOTNET_VERSION: '8.0.x'
+  DOTNET_VERSION: '10.0.x'
   NODE_VERSION: '20.x'
 
 jobs:
@@ -122,7 +122,7 @@ jobs:
           4. Run with `dotnet DiscordBot.Bot.dll`
 
           **Requirements**
-          - .NET 8.0 Runtime or later
+          - .NET 10.0 Runtime or later
           - Discord Bot Token (configured via user secrets or environment variables)
 
           **Checksums**

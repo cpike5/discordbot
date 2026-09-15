@@ -86,7 +86,7 @@ public class MessageLogsSearchProvider : ISearchProvider
             Items = items,
             TotalCount = logs.TotalCount,
             HasMore = logs.TotalCount > maxResults,
-            ViewAllUrl = $"/Admin/MessageLogs?search={Uri.EscapeDataString(searchTerm)}"
+            ViewAllUrl = $"/Admin/Logs?tab=messages&MessageSearchTerm={Uri.EscapeDataString(searchTerm)}"
         };
     }
 }

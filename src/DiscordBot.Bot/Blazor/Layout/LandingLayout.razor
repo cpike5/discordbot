@@ -1,0 +1,15 @@
+@inherits LayoutComponentBase
+
+@* Marketing shell for the public landing page (docs/plans/blazor-port-plan.md §4.7), replacing
+   Pages/Shared/_LayoutLanding.cshtml for Landing specifically - _LayoutLanding itself stays
+   (Login and the other Account pages still use it until they migrate later in the port; see
+   ui-inventory.md "Layouts").
+
+   Static SSR, no chrome, same as EmptyLayout: App.razor already supplies the single
+   <!DOCTYPE html>/<head>/<body> shell (fonts, app.css, pre-paint theme script) for the whole
+   app, so there is nothing left for this layout to own beyond wrapping the page body - unlike
+   _LayoutLanding.cshtml, which had to provide its own <head> because Razor Pages has no
+   equivalent shared root document. Per plan §4.7, this layout does not inject a theme itself
+   (that happens once, for every page, in App.razor) - the eventual MainLayout is the one that
+   will add real chrome around @@Body. *@
+@Body

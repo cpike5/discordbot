@@ -25,9 +25,12 @@ Quick reference catalog of all services in the Discord bot system. Organized by 
 - [Performance Monitoring](#performance-monitoring)
 - [Background Services](#background-services)
 - [Notification & Alerting](#notification--alerting)
+- [Real-Time Event Bus & Blazor UI State](#real-time-event-bus--blazor-ui-state)
 - [Data & Repository Services](#data--repository-services)
 - [AI Assistant & Tools](#ai-assistant--tools)
 - [Configuration & Settings](#configuration--settings)
+- [Blazor Hosting](#blazor-hosting)
+- [Blazor Interop](#blazor-interop)
 - [Base Classes](#base-classes)
 - [Helpers & Utilities](#helpers--utilities)
 - [Utility & Support](#utility--support)
@@ -185,6 +188,7 @@ Services for user lifecycle, guild membership, and user data operations.
 | `UserManagementService` | Bot/Services | Full user lifecycle management with audit logging |
 | `IGuildMembershipService` | Core Interfaces | Guild membership tracking and sync |
 | `IGuildMemberService` | Core Interfaces | Individual member details and operations |
+| `IPreviewService` | Core Interfaces | User/guild hover-popup lookups from the Discord cache (added cluster 4d); implementation `Bot/Services/Preview/PreviewService.cs`, extracted from `PreviewController` |
 | `IUserDiscordGuildService` | Core Interfaces | Cross-mapping of user/guild relationships |
 | `UserDiscordGuildService` | Bot/Services | Manages user presence across multiple Discord guilds |
 | `IGuildService` | Core Interfaces | Guild-level operations and metadata |
@@ -196,6 +200,8 @@ Services for user lifecycle, guild membership, and user data operations.
 | `BulkPurgeService` | Bot/Services | Coordinates bulk user purge operations |
 | `IUserDataExportService` | Core Interfaces | Export user data (for GDPR/privacy requests) |
 | `UserDataExportService` | Bot/Services | Generates user data export packages |
+| `IPortalAccessService` | Bot/Services/Portal | The Portal three-state access gate (landing/forbidden/authorized), extracted from `PortalPageModelBase.CheckPortalAuthorizationAsync` so a future Blazor `PortalLayout` can reuse it - see "Portal three-state gate" in `patterns.md` |
+| `PortalAccessService` | Bot/Services/Portal | Default `IPortalAccessService` (scoped); guild lookup, Discord client lookup, Admin/SuperAdmin bypass, cache-then-REST guild membership check |
 
 ---
 
@@ -342,6 +348,7 @@ Long-running services that execute periodic or event-driven tasks.
 | `GuildMetricsAggregationService` | Bot/Services | Aggregates daily guild-level metrics into GuildMetricsSnapshot records |
 | `CommandPerformanceAggregator` | Bot/Services | Aggregates command performance metrics from command logs; implements ICommandPerformanceAggregator |
 | `InteractionStateCleanupService` | Bot/Services | Cleanup expired interaction state objects |
+| `BotStatusBroadcastService` | Bot/Services | Re-broadcasts bot status via SignalR every 30s, reusing IBotStatusBroadcaster.BroadcastStatusAsync so it fills the gap between connect/disconnect events |
 | `VerificationCleanupService` | Bot/Services | Cleanup expired verification tokens |
 | `MessageLogCleanupService` | Bot/Services | Purge old message logs |
 | `NotificationRetentionService` | Bot/Services | Purge old user notifications |
@@ -371,6 +378,27 @@ Services for user notifications, performance alerts, and subscriptions.
 | `DashboardNotifier` | Bot/Services | SignalR hub for real-time dashboard updates |
 | `IDashboardUpdateService` | Core Interfaces | Publish update events for dashboard |
 | `DashboardUpdateService` | Bot/Services | Publishes status/metric updates to SignalR |
+
+---
+
+## Real-Time Event Bus & Blazor UI State
+
+In-process pub/sub the seven broadcasters above dual-publish to alongside their SignalR hub
+sends, plus the Blazor circuit-scoped UI state services it exists to feed. See
+`docs/articles/signalr-realtime.md`, "In-process event bus" and `docs/architecture/patterns.md`,
+"Real-time event bus".
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `IDashboardEventBus` | Bot/Services/Realtime | Typed publish/subscribe bus mirroring `DashboardHub`'s SignalR pushes; guild- and user-scoped subscribe overloads |
+| `DashboardEventBus` | Bot/Services/Realtime | Singleton implementation; thread-safe subscriber lists, each handler guarded by its own try/catch, concurrent dispatch via `Task.WhenAll` |
+| `IDashboardEvent`, `GuildScopedEvent`, `UserScopedEvent` | Bot/Services/Realtime | Marker interface and scoping base records every published event implements/derives from |
+| Event records (`BotStatusBroadcastEvent`, `GuildActivityEvent`, `AudioConnectedEvent`, `HealthMetricsUpdatedEvent`, `AlertTriggeredEvent`, `NotificationReceivedEvent`, `BulkPurgeProgressEvent`, ...) | Bot/Services/Realtime/Events | One record per SignalR push event, carrying the same DTO the hub sends |
+| `IToastService` | Bot/Blazor/Services | Scoped (per-circuit) toast queue; max 5, mirrors `wwwroot/js/toast.js`'s `ToastManager` |
+| `ToastService` | Bot/Blazor/Services | Implementation; per-level default auto-dismiss durations, `Changed` event for a `ToastHost` component |
+| `ILoadingState` | Bot/Blazor/Services | Scoped, reference-counted loading flag shared by a page and its loading overlay |
+| `LoadingState` | Bot/Blazor/Services | Implementation; `Begin` returns a disposable scope, `Message` reflects the most recently opened open scope |
+| `Debouncer` | Bot/Blazor/Common | Disposable trailing-edge debounce (`CancellationTokenSource`-based) for coalescing bursty event-bus/UI updates into one `StateHasChanged` |
 
 ---
 
@@ -470,6 +498,39 @@ Services for managing application configuration and options.
 
 ---
 
+## Blazor Hosting
+
+Phase 1 of the Blazor port (`docs/plans/blazor-port-plan.md`): hosting foundation, auth plumbing
+and circuit observability for the Interactive Server Blazor Web App that coexists with Razor
+Pages under `src/DiscordBot.Bot/Blazor/`. See "Blazor components" in `patterns.md`.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `AddBlazorWeb` (extension method) | Bot/Extensions/BlazorServiceExtensions.cs | Registers Razor Components + Interactive Server, cascading auth state, and the services below; called from `Program.cs` next to `AddWebServices()` |
+| `RevalidatingIdentityAuthenticationStateProvider` | Bot/Blazor/Services | `AuthenticationStateProvider` (scoped); re-validates user existence/lockout/security-stamp every 30 minutes |
+| `CircuitClientInfoService` | Bot/Blazor/Services | Scoped per-circuit holder for IP/UA/circuit ID/correlation ID, since `HttpContext` is unavailable inside a running circuit |
+| `BlazorCircuitHandler` | Bot/Blazor/Services | `CircuitHandler` (scoped); logs circuit open/close and records `blazor.circuits.*` metrics |
+| `BlazorMetrics` | Bot/Metrics | `blazor.circuits.opened_total` counter and `blazor.circuits.active` gauge, registered alongside `BotMetrics`/`ApiMetrics` in `OpenTelemetryExtensions` |
+| `IGuildContextProvider` | Bot/Blazor/Guilds | Phase 3: resolves a guild route to a `GuildContext` (guild DTO, `CanEdit`, feature flags, nav tabs) once per guild id per scope - see "GuildContext" in `patterns.md` |
+| `GuildContextProvider` | Bot/Blazor/Guilds | Default `IGuildContextProvider` (scoped); loads the guild, authorizes against `GuildAccess`, computes permissions/flags via `IGuildMembershipService`/`IGuildAudioSettingsService`/`IRatWatchService` |
+
+## Blazor Interop
+
+Thin C# wrappers around the three JS interop modules under `wwwroot/js/blazor/` (Phase 1 of
+the Blazor port, `docs/plans/blazor-port-plan.md` §4.4). Scoped services (one per circuit),
+registered via `AddBlazorInterop()`. See `docs/articles/blazor-interop.md` for the full API,
+the prerender rule, and disposal rules.
+
+| Service | Location | Purpose |
+|---------|----------|---------|
+| `ChartInterop` | Bot/Blazor/Interop | Create/update/destroy Chart.js charts via `wwwroot/js/blazor/charts.js`; lazily vendors and loads Chart.js |
+| `AudioInterop` | Bot/Blazor/Interop | Shared-element audio preview, client-side duration probing, drag-and-drop intake, and progress-reporting upload via `wwwroot/js/blazor/audio.js` |
+| `BrowserInterop` | Bot/Blazor/Interop | localStorage, clipboard, focus/scroll, modal focus trap, `beforeunload` guard, `matchMedia` watching, timezone detection, click-outside detection, and textarea selection via `wwwroot/js/blazor/browser.js` |
+
+Registration: `Extensions/BlazorInteropServiceExtensions.cs` → `AddBlazorInterop(this IServiceCollection)`.
+
+---
+
 ## Base Classes
 
 Reusable base classes for controllers, page models, and API abstractions.
@@ -495,6 +556,8 @@ Lightweight helper classes for common formatting, validation, and calculation ta
 | `SearchDisplayHelper` | Bot/Helpers | Search result display formatting and presentation |
 | `SearchScoringHelper` | Bot/Helpers | Search result relevance scoring and ranking |
 | `ServiceActivityHelper` | Bot/Tracing | Eliminates ~757 lines of tracing boilerplate across 10 services |
+| `AdminLogsCsvExporter` | Bot/Services | Builds the audit-log export CSV (header/rows/filename/escaping) behind `GET /api/admin/audit-logs/export`; independently unit-testable, no DI |
+| `LlmUsageRangeHelper` | Bot/Services | Resolves and clamps an LLM usage date range (default 30 days, cap 366); the one surviving copy after `LlmUsageController` retired |
 
 ---
 
@@ -645,6 +708,7 @@ Services publishing real-time updates to connected dashboard clients:
 - `DashboardNotifier` - Central SignalR hub
 - `AudioNotifier` - Audio state changes
 - `PerformanceMetricsBroadcastService` - Performance metrics
+- `BotStatusBroadcastService` - Periodic (30s) bot status re-broadcast, filling the gap between connect/disconnect events
 - `AlertMonitoringService` - Alert notifications
 
 ### Health Registry

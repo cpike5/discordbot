@@ -1,5 +1,3 @@
-using System.ComponentModel.DataAnnotations;
-
 namespace DiscordBot.Core.Configuration;
 
 /// <summary>
@@ -14,16 +12,17 @@ public class DiscordOAuthOptions
 
     /// <summary>
     /// Gets or sets the Discord OAuth client ID from the Discord Developer Portal.
-    /// Required for Discord authentication. Default is empty string.
+    /// Optional: when left blank (together with <see cref="ClientSecret"/>), Discord login is
+    /// unavailable and <c>DiscordOAuthSettings.IsConfigured</c> reports false — the app still
+    /// starts, e.g. for web-only browser testing. Default is empty string.
     /// </summary>
-    [Required(ErrorMessage = "Discord:OAuth:ClientId is required. Set it via environment variable Discord__OAuth__ClientId or user secrets.")]
     public string ClientId { get; set; } = string.Empty;
 
     /// <summary>
     /// Gets or sets the Discord OAuth client secret from the Discord Developer Portal.
-    /// Should be stored in user secrets or environment variables. Default is empty string.
+    /// Optional; see <see cref="ClientId"/>. Should be stored in user secrets or environment
+    /// variables. Default is empty string.
     /// </summary>
-    [Required(ErrorMessage = "Discord:OAuth:ClientSecret is required. Set it via environment variable Discord__OAuth__ClientSecret or user secrets.")]
     public string ClientSecret { get; set; } = string.Empty;
 
     /// <summary>

@@ -1,0 +1,195 @@
+@page "/Admin/Users/Edit"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@rendermode InteractiveServer
+@layout MainLayout
+@using DiscordBot.Bot.ViewModels.Components
+
+@*
+    Routable replacement for Pages/Admin/Users/Edit.cshtml + EditModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4a). See Edit.razor.cs for the load/save/
+    reset-password/unlink-Discord logic this markup renders.
+*@
+
+<PageTitle>Edit User</PageTitle>
+
+<div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <Breadcrumb Items="@(new List<BreadcrumbItem> { new() { Label = "Users", Url = "/Admin/Users" }, new() { Label = "Edit", IsCurrent = true } })" />
+
+    @if (IsLoading)
+    {
+        <SkeletonCard />
+    }
+    else if (UserNotFound)
+    {
+        <EmptyState Type="EmptyStateType.NoData" Size="EmptyStateSize.Large"
+                    Title="User Not Found"
+                    Description="This user doesn't exist or has been removed."
+                    PrimaryActionText="Back to Users" PrimaryActionHref="/Admin/Users" />
+    }
+    else if (!CanAccessEdit)
+    {
+        @* CanManageUserAsync refused this actor/target pair (e.g. an Admin against a SuperAdmin) -
+           see CanAccessEdit's doc comment for the gap this closes. *@
+        <EmptyState Type="EmptyStateType.NoData" Size="EmptyStateSize.Large"
+                    Title="Cannot Manage This User"
+                    Description="You do not have permission to edit this user's account."
+                    PrimaryActionText="Back to Users" PrimaryActionHref="/Admin/Users" />
+    }
+    else
+    {
+        <div class="mb-6">
+            <h1 class="text-2xl font-bold text-text-primary">Edit User</h1>
+            <p class="mt-1 text-sm text-text-secondary">Update user information and permissions</p>
+        </div>
+
+        @if (IsSelf)
+        {
+            <div class="mb-6">
+                <Alert Variant="AlertVariant.Warning"
+                       Message="You are editing your own account. Some options are restricted to prevent accidental lockout." />
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(GeneratedPassword))
+        {
+            @* Hand-rolled rather than <Alert> - the copy button needs a flex row nested next to the
+               message, and Alert's ChildContent renders inside a <p>; a block element (this row)
+               nested in a <p> parses invalid once the server-prerendered markup round-trips
+               through the browser's HTML parser (see docs/architecture/patterns.md "Blazor
+               Components" prerender note). Visual classes match AlertVariant.Success exactly. *@
+            <div class="mb-6 flex items-start gap-3 p-4 rounded-lg border bg-success/10 border-success/30 text-success" role="alert" aria-live="polite">
+                <Icon Path="@IconPaths.CheckCircle" Class="w-5 h-5 flex-shrink-0 mt-0.5" />
+                <div class="flex-1">
+                    <h3 class="text-sm font-semibold">Password Reset</h3>
+                    <div class="mt-1 flex flex-wrap items-center justify-between gap-3 text-sm opacity-90">
+                        <span data-testid="generated-password">New temporary password: <span class="font-mono font-semibold">@GeneratedPassword</span></span>
+                        <button type="button" class="btn btn-secondary btn-sm" @onclick="CopyGeneratedPasswordAsync">
+                            <Icon Path="@IconPaths.DocumentDuplicate" Class="w-4 h-4 mr-1.5" />
+                            Copy
+                        </button>
+                    </div>
+                </div>
+                <button type="button" class="p-1 hover:opacity-70 transition-opacity" aria-label="Dismiss" @onclick="DismissGeneratedPassword">
+                    <Icon Path="@IconPaths.XMark" Class="w-5 h-5" />
+                </button>
+            </div>
+        }
+
+        @if (!string.IsNullOrEmpty(ErrorMessage))
+        {
+            <div class="mb-6">
+                <Alert Variant="AlertVariant.Error" Message="@ErrorMessage" IsDismissible="true" OnDismiss="() => ErrorMessage = null" />
+            </div>
+        }
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">User Information</h2>
+            </div>
+            <EditForm Model="Input" OnValidSubmit="HandleValidSubmit" class="p-6 space-y-6">
+                <DataAnnotationsValidator />
+
+                <TextInput Id="Input_Email" Label="Email Address" Type="email" IsRequired="true" @bind-Value="Input.Email" />
+
+                <TextInput Id="Input_DisplayName" Label="Display Name" Placeholder="Optional friendly name" @bind-Value="Input.DisplayName" />
+
+                <Select TValue="string" Id="Input_Role" Label="Role" Placeholder="Select a role" Options="RoleOptions"
+                        IsRequired="true" IsDisabled="!CanChangeRole"
+                        HelpText="@(IsSelf ? "You cannot change your own role" : "The role determines what permissions the user has")"
+                        @bind-Value="Input.Role" />
+
+                <div>
+                    <Toggle Id="Input_IsActive" Label="Account is active" IsDisabled="IsSelf" @bind-Value="Input.IsActive" />
+                    <p class="mt-1 text-xs text-text-secondary">
+                        @(IsSelf ? "You cannot disable your own account" : "Inactive users cannot log in")
+                    </p>
+                </div>
+
+                <div class="flex items-center justify-end gap-3 pt-4 border-t border-border-primary">
+                    @* Disabled until the interactive circuit has attached - see
+                       docs/lessons-learned/blazor-editform-formname-race.md. *@
+                    @if (!RendererInfo.IsInteractive)
+                    {
+                        <span class="text-sm text-text-tertiary">Connecting…</span>
+                    }
+                    <a href="/Admin/Users" class="btn btn-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary" disabled="@(!RendererInfo.IsInteractive)">
+                        <Icon Path="@IconPaths.Check" Class="w-5 h-5 mr-2" />
+                        Save Changes
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+
+        @if (User!.IsDiscordLinked)
+        {
+            <div class="bg-bg-secondary border border-border-primary rounded-lg mb-6">
+                <div class="px-6 py-4 border-b border-border-primary">
+                    <h2 class="text-lg font-semibold text-text-primary">Discord Account</h2>
+                </div>
+                <div class="p-6">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-4">
+                            @if (!string.IsNullOrEmpty(User.DiscordAvatarUrl))
+                            {
+                                <img class="h-12 w-12 rounded-full" src="@User.DiscordAvatarUrl" alt="Discord Avatar" />
+                            }
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <Icon Path="@IconPaths.User" Class="w-5 h-5 text-accent-blue" />
+                                    <span class="text-sm font-medium text-text-primary">@User.DiscordUsername</span>
+                                </div>
+                                <p class="text-xs text-text-secondary mt-1">Linked Discord account</p>
+                            </div>
+                        </div>
+                        @* CanUnlinkDiscord (canManage && IsDiscordLinked) is false for your own
+                           account too - restoring the deleted UserDetailViewModel semantics, see
+                           Edit.razor.cs. *@
+                        @if (CanUnlinkDiscord)
+                        {
+                            <button type="button" class="btn btn-secondary text-error hover:bg-error/10" @onclick="RequestUnlinkDiscord">
+                                Unlink Discord
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        }
+
+        <div class="bg-bg-secondary border border-border-primary rounded-lg">
+            <div class="px-6 py-4 border-b border-border-primary">
+                <h2 class="text-lg font-semibold text-text-primary">Additional Actions</h2>
+            </div>
+            <div class="p-6 space-y-4">
+                <div class="flex items-center justify-between py-3 border-b border-border-primary last:border-0">
+                    <div>
+                        <h3 class="text-sm font-medium text-text-primary">Reset Password</h3>
+                        <p class="text-xs text-text-secondary mt-1">Generate a new temporary password for this user</p>
+                    </div>
+                    @* CanResetPassword (canManage && !IsSelf) - restoring the deleted
+                       UserDetailViewModel semantics, see Edit.razor.cs. *@
+                    @if (CanResetPassword)
+                    {
+                        <button type="button" class="btn btn-secondary" @onclick="RequestResetPassword">Reset Password</button>
+                    }
+                </div>
+
+                <div class="flex items-center justify-between py-3">
+                    <div>
+                        <h3 class="text-sm font-medium text-text-primary">View Activity Log</h3>
+                        <p class="text-xs text-text-secondary mt-1">See detailed user activity and management history</p>
+                    </div>
+                    <a href="@UserDetailsUrl(Input.UserId)" class="btn btn-secondary">View Details</a>
+                </div>
+            </div>
+        </div>
+
+        <ConfirmModal @ref="_resetPasswordModal" Id="resetPasswordModal" Title="Reset Password"
+                      Message="Are you sure you want to reset this user's password? A new temporary password will be generated."
+                      ConfirmText="Reset Password" Variant="ConfirmationVariant.Warning" />
+
+        <ConfirmModal @ref="_unlinkDiscordModal" Id="unlinkDiscordModal" Title="Unlink Discord Account"
+                      Message="Are you sure you want to unlink this Discord account?"
+                      ConfirmText="Unlink Discord" Variant="ConfirmationVariant.Danger" />
+    }
+</div>

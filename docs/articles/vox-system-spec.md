@@ -3,7 +3,7 @@
 **Version:** 2.0
 **Date:** 2026-02-03
 **Status:** Implemented
-**Target Framework:** .NET 8, Discord.Net
+**Target Framework:** .NET 10, Discord.Net
 
 ---
 

@@ -1,0 +1,240 @@
+@page "/Guilds/Welcome/{guildId:long}"
+@attribute [Authorize(Policy = "RequireAdmin")]
+@layout GuildLayout
+@inherits GuildPageBase
+@rendermode InteractiveServer
+@using DiscordBot.Bot.Blazor.Guilds
+@using DiscordBot.Bot.ViewModels.Components
+@using DiscordBot.Core.Enums
+
+@*
+    Routable replacement for Pages/Guilds/Welcome.cshtml + WelcomeModel
+    (docs/plans/blazor-port-plan.md §5 Phase 4, cluster 4b). See Welcome.razor.cs for the
+    load/save/preview/token-insertion logic this markup renders. The Discord-message preview
+    styles below are copied verbatim from Welcome.cshtml's @section Scripts <style> block (no
+    CSS-isolation file - matches how the legacy page scoped them, inline, to just this page).
+*@
+
+<PageTitle>Welcome Settings</PageTitle>
+
+<style>
+    .discord-message {
+        background-color: #36393f;
+        border-radius: 0.5rem;
+        padding: 1rem;
+        font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    }
+
+    .discord-mention {
+        background-color: #404675;
+        color: #dee0fc;
+        padding: 0 2px;
+        border-radius: 3px;
+        font-weight: 500;
+    }
+
+    .discord-bot-badge {
+        background-color: #5865f2;
+        color: white;
+        font-size: 0.625rem;
+        padding: 0.0625rem 0.25rem;
+        border-radius: 0.1875rem;
+        text-transform: uppercase;
+        font-weight: 600;
+        vertical-align: middle;
+        margin-left: 0.25rem;
+    }
+
+    .discord-timestamp {
+        color: #72767d;
+        font-size: 0.75rem;
+        margin-left: 0.25rem;
+    }
+</style>
+
+<GuildContextGate Result="Result">
+    <ChildContent Context="guild">
+        <EditForm Model="Input" OnValidSubmit="HandleValidSubmit">
+            <DataAnnotationsValidator />
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <!-- Configuration Form Column -->
+                <div class="space-y-6">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6">
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <label for="Input_IsEnabled" class="text-sm font-semibold text-text-primary">Enable Welcome Messages</label>
+                                <p class="text-xs text-text-secondary mt-1">Send a message when new members join the server</p>
+                            </div>
+                            <Toggle Id="Input_IsEnabled" @bind-Value="Input.IsEnabled" />
+                        </div>
+                    </div>
+
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 space-y-6 @(!Input.IsEnabled ? "opacity-60 pointer-events-none" : "")">
+                        <!-- Welcome Channel -->
+                        <FormField Label="Welcome Channel" For="Input_WelcomeChannelId" HelpText="Select the channel where welcome messages will be sent"
+                                   ValidationState="@(ChannelError is null ? ValidationState.None : ValidationState.Error)" ValidationMessage="@ChannelError">
+                            <select id="Input_WelcomeChannelId"
+                                    class="w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors appearance-none focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                                    value="@(Input.WelcomeChannelId?.ToString() ?? string.Empty)"
+                                    @onchange="@(e => Input.WelcomeChannelId = ulong.TryParse(e.Value?.ToString(), out var id) ? id : null)">
+                                <option value="">Select a channel...</option>
+                                @foreach (var channel in AvailableChannels)
+                                {
+                                    <option value="@channel.Id">@ChannelPrefix(channel.Type) @channel.Name</option>
+                                }
+                            </select>
+                        </FormField>
+
+                        <!-- Welcome Message Template -->
+                        <div>
+                            <label for="Input_WelcomeMessage" class="block text-sm font-medium text-text-primary mb-2">Welcome Message Template</label>
+
+                            <div class="flex flex-wrap gap-2 mb-2">
+                                @foreach (var token in new[] { "{user}", "{username}", "{server}", "{memberCount}" })
+                                {
+                                    <button type="button" @onclick="@(() => InsertToken(token))"
+                                            class="px-2.5 py-1 text-xs font-mono font-medium text-accent-blue bg-accent-blue/10 border border-accent-blue/30 rounded hover:bg-accent-blue/20 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue transition-all">
+                                        @token
+                                    </button>
+                                }
+                            </div>
+
+                            @* Raw <textarea>, not the shared TextArea component - insertion needs a real
+                               ElementReference to target with BrowserInterop.InsertAtSelectionAsync, which
+                               the wrapped component doesn't expose. *@
+                            <textarea @ref="_messageTextArea" id="Input_WelcomeMessage" rows="4" maxlength="2000"
+                                      class="form-textarea w-full py-2.5 px-3 text-sm text-text-primary bg-bg-primary border border-border-primary rounded-md transition-colors resize-none placeholder-text-tertiary focus:outline-none focus:border-border-focus focus:ring-2 focus:ring-border-focus/20"
+                                      placeholder="Enter your welcome message..."
+                                      @oninput="HandleMessageInput">@Input.WelcomeMessage</textarea>
+                            <p class="text-xs text-text-secondary mt-1">Use tokens to personalize your message. Click a token above to insert it.</p>
+                            <ValidationMessage For="() => Input.WelcomeMessage" class="text-error text-xs" />
+                        </div>
+
+                        <Toggle Id="Input_IncludeAvatar" Label="Include User Avatar" Description="Display the user's avatar in the welcome message" @bind-Value="Input.IncludeAvatar" />
+
+                        <Toggle Id="Input_UseEmbed" Label="Use Embed" Description="Send welcome message as a rich embed instead of plain text" @bind-Value="Input.UseEmbed" />
+
+                        @if (Input.UseEmbed)
+                        {
+                            <div>
+                                <label for="Input_EmbedColor" class="block text-sm font-medium text-text-primary mb-2">Embed Color</label>
+                                <div class="flex items-center gap-3">
+                                    <input type="color" value="@(Input.EmbedColor ?? "#5865F2")" @onchange="HandleColorPickerChanged"
+                                           class="w-12 h-10 rounded border border-border-primary cursor-pointer" />
+                                    <div class="flex-1">
+                                        <TextInput Id="Input_EmbedColor" Placeholder="#5865F2" MaxLength="7" @bind-Value="Input.EmbedColor" Class="font-mono" />
+                                    </div>
+                                </div>
+                                <p class="text-xs text-text-secondary mt-1">Choose a color for the embed border (hex format, e.g., #5865F2)</p>
+                            </div>
+                        }
+                    </div>
+
+                    <!-- Token Help Panel -->
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <button type="button" @onclick="ToggleTokenHelp"
+                                class="w-full px-6 py-4 flex items-center justify-between text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-inset"
+                                aria-expanded="@(TokensExpanded ? "true" : "false")">
+                            <div class="flex items-center gap-2">
+                                <Icon Path="@IconPaths.InformationCircle" Class="w-5 h-5 text-accent-blue" />
+                                <span class="text-sm font-semibold text-text-primary">Available Tokens</span>
+                            </div>
+                            <Icon Path="@IconPaths.ChevronDown" Class="@("w-5 h-5 text-text-tertiary transition-transform " + (TokensExpanded ? "rotate-180" : ""))" />
+                        </button>
+                        @if (TokensExpanded)
+                        {
+                            <div class="px-6 pb-4">
+                                <table class="w-full text-sm">
+                                    <thead>
+                                        <tr class="border-b border-border-secondary">
+                                            <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Token</th>
+                                            <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Description</th>
+                                            <th class="py-2 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Example</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody class="divide-y divide-border-secondary">
+                                        @foreach (var row in TokenRows(guild.Guild.Name))
+                                        {
+                                            <tr class="hover:bg-bg-hover cursor-pointer" @onclick="@(() => InsertToken(row.Token))" title="Click to insert">
+                                                <td class="py-2"><code class="px-1.5 py-0.5 text-xs font-mono bg-bg-tertiary rounded text-accent-blue">@row.Token</code></td>
+                                                <td class="py-2 text-text-secondary">@row.Description</td>
+                                                <td class="py-2 text-text-tertiary">@row.Example</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </table>
+                                <p class="text-xs text-text-tertiary mt-3">Click any row to insert the token into your message</p>
+                            </div>
+                        }
+                    </div>
+
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        @if (!RendererInfo.IsInteractive)
+                        {
+                            <span class="text-sm text-text-tertiary self-center">Connecting…</span>
+                        }
+                        <button type="submit" class="btn btn-primary inline-flex items-center justify-center gap-2" disabled="@(!RendererInfo.IsInteractive)">
+                            <Icon Path="@IconPaths.Check" Class="w-4 h-4" />
+                            Save Configuration
+                        </button>
+                        <a href="@($"/Guilds/Details/{guild.GuildIdString}")" class="btn btn-secondary inline-flex items-center justify-center gap-2">
+                            Cancel
+                        </a>
+                    </div>
+                </div>
+
+                <!-- Live Preview Column -->
+                <div class="lg:sticky lg:top-8 lg:self-start">
+                    <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+                        <div class="px-6 py-4 border-b border-border-primary">
+                            <h3 class="text-sm font-semibold text-text-primary">Live Preview</h3>
+                            <p class="text-xs text-text-secondary mt-1">See how your welcome message will appear</p>
+                        </div>
+                        <div class="p-6">
+                            <div class="discord-message">
+                                <div class="flex gap-4" style="@PreviewBorderStyle">
+                                    <div class="flex-shrink-0">
+                                        <div class="w-10 h-10 rounded-full bg-discord flex items-center justify-center">
+                                            <Icon Path="@IconPaths.User" Class="w-6 h-6 text-white" />
+                                        </div>
+                                    </div>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex items-center gap-1 mb-1">
+                                            <span class="font-medium text-white">WelcomeBot</span>
+                                            <span class="discord-bot-badge">BOT</span>
+                                            <span class="discord-timestamp">Today at <LocalTime Utc="DateTime.UtcNow" Format="time" /></span>
+                                        </div>
+                                        <div class="text-[#dcddde] text-sm leading-relaxed break-words">
+                                            @BuildPreview(guild.Guild.Name)
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="mt-4 pt-4 border-t border-border-secondary">
+                                <p class="text-xs text-text-tertiary mb-2">Sample data used for preview:</p>
+                                <ul class="text-xs text-text-tertiary space-y-1">
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{user}</code> = @@NewMember</li>
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{username}</code> = NewMember</li>
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{server}</code> = @guild.Guild.Name</li>
+                                    <li><code class="px-1 bg-bg-tertiary rounded">{memberCount}</code> = 1,234</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </EditForm>
+    </ChildContent>
+</GuildContextGate>
+
+@code {
+    private static IEnumerable<(string Token, string Description, string Example)> TokenRows(string guildName) =>
+    [
+        ("{user}", "Mentions the new member", "@NewMember"),
+        ("{username}", "Member's display name", "NewMember"),
+        ("{server}", "Server name", guildName),
+        ("{memberCount}", "Total member count", "1,234")
+    ];
+}

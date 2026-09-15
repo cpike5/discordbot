@@ -164,6 +164,18 @@ public class PageMetadataService : IPageMetadataService
             },
             new()
             {
+                Name = "Feature Requests",
+                Route = "/Guilds/FeatureRequests",
+                Description = "Review community feature request submissions",
+                Section = "Guild",
+                RequiredPolicy = "RequireAdmin",
+                IconName = "light-bulb",
+                Keywords = new[] { "feature requests", "suggestions", "ideas", "requests" },
+                RequiresGuildContext = true,
+                RouteTemplate = "/Guilds/FeatureRequests/{guildId}"
+            },
+            new()
+            {
                 Name = "Public Leaderboard",
                 Route = "/Guilds/Leaderboard",
                 Description = "Public Rat Watch leaderboard",
@@ -319,7 +331,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Audit Logs",
-                Route = "/Admin/AuditLogs",
+                Route = "/Admin/Logs?tab=audit",
                 Description = "System audit trail and activity history",
                 Section = "Admin",
                 IconName = "clipboard-document-list",
@@ -339,7 +351,7 @@ public class PageMetadataService : IPageMetadataService
             new()
             {
                 Name = "Message Logs",
-                Route = "/Admin/MessageLogs",
+                Route = "/Admin/Logs?tab=messages",
                 Description = "Discord message history",
                 Section = "Admin",
                 IconName = "chat-bubble-left-right",
@@ -439,7 +451,10 @@ public class PageMetadataService : IPageMetadataService
                 Keywords = new[] { "api", "rate limits", "discord api", "api metrics" }
             },
 
-            // SuperAdmin Pages (RequireSuperAdmin policy)
+            // Admin Pages (the four Users pages below actually require only RequireAdmin -
+            // Pages/Admin/Users/*.cshtml.cs carries [Authorize(Policy = "RequireAdmin")], not
+            // RequireSuperAdmin as this metadata previously claimed; fixed in the Blazor port,
+            // docs/plans/blazor-port-plan.md §5 Phase 4 cluster 4a)
             new()
             {
                 Name = "Users",
@@ -447,7 +462,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "User account management",
                 Section = "Admin",
                 IconName = "user-group",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "accounts", "management", "users", "admin users" }
             },
             new()
@@ -457,7 +472,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "View user profile and roles",
                 Section = "Admin",
                 IconName = "user-circle",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "user profile", "roles", "permissions" }
             },
             new()
@@ -467,7 +482,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Create new user account",
                 Section = "Admin",
                 IconName = "user-plus",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "new user", "add user", "create account" }
             },
             new()
@@ -477,7 +492,7 @@ public class PageMetadataService : IPageMetadataService
                 Description = "Edit user account and permissions",
                 Section = "Admin",
                 IconName = "pencil",
-                RequiredPolicy = "RequireSuperAdmin",
+                RequiredPolicy = "RequireAdmin",
                 Keywords = new[] { "edit user", "modify user", "user settings" }
             },
             new()
@@ -489,6 +504,36 @@ public class PageMetadataService : IPageMetadataService
                 IconName = "trash",
                 RequiredPolicy = "RequireSuperAdmin",
                 Keywords = new[] { "gdpr", "purge", "delete data", "user purge", "privacy" }
+            },
+            new()
+            {
+                Name = "Bulk Purge",
+                Route = "/Admin/BulkPurge",
+                Description = "Bulk delete historical records across every guild",
+                Section = "Admin",
+                IconName = "trash",
+                RequiredPolicy = "RequireSuperAdmin",
+                Keywords = new[] { "bulk purge", "delete", "cleanup", "retention" }
+            },
+            new()
+            {
+                Name = "Notifications",
+                Route = "/Admin/Notifications",
+                Description = "Notification history",
+                Section = "Admin",
+                IconName = "bell",
+                RequiredPolicy = "RequireViewer",
+                Keywords = new[] { "notifications", "alerts", "history" }
+            },
+            new()
+            {
+                Name = "LLM Usage",
+                Route = "/Admin/LlmUsage",
+                Description = "Token and cost usage across the assistant",
+                Section = "Admin",
+                IconName = "cpu-chip",
+                RequiredPolicy = "RequireAdmin",
+                Keywords = new[] { "llm", "usage", "cost", "tokens", "openrouter" }
             },
 
             // Account Pages (Public/Authenticated)

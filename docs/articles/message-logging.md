@@ -296,9 +296,9 @@ The admin UI provides two main pages for browsing and analyzing message logs.
 
 ### Message Logs List Page
 
-**Route:** `/Admin/MessageLogs` (requires Admin role)
+**Route:** `/Admin/Logs?tab=messages` (requires Admin role) — the standalone `/Admin/MessageLogs` list page was retired in favor of the unified Logs page's Messages tab; `/Admin/MessageLogs` now permanently redirects here.
 
-**Location:** `C:\Users\cpike\workspace\discordbot\src\DiscordBot.Bot\Pages\Admin\MessageLogs\Index.cshtml`
+**Location:** `src/DiscordBot.Bot/Pages/Admin/Logs/Index.cshtml` (Messages tab partial: `Pages/Admin/Logs/Tabs/_MessagesTab.cshtml`)
 
 The message logs list page provides powerful filtering and search capabilities for browsing logged messages.
 
@@ -345,7 +345,7 @@ The page includes an "Export CSV" button that downloads filtered messages as a C
 All filters are passed as query parameters in the URL:
 
 ```
-/Admin/MessageLogs?AuthorId=123456789&Source=ServerChannel&StartDate=2025-12-01&pageNumber=2
+/Admin/Logs?tab=messages&AuthorId=123456789&MessageSource=ServerChannel&MessageStartDate=2025-12-01&messagePageNumber=2
 ```
 
 ### Message Log Details Page

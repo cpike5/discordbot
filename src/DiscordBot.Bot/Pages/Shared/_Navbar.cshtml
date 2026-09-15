@@ -39,7 +39,7 @@
   </div>
 
   <!-- Center: Search -->
-  <form class="topbar-search hidden md:block" role="search" asp-page="/Search" method="get">
+  <form class="topbar-search hidden md:block" role="search" method="get" action="/Search">
     <div class="search-container relative w-full">
       <svg class="topbar-search-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2" aria-hidden="true">
         <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -163,19 +163,24 @@
             <p class="user-menu-name">@displayName</p>
             <p class="user-menu-email">@user?.Email</p>
           </div>
-          <a asp-page="/Account/Profile" role="menuitem" class="user-menu-item">
+          <a href="/Account/Profile" role="menuitem" class="user-menu-item">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
             </svg>
             Profile
           </a>
-          <a asp-page="/Account/Privacy" role="menuitem" class="user-menu-item">
+          <a href="/Account/Privacy" role="menuitem" class="user-menu-item">
             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
               <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
             </svg>
             Privacy &amp; Consent
           </a>
-          <form asp-page="/Account/Logout" asp-page-handler="Post" method="post" class="block">
+          @* /Account/Logout is now a minimal-API endpoint (AccountEndpointExtensions), not a
+             Razor Page - see DeletedPagesGuardTests. asp-page/asp-page-handler can no longer
+             resolve it, so this is a literal action with an explicit antiforgery token (a plain
+             <form>, not tag-helper-processed, gets no automatic one). *@
+          <form method="post" action="@AccountRoutes.Logout" class="block">
+            @Html.AntiForgeryToken()
             <button type="submit" role="menuitem" class="user-menu-item danger">
               <svg fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.75" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
@@ -189,7 +194,7 @@
     else
     {
       <!-- Login Button -->
-      <a asp-page="/Account/Login" class="btn btn-primary btn-sm ml-2">Sign In</a>
+      <a href="@AccountRoutes.Login" class="btn btn-primary btn-sm ml-2">Sign In</a>
     }
   </div>
 </header>

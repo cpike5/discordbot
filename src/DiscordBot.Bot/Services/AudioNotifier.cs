@@ -1,4 +1,6 @@
 using DiscordBot.Bot.Hubs;
+using DiscordBot.Bot.Services.Realtime;
+using DiscordBot.Bot.Services.Realtime.Events;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.SignalR;
@@ -12,6 +14,7 @@ namespace DiscordBot.Bot.Services;
 public class AudioNotifier : IAudioNotifier
 {
     private readonly IHubContext<DashboardHub> _hubContext;
+    private readonly IDashboardEventBus _eventBus;
     private readonly ILogger<AudioNotifier> _logger;
 
     /// <summary>
@@ -54,9 +57,11 @@ public class AudioNotifier : IAudioNotifier
     /// <param name="logger">The logger.</param>
     public AudioNotifier(
         IHubContext<DashboardHub> hubContext,
+        IDashboardEventBus eventBus,
         ILogger<AudioNotifier> logger)
     {
         _hubContext = hubContext;
+        _eventBus = eventBus;
         _logger = logger;
     }
 
@@ -89,6 +94,8 @@ public class AudioNotifier : IAudioNotifier
             Events.AudioConnected,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new AudioConnectedEvent { GuildId = guildId, Data = data }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -114,6 +121,8 @@ public class AudioNotifier : IAudioNotifier
             Events.AudioDisconnected,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new AudioDisconnectedEvent { GuildId = guildId, Data = data }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -150,6 +159,8 @@ public class AudioNotifier : IAudioNotifier
             Events.PlaybackStarted,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new PlaybackStartedEvent { GuildId = guildId, Data = data }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -182,6 +193,8 @@ public class AudioNotifier : IAudioNotifier
             Events.PlaybackProgress,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new PlaybackProgressEvent { GuildId = guildId, Data = data }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -210,6 +223,8 @@ public class AudioNotifier : IAudioNotifier
             Events.PlaybackFinished,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new PlaybackFinishedEvent { GuildId = guildId, Data = data }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -233,6 +248,8 @@ public class AudioNotifier : IAudioNotifier
             Events.QueueUpdated,
             queue,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new QueueUpdatedEvent { GuildId = guildId, Queue = queue }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -262,6 +279,10 @@ public class AudioNotifier : IAudioNotifier
         await _hubContext.Clients.Group(groupName).SendAsync(
             Events.VoiceChannelMemberCountUpdated,
             data,
+            cancellationToken);
+
+        await _eventBus.PublishAsync(
+            new VoiceChannelMemberCountUpdatedEvent { GuildId = guildId, Data = data },
             cancellationToken);
     }
 
@@ -293,6 +314,8 @@ public class AudioNotifier : IAudioNotifier
             Events.SoundUploaded,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new SoundUploadedEvent { GuildId = guildId, Data = data }, cancellationToken);
     }
 
     /// <inheritdoc/>
@@ -318,5 +341,7 @@ public class AudioNotifier : IAudioNotifier
             Events.SoundDeleted,
             data,
             cancellationToken);
+
+        await _eventBus.PublishAsync(new SoundDeletedEvent { GuildId = guildId, Data = data }, cancellationToken);
     }
 }

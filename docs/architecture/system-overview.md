@@ -24,7 +24,7 @@ graph TB
         DC["DiscordSocketClient<br/>(IHostedService)"]
         CMD["Command Modules<br/>(Slash, Text, Components)"]
         API["REST API Controllers"]
-        PAGES["Razor Pages<br/>(Admin UI)"]
+        PAGES["Razor Pages + Blazor<br/>(Admin UI, port in progress)"]
         HUB["SignalR Hub<br/>(Real-time)"]
         HANDLERS["Event Handlers<br/>(Message, Join, Voice)"]
     end
@@ -327,7 +327,8 @@ Handler publishes to SignalR for real-time updates
 | Component | Purpose |
 |-----------|---------|
 | `Controllers/` | REST API endpoints (ApiController pattern) |
-| `Pages/` | Razor Pages for admin UI |
+| `Pages/` | Razor Pages for admin UI (legacy; being ported cluster by cluster) |
+| `Blazor/` | Blazor Web App (Interactive Server) — the new admin UI, component library and layouts; see `docs/plans/blazor-port-plan.md` |
 | `Hubs/` | SignalR hubs for real-time dashboard |
 | `Authorization/` | Claims transformation and policy handlers |
 

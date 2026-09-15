@@ -19,7 +19,7 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### User Management
 - **Entities:** `User` (domain entity), `UserConsent`, `UserDiscordGuild`, `VerificationCode`
-- **Services:** `UserManagementService` (995 lines), `ConsentService` (567 lines), `VerificationService`, `VerificationCleanupService`, `UserPurgeService`, `UserDataExportService` (762 lines), `DiscordUserInfoService`, `UserDiscordGuildService`
+- **Services:** `UserManagementService` (995 lines), `ConsentService` (567 lines), `VerificationService`, `VerificationCleanupService`, `UserPurgeService`, `UserDataExportService` (762 lines), `DiscordUserInfoService`, `UserDiscordGuildService`, `DiscordLinkService` (`Services/Account/IDiscordLinkService` — wraps unlink/refresh/verification for `Blazor/Pages/Account/LinkDiscord.razor.cs`, `docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4c)
 - **Commands:** `PrivacyModule`, `VerifyAccountModule`, `ConsentModule`
 - **Repos:** `UserRepository`, `UserConsentRepository`
 
@@ -29,12 +29,12 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 - **Handlers:** `ActivityEventTrackingHandler`, `MemberEventHandler`
 
 ### Pages
-- **Account:** Login, ExternalLogin, Profile, Privacy, LinkDiscord, Logout, Lockout, AccessDenied
-- **Admin:** `Admin/Users/` (Index, Create, Edit, Details), `Admin/UserPurge.cshtml`
-- **Guild:** `Guilds/Members/` (Index, Moderation)
+- **Account (Blazor, all of it — Phase 4 clusters 4a/4c):** `Blazor/Pages/Account/{Profile,AccessDenied,Lockout,Login,LinkDiscord,Privacy}.razor` (Profile/AccessDenied/Lockout from cluster 4a; Login/LinkDiscord/Privacy from cluster 4c). Every legacy `Pages/Account/*.cshtml(.cs)` is deleted, including `{Login,ExternalLogin,Logout}.cshtml.cs` — the email/password flow lives in `Services/Account/IPasswordSignInService`, the Discord OAuth callback flow in `Services/Account/IExternalLoginHandler`, the LinkDiscord mutations (unlink, refresh, verification) in `Services/Account/IDiscordLinkService`, and sign-in/sign-out/the Discord challenge are three `[AllowAnonymous]` minimal-API endpoints in `Extensions/AccountEndpointExtensions.cs` (`POST /Account/Logout`, `POST /Account/PerformExternalLogin`, `GET /Account/ExternalLogin/Callback`). Route strings are `Extensions/AccountRoutes` constants. LinkDiscord/Privacy each dispatch their same-page mutations through one named `<EditForm>` per bound-model group rather than one per action (Privacy splits "Delete My Data" into its own second form, separate from consent/export, so Enter in the confirmation box can't implicitly submit a consent toggle) — see "Static-SSR account pages" in `docs/architecture/patterns.md`. A static SSR `EditForm` also needs at least one real `InputBase`-derived bound field (a hidden `InputText` marker if nothing else qualifies) and every posted field name must carry its `"{ComponentPropertyName}.{ModelPropertyName}"` prefix, or the named form mapping silently fails — neither is visible to bUnit; see `docs/lessons-learned/blazor-editform-formname-race.md`.
+- **Admin:** `Blazor/Pages/Admin/Users/` (Index, Create, Edit, Details) — ported off `Pages/Admin/Users/*.cshtml` in the Blazor port (`docs/plans/blazor-port-plan.md` §5 Phase 4 cluster 4a); `Blazor/Pages/Admin/UserPurge/Index.razor` (+ `.razor.cs`, `RequireSuperAdmin`, cluster 4d) replaces `Admin/UserPurge.cshtml` — GET-driven preview via `?DiscordUserId=`, `ConfirmModal RequiredText` is the looked-up Discord id itself (dynamic, not a fixed word)
+- **Guild:** `Blazor/Pages/Guilds/Members/{Index,Moderation}.razor` (+ `.razor.cs`) — ported off `Pages/Guilds/Members/*.cshtml` in Phase 4 cluster 4d
 
 ### Key Flows
-- **Discord OAuth:** External login → callback → account linking → token storage
+- **Discord OAuth:** `Login.razor`'s Discord button (or `LinkDiscord.razor`'s "Link Discord Account" form) → `POST /Account/PerformExternalLogin` challenge → `/signin-discord` middleware callback (unchanged) → `GET /Account/ExternalLogin/Callback` → `IExternalLoginHandler` (sign-in existing login, or link/create by Discord id / email / brand-new) → token storage
 - **Verification:** Discord ↔ web account linking via `VerificationCode`
 - **Data export:** `UserDataExportService` generates GDPR-compliant data packages
 - **User purge:** `UserPurgeService` removes all user data across ALL tables — cascading delete

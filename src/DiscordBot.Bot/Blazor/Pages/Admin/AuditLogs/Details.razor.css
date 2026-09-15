@@ -1,0 +1,19 @@
+/* Collapsed-state clamp for the Raw Change Data panel - ported from Details.cshtml's
+   @section Scripts inline <style> block (docs/plans/blazor-port-plan.md Phase 4 cluster 4a).
+   Expand/collapse itself is now component state (Details.razor.cs's ToggleRawData), so only the
+   CSS moves here; no JS class toggle needed. */
+.json-collapsed {
+    max-height: 100px;
+    overflow: hidden;
+    position: relative;
+}
+
+.json-collapsed::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 40px;
+    background: linear-gradient(transparent, var(--color-bg-secondary));
+}

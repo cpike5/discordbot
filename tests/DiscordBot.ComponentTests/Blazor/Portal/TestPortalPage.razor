@@ -1,0 +1,25 @@
+@namespace DiscordBot.ComponentTests.Blazor.Portal
+@using DiscordBot.Bot.Blazor.Portal
+@inherits PortalPageBase
+
+@* Minimal page for PortalPageBaseTests - mirrors TestGuildPage's role for GuildPageBaseTests:
+   proves the resolve-once/persist/re-resolve-on-guild-id-change bookkeeping PortalPageBase
+   implements, without needing a real routable Portal page. *@
+
+<div data-testid="is-loading">@IsLoading</div>
+<div data-testid="outcome">@(Result?.Outcome.ToString() ?? "null")</div>
+@if (PortalGuild is not null)
+{
+    <div data-testid="guild-name">@PortalGuild.GuildName</div>
+}
+<div data-testid="ready-count">@ReadyCount</div>
+
+@code {
+    public int ReadyCount { get; private set; }
+
+    protected override Task OnPortalContextReadyAsync()
+    {
+        ReadyCount++;
+        return Task.CompletedTask;
+    }
+}

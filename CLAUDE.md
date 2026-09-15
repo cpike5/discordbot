@@ -5,11 +5,12 @@ human evaluating the project; this file is for you, today, with no prior context
 
 ## What this is
 
-A Discord bot with an admin web portal, in one .NET 8 process. The bot side is
+A Discord bot with an admin web portal, in one .NET 10 process. The bot side is
 Discord.NET slash commands, voice/audio (soundboard, TTS, VOX clips), moderation,
 reminders, scheduled messages, and an LLM-backed assistant. The web side is
 ASP.NET Core Razor Pages plus REST controllers, styled with Tailwind, with
-plain per-page JavaScript modules in `wwwroot/js/` and SignalR for live updates. Storage is EF Core
+plain per-page JavaScript modules in `wwwroot/js/` and SignalR for live updates;
+it is being ported page by page to a Blazor Web App under `Blazor/` (see Gotchas). Storage is EF Core
 on SQLite by default or PostgreSQL. Auth is ASP.NET Identity plus Discord OAuth.
 Observability is Serilog and OpenTelemetry. It ships as a GHCR Docker image.
 
@@ -23,6 +24,8 @@ Solution layout (clean architecture, dependencies point inward):
 | `src/DiscordBot.Bot` | Everything hosted: Discord command modules, bot services, Razor Pages, controllers, SignalR hubs, DI registration in `Extensions/*ServiceExtensions.cs`, `Program.cs`. |
 | `src/DiscordBot.DocGen` | Small CLI that runs the feature-request document generator against the database. Rarely touched. |
 | `tests/DiscordBot.Tests` | One xUnit project mirroring `src/`. Moq, FluentAssertions. |
+| `tests/DiscordBot.ComponentTests` | bUnit tests for the `Blazor/` tree, one class per component. |
+| `tests/DiscordBot.E2E` | Playwright browser tests against the real host in web-only mode; skipped unless `E2E_ENABLED=1`. |
 | `tests/DiscordBot.Evals` | Assistant evals: a dozen cases through the real agent loop against a real model. Every test skips itself when `OpenRouter:ApiKey` is absent, so a normal `dotnet test` runs them as skips and costs nothing. |
 
 A new service goes: interface in Core, implementation in Bot or Infrastructure,
@@ -72,10 +75,13 @@ Feature-level docs are in `docs/articles/` (indexed in `docs/index.md` and
 
 ```bash
 dotnet build DiscordBot.sln                 # ~1.5 min cold, seconds warm
-dotnet test DiscordBot.sln                  # ~4,800 tests, ~1 min
+dotnet test DiscordBot.sln                  # ~5,200 unit + ~900 bUnit tests, ~1.5 min
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 dotnet test tests/DiscordBot.Evals   # skips entirely without OpenRouter:ApiKey
 ```
+
+`tests/DiscordBot.ComponentTests` (bUnit, wired into `DiscordBot.sln`) covers the `Blazor/` tree
+component-by-component — see "Component (bUnit) Tests" in `docs/articles/testing-guide.md`.
 
 CI (`.github/workflows/ci.yml`) runs restore, build in Release, and the full test
 suite on every PR to `main`. Both must be green before you push.
@@ -94,6 +100,12 @@ them. An in-memory database also lives inside one connection, so writers cannot
 actually contend: a test about concurrent writes needs
 `TestDbContextFactory.CreateSharedDatabase()`, which is file-backed.
 
+**Browser (Playwright) tests.** `tests/DiscordBot.E2E` drives the real app with headless
+Chromium and is gated behind `E2E_ENABLED=1` (unset, every test reports Skipped, so the commands
+above stay green); Chromium is pre-installed in this repo's remote sessions at
+`PLAYWRIGHT_BROWSERS_PATH=/opt/pw-browsers`. See `docs/articles/testing-guide.md` "Browser
+(Playwright) tests".
+
 **Background-service tests fail in a full run but pass alone** when something
 starves them. Two rules keep them green: never block a thread-pool thread on
 other pool threads (a `Barrier` inside `Parallel.For`, a `Thread.Sleep` loop in
@@ -106,8 +118,14 @@ has the details.
 
 ## Running it locally
 
-The process exits at startup if `Discord:Token` is not configured, so the web UI
-cannot be exercised without a bot token. Put secrets in User Secrets (ID
+The process exits at startup if `Discord:Token` is not configured. Set
+`Discord:Enabled` to `false` (e.g. `Discord__Enabled=false`) to run the web UI
+web-only, without a bot token or gateway connection — the bot logs a line and
+returns without logging in, slash commands aren't registered, and Discord OAuth
+login is hidden if `Discord:OAuth:ClientId`/`ClientSecret` aren't set too. Used
+for browser/UI (Playwright) testing and for running the admin portal without a
+bot; see `docs/articles/configuration-guide.md` ("Discord:Enabled (web-only
+mode)"). Put secrets in User Secrets (ID
 `7b84433c-c2a8-46db-a8bf-58786ea4f28e`), never in `appsettings*.json`:
 `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`,
 `OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`.
@@ -136,6 +154,18 @@ dotnet ef migrations add Name --project src/DiscordBot.Infrastructure --startup-
 dotnet run --project src/DiscordBot.Bot -- migrate-data --source "Data Source=data/discordbot.db" --target "Host=localhost;Database=discordbot;Username=discordbot;Password=changeme"
 ```
 
+`Migrations/Sqlite` holds two lineages: 40 superseded migrations attributed to the
+base `BotDbContext` (ending at `20260127225612_AddSsmlSupportToGuildTtsSettings`)
+and the live one attributed to `SqliteBotDbContext` (from the
+`20260219205009_AddIsEnabledToGuildModerationConfig` re-baseline onward) — EF matches
+a migration to a context by exact runtime type, so a SQLite migration scaffolded
+with anything but `--context SqliteBotDbContext` is invisible to the running app
+and applies silently to nothing. A database created before that split was fixed has
+only the 40 legacy ids in `__EFMigrationsHistory`, so `SqliteLegacyHistoryRepair`
+(called from `Program.cs` immediately before `MigrateAsync`, SQLite only) brings it
+to the re-baseline first; see
+`docs/lessons-learned/sqlite-migration-context-mismatch.md`.
+
 A schema change ships with **both** migrations, and with `data-model.md` updated
 if it adds or changes an entity. `Database:Provider` (`Sqlite` or `PostgreSql`)
 selects the provider explicitly; omitted, it is inferred from the connection
@@ -143,7 +173,20 @@ string (`Host=` or `Server=` means Postgres).
 
 Do not remove `AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true)`
 from startup. Without it, `DateTime` writes to `timestamp with time zone`
-columns throw.
+columns throw. For the same reason, `PostgresBotDbContext` overrides
+`ConfigureConventions` to pin every `DateTime`/`DateTime?` column to
+`timestamp without time zone` — Npgsql 10 otherwise defaults new columns to
+`timestamp with time zone`, which would drift from the existing schema.
+
+EF Core 10 makes `Migrate()`/`MigrateAsync()` throw `PendingModelChangesWarning`
+by default when the model doesn't match the last migration's snapshot, and
+`Program.cs` calls `MigrateAsync` at startup — so an unnoticed drift is a boot
+crash, not a silent mismatch. After any package upgrade that touches EF Core
+or a provider (Npgsql, Sqlite), run `dotnet ef migrations has-pending-model-changes`
+for **both** `SqliteBotDbContext` and `PostgresBotDbContext` before assuming
+the upgrade is done — provider convention changes (e.g. a default column-type
+mapping) can add pending changes to one provider's snapshot without affecting
+the other.
 
 ## Conventions
 
@@ -188,10 +231,20 @@ columns throw.
 - **Discord.NET is the official NuGet package** (`Discord.Net` 3.20.x). An older
   branch carried a local fork for a voice fix; if you see references to
   `local-packages/` or `3.19.0-fork`, they are stale.
-- **The UI is Razor Pages.** There is no Blazor in the project. Reusable UI is
-  partials under `Pages/Shared/Components/` with view models in
-  `ViewModels/Components/`; new pages are `.cshtml` plus `.cshtml.cs`, guild
-  pages inherit `GuildPageModelBase`.
+- **The UI is being ported from Razor Pages to Blazor.** Both coexist under
+  `src/DiscordBot.Bot/` until the port finishes: `Pages/` (Razor Pages, legacy,
+  being ported one cluster at a time) and `Blazor/` (new UI, Blazor Web App,
+  Interactive Server only, per-page interactivity). **New UI work goes in
+  `Blazor/`, not `Pages/`.** Legacy Razor Pages reusable UI is partials under
+  `Pages/Shared/Components/` with view models in `ViewModels/Components/`,
+  `.cshtml` plus `.cshtml.cs`, guild pages inheriting `GuildPageModelBase`. The
+  Blazor equivalent exists now: the component library (Phase 2) under `Blazor/Shared/`, and the
+  shell layouts plus `GuildContext` (Phase 3) under `Blazor/Layout/`, `Blazor/Guilds/`,
+  `Blazor/Portal/` — Phase 4 is now porting pages cluster by cluster
+  (`docs/plans/blazor-port-plan.md`). When a Phase 4 cluster deletes a `.cshtml`, sweep
+  `asp-page`/`RedirectToPage`/`Url.Page` references to it and extend `DeletedPageRoutes` in
+  `DeletedPagesGuardTests`. See "Blazor components" in `docs/architecture/patterns.md` for
+  hosting, auth-in-circuits and the `HttpContext`-is-prerender-only rule.
 - **Component interactions** (buttons, selects) are handled in separate
   `*ComponentModule` classes, with custom IDs built by `ComponentIdBuilder` and
   state kept in `IInteractionStateService` (expiry from `Caching:InteractionStateExpiryMinutes`). Putting handlers
