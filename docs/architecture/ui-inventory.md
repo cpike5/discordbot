@@ -125,6 +125,8 @@ All layouts are located in `Pages/Shared/`.
 | **Landing Layout** | `_LayoutLanding.cshtml` | Unauthenticated layout for public pages | Landing, Login pages |
 | **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context | Guild pages under `/guild/{guildId}/*` |
 
+`_PwaHead.cshtml` is a head partial (manifest link, install icons, service worker registration) included by `_Layout`, `Portal/_PortalLayout`, `_LayoutLanding`, and `Account/Login`. See [Progressive Web App](../articles/pwa.md).
+
 ### Layout Components
 
 | Component | File | Purpose |

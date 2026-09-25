@@ -132,7 +132,7 @@ public class ModTagsController : ControllerBase
     /// <param name="tagName">The tag name to delete.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>No content on success.</returns>
-    [HttpDelete("{tagName}")]
+    [HttpDelete]
     [Route("api/guilds/{guildId}/tags/{tagName}")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status404NotFound)]
@@ -278,7 +278,7 @@ public class ModTagsController : ControllerBase
     /// <param name="templateNames">Array of template names to import.</param>
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The number of tags imported.</returns>
-    [HttpPost("import-templates")]
+    [HttpPost]
     [Route("api/guilds/{guildId}/tags/import-templates")]
     [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
     [ProducesResponseType(typeof(ApiErrorDto), StatusCodes.Status400BadRequest)]

@@ -14,6 +14,7 @@ This section contains conceptual documentation and developer guides for the Disc
 - [Database Schema](database-schema.md) - Entity definitions and relationships
 - [Repository Pattern](repository-pattern.md) - Data access implementation
 - [Design System](design-system.md) - UI design tokens and components
+- [Progressive Web App](pwa.md) - Installable portal, service worker caching policy, offline page
 - [Razor Components](razor-components.md) - Reusable Razor components specification
 - [Identity Configuration](identity-configuration.md) - ASP.NET Identity setup and Discord OAuth integration
 
