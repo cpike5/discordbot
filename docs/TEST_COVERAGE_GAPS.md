@@ -164,7 +164,7 @@
 
 **Why it matters:** Data integrity. Incorrect queries cause silent data loss or corruption.
 
-**Pattern:** All repositories use `BotDbContext` with `TestDbContextFactory` (in-memory SQLite). Existing repository tests are the template.
+**Pattern:** All repositories use `BotDbContext` with `TestDbContextFactory` (a throwaway PostgreSQL database per test). Existing repository tests are the template.
 
 ### Recommended minimum cases
 

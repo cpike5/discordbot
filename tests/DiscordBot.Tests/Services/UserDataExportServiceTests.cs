@@ -9,7 +9,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -27,7 +26,7 @@ namespace DiscordBot.Tests.Services;
 public class UserDataExportServiceTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly UserDataExportService _service;
     private readonly Mock<IAuditLogService> _auditLogServiceMock;
     private readonly Mock<IAuditLogBuilder> _auditLogBuilderMock;
@@ -36,7 +35,7 @@ public class UserDataExportServiceTests : IDisposable
 
     public UserDataExportServiceTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         _auditLogServiceMock = new Mock<IAuditLogService>();
         _auditLogBuilderMock = new Mock<IAuditLogBuilder>();
@@ -67,7 +66,7 @@ public class UserDataExportServiceTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
 
         if (Directory.Exists(_webRootPath))
         {

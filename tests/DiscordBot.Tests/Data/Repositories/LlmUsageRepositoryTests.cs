@@ -5,7 +5,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -21,7 +20,7 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class LlmUsageRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly LlmUsageRepository _repository;
 
     private const ulong UserA = 1001UL;
@@ -31,7 +30,7 @@ public class LlmUsageRepositoryTests : IDisposable
 
     public LlmUsageRepositoryTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _repository = new LlmUsageRepository(
             _context,
             Mock.Of<ILogger<LlmUsageRepository>>(),
@@ -41,7 +40,7 @@ public class LlmUsageRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     private static LlmUsageRecord CreateRecord(

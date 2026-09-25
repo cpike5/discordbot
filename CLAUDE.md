@@ -72,7 +72,7 @@ Feature-level docs are in `docs/articles/` (indexed in `docs/index.md` and
 
 ```bash
 dotnet build DiscordBot.sln                 # ~1.5 min cold, seconds warm
-dotnet test DiscordBot.sln                  # ~4,800 tests, ~1 min
+dotnet test DiscordBot.sln                  # ~4,800 tests, ~1.5 min, needs PostgreSQL (below)
 dotnet test --filter "FullyQualifiedName~ClassName.MethodName"
 dotnet test tests/DiscordBot.Evals   # skips entirely without OpenRouter:ApiKey
 ```
@@ -86,13 +86,17 @@ skip that step when you are not touching CSS; the checked-in CSS is used as-is.
 The web SessionStart hook installs Node when it can and sets `SkipTailwind` when
 it cannot, so a plain `dotnet build` works either way.
 
-**Test database.** Tests use SQLite in-memory via
-`tests/DiscordBot.Tests/TestHelpers/TestDbContextFactory.cs`. There is no
-PostgreSQL test path, so a green test run says nothing about the Postgres
-provider or its migrations. Say so when you report on a change that touches
-them. An in-memory database also lives inside one connection, so writers cannot
-actually contend: a test about concurrent writes needs
-`TestDbContextFactory.CreateSharedDatabase()`, which is file-backed.
+**Test database.** Tests run on real PostgreSQL. Each
+`TestDbContextFactory.CreateContext()` (`tests/DiscordBot.Tests/TestHelpers/`) gets its
+own database, cloned from a template that the run builds once by applying the
+PostgreSQL migrations, so a Postgres migration that does not match the model fails
+the suite. The server is `DISCORDBOT_TEST_POSTGRES` (a Npgsql connection string),
+defaulting to `postgres`/`postgres` on `localhost:5432`; CI runs a `postgres:16`
+service and the web SessionStart hook starts the local cluster. Anywhere else:
+`docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16`. Postgres
+enforces foreign keys, so seed the rows a test's data points at. Nothing exercises
+the SQLite provider or its migrations, so say so when you report on a change that
+touches them.
 
 **Background-service tests fail in a full run but pass alone** when something
 starves them. Two rules keep them green: never block a thread-pool thread on
@@ -106,8 +110,10 @@ has the details.
 
 ## Running it locally
 
-The process exits at startup if `Discord:Token` is not configured, so the web UI
-cannot be exercised without a bot token. Put secrets in User Secrets (ID
+The process exits at startup if `Discord:Token` is not configured, unless
+`Discord:OfflineMode=true`: then it never logs in to Discord, OAuth credentials are
+optional, and you sign in with the seeded `Identity:DefaultAdmin` account. That is the
+way to exercise the web UI without a bot token. Put secrets in User Secrets (ID
 `7b84433c-c2a8-46db-a8bf-58786ea4f28e`), never in `appsettings*.json`:
 `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`,
 `OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`.
@@ -122,6 +128,10 @@ to an hour to appear in Discord. Voice features need FFmpeg, libsodium, and
 libopus on the host (`docs/articles/audio-dependencies.md`).
 
 ## Database and migrations
+
+**PostgreSQL is the preferred provider; SQLite is being phased out.** Build and
+verify new work against Postgres, and do not add SQLite-only features. Until SQLite
+is removed, a schema change still ships both migrations.
 
 Two providers, two migration sets, two design-time contexts. The EF CLI cannot
 pick a context on its own, so `--context` is mandatory:

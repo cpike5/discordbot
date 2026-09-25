@@ -485,21 +485,13 @@ public class GuildServiceTests
 public class GuildRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly GuildRepository _repository;
 
     public GuildRepositoryTests()
     {
-        // Create in-memory SQLite database
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _context = new BotDbContext(options);
-        _context.Database.EnsureCreated();
+        // A fresh, migrated PostgreSQL database for this test
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         var mockLogger = new Mock<ILogger<GuildRepository>>();
         _repository = new GuildRepository(_context, mockLogger.Object);
@@ -539,7 +531,7 @@ public class GuildRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 }
 ```

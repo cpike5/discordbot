@@ -5,8 +5,8 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -26,7 +26,7 @@ public class GuildServiceTests : IDisposable
     private readonly Mock<ILogger<GuildService>> _mockLogger;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
     private readonly BotDbContext _dbContext;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
 
     public GuildServiceTests()
     {
@@ -34,16 +34,7 @@ public class GuildServiceTests : IDisposable
         _mockLogger = new Mock<ILogger<GuildService>>();
         _mockAuditLogService = new Mock<IAuditLogService>();
 
-        // Setup SQLite in-memory database
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _dbContext = new BotDbContext(options);
-        _dbContext.Database.EnsureCreated();
+        (_dbContext, _database) = TestDbContextFactory.CreateContext();
 
         // Setup audit log service to return a builder that returns itself for fluent API
         var mockBuilder = new Mock<IAuditLogBuilder>();
@@ -66,7 +57,7 @@ public class GuildServiceTests : IDisposable
     public void Dispose()
     {
         _dbContext.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     /// <summary>

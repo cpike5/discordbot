@@ -5,10 +5,10 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -28,20 +28,11 @@ public class UserManagementServiceTests : IDisposable
     private readonly Mock<IHttpContextAccessor> _mockHttpContextAccessor;
     private readonly BotDbContext _dbContext;
     private readonly UserManagementService _service;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
 
     public UserManagementServiceTests()
     {
-        // Setup SQLite in-memory database
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _dbContext = new BotDbContext(options);
-        _dbContext.Database.EnsureCreated();
+        (_dbContext, _database) = TestDbContextFactory.CreateContext();
 
         // Setup UserManager mock
         var userStore = new Mock<IUserStore<ApplicationUser>>();
@@ -1283,6 +1274,6 @@ public class UserManagementServiceTests : IDisposable
     public void Dispose()
     {
         _dbContext?.Dispose();
-        _connection?.Dispose();
+        _database?.Dispose();
     }
 }

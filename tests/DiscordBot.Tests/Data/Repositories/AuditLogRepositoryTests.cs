@@ -5,7 +5,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -17,14 +16,14 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class AuditLogRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly AuditLogRepository _repository;
     private readonly Mock<ILogger<AuditLogRepository>> _mockLogger;
     private readonly Mock<ILogger<Repository<AuditLog>>> _mockBaseLogger;
 
     public AuditLogRepositoryTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<AuditLogRepository>>();
         _mockBaseLogger = new Mock<ILogger<Repository<AuditLog>>>();
         _repository = new AuditLogRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
@@ -33,7 +32,7 @@ public class AuditLogRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     #region Helper Methods

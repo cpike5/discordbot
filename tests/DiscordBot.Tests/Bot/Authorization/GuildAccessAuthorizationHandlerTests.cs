@@ -3,11 +3,11 @@ using DiscordBot.Bot.Authorization;
 using DiscordBot.Core.Authorization;
 using DiscordBot.Core.Entities;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -26,20 +26,12 @@ public class GuildAccessAuthorizationHandlerTests : IDisposable
     private readonly ServiceProvider _serviceProvider;
     private readonly BotDbContext _dbContext;
     private readonly GuildAccessAuthorizationHandler _handler;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
 
     public GuildAccessAuthorizationHandlerTests()
     {
         // Setup SQLite in-memory database (keeps connection open)
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _dbContext = new BotDbContext(options);
-        _dbContext.Database.EnsureCreated();
+        (_dbContext, _database) = TestDbContextFactory.CreateContext();
 
         // Setup service provider with scoped DbContext
         var services = new ServiceCollection();
@@ -945,6 +937,6 @@ public class GuildAccessAuthorizationHandlerTests : IDisposable
     {
         _dbContext?.Dispose();
         _serviceProvider?.Dispose();
-        _connection?.Dispose();
+        _database?.Dispose();
     }
 }

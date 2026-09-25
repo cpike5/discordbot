@@ -10,7 +10,7 @@ using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Infrastructure.Services.LLM.Providers;
 using DiscordBot.Infrastructure.Services.LLM.Tools;
-using Microsoft.Data.Sqlite;
+using DiscordBot.Tests.TestHelpers;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -42,7 +42,7 @@ public sealed class EvalHarness : IDisposable
     /// <summary>The user every eval runs as.</summary>
     public const ulong UserId = 4242;
 
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly BotDbContext _context;
     private readonly HttpClient _http;
     private readonly IAgentRunner _runner;
@@ -52,12 +52,8 @@ public sealed class EvalHarness : IDisposable
     /// <summary>Creates the harness.</summary>
     public EvalHarness()
     {
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        _context = new BotDbContext(
-            new DbContextOptionsBuilder<BotDbContext>().UseSqlite(_connection).Options);
-        _context.Database.EnsureCreated();
+        _database = PostgresTestServer.CreateDatabase();
+        _context = _database.CreateContext();
 
         Notes = new DmAssistantNoteRepository(
             _context,
@@ -156,7 +152,7 @@ public sealed class EvalHarness : IDisposable
     {
         _http.Dispose();
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
         _cache.Dispose();
     }
 

@@ -2,7 +2,6 @@ using DiscordBot.Bot.Health;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -19,13 +18,13 @@ namespace DiscordBot.Tests.Health;
 public class DatabaseHealthCheckTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly DatabaseHealthCheck _healthCheck;
     private readonly Mock<IServiceScopeFactory> _scopeFactoryMock;
 
     public DatabaseHealthCheckTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         // Wire up a scope factory that resolves the real in-memory BotDbContext
         var serviceProviderMock = new Mock<IServiceProvider>();
@@ -51,7 +50,7 @@ public class DatabaseHealthCheckTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     [Fact]

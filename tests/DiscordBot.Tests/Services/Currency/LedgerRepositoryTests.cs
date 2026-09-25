@@ -154,8 +154,8 @@ public class LedgerRepositoryTests
 
     /// <summary>
     /// The invariant the cached balance exists for: whatever order concurrent appends land in, the
-    /// cache must equal the sum of the rows. Each thread gets its own context on a shared,
-    /// file-backed database, because the <c>:memory:</c> one lives inside a single connection.
+    /// cache must equal the sum of the rows. Each thread gets its own context, and so its own
+    /// connection, on one database, so the writers genuinely contend.
     /// </summary>
     [Fact]
     public void AppendAsync_ConcurrentAppendsOnOneWallet_LeaveTheCacheEqualToTheSumOfRows()
@@ -163,7 +163,7 @@ public class LedgerRepositoryTests
         const int threadCount = 8;
         const int amountPerThread = 10;
 
-        using var database = TestDbContextFactory.CreateSharedDatabase();
+        using var database = TestDbContextFactory.CreateDatabase();
 
         Guid currencyId;
         Guid walletId;

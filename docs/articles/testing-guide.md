@@ -68,8 +68,7 @@ The project uses the following testing stack:
 | **xUnit** | 2.5.3 | Test framework - supports `[Fact]` and `[Theory]` attributes |
 | **FluentAssertions** | 8.8.0 | Assertion library - provides readable, expressive assertions |
 | **Moq** | 4.20.72 | Mocking framework - creates test doubles for dependencies |
-| **Microsoft.EntityFrameworkCore.Sqlite** | 8.0.0 | In-memory database for integration tests |
-| **Microsoft.EntityFrameworkCore.InMemory** | 8.0.11 | Alternative in-memory database provider |
+| **Npgsql.EntityFrameworkCore.PostgreSQL** | 8.x | PostgreSQL provider for database tests (via the Infrastructure project) |
 | **Microsoft.Extensions.Diagnostics.Testing** | 8.0.0 | Testing utilities for diagnostics and metrics |
 | **coverlet.collector** | 6.0.0 | Code coverage collection |
 
@@ -158,8 +157,8 @@ Integration tests validate interactions between components, typically involving 
 
 **Characteristics:**
 - Slower execution than unit tests (but still fast)
-- Uses in-memory SQLite database (via `Microsoft.EntityFrameworkCore.Sqlite`)
-- Tests database queries, migrations, and data persistence
+- Uses a throwaway PostgreSQL database per test (via `TestDbContextFactory`)
+- Tests database queries, the PostgreSQL migrations, and data persistence
 - Validates repository implementations
 
 **Coverage:**
@@ -168,7 +167,7 @@ Integration tests validate interactions between components, typically involving 
 - Database constraints and relationships
 - Data access patterns
 
-**Database Provider Note:** Tests use SQLite (in-memory or file-based) and do not require PostgreSQL to be installed or running. The project uses the same EF Core entity model for both SQLite and PostgreSQL, so SQLite-based tests validate core business logic and query behavior. Provider-specific behavior (such as PostgreSQL sequence handling or timestamp precision) should be verified in a dedicated PostgreSQL environment when making schema changes.
+**Database Provider Note:** Tests run against PostgreSQL, the production provider. They need a server: `DISCORDBOT_TEST_POSTGRES` (a Npgsql connection string for a role that can create databases), defaulting to `Host=localhost;Port=5432;Username=postgres;Password=postgres`. CI provides it as a `postgres:16` service container; locally, `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16` is enough. The first database test in a run builds a template database by applying the PostgreSQL migrations, and every test database is cloned from it, so a missing or broken PostgreSQL migration fails the suite. The SQLite provider and its migrations are not exercised by the tests.
 
 ### System Tests
 
@@ -381,7 +380,7 @@ _mockLogger.Verify(
 
 ### Using TestDbContextFactory
 
-The project provides a `TestDbContextFactory` helper for creating in-memory SQLite databases:
+`TestDbContextFactory.CreateContext()` creates a fresh, migrated, empty PostgreSQL database and a context on it. Dispose the `TestDatabase` to drop it:
 
 ```csharp
 using DiscordBot.Tests.TestHelpers;
@@ -389,13 +388,13 @@ using DiscordBot.Tests.TestHelpers;
 public class UserRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly UserRepository _repository;
 
     public UserRepositoryTests()
     {
-        // Create in-memory database
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        // Setup runs before each test: every test gets its own database
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         // Create repository with real DbContext
         _repository = new UserRepository(_context, mockLogger.Object, mockBaseLogger.Object);
@@ -403,9 +402,9 @@ public class UserRepositoryTests : IDisposable
 
     public void Dispose()
     {
-        // Clean up resources
+        // Cleanup runs after each test; disposing the database drops it
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     [Fact]
@@ -434,32 +433,11 @@ public class UserRepositoryTests : IDisposable
 }
 ```
 
-### Test Lifecycle Management
+### Things PostgreSQL Holds You To
 
-Integration tests that use database resources implement `IDisposable`:
-
-```csharp
-public class CommandLogRepositoryTests : IDisposable
-{
-    private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
-
-    public CommandLogRepositoryTests()
-    {
-        // Setup runs before each test
-        (_context, _connection) = TestDbContextFactory.CreateContext();
-    }
-
-    public void Dispose()
-    {
-        // Cleanup runs after each test
-        _context.Dispose();
-        _connection.Dispose();
-    }
-}
-```
-
----
+- **Foreign keys are enforced.** Seed the rows your test data points at (the `ApplicationUser` behind a token, the guild behind a setting) before saving.
+- **The migrations' seed data is present.** Themes 1 (`discord-dark`) and 2 (`purple-dusk`) already exist; reference them rather than inserting them again.
+- **Concurrent writers really contend.** A test about concurrency uses `TestDbContextFactory.CreateDatabase()` and opens one context per thread with `database.CreateContext()`; each has its own connection.
 
 ## Testing Patterns
 

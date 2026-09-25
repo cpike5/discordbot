@@ -9,7 +9,6 @@ using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services.LLM;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging.Abstractions;
 using Moq;
 using DiscordBot.Core.DTOs.Llm.Reporting;
@@ -24,7 +23,7 @@ namespace DiscordBot.Tests.Infrastructure.LLM;
 public class LlmModelCatalogServiceTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly LlmModelRepository _repository;
     private readonly Mock<IOpenRouterModelCatalogClient> _mockCatalogClient;
     private readonly Mock<IAuditLogService> _mockAuditLogService;
@@ -39,7 +38,7 @@ public class LlmModelCatalogServiceTests : IDisposable
 
     public LlmModelCatalogServiceTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _repository = new LlmModelRepository(
             _context, NullLogger<LlmModelRepository>.Instance, NullLogger<Repository<LlmModel>>.Instance);
 
@@ -77,7 +76,7 @@ public class LlmModelCatalogServiceTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     private static LlmCatalogModel Catalog(

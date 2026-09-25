@@ -83,8 +83,8 @@ All Options classes are consumed via `IOptions<T>` (not `IOptionsMonitor<T>` or 
 
 Three security-critical classes use `ValidateDataAnnotations().ValidateOnStart()` — the app will fail to start if required values are missing:
 
-- `BotConfiguration` (`Discord:Token` is `[Required]`)
-- `DiscordOAuthOptions` (`Discord:OAuth:ClientId` and `ClientSecret` are `[Required]`)
+- `BotConfiguration` (`Discord:Token` is required unless `Discord:OfflineMode` is `true`)
+- `DiscordOAuthOptions` (`Discord:OAuth:ClientId` and `ClientSecret` are `[Required]`; in offline mode a missing pair turns Discord sign-in off instead)
 - `IdentityConfigOptions`
 
 All other Options classes rely on in-class defaults and do not validate at startup.
@@ -112,6 +112,18 @@ All other Options classes rely on in-class defaults and do not validate at start
 | `AzureSpeech:SubscriptionKey` | Azure Speech Services key for TTS | TTS feature disabled |
 | `Elastic:ApiKey` | Elasticsearch ingestion API key | No Elasticsearch log shipping |
 | `ElasticApm:ServerUrl` | Elastic APM server URL | APM disabled |
+
+#### Offline Mode (running without a bot token)
+
+Set `Discord:OfflineMode` to `true` to run the web portal for local testing without any Discord credentials. The process starts, never logs in to the gateway, and every Discord-backed view sees an empty, disconnected client (the `discord` health check reports `Degraded`). `Discord:Token` becomes optional, and if the OAuth client ID or secret is missing the Discord sign-in scheme is not registered, so sign in with the seeded `Identity:DefaultAdmin` account instead. Restarting the bot from the UI or API is refused. Never enable it in production.
+
+```bash
+cd src/DiscordBot.Bot
+Discord__OfflineMode=true \
+Identity__DefaultAdmin__Email=admin@example.com \
+Identity__DefaultAdmin__Password='Change-me-123!' \
+dotnet run
+```
 
 #### Setting Secrets
 
@@ -147,7 +159,7 @@ Every Options class lives in `DiscordBot.Core.Configuration` (except where noted
 
 | Options Class | Section Key | Registered In | Key Properties |
 |--------------|-------------|---------------|----------------|
-| `BotConfiguration`* | `Discord` | `DiscordServiceExtensions` | `Token` [Required], `TestGuildId`, rate limit defaults, `AdditionalOwnerIds` |
+| `BotConfiguration`* | `Discord` | `DiscordServiceExtensions` | `Token` (required unless `OfflineMode`), `OfflineMode`, `TestGuildId`, rate limit defaults, `AdditionalOwnerIds` |
 | `DiscordOAuthOptions`* | `Discord:OAuth` | `IdentityServiceExtensions` | `ClientId` [Required], `ClientSecret` [Required], `Scopes` |
 | `IdentityConfigOptions`* | `Identity` | `IdentityServiceExtensions` | Password rules, lockout settings, cookie settings, `DefaultAdmin` sub-object |
 

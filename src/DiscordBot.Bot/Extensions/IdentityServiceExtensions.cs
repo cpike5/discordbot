@@ -118,6 +118,19 @@ public static class IdentityServiceExtensions
     /// </summary>
     private static IServiceCollection AddDiscordOAuth(this IServiceCollection services, IConfiguration configuration)
     {
+        // In Discord:OfflineMode the OAuth credentials are optional. Without them the Discord
+        // scheme is not registered and the login page offers password sign-in only.
+        var oauthSection = configuration.GetSection(DiscordOAuthOptions.SectionName);
+        var offlineMode = configuration.GetValue<bool>($"{BotConfiguration.SectionName}:{nameof(BotConfiguration.OfflineMode)}");
+        if (offlineMode
+            && (string.IsNullOrWhiteSpace(oauthSection[nameof(DiscordOAuthOptions.ClientId)])
+                || string.IsNullOrWhiteSpace(oauthSection[nameof(DiscordOAuthOptions.ClientSecret)])))
+        {
+            services.AddOptions<DiscordOAuthOptions>().Bind(oauthSection);
+            services.AddSingleton(new DiscordOAuthSettings { IsConfigured = false });
+            return services;
+        }
+
         // Register DiscordOAuthOptions with validation
         services.AddOptions<DiscordOAuthOptions>()
             .Bind(configuration.GetSection(DiscordOAuthOptions.SectionName))

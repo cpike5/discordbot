@@ -3,7 +3,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -19,7 +18,7 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class AssistantInteractionLogRepositoryBatchDeleteTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly AssistantInteractionLogRepository _repository;
 
     private const ulong UserId = 9001UL;
@@ -27,7 +26,7 @@ public class AssistantInteractionLogRepositoryBatchDeleteTests : IDisposable
 
     public AssistantInteractionLogRepositoryBatchDeleteTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _repository = new AssistantInteractionLogRepository(
             _context,
             Mock.Of<ILogger<AssistantInteractionLogRepository>>(),
@@ -41,7 +40,7 @@ public class AssistantInteractionLogRepositoryBatchDeleteTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     private static AssistantInteractionLog CreateLog(DateTime timestamp, ulong messageId) => new()
