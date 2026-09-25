@@ -1,22 +1,47 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
   <defs>
-    <linearGradient id="shield" x1="0.5" y1="0" x2="0.5" y2="1">
-      <stop offset="0%" stop-color="#6D78E8"/>
-      <stop offset="100%" stop-color="#4048B5"/>
+    <linearGradient id="shell" x1="0.5" y1="0" x2="0.5" y2="1">
+      <stop offset="0%" stop-color="#8a8d93"/>
+      <stop offset="100%" stop-color="#5f6268"/>
     </linearGradient>
+    <radialGradient id="eye">
+      <stop offset="0%" stop-color="#ff6a55"/>
+      <stop offset="45%" stop-color="#e3262b"/>
+      <stop offset="100%" stop-color="#7a0f14"/>
+    </radialGradient>
+    <radialGradient id="glow">
+      <stop offset="0%" stop-color="#ff2a2a" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#ff2a2a" stop-opacity="0"/>
+    </radialGradient>
   </defs>
-  <!-- Shield -->
-  <path d="M32 4 L54 14 Q56 15 56 17 V34 Q56 48 32 60 Q8 48 8 34 V17 Q8 15 10 14 Z" fill="url(#shield)"/>
-  <!-- Connections -->
-  <line x1="32" y1="18" x2="18" y2="32" stroke="#fff" stroke-width="1.5" opacity="0.3"/>
-  <line x1="32" y1="18" x2="46" y2="32" stroke="#fff" stroke-width="1.5" opacity="0.3"/>
-  <line x1="18" y1="32" x2="32" y2="46" stroke="#fff" stroke-width="1.5" opacity="0.3"/>
-  <line x1="46" y1="32" x2="32" y2="46" stroke="#fff" stroke-width="1.5" opacity="0.3"/>
-  <line x1="18" y1="32" x2="46" y2="32" stroke="#fff" stroke-width="1.5" opacity="0.2"/>
-  <line x1="32" y1="18" x2="32" y2="46" stroke="#fff" stroke-width="1.5" opacity="0.2"/>
-  <!-- Nodes -->
-  <circle cx="32" cy="18" r="4.5" fill="#fff"/>
-  <circle cx="18" cy="32" r="3.5" fill="#fff" opacity="0.85"/>
-  <circle cx="46" cy="32" r="3.5" fill="#fff" opacity="0.85"/>
-  <circle cx="32" cy="46" r="4" fill="#fff" opacity="0.9"/>
+  <g stroke="#1b1e26" stroke-width="1.6" stroke-linejoin="round">
+    <!-- Antenna -->
+    <path d="M40.5 17.5 L46.5 11.5 L48.5 13 L46 17.5 Z" fill="#6f7278"/>
+    <circle cx="47.6" cy="10.4" r="2.6" fill="#c9ccb0"/>
+    <!-- Ears -->
+    <rect x="4.2" y="27.5" width="6.5" height="15.5" rx="3.2" fill="#6f7278"/>
+    <rect x="53.3" y="27.5" width="6.5" height="15.5" rx="3.2" fill="#6f7278"/>
+    <!-- Head with speech-bubble tail -->
+    <path d="M21 16 H43.5 Q56 16 56 28.5 V41 Q56 50 50 52.2 L51.2 57.2 L44.5 53 H21 Q8.5 53 8.5 40.5 V28.5 Q8.5 16 21 16 Z" fill="url(#shell)"/>
+    <!-- Visor -->
+    <rect x="14.6" y="22" width="34.2" height="25.4" rx="7" fill="#151823"/>
+  </g>
+  <!-- Face plates (top notch and frown) -->
+  <path d="M23.8 21.3 H40.2 V24.8 Q40.2 26.6 38.4 26.6 H25.6 Q23.8 26.6 23.8 24.8 Z" fill="#7b7e84"/>
+  <path d="M23.8 47.8 V45.3 Q32 42.2 40.2 45.3 V47.8 Z" fill="#6c6f75" stroke="#1b1e26" stroke-width="1.2" stroke-linejoin="round"/>
+  <!-- Cracks -->
+  <g fill="none" stroke="#1b1e26" stroke-width="0.8" stroke-linecap="round" opacity="0.85">
+    <path d="M26 16.4 L27.2 19 L26.3 21"/>
+    <path d="M36.5 16.4 L35.6 18.6"/>
+    <path d="M49.5 20 L48 22.5 L49.2 24"/>
+    <path d="M10.2 34 L12.8 35 L14.2 34.2"/>
+    <path d="M31 47.2 L30.2 49.3"/>
+  </g>
+  <!-- Eyes -->
+  <circle cx="23.2" cy="34.8" r="7" fill="url(#glow)"/>
+  <circle cx="40.2" cy="34.8" r="7" fill="url(#glow)"/>
+  <circle cx="23.2" cy="34.8" r="4" fill="#0b0d14" stroke="#2c303c" stroke-width="0.8"/>
+  <circle cx="40.2" cy="34.8" r="4" fill="#0b0d14" stroke="#2c303c" stroke-width="0.8"/>
+  <circle cx="23.2" cy="34.6" r="2.6" fill="url(#eye)"/>
+  <circle cx="40.2" cy="34.6" r="2.6" fill="url(#eye)"/>
 </svg>
