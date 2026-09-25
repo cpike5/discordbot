@@ -25,6 +25,7 @@ Welcome to the Discord Bot Management System documentation. This site provides c
 
 ### Design
 - [Design System](articles/design-system.md) - UI design tokens and components
+- [Progressive Web App](articles/pwa.md) - Installable portal, service worker caching policy, offline page
 
 ## Project Structure
 

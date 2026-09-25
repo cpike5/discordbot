@@ -31,6 +31,7 @@ You are a domain expert for the **Web UI & Portal** stream of a Discord bot mana
 - `_Layout.cshtml` — Main application layout
 - `Portal/_PortalLayout.cshtml` — Portal (member-facing) layout
 - `Portal/Shared/_PortalHeader.cshtml`
+- `Shared/_PwaHead.cshtml` — PWA head tags (manifest, icons, `pwa.js`); every layout and `Layout = null` page that should stay installable includes it. Service worker is `wwwroot/sw.js` (static assets only, never pages/API); see `docs/articles/pwa.md`
 
 ### Portal Pages (Member-Facing, OAuth required)
 - `Portal/Soundboard/Index.cshtml`, `Portal/TTS/Index.cshtml`, `Portal/VOX/Index.cshtml`
