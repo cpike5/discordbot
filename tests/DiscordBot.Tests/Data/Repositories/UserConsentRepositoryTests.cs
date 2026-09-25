@@ -4,7 +4,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -16,14 +15,14 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class UserConsentRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly UserConsentRepository _repository;
     private readonly Mock<ILogger<UserConsentRepository>> _mockLogger;
     private readonly Mock<ILogger<Repository<UserConsent>>> _mockBaseLogger;
 
     public UserConsentRepositoryTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<UserConsentRepository>>();
         _mockBaseLogger = new Mock<ILogger<Repository<UserConsent>>>();
         _repository = new UserConsentRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
@@ -32,7 +31,7 @@ public class UserConsentRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     private async Task SeedUserAsync(ulong userId)

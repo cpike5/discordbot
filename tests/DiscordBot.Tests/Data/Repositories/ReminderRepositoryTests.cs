@@ -4,7 +4,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -16,14 +15,14 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class ReminderRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly ReminderRepository _repository;
     private readonly Mock<ILogger<ReminderRepository>> _mockLogger;
     private readonly Mock<ILogger<Repository<Reminder>>> _mockBaseLogger;
 
     public ReminderRepositoryTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<ReminderRepository>>();
         _mockBaseLogger = new Mock<ILogger<Repository<Reminder>>>();
         _repository = new ReminderRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
@@ -32,7 +31,7 @@ public class ReminderRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     #region Helper Methods

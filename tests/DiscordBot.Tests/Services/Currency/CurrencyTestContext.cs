@@ -9,7 +9,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Infrastructure.Services;
 using DiscordBot.Tests.TestHelpers;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -28,7 +27,7 @@ namespace DiscordBot.Tests.Services;
 /// </summary>
 internal sealed class CurrencyTestContext : IDisposable
 {
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly MemoryCache _memoryCache;
 
     /// <param name="holdExpirySeconds">
@@ -37,7 +36,7 @@ internal sealed class CurrencyTestContext : IDisposable
     /// </param>
     public CurrencyTestContext(int holdExpirySeconds = 120)
     {
-        (Db, _connection) = TestDbContextFactory.CreateContext();
+        (Db, _database) = TestDbContextFactory.CreateContext();
 
         Currencies = new CurrencyRepository(Db, NullLogger<CurrencyRepository>.Instance, NullLogger<Repository<Currency>>.Instance);
         Wallets = new WalletRepository(Db, NullLogger<WalletRepository>.Instance, NullLogger<Repository<Wallet>>.Instance);
@@ -232,7 +231,7 @@ internal sealed class CurrencyTestContext : IDisposable
     {
         _memoryCache.Dispose();
         Db.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     /// <summary>A fluent audit builder that returns itself, so a service can chain freely.</summary>

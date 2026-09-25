@@ -4,7 +4,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -17,14 +16,14 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class RatRecordRepositoryAnalyticsTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly RatRecordRepository _repository;
     private readonly Mock<ILogger<RatRecordRepository>> _mockLogger;
     private readonly Mock<ILogger<Repository<RatRecord>>> _mockBaseLogger;
 
     public RatRecordRepositoryAnalyticsTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<RatRecordRepository>>();
         _mockBaseLogger = new Mock<ILogger<Repository<RatRecord>>>();
         _repository = new RatRecordRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
@@ -33,7 +32,7 @@ public class RatRecordRepositoryAnalyticsTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     private async Task<Guild> SeedGuildAsync(ulong id = 123456789)

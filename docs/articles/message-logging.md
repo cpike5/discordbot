@@ -908,7 +908,7 @@ To minimize privacy impact:
 
 ### Repository Tests
 
-The `MessageLogRepository` is tested via `MessageLogRepositoryTests` with in-memory SQLite:
+The `MessageLogRepository` is tested via `MessageLogRepositoryTests` against a throwaway PostgreSQL database:
 
 - Pagination and filtering logic
 - Date range queries

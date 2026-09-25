@@ -17,7 +17,6 @@ using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -33,7 +32,7 @@ namespace DiscordBot.Tests.Integration;
 public class PortalTtsIntegrationTests : IDisposable
 {
     private readonly BotDbContext _dbContext;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly PortalTtsPlaybackController _controller;
     private readonly Mock<ITtsService> _mockTtsService;
     private readonly Mock<ITtsSettingsService> _mockTtsSettingsService;
@@ -56,7 +55,7 @@ public class PortalTtsIntegrationTests : IDisposable
     public PortalTtsIntegrationTests()
     {
         // Setup in-memory database
-        (_dbContext, _connection) = TestDbContextFactory.CreateContext();
+        (_dbContext, _database) = TestDbContextFactory.CreateContext();
 
         // Setup mocks
         _mockTtsService = new Mock<ITtsService>();
@@ -120,7 +119,7 @@ public class PortalTtsIntegrationTests : IDisposable
     public void Dispose()
     {
         _dbContext.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     /// <summary>

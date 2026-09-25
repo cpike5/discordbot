@@ -14,7 +14,6 @@
 
   <ItemGroup>
     <PackageReference Include="FluentAssertions" Version="8.8.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="8.*" />
     <PackageReference Include="Microsoft.Extensions.Configuration.EnvironmentVariables" Version="8.*" />
     <PackageReference Include="Microsoft.Extensions.Configuration.UserSecrets" Version="8.*" />
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.8.0" />
@@ -24,6 +23,11 @@
 
   <ItemGroup>
     <Using Include="Xunit" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- The eval harness runs on the same throwaway PostgreSQL databases as the unit tests. -->
+    <Compile Include="..\DiscordBot.Tests\TestHelpers\PostgresTestServer.cs" Link="TestHelpers\PostgresTestServer.cs" />
   </ItemGroup>
 
   <ItemGroup>

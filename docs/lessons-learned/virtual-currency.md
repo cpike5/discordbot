@@ -57,6 +57,10 @@ set so `sqlite3_busy_timeout` makes a blocked writer wait instead of throwing, a
 `Dispose` that clears the connection pool before deleting the `.db`, `-wal` and `-shm`
 files.
 
+*Since superseded:* the suite now runs on PostgreSQL, where every context has its own
+connection and writers genuinely contend, so the file-backed SQLite database is gone and
+`TestDbContextFactory.CreateDatabase()` takes its place.
+
 The threads come from `ConcurrencyTestHelper.RunOnDedicatedThreads`, not the thread pool,
 for the reason in `flaky-tests-thread-pool-starvation.md`: threads that block on each other
 inside `Parallel.For` or `Task.Run` starve the background-service tests running in parallel

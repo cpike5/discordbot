@@ -4,7 +4,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -17,14 +16,14 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class MemberActivityRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly MemberActivityRepository _repository;
     private readonly Mock<ILogger<MemberActivityRepository>> _mockLogger;
     private readonly Mock<ILogger<Repository<MemberActivitySnapshot>>> _mockBaseLogger;
 
     public MemberActivityRepositoryTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<MemberActivityRepository>>();
         _mockBaseLogger = new Mock<ILogger<Repository<MemberActivitySnapshot>>>();
         _repository = new MemberActivityRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
@@ -33,7 +32,7 @@ public class MemberActivityRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     /// <summary>

@@ -12,6 +12,8 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
 
+using DiscordBot.Tests.TestHelpers;
+
 namespace DiscordBot.Tests.Services;
 
 /// <summary>
@@ -22,6 +24,7 @@ namespace DiscordBot.Tests.Services;
 public class UserPurgeServiceTests : IDisposable
 {
     private readonly BotDbContext _context;
+    private readonly TestDatabase _database;
     private readonly UserPurgeService _service;
     private readonly Mock<UserManager<ApplicationUser>> _userManagerMock;
     private readonly Mock<IAuditLogService> _auditLogServiceMock;
@@ -31,14 +34,7 @@ public class UserPurgeServiceTests : IDisposable
 
     public UserPurgeServiceTests()
     {
-        // Set up in-memory SQLite database
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite("DataSource=:memory:")
-            .Options;
-
-        _context = new BotDbContext(options);
-        _context.Database.OpenConnection();
-        _context.Database.EnsureCreated();
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         // Set up mocks
         _loggerMock = new Mock<ILogger<UserPurgeService>>();
@@ -88,8 +84,8 @@ public class UserPurgeServiceTests : IDisposable
 
     public void Dispose()
     {
-        _context.Database.CloseConnection();
         _context.Dispose();
+        _database.Dispose();
     }
 
     #region UserPurgeResultDto Tests

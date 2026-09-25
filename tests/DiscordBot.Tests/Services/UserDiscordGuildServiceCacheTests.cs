@@ -6,7 +6,6 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -21,7 +20,7 @@ namespace DiscordBot.Tests.Services;
 public class UserDiscordGuildServiceCacheTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly Mock<IInstrumentedCache> _cacheMock;
     private readonly Mock<IHttpClientFactory> _httpClientFactoryMock;
     private readonly Mock<IDiscordTokenService> _tokenServiceMock;
@@ -32,7 +31,7 @@ public class UserDiscordGuildServiceCacheTests : IDisposable
 
     public UserDiscordGuildServiceCacheTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         // Use Moq for mocking
         _cacheMock = new Mock<IInstrumentedCache>();
@@ -57,7 +56,7 @@ public class UserDiscordGuildServiceCacheTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     private static ulong _discordUserIdCounter = 123456789UL;

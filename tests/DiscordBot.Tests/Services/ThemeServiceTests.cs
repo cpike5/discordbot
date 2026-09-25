@@ -7,10 +7,11 @@ using DiscordBot.Infrastructure.Data;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
-using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
+
+using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 
@@ -27,7 +28,7 @@ public class ThemeServiceTests : IDisposable
     private readonly Mock<ILogger<ThemeService>> _mockLogger;
     private readonly BotDbContext _dbContext;
     private readonly ThemeService _service;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
 
     // Test themes
     private readonly Theme _discordDarkTheme;
@@ -35,16 +36,7 @@ public class ThemeServiceTests : IDisposable
 
     public ThemeServiceTests()
     {
-        // Setup SQLite in-memory database
-        _connection = new SqliteConnection("DataSource=:memory:");
-        _connection.Open();
-
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseSqlite(_connection)
-            .Options;
-
-        _dbContext = new BotDbContext(options);
-        _dbContext.Database.EnsureCreated();
+        (_dbContext, _database) = TestDbContextFactory.CreateContext();
 
         // Initialize test themes
         _discordDarkTheme = new Theme
@@ -130,8 +122,7 @@ public class ThemeServiceTests : IDisposable
     public void Dispose()
     {
         _dbContext.Dispose();
-        _connection.Close();
-        _connection.Dispose();
+        _database.Dispose();
         GC.SuppressFinalize(this);
     }
 
@@ -207,8 +198,8 @@ public class ThemeServiceTests : IDisposable
         {
             Id = "user123",
             Email = "test@example.com",
-            PreferredThemeId = 2,
-            PreferredTheme = _purpleDuskTheme
+            // Theme 2 is purple-dusk, seeded by the migrations
+            PreferredThemeId = 2
         };
 
         _dbContext.Set<ApplicationUser>().Add(user);
@@ -597,8 +588,8 @@ public class ThemeServiceTests : IDisposable
         {
             Id = "auth-user-1",
             Email = "auth@example.com",
-            PreferredThemeId = 2,
-            PreferredTheme = _purpleDuskTheme
+            // Theme 2 is purple-dusk, seeded by the migrations
+            PreferredThemeId = 2
         };
 
         _dbContext.Set<ApplicationUser>().Add(user);

@@ -61,6 +61,32 @@ else
   NPM_OK=false
 fi
 
+# --- PostgreSQL (required by the test suite) --------------------------------
+# The tests create throwaway databases on a local server, reached with
+# postgres/postgres on localhost:5432 (tests/DiscordBot.Tests/TestHelpers/
+# PostgresTestServer.cs). Best-effort: without it the build still works but
+# database tests fail with a message saying how to start one.
+PG_OK=true
+if ! command -v pg_ctlcluster >/dev/null 2>&1; then
+  log "Installing PostgreSQL for the test suite (best-effort, see $LOG)..."
+  if ! sudo apt-get install -y --no-install-recommends postgresql >>"$LOG" 2>&1; then
+    PG_OK=false
+    log "WARN: PostgreSQL install failed — database tests will fail this session."
+  fi
+fi
+if [ "$PG_OK" = "true" ]; then
+  PG_VERSION=$(pg_lsclusters --no-header 2>/dev/null | awk 'NR==1 {print $1}')
+  PG_CLUSTER=$(pg_lsclusters --no-header 2>/dev/null | awk 'NR==1 {print $2}')
+  if [ -n "$PG_VERSION" ] \
+    && { pg_lsclusters --no-header | awk 'NR==1 {print $4}' | grep -q online \
+         || sudo pg_ctlcluster "$PG_VERSION" "$PG_CLUSTER" start >>"$LOG" 2>&1; } \
+    && sudo -u postgres psql -qc "ALTER USER postgres PASSWORD 'postgres';" >>"$LOG" 2>&1; then
+    log "PostgreSQL $PG_VERSION running on localhost:5432 for the tests."
+  else
+    log "WARN: could not start PostgreSQL — database tests will fail this session."
+  fi
+fi
+
 # --- Warm the NuGet cache (snapshotted into the cached container) ----------
 log "Restoring NuGet packages (see $LOG)..."
 dotnet restore "$CLAUDE_PROJECT_DIR/DiscordBot.sln" >>"$LOG" 2>&1

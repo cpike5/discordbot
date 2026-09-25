@@ -3,7 +3,6 @@ using DiscordBot.Infrastructure.Data;
 using DiscordBot.Infrastructure.Data.Repositories;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.Data.Sqlite;
 using Microsoft.Extensions.Logging;
 using Moq;
 
@@ -15,14 +14,14 @@ namespace DiscordBot.Tests.Data.Repositories;
 public class GuildMemberRepositoryTests : IDisposable
 {
     private readonly BotDbContext _context;
-    private readonly SqliteConnection _connection;
+    private readonly TestDatabase _database;
     private readonly GuildMemberRepository _repository;
     private readonly Mock<ILogger<GuildMemberRepository>> _mockLogger;
     private readonly Mock<ILogger<Repository<GuildMember>>> _mockBaseLogger;
 
     public GuildMemberRepositoryTests()
     {
-        (_context, _connection) = TestDbContextFactory.CreateContext();
+        (_context, _database) = TestDbContextFactory.CreateContext();
         _mockLogger = new Mock<ILogger<GuildMemberRepository>>();
         _mockBaseLogger = new Mock<ILogger<Repository<GuildMember>>>();
         _repository = new GuildMemberRepository(_context, _mockLogger.Object, _mockBaseLogger.Object);
@@ -31,7 +30,7 @@ public class GuildMemberRepositoryTests : IDisposable
     public void Dispose()
     {
         _context.Dispose();
-        _connection.Dispose();
+        _database.Dispose();
     }
 
     #region GetByGuildAndUserAsync Tests
