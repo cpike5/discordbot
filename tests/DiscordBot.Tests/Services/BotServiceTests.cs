@@ -191,6 +191,24 @@ public class BotServiceTests
     }
 
     [Fact]
+    public async Task RestartAsync_InOfflineMode_ShouldThrowNotSupported()
+    {
+        // Arrange
+        var client = new DiscordSocketClient();
+        var offlineConfig = new Mock<IOptions<BotConfiguration>>();
+        offlineConfig.Setup(c => c.Value).Returns(new BotConfiguration { OfflineMode = true });
+        var service = new BotService(client, _mockLifetime.Object, _mockDashboardUpdateService.Object, _mockLogger.Object, offlineConfig.Object, _mockDbSettings.Object, _mockConfiguration.Object);
+
+        // Act
+        var act = () => service.RestartAsync();
+
+        // Assert
+        await act.Should().ThrowAsync<NotSupportedException>();
+        client.LoginState.Should().Be(LoginState.LoggedOut, "offline mode must never attempt a login");
+        await client.DisposeAsync();
+    }
+
+    [Fact]
     public async Task RestartAsync_ShouldLogWarning()
     {
         // Arrange

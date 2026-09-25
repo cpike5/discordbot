@@ -5,7 +5,7 @@ namespace DiscordBot.Bot.Services;
 /// <summary>
 /// Strongly-typed configuration for Discord bot settings.
 /// </summary>
-public class BotConfiguration
+public class BotConfiguration : IValidatableObject
 {
     /// <summary>
     /// Configuration section name in appsettings.json.
@@ -15,9 +15,17 @@ public class BotConfiguration
     /// <summary>
     /// Discord bot token for authentication.
     /// Should be stored in user secrets for security.
+    /// Required unless <see cref="OfflineMode"/> is enabled.
     /// </summary>
-    [Required(ErrorMessage = "Discord:Token is required. Set it via environment variable Discord__Token or user secrets.")]
     public string Token { get; set; } = string.Empty;
+
+    /// <summary>
+    /// Runs the process without connecting to the Discord gateway, for local testing of the
+    /// web portal. The token (and Discord OAuth credentials) become optional, the bot never
+    /// logs in, and every Discord-backed view sees an empty, disconnected client.
+    /// Never enable this in production.
+    /// </summary>
+    public bool OfflineMode { get; set; }
 
     /// <summary>
     /// Optional test guild ID for faster command registration during development.
@@ -39,4 +47,16 @@ public class BotConfiguration
     /// Additional user IDs that should be treated as bot owners (beyond the application owner).
     /// </summary>
     public List<ulong> AdditionalOwnerIds { get; set; } = new();
+
+    /// <inheritdoc />
+    public IEnumerable<ValidationResult> Validate(ValidationContext validationContext)
+    {
+        if (!OfflineMode && string.IsNullOrWhiteSpace(Token))
+        {
+            yield return new ValidationResult(
+                "Discord:Token is required. Set it via environment variable Discord__Token or user secrets, " +
+                "or set Discord:OfflineMode to true to run the web portal without connecting to Discord.",
+                new[] { nameof(Token) });
+        }
+    }
 }

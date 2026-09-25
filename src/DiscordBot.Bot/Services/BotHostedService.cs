@@ -188,6 +188,16 @@ public class BotHostedService : IHostedService
             // Initialize interaction handler (wires interaction dispatch)
             await _interactionHandler.InitializeAsync();
 
+            // Offline mode: keep the web portal up without ever touching the gateway
+            if (_config.OfflineMode)
+            {
+                _logger.LogWarning(
+                    "Discord:OfflineMode is enabled. The bot will not log in to Discord; the web portal runs against a disconnected client");
+                activity?.SetTag("bot.offline_mode", true);
+                BotActivitySource.SetSuccess(activity);
+                return;
+            }
+
             // Validate token
             if (string.IsNullOrWhiteSpace(_config.Token))
             {

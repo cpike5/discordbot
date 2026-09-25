@@ -129,6 +129,11 @@ public class BotService : IBotService
 
         try
         {
+            if (_config.OfflineMode)
+            {
+                throw new NotSupportedException("The bot is running with Discord:OfflineMode enabled and has no gateway connection to restart.");
+            }
+
             _logger.LogWarning("Bot soft restart requested");
 
             // Disconnect from Discord

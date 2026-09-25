@@ -106,8 +106,10 @@ has the details.
 
 ## Running it locally
 
-The process exits at startup if `Discord:Token` is not configured, so the web UI
-cannot be exercised without a bot token. Put secrets in User Secrets (ID
+The process exits at startup if `Discord:Token` is not configured, unless
+`Discord:OfflineMode=true`: then it never logs in to Discord, OAuth credentials are
+optional, and you sign in with the seeded `Identity:DefaultAdmin` account. That is the
+way to exercise the web UI without a bot token. Put secrets in User Secrets (ID
 `7b84433c-c2a8-46db-a8bf-58786ea4f28e`), never in `appsettings*.json`:
 `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`,
 `OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`.

@@ -1,3 +1,4 @@
+using System.ComponentModel.DataAnnotations;
 using DiscordBot.Bot.Services;
 using FluentAssertions;
 using Microsoft.Extensions.Configuration;
@@ -125,5 +126,47 @@ public class BotConfigurationTests
 
         // Assert
         botConfig.Token.Should().Be(string.Empty, "Token should be empty string when configured as empty");
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Validate_WithoutTokenOutsideOfflineMode_ShouldFail(string token)
+    {
+        var config = new BotConfiguration { Token = token };
+
+        var results = Validate(config);
+
+        results.Should().ContainSingle()
+            .Which.MemberNames.Should().Contain(nameof(BotConfiguration.Token));
+    }
+
+    [Fact]
+    public void Validate_WithoutTokenInOfflineMode_ShouldPass()
+    {
+        var config = new BotConfiguration { OfflineMode = true };
+
+        Validate(config).Should().BeEmpty("offline mode never logs in, so no token is needed");
+    }
+
+    [Fact]
+    public void Validate_WithToken_ShouldPass()
+    {
+        var config = new BotConfiguration { Token = "my-bot-token" };
+
+        Validate(config).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void OfflineMode_ShouldDefaultToFalse()
+    {
+        new BotConfiguration().OfflineMode.Should().BeFalse("production must connect unless told otherwise");
+    }
+
+    private static List<ValidationResult> Validate(BotConfiguration config)
+    {
+        var results = new List<ValidationResult>();
+        Validator.TryValidateObject(config, new ValidationContext(config), results, validateAllProperties: true);
+        return results;
     }
 }
