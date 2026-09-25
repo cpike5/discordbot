@@ -3,6 +3,7 @@ using DiscordBot.Bot.Authorization;
 using DiscordBot.Core.Authorization;
 using DiscordBot.Core.Entities;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
@@ -11,8 +12,6 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Moq;
-
-using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Bot.Authorization;
 

@@ -4,6 +4,7 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -11,8 +12,6 @@ using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Xunit;
-
-using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 

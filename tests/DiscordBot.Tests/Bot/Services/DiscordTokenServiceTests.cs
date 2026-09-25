@@ -3,6 +3,7 @@ using DiscordBot.Bot.Services;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.EntityFrameworkCore;
@@ -18,6 +19,7 @@ namespace DiscordBot.Tests.Bot.Services;
 public class DiscordTokenServiceTests : IDisposable
 {
     private readonly BotDbContext _context;
+    private readonly TestDatabase _database;
     private readonly Mock<IDataProtectionProvider> _mockDataProtectionProvider;
     private readonly Mock<IDataProtector> _mockDataProtector;
     private readonly Mock<IHttpClientFactory> _mockHttpClientFactory;
@@ -28,11 +30,7 @@ public class DiscordTokenServiceTests : IDisposable
 
     public DiscordTokenServiceTests()
     {
-        // Setup in-memory database
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new BotDbContext(options);
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         // Setup data protection mocks to return predictable values
         // IDataProtector uses byte[] methods, but extension methods convert string to byte[]
@@ -98,12 +96,23 @@ public class DiscordTokenServiceTests : IDisposable
             _mockOAuthOptions.Object,
             _mockBgOptions.Object,
             _mockLogger.Object);
+
+        // Postgres enforces the DiscordOAuthTokens -> AspNetUsers foreign key (ApplicationUserId),
+        // so every user id the tests reference must exist before a token row can reference it.
+        _context.Set<ApplicationUser>().AddRange(
+            new ApplicationUser { Id = "user-123", UserName = "user-123@example.com", Email = "user-123@example.com" },
+            new ApplicationUser { Id = "user-1", UserName = "user-1@example.com", Email = "user-1@example.com" },
+            new ApplicationUser { Id = "user-2", UserName = "user-2@example.com", Email = "user-2@example.com" },
+            new ApplicationUser { Id = "user-3", UserName = "user-3@example.com", Email = "user-3@example.com" },
+            new ApplicationUser { Id = "user-with-no-token", UserName = "user-with-no-token@example.com", Email = "user-with-no-token@example.com" });
+        _context.SaveChanges();
+        _context.ChangeTracker.Clear();
     }
 
     public void Dispose()
     {
-        _context.Database.EnsureDeleted();
         _context.Dispose();
+        _database.Dispose();
     }
 
     [Fact]

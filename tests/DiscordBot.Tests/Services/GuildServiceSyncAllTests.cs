@@ -4,12 +4,11 @@ using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Moq;
-
-using DiscordBot.Tests.TestHelpers;
 
 namespace DiscordBot.Tests.Services;
 

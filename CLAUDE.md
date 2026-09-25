@@ -129,6 +129,10 @@ libopus on the host (`docs/articles/audio-dependencies.md`).
 
 ## Database and migrations
 
+**PostgreSQL is the preferred provider; SQLite is being phased out.** Build and
+verify new work against Postgres, and do not add SQLite-only features. Until SQLite
+is removed, a schema change still ships both migrations.
+
 Two providers, two migration sets, two design-time contexts. The EF CLI cannot
 pick a context on its own, so `--context` is mandatory:
 

@@ -3,6 +3,7 @@ using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
 using DiscordBot.Infrastructure.Data;
+using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
@@ -19,6 +20,7 @@ namespace DiscordBot.Tests.Bot.Services;
 public class VerificationServiceTests : IDisposable
 {
     private readonly BotDbContext _context;
+    private readonly TestDatabase _database;
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly Mock<ILogger<VerificationService>> _mockLogger;
     private readonly Mock<IOptions<VerificationOptions>> _mockVerificationOptions;
@@ -26,12 +28,7 @@ public class VerificationServiceTests : IDisposable
 
     public VerificationServiceTests()
     {
-        // Setup in-memory database with unique name per test instance
-        var options = new DbContextOptionsBuilder<BotDbContext>()
-            .UseInMemoryDatabase(databaseName: Guid.NewGuid().ToString())
-            .Options;
-        _context = new BotDbContext(options);
-        _context.Database.EnsureCreated();
+        (_context, _database) = TestDbContextFactory.CreateContext();
 
         // Setup real UserManager with user store backed by DbContext
         // This is necessary because VerificationService uses UserManager.Users which must support async queries
@@ -58,6 +55,22 @@ public class VerificationServiceTests : IDisposable
     {
         _userManager?.Dispose();
         _context?.Dispose();
+        _database?.Dispose();
+    }
+
+    /// <summary>
+    /// Creates a minimal ApplicationUser via UserManager so that VerificationCode rows
+    /// referencing this userId satisfy the ApplicationUserId foreign key (Postgres enforces it).
+    /// </summary>
+    private async Task SeedUserAsync(string userId)
+    {
+        var user = new ApplicationUser
+        {
+            Id = userId,
+            UserName = $"{userId}@example.com",
+            Email = $"{userId}@example.com"
+        };
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
     }
 
     #region InitiateVerificationAsync Tests
@@ -134,6 +147,9 @@ public class VerificationServiceTests : IDisposable
             DiscordUserId = null
         };
 
+        // Add user to DbContext so UserManager can find it
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
         // Create existing pending verification
         var existingVerification = new VerificationCode
         {
@@ -146,9 +162,6 @@ public class VerificationServiceTests : IDisposable
         };
         _context.VerificationCodes.Add(existingVerification);
         await _context.SaveChangesAsync();
-
-        // Add user to DbContext so UserManager can find it
-        await _userManager.CreateAsync(user);
 
         // Act
         var result = await _service.InitiateVerificationAsync(userId);
@@ -193,6 +206,9 @@ public class VerificationServiceTests : IDisposable
         const ulong discordUserId = 987654321UL;
         const string userId = "user123";
 
+        // Seed the owning user so the VerificationCode row satisfies the FK
+        await SeedUserAsync(userId);
+
         // Create pending verification
         var verification = new VerificationCode
         {
@@ -233,6 +249,9 @@ public class VerificationServiceTests : IDisposable
         // Arrange
         const ulong discordUserId = 987654321UL;
         const string userId = "user123";
+
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
 
         // Create 3 recent verifications (rate limit is 3 per hour)
         var recentTime = DateTime.UtcNow.AddMinutes(-30);
@@ -328,6 +347,9 @@ public class VerificationServiceTests : IDisposable
             DiscordUserId = null
         };
 
+        // Add user to DbContext so UserManager can find it
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
         var verification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -340,9 +362,6 @@ public class VerificationServiceTests : IDisposable
         };
         _context.VerificationCodes.Add(verification);
         await _context.SaveChangesAsync();
-
-        // Add user to DbContext so UserManager can find it
-        await _userManager.CreateAsync(user);
         // No users with this Discord ID exist in database
 
         // Act
@@ -402,6 +421,9 @@ public class VerificationServiceTests : IDisposable
             DiscordUserId = null
         };
 
+        // Add user to DbContext so UserManager can find it
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
         var verification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -414,9 +436,6 @@ public class VerificationServiceTests : IDisposable
         };
         _context.VerificationCodes.Add(verification);
         await _context.SaveChangesAsync();
-
-        // Add user to DbContext so UserManager can find it
-        await _userManager.CreateAsync(user);
 
         // Act
         var result = await _service.ValidateCodeAsync(userId, code);
@@ -445,6 +464,9 @@ public class VerificationServiceTests : IDisposable
             DiscordUserId = null
         };
 
+        // Add user to DbContext so UserManager can find it
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
         var verification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -458,9 +480,6 @@ public class VerificationServiceTests : IDisposable
         };
         _context.VerificationCodes.Add(verification);
         await _context.SaveChangesAsync();
-
-        // Add user to DbContext so UserManager can find it
-        await _userManager.CreateAsync(user);
 
         // Act
         var result = await _service.ValidateCodeAsync(userId, code);
@@ -487,6 +506,9 @@ public class VerificationServiceTests : IDisposable
             DiscordUserId = null
         };
 
+        // Add user to DbContext so UserManager can find it
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
         var verification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -499,9 +521,6 @@ public class VerificationServiceTests : IDisposable
         };
         _context.VerificationCodes.Add(verification);
         await _context.SaveChangesAsync();
-
-        // Add user to DbContext so UserManager can find it
-        await _userManager.CreateAsync(user);
         // No users with this Discord ID exist in database
 
         // Act - Test with dashes
@@ -560,6 +579,13 @@ public class VerificationServiceTests : IDisposable
             DiscordUserId = discordUserId // Discord already linked to different user
         };
 
+        // Add user to DbContext so UserManager can find it
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
+        // Add other user to DbContext so VerificationService can find the conflict
+        _context.Set<ApplicationUser>().Add(otherUser);
+        await _context.SaveChangesAsync();
+
         var verification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -571,13 +597,6 @@ public class VerificationServiceTests : IDisposable
             ExpiresAt = DateTime.UtcNow.AddMinutes(10)
         };
         _context.VerificationCodes.Add(verification);
-        await _context.SaveChangesAsync();
-
-        // Add user to DbContext so UserManager can find it
-        await _userManager.CreateAsync(user);
-
-        // Add other user to DbContext so VerificationService can find the conflict
-        _context.Set<ApplicationUser>().Add(otherUser);
         await _context.SaveChangesAsync();
 
         // Act
@@ -603,6 +622,9 @@ public class VerificationServiceTests : IDisposable
             DiscordUserId = null
         };
 
+        // Add user to DbContext so UserManager can find it
+        (await _userManager.CreateAsync(user)).Succeeded.Should().BeTrue();
+
         var verification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -615,9 +637,6 @@ public class VerificationServiceTests : IDisposable
         };
         _context.VerificationCodes.Add(verification);
         await _context.SaveChangesAsync();
-
-        // Add user to DbContext so UserManager can find it
-        await _userManager.CreateAsync(user);
 
         // Act
         var result = await _service.ValidateCodeAsync(userId, code);
@@ -639,6 +658,9 @@ public class VerificationServiceTests : IDisposable
         // Arrange
         const ulong discordUserId = 987654321UL;
         const string userId = "user123";
+
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
 
         // Create exactly 3 codes within the last hour
         var recentTime = DateTime.UtcNow.AddMinutes(-30);
@@ -671,6 +693,9 @@ public class VerificationServiceTests : IDisposable
         const ulong discordUserId = 987654321UL;
         const string userId = "user123";
 
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
+
         // Create only 2 codes within the last hour
         var recentTime = DateTime.UtcNow.AddMinutes(-30);
         for (int i = 0; i < 2; i++)
@@ -701,6 +726,9 @@ public class VerificationServiceTests : IDisposable
         // Arrange
         const ulong discordUserId = 987654321UL;
         const string userId = "user123";
+
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
 
         // Create 3 codes older than 1 hour
         var oldTime = DateTime.UtcNow.AddHours(-2);
@@ -743,6 +771,9 @@ public class VerificationServiceTests : IDisposable
     {
         // Arrange
         const string userId = "user123";
+
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
 
         // Create expired pending code
         var expiredCode = new VerificationCode
@@ -790,6 +821,9 @@ public class VerificationServiceTests : IDisposable
         // Arrange
         const string userId = "user123";
 
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
+
         // Create old completed code (older than 24 hours)
         var oldCode = new VerificationCode
         {
@@ -835,6 +869,9 @@ public class VerificationServiceTests : IDisposable
     {
         // Arrange
         const string userId = "user123";
+
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
 
         // Create 2 expired pending codes
         var expiredCode1 = new VerificationCode
@@ -884,6 +921,9 @@ public class VerificationServiceTests : IDisposable
         // Arrange
         const string userId = "user123";
 
+        // Seed the owning user so the VerificationCode row satisfies the FK
+        await SeedUserAsync(userId);
+
         var pendingVerification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -924,6 +964,9 @@ public class VerificationServiceTests : IDisposable
         // Arrange
         const string userId = "user123";
 
+        // Seed the owning user so the VerificationCode row satisfies the FK
+        await SeedUserAsync(userId);
+
         var expiredVerification = new VerificationCode
         {
             Id = Guid.NewGuid(),
@@ -948,6 +991,9 @@ public class VerificationServiceTests : IDisposable
     {
         // Arrange
         const string userId = "user123";
+
+        // Seed the owning user so the VerificationCode rows satisfy the FK
+        await SeedUserAsync(userId);
 
         var pending1 = new VerificationCode
         {
