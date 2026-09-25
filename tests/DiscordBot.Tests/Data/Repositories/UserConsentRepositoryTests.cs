@@ -143,11 +143,12 @@ public class UserConsentRepositoryTests : IDisposable
             GrantedVia = "SlashCommand"
         };
 
+        var recentGrantedAt = DateTime.UtcNow.AddDays(-10);
         var recentConsent = new UserConsent
         {
             DiscordUserId = userId,
             ConsentType = consentType,
-            GrantedAt = DateTime.UtcNow.AddDays(-10),
+            GrantedAt = recentGrantedAt,
             RevokedAt = null,
             GrantedVia = "WebUI"
         };
@@ -161,7 +162,7 @@ public class UserConsentRepositoryTests : IDisposable
         // Assert
         result.Should().NotBeNull();
         result!.GrantedVia.Should().Be("WebUI");
-        result.GrantedAt.Should().BeCloseTo(DateTime.UtcNow.AddDays(-10), TimeSpan.FromSeconds(1));
+        result.GrantedAt.Should().BeCloseTo(recentGrantedAt, TimeSpan.FromMilliseconds(1));
     }
 
     [Fact]

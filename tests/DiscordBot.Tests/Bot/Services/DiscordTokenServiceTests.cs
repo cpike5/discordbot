@@ -119,6 +119,7 @@ public class DiscordTokenServiceTests : IDisposable
     public async Task StoreTokensAsync_CreatesNewTokenRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         const string userId = "user-123";
         const ulong discordUserId = 123456789012345678;
         const string accessToken = "access-token";
@@ -138,8 +139,8 @@ public class DiscordTokenServiceTests : IDisposable
         storedToken.DiscordUserId.Should().Be(discordUserId);
         storedToken.Scopes.Should().Be(scopes);
         storedToken.AccessTokenExpiresAt.Should().BeCloseTo(expiresAt, TimeSpan.FromSeconds(1));
-        storedToken.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
-        storedToken.LastRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2));
+        storedToken.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
+        storedToken.LastRefreshedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
         // Verify tokens were encrypted (using the mock protector)
         _mockDataProtector.Verify(
@@ -152,6 +153,7 @@ public class DiscordTokenServiceTests : IDisposable
     public async Task StoreTokensAsync_UpdatesExistingTokenRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         const string userId = "user-123";
         const ulong originalDiscordUserId = 111111111111111111;
         const ulong newDiscordUserId = 222222222222222222;
@@ -189,7 +191,7 @@ public class DiscordTokenServiceTests : IDisposable
         updatedToken.Scopes.Should().Be("identify email guilds");
         updatedToken.AccessTokenExpiresAt.Should().BeCloseTo(newExpiresAt, TimeSpan.FromSeconds(1));
         updatedToken.CreatedAt.Should().BeCloseTo(initialToken.CreatedAt, TimeSpan.FromSeconds(1), "CreatedAt should not change");
-        updatedToken.LastRefreshedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(2), "LastRefreshedAt should be updated");
+        updatedToken.LastRefreshedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow, "LastRefreshedAt should be updated");
     }
 
     [Fact]

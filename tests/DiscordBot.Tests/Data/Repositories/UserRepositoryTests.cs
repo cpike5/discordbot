@@ -72,6 +72,7 @@ public class UserRepositoryTests : IDisposable
     public async Task UpdateLastSeenAsync_UpdatesTimestamp()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         var originalLastSeen = DateTime.UtcNow.AddDays(-1);
         var user = new User
         {
@@ -93,7 +94,7 @@ public class UserRepositoryTests : IDisposable
         var updatedUser = await _context.Users.FindAsync(987654321UL);
         updatedUser.Should().NotBeNull();
         updatedUser!.LastSeenAt.Should().BeAfter(originalLastSeen);
-        updatedUser.LastSeenAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        updatedUser.LastSeenAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]

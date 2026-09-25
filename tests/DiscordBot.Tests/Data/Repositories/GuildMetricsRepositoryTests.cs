@@ -416,6 +416,7 @@ public class GuildMetricsRepositoryTests : IDisposable
     public async Task UpsertAsync_WithNewSnapshot_CreatesRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         await CreateTestGuildAsync(123456789UL);
 
         var snapshot = new GuildMetricsSnapshot
@@ -448,13 +449,14 @@ public class GuildMetricsRepositoryTests : IDisposable
         saved.ModerationActions.Should().Be(5);
         saved.ActiveChannels.Should().Be(20);
         saved.TotalVoiceMinutes.Should().Be(500);
-        saved.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        saved.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]
     public async Task UpsertAsync_WithExistingSnapshot_UpdatesRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         await CreateTestGuildAsync(123456789UL);
 
         var existing = new GuildMetricsSnapshot
@@ -511,7 +513,7 @@ public class GuildMetricsRepositoryTests : IDisposable
         saved.ModerationActions.Should().Be(8);
         saved.ActiveChannels.Should().Be(25);
         saved.TotalVoiceMinutes.Should().Be(600);
-        saved.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        saved.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
         // Verify only one record exists
         var count = _context.GuildMetricsSnapshots.Count();

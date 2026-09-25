@@ -94,7 +94,10 @@ the suite. The server is `DISCORDBOT_TEST_POSTGRES` (a Npgsql connection string)
 defaulting to `postgres`/`postgres` on `localhost:5432`; CI runs a `postgres:16`
 service and the web SessionStart hook starts the local cluster. Anywhere else:
 `docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres postgres:16`. Postgres
-enforces foreign keys, so seed the rows a test's data points at. Nothing exercises
+enforces foreign keys, so seed the rows a test's data points at. A timestamp the
+code under test stamps is asserted between `TestHelpers/DbTimestamp.LowerBound()` read
+first and `DateTime.UtcNow` read after, never `BeCloseTo(DateTime.UtcNow, …)`: a
+database test can take seconds on a busy CI runner. Nothing exercises
 the SQLite provider or its migrations, so say so when you report on a change that
 touches them.
 

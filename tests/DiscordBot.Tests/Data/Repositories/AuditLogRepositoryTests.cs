@@ -77,6 +77,7 @@ public class AuditLogRepositoryTests : IDisposable
         public async Task AddAsync_ShouldAddAuditLog_WhenValid()
         {
             // Arrange
+            var before = DbTimestamp.LowerBound();
             var log = CreateTestLog(
                 category: AuditLogCategory.Security,
                 action: AuditLogAction.PermissionChanged,
@@ -96,7 +97,7 @@ public class AuditLogRepositoryTests : IDisposable
             result.TargetId.Should().Be("987654321");
             result.GuildId.Should().Be(123456789);
             result.Details.Should().Be("{\"permission\": \"Administrator\"}");
-            result.Timestamp.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+            result.Timestamp.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
             // Verify it was saved to the database
             var savedLog = await _context.AuditLogs.FindAsync(result.Id);
