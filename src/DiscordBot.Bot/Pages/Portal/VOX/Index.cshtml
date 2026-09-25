@@ -784,6 +784,22 @@
                 max-height: none;
                 overflow: visible;
             }
+
+            /* The page scrolls normally here, so there is no fixed height to share out.
+               Size the panel, tab panel and clip browser to content; with flex: 1 and
+               min-height: 0 they were held to the viewport and the clip grid shrank to zero. */
+            .vox-page .portal-content,
+            .vox-panel,
+            .vox-panel > [data-nav-panel-for],
+            .vox-clip-browser {
+                flex: none;
+                overflow: visible;
+            }
+
+            /* The grid stays its own scroll container so letter jumps keep working */
+            .vox-clip-grid {
+                max-height: 60vh;
+            }
         }
 
         /* Mobile: <768px */
