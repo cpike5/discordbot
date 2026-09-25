@@ -3,7 +3,7 @@
   "short_name": "Bot Admin",
   "description": "Admin portal for the Discord bot: guilds, moderation, audio, analytics, and the assistant.",
   "id": "/",
-  "start_url": "/",
+  "start_url": "/Account/Login",
   "scope": "/",
   "display": "standalone",
   "orientation": "any",

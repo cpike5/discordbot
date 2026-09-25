@@ -9,7 +9,7 @@ cannot be reached.
 
 | File | Purpose |
 | --- | --- |
-| `wwwroot/manifest.webmanifest` | Name, colours, `start_url` (`/`), `display: standalone`, icons. |
+| `wwwroot/manifest.webmanifest` | Name, colours, `start_url` (`/Account/Login`), `display: standalone`, icons. |
 | `wwwroot/sw.js` | The service worker, served from the root so its scope is the whole site. |
 | `wwwroot/offline.html` | Self-contained page shown when a navigation fails. Inline styles only. |
 | `wwwroot/js/pwa.js` | Registers the service worker (secure contexts only: HTTPS or `localhost`). |
@@ -19,6 +19,11 @@ cannot be reached.
 `_PwaHead` is included by `_Layout`, `Portal/_PortalLayout`, `_LayoutLanding`, and the
 standalone `Account/Login` page. A new `Layout = null` page that should stay installable
 adds `<partial name="_PwaHead" />` to its `<head>`.
+
+The installed app launches at `/Account/Login`, not `/`: an anonymous request for `/` is
+redirected to the public `/landing` page, which is no use inside the app. The login page
+sends a signed-in user straight on to the dashboard, so a returning user never sees it.
+`id` stays `/` so existing installs keep their identity.
 
 ## Caching policy
 
