@@ -61,6 +61,7 @@ public class CommandLogRepositoryTests : IDisposable
     public async Task LogCommandAsync_CreatesNewLog()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         await SeedTestDataAsync();
 
         // Act
@@ -82,7 +83,7 @@ public class CommandLogRepositoryTests : IDisposable
         result.ResponseTimeMs.Should().Be(150);
         result.Success.Should().BeTrue();
         result.ErrorMessage.Should().BeNull();
-        result.ExecutedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        result.ExecutedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
         // Verify it was saved to the database
         var savedLog = await _context.CommandLogs.FindAsync(result.Id);

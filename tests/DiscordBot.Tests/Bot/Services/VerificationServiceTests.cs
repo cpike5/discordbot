@@ -335,6 +335,7 @@ public class VerificationServiceTests : IDisposable
     public async Task ValidateCodeAsync_LinksAccountsOnSuccess()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         const string userId = "user123";
         const ulong discordUserId = 987654321UL;
         const string code = "ABC123";
@@ -378,7 +379,7 @@ public class VerificationServiceTests : IDisposable
         var updatedVerification = await _context.VerificationCodes.FindAsync(verification.Id);
         updatedVerification!.Status.Should().Be(VerificationStatus.Completed);
         updatedVerification.CompletedAt.Should().NotBeNull();
-        updatedVerification.CompletedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        updatedVerification.CompletedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]

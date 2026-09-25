@@ -417,6 +417,7 @@ public class MemberActivityRepositoryTests : IDisposable
     public async Task UpsertAsync_WithNewSnapshot_CreatesRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         await CreateTestGuildAsync(123456789UL);
         await CreateTestUserAsync(987654321UL);
 
@@ -442,13 +443,14 @@ public class MemberActivityRepositoryTests : IDisposable
         saved.ReactionCount.Should().Be(20);
         saved.VoiceMinutes.Should().Be(30);
         saved.UniqueChannelsActive.Should().Be(5);
-        saved.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        saved.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]
     public async Task UpsertAsync_WithExistingSnapshot_UpdatesRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         await CreateTestGuildAsync(123456789UL);
         await CreateTestUserAsync(987654321UL);
 
@@ -495,7 +497,7 @@ public class MemberActivityRepositoryTests : IDisposable
         saved.ReactionCount.Should().Be(25);
         saved.VoiceMinutes.Should().Be(40);
         saved.UniqueChannelsActive.Should().Be(6);
-        saved.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        saved.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
         // Verify only one record exists
         var count = _context.MemberActivitySnapshots.Count();

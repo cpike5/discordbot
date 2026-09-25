@@ -386,6 +386,7 @@ public class ChannelActivityRepositoryTests : IDisposable
     public async Task UpsertAsync_WithNewSnapshot_CreatesRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         await CreateTestGuildAsync(123456789UL);
 
         var snapshot = new ChannelActivitySnapshot
@@ -414,13 +415,14 @@ public class ChannelActivityRepositoryTests : IDisposable
         saved.PeakHour.Should().Be(14);
         saved.PeakHourMessageCount.Should().Be(75);
         saved.AverageMessageLength.Should().Be(48.5);
-        saved.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        saved.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
     }
 
     [Fact]
     public async Task UpsertAsync_WithExistingSnapshot_UpdatesRecord()
     {
         // Arrange
+        var before = DbTimestamp.LowerBound();
         await CreateTestGuildAsync(123456789UL);
 
         var existing = new ChannelActivitySnapshot
@@ -472,7 +474,7 @@ public class ChannelActivityRepositoryTests : IDisposable
         saved.PeakHour.Should().Be(15);
         saved.PeakHourMessageCount.Should().Be(90);
         saved.AverageMessageLength.Should().Be(52.3);
-        saved.CreatedAt.Should().BeCloseTo(DateTime.UtcNow, TimeSpan.FromSeconds(5));
+        saved.CreatedAt.Should().BeOnOrAfter(before).And.BeOnOrBefore(DateTime.UtcNow);
 
         // Verify only one record exists
         var count = _context.ChannelActivitySnapshots.Count();
