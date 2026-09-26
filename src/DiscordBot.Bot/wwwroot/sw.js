@@ -14,7 +14,7 @@
  *
  * Bump CACHE_VERSION when the precache list or caching behaviour changes.
  */
-const CACHE_VERSION = 'v1';
+const CACHE_VERSION = 'v2';
 const PRECACHE = `discordbot-precache-${CACHE_VERSION}`;
 const RUNTIME = `discordbot-runtime-${CACHE_VERSION}`;
 const OFFLINE_URL = '/offline.html';
