@@ -140,6 +140,25 @@ public class FeedbackPlumbingTests : IClassFixture<FeedbackPlumbingTests.AppFixt
     }
 
     [Fact]
+    public async Task ActionResult_SetAsToastBeforeRedirect_RendersOnce_OnTheNextPage()
+    {
+        var page = $"/Guilds/Reminders/{OfflineAppHost.GuildId}";
+        var token = OfflineAppHost.ReadAntiforgeryToken(await _app.Host.Client.GetStringAsync(page));
+
+        var response = await _app.Host.Client.PostAsync(
+            $"{page}?handler=Cancel&reminderId={Guid.NewGuid()}",
+            new FormUrlEncodedContent(new Dictionary<string, string> { ["__RequestVerificationToken"] = token }));
+
+        response.RequestMessage!.RequestUri!.AbsolutePath.Should().Be(page, "the handler redirects back to the list");
+        var html = await response.Content.ReadAsStringAsync();
+        html.Should().Contain("<script type=\"application/json\" id=\"serverToasts\">");
+        html.Should().Contain("\"type\":\"error\",\"message\":\"Reminder not found.\"");
+
+        var reload = await _app.Host.Client.GetStringAsync(page);
+        reload.Should().NotContain("Reminder not found.", "a toast shows on one page render only");
+    }
+
+    [Fact]
     public async Task SignedOut_403Page_OffersSignIn()
     {
         using var anonymous = _app.Host.CreateAnonymousClient();

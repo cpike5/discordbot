@@ -48,7 +48,7 @@ public class IndexModel : GuildPageModelBase
     /// <summary>
     /// Gets or sets the page number.
     /// </summary>
-    [BindProperty(SupportsGet = true, Name = "page")]
+    [BindProperty(SupportsGet = true, Name = "pageNumber")]
     public int CurrentPage { get; set; } = 1;
 
     /// <summary>
@@ -179,7 +179,7 @@ public class IndexModel : GuildPageModelBase
             _logger.LogWarning("Reminder {ReminderId} not found or doesn't belong to guild {GuildId}",
                 reminderId, ulongGuildId);
             TempData.SetErrorToast("Reminder not found.");
-            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
+            return RedirectToPage(new { guildId, pageNumber = CurrentPage, PageSize, Status });
         }
 
         if (reminder.Status != ReminderStatus.Pending)
@@ -187,7 +187,7 @@ public class IndexModel : GuildPageModelBase
             _logger.LogWarning("Cannot cancel reminder {ReminderId} - status is {Status}, not Pending",
                 reminderId, reminder.Status);
             TempData.SetErrorToast("Only pending reminders can be cancelled.");
-            return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
+            return RedirectToPage(new { guildId, pageNumber = CurrentPage, PageSize, Status });
         }
 
         // Update status to cancelled
@@ -197,6 +197,6 @@ public class IndexModel : GuildPageModelBase
         _logger.LogInformation("Successfully cancelled reminder {ReminderId}", reminderId);
         TempData.SetSuccessToast("Reminder cancelled successfully.");
 
-        return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
+        return RedirectToPage(new { guildId, pageNumber = CurrentPage, PageSize, Status });
     }
 }

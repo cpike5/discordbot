@@ -3268,7 +3268,8 @@
 
   /* Toast Variants */
   .toast-info {
-    background-color: rgba(var(--color-info-rgb), 0.1);
+    /* Tint layered over the opaque toast background, so page content never shows through */
+    background-image: linear-gradient(rgba(var(--color-info-rgb), 0.1), rgba(var(--color-info-rgb), 0.1));
     border-color: rgba(var(--color-info-rgb), 0.3);
   }
 
@@ -3277,7 +3278,7 @@
   }
 
   .toast-success {
-    background-color: rgba(var(--color-success-rgb), 0.1);
+    background-image: linear-gradient(rgba(var(--color-success-rgb), 0.1), rgba(var(--color-success-rgb), 0.1));
     border-color: rgba(var(--color-success-rgb), 0.3);
   }
 
@@ -3286,7 +3287,7 @@
   }
 
   .toast-warning {
-    background-color: rgba(var(--color-warning-rgb), 0.1);
+    background-image: linear-gradient(rgba(var(--color-warning-rgb), 0.1), rgba(var(--color-warning-rgb), 0.1));
     border-color: rgba(var(--color-warning-rgb), 0.3);
   }
 
@@ -3295,7 +3296,7 @@
   }
 
   .toast-error {
-    background-color: rgba(var(--color-error-rgb), 0.1);
+    background-image: linear-gradient(rgba(var(--color-error-rgb), 0.1), rgba(var(--color-error-rgb), 0.1));
     border-color: rgba(var(--color-error-rgb), 0.3);
   }
 

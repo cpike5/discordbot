@@ -98,21 +98,29 @@
      * Best-effort extraction of a human-readable message from an error body.
      * Supports the ad-hoc `{ success, message }` / `{ errors: [...] }` shape
      * used by this app's Razor Pages handlers as well as ASP.NET Core
-     * ProblemDetails (`{ title, detail, errors }`). `detail` wins over `message`
-     * because it carries the actionable specifics; `title` is the last resort.
-     * An HTML body (an error page) is never used as a message.
+     * ProblemDetails (`{ title, detail, errors }`). For a client error (4xx)
+     * `detail` wins over `message`, because it says what to fix ("Hours must be
+     * between 1 and 720"). For a server error (5xx) `detail` is skipped: several
+     * controllers put exception text there, and users never see that.
+     * `title` is the last resort. An HTML body (an error page) is never used.
+     *
+     * @param {*} data - the parsed error body
+     * @param {string} fallback - used when the body carries nothing usable
+     * @param {number} [status] - the HTTP status, when known
      */
-    function extractErrorMessage(data, fallback) {
+    function extractErrorMessage(data, fallback, status) {
         if (!data) return fallback;
-        if (typeof data === 'string') return (data && !looksLikeHtml(data)) ? data : fallback;
-        if (data.detail) return data.detail;
+        if (typeof data === 'string') {
+            return (data && !looksLikeHtml(data) && !(status >= 500)) ? data : fallback;
+        }
+        if (data.detail && !(status >= 500)) return data.detail;
         if (data.message) return data.message;
         if (Array.isArray(data.errors) && data.errors.length) return data.errors.join(', ');
         if (data.errors && typeof data.errors === 'object') {
             const messages = Object.values(data.errors).flat();
             if (messages.length) return messages.join(', ');
         }
-        if (data.title) return data.title;
+        if (data.title && !(status >= 500)) return data.title;
         return fallback;
     }
 
@@ -319,7 +327,7 @@
                 throw new ApiClientError(SESSION_EXPIRED_MESSAGE, 401, data, null, 'session-expired');
             }
             const fallback = options.errorMessage || statusMessage(status);
-            const message = extractErrorMessage(data, fallback);
+            const message = extractErrorMessage(data, fallback, status);
             const retryAfter = status === 429 ? parseRetryAfter(response) : null;
             throw new ApiClientError(message, status, data, retryAfter);
         }

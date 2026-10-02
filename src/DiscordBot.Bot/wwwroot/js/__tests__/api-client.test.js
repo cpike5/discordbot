@@ -389,3 +389,20 @@ test("a caller's own abort passes through as an AbortError", async () => {
 
     await assert.rejects(pending, (err) => err.name === 'AbortError');
 });
+
+test('a server error never shows its detail, which can be exception text', async () => {
+    global.document = { querySelector: () => null };
+    mockFetch(async () => ({
+        ok: false,
+        status: 500,
+        text: async () => JSON.stringify({ message: 'Failed to load metrics', detail: 'Npgsql.NpgsqlException: connection refused', statusCode: 500 })
+    }));
+
+    await assert.rejects(
+        () => ApiClient.get('/api/metrics'),
+        (err) => {
+            assert.equal(err.message, 'Failed to load metrics');
+            return true;
+        }
+    );
+});

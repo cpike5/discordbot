@@ -464,6 +464,9 @@ public class IndexModel : GuildPageModelBase
 - **Field errors** stay inline via `ModelState.AddModelError`.
 - A handler that returns `JsonResult` puts its message in the JSON, never in TempData, or the toast would appear on
   the next unrelated page. Never show `ex.Message` to the user; log the exception and show a plain sentence.
+- A server-posted `<form>` gets `data-submit-guard` (pending state, no double submit). Page scripts call the
+  server through `ApiClient`, which handles session expiry, plain-language errors and timeouts. See
+  `docs/articles/component-api.md` § Toasts and the TempData Bridge, § ApiClient, § Double-Submit Guard.
 
 ### Real Example: VOX Index Page
 

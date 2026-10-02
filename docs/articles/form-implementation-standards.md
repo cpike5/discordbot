@@ -38,11 +38,10 @@ public class EditModel : PageModel
     // 3. Separate view model for display-only data
     public MyViewModel ViewModel { get; set; } = new();
 
-    // 4. TempData for success messages that survive redirect
-    [TempData]
-    public string? SuccessMessage { get; set; }
+    // 4. Action results are toasts: TempData.SetSuccessToast / SetErrorToast
+    //    (DiscordBot.Bot.Extensions). No [TempData] message properties.
 
-    // 5. Regular property for error messages (page redisplay)
+    // 5. Regular property for page state (data failed to load), rendered with _Alert
     public string? ErrorMessage { get; set; }
 
     // 6. InputModel with validation attributes
@@ -115,13 +114,13 @@ public class EditModel : PageModel
 
         if (result == null)
         {
-            ErrorMessage = "Entity not found. It may have been deleted.";
+            TempData.SetErrorToast("Entity not found. It may have been deleted.");
             await LoadViewModelAsync(Input.EntityId, cancellationToken);
             return Page();
         }
 
-        // 8d. Success - redirect with TempData message
-        SuccessMessage = "Settings saved successfully.";
+        // 8d. Success - redirect; the toast shows on the next page
+        TempData.SetSuccessToast("Settings saved successfully.");
         return RedirectToPage("Details", new { id = Input.EntityId });
     }
 
@@ -148,26 +147,13 @@ public class EditModel : PageModel
 }
 
 <div class="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-    <!-- Success Message (from TempData after redirect) -->
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Success,
-                Message = Model.SuccessMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
-    <!-- Error Message (from validation or service failure) -->
+    <!-- Page state only (data failed to load). Action results arrive as toasts. -->
     @if (!string.IsNullOrEmpty(Model.ErrorMessage))
     {
         <div class="mb-6">
             <partial name="Shared/Components/_Alert" model="new AlertViewModel {
                 Variant = AlertVariant.Error,
-                Message = Model.ErrorMessage,
-                IsDismissible = true
+                Message = Model.ErrorMessage
             }" />
         </div>
     }
@@ -435,40 +421,35 @@ Use this pattern for actions like:
 ```csharp
 public class IndexModel : PageModel
 {
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    [TempData]
-    public string? ErrorMessage { get; set; }
-
     public async Task<IActionResult> OnPostCancelAsync(
         ulong guildId,
         Guid watchId,
-        [FromQuery] int page = 1,
+        [FromQuery] int pageNumber = 1,
         CancellationToken cancellationToken = default)
     {
         var success = await _service.CancelAsync(watchId, cancellationToken);
 
         if (success)
         {
-            SuccessMessage = "Cancelled successfully.";
+            TempData.SetSuccessToast("Cancelled successfully.");
         }
         else
         {
-            ErrorMessage = "Could not cancel. It may already be completed.";
+            TempData.SetErrorToast("Could not cancel. It may already be completed.");
         }
 
-        return RedirectToPage("Index", new { guildId, page });
+        // Never name a route value "page": Razor Pages reserves it for the page name
+        return RedirectToPage("Index", new { guildId, pageNumber });
     }
 
     public async Task<IActionResult> OnPostEndVoteAsync(
         ulong guildId,
         Guid watchId,
-        [FromQuery] int page = 1,
+        [FromQuery] int pageNumber = 1,
         CancellationToken cancellationToken = default)
     {
         // Similar pattern...
-        return RedirectToPage("Index", new { guildId, page });
+        return RedirectToPage("Index", new { guildId, pageNumber });
     }
 }
 ```
@@ -721,18 +702,21 @@ const response = await fetch('?handler=Save', {
 });
 ```
 
-### 7. Using ErrorMessage for Both Scenarios
+### 7. Message Properties Instead of Toasts
 
 ```csharp
-// WRONG - ErrorMessage survives redirect
-public string? ErrorMessage { get; set; }
-SuccessMessage = "Saved!"; // Won't show after redirect
-
-// CORRECT - Use TempData for redirect messages
+// WRONG - a message property: lost on redirect without [TempData], shown twice with it
+//         (once on the page, again on the next request), and rendered as a page banner
 [TempData]
-public string? SuccessMessage { get; set; } // Survives redirect
+public string? SuccessMessage { get; set; }
+SuccessMessage = "Saved!";
 
-public string? ErrorMessage { get; set; } // For validation redisplay
+// CORRECT - action results are toasts, after a redirect or on Page()
+TempData.SetSuccessToast("Saved!");
+TempData.SetErrorToast("Could not save. Try again.");
+
+// Page state (data failed to load) is a plain property rendered with _Alert
+public string? ErrorMessage { get; set; }
 ```
 
 ## Form Component Reference
@@ -745,7 +729,7 @@ Use these shared components for consistent styling:
 | `Shared/Components/_FormSelect` | Dropdown select |
 | `Shared/Components/_FormToggle` | Boolean toggle switch |
 | `Shared/Components/_FormTextarea` | Multi-line text |
-| `Shared/Components/_Alert` | Success/error messages |
+| `Shared/Components/_Alert` | Page state: load failure, degraded service (action results are toasts) |
 | `Shared/Components/_ConfirmationModal` | Delete/reset confirmations |
 
 ### FormInputViewModel Properties
@@ -775,7 +759,8 @@ var inputModel = new FormInputViewModel
 - [ ] OnPost reloads ViewModel on validation failure
 - [ ] Hidden field for entity ID on edit forms
 - [ ] `asp-validation-summary="ModelOnly"` in form
-- [ ] `[TempData]` on SuccessMessage for redirects
+- [ ] Action results via `TempData.SetSuccessToast` / `SetErrorToast`, not message properties
+- [ ] `data-submit-guard` on the form
 - [ ] Form components use `Input.PropertyName` naming
 - [ ] Cancel button links back to list/details page
 - [ ] `@section Scripts { <partial name="_ValidationScriptsPartial" /> }` included

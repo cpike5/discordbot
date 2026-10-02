@@ -12,6 +12,19 @@
 @section Scripts {
     <script src="~/js/nav-tabs.js" asp-append-version="true"></script>
     <script src="~/js/settings.js" asp-append-version="true"></script>
+    <script>
+        document.querySelectorAll('[data-demo-toast]').forEach(function (button) {
+            button.addEventListener('click', function () {
+                switch (button.dataset.demoToast) {
+                    case 'success': toast.success('Settings saved.'); break;
+                    case 'info': toast.info('Copied to clipboard.', { title: 'Clipboard' }); break;
+                    case 'warning': toast.warning('You are close to the rate limit.'); break;
+                    case 'error': toast.error('Could not save the settings.'); break;
+                    case 'action': toast.error('Could not reach the server.', { action: { label: 'Retry', onClick: function () { toast.success('Retried.'); } } }); break;
+                }
+            });
+        });
+    </script>
 }
 
 <div class="space-y-8">
@@ -291,6 +304,18 @@
                     {
                         @await Html.PartialAsync("Components/_Alert", alert)
                     }
+                </div>
+            </div>
+
+            <div>
+                <h4 class="text-sm font-semibold text-text-primary mb-1">Toasts</h4>
+                <p class="text-sm text-text-secondary mb-3">Action results. <code>toast.success(msg)</code> in scripts, <code>TempData.SetSuccessToast(msg)</code> in page handlers. Errors stay until dismissed; a repeat nudges the toast already on screen.</p>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" class="btn btn-secondary" data-demo-toast="success">Success</button>
+                    <button type="button" class="btn btn-secondary" data-demo-toast="info">Info</button>
+                    <button type="button" class="btn btn-secondary" data-demo-toast="warning">Warning</button>
+                    <button type="button" class="btn btn-secondary" data-demo-toast="error">Error</button>
+                    <button type="button" class="btn btn-secondary" data-demo-toast="action">Error with action</button>
                 </div>
             </div>
         </div>

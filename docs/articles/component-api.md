@@ -62,7 +62,10 @@ Then in the view:
 | [Card](#card-component) | Content containers | Dashboard widgets, grouped content |
 | [FormInput](#forminput-component) | Text input fields | Forms, search bars |
 | [FormSelect](#formselect-component) | Dropdown selection | Forms, filters |
-| [Alert](#alert-component) | User notifications | Success/error messages, warnings |
+| [Alert](#alert-component) | Persistent page-level state | Load failures, degraded services, validation summaries |
+| [Toasts](#toasts-and-the-tempdata-bridge) | Action results | Saved, deleted, failed to save (JS or `TempData.Set*Toast`) |
+| [ApiClient](#apiclient-javascript-api) | Requests from page scripts | Session expiry, plain-language errors, timeouts |
+| [Double-submit guard](#double-submit-guard) | Pending state for posted forms | `data-submit-guard` on any server-posted form |
 | [ConfirmationModal](#confirmationmodal-component) | Confirmation dialogs | Delete actions, destructive operations |
 | [TypedConfirmationModal](#typedconfirmationmodal-component) | Text-verified confirmations | Irreversible destructive actions |
 | [quickActions JS API](#quickactions-javascript-api) | Promise-based dialogs | AJAX-gated confirms, dynamic alerts |
@@ -886,7 +889,7 @@ var validatedSelect = new FormSelectViewModel
 
 ## Alert Component
 
-Notification banner for displaying informational, success, warning, or error messages with optional dismiss functionality.
+Banner for **persistent page-level state**: a load failure, a degraded or unconfigured service, a validation summary. The result of an action (saved, deleted, failed to save) is a toast instead; see [Toasts and the TempData Bridge](#toasts-and-the-tempdata-bridge). Field errors stay inline next to the field.
 
 ### Properties
 
@@ -897,7 +900,7 @@ Notification banner for displaying informational, success, warning, or error mes
 | `Message` | `string` | `""` | Alert message text (required) |
 | `IsDismissible` | `bool` | `false` | Shows dismiss button |
 | `ShowIcon` | `bool` | `true` | Shows variant icon |
-| `DismissCallback` | `string?` | `null` | JavaScript function for dismiss |
+| `DismissCallback` | `string?` | `null` | Name of a global JavaScript function called with the alert element after it is dismissed. A name, never code; dismissing works without it |
 
 ### Enums
 
@@ -942,7 +945,7 @@ var warningAlert = new AlertViewModel
     Title = "Limited Functionality",
     Message = "Some features are unavailable while the bot is restarting.",
     IsDismissible = true,
-    DismissCallback = "dismissAlert('warning-1')"
+    DismissCallback = "onRestartBannerDismissed" // optional: window.onRestartBannerDismissed(alertElement)
 };
 ```
 
@@ -989,9 +992,107 @@ var subtleAlert = new AlertViewModel
 ### Accessibility Notes
 
 - Uses semantic colors with sufficient contrast
-- Dismiss button includes `aria-label="Dismiss"`
-- Alert uses appropriate ARIA role implicitly
+- Dismiss button includes `aria-label="Dismiss"`; `toast.js` wires every `[data-alert-dismiss]` button, so no callback is needed
+- `role="status"`: the alert is server-rendered and present on load, so it is announced politely rather than interrupting
 - Icon provides visual reinforcement (not sole indicator)
+
+---
+
+## Toasts and the TempData Bridge
+
+Toasts report the **result of an action**. Error toasts stay until dismissed; success closes after 4 seconds and info/warning after 6. A toast identical to one already on screen is not stacked again; the existing one restarts its timer. Timers pause while the toast is hovered, focused or touched. One live region per politeness announces them (errors assertively).
+
+### From JavaScript
+
+```javascript
+toast.success('Settings saved.');
+toast.error('Could not save the settings.', {
+    action: { label: 'Retry', onClick: save }   // optional action button
+});
+toast.info('Copied to clipboard.', { title: 'Clipboard' });
+toast.warning('Rate limit approaching.', { duration: 0 });   // 0 = stay until dismissed
+toast.dismissAll();
+```
+
+Options: `title`, `duration` (ms), `action` (`{ label, onClick }`), `key` (de-duplication identity; defaults to type + title + message).
+
+The older call shapes still work and route to the same implementation: `ToastManager.show(type, message, options)`, `quickActions.showToast(message, type)`, `showToast(type, message)` or `showToast(message, type)`, and `Toast.show(message, type)`. Use `toast.*` in new code.
+
+### From a page handler
+
+```csharp
+using DiscordBot.Bot.Extensions;
+
+public async Task<IActionResult> OnPostDeleteAsync(long guildId, Guid id)
+{
+    if (!await _service.DeleteAsync(id))
+    {
+        TempData.SetErrorToast("That message no longer exists.");
+        return RedirectToPage(new { guildId });
+    }
+
+    TempData.SetSuccessToast("Message deleted.");
+    return RedirectToPage(new { guildId });
+}
+```
+
+`SetSuccessToast`, `SetErrorToast`, `SetWarningToast` and `SetInfoToast` (each with an optional title) queue the toast for the next page render, whether the handler redirects or returns `Page()`. `_ToastContainer`, rendered by `_Layout` and `_PortalLayout`, reads them with `TempData.TakeToasts()` and hands them to `toast.js` as a JSON data block, so each shows exactly once.
+
+Rules:
+
+- Do not add `[TempData] SuccessMessage` / `ErrorMessage` properties or render action results as `_Alert`s.
+- A load failure set in `OnGet` is page state: a plain `ErrorMessage` property rendered with `_Alert` (`GuildPageModelBase.ErrorMessage` is that property for guild pages).
+- A handler that returns `JsonResult` puts its message in the JSON. TempData written there would pop up on the next, unrelated page.
+
+### Accessibility Notes
+
+- Toast elements carry no live role; `#toastLiveRegion` (polite) and `#toastAlertRegion` (assertive, errors) announce them once
+- Dismissing a toast that holds focus moves focus to `#main-content`
+- Reduced motion turns off the slide and the progress animation
+
+---
+
+## ApiClient JavaScript API
+
+`wwwroot/js/api-client.js`, loaded by both layouts as `window.ApiClient`. Use it for every request a page script makes.
+
+```javascript
+try {
+    const data = await ApiClient.post(`/api/guilds/${guildId}/welcome`, payload);
+    toast.success(data.message || 'Saved.');
+} catch (err) {
+    ApiClient.showErrorToast(err);   // plain-language message; skips session expiry (already shown)
+}
+```
+
+| Helper | Behaviour |
+|---|---|
+| `get/post/put/del(url, [body], options)` | Resolve with the parsed body; throw `ApiClientError` for any failure |
+| `getRaw/postRaw/putRaw/delRaw(...)` | Resolve with `{ ok, status, data, response }` for HTTP errors; reject only for network failure or timeout |
+
+What it handles for every caller:
+
+- **Expired session.** The server answers script requests with 401 problem JSON, not a redirect (see `IdentityServiceExtensions`). ApiClient also treats a redirect that lands on the sign-in page as expiry. Either way it shows one "Your session has expired" error toast with a **Sign in** action that returns to the current page, and fails with `err.kind === 'session-expired'`. Same-origin responses to raw `fetch()` calls are watched too, so older scripts get the same toast.
+- **Messages.** `ApiClientError.message` is always plain language. For a 4xx: `detail`, then `message`, `errors`, `title`. For a 5xx `detail` and `title` are skipped (some controllers put exception text in `detail`), so it is `message` or a sentence for the status code. Never "HTTP 500", never HTML.
+- **No HTML as data.** An HTML body (an error page) becomes `{ success: false, message }`.
+- **Network failures and timeouts.** 30 seconds by default (`timeout: 0` to disable, `signal` to cancel). They reject with `kind` `'network'` or `'timeout'` and status 0.
+- **Headers.** Anti-forgery token, `X-Requested-With: XMLHttpRequest`, `Accept: application/json`.
+
+---
+
+## Double-Submit Guard
+
+Add `data-submit-guard` to a server-posted `<form>`. On submit, `loading-manager.js` disables the submit button, shows a spinner in place of its icon (keeping the label, or using the button's `data-loading-text`), sets `aria-busy` on the button and form, and ignores further submits. Validation that cancels the submit leaves the form untouched. The state is undone when the page is restored from the back/forward cache.
+
+```cshtml
+<form method="post" asp-page-handler="Purge" data-submit-guard>
+    <button type="submit" class="btn btn-primary" data-loading-text="Purging…">
+        <svg …></svg> Purge
+    </button>
+</form>
+```
+
+Use `data-submit-guard="download"` for a form that does not navigate (a file export or `target="_blank"`); it re-enables after a few seconds. For script-driven buttons call `LoadingManager.setButtonLoading(button, true, 'Saving…')` and `false` to restore.
 
 ---
 
@@ -3141,6 +3242,12 @@ For live examples of all components with interactive demos, visit the component 
 ---
 
 ## Changelog
+
+### Version 1.5 (2026-10-02)
+- Alert is for persistent page state; `role="status"`; dismiss works without a callback; `DismissCallback` is a function name, never evaluated code
+- Added Toasts and the TempData Bridge: the `toast.*` API, legacy aliases, `TempData.Set*Toast`, de-duplication and pause rules
+- Added ApiClient: session-expiry toast, plain-language errors, timeout, no HTML as data
+- Added the `data-submit-guard` double-submit guard
 
 ### Version 1.4 (2026-02-19)
 - Added ConfirmationModal component documentation with all ViewModel properties
