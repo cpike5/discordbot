@@ -899,7 +899,8 @@
         }
 
         previewAudio = new Audio(API.audio(guildId, soundId));
-        previewAudio.dataset = { soundId: soundId };
+        // HTMLMediaElement.dataset is read-only; assigning it throws in strict mode
+        previewAudio.dataset.soundId = soundId;
 
         const btn = document.querySelector(`.preview-btn[data-sound-id="${soundId}"]`);
         if (btn) btn.classList.add('previewing');

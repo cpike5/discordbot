@@ -30,6 +30,18 @@ public class LogoutModel : PageModel
     }
 
     /// <summary>
+    /// Whether the request still carries a signed-in user. The GET view auto-submits a
+    /// sign-out POST in that case, and confirms the sign-out otherwise.
+    /// </summary>
+    public bool IsSignedIn => User.Identity?.IsAuthenticated == true;
+
+    /// <summary>
+    /// Handles GET requests. Signing out changes state, so it stays a POST: the view renders
+    /// a sign-out form that submits itself when the user is still signed in.
+    /// </summary>
+    public IActionResult OnGet() => Page();
+
+    /// <summary>
     /// Handles POST request for user logout.
     /// </summary>
     public async Task<IActionResult> OnPostAsync(string? returnUrl = null)

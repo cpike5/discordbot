@@ -1,9 +1,49 @@
 @page
 @model LogoutModel
 @{
-    ViewData["Title"] = "Log out";
+    ViewData["Title"] = Model.IsSignedIn ? "Signing out" : "Signed out";
+    Layout = null;
 }
 
-<h1 class="text-h1 mb-4">@ViewData["Title"]</h1>
-<p class="text-base text-text-secondary mb-6">You have been logged out successfully.</p>
-<a asp-page="/Index" class="btn btn-primary">Return to Home</a>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] - Discord Bot Admin</title>
+    <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body class="min-h-screen bg-bg-primary flex items-center justify-center px-4 py-8 font-sans">
+
+    <main class="w-full max-w-md">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-6 shadow-lg text-center">
+            @if (Model.IsSignedIn)
+            {
+                <h1 class="text-2xl font-bold text-text-primary mb-2">Signing you out…</h1>
+                <p class="text-sm text-text-secondary mb-6" role="status">If nothing happens, use the button below.</p>
+
+                <form id="logout-form" method="post" asp-page="/Account/Logout">
+                    <button type="submit" class="w-full py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                        Sign out
+                    </button>
+                </form>
+                <script>document.getElementById('logout-form').submit();</script>
+            }
+            else
+            {
+                <h1 class="text-2xl font-bold text-text-primary mb-2">You're signed out</h1>
+                <p class="text-sm text-text-secondary mb-6">You have been signed out successfully.</p>
+
+                <a asp-page="/Account/Login" class="w-full inline-block py-2.5 px-4 text-sm font-semibold text-white bg-accent-orange border border-accent-orange rounded-md transition-colors hover:bg-accent-orange-hover hover:border-accent-orange-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-accent-blue focus-visible:ring-offset-2 focus-visible:ring-offset-bg-secondary">
+                    Sign in again
+                </a>
+            }
+        </div>
+    </main>
+
+</body>
+</html>

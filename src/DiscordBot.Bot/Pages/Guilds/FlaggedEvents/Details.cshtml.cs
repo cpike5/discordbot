@@ -105,7 +105,7 @@ public class DetailsModel : GuildPageModelBase
                 new() { Label = "Servers", Url = "/Guilds" },
                 new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
                 new() { Label = "Moderation", Url = $"/Guilds/ModerationSettings/{guildId}" },
-                new() { Label = "Flagged Events", Url = $"/Guilds/{guildId}/FlaggedEvents" },
+                new() { Label = "Flagged Events", Url = $"/Guilds/FlaggedEvents/{guildId}" },
                 new() { Label = "Details", IsCurrent = true }
             }
         };

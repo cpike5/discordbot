@@ -97,9 +97,11 @@ log "NuGet restore complete."
   echo 'export DOTNET_CLI_TELEMETRY_OPTOUT=1'
   echo 'export DOTNET_NOLOGO=1'
   # Without Node, tell MSBuild to skip the Tailwind/npm build targets so that
-  # `dotnet build` / `dotnet test` succeed (CSS just isn't regenerated).
+  # `dotnet build` / `dotnet test` succeed. app.css is not checked in, so the app
+  # renders unstyled; AllowMissingTailwindCss acknowledges that (see the .csproj).
   if [ "$NPM_OK" != "true" ]; then
     echo 'export SkipTailwind=true'
+    echo 'export AllowMissingTailwindCss=true'
   fi
 } >> "$CLAUDE_ENV_FILE"
 

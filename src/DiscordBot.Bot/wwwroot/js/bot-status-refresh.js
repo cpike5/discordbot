@@ -158,7 +158,7 @@
                 }
 
                 // Update icon container
-                const iconContainer = banner.querySelector('.w-12.h-12');
+                const iconContainer = banner.querySelector('[data-status-icon]');
                 if (iconContainer) {
                     iconContainer.classList.remove('bg-success/20', 'bg-error/20');
                     iconContainer.classList.add(isOnline ? 'bg-success/20' : 'bg-error/20');
@@ -205,10 +205,14 @@
             // Update summary text
             const summary = banner.querySelector('[data-summary-text]');
             if (summary) {
-                if (isOnline) {
+                const guildCountElement = summary.querySelector('[data-guild-count]');
+                if (isOnline && wasOnline && guildCountElement) {
+                    // The status API has no member count, so keep the server-rendered sentence
+                    // and only refresh the number it does report.
+                    guildCountElement.textContent = data.guildCount.toLocaleString();
+                } else if (isOnline) {
                     const serverWord = data.guildCount === 1 ? 'server' : 'servers';
-                    const memberWord = data.memberCount === 1 ? 'member' : 'members';
-                    summary.textContent = `Connected to ${data.guildCount.toLocaleString()} ${serverWord} with ${(data.memberCount || 0).toLocaleString()} total ${memberWord}`;
+                    summary.textContent = `Connected to ${data.guildCount.toLocaleString()} ${serverWord}`;
                 } else {
                     summary.textContent = 'Not currently connected to Discord';
                 }

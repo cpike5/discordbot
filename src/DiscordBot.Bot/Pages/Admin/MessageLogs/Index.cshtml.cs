@@ -79,6 +79,6 @@ public class IndexModel : PaginatedPageModel
     /// </summary>
     public IActionResult OnGetAsync()
     {
-        return RedirectToPage("/Admin/Logs", new { tab = "messages" });
+        return RedirectToPage("/Admin/Logs/Index", new { tab = "messages" });
     }
 }

@@ -425,6 +425,11 @@
     // Send TTS Message
     // ========================================
     async function sendTtsMessage() {
+        // Enter and the button both call this; ignore repeats while a send is in flight
+        if (isSending) {
+            return;
+        }
+
         const messageInput = document.getElementById('ttsMessage');
         if (!messageInput) {
             return;
@@ -456,12 +461,7 @@
         // Mark as sending to prevent duplicate submissions
         isSending = true;
 
-        // Capture request body BEFORE clearing the textarea
         const body = buildTtsRequestBody();
-
-        // Clear textarea immediately so user can start typing next message
-        messageInput.value = '';
-        updateCharacterCount();
 
         // Disable send button and show loading
         const sendBtn = document.getElementById('sendBtn');
@@ -480,6 +480,12 @@
             await ApiClient.post(API.send(guildId), body, { errorMessage: 'Failed to send message' });
 
             showToast('success', 'Message sent successfully');
+
+            // Clear the text only once the send succeeded, so a failure never loses it.
+            // Leave it alone if the user edited it while the request was in flight.
+            if (messageInput.value.trim() === message) {
+                messageInput.value = '';
+            }
             clearDraft();
 
             // Save to history (non-blocking)

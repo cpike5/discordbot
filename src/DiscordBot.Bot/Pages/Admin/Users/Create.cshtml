@@ -139,8 +139,11 @@
                     type="checkbox"
                     id="Input_SendWelcomeEmail"
                     name="Input.SendWelcomeEmail"
+                    value="true"
                     checked="@Model.Input.SendWelcomeEmail"
                     class="h-4 w-4 text-accent-blue focus:ring-border-focus border-border-primary rounded" />
+                @* Unchecked boxes post nothing; the hidden false comes second so a checked box binds true. *@
+                <input type="hidden" name="Input.SendWelcomeEmail" value="false" />
                 <label for="Input_SendWelcomeEmail" class="ml-2 block text-sm text-text-primary">
                     Send welcome email to new user
                 </label>

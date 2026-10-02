@@ -167,30 +167,31 @@
                                     aria-expanded="false"
                                     aria-controls="actionDropdown"
                                     class="w-full px-4 py-2 bg-warning text-white font-medium rounded-md hover:bg-warning/90 transition-colors flex items-center justify-between">
-                                <span>Take Action</span>
+                                <span>Record outcome</span>
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                                 </svg>
                             </button>
                             <div id="actionDropdown"
                                  role="menu"
-                                 aria-label="Moderation actions"
+                                 aria-label="Outcome to record"
                                  class="hidden absolute z-10 mt-2 w-full bg-bg-secondary border border-border-primary rounded-md shadow-lg">
                                 <div class="py-1">
+                                    <p class="px-4 py-2 text-xs text-text-secondary border-b border-border-primary">Records what you did in Discord. Nothing is sent to Discord.</p>
                                     <button type="button" role="menuitem" onclick="takeAction('Warned user')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
-                                        Warn User
+                                        Warned user
                                     </button>
                                     <button type="button" role="menuitem" onclick="takeAction('Muted user for 24 hours')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
-                                        Mute User
+                                        Muted user (24 hours)
                                     </button>
                                     <button type="button" role="menuitem" onclick="takeAction('Kicked user from server')" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors">
-                                        Kick User
+                                        Kicked user
                                     </button>
                                     <button type="button" role="menuitem" onclick="takeAction('Banned user from server')" class="block w-full text-left px-4 py-2 text-sm text-error hover:bg-bg-hover transition-colors">
-                                        Ban User
+                                        Banned user
                                     </button>
                                     <button type="button" role="menuitem" onclick="showCustomActionModal()" class="block w-full text-left px-4 py-2 text-sm text-text-primary hover:bg-bg-hover transition-colors border-t border-border-primary">
-                                        Custom Action...
+                                        Other outcome…
                                     </button>
                                 </div>
                             </div>
@@ -216,14 +217,14 @@
      class="hidden fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
      onclick="if(event.target === this) hideCustomActionModal()">
     <div class="bg-bg-secondary border border-border-primary rounded-lg max-w-md w-full p-6">
-        <h3 id="customActionModalTitle" class="text-lg font-semibold text-text-primary mb-4">Custom Action</h3>
-        <textarea id="customActionText" rows="4" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Describe the action you took..." aria-label="Action description"></textarea>
+        <h3 id="customActionModalTitle" class="text-lg font-semibold text-text-primary mb-4">Record another outcome</h3>
+        <textarea id="customActionText" rows="4" class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:ring-2 focus:ring-accent-blue focus:border-accent-blue" placeholder="Describe what you did in Discord..." aria-label="Outcome description"></textarea>
         <div class="flex items-center justify-end gap-3 mt-4">
             <button type="button" onclick="hideCustomActionModal()" class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
                 Cancel
             </button>
             <button type="button" onclick="submitCustomAction()" class="px-4 py-2 bg-accent-blue text-white text-sm font-medium rounded-md hover:bg-accent-blue/90 transition-colors">
-                Submit
+                Record outcome
             </button>
         </div>
     </div>
@@ -387,10 +388,10 @@
             document.getElementById('actionDropdown').classList.add('hidden');
 
             const confirmed = await quickActions.confirm({
-                title: 'Confirm Action',
-                message: `Are you sure you want to take this action: ${action}?`,
-                variant: 'danger',
-                confirmText: action
+                title: 'Record outcome',
+                message: `Record "${action}" as the outcome of this event? This only updates the record; it does not warn, mute, kick or ban anyone in Discord.`,
+                variant: 'warning',
+                confirmText: 'Record outcome'
             });
             if (!confirmed) return;
 
@@ -410,11 +411,11 @@
                     location.reload();
                 } else {
                     const error = await response.json();
-                    quickActions.showToast('Error taking action: ' + error.message, 'error');
+                    quickActions.showToast('Could not record the outcome: ' + error.message, 'error');
                 }
             } catch (error) {
                 console.error('Error taking action:', error);
-                quickActions.showToast('An error occurred while taking action.', 'error');
+                quickActions.showToast('An error occurred while recording the outcome.', 'error');
             }
         }
 
@@ -444,11 +445,11 @@
                     location.reload();
                 } else {
                     const error = await response.json();
-                    quickActions.showToast('Error taking action: ' + error.message, 'error');
+                    quickActions.showToast('Could not record the outcome: ' + error.message, 'error');
                 }
             } catch (error) {
                 console.error('Error taking action:', error);
-                quickActions.showToast('An error occurred while taking action.', 'error');
+                quickActions.showToast('An error occurred while recording the outcome.', 'error');
             }
         }
 

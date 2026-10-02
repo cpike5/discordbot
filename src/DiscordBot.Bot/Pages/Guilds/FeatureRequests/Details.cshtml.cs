@@ -70,7 +70,7 @@ public class DetailsModel : GuildPageModelBase
                 new() { Label = "Home", Url = "/" },
                 new() { Label = "Servers", Url = "/Guilds" },
                 new() { Label = guild.Name, Url = $"/Guilds/Details/{guildId}" },
-                new() { Label = "Feature Requests", Url = $"/Guilds/{guildId}/FeatureRequests" },
+                new() { Label = "Feature Requests", Url = $"/Guilds/FeatureRequests/{guildId}" },
                 new() { Label = "Details", IsCurrent = true }
             }
         };

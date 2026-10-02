@@ -97,6 +97,16 @@ public class EditModel : PageModel
         _logger.LogInformation("OnPostAsync: Received form data - UserId={UserId}, Email={Email}, DisplayName={DisplayName}, Role={Role}, IsActive={IsActive}",
             Input.UserId, Input.Email, Input.DisplayName, Input.Role, Input.IsActive);
 
+        // You cannot change your own role or active status, and the form disables those
+        // controls for self-edits, so they post nothing (or a stale hidden value). Never
+        // forward them: the service keeps the current values when they are absent.
+        var isSelf = Input.UserId == currentUserId;
+        if (isSelf)
+        {
+            ModelState.Remove($"{nameof(Input)}.{nameof(InputModel.Role)}");
+            ModelState.Remove($"{nameof(Input)}.{nameof(InputModel.IsActive)}");
+        }
+
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("OnPostAsync: ModelState is invalid. Errors: {Errors}",
@@ -106,6 +116,7 @@ public class EditModel : PageModel
             {
                 return NotFound();
             }
+            KeepCurrentRoleAndStatusForSelf(isSelf, user);
             await LoadViewModelAsync(currentUserId, user);
             return Page();
         }
@@ -117,8 +128,8 @@ public class EditModel : PageModel
         {
             Email = Input.Email,
             DisplayName = Input.DisplayName,
-            Role = Input.Role,
-            IsActive = Input.IsActive
+            Role = isSelf ? null : Input.Role,
+            IsActive = isSelf ? null : Input.IsActive
         };
 
         _logger.LogInformation("OnPostAsync: Created UpdateDto - Email={Email}, DisplayName={DisplayName}, Role={Role}, IsActive={IsActive}",
@@ -140,6 +151,7 @@ public class EditModel : PageModel
         var userForViewModel = await _userManagementService.GetUserByIdAsync(Input.UserId);
         if (userForViewModel != null)
         {
+            KeepCurrentRoleAndStatusForSelf(isSelf, userForViewModel);
             await LoadViewModelAsync(currentUserId, userForViewModel);
         }
 
@@ -202,6 +214,21 @@ public class EditModel : PageModel
         }
 
         return RedirectToPage("Edit", new { id = userId });
+    }
+
+    /// <summary>
+    /// On a self-edit the role and active controls are disabled and post nothing, so show
+    /// the stored values again rather than the binding defaults.
+    /// </summary>
+    private void KeepCurrentRoleAndStatusForSelf(bool isSelf, UserDto user)
+    {
+        if (!isSelf)
+        {
+            return;
+        }
+
+        Input.Role = user.HighestRole;
+        Input.IsActive = user.IsActive;
     }
 
     private async Task LoadViewModelAsync(string currentUserId, UserDto user)

@@ -71,6 +71,12 @@ public record HeaderAction
     /// Whether to open the link in a new tab.
     /// </summary>
     public bool OpenInNewTab { get; init; }
+
+    /// <summary>
+    /// When true, the action is rendered as a button that POSTs (with an antiforgery token)
+    /// to <see cref="Url"/> instead of a link. Use for actions that change state.
+    /// </summary>
+    public bool IsPost { get; init; }
 }
 
 /// <summary>

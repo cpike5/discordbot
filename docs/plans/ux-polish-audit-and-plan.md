@@ -1,6 +1,6 @@
 # UX Polish Audit and Plan
 
-**Status:** Approved plan, not yet started
+**Status:** In progress. Phase 0a done; next is Phase 0b.
 **Date:** 2026-10-02
 **Scope:** The admin web portal (Razor Pages), the member portal (Soundboard, TTS, VOX), and the shared layout, components, CSS and JS behind them.
 
@@ -371,6 +371,14 @@ All runtime verification uses PostgreSQL (D16) with `Discord:OfflineMode=true`.
   - D16: CLAUDE.md states that local runs and UI verification use PostgreSQL, that SQLite is being phased out, and that there is no checked-in CSS. The Bot project build fails with a clear message when `SkipTailwind=true` and `wwwroot/css/app.css` is missing.
 - **Acceptance:** `/Admin/AuditLogs` and `/Admin/MessageLogs` redirect to the right tab; guild Edit save lands on Details; Feature Requests tab opens; mobile guild card opens Details; Create User works with defaults; an admin can change their own display name and keeps their role; ExternalLogin errors show on Login; Logout signs out; Messages export downloads; zero console errors on `/`, `/Guilds` and the Performance pages; Alerts "Acknowledge All" and "Save" respond; search "View all" opens Execution Logs.
 - **Verify:** add a test that requests every `@page` route and every `GuildNavigationConfig` URL and asserts no 5xx and no 404 for valid ids. Collect console errors across the route list. Screenshot Create User success and self-edit success.
+
+**Done (Phase 0a).** All listed changes landed and the acceptance checks pass on PostgreSQL in offline mode. Notes for later phases:
+
+- The route smoke test is `tests/DiscordBot.Tests/Integration/RouteSmokeTests.cs`. It boots the real app, signs in, and sweeps every page route and guild nav URL. Its `KnownFailures` list holds B-29 (AssistantMetrics 500 without an OpenRouter key, Phase 8) and the three portal pages, which 404 offline because the guild is never in the Discord client (D15, Phase 9). Remove each entry with its fix; the test fails if a listed route starts passing.
+- Two extra console-error sources were fixed to meet "zero console errors": concurrent `DashboardHub.connect()` calls from the layout and page scripts (now share one attempt), and `preview-popup.js` calling `closest()` on the document.
+- The Guilds/Details header Sync button posts a form (`HeaderAction.IsPost`). A failed sync now shows an error alert instead of nothing.
+- Privacy delete-data signs the user out on the server before redirecting.
+- With `SkipTailwind=true` and no `app.css` the build fails. `AllowMissingTailwindCss=true` opts out for compile-and-test-only environments; the SessionStart hook sets it when Node is unavailable.
 
 ### Phase 0b — Security fixes
 

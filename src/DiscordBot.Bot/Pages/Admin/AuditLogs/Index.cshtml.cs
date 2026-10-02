@@ -76,7 +76,7 @@ public class IndexModel : PaginatedPageModel
     /// </summary>
     public IActionResult OnGetAsync(CancellationToken cancellationToken)
     {
-        return RedirectToPage("/Admin/Logs", new { tab = "audit" });
+        return RedirectToPage("/Admin/Logs/Index", new { tab = "audit" });
     }
 
     /// <summary>
