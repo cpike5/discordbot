@@ -506,6 +506,38 @@ var items = allItems
     .ToList();
 ```
 
+### User Data in Markup and Scripts
+
+Names, messages, tags and file names are typed by guild members and admins, so treat every
+one as hostile. `Integration/SecurityHardeningTests` seeds such text and checks the pages.
+
+- **Razor output is encoded, but not for JavaScript.** `onclick="f('@sound.Name')"` is
+  broken: the browser decodes `&#x27;` back to `'` before the handler runs. Put the value
+  in a `data-*` attribute and read it from the element:
+
+  ```razor
+  <button data-sound-name="@sound.Name"
+          onclick="showDeleteModal('@sound.Id', this.dataset.soundName)">
+  ```
+
+  Ids (`Guid`, numbers) may stay inline. Never `Html.Raw` into a handler or a `<script>`.
+- **Markup built in JavaScript** uses `textContent` where it can. When a template string
+  must go into `innerHTML`, pass every user value through `SafeHtml.escape`
+  (`wwwroot/js/safe-html.js`, loaded by `_Layout` and `_PortalLayout`); it escapes quotes,
+  so it is safe in element content and quoted attributes. It is not safe inside inline
+  JavaScript, so the `data-*` rule still applies. Escape first, then add markup (`<br>`,
+  preview tokens). Query selectors built from user text use `CSS.escape`.
+- **Server values in page scripts** go through `JavaScriptStringEncode` inside a quoted
+  string, and through `SafeHtml.escape` if that string then reaches `innerHTML`.
+- **Return URLs** go through `ReturnUrlHelper.Sanitize(returnUrl, fallback)`, which keeps
+  only same-site paths, before they reach `LocalRedirect` or an `href`.
+- **CSV exports** pass user text through `CsvField.NeutralizeFormula` (server) or the same
+  leading `= + - @` check (client), so spreadsheets do not run it as a formula.
+- **Guild-scoped handlers** load the entity and return `NotFound()` when its `GuildId` is
+  not the route's `guildId`. The `GuildAccess` policy only covers the route's guild.
+- **Admin-only handlers on a Viewer page** check the role inside the handler; page-level
+  `[Authorize]` cannot be put on a handler method.
+
 ---
 
 ## Guild Page Model Base

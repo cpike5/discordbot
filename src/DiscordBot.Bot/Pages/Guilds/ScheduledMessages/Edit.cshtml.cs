@@ -265,6 +265,14 @@ public class EditModel : PageModel
     {
         _logger.LogInformation("POST received for updating scheduled message {MessageId} in guild {GuildId}", id, guildId);
 
+        // Guild access is authorized for the route's guild only, so the message must belong to it
+        var existing = await _scheduledMessageService.GetByIdAsync(id, cancellationToken);
+        if (existing == null || existing.GuildId != guildId)
+        {
+            _logger.LogWarning("Scheduled message {MessageId} not found in guild {GuildId}", id, guildId);
+            return NotFound();
+        }
+
         if (!ModelState.IsValid)
         {
             _logger.LogWarning("ModelState is invalid for message {MessageId}. Errors: {Errors}",

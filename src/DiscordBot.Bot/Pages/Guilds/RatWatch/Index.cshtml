@@ -414,7 +414,8 @@
                                         {
                                             <button
                                                 type="button"
-                                                onclick="showEndVoteModal('@watch.Id', '@watch.AccusedUsername', @watch.GuiltyVotes, @watch.NotGuiltyVotes)"
+                                                data-accused-username="@watch.AccusedUsername"
+                                                onclick="showEndVoteModal('@watch.Id', this.dataset.accusedUsername, @watch.GuiltyVotes, @watch.NotGuiltyVotes)"
                                                 class="p-2 text-text-secondary hover:text-accent-blue hover:bg-accent-blue/10 rounded-md transition-colors"
                                                 title="End Vote"
                                             >
@@ -427,7 +428,8 @@
                                         {
                                             <button
                                                 type="button"
-                                                onclick="showCancelModal('@watch.Id', '@watch.AccusedUsername')"
+                                                data-accused-username="@watch.AccusedUsername"
+                                                onclick="showCancelModal('@watch.Id', this.dataset.accusedUsername)"
                                                 class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
                                                 title="Cancel Watch"
                                             >

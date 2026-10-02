@@ -55,7 +55,7 @@ const DashboardRealtime = (function() {
     function cacheElements() {
         elements = {
             connectionStatus: document.getElementById('connection-status'),
-            botStatusCard: document.querySelector('[data-bot-status-card]'),
+            botStatusCard: document.querySelector('[data-bot-status-banner], [data-bot-status-card]'),
             activityFeed: document.getElementById('activity-feed'),
             activityItemTemplate: document.getElementById('activity-item-template'),
             pauseBtn: document.getElementById('pause-feed-btn'),
@@ -114,8 +114,8 @@ const DashboardRealtime = (function() {
         addActivityItem({
             icon: '🔧',
             timestamp: new Date(data.timestamp),
-            description: `<span class="font-mono text-accent-orange">/${data.commandName}</span> executed by <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`,
-            guild: escapeHtml(data.guildName || 'Direct Message'),
+            description: `<span class="font-mono text-accent-orange">/${escapeHtml(data.commandName)}</span> executed by <span class="text-accent-blue font-medium">@${escapeHtml(data.username || 'Unknown')}</span>`,
+            guild: data.guildName || 'Direct Message',
             success: data.success
         });
     }
@@ -145,7 +145,7 @@ const DashboardRealtime = (function() {
             icon: iconMap[data.eventType] || '📢',
             timestamp: new Date(data.timestamp),
             description: formatGuildEventDescription(data),
-            guild: escapeHtml(data.guildName)
+            guild: data.guildName
         });
     }
 
@@ -222,10 +222,17 @@ const DashboardRealtime = (function() {
         const clone = template.content.cloneNode(true);
         const itemEl = clone.querySelector('.activity-item');
 
-        itemEl.querySelector('.activity-timestamp').textContent = formatTimestamp(item.timestamp);
-        itemEl.querySelector('.activity-icon').textContent = item.icon;
-        itemEl.querySelector('.activity-description').innerHTML = item.description;
-        itemEl.querySelector('.activity-guild').textContent = item.guild;
+        const setText = (selector, value) => {
+            const el = itemEl.querySelector(selector);
+            if (el) el.textContent = value ?? '';
+        };
+
+        setText('.activity-timestamp', formatTimestamp(item.timestamp));
+        setText('.activity-icon', item.icon);
+        // description is built from escaped values by the callers above
+        const descriptionEl = itemEl.querySelector('.activity-description');
+        if (descriptionEl) descriptionEl.innerHTML = item.description;
+        setText('.activity-guild', item.guild);
 
         itemEl.classList.add('activity-item-enter');
 

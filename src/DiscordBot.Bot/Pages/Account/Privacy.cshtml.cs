@@ -17,6 +17,7 @@ namespace DiscordBot.Bot.Pages.Account;
 public class PrivacyModel : PageModel
 {
     private readonly UserManager<ApplicationUser> _userManager;
+    private readonly SignInManager<ApplicationUser> _signInManager;
     private readonly IConsentService _consentService;
     private readonly IUserDataExportService _exportService;
     private readonly IUserPurgeService _purgeService;
@@ -24,12 +25,14 @@ public class PrivacyModel : PageModel
 
     public PrivacyModel(
         UserManager<ApplicationUser> userManager,
+        SignInManager<ApplicationUser> signInManager,
         IConsentService consentService,
         IUserDataExportService exportService,
         IUserPurgeService purgeService,
         ILogger<PrivacyModel> logger)
     {
         _userManager = userManager;
+        _signInManager = signInManager;
         _consentService = consentService;
         _exportService = exportService;
         _purgeService = purgeService;
@@ -338,8 +341,11 @@ public class PrivacyModel : PageModel
                 _logger.LogInformation("Successfully deleted data for user {UserId}. {RecordCount} records deleted",
                     user.Id, totalDeleted);
 
+                // The user's data has been purged, so end the session here rather than trusting
+                // the client to reach the logout page. The redirect lands on the signed-out page.
+                await _signInManager.SignOutAsync();
+
                 // Return JSON with a redirect URL so the client can navigate after showing the toast.
-                // The user's account has been purged, so redirect to logout.
                 return new JsonResult(new
                 {
                     success = true,

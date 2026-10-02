@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -28,6 +29,18 @@ public class LogoutModel : PageModel
         _logger = logger;
         _auditLogService = auditLogService;
     }
+
+    /// <summary>
+    /// Whether the request still carries a signed-in user. The GET view auto-submits a
+    /// sign-out POST in that case, and confirms the sign-out otherwise.
+    /// </summary>
+    public bool IsSignedIn => User.Identity?.IsAuthenticated == true;
+
+    /// <summary>
+    /// Handles GET requests. Signing out changes state, so it stays a POST: the view renders
+    /// a sign-out form that submits itself when the user is still signed in.
+    /// </summary>
+    public IActionResult OnGet() => Page();
 
     /// <summary>
     /// Handles POST request for user logout.
@@ -62,9 +75,11 @@ public class LogoutModel : PageModel
 
         _logger.LogInformation("User {UserName} logged out", userName ?? "Unknown");
 
-        if (returnUrl != null)
+        // LocalRedirect throws on a non-local URL; anything that is not a same-site path
+        // falls through to the landing page instead
+        if (ReturnUrlHelper.IsLocalUrl(returnUrl))
         {
-            return LocalRedirect(returnUrl);
+            return LocalRedirect(returnUrl!);
         }
 
         // Redirect to landing page after logout (instead of login page)

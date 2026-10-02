@@ -7,6 +7,7 @@ const DashboardHub = (function() {
 
     let connection = null;
     let isConnected = false;
+    let pendingConnect = null;
     let reconnectAttempts = 0;
     const maxReconnectAttempts = 5;
     const reconnectDelayMs = 2000;
@@ -44,6 +45,22 @@ const DashboardHub = (function() {
             return true;
         }
 
+        // The layout and page scripts both call connect() on load. Share the attempt in
+        // flight; starting a second one would replace `connection` while it is still
+        // connecting, and invokes on it fail with "not in the 'Connected' State".
+        if (pendingConnect) {
+            return pendingConnect;
+        }
+
+        pendingConnect = startConnection();
+        try {
+            return await pendingConnect;
+        } finally {
+            pendingConnect = null;
+        }
+    }
+
+    async function startConnection() {
         try {
             connection = new signalR.HubConnectionBuilder()
                 .withUrl('/hubs/dashboard')

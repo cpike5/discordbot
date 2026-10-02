@@ -280,14 +280,17 @@
                 };
                 const colorClass = colorClassMap[tagCategory] || '';
 
+                // Tag names are user-entered: escape them, and hand them to the delete
+                // handler through a data-* attribute rather than inline JavaScript.
+                const safeName = SafeHtml.escape(tagName);
                 const tagHtml = `
-                    <div class="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg" data-tag-name="${tagName}">
+                    <div class="flex items-center justify-between p-3 bg-bg-tertiary rounded-lg" data-tag-name="${safeName}">
                         <div class="flex items-center gap-3">
-                            <span class="user-tag ${colorClass}">${tagName}</span>
+                            <span class="user-tag ${colorClass}">${safeName}</span>
                             <span class="text-sm text-text-secondary">Used 0 times</span>
                         </div>
                         <div class="flex items-center gap-2">
-                            <button type="button" class="p-1.5 text-text-tertiary hover:text-error hover:bg-error-bg rounded transition-colors" title="Delete" onclick="window.moderationSettings.deleteTag('${tagName}')">
+                            <button type="button" class="p-1.5 text-text-tertiary hover:text-error hover:bg-error-bg rounded transition-colors" title="Delete" data-tag-name="${safeName}" onclick="window.moderationSettings.deleteTag(this.dataset.tagName)">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                                 </svg>
@@ -333,7 +336,7 @@
                 quickActions.showToast(data.message, 'success');
 
                 // Remove the tag from the list
-                const tagElement = document.querySelector(`[data-tag-name="${tagName}"]`);
+                const tagElement = document.querySelector(`#tags-list > [data-tag-name="${CSS.escape(tagName)}"]`);
                 if (tagElement) {
                     tagElement.remove();
                 }

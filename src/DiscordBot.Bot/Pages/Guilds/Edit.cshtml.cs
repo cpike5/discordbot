@@ -167,7 +167,7 @@ public class EditModel : GuildPageModelBase
         _logger.LogInformation("Successfully updated guild {GuildId}", Input.GuildId);
         SuccessMessage = "Guild settings saved successfully.";
 
-        return RedirectToPage("Details", new { id = Input.GuildId });
+        return RedirectToPage("Details", new { guildId = Input.GuildId });
     }
 
     /// <summary>

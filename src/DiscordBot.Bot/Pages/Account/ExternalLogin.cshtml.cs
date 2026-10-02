@@ -47,8 +47,10 @@ public class ExternalLoginModel : PageModel
     }
 
     /// <summary>
-    /// Error message to display when external login fails.
+    /// Error message to display when external login fails. Stored in TempData under the
+    /// same key the Login page reads, so it survives the redirect back to Login.
     /// </summary>
+    [TempData]
     public string? ErrorMessage { get; set; }
 
     /// <summary>

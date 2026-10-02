@@ -1,6 +1,6 @@
 # UX Polish Audit and Plan
 
-**Status:** Approved plan, not yet started
+**Status:** In progress. Phases 0a and 0b done; next is Phase 1.
 **Date:** 2026-10-02
 **Scope:** The admin web portal (Razor Pages), the member portal (Soundboard, TTS, VOX), and the shared layout, components, CSS and JS behind them.
 
@@ -372,12 +372,30 @@ All runtime verification uses PostgreSQL (D16) with `Discord:OfflineMode=true`.
 - **Acceptance:** `/Admin/AuditLogs` and `/Admin/MessageLogs` redirect to the right tab; guild Edit save lands on Details; Feature Requests tab opens; mobile guild card opens Details; Create User works with defaults; an admin can change their own display name and keeps their role; ExternalLogin errors show on Login; Logout signs out; Messages export downloads; zero console errors on `/`, `/Guilds` and the Performance pages; Alerts "Acknowledge All" and "Save" respond; search "View all" opens Execution Logs.
 - **Verify:** add a test that requests every `@page` route and every `GuildNavigationConfig` URL and asserts no 5xx and no 404 for valid ids. Collect console errors across the route list. Screenshot Create User success and self-edit success.
 
+**Done (Phase 0a).** All listed changes landed and the acceptance checks pass on PostgreSQL in offline mode. Notes for later phases:
+
+- The route smoke test is `tests/DiscordBot.Tests/Integration/RouteSmokeTests.cs`. It boots the real app, signs in, and sweeps every page route and guild nav URL. Its `KnownFailures` list holds B-29 (AssistantMetrics 500 without an OpenRouter key, Phase 8) and the three portal pages, which 404 offline because the guild is never in the Discord client (D15, Phase 9). Remove each entry with its fix; the test fails if a listed route starts passing.
+- Two extra console-error sources were fixed to meet "zero console errors": concurrent `DashboardHub.connect()` calls from the layout and page scripts (now share one attempt), and `preview-popup.js` calling `closest()` on the document.
+- The Guilds/Details header Sync button posts a form (`HeaderAction.IsPost`). A failed sync now shows an error alert instead of nothing.
+- Privacy delete-data signs the user out on the server before redirecting.
+- With `SkipTailwind=true` and no `app.css` the build fails. `AllowMissingTailwindCss=true` opts out for compile-and-test-only environments; the SessionStart hook sets it when Node is unavailable.
+
 ### Phase 0b — Security fixes
 
 - **Files:** every site under "Security and correctness issues".
 - **Changes:** replace `innerHTML` and inline `on*` handlers carrying user data with `data-*` attributes and `textContent`, or a quote-safe `escapeHtml`. Role check on Sync All. Guild-ownership check on ScheduledMessages delete/toggle. Local-only `returnUrl`. Prefix CSV cells starting with `= + - @`. Safe `LocalRedirect` on Login.
 - **Acceptance:** tests show names containing `'`, `"`, `<img onerror>` render inert on each page; non-admins get 403 on Sync All; cross-guild delete returns 404.
 - **Verify:** seed a sound named `x" onmouseover="alert(1)` and a RatWatch message `<img src=x onerror=alert(1)>`; open both pages; nothing fires.
+
+**Done (Phase 0b).** Every listed site is fixed, plus the same patterns found elsewhere. Notes:
+
+- `wwwroot/js/safe-html.js` adds `SafeHtml.escape` (quote-safe), loaded by both layouts. The ~20 per-file `escapeHtml` copies used the `textContent`/`innerHTML` trick, which leaves quotes alone; they now escape `"` and `'` too. Consolidating them onto `SafeHtml` is left for Phase 16.
+- Beyond the audit list, the same inline-handler pattern was fixed in RatWatch Index (accused username), TextToSpeech admin (message text), VOX admin (clip names), ModerationSettings and Members/Moderation (tag names), and the Soundboard category list. The Welcome preview also inserted the guild name as HTML.
+- ScheduledMessages Edit POST had the same missing guild check as Index delete/toggle; it now returns 404 too.
+- `ReturnUrlHelper.Sanitize` now rejects non-local URLs, which fixes Login and ExternalLogin `LocalRedirect` throwing and the AuditLogs Details `href`. Logout checks too.
+- CSV: `CsvField.NeutralizeFormula` covers the audit (Logs and AuditLogs), message and member exports; the RatWatch client export has the same guard.
+- `EnableMemberPortal` enforcement stays with Phase 9 (D10), which owns the portal authorization handler.
+- Tests: `Integration/SecurityHardeningTests` (stored hostile text on four pages, Sync All 403, cross-guild delete/toggle/edit 404, foreign return URLs) on the shared `TestHelpers/OfflineAppHost`. The client-rendered sites (Incidents modal, category list, previews, JS-created tags) were checked in a browser with hostile data seeded; no script ran.
 
 ### Phase 1 — Request and feedback plumbing (D1)
 

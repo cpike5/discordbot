@@ -10,7 +10,7 @@ Discord.NET slash commands, voice/audio (soundboard, TTS, VOX clips), moderation
 reminders, scheduled messages, and an LLM-backed assistant. The web side is
 ASP.NET Core Razor Pages plus REST controllers, styled with Tailwind, with
 plain per-page JavaScript modules in `wwwroot/js/` and SignalR for live updates. Storage is EF Core
-on SQLite by default or PostgreSQL. Auth is ASP.NET Identity plus Discord OAuth.
+on PostgreSQL (SQLite is still supported but being phased out). Auth is ASP.NET Identity plus Discord OAuth.
 Observability is Serilog and OpenTelemetry. It ships as a GHCR Docker image.
 
 Solution layout (clean architecture, dependencies point inward):
@@ -81,10 +81,13 @@ CI (`.github/workflows/ci.yml`) runs restore, build in Release, and the full tes
 suite on every PR to `main`. Both must be green before you push.
 
 **Tailwind.** `dotnet build` of the Bot project runs `npm install` and the
-Tailwind build first, so it needs Node. Set `SkipTailwind=true` (or `CI=true`) to
-skip that step when you are not touching CSS; the checked-in CSS is used as-is.
-The web SessionStart hook installs Node when it can and sets `SkipTailwind` when
-it cannot, so a plain `dotnet build` works either way.
+Tailwind build first, so it needs Node. There is no checked-in CSS:
+`wwwroot/css/app.css` is generated from `site.css` and gitignored. `SkipTailwind=true`
+(or `CI=true`) skips the Tailwind step and reuses an `app.css` you built earlier;
+with `SkipTailwind=true` and no `app.css` the build fails with a message saying so,
+because the app would render unstyled. Add `AllowMissingTailwindCss=true` when you
+only need to compile and run tests. The web SessionStart hook installs Node when it
+can and sets both properties when it cannot, so a plain `dotnet build` works either way.
 
 **Test database.** Tests run on real PostgreSQL. Each
 `TestDbContextFactory.CreateContext()` (`tests/DiscordBot.Tests/TestHelpers/`) gets its
@@ -100,6 +103,14 @@ first and `DateTime.UtcNow` read after, never `BeCloseTo(DateTime.UtcNow, …)`:
 database test can take seconds on a busy CI runner. Nothing exercises
 the SQLite provider or its migrations, so say so when you report on a change that
 touches them.
+
+**Route smoke test.** `Integration/RouteSmokeTests` boots the real app on a fresh
+PostgreSQL database in offline mode, signs in through the login form, and requests every
+Razor Page route and guild navigation URL, failing on any 404 or 5xx. A new page with a
+route parameter other than `guildId` is skipped unless the fixture learns to fill it.
+The host is `TestHelpers/OfflineAppHost` (seed hook, extra signed-in users); a test class
+that boots one goes in `[Collection(OfflineAppHostCollection.Name)]`, because two hosts
+starting at once both try to freeze Serilog's static bootstrap logger.
 
 **Background-service tests fail in a full run but pass alone** when something
 starves them. Two rules keep them green: never block a thread-pool thread on
@@ -121,11 +132,18 @@ way to exercise the web UI without a bot token. Put secrets in User Secrets (ID
 `Discord:Token`, `Discord:OAuth:ClientId`, `Discord:OAuth:ClientSecret`,
 `OpenRouter:ApiKey`, `AzureSpeech:SubscriptionKey`.
 
+Run and verify on **PostgreSQL**; SQLite is being phased out, so do not chase
+SQLite-only failures. The local cluster the tests use works:
+
 ```bash
+ConnectionStrings__DefaultConnection="Host=localhost;Database=discordbot;Username=postgres;Password=postgres" \
+Discord__OfflineMode=true \
 dotnet run --project src/DiscordBot.Bot     # web UI on http://localhost:5124
 ```
 
-Default database is SQLite at `data/discordbot.db`, created on first run. Set
+All UI verification (screenshots, console checks, route sweeps) happens on that setup.
+The default connection string in `appsettings.json` still points at SQLite
+(`data/discordbot.db`) until SQLite is removed; do not rely on it. Set
 `Discord:TestGuildId` for development; without it, global slash commands take up
 to an hour to appear in Discord. Voice features need FFmpeg, libsodium, and
 libopus on the host (`docs/articles/audio-dependencies.md`).
@@ -190,6 +208,11 @@ columns throw.
   window.guildId = '@Model.GuildId';   <!-- quoted -->
   ```
 
+- **User text never goes inside an inline handler.** `onclick="f('@sound.Name')"` is an
+  XSS hole even though Razor encodes it: the browser decodes the entity before the
+  handler runs. Use a `data-*` attribute and `this.dataset`, and `SafeHtml.escape` for
+  markup built in JavaScript. `docs/architecture/patterns.md` § User Data in Markup and
+  Scripts has the rest (return URLs, CSV exports, guild-scoped handlers).
 - **The assistant talks to OpenRouter, not a vendor SDK.** `ILlmClient` is
   implemented by `OpenRouterLlmClient` (`DiscordBot.Agents/OpenRouter/`):
   an owned typed `HttpClient` over OpenRouter's OpenAI-compatible chat completions,

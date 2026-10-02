@@ -42,7 +42,25 @@ public class IndexModel : PageModel
     /// Gets or sets the active tab identifier.
     /// </summary>
     [BindProperty(SupportsGet = true)]
-    public string ActiveTab { get; set; } = "command-list";
+    public string ActiveTab { get; set; } = CommandListTab;
+
+    /// <summary>
+    /// Short alias for <see cref="ActiveTab"/> used by links elsewhere in the app
+    /// (<c>/Commands?tab=logs</c>). Applied when <see cref="ActiveTab"/> is not given.
+    /// </summary>
+    [BindProperty(SupportsGet = true, Name = "tab")]
+    public string? TabAlias { get; set; }
+
+    /// <summary>
+    /// Short alias for <see cref="SearchTerm"/> used by search "View all" links
+    /// (<c>/Commands?tab=logs&amp;search=...</c>). Applied when <see cref="SearchTerm"/> is empty.
+    /// </summary>
+    [BindProperty(SupportsGet = true, Name = "search")]
+    public string? SearchAlias { get; set; }
+
+    private const string CommandListTab = "command-list";
+    private const string ExecutionLogsTab = "execution-logs";
+    private const string AnalyticsTab = "analytics";
 
     /// <summary>
     /// Gets the view model containing command list data for the Command List tab.
@@ -120,6 +138,8 @@ public class IndexModel : PageModel
     {
         _logger.LogInformation("User accessing commands page");
 
+        ApplyQueryAliases();
+
         // Load available guilds for filter dropdown
         AvailableGuilds = await _guildService.GetAllGuildsAsync(cancellationToken);
 
@@ -155,6 +175,30 @@ public class IndexModel : PageModel
             Variant = ConfirmationVariant.Warning,
             FormHandler = "ClearAndRegisterGlobally"
         };
+    }
+
+    /// <summary>
+    /// Resolves the <c>tab</c> and <c>search</c> query aliases and maps tab names to the
+    /// tab ids the page renders. Unknown tab names fall back to the command list.
+    /// </summary>
+    private void ApplyQueryAliases()
+    {
+        var requestedTab = !string.IsNullOrWhiteSpace(TabAlias)
+            && (string.IsNullOrWhiteSpace(ActiveTab) || ActiveTab == CommandListTab)
+            ? TabAlias
+            : ActiveTab;
+
+        ActiveTab = requestedTab?.Trim().ToLowerInvariant() switch
+        {
+            ExecutionLogsTab or "logs" or "execution" => ExecutionLogsTab,
+            AnalyticsTab or "stats" => AnalyticsTab,
+            _ => CommandListTab
+        };
+
+        if (string.IsNullOrWhiteSpace(SearchTerm) && !string.IsNullOrWhiteSpace(SearchAlias))
+        {
+            SearchTerm = SearchAlias;
+        }
     }
 
     /// <summary>

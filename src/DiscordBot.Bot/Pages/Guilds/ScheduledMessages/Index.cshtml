@@ -167,7 +167,9 @@
                                         <!-- Delete Button -->
                                         <button
                                             type="button"
-                                            onclick="showDeleteModal('@message.Id', '@Html.Raw(message.MessagePreview?.Replace("'", "\\'").Replace("\r", "").Replace("\n", " "))')"
+                                            data-message-id="@message.Id"
+                                            data-message-preview="@message.MessagePreview?.Replace("\r", "").Replace("\n", " ")"
+                                            onclick="showDeleteModal(this.dataset.messageId, this.dataset.messagePreview)"
                                             class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
                                             title="Delete"
                                         >

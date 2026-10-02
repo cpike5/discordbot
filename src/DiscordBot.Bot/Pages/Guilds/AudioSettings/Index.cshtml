@@ -424,7 +424,7 @@
                                 <div class="role-select-option @(isSelected ? "selected" : "")"
                                      data-role-id="@role.Id"
                                      data-role-name="@role.Name"
-                                     onclick="window.audioSettings.toggleRole('@command', '@role.Id', '@role.Name')">
+                                     onclick="window.audioSettings.toggleRole('@command', '@role.Id', this.dataset.roleName)">
                                     <span class="role-color" style="background: @(string.IsNullOrEmpty(role.Color) || role.Color == "0" ? "#99AAB5" : "#" + role.Color.TrimStart('#'));"></span>
                                     <span class="text-sm text-text-primary">@role.Name</span>
                                 </div>
@@ -842,8 +842,8 @@
                     const tag = document.createElement('div');
                     tag.className = 'role-tag';
                     tag.setAttribute('data-role-id', roleId);
-                    tag.innerHTML = `${roleName}
-                        <span class="role-tag-remove" onclick="window.audioSettings.removeRole(event, '${command}', '${roleId}')">
+                    tag.innerHTML = `${SafeHtml.escape(roleName)}
+                        <span class="role-tag-remove" onclick="window.audioSettings.removeRole(event, '${SafeHtml.escape(command)}', '${SafeHtml.escape(roleId)}')">
                             <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                             </svg>

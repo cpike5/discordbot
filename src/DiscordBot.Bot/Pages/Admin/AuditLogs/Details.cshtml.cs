@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -44,7 +45,8 @@ public class DetailsModel : PageModel
         _logger.LogDebug("Loading audit log details for entry ID {EntryId}", id);
 
         // Preserve return URL or default to index page
-        ReturnUrl = returnUrl ?? Url.Page("Index") ?? "/Admin/AuditLogs";
+        // The return URL lands in an href, so only same-site paths are accepted
+        ReturnUrl = ReturnUrlHelper.Sanitize(returnUrl, Url.Page("Index") ?? "/Admin/AuditLogs");
 
         // Retrieve the audit log entry
         var log = await _auditLogService.GetByIdAsync(id, cancellationToken);

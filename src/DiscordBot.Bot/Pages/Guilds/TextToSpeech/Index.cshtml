@@ -447,7 +447,8 @@
                                         </svg>
                                     </button>
                                     <button type="button"
-                                            onclick="showDeleteModal('@message.Id', '@message.Message')"
+                                            data-message="@message.Message"
+                                            onclick="showDeleteModal('@message.Id', this.dataset.message)"
                                             class="p-2 rounded text-error hover:bg-error/10 transition-colors"
                                             title="Delete">
                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

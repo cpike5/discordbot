@@ -464,7 +464,7 @@ const PreviewPopup = (() => {
         if (!text) return '';
         const div = document.createElement('div');
         div.textContent = text;
-        return div.innerHTML;
+        return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
     }
 
     /**
@@ -626,6 +626,9 @@ const PreviewPopup = (() => {
 
     // Event handlers
     function handleMouseEnter(e) {
+        // Captured at the document, so the pointer entering the page targets the
+        // document itself, which has no closest()
+        if (!(e.target instanceof Element)) return;
         const trigger = e.target.closest('[data-preview-type]');
         if (!trigger) return;
 

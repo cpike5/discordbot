@@ -38,6 +38,20 @@
         InitialDisplayText = Model.ChannelName,
         NoResultsMessage = "No channels found"
     };
+
+    // Export downloads from the messages API with the filters currently applied
+    var exportFilters = new Dictionary<string, string?>
+    {
+        ["authorId"] = Model.AuthorId?.ToString(),
+        ["guildId"] = Model.MessageGuildId?.ToString(),
+        ["channelId"] = Model.ChannelId?.ToString(),
+        ["source"] = string.IsNullOrEmpty(Model.MessageSource) ? null : Model.MessageSource,
+        ["startDate"] = Model.MessageStartDate?.ToString("s", System.Globalization.CultureInfo.InvariantCulture),
+        ["endDate"] = Model.MessageEndDate?.ToString("s", System.Globalization.CultureInfo.InvariantCulture),
+        ["searchTerm"] = string.IsNullOrWhiteSpace(Model.MessageSearchTerm) ? null : Model.MessageSearchTerm
+    }.Where(f => f.Value != null);
+    var exportUrl = Microsoft.AspNetCore.WebUtilities.QueryHelpers.AddQueryString(
+        Url.Content("~/api/messages/export"), exportFilters);
 }
 
 <div class="max-w-7xl mx-auto">
@@ -47,7 +61,7 @@
             <h2 class="text-xl font-semibold text-text-primary">Message Logs</h2>
             <p class="mt-1 text-sm text-text-secondary">View and search logged Discord messages</p>
         </div>
-        <a asp-page="/Api/MessageLogs/Export" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
+        <a href="@exportUrl" class="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-text-primary bg-bg-secondary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
             </svg>

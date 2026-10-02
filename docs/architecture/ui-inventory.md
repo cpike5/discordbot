@@ -30,7 +30,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/account/login` | `Pages/Account/Login.cshtml` | OAuth login with Discord |
 | `/account/external-login` | `Pages/Account/ExternalLogin.cshtml` | External OAuth flow handler |
 | `/account/link-discord` | `Pages/Account/LinkDiscord.cshtml` | Link Discord account to profile |
-| `/account/logout` | `Pages/Account/Logout.cshtml` | Sign out handler |
+| `/account/logout` | `Pages/Account/Logout.cshtml` | Sign out: POST signs out; GET auto-submits a sign-out POST when signed in, else confirms "signed out" (standalone page) |
 | `/account/access-denied` | `Pages/Account/AccessDenied.cshtml` | Authorization failure page |
 | `/account/lockout` | `Pages/Account/Lockout.cshtml` | Account lockout notification |
 | `/account/privacy` | `Pages/Account/Privacy.cshtml` | Privacy policy page |

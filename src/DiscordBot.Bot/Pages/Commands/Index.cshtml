@@ -604,7 +604,11 @@
             // Apply default date filters BEFORE tab loader initialization
             // This ensures the form has the correct values when the initial tab loads
             const urlParams = new URLSearchParams(window.location.search);
-            const activeTab = urlParams.get('ActiveTab') || window.location.hash.replace('#', '') || 'command-list';
+            // The server resolves ActiveTab and its ?tab= alias (e.g. tab=logs) to a real tab id
+            const serverActiveTab = '@Model.ActiveTab';
+            const activeTab = (urlParams.has('ActiveTab') || urlParams.has('tab'))
+                ? serverActiveTab
+                : (window.location.hash.replace('#', '') || serverActiveTab);
             if (activeTab === 'execution-logs') {
                 const defaultsApplied = applyDefaultDateFilters();
                 if (defaultsApplied) {

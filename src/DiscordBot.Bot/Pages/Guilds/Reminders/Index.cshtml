@@ -231,7 +231,9 @@
                                         {
                                             <button
                                                 type="button"
-                                                onclick="showCancelModal('@reminder.Id', '@reminder.Username')"
+                                                data-reminder-id="@reminder.Id"
+                                                data-username="@reminder.Username"
+                                                onclick="showCancelModal(this.dataset.reminderId, this.dataset.username)"
                                                 class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
                                                 title="Cancel Reminder">
                                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

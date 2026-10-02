@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using System.Text;
 using Discord.WebSocket;
 using DiscordBot.Bot.ViewModels.Pages;
@@ -410,7 +411,7 @@ public class IndexModel : PageModel
         if (string.IsNullOrEmpty(value))
             return string.Empty;
 
-        // Escape double quotes by doubling them
-        return value.Replace("\"", "\"\"");
+        // Neutralize formula prefixes, then escape double quotes by doubling them
+        return CsvField.NeutralizeFormula(value).Replace("\"", "\"\"");
     }
 }

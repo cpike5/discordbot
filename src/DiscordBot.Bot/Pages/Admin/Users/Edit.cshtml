@@ -131,7 +131,10 @@
             <!-- Active Status -->
             <div>
                 <div class="flex items-center">
-                    <input type="hidden" name="Input.IsActive" value="false" />
+                    @if (Model.ViewModel.CanChangeActiveStatus)
+                    {
+                        <input type="hidden" name="Input.IsActive" value="false" />
+                    }
                     <input
                         type="checkbox"
                         id="Input_IsActive"

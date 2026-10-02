@@ -532,13 +532,17 @@
                 row.className = 'flex items-center gap-2 group px-2 py-1.5 rounded-lg hover:bg-bg-hover transition-colors';
                 row.id = `cat-row-${cat.id}`;
 
+                // Category names are user-entered: escape them in markup and pass them to
+                // handlers through data-* attributes, never inside inline JavaScript.
+                const catId = Number(cat.id);
+                const catName = SafeHtml.escape(cat.name);
                 if (editingCategoryId === cat.id) {
                     row.innerHTML = `
                         <div class="flex items-center gap-2 flex-1">
-                            <input type="text" id="cat-edit-input-${cat.id}" value="${cat.name}" maxlength="50"
-                                   onkeydown="if(event.key==='Enter')saveAdminCategoryEdit(${cat.id});if(event.key==='Escape')cancelAdminCategoryEdit();"
+                            <input type="text" id="cat-edit-input-${catId}" value="${catName}" maxlength="50"
+                                   onkeydown="if(event.key==='Enter')saveAdminCategoryEdit(${catId});if(event.key==='Escape')cancelAdminCategoryEdit();"
                                    class="flex-1 bg-bg-tertiary border border-accent-orange rounded px-2 py-1 text-sm text-text-primary focus:outline-none" />
-                            <button type="button" onclick="saveAdminCategoryEdit(${cat.id})" class="text-success hover:text-success-hover transition-colors" title="Save">
+                            <button type="button" onclick="saveAdminCategoryEdit(${catId})" class="text-success hover:text-success-hover transition-colors" title="Save">
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" /></svg>
                             </button>
                             <button type="button" onclick="cancelAdminCategoryEdit()" class="text-text-secondary hover:text-text-primary transition-colors" title="Cancel">
@@ -554,12 +558,12 @@
                     row.innerHTML = `
                         <div class="flex items-center gap-2 flex-1">
                             <svg class="w-3.5 h-3.5 text-accent-orange flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" /></svg>
-                            <span class="text-sm text-text-primary flex-1">${cat.name}</span>
-                            <button type="button" onclick="startAdminCategoryEdit(${cat.id}, '${cat.name.replace(/'/g, "\\'")}')" title="Edit"
+                            <span class="text-sm text-text-primary flex-1">${catName}</span>
+                            <button type="button" data-cat-name="${catName}" onclick="startAdminCategoryEdit(${catId}, this.dataset.catName)" title="Edit"
                                     class="opacity-0 group-hover:opacity-100 text-text-secondary hover:text-accent-blue transition-all">
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                             </button>
-                            <button type="button" onclick="deleteAdminCategory(${cat.id}, '${cat.name.replace(/'/g, "\\'")}')" title="Delete"
+                            <button type="button" data-cat-name="${catName}" onclick="deleteAdminCategory(${catId}, this.dataset.catName)" title="Delete"
                                     class="opacity-0 group-hover:opacity-100 text-text-secondary hover:text-error transition-all">
                                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                             </button>

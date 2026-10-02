@@ -274,14 +274,15 @@ public class DetailsModel : GuildPageModelBase
             new()
             {
                 Label = "Sync",
-                Url = "#",
+                Url = $"/Guilds/Details/{guild.Id}?handler=Sync",
+                IsPost = true,
                 Icon = "M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15",
                 Style = HeaderActionStyle.Secondary
             },
             new()
             {
                 Label = "Edit Settings",
-                Url = $"/Guilds/Edit?id={guild.Id}",
+                Url = $"/Guilds/Edit/{guild.Id}",
                 Icon = "M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z",
                 Style = HeaderActionStyle.Primary
             }
@@ -325,7 +326,7 @@ public class DetailsModel : GuildPageModelBase
                     return new JsonResult(new { success = false, message = "Guild not found in Discord client" });
                 }
 
-                SuccessMessage = null;
+                ErrorMessage = "Guild not found in Discord client";
                 return RedirectToPage(new { guildId });
             }
         }
@@ -338,7 +339,7 @@ public class DetailsModel : GuildPageModelBase
                 return new JsonResult(new { success = false, message = "An error occurred while syncing the guild" });
             }
 
-            SuccessMessage = null;
+            ErrorMessage = "An error occurred while syncing the guild";
             return RedirectToPage(new { guildId });
         }
     }

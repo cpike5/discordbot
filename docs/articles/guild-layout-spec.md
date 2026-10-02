@@ -149,6 +149,7 @@ public class HeaderAction
     public string? Icon { get; set; }  // SVG path or CSS class
     public HeaderActionStyle Style { get; set; } = HeaderActionStyle.Secondary;
     public bool OpenInNewTab { get; set; }
+    public bool IsPost { get; set; }  // Render as a POST form button (antiforgery included) to Url
 }
 
 public enum HeaderActionStyle

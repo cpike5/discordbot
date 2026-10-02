@@ -62,7 +62,7 @@
         function escapeHtml(text) {
             const div = document.createElement('div');
             div.textContent = text;
-            return div.innerHTML;
+            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
 
@@ -968,10 +968,12 @@
                 const favIcon = entry.isFavorite ? '&#9733;' : '&#9734;';
 
                 return `
-                    <div class="vox-history-item" data-entry-id="${entry.id}">
+                    <div class="vox-history-item" data-entry-id="${Number(entry.id)}">
                         <span class="vox-history-message"
                               title="${escapeHtml(entry.message)}"
-                              onclick="replayFromHistory(${entry.id}, '${escapeHtml(entry.message)}', '${escapeHtml(entry.clipGroup)}', ${entry.wordGapMs})">
+                              data-message="${escapeHtml(entry.message)}"
+                              data-clip-group="${escapeHtml(entry.clipGroup)}"
+                              onclick="replayFromHistory(${Number(entry.id)}, this.dataset.message, this.dataset.clipGroup, ${Number(entry.wordGapMs)})">
                             ${escapeHtml(entry.message)}
                         </span>
                         <span class="vox-history-meta">${escapeHtml(entry.clipGroup)} &middot; ${timeAgo}</span>

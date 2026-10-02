@@ -369,8 +369,9 @@
             const preview = document.getElementById('preview-message');
             if (textarea && preview) {
                 if (textarea.value.trim()) {
-                    // Replace newlines with <br> for preview
-                    const content = textarea.value.replace(/\n/g, '<br>');
+                    // Escape first (the stored message may come from another admin), then
+                    // replace newlines with <br> for preview
+                    const content = SafeHtml.escape(textarea.value).replace(/\n/g, '<br>');
                     preview.innerHTML = content;
                 } else {
                     preview.innerHTML = '<span class="text-[#72767d] italic">Enter a message to see preview...</span>';
