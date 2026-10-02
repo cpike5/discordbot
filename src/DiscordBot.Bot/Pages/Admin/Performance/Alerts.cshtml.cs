@@ -28,6 +28,11 @@ public class AlertsModel : PageModel
     public bool CanEdit { get; private set; }
 
     /// <summary>
+    /// Gets the page-state error shown when the alerts data failed to load.
+    /// </summary>
+    public string? ErrorMessage { get; private set; }
+
+    /// <summary>
     /// Initializes a new instance of the <see cref="AlertsModel"/> class.
     /// </summary>
     /// <param name="aggregator">The performance dashboard aggregator.</param>
@@ -52,7 +57,7 @@ public class AlertsModel : PageModel
 
         if (ViewModel.LoadFailed)
         {
-            TempData["ErrorMessage"] = "Failed to load alerts data. Please try again.";
+            ErrorMessage = "Failed to load alerts data. Please try again.";
         }
     }
 }

@@ -22,20 +22,6 @@
         }
     </div>
 
-    <!-- Success/Error Messages -->
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Success, Message = Model.SuccessMessage, IsDismissible = true }" />
-        </div>
-    }
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel { Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = true }" />
-        </div>
-    }
-
     <!-- Search and Filters -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
         <form method="get" class="grid grid-cols-1 md:grid-cols-4 gap-4">

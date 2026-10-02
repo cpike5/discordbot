@@ -14,20 +14,6 @@
     </p>
 </div>
 
-@if (!string.IsNullOrEmpty(Model.SuccessMessage))
-{
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new AlertViewModel { Variant = AlertVariant.Success, Message = Model.SuccessMessage, IsDismissible = true }" />
-    </div>
-}
-
-@if (!string.IsNullOrEmpty(Model.ErrorMessage))
-{
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new AlertViewModel { Variant = AlertVariant.Error, Message = Model.ErrorMessage, IsDismissible = true }" />
-    </div>
-}
-
 <div class="grid grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4">
         <p class="text-xs text-text-tertiary font-medium uppercase tracking-wide mb-1">Currencies</p>

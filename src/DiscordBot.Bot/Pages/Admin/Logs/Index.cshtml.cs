@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Helpers;
 using System.Text;
 using Discord.WebSocket;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -118,6 +119,11 @@ public class IndexModel : PageModel
     public IReadOnlyList<GuildDto> AvailableGuilds { get; set; } = Array.Empty<GuildDto>();
     public string ActiveTab { get; set; } = "messages";
 
+    /// <summary>
+    /// Page-state error shown when the active tab's logs failed to load.
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
     public async Task<IActionResult> OnGetAsync(CancellationToken cancellationToken)
     {
         // Determine active tab (default to "messages")
@@ -142,7 +148,7 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error loading unified Logs page");
-            TempData["Error"] = "An error occurred while loading logs. Please try again.";
+            ErrorMessage = "An error occurred while loading logs. Please try again.";
             return Page();
         }
     }
@@ -398,7 +404,7 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error exporting audit logs to CSV");
-            TempData["Error"] = "An error occurred while exporting audit logs. Please try again.";
+            TempData.SetErrorToast("An error occurred while exporting audit logs. Please try again.");
             return RedirectToPage();
         }
     }

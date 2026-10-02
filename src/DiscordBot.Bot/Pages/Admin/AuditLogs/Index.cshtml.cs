@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -152,7 +153,7 @@ public class IndexModel : PaginatedPageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Error exporting audit logs to CSV");
-            TempData["Error"] = "An error occurred while exporting audit logs. Please try again.";
+            TempData.SetErrorToast("An error occurred while exporting audit logs. Please try again.");
             return RedirectToPage();
         }
     }

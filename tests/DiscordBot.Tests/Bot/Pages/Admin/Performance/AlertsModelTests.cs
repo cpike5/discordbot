@@ -117,7 +117,7 @@ public class AlertsModelTests
     }
 
     [Fact]
-    public async Task OnGetAsync_WhenAggregatorReportsLoadFailed_SetsErrorMessageInTempData()
+    public async Task OnGetAsync_WhenAggregatorReportsLoadFailed_SetsPageErrorMessage()
     {
         // Arrange
         _mockAggregator
@@ -128,11 +128,12 @@ public class AlertsModelTests
         await _model.OnGetAsync();
 
         // Assert
-        _model.TempData["ErrorMessage"].Should().Be("Failed to load alerts data. Please try again.");
+        _model.ErrorMessage.Should().Be("Failed to load alerts data. Please try again.");
+        _model.TempData.Should().BeEmpty("a load failure is page state, not a TempData toast");
     }
 
     [Fact]
-    public async Task OnGetAsync_WhenAggregatorSucceeds_DoesNotSetErrorMessageInTempData()
+    public async Task OnGetAsync_WhenAggregatorSucceeds_DoesNotSetPageErrorMessage()
     {
         // Arrange
         _mockAggregator
@@ -143,7 +144,7 @@ public class AlertsModelTests
         await _model.OnGetAsync();
 
         // Assert
-        _model.TempData.Should().NotContainKey("ErrorMessage");
+        _model.ErrorMessage.Should().BeNull();
     }
 
     [Fact]

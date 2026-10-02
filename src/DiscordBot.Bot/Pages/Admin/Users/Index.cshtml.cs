@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -39,12 +40,6 @@ public class IndexModel : PaginatedPageModel
     public bool? DiscordLinkedFilter { get; set; }
 
     public UserListViewModel ViewModel { get; set; } = new();
-
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    [TempData]
-    public string? ErrorMessage { get; set; }
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -113,13 +108,13 @@ public class IndexModel : PaginatedPageModel
 
         if (result.Succeeded)
         {
-            SuccessMessage = $"User {(isActive ? "enabled" : "disabled")} successfully";
+            TempData.SetSuccessToast($"User {(isActive ? "enabled" : "disabled")} successfully");
             _logger.LogInformation("User {UserId} {Action} user {TargetUserId}",
                 currentUserId, isActive ? "enabled" : "disabled", userId);
         }
         else
         {
-            ErrorMessage = result.ErrorMessage ?? "Failed to update user status";
+            TempData.SetErrorToast(result.ErrorMessage ?? "Failed to update user status");
             _logger.LogWarning("Failed to toggle active status for user {UserId}: {Error}",
                 userId, result.ErrorMessage);
         }

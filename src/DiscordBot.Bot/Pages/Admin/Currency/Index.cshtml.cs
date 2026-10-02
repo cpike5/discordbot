@@ -48,14 +48,6 @@ public class IndexModel : PageModel
     /// </summary>
     public CurrencyWalletPanelViewModel WalletPanel { get; set; } = new();
 
-    /// <summary>Success message from a previous action.</summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>Error message from a previous action.</summary>
-    [TempData]
-    public string? ErrorMessage { get; set; }
-
     /// <summary>
     /// Loads every global currency.
     /// </summary>

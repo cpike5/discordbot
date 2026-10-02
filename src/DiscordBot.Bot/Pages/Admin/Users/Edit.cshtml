@@ -34,27 +34,19 @@
         </div>
     }
 
-    <!-- Success Message -->
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
+    <!-- Generated Password (shown once after a reset; a toast would dismiss before it can be copied) -->
+    @if (!string.IsNullOrEmpty(Model.GeneratedPassword))
     {
         <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel {
-                Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Success,
-                Message = Model.SuccessMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
-    <!-- Error Message -->
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new DiscordBot.Bot.ViewModels.Components.AlertViewModel {
-                Variant = DiscordBot.Bot.ViewModels.Components.AlertVariant.Error,
-                Message = Model.ErrorMessage,
-                IsDismissible = true
-            }" />
+            @{
+                var passwordAlert = new AlertViewModel {
+                    Variant = AlertVariant.Success,
+                    Title = "Temporary password",
+                    Message = $"New temporary password: {Model.GeneratedPassword}",
+                    IsDismissible = true
+                };
+            }
+            <partial name="Shared/Components/_Alert" model="passwordAlert" />
         </div>
     }
 
