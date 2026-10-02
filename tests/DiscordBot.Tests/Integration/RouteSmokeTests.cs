@@ -1,14 +1,9 @@
 using System.Net;
-using System.Text.RegularExpressions;
 using DiscordBot.Bot.Configuration;
-using DiscordBot.Core.Entities;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Infrastructure;
 using Microsoft.AspNetCore.Mvc.RazorPages;
-using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.Routing.Patterns;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -20,6 +15,7 @@ namespace DiscordBot.Tests.Integration;
 /// through the login form, and requests every Razor Page route and every guild navigation
 /// URL. Hand-built URLs and wrong redirect targets show up here as 404s and 500s.
 /// </summary>
+[Collection(OfflineAppHostCollection.Name)]
 public class RouteSmokeTests : IClassFixture<RouteSmokeTests.AppFixture>
 {
     /// <summary>
@@ -115,14 +111,12 @@ public class RouteSmokeTests : IClassFixture<RouteSmokeTests.AppFixture>
     }
 
     /// <summary>
-    /// One application host for the class. It owns a fresh database cloned from the migrated
-    /// template, with one guild seeded so guild routes have a valid id.
+    /// One application host for the class (<see cref="OfflineAppHost"/>), plus the list of
+    /// page URLs to sweep, built from the app's own route table.
     /// </summary>
     public sealed class AppFixture : IAsyncLifetime
     {
-        public const ulong GuildId = 123456789012345678UL;
-        private const string AdminEmail = "smoke-admin@example.com";
-        private const string AdminPassword = "Smoke-Test-Pass-123!";
+        public const ulong GuildId = OfflineAppHost.GuildId;
 
         /// <summary>
         /// Route parameters the fixture can fill. A route with any other required parameter
@@ -142,87 +136,30 @@ public class RouteSmokeTests : IClassFixture<RouteSmokeTests.AppFixture>
         /// <summary>Pages that read a required <c>id</c> from the query string, and the id to send.</summary>
         private readonly Dictionary<string, string> _queryIds = new(StringComparer.OrdinalIgnoreCase);
 
-        private TestDatabase? _database;
-        private WebApplicationFactory<Program>? _factory;
+        private OfflineAppHost? _host;
 
-        public HttpClient Client { get; private set; } = null!;
+        public HttpClient Client => _host!.Client;
 
         public IReadOnlyList<string> PageUrls { get; private set; } = Array.Empty<string>();
 
         public async Task InitializeAsync()
         {
-            _database = TestDbContextFactory.CreateDatabase();
-            await using (var context = _database.CreateContext())
-            {
-                context.Guilds.Add(new Guild { Id = GuildId, Name = "Smoke Test Guild", JoinedAt = DateTime.UtcNow, IsActive = true });
-
-                // The member portal pages answer 404 for a guild without audio enabled
-                context.GuildAudioSettings.Add(new GuildAudioSettings
-                {
-                    GuildId = GuildId,
-                    AudioEnabled = true,
-                    EnableMemberPortal = true,
-                    CreatedAt = DateTime.UtcNow,
-                    UpdatedAt = DateTime.UtcNow
-                });
-                await context.SaveChangesAsync();
-            }
-
-            _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-            {
-                builder.UseEnvironment("Development");
-                builder.UseSetting("ConnectionStrings:DefaultConnection", _database.ConnectionString);
-                builder.UseSetting("Database:Provider", "PostgreSql");
-                builder.UseSetting("Discord:OfflineMode", "true");
-                builder.UseSetting("Identity:DefaultAdmin:Email", AdminEmail);
-                builder.UseSetting("Identity:DefaultAdmin:Password", AdminPassword);
-                builder.UseSetting("ElasticApm:Enabled", "false");
-            });
-
-            Client = _factory.CreateClient(new WebApplicationFactoryClientOptions
-            {
-                AllowAutoRedirect = true,
-                HandleCookies = true
-            });
-
-            await SignInAsync();
+            _host = await OfflineAppHost.StartAsync();
 
             // A few pages take their id from the query string rather than the route.
-            using (var scope = _factory.Services.CreateScope())
-            {
-                var admin = await scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>().FindByEmailAsync(AdminEmail);
-                _queryIds["/Admin/Users/Details"] = admin!.Id;
-                _queryIds["/Admin/Users/Edit"] = admin.Id;
-            }
+            var adminId = await _host.GetAdminUserIdAsync();
+            _queryIds["/Admin/Users/Details"] = adminId;
+            _queryIds["/Admin/Users/Edit"] = adminId;
 
-            PageUrls = BuildPageUrls(_factory.Services);
+            PageUrls = BuildPageUrls(_host.Services);
         }
 
         public async Task DisposeAsync()
         {
-            Client?.Dispose();
-            if (_factory != null)
+            if (_host != null)
             {
-                await _factory.DisposeAsync();
+                await _host.DisposeAsync();
             }
-
-            _database?.Dispose();
-        }
-
-        private async Task SignInAsync()
-        {
-            var loginPage = await Client.GetStringAsync("/Account/Login");
-            var token = Regex.Match(loginPage, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
-            token.Should().NotBeEmpty("the login form carries an antiforgery token");
-
-            var response = await Client.PostAsync("/Account/Login", new FormUrlEncodedContent(new Dictionary<string, string>
-            {
-                ["Input.Email"] = AdminEmail,
-                ["Input.Password"] = AdminPassword,
-                ["__RequestVerificationToken"] = token
-            }));
-
-            response.RequestMessage!.RequestUri!.AbsolutePath.Should().NotStartWith("/Account/Login", "the seeded admin should sign in");
         }
 
         private IReadOnlyList<string> BuildPageUrls(IServiceProvider services)

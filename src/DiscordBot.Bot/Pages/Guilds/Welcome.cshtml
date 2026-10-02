@@ -517,13 +517,16 @@
                 return;
             }
 
-            let message = messageInput.value;
+            // Escape the message and guild name before adding preview markup; a function
+            // replacement keeps "$" sequences in the guild name literal.
+            const guildName = SafeHtml.escape('@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(Model.ViewModel.GuildName))');
+            let message = SafeHtml.escape(messageInput.value);
 
             // Replace tokens with sample data
             message = message
                 .replace(/\{user\}/g, '<span class="discord-mention">@@NewMember</span>')
                 .replace(/\{username\}/g, '<strong>NewMember</strong>')
-                .replace(/\{server\}/g, '<strong>@Html.Raw(System.Web.HttpUtility.JavaScriptStringEncode(Model.ViewModel.GuildName))</strong>')
+                .replace(/\{server\}/g, () => `<strong>${guildName}</strong>`)
                 .replace(/\{memberCount\}/g, '<strong>1,234</strong>');
 
             // Handle newlines

@@ -164,7 +164,15 @@ public class IndexModel : PageModel
         _logger.LogInformation("User attempting to delete scheduled message {MessageId} for guild {GuildId}",
             messageId, guildId);
 
-        var success = await _scheduledMessageService.DeleteAsync(messageId, cancellationToken);
+        // Guild access is authorized for the route's guild only, so the message must belong to it
+        var existing = await _scheduledMessageService.GetByIdAsync(messageId, cancellationToken);
+        if (existing != null && existing.GuildId != guildId)
+        {
+            _logger.LogWarning("Scheduled message {MessageId} does not belong to guild {GuildId}", messageId, guildId);
+            return NotFound();
+        }
+
+        var success = existing != null && await _scheduledMessageService.DeleteAsync(messageId, cancellationToken);
 
         if (success)
         {
@@ -207,6 +215,13 @@ public class IndexModel : PageModel
             _logger.LogWarning("Failed to toggle scheduled message {MessageId} - not found", messageId);
             ErrorMessage = "Scheduled message not found. It may have been deleted.";
             return RedirectToPage("Index", new { guildId, page, pageSize });
+        }
+
+        // Guild access is authorized for the route's guild only, so the message must belong to it
+        if (scheduledMessage.GuildId != guildId)
+        {
+            _logger.LogWarning("Scheduled message {MessageId} does not belong to guild {GuildId}", messageId, guildId);
+            return NotFound();
         }
 
         // Toggle the enabled state

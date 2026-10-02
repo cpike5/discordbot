@@ -426,6 +426,20 @@ public class IndexModel : PageModel
     /// </summary>
     public async Task<IActionResult> OnPostSyncAllGuildsAsync()
     {
+        // The page only requires Viewer; syncing every guild is an admin action
+        if (!User.IsInRole("Admin") && !User.IsInRole("SuperAdmin"))
+        {
+            _logger.LogWarning("Non-admin user {UserId} attempted to sync all guilds", User.Identity?.Name);
+            return new JsonResult(new
+            {
+                success = false,
+                message = "You do not have permission to sync servers."
+            })
+            {
+                StatusCode = StatusCodes.Status403Forbidden
+            };
+        }
+
         _logger.LogInformation("Guild sync requested by user {UserId}", User.Identity?.Name);
 
         try

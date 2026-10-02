@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
@@ -74,9 +75,11 @@ public class LogoutModel : PageModel
 
         _logger.LogInformation("User {UserName} logged out", userName ?? "Unknown");
 
-        if (returnUrl != null)
+        // LocalRedirect throws on a non-local URL; anything that is not a same-site path
+        // falls through to the landing page instead
+        if (ReturnUrlHelper.IsLocalUrl(returnUrl))
         {
-            return LocalRedirect(returnUrl);
+            return LocalRedirect(returnUrl!);
         }
 
         // Redirect to landing page after logout (instead of login page)

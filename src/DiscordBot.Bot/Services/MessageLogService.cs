@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using System.Text;
 using DiscordBot.Bot.Tracing;
 using DiscordBot.Core.Configuration;
@@ -395,6 +396,9 @@ public class MessageLogService : IMessageLogService
         {
             return "";
         }
+
+        // Message content is user-controlled; stop spreadsheet apps reading it as a formula
+        field = CsvField.NeutralizeFormula(field);
 
         // If the field contains quotes, commas, or newlines, wrap in quotes and escape internal quotes
         if (field.Contains('"') || field.Contains(',') || field.Contains('\n') || field.Contains('\r'))

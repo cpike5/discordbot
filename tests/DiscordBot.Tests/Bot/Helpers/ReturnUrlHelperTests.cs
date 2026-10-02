@@ -45,5 +45,34 @@ public class ReturnUrlHelperTests
     public void Sanitize_ReturnsOriginal_ForOtherPaths()
     {
         ReturnUrlHelper.Sanitize("/dashboard", "~/").Should().Be("/dashboard");
+        ReturnUrlHelper.Sanitize("/Admin/Logs?tab=audit&page=2", "~/").Should().Be("/Admin/Logs?tab=audit&page=2");
+        ReturnUrlHelper.Sanitize("~/Guilds", "/").Should().Be("~/Guilds");
+    }
+
+    [Theory]
+    [InlineData("https://evil.example/")]
+    [InlineData("http://evil.example")]
+    [InlineData("//evil.example")]
+    [InlineData("/\\evil.example")]
+    [InlineData("~//evil.example")]
+    [InlineData("javascript:alert(1)")]
+    [InlineData("JaVaScRiPt:alert(1)")]
+    [InlineData("data:text/html,<script>alert(1)</script>")]
+    [InlineData("dashboard")]
+    [InlineData("/\r\nLocation: https://evil.example")]
+    public void Sanitize_ReturnsFallback_ForNonLocalUrls(string returnUrl)
+    {
+        ReturnUrlHelper.IsLocalUrl(returnUrl).Should().BeFalse();
+        ReturnUrlHelper.Sanitize(returnUrl, "/fallback").Should().Be("/fallback");
+    }
+
+    [Theory]
+    [InlineData("/")]
+    [InlineData("~/")]
+    [InlineData("/Guilds/Details/123")]
+    [InlineData("~/Admin/Logs?tab=audit")]
+    public void IsLocalUrl_ReturnsTrue_ForAppRelativePaths(string url)
+    {
+        ReturnUrlHelper.IsLocalUrl(url).Should().BeTrue();
     }
 }

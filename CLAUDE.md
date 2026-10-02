@@ -108,6 +108,9 @@ touches them.
 PostgreSQL database in offline mode, signs in through the login form, and requests every
 Razor Page route and guild navigation URL, failing on any 404 or 5xx. A new page with a
 route parameter other than `guildId` is skipped unless the fixture learns to fill it.
+The host is `TestHelpers/OfflineAppHost` (seed hook, extra signed-in users); a test class
+that boots one goes in `[Collection(OfflineAppHostCollection.Name)]`, because two hosts
+starting at once both try to freeze Serilog's static bootstrap logger.
 
 **Background-service tests fail in a full run but pass alone** when something
 starves them. Two rules keep them green: never block a thread-pool thread on
@@ -205,6 +208,11 @@ columns throw.
   window.guildId = '@Model.GuildId';   <!-- quoted -->
   ```
 
+- **User text never goes inside an inline handler.** `onclick="f('@sound.Name')"` is an
+  XSS hole even though Razor encodes it: the browser decodes the entity before the
+  handler runs. Use a `data-*` attribute and `this.dataset`, and `SafeHtml.escape` for
+  markup built in JavaScript. `docs/architecture/patterns.md` § User Data in Markup and
+  Scripts has the rest (return URLs, CSV exports, guild-scoped handlers).
 - **The assistant talks to OpenRouter, not a vendor SDK.** `ILlmClient` is
   implemented by `OpenRouterLlmClient` (`DiscordBot.Agents/OpenRouter/`):
   an owned typed `HttpClient` over OpenRouter's OpenAI-compatible chat completions,

@@ -1,6 +1,6 @@
 # UX Polish Audit and Plan
 
-**Status:** In progress. Phase 0a done; next is Phase 0b.
+**Status:** In progress. Phases 0a and 0b done; next is Phase 1.
 **Date:** 2026-10-02
 **Scope:** The admin web portal (Razor Pages), the member portal (Soundboard, TTS, VOX), and the shared layout, components, CSS and JS behind them.
 
@@ -386,6 +386,16 @@ All runtime verification uses PostgreSQL (D16) with `Discord:OfflineMode=true`.
 - **Changes:** replace `innerHTML` and inline `on*` handlers carrying user data with `data-*` attributes and `textContent`, or a quote-safe `escapeHtml`. Role check on Sync All. Guild-ownership check on ScheduledMessages delete/toggle. Local-only `returnUrl`. Prefix CSV cells starting with `= + - @`. Safe `LocalRedirect` on Login.
 - **Acceptance:** tests show names containing `'`, `"`, `<img onerror>` render inert on each page; non-admins get 403 on Sync All; cross-guild delete returns 404.
 - **Verify:** seed a sound named `x" onmouseover="alert(1)` and a RatWatch message `<img src=x onerror=alert(1)>`; open both pages; nothing fires.
+
+**Done (Phase 0b).** Every listed site is fixed, plus the same patterns found elsewhere. Notes:
+
+- `wwwroot/js/safe-html.js` adds `SafeHtml.escape` (quote-safe), loaded by both layouts. The ~20 per-file `escapeHtml` copies used the `textContent`/`innerHTML` trick, which leaves quotes alone; they now escape `"` and `'` too. Consolidating them onto `SafeHtml` is left for Phase 16.
+- Beyond the audit list, the same inline-handler pattern was fixed in RatWatch Index (accused username), TextToSpeech admin (message text), VOX admin (clip names), ModerationSettings and Members/Moderation (tag names), and the Soundboard category list. The Welcome preview also inserted the guild name as HTML.
+- ScheduledMessages Edit POST had the same missing guild check as Index delete/toggle; it now returns 404 too.
+- `ReturnUrlHelper.Sanitize` now rejects non-local URLs, which fixes Login and ExternalLogin `LocalRedirect` throwing and the AuditLogs Details `href`. Logout checks too.
+- CSV: `CsvField.NeutralizeFormula` covers the audit (Logs and AuditLogs), message and member exports; the RatWatch client export has the same guard.
+- `EnableMemberPortal` enforcement stays with Phase 9 (D10), which owns the portal authorization handler.
+- Tests: `Integration/SecurityHardeningTests` (stored hostile text on four pages, Sync All 403, cross-guild delete/toggle/edit 404, foreign return URLs) on the shared `TestHelpers/OfflineAppHost`. The client-rendered sites (Incidents modal, category list, previews, JS-created tags) were checked in a browser with hostile data seeded; no script ran.
 
 ### Phase 1 — Request and feedback plumbing (D1)
 

@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Enums;
@@ -164,7 +165,7 @@ public class IndexModel : PaginatedPageModel
         if (string.IsNullOrEmpty(value))
             return string.Empty;
 
-        // Escape double quotes by doubling them
-        return value.Replace("\"", "\"\"");
+        // Neutralize formula prefixes, then escape double quotes by doubling them
+        return CsvField.NeutralizeFormula(value).Replace("\"", "\"\"");
     }
 }

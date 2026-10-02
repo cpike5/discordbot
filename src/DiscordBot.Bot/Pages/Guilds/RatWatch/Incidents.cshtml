@@ -498,6 +498,11 @@
         function escapeCSV(value) {
             if (value === null || value === undefined) return '';
             value = value.toString();
+            // Names and messages come from guild members: a leading = + - @@ (or tab/CR)
+            // would run as a formula in a spreadsheet, so prefix it to force text
+            if (/^[=+\-@@\t\r]/.test(value)) {
+                value = "'" + value;
+            }
             // Escape if value contains comma, double quote, or newline
             if (value.includes(',') || value.includes('"') || value.includes('\n') || value.includes('\r')) {
                 return '"' + value.replace(/"/g, '""') + '"';
@@ -604,18 +609,19 @@
                     else if (data.status === 'ClearedEarly') badge.className += ' bg-success/20 text-success';
                     else badge.className += ' bg-bg-tertiary text-text-secondary';
 
-                    // Build modal content
+                    // Build modal content. Names and the custom message come from guild members.
+                    const esc = SafeHtml.escape;
                     body.innerHTML = `
                         <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                             <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
                                 <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Accused</h3>
-                                <p class="text-sm font-medium text-text-primary">${data.accusedUsername}</p>
-                                <p class="text-xs text-text-tertiary font-mono mt-1">${data.accusedUserId}</p>
+                                <p class="text-sm font-medium text-text-primary">${esc(data.accusedUsername)}</p>
+                                <p class="text-xs text-text-tertiary font-mono mt-1">${esc(data.accusedUserId)}</p>
                             </div>
                             <div class="bg-bg-primary border border-border-primary rounded-lg p-4">
                                 <h3 class="text-xs font-medium text-text-tertiary uppercase tracking-wider mb-3">Initiated By</h3>
-                                <p class="text-sm font-medium text-text-primary">${data.initiatorUsername}</p>
-                                <p class="text-xs text-text-tertiary font-mono mt-1">${data.initiatorUserId}</p>
+                                <p class="text-sm font-medium text-text-primary">${esc(data.initiatorUsername)}</p>
+                                <p class="text-xs text-text-tertiary font-mono mt-1">${esc(data.initiatorUserId)}</p>
                             </div>
                         </div>
                         <div class="bg-bg-primary border border-border-primary rounded-lg p-4 mb-6">
@@ -623,17 +629,17 @@
                             <div class="grid grid-cols-2 gap-4 text-sm mb-4">
                                 <div>
                                     <span class="text-text-tertiary">Scheduled:</span>
-                                    <span class="ml-2 text-text-primary" data-utc="${data.scheduledAt}" data-format="datetime"></span>
+                                    <span class="ml-2 text-text-primary" data-utc="${esc(data.scheduledAt)}" data-format="datetime"></span>
                                 </div>
                                 <div>
                                     <span class="text-text-tertiary">Created:</span>
-                                    <span class="ml-2 text-text-primary" data-utc="${data.createdAt}" data-format="datetime"></span>
+                                    <span class="ml-2 text-text-primary" data-utc="${esc(data.createdAt)}" data-format="datetime"></span>
                                 </div>
                             </div>
                             ${data.customMessage ? `
                             <div class="mt-4">
                                 <span class="text-xs font-medium text-text-tertiary uppercase tracking-wider">Custom Message</span>
-                                <p class="mt-1 text-sm text-text-primary bg-bg-tertiary border border-border-secondary rounded p-3">${data.customMessage}</p>
+                                <p class="mt-1 text-sm text-text-primary bg-bg-tertiary border border-border-secondary rounded p-3">${esc(data.customMessage)}</p>
                             </div>` : ''}
                         </div>
                         ${data.totalVotes > 0 ? `
@@ -643,20 +649,20 @@
                                 <div class="bg-error/10 border border-error/20 rounded-lg p-3">
                                     <div class="flex items-center justify-between">
                                         <span class="text-sm font-medium text-error">Guilty</span>
-                                        <span class="text-lg font-bold text-error">${data.guiltyVotes}</span>
+                                        <span class="text-lg font-bold text-error">${esc(data.guiltyVotes)}</span>
                                     </div>
                                 </div>
                                 <div class="bg-success/10 border border-success/20 rounded-lg p-3">
                                     <div class="flex items-center justify-between">
                                         <span class="text-sm font-medium text-success">Not Guilty</span>
-                                        <span class="text-lg font-bold text-success">${data.notGuiltyVotes}</span>
+                                        <span class="text-lg font-bold text-success">${esc(data.notGuiltyVotes)}</span>
                                     </div>
                                 </div>
                             </div>
                         </div>` : ''}
                         <div class="flex items-center justify-between p-3 bg-bg-tertiary border border-border-secondary rounded-lg">
                             <span class="text-sm text-text-secondary">Original Discord Message</span>
-                            <a href="https://discord.com/channels/${guildId}/${data.channelId}/${data.originalMessageId}" target="_blank"
+                            <a href="https://discord.com/channels/${esc(guildId)}/${esc(data.channelId)}/${esc(data.originalMessageId)}" target="_blank" rel="noopener noreferrer"
                                class="inline-flex items-center gap-1 text-sm text-accent-blue hover:text-accent-blue-hover transition-colors">
                                 View in Discord
                                 <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -673,7 +679,7 @@
                 })
                 .catch(error => {
                     console.error('Error loading incident details:', error);
-                    body.innerHTML = `<p class="text-error">Failed to load incident details: ${error.message}</p>`;
+                    body.innerHTML = `<p class="text-error">Failed to load incident details: ${SafeHtml.escape(error.message)}</p>`;
                 });
         }
 

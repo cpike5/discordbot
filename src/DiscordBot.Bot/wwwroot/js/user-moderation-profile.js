@@ -95,9 +95,12 @@
                 const tag = await response.json();
                 const tagsContainer = document.getElementById('userTagsContainer');
                 if (tagsContainer) {
+                    // Tag names are user-entered: escape them, and hand them to the remove
+                    // handler through a data-* attribute rather than inline JavaScript.
+                    const safeName = SafeHtml.escape(tagName);
                     const tagHtml = `
-                        <span class="user-tag user-tag-removable" data-tag-name="${tagName}" onclick="removeTag('${tagName}')">
-                            ${tagName}
+                        <span class="user-tag user-tag-removable" data-tag-name="${safeName}" onclick="removeTag(this.dataset.tagName)">
+                            ${safeName}
                             <span class="user-tag-remove" title="Remove tag">
                                 <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
@@ -109,7 +112,7 @@
                 }
 
                 // Remove the tag from the dropdown (already applied)
-                const dropdownItem = document.querySelector(`#tagDropdown [data-tag-name="${tagName}"]`);
+                const dropdownItem = document.querySelector(`#tagDropdown [data-tag-name="${CSS.escape(tagName)}"]`);
                 if (dropdownItem) {
                     dropdownItem.remove();
                 }
@@ -155,7 +158,7 @@
 
             if (response.ok || response.status === 204) {
                 // Remove the tag element from DOM
-                const tagElement = document.querySelector(`[data-tag-name="${tagName}"]`);
+                const tagElement = document.querySelector(`#userTagsContainer [data-tag-name="${CSS.escape(tagName)}"]`);
                 if (tagElement) {
                     tagElement.remove();
                 }

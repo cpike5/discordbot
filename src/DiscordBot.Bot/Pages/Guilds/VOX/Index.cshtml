@@ -296,7 +296,8 @@
                                     <span class="text-sm text-text-secondary">@FormatFileSize(clip.FileSizeBytes)</span>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <button type="button" onclick="playClip('@clip.Group', '@clip.Name')"
+                                    <button type="button" data-clip-group="@clip.Group" data-clip-name="@clip.Name"
+                                            onclick="playClip(this.dataset.clipGroup, this.dataset.clipName)"
                                             class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-accent-orange hover:bg-accent-orange-hover text-white text-sm font-medium rounded-lg transition-colors">
                                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
                                             <path d="M8 5v14l11-7z"/>

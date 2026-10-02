@@ -1,3 +1,4 @@
+using DiscordBot.Bot.Helpers;
 using Discord.WebSocket;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs;
@@ -380,6 +381,9 @@ public class GuildMemberService : IGuildMemberService
         {
             return string.Empty;
         }
+
+        // Names are member-controlled; stop spreadsheet apps reading them as formulas
+        value = CsvField.NeutralizeFormula(value);
 
         // If the value contains comma, quote, or newline, wrap in quotes and escape internal quotes
         if (value.Contains(',') || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))

@@ -105,6 +105,7 @@ Loaded globally in `_Layout.cshtml`:
 ## Gotchas
 
 - **Discord Snowflake IDs in JavaScript:** Always treat as strings — `'@Model.GuildId'` not `@Model.GuildId`
+- **User text in markup:** never inside an inline handler (`onclick="f('@name')"` is XSS: the browser decodes the entity first) — use `data-*` + `this.dataset`. JS-built markup uses `textContent` or `SafeHtml.escape` (`wwwroot/js/safe-html.js`). Full rules: `docs/architecture/patterns.md` § User Data in Markup and Scripts
 - **Large controllers:** AnalyticsController (698) — search specific methods. PortalTts and PortalSoundboard controllers were split by sub-resource (see REST API Controllers above); PerformanceMetricsController's calculation logic moved to `IPerformanceMetricsQueryService`.
 - **Preview popups** loaded globally — use `preview-trigger` classes for user/guild names
 - **Tailwind purge:** Ensure dynamically generated classes are in Tailwind content config

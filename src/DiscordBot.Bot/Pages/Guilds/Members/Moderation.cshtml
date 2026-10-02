@@ -75,7 +75,7 @@
         <div class="flex flex-wrap items-center gap-2" id="userTagsContainer">
             @foreach (var tag in Model.ViewModel.Tags)
             {
-                <span class="user-tag user-tag-removable user-tag-@tag.TagCategory.ToString().ToLower()" data-tag-name="@tag.TagName" onclick="removeTag('@tag.TagName')">
+                <span class="user-tag user-tag-removable user-tag-@tag.TagCategory.ToString().ToLower()" data-tag-name="@tag.TagName" onclick="removeTag(this.dataset.tagName)">
                     @tag.TagName
                     <span class="user-tag-remove" title="Remove tag">
                         <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -97,7 +97,7 @@
                     {
                         @foreach (var tag in Model.ViewModel.AvailableTags.Where(t => !Model.ViewModel.Tags.Any(ut => ut.TagName == t.Name)))
                         {
-                            <button type="button" class="w-full px-3 py-2 text-sm text-left text-text-primary hover:bg-bg-hover transition-colors" onclick="addTag('@tag.Name')">
+                            <button type="button" class="w-full px-3 py-2 text-sm text-left text-text-primary hover:bg-bg-hover transition-colors" data-tag-name="@tag.Name" onclick="addTag(this.dataset.tagName)">
                                 <span class="user-tag user-tag-@tag.Category.ToString().ToLower()">@tag.Name</span>
                             </button>
                         }
