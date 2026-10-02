@@ -7,30 +7,7 @@
     var guild = Model.ViewModel;
 }
 
-<!-- Success Message -->
-    @if (!string.IsNullOrEmpty(Model.SuccessMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Success,
-                Message = Model.SuccessMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
-    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
-    {
-        <div class="mb-6">
-            <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-                Variant = AlertVariant.Error,
-                Message = Model.ErrorMessage,
-                IsDismissible = true
-            }" />
-        </div>
-    }
-
-    <!-- Guild Information Card (Always visible, not in tabs) -->
+<!-- Guild Information Card (Always visible, not in tabs) -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-6 mb-6">
         <h2 class="text-lg font-semibold text-text-primary mb-4">Guild Information</h2>
         <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 sm:gap-6">

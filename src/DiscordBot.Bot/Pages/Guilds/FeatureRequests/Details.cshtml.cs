@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
@@ -89,7 +90,7 @@ public class DetailsModel : GuildPageModelBase
         var reviewerId = GetCurrentDiscordUserId();
         await _service.UpdateStatusAsync(id, FeatureRequestStatus.Approved, reviewerId, ReviewNotes);
 
-        TempData["SuccessMessage"] = "Feature request approved.";
+        TempData.SetSuccessToast("Feature request approved.");
         return RedirectToPage(new { guildId });
     }
 
@@ -104,7 +105,7 @@ public class DetailsModel : GuildPageModelBase
         var reviewerId = GetCurrentDiscordUserId();
         await _service.UpdateStatusAsync(id, FeatureRequestStatus.Rejected, reviewerId, ReviewNotes);
 
-        TempData["SuccessMessage"] = "Feature request rejected.";
+        TempData.SetSuccessToast("Feature request rejected.");
         return RedirectToPage(new { guildId });
     }
 

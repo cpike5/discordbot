@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.DTOs.Vox;
@@ -252,12 +253,12 @@ public class IndexModel : GuildPageModelBase
         try
         {
             await _voxClipLibrary.InitializeAsync(cancellationToken);
-            SuccessMessage = "Clip library rescanned successfully.";
+            TempData.SetSuccessToast("Clip library rescanned successfully.");
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to rescan VOX clip library for guild {GuildId}", GuildId);
-            ErrorMessage = "Failed to rescan clip library. Please try again.";
+            TempData.SetErrorToast("Failed to rescan clip library. Please try again.");
         }
 
         return RedirectToPage("Index", new { guildId = GuildId, groupFilter = GroupFilter, searchQuery = SearchQuery, pageNumber = PageNumber });

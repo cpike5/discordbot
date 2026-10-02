@@ -58,18 +58,6 @@
     AriaLabel = "Audio sections"
 }' />
 
-<!-- Success Message -->
-@if (!string.IsNullOrEmpty(Model.SuccessMessage))
-{
-    <div class="mb-6">
-        <partial name="Shared/Components/_Alert" model="new AlertViewModel {
-            Variant = AlertVariant.Success,
-            Message = Model.SuccessMessage,
-            IsDismissible = true
-        }" />
-    </div>
-}
-
 <!-- Error Message -->
 @if (!string.IsNullOrEmpty(Model.ErrorMessage))
 {
@@ -77,7 +65,7 @@
         <partial name="Shared/Components/_Alert" model="new AlertViewModel {
             Variant = AlertVariant.Error,
             Message = Model.ErrorMessage,
-            IsDismissible = true
+            IsDismissible = false
         }" />
     </div>
 }

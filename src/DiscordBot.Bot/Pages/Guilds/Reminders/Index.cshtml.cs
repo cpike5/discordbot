@@ -1,5 +1,6 @@
 using Discord.WebSocket;
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.Enums;
@@ -177,7 +178,7 @@ public class IndexModel : GuildPageModelBase
         {
             _logger.LogWarning("Reminder {ReminderId} not found or doesn't belong to guild {GuildId}",
                 reminderId, ulongGuildId);
-            ErrorMessage = "Reminder not found.";
+            TempData.SetErrorToast("Reminder not found.");
             return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
         }
 
@@ -185,7 +186,7 @@ public class IndexModel : GuildPageModelBase
         {
             _logger.LogWarning("Cannot cancel reminder {ReminderId} - status is {Status}, not Pending",
                 reminderId, reminder.Status);
-            ErrorMessage = "Only pending reminders can be cancelled.";
+            TempData.SetErrorToast("Only pending reminders can be cancelled.");
             return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
         }
 
@@ -194,7 +195,7 @@ public class IndexModel : GuildPageModelBase
         await _reminderRepository.UpdateAsync(reminder, cancellationToken);
 
         _logger.LogInformation("Successfully cancelled reminder {ReminderId}", reminderId);
-        SuccessMessage = "Reminder cancelled successfully.";
+        TempData.SetSuccessToast("Reminder cancelled successfully.");
 
         return RedirectToPage(new { guildId, page = CurrentPage, PageSize, Status });
     }

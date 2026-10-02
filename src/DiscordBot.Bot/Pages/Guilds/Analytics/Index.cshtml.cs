@@ -58,6 +58,11 @@ public class IndexModel : PageModel
     public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
+    /// Page-level error shown when analytics data failed to load (current request only).
+    /// </summary>
+    public string? ErrorMessage { get; set; }
+
+    /// <summary>
     /// Start date filter (bound from query string).
     /// </summary>
     [BindProperty(SupportsGet = true)]
@@ -157,7 +162,7 @@ public class IndexModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load analytics data for guild {GuildId}", guildId);
-            TempData["ErrorMessage"] = "Failed to load analytics data. Please try again.";
+            ErrorMessage = "Failed to load analytics data. Please try again.";
             // Return page with empty data
         }
 

@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
@@ -85,17 +86,6 @@ public class AssistantSettingsModel : PageModel
     /// Whether the assistant feature is globally enabled.
     /// </summary>
     public bool GloballyEnabled { get; set; }
-
-    /// <summary>
-    /// Error message to display.
-    /// </summary>
-    public string? ErrorMessage { get; set; }
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
 
     /// <summary>
     /// Input model for form binding.
@@ -291,7 +281,7 @@ public class AssistantSettingsModel : PageModel
         await _settingsService.UpdateSettingsAsync(settings, cancellationToken);
 
         _logger.LogInformation("Successfully updated assistant settings for guild {GuildId}", Input.GuildId);
-        SuccessMessage = "Assistant settings saved successfully.";
+        TempData.SetSuccessToast("Assistant settings saved successfully.");
 
         return RedirectToPage("AssistantSettings", new { guildId = Input.GuildId });
     }

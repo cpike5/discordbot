@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Configuration;
+using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
@@ -58,17 +59,6 @@ public class EditModel : PageModel
     /// View model for display-only properties (guild info, available channels).
     /// </summary>
     public ScheduledMessageFormViewModel ViewModel { get; set; } = new();
-
-    /// <summary>
-    /// Error message to display on the page.
-    /// </summary>
-    public string? ErrorMessage { get; set; }
-
-    /// <summary>
-    /// Success message from TempData.
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
 
     /// <summary>
     /// List of available text channels in the guild.
@@ -356,13 +346,13 @@ public class EditModel : PageModel
             _logger.LogInformation("Successfully updated scheduled message {MessageId} for guild {GuildId}",
                 id, guildId);
 
-            SuccessMessage = "Scheduled message updated successfully.";
+            TempData.SetSuccessToast("Scheduled message updated successfully.");
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to update scheduled message {MessageId} for guild {GuildId}", id, guildId);
-            ErrorMessage = "An error occurred while updating the scheduled message. Please try again.";
+            TempData.SetErrorToast("An error occurred while updating the scheduled message. Please try again.");
             await PopulateLayoutViewModelsAsync(guildId, id, cancellationToken);
             await LoadViewModelAsync(guildId, id, cancellationToken);
             return Page();
@@ -431,19 +421,19 @@ public class EditModel : PageModel
             if (!deleted)
             {
                 _logger.LogWarning("Failed to delete scheduled message {MessageId}", id);
-                ErrorMessage = "Failed to delete the scheduled message.";
+                TempData.SetErrorToast("Failed to delete the scheduled message.");
                 return RedirectToPage("Index", new { guildId });
             }
 
             _logger.LogInformation("Successfully deleted scheduled message {MessageId} for guild {GuildId}", id, guildId);
 
-            SuccessMessage = "Scheduled message deleted successfully.";
+            TempData.SetSuccessToast("Scheduled message deleted successfully.");
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to delete scheduled message {MessageId} for guild {GuildId}", id, guildId);
-            ErrorMessage = "An error occurred while deleting the scheduled message. Please try again.";
+            TempData.SetErrorToast("An error occurred while deleting the scheduled message. Please try again.");
             return RedirectToPage("Index", new { guildId });
         }
     }

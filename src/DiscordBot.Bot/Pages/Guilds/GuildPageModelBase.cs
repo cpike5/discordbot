@@ -28,15 +28,11 @@ public abstract class GuildPageModelBase : PageModel
     public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
-    /// Success message from TempData.
+    /// Page-level error state for the current request only (for example, data that failed to load),
+    /// rendered by the page with the <c>_Alert</c> component. It is not stored in TempData, so it does
+    /// not survive a redirect. Report the outcome of an action (a POST handler) with
+    /// <c>TempData.SetErrorToast(...)</c> from <see cref="DiscordBot.Bot.Extensions.TempDataExtensions"/> instead.
     /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
-    /// Error message from TempData.
-    /// </summary>
-    [TempData]
     public string? ErrorMessage { get; set; }
 
     /// <summary>

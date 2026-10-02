@@ -263,7 +263,7 @@ public class IndexModel : GuildPageModelBase
                 });
             }
 
-            SuccessMessage = "TTS settings updated successfully.";
+            TempData.SetSuccessToast("TTS settings updated successfully.");
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
@@ -282,7 +282,7 @@ public class IndexModel : GuildPageModelBase
                 };
             }
 
-            ErrorMessage = "An error occurred while updating settings. Please try again.";
+            TempData.SetErrorToast("An error occurred while updating settings. Please try again.");
             return RedirectToPage("Index", new { guildId });
         }
     }
@@ -323,7 +323,7 @@ public class IndexModel : GuildPageModelBase
                     });
                 }
 
-                SuccessMessage = "Message deleted successfully.";
+                TempData.SetSuccessToast("Message deleted successfully.");
             }
             else
             {
@@ -341,7 +341,7 @@ public class IndexModel : GuildPageModelBase
                     };
                 }
 
-                ErrorMessage = "Message not found.";
+                TempData.SetErrorToast("Message not found.");
             }
 
             return isAjax
@@ -365,7 +365,7 @@ public class IndexModel : GuildPageModelBase
                 };
             }
 
-            ErrorMessage = "An error occurred while deleting the message. Please try again.";
+            TempData.SetErrorToast("An error occurred while deleting the message. Please try again.");
             return RedirectToPage("Index", new { guildId });
         }
     }
@@ -400,7 +400,7 @@ public class IndexModel : GuildPageModelBase
             {
                 return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
             }
-            ErrorMessage = errorMsg;
+            TempData.SetErrorToast(errorMsg);
             return RedirectToPage("Index", new { guildId });
         }
 
@@ -411,7 +411,7 @@ public class IndexModel : GuildPageModelBase
             {
                 return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
             }
-            ErrorMessage = errorMsg;
+            TempData.SetErrorToast(errorMsg);
             return RedirectToPage("Index", new { guildId });
         }
 
@@ -422,7 +422,7 @@ public class IndexModel : GuildPageModelBase
             {
                 return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
             }
-            ErrorMessage = errorMsg;
+            TempData.SetErrorToast(errorMsg);
             return RedirectToPage("Index", new { guildId });
         }
 
@@ -509,7 +509,7 @@ public class IndexModel : GuildPageModelBase
                 {
                     return new JsonResult(new { success = false, message = playbackResult.ErrorMessage }) { StatusCode = 400 };
                 }
-                ErrorMessage = playbackResult.ErrorMessage;
+                TempData.SetErrorToast(playbackResult.ErrorMessage ?? "Failed to play the message in the voice channel.");
                 return RedirectToPage("Index", new { guildId });
             }
 
@@ -546,17 +546,18 @@ public class IndexModel : GuildPageModelBase
                 });
             }
 
-            SuccessMessage = "Message sent to voice channel.";
+            TempData.SetSuccessToast("Message sent to voice channel.");
             return RedirectToPage("Index", new { guildId });
         }
         catch (InvalidOperationException ex)
         {
             _logger.LogWarning(ex, "TTS service error for guild {GuildId}: {Message}", guildId, ex.Message);
+            var errorMsg = "The text-to-speech service could not process this message. Please try again.";
             if (isAjax)
             {
-                return new JsonResult(new { success = false, message = ex.Message }) { StatusCode = 400 };
+                return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
             }
-            ErrorMessage = ex.Message;
+            TempData.SetErrorToast(errorMsg);
             return RedirectToPage("Index", new { guildId });
         }
         catch (Exception ex)
@@ -567,7 +568,7 @@ public class IndexModel : GuildPageModelBase
             {
                 return new JsonResult(new { success = false, message = errorMsg }) { StatusCode = 400 };
             }
-            ErrorMessage = errorMsg;
+            TempData.SetErrorToast(errorMsg);
             return RedirectToPage("Index", new { guildId });
         }
     }

@@ -395,12 +395,6 @@ public class IndexModel : GuildPageModelBase
     public List<DisplayItem> Items { get; set; } = new();
 
     /// <summary>
-    /// Success message from TempData (cross-request).
-    /// </summary>
-    [TempData]
-    public string? SuccessMessage { get; set; }
-
-    /// <summary>
     /// Handles GET requests to display the page.
     /// </summary>
     public async Task<IActionResult> OnGetAsync(long guildId, CancellationToken cancellationToken = default)
@@ -418,7 +412,7 @@ public class IndexModel : GuildPageModelBase
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load page for guild {GuildId}", GuildId);
-            ErrorMessage = "Failed to load page. Please try again.";
+            ErrorMessage = "Failed to load page. Please try again."; // page state: rendered by the page with _Alert
             return Page();
         }
     }
@@ -433,18 +427,43 @@ public class IndexModel : GuildPageModelBase
         try
         {
             await _service.DoSomethingAsync(GuildId, cancellationToken);
-            SuccessMessage = "Operation completed successfully.";
+            TempData.SetSuccessToast("Operation completed successfully."); // action result: toast
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to process form for guild {GuildId}", GuildId);
-            ErrorMessage = "Operation failed. Please try again.";
+            TempData.SetErrorToast("Operation failed. Please try again.");
         }
 
         return RedirectToPage("Index", new { guildId = GuildId });
     }
 }
 ```
+
+**Feedback messages.** Report what a handler did with a toast, and keep the page's own state on the page:
+
+- **Action results** (the outcome of a POST handler, before `RedirectToPage` or `return Page()`) go through
+  `TempData.SetSuccessToast` / `SetErrorToast` / `SetWarningToast` / `SetInfoToast` (`DiscordBot.Bot.Extensions`).
+  The layout's toast container shows them on the next render, after a redirect or on the same request. Never
+  give a page its own `[TempData] SuccessMessage` property.
+- **Page state** (data failed to load, a degraded or "not configured" state) is a plain `ErrorMessage` property,
+  set in `OnGet` and rendered by the page with `Shared/Components/_Alert` (`AlertVariant.Error`, not dismissible):
+
+  ```razor
+  @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+  {
+      <div class="mb-6">
+          <partial name="Shared/Components/_Alert" model="new AlertViewModel {
+              Variant = AlertVariant.Error,
+              Message = Model.ErrorMessage,
+              IsDismissible = false
+          }" />
+      </div>
+  }
+  ```
+- **Field errors** stay inline via `ModelState.AddModelError`.
+- A handler that returns `JsonResult` puts its message in the JSON, never in TempData, or the toast would appear on
+  the next unrelated page. Never show `ex.Message` to the user; log the exception and show a plain sentence.
 
 ### Real Example: VOX Index Page
 
@@ -619,6 +638,7 @@ public class IndexModel : PaginatedGuildPageModel
 | `GuildId` | `ulong` | Guild ID (set by `PopulateGuildLayout`) |
 | `GuildName` | `string` | Guild name from Discord (set by `PopulateGuildLayout`) |
 | `PopulateGuildLayout()` | `async Task<bool>` | Loads guild data; returns false if guild not found |
+| `ErrorMessage` | `string?` | Page-level error for the current request only (not `[TempData]`); render it with `_Alert`. Action results use `TempData.SetErrorToast` instead (see [Page Model Pattern](#page-model-pattern)) |
 
 ### Usage Count
 
