@@ -1,0 +1,47 @@
+@inject DiscordBot.Core.Interfaces.IThemeService ThemeService
+@{
+    // The error page must render even when the database is the thing that failed
+    string? themeKey = null;
+    try
+    {
+        themeKey = await ThemeService.GetCurrentThemeKeyAsync();
+    }
+    catch
+    {
+        // The stylesheet's default theme applies; the script below still honours a saved choice
+    }
+}
+<!DOCTYPE html>
+<html lang="en" data-theme="@themeKey">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex" />
+    <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
+    <title>@ViewData["Title"] - Discord Bot Admin</title>
+    <script>
+        (function() {
+            try {
+                var match = document.cookie.match(/theme-preference=([^;]+)/);
+                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
+                if (theme) document.documentElement.setAttribute('data-theme', theme);
+            } catch (e) {}
+        })();
+    </script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="~/css/app.css" asp-append-version="true" />
+</head>
+<body class="min-h-screen bg-bg-primary text-text-primary font-sans antialiased">
+    <main id="main-content" class="min-h-screen flex items-center justify-center px-4 py-8">
+        @RenderBody()
+    </main>
+    <script>
+        document.querySelectorAll('[data-history-back]').forEach(function (button) {
+            if (history.length <= 1) { button.hidden = true; return; }
+            button.addEventListener('click', function () { history.back(); });
+        });
+    </script>
+</body>
+</html>

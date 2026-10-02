@@ -1,71 +1,22 @@
+@using DiscordBot.Bot.Extensions
 @*
-    Toast Notification Container
-    Include this partial in _Layout.cshtml to enable toast notifications.
+    Toast container, rendered once by every layout. toast.js owns it.
 
-    Usage from JavaScript:
-        ToastManager.show('success', 'Your changes have been saved.');
-        ToastManager.show('error', 'Something went wrong.', { title: 'Error' });
-        ToastManager.show('warning', 'Rate limit approaching.');
-        ToastManager.show('info', 'New features available.');
+    From JavaScript:   toast.success('Saved.');  toast.error('Could not save.', { action: { label: 'Retry', onClick: retry } });
+    From a page model: TempData.SetSuccessToast("Saved.");  (shown on the next render, after a redirect or on Page())
 *@
-
-<!-- Toast Container - positioned below navbar (64px + 16px gap = 80px from top) with high z-index -->
-<div id="toastContainer"
-     class="fixed right-4 flex flex-col gap-2 pointer-events-none overflow-hidden"
-     style="top: 80px; max-height: calc(100vh - 96px); z-index: var(--z-toast);"
-     role="region"
-     aria-label="Notifications">
-    <!-- Accessible live region for screen readers -->
+<div id="toastContainer" class="toast-container" role="region" aria-label="Notifications">
     <div id="toastLiveRegion" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+    <div id="toastAlertRegion" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
 </div>
 
-@* Render any TempData toasts passed from server-side *@
 @{
-    var toastSuccess = TempData["ToastSuccess"]?.ToString();
-    var toastSuccessTitle = TempData["ToastSuccessTitle"]?.ToString();
-    var toastError = TempData["ToastError"]?.ToString();
-    var toastErrorTitle = TempData["ToastErrorTitle"]?.ToString();
-    var toastWarning = TempData["ToastWarning"]?.ToString();
-    var toastWarningTitle = TempData["ToastWarningTitle"]?.ToString();
-    var toastInfo = TempData["ToastInfo"]?.ToString();
-    var toastInfoTitle = TempData["ToastInfoTitle"]?.ToString();
+    var serverToasts = TempData.TakeToasts();
 }
-@if (!string.IsNullOrEmpty(toastSuccess) || !string.IsNullOrEmpty(toastError) || !string.IsNullOrEmpty(toastWarning) || !string.IsNullOrEmpty(toastInfo))
+@if (serverToasts.Count > 0)
 {
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            @if (!string.IsNullOrEmpty(toastSuccess))
-            {
-                <text>
-                ToastManager.show('success', @Html.Raw(Json.Serialize(toastSuccess)), {
-                    title: @Html.Raw(Json.Serialize(toastSuccessTitle))
-                });
-                </text>
-            }
-            @if (!string.IsNullOrEmpty(toastError))
-            {
-                <text>
-                ToastManager.show('error', @Html.Raw(Json.Serialize(toastError)), {
-                    title: @Html.Raw(Json.Serialize(toastErrorTitle))
-                });
-                </text>
-            }
-            @if (!string.IsNullOrEmpty(toastWarning))
-            {
-                <text>
-                ToastManager.show('warning', @Html.Raw(Json.Serialize(toastWarning)), {
-                    title: @Html.Raw(Json.Serialize(toastWarningTitle))
-                });
-                </text>
-            }
-            @if (!string.IsNullOrEmpty(toastInfo))
-            {
-                <text>
-                ToastManager.show('info', @Html.Raw(Json.Serialize(toastInfo)), {
-                    title: @Html.Raw(Json.Serialize(toastInfoTitle))
-                });
-                </text>
-            }
-        });
-    </script>
+    @* JSON in a data block, not executable script: toast.js reads it on load *@
+    <script type="application/json" id="serverToasts">@Html.Raw(System.Text.Json.JsonSerializer.Serialize(
+        serverToasts.Select(t => new { type = t.Type, message = t.Message, title = t.Title }),
+        new System.Text.Json.JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.Default }))</script>
 }

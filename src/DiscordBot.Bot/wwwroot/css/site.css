@@ -1456,7 +1456,7 @@
     .skeleton { animation: none; background: var(--color-bg-tertiary); }
     .status-pulse { animation: none; }
     .loading-overlay, .loading-container-overlay { transition: none; }
-    .toast, .toast.dismissing, .toast-progress.animating { animation: none; }
+    .toast, .toast.dismissing, .toast.toast-bump, .toast-progress.animating { animation: none; }
     .dropdown-menu, .sidebar-link, .navbar-link, .btn, .form-input, .form-select, .card-interactive { transition: none; }
     .animate-spin { animation: none; }
   }
@@ -3192,6 +3192,25 @@
 /* -----------------------------------------------------------------------------
    10. TOASTS (rendered by toast.js)
    ----------------------------------------------------------------------------- */
+  /* Toast container: under the top bar, newest first. Full width on narrow screens. */
+  .toast-container {
+    position: fixed;
+    top: calc(var(--navbar-height) + 1rem);
+    right: 1rem;
+    z-index: var(--z-toast);
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-height: calc(100vh - var(--navbar-height) - 2rem);
+    overflow: hidden;
+    pointer-events: none;
+  }
+
+  @media (max-width: 480px) {
+    .toast-container { left: 1rem; }
+    .toast-container .toast { min-width: 0; max-width: none; }
+  }
+
   /* Toast Notifications */
   .toast {
     pointer-events: auto;
@@ -3235,6 +3254,16 @@
 
   .toast.dismissing {
     animation: slideOutRight 200ms ease-in-out forwards;
+  }
+
+  /* A repeat of a toast already on screen nudges it instead of stacking a copy */
+  @keyframes toastBump {
+    0%, 100% { transform: translateX(0); }
+    50% { transform: translateX(-6px); }
+  }
+
+  .toast.toast-bump {
+    animation: toastBump 200ms ease-in-out;
   }
 
   /* Toast Variants */

@@ -83,6 +83,36 @@ public static class IdentityServiceExtensions
             options.LoginPath = identityConfig.LoginPath;
             options.LogoutPath = identityConfig.LogoutPath;
             options.AccessDeniedPath = identityConfig.AccessDeniedPath;
+
+            // A script cannot follow a redirect to the sign-in page: it would receive the
+            // page's HTML as data. Scripts get 401/403 with a JSON problem body instead,
+            // which ApiClient turns into a "sign in again" toast.
+            options.Events.OnRedirectToLogin = context =>
+            {
+                if (context.Request.IsScriptRequest())
+                {
+                    return context.Response.WriteProblemAsync(
+                        StatusCodes.Status401Unauthorized,
+                        "Session expired",
+                        "Your session has expired. Sign in again to continue.");
+                }
+
+                context.Response.Redirect(context.RedirectUri);
+                return Task.CompletedTask;
+            };
+            options.Events.OnRedirectToAccessDenied = context =>
+            {
+                if (context.Request.IsScriptRequest())
+                {
+                    return context.Response.WriteProblemAsync(
+                        StatusCodes.Status403Forbidden,
+                        "Forbidden",
+                        "You do not have permission to do that.");
+                }
+
+                context.Response.Redirect(context.RedirectUri);
+                return Task.CompletedTask;
+            };
         });
 
         // Add Discord OAuth authentication

@@ -1,11 +1,20 @@
 /**
  * Loading Manager
  * Provides loading states for page overlays, buttons, containers, and skeletons.
+ *
+ * Double-submit guard: add `data-submit-guard` to a <form>. On submit the submit button is
+ * disabled, shows a spinner in place of its icon (text kept, or `data-loading-text` on the
+ * button), and the form gets aria-busy. A second submit is ignored. Everything is restored
+ * when the page comes back from the back/forward cache. Use `data-submit-guard="download"`
+ * for a form that does not navigate away (a file export, target="_blank"): it re-enables
+ * after a few seconds.
  */
 const LoadingManager = {
   // State
   overlay: null,
   activeButtons: new WeakMap(),
+  guardedButtons: new WeakMap(),
+  submitGuardWired: false,
   activeContainers: new Map(),
   defaultTimeout: 30000, // 30 seconds max loading time
   timeoutId: null,
@@ -16,10 +25,9 @@ const LoadingManager = {
    * Initialize the loading manager
    */
   init() {
+    // Layouts without _PageLoadingOverlay (portal, standalone pages) still get button
+    // states and the submit guard; the overlay methods do nothing there.
     this.overlay = document.getElementById('pageLoadingOverlay');
-    if (!this.overlay) {
-      console.error('Page loading overlay not found. Add _PageLoadingOverlay.cshtml to your layout.');
-    }
 
     // Set up cancel button if it exists
     const cancelBtn = document.getElementById('pageLoadingOverlayCancelBtn');
@@ -45,6 +53,9 @@ const LoadingManager = {
   showPageLoading(message = 'Loading...', options = {}) {
     if (!this.overlay) {
       this.init();
+    }
+    if (!this.overlay) {
+      return;
     }
 
     const {
@@ -129,7 +140,9 @@ const LoadingManager = {
   },
 
   /**
-   * Set button loading state
+   * Set button loading state. The button is disabled and marked aria-busy; a spinner takes
+   * the place of its icon (or goes before the text when it has none) and its label stays,
+   * unless loadingText is given.
    * @param {HTMLElement|string} buttonOrId - Button element or ID
    * @param {boolean} isLoading - Loading state
    * @param {string|null} loadingText - Optional text to show during loading
@@ -140,42 +153,63 @@ const LoadingManager = {
       : buttonOrId;
 
     if (!button) {
-      console.error('Button not found:', buttonOrId);
       return;
     }
 
     if (isLoading) {
-      // Store original state including full HTML structure
-      if (!this.activeButtons.has(button)) {
-        this.activeButtons.set(button, {
-          html: button.innerHTML,
-          disabled: button.disabled,
-          ariaDisabled: button.getAttribute('aria-disabled')
-        });
+      if (this.activeButtons.has(button)) {
+        return;
       }
 
-      // Disable button
+      this.activeButtons.set(button, {
+        html: button.innerHTML,
+        value: button.value,
+        disabled: button.disabled,
+        ariaDisabled: button.getAttribute('aria-disabled')
+      });
+
       button.disabled = true;
       button.setAttribute('aria-disabled', 'true');
       button.setAttribute('aria-busy', 'true');
 
-      // Add spinner
-      const spinnerHtml = `
-        <svg class="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-      `;
+      if (button.tagName === 'INPUT') {
+        if (loadingText) button.value = loadingText;
+        return;
+      }
 
-      // Update button content with spinner and loading text
-      const textToShow = loadingText || button.textContent.trim();
-      button.innerHTML = `${spinnerHtml}<span>${textToShow}</span>`;
+      const spinner = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      spinner.setAttribute('class', 'animate-spin w-4 h-4 flex-shrink-0 lm-spinner');
+      spinner.setAttribute('fill', 'none');
+      spinner.setAttribute('viewBox', '0 0 24 24');
+      spinner.setAttribute('aria-hidden', 'true');
+      spinner.innerHTML = '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>' +
+        '<path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>';
 
+      // Swap the leading icon for the spinner so the button keeps its size and label
+      const icon = button.querySelector('svg');
+      if (icon) {
+        icon.style.display = 'none';
+        icon.insertAdjacentElement('beforebegin', spinner);
+      } else {
+        button.insertBefore(spinner, button.firstChild);
+        if (!window.getComputedStyle(button).display.includes('flex')) {
+          spinner.style.display = 'inline-block';
+          spinner.style.marginRight = '0.5rem';
+          spinner.style.verticalAlign = '-0.125em';
+        }
+      }
+
+      if (loadingText) {
+        this.setButtonLabel(button, loadingText);
+      }
     } else {
-      // Restore original state including full HTML structure
       const originalState = this.activeButtons.get(button);
       if (originalState) {
-        button.innerHTML = originalState.html;
+        if (button.tagName === 'INPUT') {
+          button.value = originalState.value;
+        } else {
+          button.innerHTML = originalState.html;
+        }
         button.disabled = originalState.disabled;
 
         if (originalState.ariaDisabled !== null) {
@@ -188,6 +222,93 @@ const LoadingManager = {
         this.activeButtons.delete(button);
       }
     }
+  },
+
+  /**
+   * Replace a button's visible label: its last non-empty text node, so icons and wrapper
+   * spans stay where they are. Plain text, never HTML.
+   * @private
+   */
+  setButtonLabel(button, text) {
+    const walker = document.createTreeWalker(button, NodeFilter.SHOW_TEXT);
+    let last = null;
+    while (walker.nextNode()) {
+      if (walker.currentNode.nodeValue.trim()) last = walker.currentNode;
+    }
+    if (last) {
+      last.nodeValue = text;
+    } else {
+      button.appendChild(document.createTextNode(text));
+    }
+  },
+
+  /**
+   * Wire the global double-submit guard for forms marked data-submit-guard.
+   * @private
+   */
+  initSubmitGuard() {
+    if (this.submitGuardWired) return;
+    this.submitGuardWired = true;
+
+    document.addEventListener('submit', (e) => {
+      const form = e.target;
+      if (!(form instanceof HTMLFormElement) || !form.hasAttribute('data-submit-guard')) return;
+
+      if (form.dataset.submitting === 'true') {
+        e.preventDefault();
+        return;
+      }
+
+      const submitter = e.submitter || form.querySelector('[type="submit"]');
+
+      // Wait a tick: the browser has then built the form data (a button disabled now would
+      // drop its name/value), and validation handlers have had their chance to cancel.
+      setTimeout(() => {
+        if (e.defaultPrevented) return;
+        this.guardForm(form, submitter);
+      }, 0);
+    });
+
+    // Back/forward cache restores the page as it was left: busy. Undo that.
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) this.releaseAllForms();
+    });
+  },
+
+  /**
+   * Put a form in its submitting state.
+   * @private
+   */
+  guardForm(form, submitter) {
+    form.dataset.submitting = 'true';
+    form.setAttribute('aria-busy', 'true');
+    if (submitter && (submitter.tagName === 'BUTTON' || submitter.tagName === 'INPUT')) {
+      this.setButtonLoading(submitter, true, submitter.dataset.loadingText || null);
+      this.guardedButtons.set(form, submitter);
+    }
+
+    if (form.getAttribute('data-submit-guard') === 'download' || form.target === '_blank') {
+      setTimeout(() => this.releaseForm(form), 4000);
+    }
+  },
+
+  /**
+   * Restore a guarded form.
+   * @private
+   */
+  releaseForm(form) {
+    delete form.dataset.submitting;
+    form.removeAttribute('aria-busy');
+    const button = this.guardedButtons.get(form);
+    if (button) {
+      this.setButtonLoading(button, false);
+      this.guardedButtons.delete(form);
+    }
+  },
+
+  /** @private */
+  releaseAllForms() {
+    document.querySelectorAll('form[data-submit-guard]').forEach(form => this.releaseForm(form));
   },
 
   /**
@@ -441,6 +562,9 @@ const LoadingManager = {
     }
   }
 };
+
+// The submit guard listens on document, so it can be wired before the DOM is ready
+LoadingManager.initSubmitGuard();
 
 // Auto-initialize on DOM ready
 if (document.readyState === 'loading') {
