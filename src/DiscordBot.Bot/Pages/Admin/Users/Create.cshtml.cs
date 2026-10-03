@@ -107,10 +107,32 @@ public class CreateModel : PageModel
         }
 
         _logger.LogWarning("Failed to create user {Email}: {Error}", Input.Email, result.ErrorMessage);
-        ModelState.AddModelError(string.Empty, result.ErrorMessage ?? "Failed to create user");
+        ModelState.AddModelError(
+            FieldForError(result.ErrorCode),
+            TidyIdentityMessage(result.ErrorMessage) ?? "The user could not be created.");
         await LoadViewModelAsync(currentUserId);
         return Page();
     }
+
+    /// <summary>
+    /// The service joins Identity's messages with ", " after each full stop ("A., B."); read them
+    /// as sentences ("A. B.").
+    /// </summary>
+    public static string? TidyIdentityMessage(string? message) =>
+        message == null ? null : System.Text.RegularExpressions.Regex.Replace(message, @"\.,\s+", ". ");
+
+    /// <summary>
+    /// The form field a service failure belongs to, so the message shows on that field (and the
+    /// field takes focus) instead of in a summary. An empty key means a form-level message.
+    /// </summary>
+    public static string FieldForError(string? errorCode) => errorCode switch
+    {
+        UserManagementResult.EmailAlreadyExists => $"{nameof(Input)}.{nameof(InputModel.Email)}",
+        UserManagementResult.PasswordValidationFailed => $"{nameof(Input)}.{nameof(InputModel.Password)}",
+        UserManagementResult.InsufficientPermissions or UserManagementResult.InvalidRole
+            => $"{nameof(Input)}.{nameof(InputModel.Role)}",
+        _ => string.Empty
+    };
 
     private async Task LoadViewModelAsync(string currentUserId)
     {
