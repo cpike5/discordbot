@@ -656,6 +656,7 @@ Summary of all data retention services and their cleanup schedules.
 | `SoundPlayLogRetentionService` | Sound play logs | 30 days | 1440 minutes | `SoundPlayLogRetention` |
 | `AnalyticsRetentionService` | Analytics snapshots | Varies by granularity | 1440 minutes | `AnalyticsRetention` |
 | `VerificationCleanupService` | Verification codes | 24 hours | 60 minutes | `Verification` |
+| `UserDataExportCleanupService` | Personal-data export ZIPs (`data/exports`) | 7 days | 60 minutes (fixed) | none |
 
 ### NotificationRetentionService
 

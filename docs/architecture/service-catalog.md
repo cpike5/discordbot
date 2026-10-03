@@ -198,7 +198,8 @@ Services for user lifecycle, guild membership, and user data operations.
 | `UserPurgeService` | Bot/Services | GDPR-compliant user data deletion |
 | `BulkPurgeService` | Bot/Services | Coordinates bulk user purge operations |
 | `IUserDataExportService` | Core Interfaces | Export user data (for GDPR/privacy requests) |
-| `UserDataExportService` | Bot/Services | Generates user data export packages |
+| `UserDataExportService` | Bot/Services | Generates user data export packages under `{ContentRoot}/data/exports/{discordUserId}/` (never wwwroot); resolves a user's own export for the authenticated Privacy download handler, deletes a user's exports on purge |
+| `UserDataExportCleanupService` | Bot/Services | Hosted service: deletes exports older than 7 days (last-write time) and any legacy `wwwroot/exports` files, at startup and hourly |
 
 ---
 

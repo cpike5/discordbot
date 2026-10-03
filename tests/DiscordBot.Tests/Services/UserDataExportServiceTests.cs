@@ -32,6 +32,7 @@ public class UserDataExportServiceTests : IDisposable
     private readonly Mock<IAuditLogBuilder> _auditLogBuilderMock;
     private readonly Mock<IWebHostEnvironment> _environmentMock;
     private readonly string _webRootPath;
+    private readonly string _contentRootPath;
 
     public UserDataExportServiceTests()
     {
@@ -50,8 +51,12 @@ public class UserDataExportServiceTests : IDisposable
         _webRootPath = Path.Combine(Path.GetTempPath(), $"export_test_{Guid.NewGuid():N}");
         Directory.CreateDirectory(_webRootPath);
 
+        _contentRootPath = Path.Combine(Path.GetTempPath(), $"export_test_content_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(_contentRootPath);
+
         _environmentMock = new Mock<IWebHostEnvironment>();
         _environmentMock.Setup(x => x.WebRootPath).Returns(_webRootPath);
+        _environmentMock.Setup(x => x.ContentRootPath).Returns(_contentRootPath);
 
         var applicationOptions = Options.Create(new ApplicationOptions { BaseUrl = "https://localhost:5001" });
 
@@ -68,9 +73,12 @@ public class UserDataExportServiceTests : IDisposable
         _context.Dispose();
         _database.Dispose();
 
-        if (Directory.Exists(_webRootPath))
+        foreach (var path in new[] { _webRootPath, _contentRootPath })
         {
-            Directory.Delete(_webRootPath, recursive: true);
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
         }
     }
 
@@ -147,7 +155,7 @@ public class UserDataExportServiceTests : IDisposable
         result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(1);
 
         // The zip should contain the new export files.
-        var zipPath = Path.Combine(_webRootPath, "exports", discordUserId.ToString(), $"{result.ExportId}.zip");
+        var zipPath = Path.Combine(_contentRootPath, "data", "exports", discordUserId.ToString(), $"{result.ExportId}.zip");
         File.Exists(zipPath).Should().BeTrue();
 
         using var archive = ZipFile.OpenRead(zipPath);
@@ -184,7 +192,7 @@ public class UserDataExportServiceTests : IDisposable
         result.ExportedCounts["DmAssistantInteractionLogs"].Should().Be(0);
         result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(0);
 
-        var zipPath = Path.Combine(_webRootPath, "exports", discordUserId.ToString(), $"{result.ExportId}.zip");
+        var zipPath = Path.Combine(_contentRootPath, "data", "exports", discordUserId.ToString(), $"{result.ExportId}.zip");
         using var archive = ZipFile.OpenRead(zipPath);
         archive.Entries.Select(e => e.Name).Should().NotContain("llm_usage_records.json");
     }
@@ -245,5 +253,94 @@ public class UserDataExportServiceTests : IDisposable
         // Assert
         result.Success.Should().BeTrue();
         result.ExportedCounts["DmAssistantUsageMetrics"].Should().Be(0, "should not include other users' DM usage metrics");
+    }
+
+    // ---- Where exports live, and who can reach them
+
+    [Fact]
+    public async Task ExportUserDataAsync_WritesOutsideWebRoot_AndLinksToTheAuthenticatedHandler()
+    {
+        var discordUserId = 444555666UL;
+        _context.Users.Add(new User { Id = discordUserId });
+        await _context.SaveChangesAsync();
+
+        var result = await _service.ExportUserDataAsync(discordUserId);
+
+        result.Success.Should().BeTrue();
+        Directory.Exists(Path.Combine(_webRootPath, "exports")).Should().BeFalse("nothing under wwwroot may hold an export");
+        result.DownloadUrl.Should().Be($"https://localhost:5001/Account/Privacy?handler=DownloadExport&id={result.ExportId}");
+        result.DownloadUrl.Should().NotContain("/exports/", "the link is the authenticated handler, not a static path");
+    }
+
+    [Fact]
+    public async Task GetExportFilePath_ResolvesOnlyTheOwnersExport()
+    {
+        var ownerId = 111UL;
+        var otherId = 222UL;
+        _context.Users.Add(new User { Id = ownerId });
+        await _context.SaveChangesAsync();
+        var result = await _service.ExportUserDataAsync(ownerId);
+
+        _service.GetExportFilePath(ownerId, result.ExportId!.Value).Should().NotBeNull().And.Subject.Should().EndWith($"{result.ExportId}.zip");
+        _service.GetExportFilePath(otherId, result.ExportId.Value).Should().BeNull("another user's id never resolves it");
+        _service.GetExportFilePath(ownerId, Guid.NewGuid()).Should().BeNull();
+        _service.GetExportFilePath(ownerId, Guid.Empty).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task GetExportFilePath_ForAnExpiredFile_ReturnsNull_EvenBeforeCleanupRuns()
+    {
+        var discordUserId = 333UL;
+        _context.Users.Add(new User { Id = discordUserId });
+        await _context.SaveChangesAsync();
+        var result = await _service.ExportUserDataAsync(discordUserId);
+        var zipPath = _service.GetExportFilePath(discordUserId, result.ExportId!.Value)!;
+
+        File.SetLastWriteTimeUtc(zipPath, DateTime.UtcNow.AddDays(-8));
+
+        _service.GetExportFilePath(discordUserId, result.ExportId.Value).Should().BeNull();
+    }
+
+    [Fact]
+    public async Task DeleteUserExports_RemovesTheUsersDirectory_AndLeavesOthers()
+    {
+        var userId = 555UL;
+        var otherId = 666UL;
+        _context.Users.AddRange(new User { Id = userId }, new User { Id = otherId });
+        await _context.SaveChangesAsync();
+        await _service.ExportUserDataAsync(userId);
+        await _service.ExportUserDataAsync(userId);
+        var other = await _service.ExportUserDataAsync(otherId);
+
+        var deleted = _service.DeleteUserExports(userId);
+
+        deleted.Should().Be(2);
+        Directory.Exists(Path.Combine(_contentRootPath, "data", "exports", userId.ToString())).Should().BeFalse();
+        _service.GetExportFilePath(otherId, other.ExportId!.Value).Should().NotBeNull();
+        _service.DeleteUserExports(userId).Should().Be(0, "deleting again is a no-op");
+    }
+
+    [Fact]
+    public async Task CleanupExpiredExportsAsync_ExpiresOnLastWriteTime_AndRemovesLegacyPublicFiles()
+    {
+        var discordUserId = 777UL;
+        _context.Users.Add(new User { Id = discordUserId });
+        await _context.SaveChangesAsync();
+        var old = await _service.ExportUserDataAsync(discordUserId);
+        var fresh = await _service.ExportUserDataAsync(discordUserId);
+        var oldPath = Path.Combine(_contentRootPath, "data", "exports", discordUserId.ToString(), $"{old.ExportId}.zip");
+        File.SetLastWriteTimeUtc(oldPath, DateTime.UtcNow.AddDays(-8));
+
+        var legacyDir = Path.Combine(_webRootPath, "exports", "123");
+        Directory.CreateDirectory(legacyDir);
+        var legacyFile = Path.Combine(legacyDir, "old.zip");
+        await File.WriteAllTextAsync(legacyFile, "legacy");
+
+        var cleaned = await _service.CleanupExpiredExportsAsync();
+
+        cleaned.Should().Be(1);
+        File.Exists(oldPath).Should().BeFalse();
+        _service.GetExportFilePath(discordUserId, fresh.ExportId!.Value).Should().NotBeNull();
+        File.Exists(legacyFile).Should().BeFalse("files in the old public folder are deleted");
     }
 }

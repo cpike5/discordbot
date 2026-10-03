@@ -98,6 +98,9 @@ public static class ApplicationServiceExtensions
         services.AddHostedService<MetricsUpdateService>();
         services.AddHostedService<BusinessMetricsUpdateService>();
 
+        // Deletes expired personal-data export archives (hourly, and once at startup)
+        services.AddHostedService<UserDataExportCleanupService>();
+
         return services;
     }
 }

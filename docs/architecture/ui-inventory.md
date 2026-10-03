@@ -33,7 +33,7 @@ For detailed component documentation, see [Component API Usage Guide](../article
 | `/account/logout` | `Pages/Account/Logout.cshtml` | Sign out: POST signs out; GET auto-submits a sign-out POST when signed in, else confirms "signed out" (standalone page) |
 | `/account/access-denied` | `Pages/Account/AccessDenied.cshtml` | Authorization failure page in plain language, with Sign out (POST) |
 | `/account/lockout` | `Pages/Account/Lockout.cshtml` | Account lockout notification; the duration comes from the Identity lockout configuration |
-| `/account/privacy` | `Pages/Account/Privacy.cshtml` | Consent switches (`_FormToggle`, confirmed, redirect back to the row), export with a real download button, typed-confirm delete over `ApiClient` (`privacy.js`) |
+| `/account/privacy` | `Pages/Account/Privacy.cshtml` | Consent switches (`_FormToggle`, confirmed, redirect back to the row), export with a real download button (served by the authenticated `?handler=DownloadExport&id=` handler, owner only), typed-confirm delete over `ApiClient` (`privacy.js`) |
 | `/account/profile` | `Pages/Account/Profile.cshtml` | User profile: local dates, theme radio cards with "Match my system" (clears the saved choice) |
 
 ### Admin Pages

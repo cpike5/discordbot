@@ -73,36 +73,18 @@ public class PrivacyModel : PageModel
     public string? ErrorMessage { get; set; }
 
     /// <summary>
-    /// Download link from a successful export, carried across the redirect and shown once
-    /// in a page alert so the user can use it (a toast would auto-dismiss).
+    /// Id of the export just created, carried across the redirect so the page can show its download button
+    /// once (a toast would auto-dismiss). It is an id, not a URL: the link is always built from it here.
     /// </summary>
     [TempData]
-    public string? ExportDownloadUrl { get; set; }
+    public string? ExportId { get; set; }
 
     /// <summary>
-    /// The export link as a path on this site, for the download button. The export service builds an
-    /// absolute URL from <c>Application:BaseUrl</c>, which points somewhere else whenever the site is
-    /// reached on another host or port, so only the path is used. Null when there is no usable link.
+    /// The link to the authenticated download handler for the export just created, or null when there is none.
+    /// Built from the export id (a <see cref="Guid"/>), so it can only ever be a path on this site.
     /// </summary>
-    public string? ExportDownloadPath
-    {
-        get
-        {
-            if (string.IsNullOrEmpty(ExportDownloadUrl)) return null;
-
-            // Only an http(s) URL is reduced to its path; on some platforms "//host/x" also parses as an
-            // absolute (file) URL, and that must stay rejected below
-            var path = Uri.TryCreate(ExportDownloadUrl, UriKind.Absolute, out var absolute)
-                       && (absolute.Scheme == Uri.UriSchemeHttp || absolute.Scheme == Uri.UriSchemeHttps)
-                ? absolute.AbsolutePath
-                : ExportDownloadUrl;
-
-            // A local path only: never "//host" or "/\host", which browsers read as another site
-            return path.StartsWith('/') && !path.StartsWith("//", StringComparison.Ordinal) && !path.StartsWith("/\\", StringComparison.Ordinal)
-                ? path
-                : null;
-        }
-    }
+    public string? ExportDownloadPath =>
+        Guid.TryParse(ExportId, out var exportId) ? Url.Page("/Account/Privacy", "DownloadExport", new { id = exportId }) : null;
 
     /// <summary>The id of the data-management card, the target of the redirect after an export.</summary>
     private const string DataManagementFragment = "data-management";
@@ -250,6 +232,31 @@ public class PrivacyModel : PageModel
     }
 
     /// <summary>
+    /// Streams an export archive to the user who created it. The file is resolved only under the signed-in
+    /// user's own Discord id, so another user's export id (or an expired or unknown one) is a 404.
+    /// </summary>
+    /// <param name="id">The export id; anything that is not a GUID never binds and so is a 404 too.</param>
+    public async Task<IActionResult> OnGetDownloadExportAsync(Guid id)
+    {
+        var user = await _userManager.GetUserAsync(User);
+        if (user?.DiscordUserId is not { } discordUserId)
+        {
+            return NotFound();
+        }
+
+        var path = _exportService.GetExportFilePath(discordUserId, id);
+        if (path == null)
+        {
+            _logger.LogWarning("User {UserId} requested export {ExportId} that does not exist or is not theirs", user.Id, id);
+            return NotFound();
+        }
+
+        Response.Headers.CacheControl = "no-store";
+        var fileName = $"discordbot-data-export-{System.IO.File.GetLastWriteTimeUtc(path):yyyy-MM-dd}.zip";
+        return PhysicalFile(path, "application/zip", fileName);
+    }
+
+    /// <summary>
     /// Handles POST requests to export user data.
     /// </summary>
     public async Task<IActionResult> OnPostExportDataAsync()
@@ -287,7 +294,7 @@ public class PrivacyModel : PageModel
                     user.Id, totalRecords);
 
                 TempData.SetSuccessToast($"Your data has been exported. It has {DisplayFormat.Plural(totalRecords, "record")}.");
-                ExportDownloadUrl = result.DownloadUrl;
+                ExportId = result.ExportId?.ToString();
             }
             else
             {

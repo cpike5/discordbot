@@ -43,21 +43,85 @@ public class AccountPageModelTests
     }
 
     [Theory]
-    [InlineData("https://localhost:5001/exports/123/abc.zip", "/exports/123/abc.zip")]
-    [InlineData("https://example.org/exports/123/abc.zip", "/exports/123/abc.zip")]
-    [InlineData("/exports/123/abc.zip", "/exports/123/abc.zip")]
-    [InlineData("", null)]
-    [InlineData("//evil.example/x.zip", null)]
-    [InlineData("javascript:alert(1)", null)]
-    public void Privacy_ExportDownloadPath_IsAPathOnThisSite(string url, string? expected)
+    [InlineData("")]
+    [InlineData("not-a-guid")]
+    [InlineData("/exports/123/abc.zip")]
+    [InlineData("//evil.example/x.zip")]
+    [InlineData("javascript:alert(1)")]
+    public void Privacy_ExportDownloadPath_IsNullUnlessTheExportIdIsAGuid(string exportId)
     {
         // Only the property under test is used, so the services are not needed.
         var model = new PrivacyModel(null!, null!, null!, null!, null!, Mock.Of<ILogger<PrivacyModel>>())
         {
-            ExportDownloadUrl = url
+            ExportId = exportId
         };
 
-        model.ExportDownloadPath.Should().Be(expected);
+        model.ExportDownloadPath.Should().BeNull("the link is built from a GUID, never taken from stored text");
+    }
+
+    private static (PrivacyModel Model, Mock<IUserDataExportService> Exports) CreatePrivacy(ulong? discordUserId)
+    {
+        var users = new Mock<UserManager<ApplicationUser>>(
+            new Mock<IUserStore<ApplicationUser>>().Object, null!, null!, null!, null!, null!, null!, null!, null!);
+        users.Setup(u => u.GetUserAsync(It.IsAny<ClaimsPrincipal>()))
+            .ReturnsAsync(new ApplicationUser { Id = "user-1", DiscordUserId = discordUserId });
+
+        var exports = new Mock<IUserDataExportService>();
+        var model = new PrivacyModel(users.Object, null!, null!, exports.Object, null!, Mock.Of<ILogger<PrivacyModel>>())
+        {
+            PageContext = new PageContext { HttpContext = new DefaultHttpContext() }
+        };
+        return (model, exports);
+    }
+
+    [Fact]
+    public async Task Privacy_DownloadExport_ServesTheOwnersFile_AsZip_WithNoStore()
+    {
+        var file = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.zip");
+        await File.WriteAllBytesAsync(file, new byte[] { 1 });
+        try
+        {
+            var (model, exports) = CreatePrivacy(42UL);
+            var id = Guid.NewGuid();
+            exports.Setup(e => e.GetExportFilePath(42UL, id)).Returns(file);
+
+            var result = await model.OnGetDownloadExportAsync(id);
+
+            var physical = result.Should().BeOfType<PhysicalFileResult>().Subject;
+            physical.FileName.Should().Be(file);
+            physical.ContentType.Should().Be("application/zip");
+            physical.FileDownloadName.Should().StartWith("discordbot-data-export-").And.EndWith(".zip");
+            model.Response.Headers.CacheControl.ToString().Should().Be("no-store");
+        }
+        finally
+        {
+            File.Delete(file);
+        }
+    }
+
+    [Fact]
+    public async Task Privacy_DownloadExport_LooksOnlyUnderTheSignedInUsersOwnDiscordId()
+    {
+        var (model, exports) = CreatePrivacy(42UL);
+        var id = Guid.NewGuid();
+        // The file exists for user 99 but not for the signed-in user 42
+        exports.Setup(e => e.GetExportFilePath(99UL, id)).Returns("/somewhere/else.zip");
+
+        var result = await model.OnGetDownloadExportAsync(id);
+
+        result.Should().BeOfType<NotFoundResult>();
+        exports.Verify(e => e.GetExportFilePath(It.Is<ulong>(u => u != 42UL), It.IsAny<Guid>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Privacy_DownloadExport_WithoutALinkedDiscordAccount_IsNotFound()
+    {
+        var (model, exports) = CreatePrivacy(null);
+
+        var result = await model.OnGetDownloadExportAsync(Guid.NewGuid());
+
+        result.Should().BeOfType<NotFoundResult>();
+        exports.Verify(e => e.GetExportFilePath(It.IsAny<ulong>(), It.IsAny<Guid>()), Times.Never);
     }
 
     private static (ProfileModel Model, Mock<IThemeService> Themes) CreateProfile(ApplicationUser user)

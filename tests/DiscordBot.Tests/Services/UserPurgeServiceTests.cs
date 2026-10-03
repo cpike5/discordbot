@@ -6,10 +6,12 @@ using DiscordBot.Core.Interfaces;
 using DiscordBot.Infrastructure.Data;
 using DiscordBot.Tests.TestHelpers;
 using FluentAssertions;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using Moq;
 using Xunit;
 
@@ -30,6 +32,7 @@ public class UserPurgeServiceTests : IDisposable
     private readonly Mock<IAuditLogBuilder> _auditLogBuilderMock;
     private readonly IMemoryCache _cache;
     private readonly Mock<ILogger<UserPurgeService>> _loggerMock;
+    private readonly Mock<IUserDataExportService> _exportServiceMock = new();
 
     public UserPurgeServiceTests()
     {
@@ -78,6 +81,7 @@ public class UserPurgeServiceTests : IDisposable
             _userManagerMock.Object,
             _auditLogServiceMock.Object,
             _cache,
+            _exportServiceMock.Object,
             _loggerMock.Object);
     }
 
@@ -586,6 +590,48 @@ public class UserPurgeServiceTests : IDisposable
         (await _context.AssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId)).Should().Be(0);
         (await _context.DmAssistantInteractionLogs.CountAsync(l => l.UserId == discordUserId)).Should().Be(0);
         (await _context.DmAssistantUsageMetrics.CountAsync(m => m.UserId == discordUserId)).Should().Be(0);
+    }
+
+    [Fact]
+    public async Task PurgeUserDataAsync_DeletesTheUsersExportDirectory_ButNotOtherUsers()
+    {
+        // Arrange: a real export service over a temp content root, so the files really exist
+        var contentRoot = Path.Combine(Path.GetTempPath(), $"purge_export_{Guid.NewGuid():N}");
+        Directory.CreateDirectory(contentRoot);
+        try
+        {
+            var env = new Mock<IWebHostEnvironment>();
+            env.Setup(e => e.ContentRootPath).Returns(contentRoot);
+            env.Setup(e => e.WebRootPath).Returns(Path.Combine(contentRoot, "wwwroot"));
+            var exportService = new UserDataExportService(
+                _context, _auditLogServiceMock.Object, env.Object,
+                Options.Create(new DiscordBot.Core.Configuration.ApplicationOptions { BaseUrl = "https://localhost" }),
+                Mock.Of<ILogger<UserDataExportService>>());
+            var purge = new UserPurgeService(
+                _context, _userManagerMock.Object, _auditLogServiceMock.Object, _cache, exportService, _loggerMock.Object);
+
+            var userId = 931000001UL;
+            var otherId = 931000002UL;
+            _context.Users.AddRange(new User { Id = userId }, new User { Id = otherId });
+            await _context.SaveChangesAsync();
+            var mine = await exportService.ExportUserDataAsync(userId);
+            var theirs = await exportService.ExportUserDataAsync(otherId);
+            var userDir = Path.Combine(contentRoot, "data", "exports", userId.ToString());
+            Directory.Exists(userDir).Should().BeTrue();
+
+            // Act
+            var result = await purge.PurgeUserDataAsync(userId, PurgeInitiator.User);
+
+            // Assert
+            result.Success.Should().BeTrue();
+            Directory.Exists(userDir).Should().BeFalse("the archive holds the user's data and must not outlive the purge");
+            exportService.GetExportFilePath(otherId, theirs.ExportId!.Value).Should().NotBeNull();
+            mine.Success.Should().BeTrue();
+        }
+        finally
+        {
+            Directory.Delete(contentRoot, recursive: true);
+        }
     }
 
     #endregion
