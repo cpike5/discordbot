@@ -77,7 +77,7 @@ else
                     {
                         <tr class="hover:bg-bg-hover/50 transition-colors">
                             <td class="px-6 py-4 text-text-secondary text-sm whitespace-nowrap">
-                                <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds"></span>
+                                @DisplayFormat.Time(log.ExecutedAt, "datetime-seconds")
                             </td>
                             <td class="px-6 py-4">
                                 <span class="font-mono text-sm text-accent-blue break-all">/@log.CommandName</span>
@@ -127,7 +127,7 @@ else
                     <div class="flex-1 min-w-0">
                         <span class="font-mono text-sm text-accent-blue break-all">/@log.CommandName</span>
                         <div class="text-xs text-text-secondary mt-1">
-                            <span data-utc="@log.ExecutedAtUtcIso" data-format="datetime-seconds"></span>
+                            @DisplayFormat.Time(log.ExecutedAt, "datetime-seconds")
                         </div>
                     </div>
                     <partial name="~/Pages/Shared/Components/_Badge.cshtml" model="@(log.Success

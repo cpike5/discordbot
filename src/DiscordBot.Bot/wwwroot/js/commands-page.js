@@ -243,8 +243,11 @@
 
     function syncUrl(mode) {
         var query = buildPageQuery(current);
-        var url = window.location.pathname + (query ? '?' + query : '');
-        if (url === window.location.pathname + window.location.search && !window.location.hash) return;
+        // A hash that is not a tab id (#cmd-ping from Search) is an anchor: keep it
+        var hash = window.location.hash;
+        var keepHash = hash && !isTabId(hash.slice(1)) ? hash : '';
+        var url = window.location.pathname + (query ? '?' + query : '') + keepHash;
+        if (url === window.location.pathname + window.location.search + window.location.hash) return;
         try {
             if (mode === 'push') window.history.pushState(null, '', url);
             else window.history.replaceState(null, '', url);
@@ -680,7 +683,7 @@
                 window.TabPanel.switchTo('commandTabs', current.tab);
             }
         }
-        if (window.location.hash) syncUrl('replace');
+        if (isTabId(window.location.hash.slice(1))) syncUrl('replace');
 
         // Forms start from the URL (the server rendered most of it; the other form needs the shared fields)
         TABS.forEach(function (tab) { if (TAB_FIELDS[tab].length) fillForm(tab); });
