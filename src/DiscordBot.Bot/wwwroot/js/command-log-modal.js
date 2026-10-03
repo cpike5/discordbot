@@ -24,7 +24,11 @@
 
     function detailsHref(link) {
         // The full page's Back link returns to this exact view
-        var returnUrl = window.location.pathname + window.location.search;
+        // (without the open log, or Back would reopen the dialog)
+        var params = new URLSearchParams(window.location.search);
+        params.delete('log');
+        var query = params.toString();
+        var returnUrl = window.location.pathname + (query ? '?' + query : '');
         var base = link.getAttribute('href').split('?')[0];
         return base + '?returnUrl=' + encodeURIComponent(returnUrl);
     }

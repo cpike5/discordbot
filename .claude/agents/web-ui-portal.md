@@ -102,6 +102,12 @@ When adding a new section/tab to Settings or the Performance dashboard, or a new
 - **Feature keys:** the Prices page writes entries under `CurrencyFeatureKeys.Soundboard(soundId)`. The charge seam and the portal price badge look a sound up by that exact string, so the page renders the key onto the row and the script sends it back untouched — never rebuild a key in JavaScript.
 - **Page scripts:** `wwwroot/js/currency/` — `currency-manage.js` (create/edit/deactivate/authorities, shared by both list pages), `currency-wallets.js`, `currency-prices.js`, `currency-reconcile.js`. All talk to the API through `window.ApiClient`.
 
+### Commands, Search and tabs (UX plan Phase 6)
+- **Commands page** (`Pages/Commands/*`, `docs/articles/unified-command-pages.md`): one controller, `wwwroot/js/commands-page.js`, owns the tab, filters, page, command-list search and open log, all in the query string under the page model's names (`tab`, `StartDate`, `EndDate`, `GuildId`, `CommandName`, `StatusFilter`, `SearchTerm`, `pageNumber`, `q`, `log`). One request per Apply; abort, 300 ms skeleton, Retry that keeps the filters. The old `command-tab-loader/filters/pagination` and `url-state` modules are gone. `/api/commands/*` refuses with problem JSON; the script reads it through `ApiClient.getHtml`.
+- **`tab-panel.js`** ignores a hash (or stored id) that is not one of its container's own tab ids, so `#main-content` from the skip link no longer blanks the panels. `nav-tabs.js` already did.
+- **Search** renders its validation message, counts every match (`SearchResultsViewModel.TotalMatches`), and links command logs to the Details page only for moderators (`CanOpenCommandLogDetails`); viewers get `/Commands?tab=execution-logs&log=<id>`.
+- **CommandLogs/Details** takes `?returnUrl=` for Back (sanitised).
+
 ### Design System ("Graphite", v2.0 — `docs/articles/design-system.md`)
 - **Tokens live in `wwwroot/css/site.css`**; `tailwind.config.js` only maps utilities onto them. Every colour has an RGB triplet (`--color-x-rgb`) so `bg-success/20` follows the theme. Never hard-code hex — use `var(--color-…)` in CSS/`<style>` blocks and the token classes in markup.
 - **Accents have jobs**: ember (`accent-orange`) = selected/active/primary; signal blue (`accent-blue`) = links/info/focus. Semantic colours are soft tints (12% fill + hairline) except on buttons.

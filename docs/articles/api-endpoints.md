@@ -2376,7 +2376,7 @@ Returns HTML partial view (`_CommandListTab.cshtml`) containing:
 
 **Response: 500 Internal Server Error**
 
-Returns HTML error state with retry button if service fails.
+`application/problem+json` with a plain-language `detail`.
 
 ---
 
@@ -2425,11 +2425,15 @@ Returns HTML partial view (`_ExecutionLogsTab.cshtml`) containing:
 
 **Response: 400 Bad Request**
 
-Returns HTML error state if date range exceeds 90 days.
+`application/problem+json` with a user-facing `detail` when the range is longer than 90 days
+(`Choose a date range of 90 days or less.`) or the start date is after the end date.
 
 **Response: 500 Internal Server Error**
 
-Returns HTML error state with retry button if service fails.
+`application/problem+json` with a plain-language `detail`; never exception text. A `pageNumber`
+past the last page returns the last page.
+
+The pagination links in the partial are real `/Commands?tab=execution-logs&...&pageNumber=N` URLs.
 
 ---
 
@@ -2477,15 +2481,15 @@ Returns HTML partial view (`_AnalyticsTab.cshtml`) containing:
 
 **Response: 400 Bad Request**
 
-Returns HTML error state if date range exceeds 90 days.
+`application/problem+json` (`detail`: range over 90 days, or start after end).
 
 **Response: 500 Internal Server Error**
 
-Returns HTML error state with retry button if service fails.
+`application/problem+json` with a plain-language `detail`.
 
 **Notes:**
-- Chart.js 4.4.1 is loaded inline from CDN
-- Charts initialize automatically after partial loads
+- Chart.js 4.4.1 is loaded by the page; `commands-charts.js` draws the charts from a JSON data island after each partial loads
+- Nothing ran in the range: the partial is one empty state, not zero-filled cards
 - All data is serialized as JSON and passed to Chart.js
 
 ---

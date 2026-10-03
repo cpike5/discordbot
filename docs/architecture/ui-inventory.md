@@ -94,8 +94,9 @@ For detailed component documentation, see [Component API Usage Guide](../article
 
 | Route | File | Purpose |
 |-------|------|---------|
-| `/commands` | `Pages/Commands/Index.cshtml` | Command reference & documentation |
-| `/command-logs` | `Pages/CommandLogs/Index.cshtml` | Command execution logs |
+| `/Commands` | `Pages/Commands/Index.cshtml` | Command List (debounced client-side search, `?q=`), Execution Logs and Analytics tabs. Tab, filters, page and open log are all in the query string; `commands-page.js` is the one controller. See `docs/articles/unified-command-pages.md`. |
+| `/CommandLogs/Details/{id}` | `Pages/CommandLogs/Details.cshtml` | One command log (moderator). `?returnUrl=` sets where Back goes. |
+| `/Search` | `Pages/Search.cshtml` | Unified search. Shows its validation message and the true total; command log results open the Details page for moderators and the Commands log dialog for everyone else. |
 
 ### Portal Pages (User Self-Service)
 
