@@ -228,15 +228,6 @@
         },
 
         /**
-         * Escape HTML for safe insertion
-         */
-        escapeHtml: function(text) {
-            const div = document.createElement('div');
-            div.textContent = text || '';
-            return div.innerHTML.replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-        },
-
-        /**
          * Generic creator: registers the theme plugin, fills token-based dataset colours and builds
          * the chart. Use it instead of `new Chart` so series follow the theme.
          */

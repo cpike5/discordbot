@@ -8,9 +8,10 @@ namespace DiscordBot.Bot.Pages.Admin.Performance;
 /// <summary>
 /// Base for the retired standalone Performance pages (System Health, API Metrics, Health Metrics,
 /// Alerts, Commands). Each route stays so old links, bookmarks and stored notification links keep
-/// working, and answers with a permanent redirect to the matching tab of the dashboard shell,
-/// <c>/Admin/Performance?tab=…</c>. A <c>hours</c> query value is forwarded after it is clamped to
-/// a supported range.
+/// working, and answers with a temporary (302) redirect to the matching tab of the dashboard shell,
+/// <c>/Admin/Performance?tab=…</c>. It is not a 301: browsers cache that forever, which would pin an
+/// old bookmark to a tab address that may change. A <c>hours</c> query value is forwarded after it is
+/// clamped to a supported range.
 /// </summary>
 [Authorize(Policy = "RequireViewer")]
 public abstract class PerformanceTabRedirectModel : PageModel
@@ -36,5 +37,5 @@ public abstract class PerformanceTabRedirectModel : PageModel
     /// <summary>
     /// Redirects to the matching tab of the dashboard shell.
     /// </summary>
-    public IActionResult OnGet() => RedirectPermanent(PerformanceDashboardTabs.TabUrl(_tab, Hours));
+    public IActionResult OnGet() => Redirect(PerformanceDashboardTabs.TabUrl(_tab, Hours));
 }

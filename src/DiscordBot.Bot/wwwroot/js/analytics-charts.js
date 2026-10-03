@@ -62,10 +62,11 @@
     }
 
     /**
-     * One colour for each of `count` bars. A per-bar array, not a single string: Chart.js shares
-     * resolved options between bars when the colour is a plain value, and chart-theme.js redraws
-     * with update('none'), which leaves shared options as they were, so a bar chart would keep
-     * the old theme's colour.
+     * One colour for each of `count` bars, as a per-bar array rather than a single string. Chart.js
+     * shares resolved options between bars when the colour is a plain value, so the array keeps each
+     * bar's colour its own. chart-theme.js redraws with update('resize') on a theme change, which
+     * re-resolves every dataset's options, so either shape would now follow the theme; the array is
+     * kept so a bar's colour does not depend on that redraw mode.
      */
     function each(color, count) {
         return new Array(count).fill(color);

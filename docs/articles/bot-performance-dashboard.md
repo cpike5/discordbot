@@ -4,7 +4,7 @@
 **Feature Reference:** Issue #295 (Epic)
 **Status:** Completed (9 of 9 sub-issues completed)
 
-> **Update (UX polish Phase 13).** The standalone pages described below (`/Admin/Performance/HealthMetrics`, `/System`, `/SystemHealth`, `/Commands`, `/ApiMetrics`, `/Alerts`) were retired. Each route now redirects permanently to the matching tab of the one dashboard shell: `/Admin/Performance?tab=health|system|commands|api|alerts` (and `overview`), with `&hours=168|720` for the time range. "Live" appears only on tabs subscribed to a hub group (Overview and Health: `performance`, System: `system-health`, Alerts: `alerts`); other tabs show when they were last loaded. Read the page sections below as descriptions of the tabs.
+> **Update (UX polish Phase 13).** The standalone pages described below (`/Admin/Performance/HealthMetrics`, `/System`, `/SystemHealth`, `/Commands`, `/ApiMetrics`, `/Alerts`) were retired. Each route now redirects (302, so browsers do not cache it) to the matching tab of the one dashboard shell: `/Admin/Performance?tab=health|system|commands|api|alerts` (and `overview`), with `&hours=168|720` for the time range. "Live" appears only on tabs subscribed to a hub group (Overview and Health: `performance`, System: `system-health`, Alerts: `alerts`); other tabs show when they were last loaded. Read the page sections below as descriptions of the tabs.
 
 ---
 

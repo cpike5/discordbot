@@ -152,6 +152,13 @@ public class ProfileModel : PageModel
     public ThemeSource CurrentThemeSource { get; set; }
 
     /// <summary>
+    /// Set across the redirect after the user chose "Match my system", so the page can clear the theme
+    /// this browser remembered in localStorage (profile.js) and other open tabs follow along.
+    /// </summary>
+    [TempData]
+    public bool ThemeCleared { get; set; }
+
+    /// <summary>
     /// Page-state error shown when the theme preferences failed to load.
     /// Action results from the POST handler are shown as toasts instead.
     /// </summary>
@@ -281,6 +288,7 @@ public class ProfileModel : PageModel
             if (await _themeService.SetUserThemeAsync(userId, null))
             {
                 Response.Cookies.Delete(IThemeService.ThemePreferenceCookieName);
+                ThemeCleared = true;
                 TempData.SetSuccessToast("Your theme now follows your system's light or dark setting.");
             }
             else

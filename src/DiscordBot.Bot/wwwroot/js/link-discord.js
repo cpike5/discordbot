@@ -1,7 +1,10 @@
 /**
  * Link Discord page (Pages/Account/LinkDiscord.cshtml).
  *
- * - Verification countdown: `[data-verification]` carries `data-expires-at` (UTC ISO). The timer
+ * - Verification countdown: `[data-verification]` carries `data-seconds-remaining` (measured by the
+ *   server when the page was rendered) and `data-expires-at` (UTC ISO). The countdown runs from the
+ *   seconds, against the browser's own elapsed time, so a wrong device clock cannot shorten or
+ *   stretch it; the ISO time is the fallback when the seconds are missing. The timer
  *   shows the time left, and at zero locks the code form and reveals the expired panel with a
  *   "Start again" button (a reload: the server no longer reports an expired code as pending).
  *   The visible countdown is aria-hidden; screen readers get one polite message when the code
@@ -36,6 +39,20 @@
         return at - (now === undefined ? Date.now() : now);
     }
 
+    /**
+     * The instant (ms since the epoch, on the browser's clock) the countdown ends at: the server's
+     * remaining seconds counted from `now`, else the ISO expiry. Null when neither is usable.
+     */
+    function deadline(secondsRemaining, iso, now) {
+        var start = now === undefined ? Date.now() : now;
+        var seconds = secondsRemaining === null || secondsRemaining === undefined || secondsRemaining === ''
+            ? NaN
+            : Number(secondsRemaining);
+        if (isFinite(seconds) && seconds >= 0) return start + seconds * 1000;
+        var at = Date.parse(iso);
+        return isNaN(at) ? null : at;
+    }
+
     /** "14:32" for the time left, "0:05" near the end. */
     function clock(ms) {
         var total = Math.max(0, Math.ceil(ms / 1000));
@@ -51,7 +68,7 @@
         var form = container.querySelector('[data-verification-form]');
         var timerLabel = container.querySelector('[data-verification-timer]');
         var restart = container.querySelector('[data-verification-restart]');
-        var expiresAt = container.getAttribute('data-expires-at');
+        var endsAt = deadline(container.getAttribute('data-seconds-remaining'), container.getAttribute('data-expires-at'));
         var warned = false;
         var timer = null;
 
@@ -72,7 +89,7 @@
         }
 
         function tick() {
-            var ms = msUntil(expiresAt);
+            var ms = endsAt === null ? null : endsAt - Date.now();
             if (ms === null) {
                 if (timer) clearInterval(timer);
                 return;
@@ -134,5 +151,5 @@
         initCopyButtons();
     }
 
-    return { init: init, msUntil: msUntil, clock: clock };
+    return { init: init, msUntil: msUntil, deadline: deadline, clock: clock };
 });

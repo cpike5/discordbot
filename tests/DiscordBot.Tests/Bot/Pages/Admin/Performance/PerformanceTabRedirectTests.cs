@@ -7,7 +7,7 @@ namespace DiscordBot.Tests.Bot.Pages.Admin.Performance;
 
 /// <summary>
 /// The five standalone Performance pages are retired (UX plan D12). Their routes stay and answer
-/// with a permanent redirect to the matching tab of the dashboard shell, so old links, bookmarks
+/// with a temporary (302) redirect to the matching tab of the dashboard shell, so old links, bookmarks
 /// and stored notification links keep working.
 /// </summary>
 public class PerformanceTabRedirectTests
@@ -64,7 +64,8 @@ public class PerformanceTabRedirectTests
     private static void AssertRedirect(IActionResult result, string expectedUrl)
     {
         var redirect = result.Should().BeOfType<RedirectResult>().Subject;
-        redirect.Permanent.Should().BeTrue("the old routes moved for good");
+        redirect.Permanent.Should().BeFalse("a 301 is cached by the browser forever");
+        redirect.PreserveMethod.Should().BeFalse();
         redirect.Url.Should().Be(expectedUrl);
     }
 }

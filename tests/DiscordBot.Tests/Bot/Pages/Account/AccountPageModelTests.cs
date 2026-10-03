@@ -153,6 +153,20 @@ public class AccountPageModelTests
         model.PageContext.HttpContext.Response.Headers.SetCookie.ToString()
             .Should().Contain(IThemeService.ThemePreferenceCookieName, "the cookie is expired so the server stops rendering the old theme");
         model.TempData["ToastSuccess"].Should().BeOfType<string>().Which.Should().Contain("system");
+        model.ThemeCleared.Should().BeTrue("the page clears this browser's remembered theme once, so other tabs follow the system too");
+    }
+
+    [Fact]
+    public async Task Profile_PostWithATheme_DoesNotAskTheBrowserToForgetIt()
+    {
+        var (model, themes) = CreateProfile(new ApplicationUser { Id = "user-1" });
+        themes.Setup(t => t.GetThemeByIdAsync(2, It.IsAny<CancellationToken>())).ReturnsAsync(new ThemeDto { Id = 2, ThemeKey = "purple-dusk", DisplayName = "Purple Dusk", IsActive = true });
+        themes.Setup(t => t.SetUserThemeAsync("user-1", 2, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+        model.SelectedThemeId = 2;
+
+        await model.OnPostAsync();
+
+        model.ThemeCleared.Should().BeFalse();
     }
 
     [Fact]
