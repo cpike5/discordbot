@@ -291,8 +291,8 @@ public class PortalTtsPresetsController : PortalTtsControllerBase
             _logger.LogWarning("TTS not enabled for guild {GuildId}", guildId);
             return BadRequest(new ApiErrorDto
             {
-                Message = "TTS is not enabled for this guild",
-                Detail = "Contact a server administrator to enable TTS in guild settings.",
+                Message = "TTS is not enabled for this server",
+                Detail = "Contact a server administrator to enable TTS in server settings.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "tts_not_enabled"
@@ -364,7 +364,8 @@ public class PortalTtsPresetsController : PortalTtsControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Invalid TTS request",
-                Detail = ex.Message,
+                // The exception text is for the log; the person gets what to do about it
+                Detail = "That message or those voice settings could not be used for a preview. Check them and try again.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "invalid_request"

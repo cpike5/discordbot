@@ -995,6 +995,14 @@
         }
     }
 
+    /* At 320 two columns leave a card ~125px wide: the preview, play and favourite controls (44px each)
+       no longer fit side by side, so the cards take the full width */
+    @@media (max-width: 359px) {
+        .sound-grid {
+            grid-template-columns: 1fr;
+        }
+    }
+
     @@media (max-width: 640px) {
         .button-row {
             grid-template-columns: 1fr;

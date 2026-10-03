@@ -456,7 +456,7 @@ public class PortalTtsControllerTests
         var badRequestResult = result as BadRequestObjectResult;
         var error = badRequestResult!.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("TTS is not enabled for this guild");
+        error!.Message.Should().Be("TTS is not enabled for this server");
     }
 
     #endregion
@@ -505,7 +505,7 @@ public class PortalTtsControllerTests
         var notFoundResult = result as NotFoundObjectResult;
         var error = notFoundResult!.Value as ApiErrorDto;
         error.Should().NotBeNull();
-        error!.Message.Should().Be("Guild not found");
+        error!.Message.Should().Be("Server not found");
     }
 
     #endregion

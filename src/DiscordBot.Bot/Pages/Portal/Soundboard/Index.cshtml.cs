@@ -118,7 +118,7 @@ public class IndexModel : PortalPageModelBase
             IsAudioGloballyDisabled = !isGloballyEnabled;
 
             // Perform common portal authorization check
-            var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "Soundboard", cancellationToken);
+            var (authResult, _) = await CheckPortalAuthorizationAsync(guildId, "Soundboard", cancellationToken);
 
             // Handle auth failures
             var actionResult = GetAuthResultAction(authResult);

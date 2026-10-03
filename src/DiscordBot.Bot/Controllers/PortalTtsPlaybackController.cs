@@ -121,8 +121,8 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
             _logger.LogWarning("Guild {GuildId} not found", guildId);
             return NotFound(new ApiErrorDto
             {
-                Message = "Guild not found",
-                Detail = "The requested guild was not found or the bot is not a member.",
+                Message = "Server not found",
+                Detail = "That server was not found, or the bot is not in it.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "guild_not_found"
@@ -187,7 +187,7 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
             return NotFound(new ApiErrorDto
             {
                 Message = "Failed to join voice channel",
-                Detail = "The guild or voice channel was not found, or the bot lacks permission to join.",
+                Detail = "The bot could not join that voice channel. It may have been deleted, or the bot may lack permission to connect.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "channel_not_found"
@@ -217,7 +217,7 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not in a voice channel right now. Join one first.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "not_connected"
@@ -268,7 +268,7 @@ public class PortalTtsPlaybackController : PortalTtsControllerBase
             return BadRequest(new ApiErrorDto
             {
                 Message = "Not connected to voice",
-                Detail = "The bot is not currently connected to a voice channel in this guild.",
+                Detail = "The bot is not in a voice channel right now. Join one first.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "not_connected"

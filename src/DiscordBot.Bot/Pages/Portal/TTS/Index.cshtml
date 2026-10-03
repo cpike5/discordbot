@@ -313,14 +313,35 @@
         border-top: none;
         border-radius: 0 0 0.5rem 0.5rem;
         padding: 0;
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease-out, padding 0.3s ease-out;
+        display: none;
     }
 
+    /* Open means unclipped: the voice list is a dropdown and must be able to leave this box */
     .collapsible-content.expanded {
+        display: block;
         padding: 1rem;
-        max-height: 1000px;
+        overflow: visible;
+    }
+
+    .collapsible-header {
+        width: 100%;
+        text-align: left;
+        color: var(--color-text-primary);
+    }
+
+    .send-hint {
+        margin: -0.25rem 0 0.75rem;
+        font-size: 0.8125rem;
+        color: var(--color-text-secondary);
+        min-height: 1.25rem;
+    }
+
+    .char-counter[data-state="warning"] {
+        color: var(--color-warning);
+    }
+
+    .char-counter[data-state="error"] {
+        color: var(--color-error);
     }
 
     /* Responsive Voice Controls */
@@ -358,6 +379,7 @@
 
         /* Override collapsible content to always be visible on desktop */
         .voice-controls-body {
+            display: block !important;
             max-height: none !important;
             overflow: visible !important;
             padding: 0 !important;
@@ -623,8 +645,8 @@
 
     @@media (max-width: 767px) {
         .tts-history-btn {
-            min-height: 36px;
-            min-width: 36px;
+            min-height: 44px;
+            min-width: 44px;
             padding: 0.25rem;
         }
 
@@ -718,28 +740,31 @@ else
                     <div class="form-group">
                         <label class="form-label">
                             Message
-                            <span class="form-label-small">(max <span id="maxLengthLabel">500</span> characters)</span>
+                            <span class="form-label-small">(max <span id="maxLengthLabel">@Model.MaxMessageLength</span> characters)</span>
                         </label>
                         <textarea id="ttsMessage"
                                   class="form-textarea"
                                   rows="6"
-                                  maxlength="500"
+                                  maxlength="@Model.MaxMessageLength"
+                                  data-max-length="@Model.MaxMessageLength"
+                                  dir="auto"
+                                  enterkeyhint="enter"
                                   placeholder="Enter the message you want the bot to say..."></textarea>
                         <div id="charCounter" class="char-counter">
                             <span>Character count:</span>
-                            <span class="char-count" id="charCount">0</span><span> / <span id="charMax">500</span></span>
+                            <span class="char-count" id="charCount">0</span><span> / <span id="charMax">@Model.MaxMessageLength</span></span>
                         </div>
                     </div>
 
                     <!-- Voice Controls (single set, responsive via CSS) -->
                     <!-- Mobile: collapsible accordion | Desktop: always visible inline -->
                     <div class="form-group">
-                        <div class="collapsible-header voice-controls-collapsible-header" onclick="toggleVoiceSettings()" role="button" aria-expanded="false" aria-controls="voiceSettingsContent" style="display: none;">
+                        <button type="button" id="voiceSettingsToggle" class="collapsible-header voice-controls-collapsible-header" aria-expanded="false" aria-controls="voiceSettingsContent" style="display: none;">
                             <span class="collapsible-header-title">Voice Settings</span>
-                            <svg class="collapsible-chevron" id="voiceSettingsChevron" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <svg class="collapsible-chevron" id="voiceSettingsChevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                        </div>
+                        </button>
                         <div id="voiceSettingsContent" class="collapsible-content voice-controls-body">
                             <!-- Voice Selection -->
                             <div class="form-group">
@@ -805,13 +830,16 @@ else
                             </svg>
                             Preview
                         </button>
-                        <button id="sendBtn" class="send-btn" style="flex: 1;" disabled>
+                        <button id="sendBtn" class="send-btn" style="flex: 1;" disabled aria-describedby="sendHint">
                             <svg fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
                             </svg>
                             Send Message
                         </button>
                     </div>
+
+                    <!-- Says why Send is off (nothing typed, no voice channel); empty when it is on -->
+                    <p id="sendHint" class="send-hint" role="status" aria-live="polite"></p>
 
                     <!-- Emphasis Toolbar (Pro mode only, hidden by default) -->
                     <div id="portalEmphasisToolbarContainer" class="hidden">

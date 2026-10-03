@@ -116,7 +116,7 @@ public class PortalSoundboardCategoriesController : PortalSoundboardControllerBa
             return BadRequest(new ApiErrorDto
             {
                 Message = "Category already exists",
-                Detail = $"A category named '{request.Name.Trim()}' already exists in this guild.",
+                Detail = $"A category named '{request.Name.Trim()}' already exists in this server.",
                 StatusCode = StatusCodes.Status400BadRequest,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "duplicate_name"
@@ -173,7 +173,7 @@ public class PortalSoundboardCategoriesController : PortalSoundboardControllerBa
             return NotFound(new ApiErrorDto
             {
                 Message = "Category not found",
-                Detail = "The requested category was not found in this guild.",
+                Detail = "The requested category was not found in this server.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "category_not_found"
@@ -201,7 +201,7 @@ public class PortalSoundboardCategoriesController : PortalSoundboardControllerBa
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Category already exists",
-                    Detail = $"A category named '{request.Name.Trim()}' already exists in this guild.",
+                    Detail = $"A category named '{request.Name.Trim()}' already exists in this server.",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId(),
                     ErrorCode = "duplicate_name"
@@ -255,7 +255,7 @@ public class PortalSoundboardCategoriesController : PortalSoundboardControllerBa
             return NotFound(new ApiErrorDto
             {
                 Message = "Category not found",
-                Detail = "The requested category was not found in this guild.",
+                Detail = "The requested category was not found in this server.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "category_not_found"
@@ -300,7 +300,7 @@ public class PortalSoundboardCategoriesController : PortalSoundboardControllerBa
             return NotFound(new ApiErrorDto
             {
                 Message = "Sound not found",
-                Detail = "The requested sound was not found in this guild.",
+                Detail = "That sound was not found on this server.",
                 StatusCode = StatusCodes.Status404NotFound,
                 TraceId = HttpContext.GetCorrelationId(),
                 ErrorCode = "sound_not_found"
@@ -316,7 +316,7 @@ public class PortalSoundboardCategoriesController : PortalSoundboardControllerBa
                 return BadRequest(new ApiErrorDto
                 {
                     Message = "Category not found",
-                    Detail = "The specified category does not exist in this guild.",
+                    Detail = "The specified category does not exist in this server.",
                     StatusCode = StatusCodes.Status400BadRequest,
                     TraceId = HttpContext.GetCorrelationId(),
                     ErrorCode = "category_not_found"

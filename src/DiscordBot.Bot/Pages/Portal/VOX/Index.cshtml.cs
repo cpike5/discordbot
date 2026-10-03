@@ -22,6 +22,7 @@ public class IndexModel : PortalPageModelBase
     private readonly IVoxService _voxService;
     private readonly IAudioService _audioService;
     private readonly IPlaybackService _playbackService;
+    private readonly ISettingsService _settingsService;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -30,6 +31,7 @@ public class IndexModel : PortalPageModelBase
         IAudioService audioService,
         IPlaybackService playbackService,
         IGuildService guildService,
+        ISettingsService settingsService,
         IPortalGuildDirectory guildDirectory,
         IGuildAudioSettingsRepository audioSettingsRepository,
         UserManager<ApplicationUser> userManager,
@@ -40,8 +42,14 @@ public class IndexModel : PortalPageModelBase
         _voxService = voxService;
         _audioService = audioService;
         _playbackService = playbackService;
+        _settingsService = settingsService;
         _logger = logger;
     }
+
+    /// <summary>
+    /// Gets whether audio features are globally disabled at the bot level.
+    /// </summary>
+    public bool IsAudioGloballyDisabled { get; set; }
 
     /// <summary>
     /// Gets the clip count for the VOX group.
@@ -92,8 +100,12 @@ public class IndexModel : PortalPageModelBase
     {
         try
         {
+            // Check if audio is globally disabled at the bot level
+            var isGloballyEnabled = await _settingsService.GetSettingValueAsync<bool?>("Features:AudioEnabled") ?? true;
+            IsAudioGloballyDisabled = !isGloballyEnabled;
+
             // Perform common portal authorization check
-            var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "VOX", cancellationToken);
+            var (authResult, _) = await CheckPortalAuthorizationAsync(guildId, "VOX", cancellationToken);
 
             // Handle auth failures
             var actionResult = GetAuthResultAction(authResult);

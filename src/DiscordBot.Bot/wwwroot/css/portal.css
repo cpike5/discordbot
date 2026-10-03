@@ -274,6 +274,7 @@ body.portal-page {
    ----------------------------------------------- */
 .portal-unauthorized {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -432,6 +433,7 @@ body.portal-page {
     margin: 0 auto;
     padding: 1.5rem;
     height: calc(100vh - var(--portal-header-height));
+    height: calc(100dvh - var(--portal-header-height));
     display: flex;
     flex-direction: column;
     overflow: hidden;
@@ -582,6 +584,7 @@ body.portal-page {
     .main-container {
         height: auto;
         min-height: calc(100vh - var(--portal-header-height));
+        min-height: calc(100dvh - var(--portal-header-height));
         overflow: visible;
     }
 
@@ -766,8 +769,8 @@ body:not(.portal-fullscreen) .fullscreen-toolbar {
 /* Floating fullscreen toolbar */
 .fullscreen-toolbar {
     position: fixed;
-    top: 0.75rem;
-    right: 0.75rem;
+    top: calc(0.75rem + var(--safe-top, 0px));
+    right: calc(0.75rem + var(--safe-right, 0px));
     z-index: var(--z-modal-backdrop);
     display: flex;
     align-items: center;
@@ -1036,6 +1039,13 @@ body:not(.portal-fullscreen) .fullscreen-toolbar {
  * whole column instead of only the sidebar's height.
  */
 @media (max-width: 1023px) {
+    /* Sized by its content: with `flex: 1 1 0; min-height: 0` the column was held to the viewport and
+       whatever overflowed it (the TTS form) was drawn over the next sibling, the history toggle */
+    .portal-content {
+        flex: 0 0 auto;
+        min-height: auto;
+    }
+
     .portal-content > .sidebar {
         display: contents;
     }
@@ -1115,5 +1125,16 @@ body:not(.portal-fullscreen) .fullscreen-toolbar {
     .header-actions .status-badge-lg {
         padding: 0.25rem 0.5rem;
         font-size: 0.75rem;
+    }
+}
+
+/* 320px phones: three section tabs must fit without scrolling out of sight, so they drop their icons */
+@media (max-width: 400px) {
+    .portal-header .tab-panel-tab .tab-icon {
+        display: none;
+    }
+
+    .portal-header .tab-panel-tab {
+        padding-inline: 0.625rem;
     }
 }

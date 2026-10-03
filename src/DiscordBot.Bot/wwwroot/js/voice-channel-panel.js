@@ -20,6 +20,40 @@
  * (detail: { isConnected, channelId, isPlaying, busy }) and may call
  * VoiceChannelPanel.notePlaying(name) when they start something.
  */
+
+/**
+ * The URL and verb for a voice command. Portal pages (apiBase set) use the portal's own endpoints;
+ * admin pages use the Viewer-gated /api/guilds/{id}/audio ones. The two shapes differ, not only the
+ * prefix: the portal joins with a JSON body to POST {base}/channel and leaves with DELETE.
+ */
+function resolveVoiceEndpoint(apiBase, guildId, action, arg) {
+    if (apiBase) {
+        switch (action) {
+            case 'join': return { url: apiBase + '/channel', method: 'POST' };
+            case 'leave': return { url: apiBase + '/channel', method: 'DELETE' };
+            case 'stop': return { url: apiBase + '/stop', method: 'POST' };
+            case 'status': return { url: apiBase + '/status', method: 'GET' };
+        }
+        return null;
+    }
+    const base = '/api/guilds/' + guildId + '/audio';
+    switch (action) {
+        case 'join': return { url: base + '/join/' + arg, method: 'POST' };
+        case 'leave': return { url: base + '/leave', method: 'POST' };
+        case 'stop': return { url: base + '/stop', method: 'POST' };
+        case 'skip': return { url: base + '/queue/' + arg, method: 'DELETE' };
+    }
+    return null;
+}
+
+/**
+ * The portal's join body. A channel ID is a Discord snowflake, larger than JavaScript's safe integer
+ * range, so it is written as JSON text with its digits untouched instead of going through a Number.
+ */
+function voiceJoinBody(channelId) {
+    return '{"channelId":' + String(channelId).replace(/\D/g, '') + '}';
+}
+
 const VoiceChannelPanel = (function() {
     'use strict';
 
@@ -62,6 +96,7 @@ const VoiceChannelPanel = (function() {
         isPlaying: false,
         nowPlaying: null,        // { name, requestedByDisplayName, source, durationSeconds, positionSeconds }
         busy: null,              // 'joining' | 'leaving' | 'stopping' | null
+        pendingChannelId: null,  // the channel being joined, so the picker keeps showing it
         hubState: null,          // admin pages only: 'connected' | 'reconnecting' | ...
         statusFailed: false      // portal pages: the last status read failed
     };
@@ -169,22 +204,7 @@ const VoiceChannelPanel = (function() {
     // ------------------------------------------------------------------
 
     function endpoint(action, arg) {
-        if (apiBase) {
-            switch (action) {
-                case 'join': return { url: apiBase + '/channel', method: 'POST' };
-                case 'leave': return { url: apiBase + '/channel', method: 'DELETE' };
-                case 'stop': return { url: apiBase + '/stop', method: 'POST' };
-                case 'status': return { url: apiBase + '/status', method: 'GET' };
-            }
-        }
-        const base = '/api/guilds/' + guildId + '/audio';
-        switch (action) {
-            case 'join': return { url: base + '/join/' + arg, method: 'POST' };
-            case 'leave': return { url: base + '/leave', method: 'POST' };
-            case 'stop': return { url: base + '/stop', method: 'POST' };
-            case 'skip': return { url: base + '/queue/' + arg, method: 'DELETE' };
-        }
-        return null;
+        return resolveVoiceEndpoint(apiBase, guildId, action, arg);
     }
 
     /**
@@ -195,7 +215,7 @@ const VoiceChannelPanel = (function() {
         const target = endpoint(action, arg);
         const options = { method: target.method, errorMessage: errorMessage };
         if (apiBase && action === 'join') {
-            options.body = '{"channelId":' + String(arg).replace(/\D/g, '') + '}';
+            options.body = voiceJoinBody(arg);
             options.headers = { 'Content-Type': 'application/json' };
         }
         return ApiClient.request(target.url, options);
@@ -215,6 +235,7 @@ const VoiceChannelPanel = (function() {
         const selectedOption = e.target.selectedOptions && e.target.selectedOptions[0];
         const optionName = selectedOption ? selectedOption.textContent.replace(/\s*\(\d+\)\s*$/, '').trim() : '';
 
+        state.pendingChannelId = selectedChannelId;
         setBusy('joining');
         try {
             await send('join', selectedChannelId, 'Could not join the voice channel. Try again.');
@@ -224,10 +245,12 @@ const VoiceChannelPanel = (function() {
             state.channelId = selectedChannelId;
             state.channelName = optionName || state.channelName;
             state.statusFailed = false;
+            state.pendingChannelId = null;
             setBusy(null);
             announce('Joined ' + (state.channelName || 'the voice channel'));
             if (apiBase) refreshStatus();
         } catch (error) {
+            state.pendingChannelId = null;
             setBusy(null);
             reportError(error, 'Could not join the voice channel. Try again.');
             // Put the picker back on what is true
@@ -529,7 +552,9 @@ const VoiceChannelPanel = (function() {
         // Picker and Leave
         if (channelSelector) {
             channelSelector.disabled = !!state.busy || channelSelector.options.length <= 1;
-            channelSelector.value = state.isConnected && state.channelId ? state.channelId : '';
+            channelSelector.value = state.busy === 'joining' && state.pendingChannelId
+                ? state.pendingChannelId
+                : (state.isConnected && state.channelId ? state.channelId : '');
             channelSelector.setAttribute('aria-busy', state.busy === 'joining' ? 'true' : 'false');
         }
         if (leaveButton) {
@@ -749,9 +774,17 @@ const VoiceChannelPanel = (function() {
     };
 })();
 
-// Initialize when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', VoiceChannelPanel.init);
+if (typeof module === 'object' && module.exports) {
+    // Node (tests): the pure helpers only; there is no document to initialise against
+    module.exports = { resolveVoiceEndpoint, voiceJoinBody };
 } else {
-    VoiceChannelPanel.init();
+    // A top-level const is not a property of window; other page scripts look for it there
+    window.VoiceChannelPanel = VoiceChannelPanel;
+
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', VoiceChannelPanel.init);
+    } else {
+        VoiceChannelPanel.init();
+    }
 }

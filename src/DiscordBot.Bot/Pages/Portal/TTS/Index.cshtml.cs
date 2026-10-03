@@ -1,12 +1,14 @@
 using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.Interfaces;
 using DiscordBot.Bot.ViewModels.Components;
+using DiscordBot.Core.Configuration;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace DiscordBot.Bot.Pages.Portal.TTS;
 
@@ -23,6 +25,7 @@ public class IndexModel : PortalPageModelBase
     private readonly ISettingsService _settingsService;
     private readonly ITtsSettingsService _ttsSettingsService;
     private readonly IPlaybackService _playbackService;
+    private readonly int _maxMessageLength;
     private readonly ILogger<IndexModel> _logger;
 
     public IndexModel(
@@ -35,6 +38,7 @@ public class IndexModel : PortalPageModelBase
         ITtsSettingsService ttsSettingsService,
         IPlaybackService playbackService,
         UserManager<ApplicationUser> userManager,
+        IOptions<AzureSpeechOptions> azureSpeechOptions,
         ILogger<IndexModel> logger)
         : base(guildService, guildDirectory, audioSettingsRepository, userManager, logger)
     {
@@ -43,6 +47,8 @@ public class IndexModel : PortalPageModelBase
         _settingsService = settingsService;
         _ttsSettingsService = ttsSettingsService;
         _playbackService = playbackService;
+        _maxMessageLength = azureSpeechOptions.Value.MaxTextLength;
+        MaxMessageLength = _maxMessageLength;
         _logger = logger;
     }
 
@@ -57,9 +63,9 @@ public class IndexModel : PortalPageModelBase
     public List<TtsVoiceInfo> AvailableVoices { get; set; } = new();
 
     /// <summary>
-    /// Gets the maximum message length allowed for TTS.
+    /// Gets the maximum message length allowed for TTS, from <c>AzureSpeech:MaxTextLength</c>.
     /// </summary>
-    public int MaxMessageLength { get; set; } = 200;
+    public int MaxMessageLength { get; set; }
 
     /// <summary>
     /// Gets whether audio features are globally disabled at the bot level.
@@ -119,7 +125,7 @@ public class IndexModel : PortalPageModelBase
             IsAudioGloballyDisabled = !isGloballyEnabled;
 
             // Perform common portal authorization check
-            var (authResult, context) = await CheckPortalAuthorizationAsync(guildId, "TTS", cancellationToken);
+            var (authResult, _) = await CheckPortalAuthorizationAsync(guildId, "TTS", cancellationToken);
 
             // Handle auth failures
             var actionResult = GetAuthResultAction(authResult);

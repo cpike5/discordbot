@@ -716,6 +716,9 @@ public class PortalTtsIntegrationTests : IDisposable
 
         var errorDto = badRequest.Value as ApiErrorDto;
         errorDto!.Message.Should().Contain("Invalid");
+        // C-7: the exception's own text is for the log, never for the person using the page
+        errorDto.Detail.Should().NotContain("Invalid voice name");
+        errorDto.Detail.Should().NotBeNullOrWhiteSpace();
     }
 
     [Fact]
@@ -856,7 +859,7 @@ public class PortalTtsIntegrationTests : IDisposable
 
         var errorDto = notFoundResult.Value as ApiErrorDto;
         errorDto.Should().NotBeNull();
-        errorDto!.Message.Should().Be("Guild not found");
+        errorDto!.Message.Should().Be("Server not found");
     }
 
     [Fact]

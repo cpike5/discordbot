@@ -288,6 +288,15 @@
             gap: 0.5rem;
         }
 
+        /* Why Play is off, or what to do before it works */
+        .vox-play-hint {
+            margin: 0.5rem 0 0;
+            font-size: 0.8125rem;
+            color: var(--color-text-secondary);
+            min-height: 1.25rem;
+            text-align: center;
+        }
+
         .vox-play-btn:hover:not(:disabled) {
             background-color: var(--color-accent-orange-hover);
             box-shadow: 0 4px 12px rgba(var(--color-accent-orange-rgb), 0.3);
@@ -1125,6 +1134,12 @@
             overflow: hidden;
             text-overflow: ellipsis;
             cursor: pointer;
+            /* It is a button (keyboard and touch can replay it); look like the text it always was */
+            background: none;
+            border: none;
+            padding: 0;
+            text-align: start;
+            font-family: inherit;
         }
 
         .vox-history-message:hover {
@@ -1225,22 +1240,38 @@
         }
 
         .vox-history-meta {
-            color: #9e9b99;
+            color: var(--color-text-secondary);
         }
 
         .vox-history-empty {
-            color: #9e9b99;
+            color: var(--color-text-secondary);
         }
 
         .vox-history-action-btn {
-            color: #9e9b99;
+            color: var(--color-text-secondary);
         }
 
-        /* Input placeholder contrast fix: #8a8886 provides ~4.1:1 on bg-primary;
-           use #9e9b99 for better compliance */
         .vox-message-input::placeholder,
         .vox-clip-search::placeholder {
-            color: #9e9b99;
+            color: var(--color-text-secondary);
+        }
+
+        /* Touch: the history controls are real tap targets, not 20px glyphs */
+        @@media (pointer: coarse) {
+            .vox-history-action-btn {
+                min-width: 44px;
+                min-height: 44px;
+                font-size: 1rem;
+                display: inline-flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .vox-history-message {
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+            }
         }
 
         /* ==========================================
@@ -1306,7 +1337,9 @@
                 bottom: 0;
                 z-index: 10;
                 background: var(--color-bg-primary);
+                /* Clear of the home indicator on notched phones (viewport-fit=cover) */
                 padding: 0.75rem;
+                padding-bottom: calc(0.75rem + var(--safe-bottom, 0px));
                 box-shadow: 0 -2px 8px rgba(0,0,0,0.15);
                 border-radius: 0.375rem 0.375rem 0 0;
             }
@@ -1371,7 +1404,11 @@ else
         ActiveTab = "vox"
     }' />
 
-    @if (Model.IsAudioDisabledForGuild)
+    @if (Model.IsAudioGloballyDisabled)
+    {
+        @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning", (string?)null)
+    }
+    else if (Model.IsAudioDisabledForGuild)
     {
         @await Html.PartialAsync("../Shared/_PortalAudioDisabledWarning", "Audio is switched off for this server, so nothing can be played right now. A server admin can turn it on in Audio Settings.")
     }
@@ -1438,6 +1475,11 @@ else
                                        class="vox-message-input"
                                        placeholder="Type words to announce..."
                                        autocomplete="off"
+                                       autocapitalize="off"
+                                       autocorrect="off"
+                                       spellcheck="false"
+                                       dir="auto"
+                                       enterkeyhint="send"
                                        role="combobox"
                                        aria-autocomplete="list"
                                        aria-haspopup="listbox"
@@ -1501,9 +1543,10 @@ else
                                 class="vox-play-btn"
                                 id="@(prefix)-play-btn"
                                 disabled
-                                aria-label="Play VOX message">
+                                aria-describedby="@(prefix)-play-hint">
                             <span id="@(prefix)-play-btn-text">Play @groupName Announcement</span>
                         </button>
+                        <p id="@(prefix)-play-hint" class="vox-play-hint" role="status" aria-live="polite"></p>
                         <div id="@(prefix)-playback-status" class="sr-only" role="status" aria-live="polite"></div>
                     </div>
 
