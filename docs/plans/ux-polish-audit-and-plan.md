@@ -1,6 +1,6 @@
 # UX Polish Audit and Plan
 
-**Status:** In progress. Phases 0a, 0b, 1 and 2 done; next is Phase 3.
+**Status:** In progress. Phases 0a, 0b, 1, 2, 3 and 4 done; screen phases 5–15 next.
 **Date:** 2026-10-02
 **Scope:** The admin web portal (Razor Pages), the member portal (Soundboard, TTS, VOX), and the shared layout, components, CSS and JS behind them.
 
@@ -454,12 +454,29 @@ All runtime verification uses PostgreSQL (D16) with `Discord:OfflineMode=true`.
 - **Acceptance:** every primitive shows all states on `/Components`; keyboard-only through a modal; unit tests for the dirty tracker; Users/Edit Reset Password works.
 - **Verify:** Tab through `/Components` at 1440 and 375; screenshot each state.
 
+**Done (Phase 3).** All listed changes landed; every primitive shows its states on `/Components` (both themes, 1440 and 375, no console errors); keyboard-only through a modal passes; Users/Edit Reset Password and Unlink, LinkDiscord Unlink and Settings reset each send one POST with no spurious error. Notes for later phases:
+
+- **Modals.** `quick-actions.js` is the only modal layer: enter/exit motion, scroll lock, `inert` background, focus trap and return, stacking. Use `quickActions.openDialog(el)` / `closeDialog` for a page's own modal markup; cancel and backdrop elements carry `data-modal-dismiss`. `quick-actions.js` is frozen for the screen phases: report needed changes instead of editing it.
+- **Confirm forms (B-8).** Confirm forms post over fetch to their own `form.action`; put the handler in the URL (`?handler=`, the partials do). Redirect answers are not followed as data; the page reloads once so TempData toasts show. Opt out with `data-submit-mode="navigate"`, or `data-custom-submit` for a page that submits itself. `quickActions.submitQuickAction` (dashboard cards) still has the old `.json()` bug: Phase 5.
+- **Forms.** `_FormInput` takes autocomplete, inputmode, min/max/step, pattern and describedby; `.input-validation-error` is styled. New `_FormTextarea`, `_RadioCard` / `_RadioCardGroup` (sr-only inputs, visible focus) for Phase 8 and 11 radios. `_FormToggle` is `role=switch` and posts `false` when off (`PostsFalseWhenOff = false` for scripts that read `checked`). Legacy `.form-toggle*` CSS stays until Settings command modules, `llm-models.js` and Privacy move to the partial.
+- **Unsaved changes.** `data-unsaved-changes` on a form opts in; `data-unsaved-dirty-on-load` on a form re-rendered after a failed POST; call `UnsavedChanges.markClean(form)` after a fetch save.
+- **Loading and empty.** `Skeleton.show` (300 ms delay) and `EmptyState.error/filtered/empty` from script; `_SkeletonTable`, `_SkeletonLines` and `_EmptyState` (icon, action, heading level) from Razor. `_Pagination` handles disabled ends, `aria-current`, "No results", single page and past-the-end; it hides on one page without a count. `PageParameterName` still defaults to `page`, which Razor Pages reserves: pass `pageNumber`.
+- **Open:** nav-tabs buttons have no visible focus indicator (Phase 6 owns tab scripts); `ShowCharacterCount` counts only at load; `_PortalLayout` lacks `quick-actions.js` (Phase 9).
+
 ### Phase 4 — Formatting, live status and nav chrome (D6, D7)
 
 - **Files:** new `wwwroot/js/format.js`, new `Helpers/DisplayFormat.cs`, `wwwroot/js/timezone.js`, `wwwroot/js/date-range-filter.js`, `Pages/Shared/_Sidebar.cshtml`, `wwwroot/js/navigation.js`, `wwwroot/js/dashboard-hub.js`, `Pages/Shared/Components/_ConnectionStatus.cshtml`.
 - **Changes:** `formatDate`, auto-refreshing `relativeTime`, `plural`, `number`, `duration`, `currency` in JS and C#, browser locale; `timezone.js` handles AJAX-inserted content; `date-range-filter.js` becomes the only preset helper; sidebar footer shows real bot status; global connection banner and stale badge with unlimited backoff after the fast retries; sidebar `inert` when closed and `aria-expanded` on its toggle; Escape only when the menu is open; `<main tabindex="-1">`; user menu becomes a disclosure.
 - **Acceptance:** stopping the bot flips the sidebar footer and banner; killing SignalR shows "Reconnecting…" then recovers; no off-screen Tab stops at 375.
 - **Verify:** keyboard run at 375; screenshot the offline state.
+
+**Done (Phase 4).** All listed changes landed; killing the app shows the connection banner and a Stale badge, and it recovers by itself; an expired session ends retrying with "Signed out"; no off-screen Tab stops at 375; dates checked in en-US, en-GB and de-DE. Notes for later phases:
+
+- **Formatting.** `format.js` (`window.Format`: `formatDate`, auto-refreshing `relativeTime` with the absolute time on hover/focus, `plural`, `number`, `duration`, `currency`) and `Helpers/DisplayFormat.cs` (`Time()` renders a `<time>`, plus `Iso`, `Plural`, `Number`, `Duration`, `Currency`) are the one formatter; API in component-api § Formatting. Use `Format.plural` instead of "N item(s)". Server dates go in `data-utc` via `DisplayFormat.Iso`, never `ToString("o")`; `timezone.js` converts AJAX-inserted content too. About 100 existing `data-utc` sites are untouched: move them to `DisplayFormat.Time` as each screen is reworked. Each relative time is a Tab stop; use it sparingly in long tables.
+- **Date presets.** `DateRangeFilter.presetRange` / `detectPreset` / `applyPreset` are the only preset helpers (local dates). Six copies still use `toISOString()` (UTC, wrong in the evening): Admin Notifications and `RatWatchAnalytics` (Phase 12), `shared/filter-panel.js`, Analytics Engagement and Moderation, RatWatch Incidents (Phase 14).
+- **Live status.** Hub states are `connecting | connected | reconnecting | disconnected`; a failed first attempt is `reconnecting`; 401/403 is terminal (`reason: 'auth'`). Retry is unlimited, so **pages that join hub groups must rejoin on the `reconnected` event** (Phases 5 and 13). Put `[data-stale-badge][hidden]` beside anything labelled "Live". The global `_ConnectionBanner` reports the hub; the sidebar footer reports the bot (in offline mode the hub is up and the bot is offline).
+- **Chrome.** The closed mobile drawer is `inert`; Escape only acts when something is open; `<main tabindex="-1">` takes focus from the skip link; the user menu is a disclosure. The notification dropdown still has `role=menu` (Phase 12). Focus after AJAX swaps is per screen.
+- **Phase 5:** `dashboard-realtime.js` still carries leftover connection handling; drop it.
 
 ### Phase 5 — Dashboard and realtime
 
