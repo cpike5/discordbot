@@ -1460,7 +1460,8 @@
     .connection-banner-inner { justify-content: space-between; padding: 0.5rem; }
     .connection-banner-text { order: 3; flex-basis: 100%; font-size: 0.75rem; }
   }
-  .connection-banner [data-connection-retry][hidden] { display: none; }
+  .connection-banner [data-connection-retry][hidden],
+  .connection-banner [data-connection-signin][hidden] { display: none; }
   [data-stale-badge][hidden] { display: none; }
   .bot-status-stale { margin-left: 0.375rem; vertical-align: middle; }
 

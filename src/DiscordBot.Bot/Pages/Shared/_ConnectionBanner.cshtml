@@ -12,6 +12,7 @@
         @await Html.PartialAsync("Components/_ConnectionStatus", new ConnectionStatusViewModel(ConnectionState.Reconnecting, null, "hub-connection-status", false))
         <p class="connection-banner-text" data-connection-banner-text>Live updates are paused, so this page may be out of date.</p>
         <button type="button" class="btn btn-secondary btn-sm" data-connection-retry>Retry now</button>
+        <a href="/Account/Login" class="btn btn-primary btn-sm" data-connection-signin hidden>Sign in</a>
     </div>
 </div>
 <div id="connection-announcer" class="sr-only" role="status" aria-live="polite" aria-atomic="true"></div>

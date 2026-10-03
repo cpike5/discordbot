@@ -4,8 +4,9 @@
  *
  * Connection states (see getConnectionState / onStateChange): 'connecting' (first attempt),
  * 'connected', 'reconnecting' (lost, and still trying, which includes a first attempt that failed),
- * 'disconnected' (only after disconnect() is called). The connection never gives up: see
- * nextRetryDelay. connection-banner.js turns these states into the page-wide banner.
+ * 'disconnected' (after disconnect(), or with `reason: 'auth'` when the server answers 401/403 and
+ * retrying cannot help). An unreachable server is retried forever: see nextRetryDelay.
+ * connection-banner.js turns these states into the page-wide banner.
  */
 const DashboardHub = (function() {
     'use strict';
@@ -43,25 +44,43 @@ const DashboardHub = (function() {
     let recovering = false;   // an attempt has failed since the last time we were connected
     let stopped = false;      // disconnect() was called: do not retry
     let restarting = false;   // retryNow() is replacing a stuck automatic reconnect
+    let authFailed = false;   // the server said 401/403: retrying cannot help until the user signs in
+    let warnedNoLibrary = false;
 
     // Event handlers storage
     const eventHandlers = {};
 
     // Connection state management
     let connectionState = 'disconnected';
+    let disconnectReason = null;
     let stateChangeCallbacks = [];
+
+    /**
+     * Whether an error means "you are not signed in (any more)" rather than "the server is
+     * unreachable". Retrying forever is right for the second and pointless for the first. SignalR
+     * wraps a failed negotiate in a message that carries the status text, not the status code.
+     */
+    function isAuthError(error) {
+        if (!error) return false;
+        if (error.statusCode === 401 || error.statusCode === 403) return true;
+        return /\b(401|403|unauthorized|forbidden)\b/i.test(String(error.message || error));
+    }
 
     /**
      * Updates the connection state and notifies all state change subscribers.
      * @param {string} newState - 'disconnected', 'connecting', 'connected' or 'reconnecting'.
+     * @param {string} [reason] - 'auth' when the state is 'disconnected' because the session
+     *        ended; passed to subscribers as `reason`.
      */
-    function setConnectionState(newState) {
+    function setConnectionState(newState, reason) {
         const previousState = connectionState;
-        if (newState === previousState) return;
+        const previousReason = disconnectReason;
+        disconnectReason = reason || null;
+        if (newState === previousState && disconnectReason === previousReason) return;
         connectionState = newState;
         stateChangeCallbacks.forEach(callback => {
             try {
-                callback({ state: newState, previousState });
+                callback({ state: newState, previousState, reason: disconnectReason });
             } catch (error) {
                 console.error('[DashboardHub] Error in state change callback:', error);
             }
@@ -105,6 +124,15 @@ const DashboardHub = (function() {
         if (pendingConnect) {
             return pendingConnect;
         }
+        // The SignalR library did not load (CDN blocked, offline). Nothing to retry: report it
+        // as a failed connect and let the page carry on without live updates.
+        if (typeof signalR === 'undefined') {
+            if (!warnedNoLibrary) {
+                warnedNoLibrary = true;
+                console.error('[DashboardHub] The SignalR client library is not available');
+            }
+            return Promise.resolve(false);
+        }
         // SignalR is busy reconnecting by itself; a second start() would throw.
         if (connection && connection.state !== signalR.HubConnectionState.Disconnected) {
             return Promise.resolve(isConnected);
@@ -117,7 +145,14 @@ const DashboardHub = (function() {
         connection = new signalR.HubConnectionBuilder()
             .withUrl('/hubs/dashboard')
             .withAutomaticReconnect({
-                nextRetryDelayInMilliseconds: (retryContext) => nextRetryDelay(retryContext.previousRetryCount)
+                nextRetryDelayInMilliseconds: (retryContext) => {
+                    // Never null for an unreachable server; null only when the session is gone.
+                    if (isAuthError(retryContext.retryReason)) {
+                        authFailed = true;
+                        return null;
+                    }
+                    return nextRetryDelay(retryContext.previousRetryCount);
+                }
             })
             .configureLogging(signalR.LogLevel.Information)
             .build();
@@ -133,6 +168,7 @@ const DashboardHub = (function() {
             console.log('[DashboardHub] Reconnected with ID:', connectionId);
             isConnected = true;
             retryCount = 0;
+            authFailed = false;
             recovering = false;
             setConnectionState('connected');
             triggerEvent('reconnected', { connectionId });
@@ -148,8 +184,15 @@ const DashboardHub = (function() {
                 }
                 return;
             }
-            // Automatic reconnect never gives up, so this is the server closing the connection
-            // for good. Carry on with our own retries.
+            if (authFailed || isAuthError(error)) {
+                authFailed = true;
+                console.warn('[DashboardHub] The session has ended; live updates stopped', error);
+                setConnectionState('disconnected', 'auth');
+                triggerEvent('disconnected', { error, reason: 'auth' });
+                return;
+            }
+            // Automatic reconnect never gives up on an unreachable server, so this is the server
+            // closing the connection for good. Carry on with our own retries.
             console.warn('[DashboardHub] Connection closed by the server, retrying', error);
             recovering = true;
             setConnectionState('reconnecting');
@@ -179,6 +222,15 @@ const DashboardHub = (function() {
         } catch (error) {
             console.error('[DashboardHub] Failed to connect:', error);
             isConnected = false;
+            if (isAuthError(error)) {
+                // Not signed in (any more). Retrying cannot succeed; say so and stop. A retryNow()
+                // (the user signed in elsewhere) or a page reload starts over.
+                authFailed = true;
+                recovering = true;
+                setConnectionState('disconnected', 'auth');
+                triggerEvent('connectionFailed', { error, reason: 'auth' });
+                return false;
+            }
             const firstFailure = !recovering;
             recovering = true;
             setConnectionState('reconnecting');
@@ -191,6 +243,7 @@ const DashboardHub = (function() {
 
         isConnected = true;
         retryCount = 0;
+        authFailed = false;
         const wasRecovering = recovering;
         recovering = false;
         setConnectionState('connected');
@@ -226,6 +279,7 @@ const DashboardHub = (function() {
             recovering = true;
         }
         retryCount = 0;
+        authFailed = false;   // worth one more try: the user may have signed in again elsewhere
         return attempt();
     }
 
@@ -635,6 +689,9 @@ const DashboardHub = (function() {
         isConnected: getIsConnected,
         connectionId: getConnectionId,
         getConnectionState: () => connectionState,
+        // 'auth' while 'disconnected' because the session ended; null otherwise
+        getDisconnectReason: () => disconnectReason,
+        isAuthError,
         onStateChange: (callback) => { stateChangeCallbacks.push(callback); },
         offStateChange: (callback) => { stateChangeCallbacks = stateChangeCallbacks.filter(cb => cb !== callback); }
     };

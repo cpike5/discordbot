@@ -9,6 +9,7 @@ function fakeDocument() {
     const pillText = { textContent: '' };
     const text = { textContent: '' };
     const retry = { hidden: false, disabled: false, textContent: 'Retry now', listeners: {}, addEventListener(t, f) { this.listeners[t] = f; } };
+    const signIn = { hidden: true, attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } };
     const banner = {
         hidden: true,
         querySelector(sel) {
@@ -16,6 +17,7 @@ function fakeDocument() {
             if (sel === '.connection-text') return pillText;
             if (sel === '[data-connection-banner-text]') return text;
             if (sel === '[data-connection-retry]') return retry;
+            if (sel === '[data-connection-signin]') return signIn;
             return null;
         }
     };
@@ -23,7 +25,7 @@ function fakeDocument() {
     const badges = [{ hidden: true }, { hidden: true }];
     const root = { attrs: {}, setAttribute(k, v) { this.attrs[k] = v; }, getAttribute(k) { return this.attrs[k]; } };
     return {
-        pill, pillText, text, retry, banner, announcer, badges, root,
+        pill, pillText, text, retry, signIn, banner, announcer, badges, root,
         querySelector: sel => (sel === '[data-connection-banner]' ? banner : null),
         querySelectorAll: sel => (sel === '[data-stale-badge]' ? badges : []),
         getElementById: id => (id === 'connection-announcer' ? announcer : null),
@@ -39,11 +41,12 @@ function fakeHub(initial) {
         getConnectionState() { return this.state; },
         onStateChange(cb) { this.callbacks.push(cb); },
         retryNow() { this.retries++; return Promise.resolve(false); },
-        set(state) {
+        set(state, reason) {
             const previousState = this.state;
             this.state = state;
-            this.callbacks.forEach(cb => cb({ state, previousState }));
-        }
+            this.callbacks.forEach(cb => cb({ state, previousState, reason: reason || null }));
+        },
+        getDisconnectReason() { return null; }
     };
     return hub;
 }
@@ -142,6 +145,37 @@ test('the first connection of a page load never shows the banner', () => {
     assert.equal(doc.banner.hidden, true);
     hub.set('connected');
     assert.equal(doc.banner.hidden, true);
+});
+
+test('an ended session shows at once, says to sign in, and offers Sign in instead of Retry', () => {
+    test.mock.timers.enable({ apis: ['setTimeout'] });
+    const doc = fakeDocument();
+    const hub = fakeHub('connected');
+    ConnectionBanner.init(hub, doc);
+
+    hub.set('disconnected', 'auth');
+
+    // No grace period: nothing will reconnect, so there is nothing to wait for.
+    assert.equal(doc.banner.hidden, false);
+    assert.equal(doc.pillText.textContent, 'Signed out');
+    assert.match(doc.text.textContent, /Sign in again/);
+    assert.equal(doc.retry.hidden, true);
+    assert.equal(doc.signIn.hidden, false);
+    assert.equal(doc.badges.every(b => !b.hidden), true);
+    assert.equal(ConnectionBanner.describeDown('disconnected', 'auth').signIn, true);
+    assert.equal(ConnectionBanner.describeDown('disconnected').signIn, undefined);
+});
+
+test('a plain outage does not offer Sign in', () => {
+    test.mock.timers.enable({ apis: ['setTimeout'] });
+    const doc = fakeDocument();
+    const hub = fakeHub('connected');
+    ConnectionBanner.init(hub, doc);
+
+    hub.set('reconnecting');
+    test.mock.timers.tick(ConnectionBanner.SHOW_AFTER_MS);
+    assert.equal(doc.signIn.hidden, true);
+    assert.equal(doc.retry.hidden, false);
 });
 
 test('the Retry now button asks the hub to retry', async () => {

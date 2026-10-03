@@ -42,7 +42,16 @@
      * @returns {{pillState: string, pillText: string, text: string, announce: string}|null}
      *          null when the banner should not be shown.
      */
-    function describeDown(state) {
+    function describeDown(state, reason) {
+        if (state === 'disconnected' && reason === 'auth') {
+            return {
+                pillState: 'disconnected',
+                pillText: 'Signed out',
+                text: 'Your session has expired. Sign in again to get live updates.',
+                announce: 'Your session has expired. Live updates stopped.',
+                signIn: true
+            };
+        }
         if (state === 'reconnecting') {
             return {
                 pillState: 'reconnecting',
@@ -79,12 +88,14 @@
         const pillText = banner.querySelector('.connection-text');
         const text = banner.querySelector('[data-connection-banner-text]');
         const retry = banner.querySelector('[data-connection-retry]');
+        const signIn = banner.querySelector('[data-connection-signin]');
         const announcer = doc.getElementById('connection-announcer');
 
         let down = false;      // the hub is not connected
         let shown = false;     // the banner is on screen
         let showTimer = null;
         let hideTimer = null;
+        let currentReason = null;
 
         function setStale(isStale) {
             doc.querySelectorAll('[data-stale-badge]').forEach(function (el) {
@@ -96,12 +107,20 @@
             if (pill) pill.setAttribute('data-state', view.pillState);
             if (pillText) pillText.textContent = view.pillText;
             if (text) text.textContent = view.text;
-            if (retry) retry.hidden = !showRetry;
+            // An ended session needs a sign-in, not a retry.
+            if (retry) retry.hidden = !showRetry || !!view.signIn;
+            if (signIn) {
+                signIn.hidden = !view.signIn;
+                if (view.signIn && typeof window !== 'undefined' && window.location) {
+                    signIn.setAttribute('href', '/Account/Login?ReturnUrl=' +
+                        encodeURIComponent(window.location.pathname + window.location.search));
+                }
+            }
             if (announcer) announcer.textContent = view.announce;
         }
 
-        function show(state) {
-            const view = describeDown(state);
+        function show(state, reason) {
+            const view = describeDown(state, reason);
             if (!view) return;
             render(view, true);
             banner.hidden = false;
@@ -119,20 +138,23 @@
             if (hideTimer !== null) { clearTimeout(hideTimer); hideTimer = null; }
         }
 
-        function handle(state) {
+        function handle(state, reason) {
             doc.documentElement.setAttribute('data-hub-state', state);
+            currentReason = reason || null;
 
             if (state === 'reconnecting' || state === 'disconnected') {
                 const wasDown = down;
                 down = true;
                 if (hideTimer !== null) { clearTimeout(hideTimer); hideTimer = null; }
-                if (shown) {
-                    show(state); // wording follows the state
+                if (shown || currentReason === 'auth') {
+                    // Wording follows the state; an ended session is not a blip, so no grace period.
+                    clearTimers();
+                    show(state, currentReason);
                 } else if (!wasDown || showTimer === null) {
                     clearTimers();
                     showTimer = setTimeout(function () {
                         showTimer = null;
-                        if (down) show(doc.documentElement.getAttribute('data-hub-state'));
+                        if (down) show(doc.documentElement.getAttribute('data-hub-state'), currentReason);
                     }, SHOW_AFTER_MS);
                 }
                 return;
@@ -166,10 +188,10 @@
             });
         }
 
-        hub.onStateChange(function (change) { handle(change.state); });
+        hub.onStateChange(function (change) { handle(change.state, change.reason); });
         // 'disconnected' before connect() has run is just the starting state, not an outage.
         const initial = hub.getConnectionState();
-        if (initial !== 'disconnected') handle(initial);
+        if (initial !== 'disconnected') handle(initial, hub.getDisconnectReason ? hub.getDisconnectReason() : null);
 
         return { handle: handle };
     }

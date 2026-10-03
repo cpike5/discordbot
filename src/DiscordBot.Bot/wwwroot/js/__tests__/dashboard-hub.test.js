@@ -212,3 +212,95 @@ test('the automatic reconnect path reports reconnecting then connected', async (
     assert.equal(hub.getConnectionState(), 'connected');
     assert.deepEqual(events, ['reconnecting', 'reconnected']);
 });
+
+// ---- Auth failures and a missing client library --------------------------------------------
+
+function unauthorized() {
+    // What SignalR's negotiate step throws for a 401: the status text, no status code.
+    return new Error('Failed to complete negotiation with the server: Error: Unauthorized');
+}
+
+// Makes the first start() of every connection built from now on throw `error` once.
+function failFirstStartWith(error) {
+    const origBuild = global.signalR.HubConnectionBuilder.prototype.build;
+    let failNext = true;
+    global.signalR.HubConnectionBuilder.prototype.build = function () {
+        const conn = origBuild.call(this);
+        const realStart = conn.start.bind(conn);
+        conn.start = async function () {
+            if (failNext) {
+                failNext = false;
+                this.starts++;
+                throw error;
+            }
+            return realStart();
+        };
+        return conn;
+    };
+}
+
+test('isAuthError recognises 401 and 403 however SignalR reports them', () => {
+    const hub = freshHub();
+    assert.equal(hub.isAuthError(Object.assign(new Error('x'), { statusCode: 401 })), true);
+    assert.equal(hub.isAuthError(Object.assign(new Error('x'), { statusCode: 403 })), true);
+    assert.equal(hub.isAuthError(unauthorized()), true);
+    assert.equal(hub.isAuthError(new Error('Failed to complete negotiation with the server: Error: Forbidden')), true);
+    assert.equal(hub.isAuthError(new Error('Failed to complete negotiation with the server: TypeError: Failed to fetch')), false);
+    assert.equal(hub.isAuthError(new Error("Status code '503'")), false);
+    assert.equal(hub.isAuthError(null), false);
+});
+
+test('a 401 on the first attempt stops retrying and reports disconnected with reason auth', async () => {
+    const state = { failStarts: 0 };
+    installFakeSignalR(state);
+    test.mock.timers.enable({ apis: ['setTimeout'] });
+    failFirstStartWith(unauthorized());
+    const hub = freshHub();
+    const changes = [];
+    hub.onStateChange(c => changes.push([c.state, c.reason]));
+
+    assert.equal(await hub.connect(), false);
+    assert.equal(hub.getConnectionState(), 'disconnected');
+    assert.equal(hub.getDisconnectReason(), 'auth');
+    assert.deepEqual(changes, [['connecting', null], ['disconnected', 'auth']]);
+
+    // No retry is scheduled: time passing does not start another attempt.
+    test.mock.timers.tick(120000);
+    await flush();
+    assert.equal(state.connection.starts, 1);
+});
+
+test('retryNow after an auth failure tries once more and recovers', async () => {
+    const state = { failStarts: 0 };
+    installFakeSignalR(state);
+    failFirstStartWith(unauthorized());
+    const hub = freshHub();
+
+    await hub.connect();
+    assert.equal(hub.getDisconnectReason(), 'auth');
+
+    assert.equal(await hub.retryNow(), true);
+    assert.equal(hub.getConnectionState(), 'connected');
+    assert.equal(hub.getDisconnectReason(), null);
+});
+
+test('the automatic reconnect policy gives up on a 401 and the close reports auth', async () => {
+    const state = { failStarts: 0 };
+    installFakeSignalR(state);
+    const hub = freshHub();
+    await hub.connect();
+
+    assert.equal(state.policy({ previousRetryCount: 0, retryReason: new Error('connection reset') }), 0);
+    assert.equal(state.policy({ previousRetryCount: 1, retryReason: unauthorized() }), null);
+
+    state.connection.closed(); // SignalR closes after the policy returned null
+    assert.equal(hub.getConnectionState(), 'disconnected');
+    assert.equal(hub.getDisconnectReason(), 'auth');
+});
+
+test('connect() resolves false, without throwing, when the SignalR library did not load', async () => {
+    delete global.signalR;
+    const hub = freshHub();
+    assert.equal(await hub.connect(), false);
+    assert.equal(hub.getConnectionState(), 'disconnected');
+});

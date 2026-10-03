@@ -69,6 +69,7 @@
     let inFlight = null;
     let lastFetchAt = 0;
     let lastData = null;
+    let authLost = false;   // the API answered 401/403: do not keep polling it
 
     function fetchStatus() {
         if (inFlight) return inFlight;
@@ -76,7 +77,9 @@
         inFlight = fetch(API_ENDPOINT, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
             .then(response => {
                 if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    const error = new Error(`HTTP error! status: ${response.status}`);
+                    error.status = response.status;
+                    throw error;
                 }
                 return response.json();
             })
@@ -144,6 +147,12 @@
         try {
             applyBotStatus(await fetchStatus());
         } catch (error) {
+            // Signed out, or not allowed to see this: that says nothing about the bot, so keep
+            // what the server rendered (and stop asking; the session banner covers the rest).
+            if (error && (error.status === 401 || error.status === 403)) {
+                authLost = true;
+                return;
+            }
             // The server did not answer: say we do not know rather than keep a stale "online".
             renderFooter('unknown');
         }
@@ -337,7 +346,7 @@
         }
 
         const refresh = () => {
-            if (document.hidden) return;
+            if (document.hidden || authLost) return;
             if (footer) refreshFooter();
             if (card) refreshBotStatus();
             if (banner) refreshBotStatusBanner();
