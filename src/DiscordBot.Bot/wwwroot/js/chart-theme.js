@@ -178,7 +178,10 @@
                     console.error('ChartTheme: a theme listener failed', e);
                 }
             });
-            chart.update('none');
+            // 'resize' redraws without animation AND re-resolves each dataset's options. 'none' reuses
+            // the options resolved at creation, so a dataset whose backgroundColor is a single
+            // colour string kept its old colour after a theme switch.
+            chart.update('resize');
         });
     }
 

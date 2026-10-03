@@ -1218,7 +1218,24 @@ ChartTheme.onChange((chart, colors) => {
 
 **Do not set `Chart.defaults.color` or `borderColor` in a page script.** They run after `chart-theme.js` and put the dark theme's greys back.
 
-**Bar charts need a colour per bar.** `chart-theme.js` redraws with `update('none')`, which leaves Chart.js's *shared* option object as it was; a bar dataset with one string `backgroundColor` shares options and keeps the old theme's colour. Give bars an array (`AnalyticsCharts.each(color, n)`), or a function.
+**Single-colour datasets recolour.** On `themechange`, `chart-theme.js` redraws with `update('resize')`, which re-resolves options without animating, so a dataset with one `backgroundColor` string follows the theme. Use `ChartTheme.onChange` (or `themeColors` in `ChartUtils`, or the recolour callback in `AnalyticsCharts.create`) to compute the new colours.
+
+**`Performance.ChartUtils`** (`wwwroot/js/performance/components/chart-utils.js`) wraps Chart.js for the dashboards and is stable for other screens to use (additive changes only):
+
+```js
+const U = Performance.ChartUtils;
+const chart = U.createBarChart(canvas, labels, [{
+    label: 'Commands', data,
+    themeColors: { backgroundColor: c => c.secondary }   // recoloured on themechange
+}], { plugins: { legend: { display: false } } });
+U.describeChart(canvas, { caption: 'Commands per hour', labels, datasets: [{ label: 'Commands', data }], unit: '' });
+U.showChartEmpty(canvas, { title: 'No commands yet', description: '...' });     // in place of the canvas
+U.showChartError(canvas, null, () => load());                                    // plain text + Retry
+U.clearChartState(canvas);                                                        // before drawing again
+```
+
+Every chart needs a text alternative: `describeChart` sets `role="img"` with a one-line summary (min, max, latest per series) and adds a visually hidden `<table data-chart-table>` of the latest 60 rows; `describeGauge` restates a gauge's value. `createGaugeChart` / `updateGauge` colour a gauge by threshold from the theme. Use `createChart(ctx, config)` instead of `new Chart` so `themeColors` specs are applied.
+
 
 ### Analytics charts: `AnalyticsCharts`
 

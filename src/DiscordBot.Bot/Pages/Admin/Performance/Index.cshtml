@@ -19,11 +19,7 @@
     <div class="flex items-center gap-3">
         <div>
             <h1 class="page-title">Bot Performance</h1>
-            <p class="page-subtitle">Real-time monitoring and performance metrics</p>
-        </div>
-        <div class="live-indicator" id="liveIndicator">
-            <span class="live-dot"></span>
-            <span class="live-text">Live</span>
+            <p class="page-subtitle">Health, command, API and system metrics for the bot</p>
         </div>
     </div>
 
@@ -43,20 +39,21 @@
     </div>
 </div>
 
-<!-- Navigation Tabs with Time Range Selector -->
-<div class="flex flex-col md:flex-row md:flex-wrap md:items-center md:justify-between gap-4 mb-6">
+<!-- Navigation tabs -->
+<div class="mb-4">
     @{
         var performanceTabs = new DiscordBot.Bot.ViewModels.Components.TabPanelViewModel
         {
             Id = "performanceTabs",
             StyleVariant = DiscordBot.Bot.ViewModels.Components.TabStyleVariant.Underline,
-            NavigationMode = DiscordBot.Bot.ViewModels.Components.TabNavigationMode.Ajax,
-            AjaxUrlPattern = "/Admin/Performance?handler=Partial&tabId={tabId}",
-            AjaxContentTarget = "#tabContent",
-            PersistenceMode = DiscordBot.Bot.ViewModels.Components.TabPersistenceMode.UrlHash,
+            // tab-panel.js owns the tablist (arrow keys, focus, announcements) and raises `tabchange`;
+            // dashboard.js loads the content, because it needs the time range, a cache and the hub
+            // subscription. The tab and range live in the query string (?tab=…&hours=…), which
+            // dashboard.js writes, so tab-panel.js persists nothing itself.
+            NavigationMode = DiscordBot.Bot.ViewModels.Components.TabNavigationMode.InPage,
+            PersistenceMode = DiscordBot.Bot.ViewModels.Components.TabPersistenceMode.None,
             AriaLabel = "Performance sections",
-            ActiveTabId = "overview",
-            DisableAutoInit = true, // Handled by dashboard.js with time range support
+            ActiveTabId = Model.ActiveTabId,
             Tabs = new List<DiscordBot.Bot.ViewModels.Components.TabItemViewModel>
             {
                 new() { Id = "overview", Label = "Overview",
@@ -78,19 +75,51 @@
     }
     @await Html.PartialAsync("Components/_TabPanel", performanceTabs)
 
-    <!-- Time Range Selector -->
-    <div class="flex items-center gap-2 flex-shrink-0">
-        <span class="text-sm text-text-secondary mr-2 whitespace-nowrap">Time Range:</span>
-        <button class="time-range-btn active" data-hours="24">24h</button>
-        <button class="time-range-btn" data-hours="168">7d</button>
-        <button class="time-range-btn" data-hours="720">30d</button>
+</div>
+
+<!-- Time range (hidden on tabs that do not use it) and the freshness of the tab on screen -->
+<div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-3 mb-6">
+    <div class="flex items-center gap-2 flex-shrink-0" id="timeRangeGroup" role="group" aria-label="Time range">
+        <span class="text-sm text-text-secondary mr-2 whitespace-nowrap" id="timeRangeLabel">Time range</span>
+        <button type="button" class="time-range-btn active" data-hours="24" aria-pressed="true">24h</button>
+        <button type="button" class="time-range-btn" data-hours="168" aria-pressed="false">7d</button>
+        <button type="button" class="time-range-btn" data-hours="720" aria-pressed="false">30d</button>
+    </div>
+
+    <!--
+        "Live" appears only while the tab is subscribed to a hub group and the connection is up;
+        every other tab says when it was last loaded. The stale badge is toggled by
+        connection-banner.js. Not a live region: the relative time repaints every 30s.
+    -->
+    <div class="perf-status ml-auto" id="perfStatus">
+        <span class="live-indicator hidden" id="perfLive" data-perf-live>
+            <span class="live-dot" aria-hidden="true"></span>
+            <span class="live-text" data-perf-live-text>Live</span>
+        </span>
+        <span class="badge badge-warning" data-stale-badge hidden title="Live updates are paused. The numbers below may be out of date.">Stale</span>
+        <span class="perf-updated" id="perfUpdated" hidden>
+            Updated <time id="perfUpdatedTime" data-relative-time="">just now</time>
+        </span>
+        <button type="button" class="btn btn-secondary btn-sm" id="perfRefresh" aria-label="Refresh this tab">
+            <svg class="btn-svg-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Refresh
+        </button>
     </div>
 </div>
 
-<!-- Tab Content Container (for AJAX-loaded content) -->
-<div class="tab-panel" id="tabContent" role="tabpanel" aria-live="polite" data-performance-tabs>
-    <!-- Content loaded via AJAX by performance-tabs.js -->
-    <!-- Loading states managed entirely by JavaScript for proper transition lifecycle -->
+<!-- The one live region for this screen: loading, loaded and failure messages -->
+<p class="sr-only" id="perfStatusLine" role="status" aria-live="polite" aria-atomic="true"></p>
+
+<!-- Tab content, loaded by dashboard.js. Not a live region: announcing a whole tab is noise. -->
+<div class="tab-panel"
+     id="tabContent"
+     role="tabpanel"
+     aria-labelledby="performanceTabs-tab-@Model.ActiveTabId"
+     data-performance-tabs
+     data-initial-tab="@Model.ActiveTabId"
+     data-initial-hours="@(Model.RequestedHours?.ToString() ?? "")">
 </div>
 
 @section Scripts {
@@ -99,85 +128,18 @@
     <script src="~/js/tab-panel.js" asp-append-version="true"></script>
 
     <!-- Performance Dashboard shared utilities -->
-    <script src="~/js/performance/time-range.js"></script>
-    <script src="~/js/performance/components/timestamp-utils.js"></script>
-    <script src="~/js/performance/components/chart-utils.js"></script>
+    <script src="~/js/performance/time-range.js" asp-append-version="true"></script>
+    <script src="~/js/performance/components/chart-utils.js" asp-append-version="true"></script>
+    <script src="~/js/performance/live.js" asp-append-version="true"></script>
 
     <!-- Tab modules -->
-    <script src="~/js/performance/tabs/overview.js"></script>
-    <script src="~/js/performance/tabs/health.js"></script>
-    <script src="~/js/performance/tabs/commands.js"></script>
-    <script src="~/js/performance/tabs/api.js"></script>
-    <script src="~/js/performance/tabs/system.js"></script>
-    <script src="~/js/performance/tabs/alerts.js"></script>
+    <script src="~/js/performance/tabs/overview.js" asp-append-version="true"></script>
+    <script src="~/js/performance/tabs/health.js" asp-append-version="true"></script>
+    <script src="~/js/performance/tabs/commands.js" asp-append-version="true"></script>
+    <script src="~/js/performance/tabs/api.js" asp-append-version="true"></script>
+    <script src="~/js/performance/tabs/system.js" asp-append-version="true"></script>
+    <script src="~/js/performance/tabs/alerts.js" asp-append-version="true"></script>
 
     <!-- Main orchestrator (loads last) -->
-    <script src="~/js/performance/dashboard.js"></script>
-
-    <script>
-        // Chart.js default dark theme settings
-        Chart.defaults.color = '#a09c96';
-        Chart.defaults.borderColor = '#2a2f36';
-
-        // Smart reconnect behavior foundation
-        // Will be wired up to SignalR when DashboardHub is extended (issue #624)
-        const RealtimeUI = {
-            liveIndicatorId: 'liveIndicator',
-
-            setLive(isLive) {
-                const indicator = document.getElementById(this.liveIndicatorId);
-                if (indicator) {
-                    if (isLive) {
-                        indicator.classList.remove('paused');
-                    } else {
-                        indicator.classList.add('paused');
-                    }
-                }
-            },
-
-            animateValueChange(elementId, newValue, formatter = null) {
-                const element = document.getElementById(elementId);
-                if (!element) return;
-
-                const oldValue = element.textContent;
-                const displayValue = formatter ? formatter(newValue) : String(newValue);
-                element.textContent = displayValue;
-
-                if (oldValue !== displayValue) {
-                    element.classList.add('value-changed');
-                    setTimeout(() => element.classList.remove('value-changed'), 500);
-                }
-            },
-
-            // Called when SignalR reconnects
-            async onReconnected() {
-                this.setLive(true);
-
-                // Refresh current tab
-                if (window.PerformanceTabs) {
-                    window.PerformanceTabs.refresh();
-                }
-
-                // Show reconnected toast
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('success', 'Real-time updates restored', {
-                        title: 'Reconnected',
-                        duration: 3000
-                    });
-                }
-            },
-
-            // Called when SignalR disconnects
-            onDisconnected() {
-                this.setLive(false);
-
-                if (typeof ToastManager !== 'undefined') {
-                    ToastManager.show('warning', 'Attempting to reconnect...', {
-                        title: 'Connection Lost',
-                        duration: 5000
-                    });
-                }
-            }
-        };
-    </script>
+    <script src="~/js/performance/dashboard.js" asp-append-version="true"></script>
 }

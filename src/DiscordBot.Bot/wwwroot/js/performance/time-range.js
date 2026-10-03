@@ -39,6 +39,15 @@
         },
 
         /**
+         * Use a range for this page view without remembering it (the address asked for it).
+         */
+        apply: function(hours) {
+            if (VALID_RANGES.includes(hours)) {
+                this._currentHours = hours;
+            }
+        },
+
+        /**
          * Set time range and persist
          */
         set: function(hours) {

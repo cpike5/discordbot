@@ -95,8 +95,10 @@ public class PerformanceAlertService : IPerformanceAlertService
         if (config == null)
         {
             _logger.LogError("Alert configuration not found for metric {MetricName}", metricName);
-            throw new InvalidOperationException($"Alert configuration not found for metric: {metricName}");
+            throw new KeyNotFoundException($"Alert configuration not found for metric: {metricName}");
         }
+
+        ValidateThresholds(config, update);
 
         // Apply updates
         if (update.WarningThreshold.HasValue)
@@ -127,6 +129,30 @@ public class PerformanceAlertService : IPerformanceAlertService
             updatedConfig.IsEnabled);
 
         return MapToDto(updatedConfig);
+    }
+
+    /// <summary>
+    /// Rejects thresholds that would make the alert meaningless: negative or non-finite numbers,
+    /// and a warning level that is not below the critical level.
+    /// </summary>
+    /// <exception cref="ArgumentException">The resulting thresholds are not valid.</exception>
+    internal static void ValidateThresholds(PerformanceAlertConfig config, AlertConfigUpdateDto update)
+    {
+        var warning = update.WarningThreshold ?? config.WarningThreshold;
+        var critical = update.CriticalThreshold ?? config.CriticalThreshold;
+
+        foreach (var value in new[] { update.WarningThreshold, update.CriticalThreshold })
+        {
+            if (value.HasValue && (double.IsNaN(value.Value) || double.IsInfinity(value.Value) || value.Value < 0))
+            {
+                throw new ArgumentException("Thresholds must be numbers that are zero or greater.");
+            }
+        }
+
+        if (warning.HasValue && critical.HasValue && warning.Value >= critical.Value)
+        {
+            throw new ArgumentException("The warning threshold must be lower than the critical threshold.");
+        }
     }
 
     /// <inheritdoc/>

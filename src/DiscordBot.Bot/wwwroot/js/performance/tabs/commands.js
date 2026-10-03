@@ -1,6 +1,10 @@
 /**
  * Performance Dashboard - Commands Tab Module
- * Displays command performance metrics including response times, throughput, and error rates
+ * Response time and error rate by command, and throughput over time.
+ *
+ * The server keeps per-command aggregates and a throughput series, not response times or error
+ * rates over time, so those two charts compare commands rather than draw a line through time.
+ * The tab is not live: the hub's command update covers a fixed 24 hours, not the chosen range.
  */
 (function() {
     'use strict';
@@ -14,8 +18,8 @@
     };
 
     const ChartUtils = window.Performance.ChartUtils;
-    const TimestampUtils = window.Performance.TimestampUtils;
     const TimeRange = window.Performance.TimeRange;
+    const TOP_COMMANDS = 10;
 
     function getServerData() {
         const container = document.querySelector('[data-tab="commands"]');
@@ -26,216 +30,193 @@
         };
     }
 
-    async function initResponseTimeChart(hours) {
-        try {
-            const granularity = ChartUtils.getGranularity(hours);
-            const [throughputRes, aggregatesRes] = await Promise.all([
-                fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`),
-                fetch(`/api/metrics/commands/performance?hours=${hours}`)
-            ]);
+    function inDocument(canvas) {
+        return !!canvas && document.body.contains(canvas);
+    }
 
-            if (!throughputRes.ok || !aggregatesRes.ok) {
-                throw new Error(`HTTP ${throughputRes.status || aggregatesRes.status}`);
+    // One request feeds both per-command charts; a failed one is not remembered, so Retry refetches.
+    let aggregatesRequest = null;
+
+    function loadAggregates(hours) {
+        if (!aggregatesRequest) {
+            aggregatesRequest = ApiClient.get(`/api/metrics/commands/performance?hours=${hours}`)
+                .then(data => Array.isArray(data) ? data : [])
+                .catch(error => {
+                    aggregatesRequest = null;
+                    throw error;
+                });
+        }
+        return aggregatesRequest;
+    }
+
+    async function initResponseTimeChart(hours) {
+        const canvas = document.getElementById('commandsResponseTimeChart');
+        if (!canvas) return;
+
+        try {
+            const aggregates = await loadAggregates(hours);
+            if (!inDocument(canvas)) return;
+
+            const busiest = aggregates
+                .filter(a => a.executionCount > 0)
+                .sort((a, b) => b.executionCount - a.executionCount)
+                .slice(0, TOP_COMMANDS);
+            if (busiest.length === 0) {
+                ChartUtils.showChartEmpty(canvas, {
+                    title: 'No response times yet',
+                    description: 'Response times by command appear once commands have run.'
+                });
+                return;
             }
 
-            const throughputData = await throughputRes.json();
-            const aggregates = await aggregatesRes.json();
-
-            const labels = throughputData.map(t => ChartUtils.formatLabel(t.timestamp, hours));
-
-            // Use aggregate values distributed across time buckets
-            const avgData = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].avgMs : 0);
-            const p95Data = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].p95Ms : 0);
-            const p99Data = new Array(labels.length).fill(aggregates.length > 0 ? aggregates[0].p99Ms : 0);
-
-            const ctx = document.getElementById('commandsResponseTimeChart');
-            if (!ctx) return;
-
-            const chart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [
-                        {
-                            label: 'Average',
-                            data: avgData,
-                            borderColor: ChartUtils.colors.primary,
-                            backgroundColor: 'transparent',
-                            tension: 0.4,
-                            pointRadius: 2,
-                            pointHoverRadius: 5
-                        },
-                        {
-                            label: 'P95',
-                            data: p95Data,
-                            borderColor: ChartUtils.colors.warning,
-                            backgroundColor: 'transparent',
-                            tension: 0.4,
-                            pointRadius: 2,
-                            pointHoverRadius: 5,
-                            borderDash: [5, 5]
-                        },
-                        {
-                            label: 'P99',
-                            data: p99Data,
-                            borderColor: ChartUtils.colors.error,
-                            backgroundColor: 'transparent',
-                            tension: 0.4,
-                            pointRadius: 2,
-                            pointHoverRadius: 5,
-                            borderDash: [2, 2]
-                        }
-                    ]
+            ChartUtils.clearChartState(canvas);
+            const labels = busiest.map(a => '/' + a.commandName);
+            const avg = busiest.map(a => Math.round(a.avgMs));
+            const p95 = busiest.map(a => Math.round(a.p95Ms));
+            const chart = ChartUtils.createBarChart(canvas, labels, [
+                {
+                    label: 'Average',
+                    data: avg,
+                    themeColors: { backgroundColor: c => c.secondary },
+                    borderRadius: 4
                 },
-                options: ChartUtils.mergeOptions(ChartUtils.defaultOptions, {
-                    interaction: {
-                        mode: 'index',
-                        intersect: false
-                    },
-                    plugins: {
-                        legend: {
-                            position: 'bottom',
-                            labels: {
-                                boxWidth: 12,
-                                padding: 20
-                            }
-                        }
-                    },
-                    scales: {
-                        y: {
-                            beginAtZero: true,
-                            ticks: {
-                                callback: function(value) {
-                                    return value + ' ms';
-                                }
-                            }
-                        }
-                    }
-                })
+                {
+                    label: 'P95',
+                    data: p95,
+                    themeColors: { backgroundColor: c => c.warning },
+                    borderRadius: 4
+                }
+            ], {
+                indexAxis: 'y',
+                plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, padding: 20 } } },
+                scales: {
+                    x: { beginAtZero: true, ticks: { callback: value => value + ' ms' } },
+                    y: { grid: { display: false } }
+                }
             });
-
             state.charts.push(chart);
+            ChartUtils.describeChart(canvas, {
+                caption: `Response time by command, ${TimeRange.getLabel()}`,
+                labels,
+                datasets: [{ label: 'Average (ms)', data: avg }, { label: 'P95 (ms)', data: p95 }],
+                unit: 'ms',
+                firstColumn: 'Command'
+            });
         } catch (error) {
+            if (error && error.name === 'AbortError') return;
             console.error('Failed to load response time chart:', error);
-            ChartUtils.showChartError('commandsResponseTimeChart', error.message);
+            ChartUtils.showChartError(canvas, null, () => initResponseTimeChart(hours));
         }
     }
 
     async function initThroughputChart(hours) {
-        try {
-            const granularity = ChartUtils.getGranularity(hours);
-            const response = await fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+        const canvas = document.getElementById('commandsThroughputChart');
+        if (!canvas) return;
 
-            if (!response.ok) {
-                throw new Error(`HTTP ${response.status}`);
+        const granularity = ChartUtils.getGranularity(hours);
+        try {
+            const data = await ApiClient.get(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`);
+            if (!inDocument(canvas)) return;
+
+            const subtitle = document.getElementById('commandsThroughputSubtitle');
+            if (subtitle) subtitle.textContent = `Commands executed per ${granularity}`;
+
+            const rows = Array.isArray(data) ? data : [];
+            if (rows.length === 0 || rows.every(t => !t.count)) {
+                ChartUtils.showChartEmpty(canvas, {
+                    title: 'No throughput yet',
+                    description: 'Commands per period appear once commands have run.'
+                });
+                return;
             }
 
-            const data = await response.json();
-            const labels = data.map(t => ChartUtils.formatLabel(t.timestamp, hours));
-
-            const ctx = document.getElementById('commandsThroughputChart');
-            if (!ctx) return;
-
-            const chart = ChartUtils.createBarChart(ctx, labels, [{
+            ChartUtils.clearChartState(canvas);
+            const labels = rows.map(t => ChartUtils.formatLabel(t.timestamp, hours));
+            const values = rows.map(t => t.count || 0);
+            const chart = ChartUtils.createBarChart(canvas, labels, [{
                 label: 'Commands',
-                data: data.map(t => t.count),
-                backgroundColor: ChartUtils.colors.secondary,
+                data: values,
+                themeColors: { backgroundColor: c => c.secondary },
                 borderRadius: 4
             }], {
                 plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true } }
+                scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
             });
-
             state.charts.push(chart);
-
-            // Update subtitle
-            const subtitle = document.getElementById('commandsThroughputSubtitle');
-            if (subtitle) {
-                subtitle.textContent = `Commands executed per ${hours <= 24 ? 'hour' : 'day'}`;
-            }
+            ChartUtils.describeChart(canvas, {
+                caption: `Commands per ${granularity}, ${TimeRange.getLabel()}`,
+                labels,
+                datasets: [{ label: 'Commands', data: values }],
+                firstColumn: granularity === 'day' ? 'Day' : 'Hour'
+            });
         } catch (error) {
+            if (error && error.name === 'AbortError') return;
             console.error('Failed to load throughput chart:', error);
-            ChartUtils.showChartError('commandsThroughputChart', error.message);
+            ChartUtils.showChartError(canvas, null, () => initThroughputChart(hours));
         }
     }
 
     async function initErrorRateChart(hours) {
-        try {
-            const granularity = ChartUtils.getGranularity(hours);
-            const [throughputRes, aggregatesRes] = await Promise.all([
-                fetch(`/api/metrics/commands/throughput?hours=${hours}&granularity=${granularity}`),
-                fetch(`/api/metrics/commands/performance?hours=${hours}`)
-            ]);
+        const canvas = document.getElementById('commandsErrorRateChart');
+        if (!canvas) return;
 
-            if (!throughputRes.ok || !aggregatesRes.ok) {
-                throw new Error(`HTTP ${throughputRes.status || aggregatesRes.status}`);
+        try {
+            const aggregates = await loadAggregates(hours);
+            if (!inDocument(canvas)) return;
+
+            const failing = aggregates
+                .filter(a => a.errorRate > 0)
+                .sort((a, b) => b.errorRate - a.errorRate)
+                .slice(0, TOP_COMMANDS);
+            if (failing.length === 0) {
+                ChartUtils.showChartEmpty(canvas, {
+                    title: 'No command errors',
+                    description: 'Every command completed without an error in this period.'
+                });
+                return;
             }
 
-            const throughputData = await throughputRes.json();
-            const aggregates = await aggregatesRes.json();
-
-            const labels = throughputData.map(t => ChartUtils.formatLabel(t.timestamp, hours));
-
-            // Use overall error rate distributed across time buckets
-            const totalCommands = aggregates.reduce((sum, a) => sum + a.executionCount, 0);
-            const errorRate = totalCommands > 0
-                ? aggregates.reduce((sum, a) => sum + (a.executionCount * a.errorRate / 100.0), 0) / totalCommands * 100
-                : 0;
-
-            const errorRateData = new Array(labels.length).fill(errorRate);
-
-            const ctx = document.getElementById('commandsErrorRateChart');
-            if (!ctx) return;
-
-            const chart = ChartUtils.createLineChart(ctx, labels, [{
-                label: 'Error Rate',
-                data: errorRateData,
-                borderColor: ChartUtils.colors.error,
-                backgroundColor: 'rgba(239, 79, 79, 0.1)',
-                fill: true,
-                tension: 0.4,
-                pointRadius: 3,
-                pointHoverRadius: 5
+            ChartUtils.clearChartState(canvas);
+            const labels = failing.map(a => '/' + a.commandName);
+            const rates = failing.map(a => Math.round(a.errorRate * 10) / 10);
+            const chart = ChartUtils.createBarChart(canvas, labels, [{
+                label: 'Error rate (%)',
+                data: rates,
+                themeColors: { backgroundColor: c => c.error },
+                borderRadius: 4
             }], {
+                indexAxis: 'y',
                 plugins: {
                     legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            label: function(context) {
-                                return context.parsed.y.toFixed(1) + '%';
-                            }
-                        }
-                    }
+                    tooltip: { callbacks: { label: context => context.parsed.x.toFixed(1) + '%' } }
                 },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        max: Math.ceil(Math.max(5, errorRate + 1)),
-                        ticks: {
-                            callback: function(value) {
-                                return value.toFixed(1) + '%';
-                            }
-                        }
-                    }
+                    x: { beginAtZero: true, max: 100, ticks: { callback: value => value + '%' } },
+                    y: { grid: { display: false } }
                 }
             });
-
             state.charts.push(chart);
+            ChartUtils.describeChart(canvas, {
+                caption: `Error rate by command, ${TimeRange.getLabel()}`,
+                labels,
+                datasets: [{ label: 'Error rate (%)', data: rates }],
+                unit: '%',
+                firstColumn: 'Command'
+            });
         } catch (error) {
+            if (error && error.name === 'AbortError') return;
             console.error('Failed to load error rate chart:', error);
-            ChartUtils.showChartError('commandsErrorRateChart', error.message);
+            ChartUtils.showChartError(canvas, null, () => initErrorRateChart(hours));
         }
     }
 
     const Commands = {
         init: async function(hours) {
             this.destroy();
+            aggregatesRequest = null;
             hours = hours || TimeRange.get();
 
-            TimestampUtils.convertTimestamps();
-
-            const serverData = getServerData();
-            if (serverData.totalCommands > 0) {
+            if (getServerData().totalCommands > 0) {
                 await Promise.all([
                     initResponseTimeChart(hours),
                     initThroughputChart(hours),
@@ -254,6 +235,4 @@
     };
 
     window.Performance.Tabs.Commands = Commands;
-    window.initCommandsTab = function(hours) { Commands.init(hours); };
-    window.destroyCommandsTab = function() { Commands.destroy(); };
 })();

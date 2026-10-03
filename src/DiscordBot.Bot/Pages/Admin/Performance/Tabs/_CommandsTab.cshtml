@@ -3,24 +3,27 @@
 
 <div data-tab="commands" data-total-commands="@Model.TotalCommands">
 
-@if (Model.TotalCommands == 0)
+@if (Model.LoadFailed)
+{
+    @await Html.PartialAsync("~/Pages/Admin/Performance/Tabs/_TabUnavailable.cshtml", "Command data could not be loaded")
+}
+else if (Model.TotalCommands == 0)
 {
     <!-- Empty State -->
     <div class="chart-card">
         <div class="empty-state">
-            <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <svg class="empty-state-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
             </svg>
-            <div class="empty-state-title">No command data available</div>
+            <h2 class="empty-state-title">No command data yet</h2>
             <div class="empty-state-description">Commands will appear here once the bot processes Discord interactions in the selected time period.</div>
         </div>
     </div>
 }
 else
 {
-    <!-- Response Time Metrics Cards -->
+    <!-- Response time cards: figures across every command, captioned with how they are derived -->
     <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <!-- Average -->
         <div class="metric-card">
             <div class="metric-header">
                 <span class="metric-label">Average</span>
@@ -28,24 +31,9 @@ else
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.AvgResponseTimeMs)">
                 <span id="avgResponseTimeMs">@Model.AvgResponseTimeMs.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
-            <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.AvgResponseTimeTrend)">
-                @if (Model.AvgResponseTimeTrend < 0)
-                {
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                    </svg>
-                }
-                else if (Model.AvgResponseTimeTrend > 0)
-                {
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                    </svg>
-                }
-                @CommandPerformanceViewModel.FormatTrend(Model.AvgResponseTimeTrend)
-            </div>
+            <div class="metric-caption">Mean of each command's average</div>
         </div>
 
-        <!-- P50 -->
         <div class="metric-card">
             <div class="metric-header">
                 <span class="metric-label">P50 (Median)</span>
@@ -53,12 +41,9 @@ else
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P50Ms)">
                 <span id="p50ResponseTimeMs">@Model.P50Ms.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
-            <div class="metric-trend metric-trend-neutral">
-                No change
-            </div>
+            <div class="metric-caption">Mean of each command's median</div>
         </div>
 
-        <!-- P95 -->
         <div class="metric-card">
             <div class="metric-header">
                 <span class="metric-label">P95</span>
@@ -66,12 +51,9 @@ else
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P95Ms)">
                 <span id="p95ResponseTimeMs">@Model.P95Ms.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
-            <div class="metric-trend metric-trend-neutral">
-                No change
-            </div>
+            <div class="metric-caption">Slowest command's P95</div>
         </div>
 
-        <!-- P99 -->
         <div class="metric-card">
             <div class="metric-header">
                 <span class="metric-label">P99</span>
@@ -79,34 +61,20 @@ else
             <div class="metric-value @CommandPerformanceViewModel.GetLatencyClass(Model.P99ResponseTimeMs)">
                 <span id="p99ResponseTimeMs">@Model.P99ResponseTimeMs.ToString("F0")</span><span class="metric-unit">ms</span>
             </div>
-            <div class="metric-trend @CommandPerformanceViewModel.GetTrendClass(Model.P99Trend)">
-                @if (Model.P99Trend < 0)
-                {
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                    </svg>
-                }
-                else if (Model.P99Trend > 0)
-                {
-                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                    </svg>
-                }
-                @CommandPerformanceViewModel.FormatTrend(Model.P99Trend)
-            </div>
+            <div class="metric-caption">Slowest command's P99</div>
         </div>
     </div>
 
-    <!-- Response Time Over Time Chart -->
+    <!-- Response time by command -->
     <div class="chart-card mb-6">
         <div class="chart-card-header">
             <div>
-                <h2 class="chart-card-title">Response Times Over Time</h2>
-                <p class="chart-card-subtitle">Avg, P95, and P99 latency trends</p>
+                <h2 class="chart-card-title">Response Time by Command</h2>
+                <p class="chart-card-subtitle">Average and P95 for the busiest commands</p>
             </div>
         </div>
         <div class="chart-card-body">
-            <div class="chart-container chart-container-lg">
+            <div class="chart-container chart-container-lg" id="commandsResponseTimeContainer">
                 <canvas id="commandsResponseTimeChart"></canvas>
             </div>
         </div>
@@ -123,7 +91,7 @@ else
                 </div>
             </div>
             <div class="chart-card-body">
-                <div class="chart-container">
+                <div class="chart-container" id="commandsThroughputContainer">
                     <canvas id="commandsThroughputChart"></canvas>
                 </div>
             </div>
@@ -133,12 +101,12 @@ else
         <div class="chart-card">
             <div class="chart-card-header">
                 <div>
-                    <h2 class="chart-card-title">Error Rate Trend</h2>
-                    <p class="chart-card-subtitle">Command failure percentage</p>
+                    <h2 class="chart-card-title">Error Rate by Command</h2>
+                    <p class="chart-card-subtitle">Commands that failed, as a share of their runs</p>
                 </div>
             </div>
             <div class="chart-card-body">
-                <div class="chart-container">
+                <div class="chart-container" id="commandsErrorRateContainer">
                     <canvas id="commandsErrorRateChart"></canvas>
                 </div>
             </div>
@@ -177,7 +145,7 @@ else
                                     @cmd.DurationMs.ToString("F0")ms
                                 </td>
                                 <td>
-                                    <span data-utc-time="@cmd.ExecutedAt.ToString("o")">@cmd.ExecutedAt.ToString("MMM dd, HH:mm")</span>
+                                    @DisplayFormat.Time(cmd.ExecutedAt)
                                 </td>
                                 <td class="text-text-secondary">
                                     @if (!string.IsNullOrEmpty(cmd.Username))
@@ -248,7 +216,7 @@ else
                                 </td>
                                 <td class="font-medium text-warning">@timeout.TimeoutCount</td>
                                 <td>
-                                    <span data-utc-time="@timeout.LastTimeout.ToString("o")">@timeout.LastTimeout.ToString("MMM dd, HH:mm")</span>
+                                    @DisplayFormat.Time(timeout.LastTimeout)
                                 </td>
                                 <td>@timeout.AvgResponseBeforeTimeout.ToString("F0")ms</td>
                                 <td>

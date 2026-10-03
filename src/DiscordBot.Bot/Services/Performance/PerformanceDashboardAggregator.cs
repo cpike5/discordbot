@@ -58,6 +58,8 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
 
     public async Task<PerformanceDashboardOverview> BuildOverviewAsync(int hours = 24, CancellationToken cancellationToken = default)
     {
+        hours = PerformanceDashboardTabs.NormalizeHours(hours);
+
         try
         {
             // Get bot health and connection state
@@ -80,18 +82,14 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
 
             // Start async data retrieval in parallel
             var aggregatesTask = _commandPerformanceAggregator.GetAggregatesAsync(hours);
-            var throughputTask = _commandPerformanceAggregator.GetThroughputAsync(1, "hour"); // Last hour for "today"
             var alertsTask = _alertService.GetActiveIncidentsAsync(cancellationToken);
 
-            await Task.WhenAll(aggregatesTask, throughputTask, alertsTask);
+            await Task.WhenAll(aggregatesTask, alertsTask);
 
             var commandAggregates = await aggregatesTask;
-            var throughputData = await throughputTask;
             var activeAlerts = await alertsTask;
 
-            // Process command metrics
-            var commandsToday = throughputData.Sum(t => t.Count);
-
+            // Process command metrics (everything in the selected range, so the caption is true)
             var totalCommands = commandAggregates.Sum(a => a.ExecutionCount);
             var totalErrors = commandAggregates.Sum(a => (int)(a.ExecutionCount * (a.ErrorRate / 100.0)));
             var overallErrorRate = totalCommands > 0 ? (totalErrors * 100.0 / totalCommands) : 0;
@@ -124,7 +122,8 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
                 BotHealth = botHealth,
                 Uptime30DaysPercent = uptime30d,
                 AvgCommandResponseMs = avgResponseTime,
-                CommandsToday = commandsToday,
+                CommandsInRange = totalCommands,
+                TimeRangeHours = hours,
                 ErrorRate = overallErrorRate,
                 ActiveAlertCount = activeAlerts.Count,
                 RecentAlerts = recentAlerts,
@@ -162,6 +161,8 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             var overview = new PerformanceOverviewViewModel
             {
                 OverallStatus = "Critical",
+                LoadFailed = true,
+                TimeRangeHours = hours,
                 Uptime30DaysPercent = 0,
                 MemoryUsageFormatted = "Unknown",
                 ApiRateLimitFormatted = "Unknown"
@@ -273,6 +274,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             _logger.LogError(ex, "Failed to build HealthMetricsViewModel");
             return Task.FromResult(new HealthMetricsViewModel
             {
+                LoadFailed = true,
                 UptimeFormatted = "0m",
                 Uptime24HFormatted = "0%",
                 Uptime7DFormatted = "0%",
@@ -286,6 +288,8 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
 
     public async Task<CommandPerformanceViewModel> BuildCommandPerformanceAsync(int hours = 24, CancellationToken cancellationToken = default)
     {
+        hours = PerformanceDashboardTabs.NormalizeHours(hours);
+
         try
         {
             var aggregatesTask = _commandPerformanceAggregator.GetAggregatesAsync(hours);
@@ -348,6 +352,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             _logger.LogError(ex, "Failed to build CommandPerformanceViewModel");
             return new CommandPerformanceViewModel
             {
+                LoadFailed = true,
                 TotalCommands = 0,
                 AvgResponseTimeMs = 0,
                 ErrorRate = 0,
@@ -366,6 +371,8 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
 
     public ApiRateLimitsViewModel BuildApiRateLimits(int hours = 24)
     {
+        hours = PerformanceDashboardTabs.NormalizeHours(hours);
+
         try
         {
             var usageByCategory = _apiRequestTracker.GetUsageStatistics(hours);
@@ -390,6 +397,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             _logger.LogError(ex, "Failed to build ApiRateLimitsViewModel");
             return new ApiRateLimitsViewModel
             {
+                LoadFailed = true,
                 TotalRequests = 0,
                 RateLimitHits = 0,
                 AvgLatencyMs = 0,
@@ -472,6 +480,7 @@ public class PerformanceDashboardAggregator : IPerformanceDashboardAggregator
             _logger.LogError(ex, "Failed to build SystemHealthViewModel");
             return new SystemHealthViewModel
             {
+                LoadFailed = true,
                 SystemStatus = "Error Loading Data",
                 SystemStatusClass = "health-status-error",
                 DatabaseMetrics = new DatabaseMetricsDto(),

@@ -576,7 +576,7 @@ Real-time monitoring of bot performance, API usage, system health.
 | Aspect | Components |
 |--------|------------|
 | **Services** | `MetricsCollectionService`, `PerformanceMetricsBroadcastService`, `AlertMonitoringService`, `PerformanceAlertService`, `CpuSamplingService` |
-| **UI Pages** | Admin: Performance dashboard with multiple tabs (System Health, API Metrics, Commands, Alerts) |
+| **UI Pages** | Admin: one Performance dashboard shell with six tabs (Overview, Health, Commands, API, System, Alerts); the old standalone pages redirect to its `?tab=` addresses |
 | **Database Entities** | `MetricSnapshot`, `PerformanceIncident`, `PerformanceAlertConfig` |
 | **Controllers** | `PerformanceMetricsController`, `PerformanceTabsController`, `AlertsController` |
 | **External Services** | Prometheus metrics, Elastic Stack integration |

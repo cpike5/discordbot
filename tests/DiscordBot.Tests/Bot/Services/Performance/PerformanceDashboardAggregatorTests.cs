@@ -86,6 +86,67 @@ public class PerformanceDashboardAggregatorTests
         result.Shell.TimeRangeHours.Should().Be(168);
     }
 
+    [Theory]
+    [InlineData(-5, 24)]
+    [InlineData(0, 24)]
+    [InlineData(48, 168)]
+    [InlineData(100000, 720)]
+    public async Task BuildOverviewAsync_ClampsHoursToASupportedRange(int requested, int expected)
+    {
+        var result = await _aggregator.BuildOverviewAsync(requested);
+
+        _mockCommandPerformanceAggregator.Verify(a => a.GetAggregatesAsync(expected), Times.Once);
+        result.Shell.TimeRangeHours.Should().Be(expected);
+        result.Overview.TimeRangeHours.Should().Be(expected);
+    }
+
+    [Fact]
+    public async Task BuildCommandPerformanceAsync_ClampsHoursToASupportedRange()
+    {
+        await _aggregator.BuildCommandPerformanceAsync(100000);
+
+        _mockCommandPerformanceAggregator.Verify(a => a.GetAggregatesAsync(720), Times.Once);
+        _mockCommandPerformanceAggregator.Verify(a => a.GetAggregatesAsync(100000), Times.Never);
+    }
+
+    [Fact]
+    public void BuildApiRateLimits_ClampsHoursToASupportedRange()
+    {
+        var result = _aggregator.BuildApiRateLimits(-3);
+
+        result.Hours.Should().Be(24);
+        _mockApiRequestTracker.Verify(t => t.GetUsageStatistics(24), Times.Once);
+    }
+
+    [Fact]
+    public async Task BuildOverviewAsync_CountsCommandsInTheSelectedRange_NotTheLastHour()
+    {
+        _mockCommandPerformanceAggregator
+            .Setup(a => a.GetAggregatesAsync(168))
+            .ReturnsAsync(new[]
+            {
+                new CommandPerformanceAggregateDto { CommandName = "ping", ExecutionCount = 70, AvgMs = 20 },
+                new CommandPerformanceAggregateDto { CommandName = "help", ExecutionCount = 30, AvgMs = 40 }
+            });
+
+        var result = await _aggregator.BuildOverviewAsync(168);
+
+        result.Overview.CommandsInRange.Should().Be(100);
+        result.Overview.TimeRangeCaption.Should().Be("Last 7 days");
+    }
+
+    [Fact]
+    public async Task BuildOverviewAsync_WhenAnUpstreamCallThrows_MarksTheOverviewAsFailedToLoad()
+    {
+        _mockAlertService
+            .Setup(a => a.GetActiveIncidentsAsync(It.IsAny<CancellationToken>()))
+            .ThrowsAsync(new InvalidOperationException("boom"));
+
+        var result = await _aggregator.BuildOverviewAsync();
+
+        result.Overview.LoadFailed.Should().BeTrue("zeroed numbers must not pass for real ones");
+    }
+
     [Fact]
     public async Task BuildOverviewAsync_WhenAnUpstreamCallThrows_ReturnsCriticalFallback()
     {

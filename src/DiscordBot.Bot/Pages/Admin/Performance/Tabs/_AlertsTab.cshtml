@@ -3,8 +3,17 @@
 @using DiscordBot.Bot.ViewModels.Pages
 @using DiscordBot.Bot.ViewModels.Components
 
-<div data-tab="alerts" data-alert-frequency-data="@System.Text.Json.JsonSerializer.Serialize(Model.AlertFrequencyData, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })">
+<div data-tab="alerts"
+     data-active-count="@Model.ActiveIncidents.Count"
+     data-alert-frequency-data="@System.Text.Json.JsonSerializer.Serialize(Model.AlertFrequencyData, new System.Text.Json.JsonSerializerOptions { PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase })">
 @Html.AntiForgeryToken()
+
+@if (Model.LoadFailed)
+{
+    @await Html.PartialAsync("~/Pages/Admin/Performance/Tabs/_TabUnavailable.cshtml", "Alerts could not be loaded")
+}
+else
+{
 
 <!-- Active Alerts Section -->
 <div class="chart-card mb-6">
@@ -21,8 +30,7 @@
                 Type = "button",
                 Variant = ButtonVariant.Secondary,
                 Size = ButtonSize.Small,
-                OnClick = "acknowledgeAllIncidents()",
-                AdditionalAttributes = new Dictionary<string, string> { { "id", "acknowledgeAllBtn" } }
+                AdditionalAttributes = new Dictionary<string, string> { { "id", "acknowledgeAllBtn" }, { "data-acknowledge-all", "" } }
             })
         }
     </div>
@@ -46,9 +54,7 @@
                     };
 
                     <div class="alert-card border-0 rounded-none @alertClass"
-                         data-incident-id="@incident.Id"
-                         role="@(incident.Severity == AlertSeverity.Critical ? "alert" : "status")"
-                         aria-live="@(incident.Severity == AlertSeverity.Critical ? "assertive" : "polite")">
+                         data-incident-id="@incident.Id">
                         <svg class="alert-icon @iconClass flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             @if (incident.Severity == AlertSeverity.Critical)
                             {
@@ -76,21 +82,13 @@
                                 {
                                     <span class="ack-info"></span>
                                 }
-                                <span data-utc-time="@incident.TriggeredAt.ToString("o")" data-format="relative">Triggered @AlertsPageViewModel.FormatRelativeTime(incident.TriggeredAt)</span>
+                                <span>Triggered @DisplayFormat.Time(incident.TriggeredAt, relative: true)</span>
                             </div>
                         </div>
                         @if (!incident.IsAcknowledged && Model.CanEdit)
                         {
                             <div class="alert-actions flex items-center gap-2">
-                                @await Html.PartialAsync("Components/_Button", new ButtonViewModel
-                                {
-                                    Text = "Acknowledge",
-                                    Type = "button",
-                                    Variant = ButtonVariant.Secondary,
-                                    Size = ButtonSize.Small,
-                                    OnClick = $"acknowledgeIncident('{incident.Id}')",
-                                    AdditionalAttributes = new Dictionary<string, string> { { "class", "acknowledge-btn" } }
-                                })
+                                <button type="button" class="btn btn-secondary btn-sm acknowledge-btn" data-acknowledge-incident="@incident.Id">Acknowledge</button>
                             </div>
                         }
                     </div>
@@ -111,46 +109,43 @@
 </div>
 
 <!-- Alert Thresholds Configuration -->
-<div class="chart-card mb-6">
+<form class="chart-card mb-6" id="alertThresholdForm" novalidate autocomplete="off">
     <div class="chart-card-header">
         <div>
             <h2 class="chart-card-title">Alert Threshold Configuration</h2>
-            <p class="chart-card-subtitle">Define warning and critical thresholds for key metrics</p>
+            <p class="chart-card-subtitle">The warning level must be lower than the critical level. Edits stay here while you look at other tabs.</p>
         </div>
         @if (Model.CanEdit)
         {
-            @await Html.PartialAsync("Components/_Button", new ButtonViewModel
-            {
-                Text = "Save Changes",
-                Type = "button",
-                Variant = ButtonVariant.Primary,
-                OnClick = "alertsTabSaveConfig()",
-                IconLeft = "M5 13l4 4L19 7",
-                AdditionalAttributes = new Dictionary<string, string>
-                {
-                    { "id", "alertsTabSaveConfigBtn" },
-                    { "style", "display: none;" }
-                }
-            })
+            <div class="flex items-center gap-3">
+                <span class="text-sm text-warning" id="alertsUnsavedNote" hidden>Unsaved changes</span>
+                <button type="submit" class="btn btn-primary" id="alertsTabSaveConfigBtn" hidden>
+                    <svg class="btn-svg-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+                    </svg>
+                    Save Changes
+                </button>
+            </div>
         }
     </div>
     <div class="overflow-x-auto">
         <table class="config-table">
             <thead>
                 <tr>
-                    <th>Metric</th>
-                    <th>Warning Threshold</th>
-                    <th>Critical Threshold</th>
-                    <th>Current Value</th>
-                    <th>Enabled</th>
+                    <th scope="col">Metric</th>
+                    <th scope="col">Warning Threshold</th>
+                    <th scope="col">Critical Threshold</th>
+                    <th scope="col">Current Value</th>
+                    <th scope="col">Enabled</th>
                 </tr>
             </thead>
             <tbody>
                 @foreach (var config in Model.AlertConfigs)
                 {
-                    var currentValueClass = "text-success";
+                    var currentValueClass = "text-text-secondary";
                     if (config.CurrentValue.HasValue)
                     {
+                        currentValueClass = "text-success";
                         if (config.CriticalThreshold.HasValue && config.CurrentValue >= config.CriticalThreshold)
                         {
                             currentValueClass = "text-error";
@@ -160,6 +155,7 @@
                             currentValueClass = "text-warning";
                         }
                     }
+                    var errorId = $"threshold-error-{config.MetricName}";
 
                     <tr data-metric="@config.MetricName">
                         <td>
@@ -174,9 +170,12 @@
                                 <input type="number"
                                        value="@config.WarningThreshold"
                                        min="0"
+                                       step="any"
+                                       inputmode="decimal"
                                        data-field="warning"
                                        class="alerts-threshold-input"
                                        aria-label="Warning threshold for @config.DisplayName"
+                                       aria-describedby="@errorId"
                                        @(Model.CanEdit ? "" : "disabled") />
                                 <span class="text-text-secondary">@config.ThresholdUnit</span>
                             </div>
@@ -186,16 +185,20 @@
                                 <input type="number"
                                        value="@config.CriticalThreshold"
                                        min="0"
+                                       step="any"
+                                       inputmode="decimal"
                                        data-field="critical"
                                        class="alerts-threshold-input"
                                        aria-label="Critical threshold for @config.DisplayName"
+                                       aria-describedby="@errorId"
                                        @(Model.CanEdit ? "" : "disabled") />
                                 <span class="text-text-secondary">@config.ThresholdUnit</span>
                             </div>
+                            <p class="text-xs text-error mt-1" id="@errorId" data-threshold-error hidden></p>
                         </td>
                         <td>
-                            <span class="@currentValueClass font-medium">
-                                @(config.CurrentValue?.ToString("F2") ?? "N/A")@config.ThresholdUnit
+                            <span class="@currentValueClass font-medium" data-current-value="@(config.CurrentValue?.ToString(System.Globalization.CultureInfo.InvariantCulture))">
+                                @(config.CurrentValue.HasValue ? config.CurrentValue.Value.ToString("F2") + config.ThresholdUnit : "No reading yet")
                             </span>
                         </td>
                         <td>
@@ -214,7 +217,7 @@
             </tbody>
         </table>
     </div>
-</div>
+</form>
 
 <!-- Incident History & Auto-Recovery -->
 <div class="performance-grid-2 mb-6">
@@ -233,11 +236,9 @@
                     @foreach (var incident in Model.RecentIncidents)
                     {
                         <div class="timeline-entry" data-timeline-incident-id="@incident.Id">
-                            <div class="timeline-dot @AlertsPageViewModel.GetTimelineDotClass(incident.Severity)"></div>
+                            <div class="timeline-dot @AlertsPageViewModel.GetTimelineDotClass(incident.Severity)" aria-hidden="true"></div>
                             <div class="timeline-content">
-                                <div class="timeline-time" data-utc-time="@incident.TriggeredAt.ToString("o")">
-                                    @incident.TriggeredAt.ToString("MMM dd, yyyy 'at' HH:mm")
-                                </div>
+                                <div class="timeline-time">@DisplayFormat.Time(incident.TriggeredAt)</div>
                                 <div class="timeline-title">@incident.Message</div>
                                 <div class="timeline-description">
                                     <span class="severity-badge @AlertsPageViewModel.GetSeverityClass(incident.Severity) mr-2">@incident.Severity</span>
@@ -285,9 +286,7 @@
                                 <div class="flex-1">
                                     <div class="flex items-center justify-between">
                                         <span class="font-medium text-text-primary">@evt.MetricName</span>
-                                        <span class="text-xs text-text-tertiary" data-utc-time="@evt.Timestamp.ToString("o")" data-format="relative">
-                                            @AlertsPageViewModel.FormatRelativeTime(evt.Timestamp)
-                                        </span>
+                                        <span class="text-xs text-text-tertiary">@DisplayFormat.Time(evt.Timestamp, relative: true)</span>
                                     </div>
                                     <div class="text-sm text-text-secondary mt-1">
                                         <span class="text-warning">Issue:</span> @evt.Issue
@@ -335,25 +334,26 @@
         </div>
     </div>
     <div class="chart-card-body">
-        <div class="chart-container">
+        <div class="chart-container" id="alertsFrequencyContainer">
             <canvas id="alertsFrequencyChart"></canvas>
         </div>
         <div class="flex justify-center gap-6 mt-4">
             <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded bg-error"></div>
+                <div class="w-3 h-3 rounded bg-error" aria-hidden="true"></div>
                 <span class="text-sm text-text-secondary">Critical (@Model.AlertFrequencyData.Sum(d => d.CriticalCount))</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded bg-warning"></div>
+                <div class="w-3 h-3 rounded bg-warning" aria-hidden="true"></div>
                 <span class="text-sm text-text-secondary">Warning (@Model.AlertFrequencyData.Sum(d => d.WarningCount))</span>
             </div>
             <div class="flex items-center gap-2">
-                <div class="w-3 h-3 rounded bg-info"></div>
+                <div class="w-3 h-3 rounded bg-info" aria-hidden="true"></div>
                 <span class="text-sm text-text-secondary">Info (@Model.AlertFrequencyData.Sum(d => d.InfoCount))</span>
             </div>
         </div>
     </div>
 </div>
 
+}
 </div>
 @* JavaScript now loaded from external module: ~/js/performance/tabs/alerts.js *@
