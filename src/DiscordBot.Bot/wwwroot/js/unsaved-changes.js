@@ -153,6 +153,19 @@
         return true;
     }
 
+    /**
+     * A submit event reached the end of its dispatch. One nothing cancelled is leaving the page,
+     * so the tracker stops warning; a handler that cancels it later (a save over fetch) puts the
+     * warning back on the next tick, and a navigation that never happens does so after 15 s.
+     */
+    function handleSubmit(event, tracker, schedule) {
+        if (!tracker || event.defaultPrevented) return false;
+        tracker.markSubmitting();
+        schedule(function () { if (event.defaultPrevented) tracker.cancelSubmitting(); }, 0);
+        schedule(function () { tracker.cancelSubmitting(); }, 15000);
+        return true;
+    }
+
     // ---------------------------------------------------------------- browser glue
 
     var registry = createRegistry();
@@ -198,6 +211,8 @@
         if (!tracker) return;
         registry.remove(tracker);
         byForm.delete(form);
+        // A dirty form that is gone no longer needs the beforeunload listener
+        syncUnloadListener();
     }
 
     /** Track every opted-in form under `scope`. Run on load; call again after inserting forms. */
@@ -242,16 +257,12 @@
         // Every tracked form reports flips as an unsavedchange event; follow them
         document.addEventListener('unsavedchange', syncUnloadListener);
 
-        // A submit that nothing cancelled is leaving the page on purpose. Registered on the
-        // document so it runs after the form's own handlers: a fetch-based save calls
-        // preventDefault, stays on the page, and keeps its protection.
-        document.addEventListener('submit', function (event) {
+        // A submit that nothing cancelled is leaving the page on purpose. Registered on the window
+        // so it runs after every document-level handler, whenever they were registered: a
+        // fetch-based save calls preventDefault, stays on the page, and keeps its protection.
+        window.addEventListener('submit', function (event) {
             var form = event.target;
-            var tracker = form && byForm && byForm.get(form);
-            if (!tracker || event.defaultPrevented) return;
-            tracker.markSubmitting();
-            // If the navigation never happens (failed, aborted), warn again after a while
-            setTimeout(function () { tracker.cancelSubmitting(); }, 15000);
+            handleSubmit(event, form && byForm && byForm.get(form), setTimeout);
         });
 
         // Coming back through the back/forward cache restores the page as the user left it
@@ -283,6 +294,7 @@
         serialize: serialize,
         createTracker: createTracker,
         createRegistry: createRegistry,
-        handleBeforeUnload: handleBeforeUnload
+        handleBeforeUnload: handleBeforeUnload,
+        handleSubmit: handleSubmit
     };
 });

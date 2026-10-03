@@ -30,7 +30,16 @@ public class DisplayFormatTests
     public void Iso_AlwaysEndsInZ()
     {
         DisplayFormat.Iso(new DateTime(2026, 10, 3, 12, 0, 0, DateTimeKind.Unspecified)).Should().EndWith("Z");
-        DisplayFormat.Iso(Now).Should().Be("2026-10-03T12:00:00.0000000Z");
+        DisplayFormat.Iso(Now).Should().Be("2026-10-03T12:00:00.000Z");
+    }
+
+    [Fact]
+    public void Iso_HasAtMostThreeFractionalDigits_AsTimeDatetimeRequires()
+    {
+        var withTicks = new DateTime(2026, 10, 3, 12, 0, 0, DateTimeKind.Utc).AddTicks(1234567);
+
+        DisplayFormat.Iso(withTicks).Should().Be("2026-10-03T12:00:00.123Z");
+        DisplayFormat.Iso(withTicks).Should().MatchRegex(@"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$");
     }
 
     [Theory]
@@ -85,8 +94,8 @@ public class DisplayFormatTests
     {
         var html = Render(DisplayFormat.Time(new DateTime(2026, 10, 3, 18, 5, 0, DateTimeKind.Unspecified), "datetime", culture: En));
 
-        html.Should().StartWith("<time data-utc=\"2026-10-03T18:05:00.0000000Z\" data-format=\"datetime\"");
-        html.Should().Contain("datetime=\"2026-10-03T18:05:00.0000000Z\"");
+        html.Should().StartWith("<time data-utc=\"2026-10-03T18:05:00.000Z\" data-format=\"datetime\"");
+        html.Should().Contain("datetime=\"2026-10-03T18:05:00.000Z\"");
         Plain(html).Should().Contain("Oct 3, 2026, 6:05 PM UTC");
     }
 

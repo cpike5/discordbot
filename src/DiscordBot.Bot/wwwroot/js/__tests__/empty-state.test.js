@@ -154,3 +154,35 @@ test.describe('render, error and filtered', () => {
         assert.equal(cleared, 1);
     });
 });
+
+test.describe('url safety', () => {
+    test('isSafeUrl allows relative and http(s) URLs only', () => {
+        for (const ok of ['/Guilds/1', 'Guilds/1', '?page=2', '#top', '//example.com/x', 'http://example.com', 'HTTPS://example.com/a?b=c']) {
+            assert.equal(EmptyState.isSafeUrl(ok), true, ok);
+        }
+        for (const bad of ['javascript:alert(1)', ' JavaScript:alert(1)', 'java\tscript:alert(1)', 'java\nscript:alert(1)',
+            'data:text/html,<script>alert(1)</script>', 'vbscript:x', 'file:///etc/passwd', '', '   ', null, undefined, 42]) {
+            assert.equal(EmptyState.isSafeUrl(bad), false, String(bad));
+        }
+    });
+
+    test('an action with a javascript: url renders no href', () => {
+        const node = EmptyState.create({ action: { text: 'Go', url: 'javascript:alert(1)' } });
+        assert.equal(node.findByTag('a').length, 0);
+        assert.equal(node.find((n) => n.getAttribute('href') !== null).length, 0);
+    });
+
+    test('a secondary link with a javascript: url is left out; a safe one keeps its href', () => {
+        const bad = EmptyState.create({ action: { text: 'Go' }, secondary: { text: 'Docs', url: 'javascript:alert(1)' } });
+        assert.equal(bad.findByTag('a').length, 0);
+        const good = EmptyState.create({ action: { text: 'Go' }, secondary: { text: 'Docs', url: '/docs' } });
+        assert.equal(good.findByTag('a')[0].getAttribute('href'), '/docs');
+    });
+
+    test('an unsafe href passed through action.attributes is dropped', () => {
+        const node = EmptyState.create({ action: { text: 'Go', url: '/ok', attributes: { href: 'javascript:alert(1)', 'data-x': 'y' } } });
+        const link = node.findByTag('a')[0];
+        assert.equal(link.getAttribute('href'), '/ok');
+        assert.equal(link.getAttribute('data-x'), 'y');
+    });
+});

@@ -27,6 +27,15 @@ function syncSidebarInert() {
   if (!sidebar) return;
   sidebar.toggleAttribute('inert', !desktopQuery.matches && !sidebarOpen);
 }
+// quick-actions.js restores the sidebar through this after a dialog closes
+window.syncSidebarInert = syncSidebarInert;
+// Follow the breakpoint itself, not only the debounced resize handler: a rotation or a window snap
+// would otherwise leave a visible sidebar inert (or a hidden drawer in the tab order) for 100 ms.
+if (typeof desktopQuery.addEventListener === 'function') {
+  desktopQuery.addEventListener('change', syncSidebarInert);
+} else if (typeof desktopQuery.addListener === 'function') {
+  desktopQuery.addListener(syncSidebarInert);
+}
 
 // Get all focusable elements within the sidebar
 function getSidebarFocusableElements() {

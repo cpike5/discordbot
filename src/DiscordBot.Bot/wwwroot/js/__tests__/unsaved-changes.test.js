@@ -251,3 +251,94 @@ test.describe('createRegistry and handleBeforeUnload', () => {
         assert.equal(registry.shouldWarn(), false);
     });
 });
+
+test.describe('handleSubmit', () => {
+    function recorder() {
+        const timers = [];
+        return { timers, schedule: (fn, ms) => timers.push({ fn, ms }) };
+    }
+    function trackerStub() {
+        const calls = [];
+        return { calls, markSubmitting: () => calls.push('mark'), cancelSubmitting: () => calls.push('cancel') };
+    }
+
+    test('an uncancelled submit marks the tracker submitting and cancels after 15 s', () => {
+        const { timers, schedule } = recorder();
+        const tracker = trackerStub();
+        assert.equal(UnsavedChanges.handleSubmit({ defaultPrevented: false }, tracker, schedule), true);
+        assert.deepEqual(tracker.calls, ['mark']);
+        timers.forEach((t) => t.fn());
+        assert.deepEqual(tracker.calls, ['mark', 'cancel']);
+        assert.ok(timers.some((t) => t.ms === 15000));
+    });
+
+    test('a submit already cancelled is ignored', () => {
+        const { timers, schedule } = recorder();
+        const tracker = trackerStub();
+        assert.equal(UnsavedChanges.handleSubmit({ defaultPrevented: true }, tracker, schedule), false);
+        assert.deepEqual(tracker.calls, []);
+        assert.equal(timers.length, 0);
+    });
+
+    test('a handler that cancels the submit after this one ran puts the warning back on the next tick', () => {
+        const { timers, schedule } = recorder();
+        const tracker = trackerStub();
+        const event = { defaultPrevented: false };
+        UnsavedChanges.handleSubmit(event, tracker, schedule);
+        event.defaultPrevented = true; // a later listener (fetch save) calls preventDefault
+        const next = timers.find((t) => t.ms === 0);
+        next.fn();
+        assert.deepEqual(tracker.calls, ['mark', 'cancel']);
+    });
+
+    test('with no cancel the next tick leaves the tracker submitting', () => {
+        const { timers, schedule } = recorder();
+        const tracker = trackerStub();
+        UnsavedChanges.handleSubmit({ defaultPrevented: false }, tracker, schedule);
+        timers.find((t) => t.ms === 0).fn();
+        assert.deepEqual(tracker.calls, ['mark']);
+    });
+});
+
+test.describe('untrack', () => {
+    const fs = require('node:fs');
+    const path = require('node:path');
+    const vm = require('node:vm');
+
+    test('removes the beforeunload listener when the last dirty form is untracked', () => {
+        const added = [];
+        const removed = [];
+        const win = {
+            addEventListener: (t, f) => added.push(t),
+            removeEventListener: (t, f) => removed.push(t)
+        };
+        const docListeners = {};
+        const doc = {
+            readyState: 'complete',
+            addEventListener: (t, f) => { docListeners[t] = f; },
+            querySelectorAll: () => []
+        };
+        const ctx = { window: win, document: doc, CustomEvent: class { constructor(t, o) { this.type = t; this.detail = o && o.detail; } }, setTimeout };
+        vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'unsaved-changes.js'), 'utf8'), ctx);
+        const api = ctx.window.UnsavedChanges || ctx.UnsavedChanges;
+
+        const controls = [field('name', 'a')];
+        const form = {
+            elements: controls,
+            attributes: {},
+            hasAttribute: () => false,
+            setAttribute(k, v) { this.attributes[k] = v; },
+            querySelectorAll: () => [],
+            addEventListener() {},
+            dispatchEvent: (e) => { docListeners[e.type](e); return true; }
+        };
+        const tracker = api.track(form);
+        controls[0].value = 'b';
+        tracker.evaluate();
+        assert.equal(api.isDirty(form), true);
+        assert.ok(added.includes('beforeunload'));
+        api.untrack(form);
+        assert.equal(api.isDirty(), false);
+        assert.deepEqual(removed, ['beforeunload']);
+    });
+});

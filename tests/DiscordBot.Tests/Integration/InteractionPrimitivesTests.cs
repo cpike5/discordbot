@@ -137,7 +137,8 @@ public class InteractionPrimitivesTests : IClassFixture<InteractionPrimitivesTes
         html.Should().NotContain("window.location.href=", "the base URL carries filter values and must not reach script text");
         html.Should().MatchRegex("<form method=\"get\" action=\"/Components\"[^>]*>\\s*<input type=\"hidden\" name=\"search\" value=\"a(&#x27;|&#39;)b\" />");
         html.Should().Contain("name=\"role\" value=\"admin\"");
-        html.Should().Contain("onchange=\"this.form.requestSubmit()\"");
+        html.Should().NotContain("requestSubmit", "changing the page size must not submit on its own (WCAG 3.2.2)");
+        html.Should().MatchRegex("</select>\\s*<button type=\"submit\" class=\"btn btn-secondary btn-sm\">Apply</button>");
     }
 
     [Fact]

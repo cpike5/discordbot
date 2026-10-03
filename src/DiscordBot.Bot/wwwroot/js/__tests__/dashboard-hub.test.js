@@ -100,7 +100,7 @@ test('connects on the first try and reports the states in order', async () => {
     assert.equal(hub.isConnected(), true);
 });
 
-test('a first attempt that fails keeps retrying, then raises connected and reconnected', async () => {
+test('a first attempt that fails keeps retrying, then raises connected only', async () => {
     const state = { failStarts: 3 };
     installFakeSignalR(state);
     test.mock.timers.enable({ apis: ['setTimeout'] });
@@ -130,7 +130,7 @@ test('a first attempt that fails keeps retrying, then raises connected and recon
     assert.equal(hub.isConnected(), true);
     assert.equal(hub.getConnectionState(), 'connected');
     // connectionFailed is raised once per outage, not on every retry.
-    assert.deepEqual(events, ['connectionFailed', 'connected', 'reconnected']);
+    assert.deepEqual(events, ['connectionFailed', 'connected']);
     assert.deepEqual(seen, ['connecting', 'reconnecting', 'connected']);
 });
 
@@ -303,4 +303,49 @@ test('connect() resolves false, without throwing, when the SignalR library did n
     const hub = freshHub();
     assert.equal(await hub.connect(), false);
     assert.equal(hub.getConnectionState(), 'disconnected');
+});
+
+test('after a connection that was up has dropped and closed, recovery raises connected and reconnected', async () => {
+    const state = { failStarts: 0 };
+    installFakeSignalR(state);
+    test.mock.timers.enable({ apis: ['setTimeout'] });
+    const hub = freshHub();
+    const events = [];
+    for (const name of ['connected', 'reconnected']) hub.on(name, () => events.push(name));
+
+    await hub.connect();
+    assert.deepEqual(events, ['connected']);
+
+    state.connection.state = 'Disconnected';
+    state.connection.closed(new Error('server went away'));
+    test.mock.timers.tick(0);
+    await flush();
+    assert.deepEqual(events, ['connected', 'connected', 'reconnected']);
+});
+
+test('coming back online or visible does not retry after an auth failure; retryNow does', async () => {
+    const state = { failStarts: 0 };
+    installFakeSignalR(state);
+    const listeners = { window: {}, document: {} };
+    global.window = { addEventListener: (t, f) => { listeners.window[t] = f; } };
+    global.document = { hidden: false, addEventListener: (t, f) => { listeners.document[t] = f; } };
+    try {
+        failFirstStartWith(unauthorized());
+        const hub = freshHub();
+        await hub.connect();
+        assert.equal(hub.getDisconnectReason(), 'auth');
+        assert.equal(state.connection.starts, 1);
+
+        listeners.window.online();
+        listeners.document.visibilitychange();
+        await flush();
+        assert.equal(state.connection.starts, 1);
+        assert.equal(hub.getConnectionState(), 'disconnected');
+
+        assert.equal(await hub.retryNow(), true);
+        assert.equal(state.connection.starts, 2);
+    } finally {
+        delete global.window;
+        delete global.document;
+    }
 });

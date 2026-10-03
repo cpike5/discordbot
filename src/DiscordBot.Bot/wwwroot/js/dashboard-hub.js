@@ -44,6 +44,7 @@ const DashboardHub = (function() {
     let recovering = false;   // an attempt has failed since the last time we were connected
     let stopped = false;      // disconnect() was called: do not retry
     let restarting = false;   // retryNow() is replacing a stuck automatic reconnect
+    let hasConnected = false; // a connect has succeeded at least once on this page
     let authFailed = false;   // the server said 401/403: retrying cannot help until the user signs in
     let warnedNoLibrary = false;
 
@@ -106,8 +107,8 @@ const DashboardHub = (function() {
     /**
      * Initializes the SignalR connection to the dashboard hub.
      * @returns {Promise<boolean>} True if connection successful, false otherwise. A false result
-     * is not final: the hub keeps retrying in the background and raises 'connected' and
-     * 'reconnected' when it gets through.
+     * is not final: the hub keeps retrying in the background and raises 'connected' when it
+     * gets through ('reconnected' follows only when a connection had been up before).
      */
     async function connect() {
         if (connection && isConnected) {
@@ -244,7 +245,10 @@ const DashboardHub = (function() {
         isConnected = true;
         retryCount = 0;
         authFailed = false;
-        const wasRecovering = recovering;
+        // A first connect that only worked after retries is still the first connect: nothing was
+        // joined before, so 'connected' alone covers it.
+        const wasRecovering = recovering && hasConnected;
+        hasConnected = true;
         recovering = false;
         setConnectionState('connected');
 
@@ -304,9 +308,11 @@ const DashboardHub = (function() {
 
     // A laptop waking up or a phone leaving a tunnel should not wait out a 30 second delay.
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-        window.addEventListener('online', () => { retryNow(); });
+        // Not after an auth failure: retrying cannot help until the user signs in, and only an
+        // explicit retryNow() from code (or a page reload) starts over.
+        window.addEventListener('online', () => { if (!authFailed) retryNow(); });
         document.addEventListener('visibilitychange', () => {
-            if (!document.hidden) retryNow();
+            if (!document.hidden && !authFailed) retryNow();
         });
     }
 

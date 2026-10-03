@@ -93,10 +93,25 @@
         return node;
     }
 
+    /**
+     * True for a relative URL or an http(s) one. Anything else with a scheme (javascript:, data:,
+     * vbscript:) is refused: these URLs can come from page data, and the browser ignores tabs and
+     * newlines inside a scheme, so those are stripped before looking.
+     */
+    function isSafeUrl(url) {
+        if (typeof url !== 'string') return false;
+        var compact = url.replace(/[\u0000-\u0020\u007f]/g, '');
+        if (compact === '') return false;
+        return !/^[a-z][a-z0-9+.-]*:/i.test(compact) || /^https?:/i.test(compact);
+    }
+
+    var URL_ATTRIBUTES = /^(href|src|action|formaction|xlink:href)$/i;
+
     function applyAttributes(node, attributes) {
         if (!attributes) return;
         Object.keys(attributes).forEach(function (key) {
             // setAttribute encodes the value; the name must be a plain attribute name
+            if (URL_ATTRIBUTES.test(key) && !isSafeUrl(String(attributes[key]))) return;
             if (/^[a-zA-Z_][\w:.-]*$/.test(key) && !/^on/i.test(key)) {
                 node.setAttribute(key, String(attributes[key]));
             }
@@ -107,7 +122,7 @@
         var s = resolved.sizeClasses;
         var className = ['btn btn-primary', s.button, s.gap].filter(Boolean).join(' ');
         var node;
-        if (action.url) {
+        if (isSafeUrl(action.url)) {
             node = el('a', className);
             node.setAttribute('href', action.url);
         } else {
@@ -144,7 +159,7 @@
         root.appendChild(text);
 
         var action = o.action && o.action.text ? o.action : null;
-        var secondary = o.secondary && o.secondary.text && o.secondary.url ? o.secondary : null;
+        var secondary = o.secondary && o.secondary.text && isSafeUrl(o.secondary.url) ? o.secondary : null;
         if (action || secondary) {
             var actions = el('div', 'flex flex-col sm:flex-row items-center gap-3');
             if (action) actions.appendChild(actionControl(action, r));
@@ -206,6 +221,7 @@
         ICONS: ICONS,
         SIZES: SIZES,
         resolve: resolve,
+        isSafeUrl: isSafeUrl,
         create: create,
         render: render,
         error: error,

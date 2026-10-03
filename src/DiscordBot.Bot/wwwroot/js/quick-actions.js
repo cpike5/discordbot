@@ -79,8 +79,10 @@
       var count = inertCounts.get(el);
       if (count === undefined) return;
       if (count <= 1) {
-        el.inert = false;
         inertCounts.delete(el);
+        // The sidebar's inert state is navigation.js's to decide (a closed mobile drawer stays inert)
+        if (el.id === 'sidebar' && typeof window.syncSidebarInert === 'function') window.syncSidebarInert();
+        else el.inert = false;
       } else {
         inertCounts.set(el, count - 1);
       }

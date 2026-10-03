@@ -124,3 +124,113 @@ test('DATE_STYLES never forces hour12', () => {
         assert.equal('hour12' in style, false, name);
     }
 });
+
+// ---- Relative-time elements in a page (tab stops and the tooltip's ARIA wiring) ---------------
+
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+function fakeEl({ closest = {}, attrs = {} } = {}) {
+    const el = {
+        nodeType: 1,
+        tagName: 'TIME',
+        attrs: { 'data-relative-time': '2026-10-03T11:00:00Z', ...attrs },
+        classes: [],
+        classList: { add: (c) => el.classes.push(c) },
+        textContent: '',
+        getAttribute: (k) => (k in el.attrs ? el.attrs[k] : null),
+        setAttribute: (k, v) => { el.attrs[k] = String(v); },
+        removeAttribute: (k) => { delete el.attrs[k]; },
+        hasAttribute: (k) => k in el.attrs,
+        matches: () => true,
+        getBoundingClientRect: () => ({ width: 10, height: 10, left: 0, top: 0, bottom: 0 }),
+        // `closest` answers per selector family: 'focusable' for the interactive-element selector, 'table'.
+        closest: (sel) => {
+            if (sel === 'table') return closest.table ? {} : null;
+            if (sel.includes('[tabindex]')) return closest.focusable ? {} : null;
+            return sel.includes('data-relative-time') ? el : null;
+        }
+    };
+    return el;
+}
+
+// Loads format.js against a fake window so init() wires its listeners, and returns them.
+function loadInPage(elements) {
+    const listeners = {};
+    const tip = fakeEl();
+    tip.hidden = true;
+    tip.style = {};
+    tip.getBoundingClientRect = () => ({ width: 10, height: 10, left: 0, top: 0, bottom: 0 });
+    const doc = {
+        readyState: 'complete',
+        hidden: false,
+        documentElement: { clientWidth: 1000 },
+        body: { appendChild() {} },
+        createElement: () => tip,
+        querySelectorAll: () => elements,
+        addEventListener: (t, f) => { (listeners[t] = listeners[t] || []).push(f); }
+    };
+    const ctx = {
+        document: doc,
+        setInterval: () => 1,
+        clearInterval: () => {},
+        Intl,
+        Date,
+        addEventListener: () => {}
+    };
+    ctx.window = ctx;
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '..', 'format.js'), 'utf8'), ctx);
+    return { listeners, tip };
+}
+
+test('a lone relative time becomes a Tab stop', () => {
+    const el = fakeEl();
+    loadInPage([el]);
+    assert.equal(el.attrs.tabindex, '0');
+    assert.equal(el.hasAttribute('title'), false);
+});
+
+test('a relative time inside a focusable control or a table gets no Tab stop but keeps the absolute time as its title', () => {
+    for (const closest of [{ focusable: true }, { table: true }]) {
+        const el = fakeEl({ closest });
+        loadInPage([el]);
+        assert.equal(el.hasAttribute('tabindex'), false, JSON.stringify(closest));
+        assert.equal(el.attrs.title, el.attrs['data-absolute']);
+        assert.ok(el.attrs.title.length > 0);
+    }
+});
+
+test('an element that already has a tabindex keeps it and gets no title', () => {
+    const el = fakeEl({ attrs: { tabindex: '-1' } });
+    loadInPage([el]);
+    assert.equal(el.attrs.tabindex, '-1');
+    assert.equal(el.hasAttribute('title'), false);
+});
+
+test('the tooltip appends to an existing aria-describedby and restores it on hide', () => {
+    const el = fakeEl({ attrs: { 'aria-describedby': 'hint' } });
+    const { listeners } = loadInPage([el]);
+    const target = { closest: () => el };
+
+    listeners.mouseover[0]({ target });
+    assert.equal(el.attrs['aria-describedby'], 'hint format-tooltip');
+
+    listeners.focusout[0]();
+    assert.equal(el.attrs['aria-describedby'], 'hint');
+});
+
+test('the tooltip removes the aria-describedby it added when there was none, and holds the title back meanwhile', () => {
+    const el = fakeEl({ closest: { table: true } });
+    const { listeners } = loadInPage([el]);
+    const abs = el.attrs.title;
+    const target = { closest: () => el };
+
+    listeners.mouseover[0]({ target });
+    assert.equal(el.attrs['aria-describedby'], 'format-tooltip');
+    assert.equal(el.hasAttribute('title'), false);
+
+    listeners.focusout[0]();
+    assert.equal(el.hasAttribute('aria-describedby'), false);
+    assert.equal(el.attrs.title, abs);
+});

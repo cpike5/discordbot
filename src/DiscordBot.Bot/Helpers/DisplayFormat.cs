@@ -36,11 +36,11 @@ public static class DisplayFormat
     };
 
     /// <summary>
-    /// The ISO 8601 form with a zone designator (<c>2026-10-03T12:00:00.0000000Z</c>) that scripts
+    /// The ISO 8601 form with a zone designator (<c>2026-10-03T12:00:00.000Z</c>, milliseconds: <c>&lt;time datetime&gt;</c> allows at most three fractional digits) that scripts
     /// can parse without guessing. Use this for <c>data-utc</c> attributes instead of
     /// <c>ToString("o")</c>, which has no <c>Z</c> on an unspecified value.
     /// </summary>
-    public static string Iso(DateTime value) => ToUtc(value).ToString("o", CultureInfo.InvariantCulture);
+    public static string Iso(DateTime value) => ToUtc(value).ToString("yyyy-MM-dd'T'HH:mm:ss.fff'Z'", CultureInfo.InvariantCulture);
 
     /// <summary>
     /// A UTC fallback in one of the <c>format.js</c> styles: <c>date</c>, <c>date-short</c>,

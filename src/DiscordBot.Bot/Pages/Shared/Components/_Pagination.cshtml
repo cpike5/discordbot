@@ -146,7 +146,7 @@ else if (showSummary || showSelector || showNav)
         <div class="flex flex-wrap items-center gap-x-4 gap-y-2">
             @if (showSelector)
             {
-                // A GET form, not an inline handler: the base URL carries filter values, which
+                // A GET form with an Apply button, not an inline handler: the base URL carries filter values, which
                 // must never be written into script text. Existing query values ride along as
                 // hidden inputs and the page resets to the first.
                 var baseUrl = Model.BaseUrl ?? string.Empty;
@@ -172,13 +172,14 @@ else if (showSummary || showSelector || showNav)
                         }
                     }
                     <label for="pagination-size-@uid" class="text-sm text-text-secondary">Show</label>
-                    <select id="pagination-size-@uid" name="@Model.PageSizeParameterName" class="form-select form-input-sm w-auto min-w-[4.5rem]" onchange="this.form.requestSubmit()">
+                    <select id="pagination-size-@uid" name="@Model.PageSizeParameterName" class="form-select form-input-sm w-auto min-w-[4.5rem]">
                         @foreach (var size in sizes)
                         {
                             <option value="@size" selected="@(size == Model.PageSize)">@size</option>
                         }
                     </select>
-                    <noscript><button type="submit" class="btn btn-secondary btn-sm">Apply</button></noscript>
+                    @* A visible button, not submit-on-change: changing a select must not move the page for keyboard users (WCAG 3.2.2) *@
+                    <button type="submit" class="btn btn-secondary btn-sm">Apply</button>
                 </form>
             }
             @if (showSummary)

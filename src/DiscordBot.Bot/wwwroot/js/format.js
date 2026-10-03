@@ -236,12 +236,21 @@
     let timer = null;
     let tooltip = null;
     let tooltipFor = null;
+    let tooltipDescribedBy = null; // the element's own aria-describedby, restored on hide
+    let tooltipTitle = null;       // its title, held back while the tooltip shows so it is not doubled
 
     function describe(el) {
         const iso = el.getAttribute('data-relative-time');
         const text = relativeTime(iso);
         if (text && el.textContent !== text) el.textContent = text;
         return text;
+    }
+
+    const FOCUSABLE = 'a[href], button, input, select, textarea, summary, [tabindex], [contenteditable]';
+
+    function needsOwnTabStop(el) {
+        if (!el.closest) return true;
+        return !el.closest(FOCUSABLE) && !el.closest('table');
     }
 
     function bindElement(el) {
@@ -253,8 +262,17 @@
         if (el.tagName === 'TIME' && !el.hasAttribute('datetime')) {
             el.setAttribute('datetime', parseUtc(iso).toISOString());
         }
-        // Keyboard users get the absolute time too: the element must be focusable to show it.
-        if (!el.hasAttribute('tabindex')) el.setAttribute('tabindex', '0');
+        // Keyboard users get the absolute time too. A lone timestamp becomes a Tab stop so focus can
+        // show the tooltip; one inside a focusable control (its focus already shows the tooltip) or
+        // in a table (a Tab stop per row is too many) does not, and carries the absolute time as its
+        // title instead, which assistive technology reads.
+        if (el.hasAttribute('tabindex')) {
+            // already focusable: nothing to add
+        } else if (needsOwnTabStop(el)) {
+            el.setAttribute('tabindex', '0');
+        } else if (!el.hasAttribute('title')) {
+            el.setAttribute('title', abs);
+        }
         describe(el);
         el.setAttribute('data-relative-bound', 'true');
     }
@@ -319,10 +337,16 @@
         const abs = el.getAttribute('data-absolute');
         if (!abs) return;
         const tip = ensureTooltip();
+        hideTooltip();
         tip.textContent = abs;
         tip.hidden = false;
         tooltipFor = el;
-        el.setAttribute('aria-describedby', tip.id);
+        tooltipDescribedBy = el.getAttribute('aria-describedby');
+        el.setAttribute('aria-describedby', tooltipDescribedBy ? tooltipDescribedBy + ' ' + tip.id : tip.id);
+        if (el.getAttribute('title') === abs) {
+            tooltipTitle = abs;
+            el.removeAttribute('title');
+        }
 
         // Fixed position, clamped to the viewport so it never creates horizontal scroll.
         const rect = el.getBoundingClientRect();
@@ -339,8 +363,14 @@
     function hideTooltip() {
         if (!tooltip || tooltip.hidden) return;
         tooltip.hidden = true;
-        if (tooltipFor) tooltipFor.removeAttribute('aria-describedby');
+        if (tooltipFor) {
+            if (tooltipDescribedBy) tooltipFor.setAttribute('aria-describedby', tooltipDescribedBy);
+            else tooltipFor.removeAttribute('aria-describedby');
+            if (tooltipTitle !== null) tooltipFor.setAttribute('title', tooltipTitle);
+        }
         tooltipFor = null;
+        tooltipDescribedBy = null;
+        tooltipTitle = null;
     }
 
     function closestRelative(target) {
@@ -356,7 +386,9 @@
             if (closestRelative(e.target) && document.activeElement !== closestRelative(e.target)) hideTooltip();
         });
         document.addEventListener('focusin', function (e) {
-            const el = closestRelative(e.target);
+            // A timestamp inside a focused link or button has no Tab stop of its own: use the one in it.
+            const el = closestRelative(e.target) ||
+                (e.target && e.target.querySelector ? e.target.querySelector(SELECTOR + '[data-absolute]') : null);
             if (el) showTooltip(el);
         });
         document.addEventListener('focusout', hideTooltip);

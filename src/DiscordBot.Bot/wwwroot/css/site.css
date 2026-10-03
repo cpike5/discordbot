@@ -47,7 +47,8 @@
   --ease-out-quart: cubic-bezier(0.25, 1, 0.5, 1);
   --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --transition-fast: 120ms var(--ease-out-quart);
+  --duration-fast: 120ms;
+  --transition-fast: var(--duration-fast) var(--ease-out-quart);
   --transition-normal: 180ms var(--ease-out-quart);
   --transition-smooth: 260ms var(--ease-out-expo);
   --transition-enter: 320ms var(--ease-out-expo);
@@ -2499,7 +2500,7 @@
     transform-origin: top right;
     /* Visibility flips at the end when closing but at once when opening, so a Tab pressed right
        after opening already reaches the items (it used to skip a menu that was still "hidden"). */
-    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility 0s linear var(--transition-fast);
+    transition: opacity var(--transition-fast), transform var(--transition-fast), visibility 0s linear var(--duration-fast);
   }
   .user-menu-dropdown.active,
   .server-action-dropdown.active,
