@@ -201,7 +201,7 @@ public static class SettingDefinitions
             dataType: SettingDataType.Integer,
             defaultValue: "",
             requiresRestart: false,
-            description: "Default theme for new users and anonymous visitors (leave empty for Discord Dark)"
+            description: "Theme for visitors with no saved choice whose browser does not say whether it prefers dark or light (leave empty for Graphite (dark))"
         ),
 
         // AI Models Category - per-mode default OpenRouter model slugs. Keys match the modes'

@@ -132,7 +132,7 @@
 
         loadPage(1);
 
-        if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        if (panel) panel.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
     }
 
     function init() {

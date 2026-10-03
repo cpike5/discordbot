@@ -182,7 +182,7 @@
                     <span>${escapeHtml(messageData.durationFormatted)}</span>
                 </div>
             </div>
-            <div class="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            <div class="flex items-center gap-1 row-actions">
                 <button type="button"
                         disabled
                         title="Replay functionality coming soon"

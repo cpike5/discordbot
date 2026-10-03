@@ -59,19 +59,12 @@
                             <td class="px-6 py-4">
                                 @{
                                     var statusText = server.Status.ToString();
-                                    var statusColor = server.Status switch
+                                    // Whole class names, so Tailwind can find them
+                                    var statusClasses = server.Status switch
                                     {
-                                        ServerConnectionStatus.Online => "success",
-                                        ServerConnectionStatus.Idle => "warning",
-                                        ServerConnectionStatus.Offline => "text-tertiary",
-                                        _ => "text-tertiary"
-                                    };
-                                    var statusBgColor = server.Status switch
-                                    {
-                                        ServerConnectionStatus.Online => "success/10",
-                                        ServerConnectionStatus.Idle => "warning/10",
-                                        ServerConnectionStatus.Offline => "border-primary/50",
-                                        _ => "border-primary/50"
+                                        ServerConnectionStatus.Online => "text-success bg-success/10",
+                                        ServerConnectionStatus.Idle => "text-warning bg-warning/10",
+                                        _ => "text-text-tertiary bg-bg-tertiary"
                                     };
                                     var statusDotColor = server.Status switch
                                     {
@@ -81,7 +74,7 @@
                                         _ => "bg-text-tertiary"
                                     };
                                 }
-                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold text-@statusColor bg-@statusBgColor rounded-full">
+                                <span class="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-semibold @statusClasses rounded-full">
                                     <span class="w-1.5 h-1.5 @statusDotColor rounded-full"></span>
                                     @statusText
                                 </span>

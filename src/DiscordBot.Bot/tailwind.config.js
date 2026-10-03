@@ -5,18 +5,34 @@
 // becomes `rgba(var(--color-success-rgb), 0.2)` and follows the active theme.
 const rgb = (name) => `rgba(var(--color-${name}-rgb), <alpha-value>)`;
 
+// Fills sit behind white text (warning: behind --color-on-warning), so in the
+// dark theme they are darker than the matching text colour. Background
+// utilities use the fill: `bg-success` is the fill, `text-success` the ink,
+// and `bg-success/10` is a tint of the fill. See docs/articles/design-system.md.
+const fill = (name) => ({
+  DEFAULT: rgb(`${name}-fill`),
+  hover: rgb(`${name}-fill-hover`),
+  active: rgb(`${name}-fill-active`),
+});
+
 module.exports = {
   content: [
     "./Pages/**/*.{razor,cshtml}",
     "./Components/**/*.{razor,cshtml}",
     "./wwwroot/**/*.html",
     "./wwwroot/**/*.js",
+    // C# builds class strings too (badge and status switch expressions in view
+    // models, helpers and page models), so scan it like markup.
+    "./**/*.cs",
   ],
   // Component classes that are composed at runtime (C# switch expressions,
   // JS templates) must survive purging.
   safelist: [
-    { pattern: /^(badge|btn|alert|status|card|page|form|toggle|topbar|sidebar|bot-status|hero-metric|table|kbd|section)-/ },
+    { pattern: /^(badge|btn|alert|status|severity|card|page|form|toggle|topbar|sidebar|bot-status|hero-metric|table|kbd|section)-/ },
     { pattern: /^(badge|btn|alert|card|status-indicator|status-glass|kbd|surface|section-label|page-eyebrow)$/ },
+    // Colour pairs composed from a variant name (`bg-@color/10 text-@color` in
+    // _QuickActionsCard and the confirmation modals, `bg-${color}/20` in quick-actions.js)
+    { pattern: /^(bg|text)-(accent-orange|accent-blue|accent-purple|success|warning|error|info)(\/(10|20))?$/ },
   ],
   theme: {
     extend: {
@@ -37,6 +53,8 @@ module.exports = {
           placeholder: rgb('text-placeholder'),
           inverse: 'var(--color-text-inverse, #FFFFFF)',
         },
+        // Text on a warning fill: `bg-warning text-on-warning`
+        'on-warning': 'var(--color-on-warning)',
         // Accents — ember (primary/selected) and signal blue (links/info)
         accent: {
           orange: {
@@ -84,19 +102,33 @@ module.exports = {
           bg: 'var(--color-info-bg)',
           border: 'var(--color-info-border)',
         },
-        // Rules — hairlines carry their own alpha, so no opacity modifier here
+        // Rules — hairlines carry their own alpha, so no opacity modifier here.
+        // Focus is solid, so it takes one (`ring-border-focus/50`).
         border: {
           primary: 'var(--color-border-primary)',
           secondary: 'var(--color-border-secondary)',
           strong: 'var(--color-border-strong)',
           hover: 'var(--color-border-hover)',
-          focus: 'var(--color-border-focus)',
+          focus: rgb('border-focus'),
         },
         // Discord brand colour
         discord: {
           DEFAULT: 'var(--color-discord)',
           hover: 'var(--color-discord-hover)',
         },
+      },
+      // Background utilities resolve to the fills; deep-merged over `colors`,
+      // so bg-success-bg, bg-accent-orange-muted and the rest are unchanged.
+      backgroundColor: {
+        accent: {
+          orange: fill('accent-orange'),
+          blue: fill('accent-blue'),
+          purple: fill('accent-purple'),
+        },
+        success: fill('success'),
+        warning: fill('warning'),
+        error: fill('error'),
+        info: fill('info'),
       },
       fontFamily: {
         display: ['var(--font-display)'],

@@ -19,8 +19,14 @@ html.portal-page body {
 /* -----------------------------------------------
    Landing Page (Card Pattern)
    ----------------------------------------------- */
+/* Safe-area insets: the layout sets viewport-fit=cover (tokens in site.css) */
+body.portal-page {
+    padding: var(--safe-top) var(--safe-right) var(--safe-bottom) var(--safe-left);
+}
+
 .landing-container {
     min-height: 100vh;
+    min-height: 100dvh;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -355,6 +361,12 @@ html.portal-page body {
     margin-bottom: 1rem;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
 .header-left {
     display: flex;
     align-items: center;
@@ -402,25 +414,7 @@ html.portal-page body {
     margin: 0;
 }
 
-.status-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    border-radius: 0.375rem;
-    font-size: 0.875rem;
-    font-weight: 500;
-}
-
-.status-badge.online {
-    background-color: var(--color-success-bg);
-    color: var(--color-success);
-}
-
-.status-badge.offline {
-    background-color: var(--color-error-bg);
-    color: var(--color-error);
-}
+/* .status-badge (with .status-badge-lg, .online, .offline) lives in site.css */
 
 .status-dot {
     width: 8px;
@@ -718,6 +712,7 @@ body.portal-fullscreen .portal-audio-warning {
 
 body.portal-fullscreen .main-container {
     height: 100vh;
+    height: 100dvh;
     max-width: none;
     padding: 0;
 }

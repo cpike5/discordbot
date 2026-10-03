@@ -427,7 +427,7 @@
             const listRect = tablist.getBoundingClientRect();
 
             if (tabRect.left < listRect.left || tabRect.right > listRect.right) {
-                tab.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                tab.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
             }
         },
 

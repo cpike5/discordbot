@@ -604,7 +604,7 @@ const VoiceChannelPanel = (function() {
                         <p class="text-xs text-text-tertiary">${duration}</p>
                     </div>
                     <button type="button"
-                            class="skip-queue-btn p-1 text-text-tertiary hover:text-accent-blue opacity-0 group-hover:opacity-100 transition-all"
+                            class="skip-queue-btn p-1 text-text-tertiary hover:text-accent-blue row-actions"
                             data-position="${position}"
                             title="Skip to next">
                         <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">

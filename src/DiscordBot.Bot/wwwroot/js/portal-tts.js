@@ -1052,7 +1052,7 @@
         // Scroll to form
         const formWrapper = document.querySelector('.tts-form-wrapper');
         if (formWrapper) {
-            formWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            formWrapper.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
         }
 
         showToast('success', 'Message loaded into form');

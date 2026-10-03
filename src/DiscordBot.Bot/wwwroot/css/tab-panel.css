@@ -377,22 +377,22 @@
 
 .tab-badge-success {
     color: var(--color-success);
-    background: rgba(var(--color-success-rgb), 0.18);
+    background: rgba(var(--color-success-fill-rgb), 0.18);
 }
 
 .tab-badge-warning {
     color: var(--color-warning);
-    background: rgba(var(--color-warning-rgb), 0.2);
+    background: rgba(var(--color-warning-fill-rgb), 0.2);
 }
 
 .tab-badge-error {
     color: var(--color-error);
-    background: rgba(var(--color-error-rgb), 0.2);
+    background: rgba(var(--color-error-fill-rgb), 0.2);
 }
 
 .tab-badge-info {
     color: var(--color-accent-blue);
-    background: rgba(var(--color-accent-blue-rgb), 0.2);
+    background: rgba(var(--color-accent-blue-fill-rgb), 0.2);
 }
 
 /* ===== Tab Panels (Content Areas) ===== */

@@ -777,7 +777,7 @@
             // Check if tab is cut off
             if (tabRect.left < listRect.left || tabRect.right > listRect.right) {
                 tab.scrollIntoView({
-                    behavior: 'smooth',
+                    behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
                     inline: 'center',
                     block: 'nearest'
                 });

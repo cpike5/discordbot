@@ -124,6 +124,8 @@ All layouts are located in `Pages/Shared/`.
 | **Guild Layout** | `_GuildLayout.cshtml` | Guild-specific layout with guild header/context | Guild pages under `/guild/{guildId}/*` |
 | **Error Layout** | `_ErrorLayout.cshtml` | Standalone, themed, `<main>` landmark; renders even when the theme lookup fails | `Pages/Error/Index` |
 
+Every layout and standalone page (`_Layout`, `Portal/_PortalLayout`, `_ErrorLayout`, the `Layout = null` Account pages and `PublicLeaderboard`) puts `theme-root` on `<html>` (`TagHelpers/ThemeRootTagHelper`) and `<partial name="_ThemeHead" />` in `<head>`: together they render the saved theme, or follow `prefers-color-scheme` when none is saved, before first paint. `_LayoutLanding` does not yet (Phase 15 of the UX polish plan). See *Theme System* in [Design System](../articles/design-system.md).
+
 `_PwaHead.cshtml` is a head partial (manifest link, install icons, service worker registration) included by `_Layout`, `Portal/_PortalLayout`, `_LayoutLanding`, and `Account/Login`. See [Progressive Web App](../articles/pwa.md).
 
 ### Layout Components
@@ -134,6 +136,8 @@ All layouts are located in `Pages/Shared/`.
 | Sidebar | `_Sidebar.cshtml` | Left sidebar with navigation (admin/authenticated) |
 | Toast Container | `_ToastContainer.cshtml` | Toast container and live regions, plus toasts queued through `TempData.Set*Toast` (as JSON for `toast.js`). Rendered by `_Layout` and `_PortalLayout`; do not include it in pages |
 | Mobile Search | `_MobileSearchOverlay.cshtml` | Mobile-friendly search overlay |
+| Theme Head | `_ThemeHead.cshtml` | `theme-color` meta and the blocking first-paint theme script; needs `theme-root` on `<html>` |
+| Theme Toggle | `_ThemeToggle.cshtml` | Header button switching dark/light (`theme.js`); model = extra button classes. In `_Navbar` and the portal header |
 | Validation Scripts | `_ValidationScriptsPartial.cshtml` | Client-side validation script inclusion |
 | Breadcrumb | `_Breadcrumb.cshtml` | Navigation breadcrumb trail |
 | Sort Dropdown | `_SortDropdown.cshtml` | Sort control for tables/lists |
@@ -181,8 +185,8 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | Component | File | Purpose | ViewModel |
 |-----------|------|---------|-----------|
 | **Status Indicator** | `_StatusIndicator.cshtml` | Online/offline/idle/busy status dot | `StatusIndicatorViewModel` |
-| **Status Badge** | `_StatusBadge.cshtml` | Status displayed as badge | `StatusBadgeViewModel` |
-| **Severity Badge** | `_SeverityBadge.cshtml` | Severity level indicator (error/warning/info) | `SeverityBadgeViewModel` |
+| **Status Badge** | `_StatusBadge.cshtml` | Flagged-event status as a `.status-badge` pill (styles in `site.css`) | `FlaggedEventStatus` |
+| **Severity Badge** | `_SeverityBadge.cshtml` | Severity as a `.severity-badge` pill, with a pulse dot when critical (styles in `site.css`) | `Severity` |
 | **Bot Status Card** | `_BotStatusCard.cshtml` | Bot online status display | `BotStatusCardViewModel` |
 | **Bot Status Banner** | `_BotStatusBanner.cshtml` | Bot status banner for page top | `BotStatusBannerViewModel` |
 | **Connection Status** | `_ConnectionStatus.cshtml` | WebSocket/API connection status | `ConnectionStatusViewModel` |

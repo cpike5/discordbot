@@ -196,7 +196,7 @@
             const containerRect = elements.tabs.getBoundingClientRect();
 
             if (tabRect.left < containerRect.left || tabRect.right > containerRect.right) {
-                activeButton.scrollIntoView({ behavior: 'smooth', inline: 'center', block: 'nearest' });
+                activeButton.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', inline: 'center', block: 'nearest' });
             }
         }
     }

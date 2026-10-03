@@ -44,10 +44,11 @@ Every colour token is published twice: as a CSS colour (`--color-x`) and as an R
 | Token | Value | Contrast on canvas |
 |-------|-------|--------------------|
 | `--color-text-primary` | `#e7e4df` | 15.1:1 (AAA) |
-| `--color-text-secondary` | `#a09c96` | 7.3:1 (AAA) |
-| `--color-text-tertiary` | `#6d6a66` | 3.7:1 (large text / labels) |
-| `--color-text-placeholder` | `#5d5a56` | placeholders only |
-| `--color-text-inverse` | `#ffffff` | text on filled accents |
+| `--color-text-secondary` | `#a09c96` | 6.9:1 |
+| `--color-text-tertiary` | `#8b8883` | 5.4:1; at least 4.5:1 on every surface |
+| `--color-text-placeholder` | `#87837d` | at least 4.5:1 on inputs (`bg-inset`), canvas and panels |
+| `--color-text-inverse` | `#ffffff` | text on fills |
+| `--color-on-warning` | `#1a1205` | text on the warning fill, in every theme (`text-on-warning`) |
 
 #### Accents
 
@@ -57,6 +58,25 @@ Every colour token is published twice: as a CSS colour (`--color-x`) and as an R
 | `--color-accent-blue` (+ `-hover`, `-active`, `-muted`) | `#3d9ad6` | **Signal blue** — links, informational accents, focus rings, secondary CTAs |
 | `--color-accent-purple` | `#9b7bea` | Audit / system accents only |
 
+#### Inks and fills
+
+In a dark theme one colour cannot be both readable text on the dark surfaces and a background that white text reads on: the first needs it light, the second dark. So every accent and semantic colour has two forms:
+
+- **Ink** (`--color-success`, `--color-accent-orange`, …): text, icons, borders, chart lines. At least 4.5:1 on every surface.
+- **Fill** (`--color-success-fill`, `-fill-hover`, `-fill-active`, each with `-rgb`): solid backgrounds behind text. White text (`--color-text-inverse`) reads at 4.5:1 or better on every fill state, and dark text (`--color-on-warning`) on the warning fill.
+
+| Colour | Ink (Graphite) | Fill / hover / active (Graphite) |
+|--------|----------------|----------------------------------|
+| accent-orange | `#e6602b` | `#c9501f` / `#b8461a` / `#a33d15` |
+| accent-blue | `#3d9ad6` | `#257ab1` / `#226fa0` / `#1f6693` |
+| accent-purple | `#9b7bea` | `#8058e4` / `#764be2` / `#6c3de0` |
+| success | `#2fbf7f` | `#208357` / `#1d774f` / `#1a6a47` |
+| warning | `#f0a323` | `#f0a323` / `#d98f16` / `#b87812` (dark text) |
+| error | `#ef4f4f` | `#d13a3a` / `#c93a3a` / `#b93434` |
+| info | `#2fb3cc` | `#217f91` / `#1f7485` / `#1c6978` |
+
+Tailwind follows the split (`tailwind.config.js`): **`bg-*` utilities resolve to the fill, `text-*`, `border-*`, `ring-*` and the rest to the ink.** `bg-success text-white` and `bg-warning text-on-warning` are therefore safe, and `bg-success/10` is a tint of the fill. In hand-written CSS use `var(--color-x-fill)` for a solid background and `rgba(var(--color-x-fill-rgb), a)` for a tint. Hover in the dark theme makes a fill darker, not lighter, because a lighter fill would lose the white text.
+
 #### Rules, washes and depth
 
 | Token | Value | Usage |
@@ -65,7 +85,7 @@ Every colour token is published twice: as a CSS colour (`--color-x`) and as an R
 | `--color-border-secondary` | `rgba(255,255,255,0.05)` | Dividers inside a panel |
 | `--color-border-strong` | `rgba(255,255,255,0.14)` | Inputs, secondary buttons, menus |
 | `--color-border-hover` | `rgba(255,255,255,0.24)` | Hover on the above |
-| `--color-border-focus` | `#3d9ad6` | Focus outline |
+| `--color-border-focus` | `#3d9ad6` | Focus outline; has an `-rgb` triplet, so `ring-border-focus/50` works |
 | `--color-nav-hover` / `--color-nav-active` | white at 4.5% / 7.5% | Sidebar and menu items |
 | `--color-row-hover` | white at 3% | Table rows |
 | `--color-overlay` | `rgba(11,13,15,0.72)` | Modal and loading backdrops |
@@ -76,123 +96,73 @@ Every colour token is published twice: as a CSS colour (`--color-x`) and as an R
 
 | Token | Value | Also provides |
 |-------|-------|---------------|
-| `--color-success` | `#2fbf7f` | `-hover`, `-active`, `-rgb`, `-bg`, `-border` |
+| `--color-success` | `#2fbf7f` | `-hover`, `-active`, `-rgb`, `-fill*`, `-bg`, `-border` |
 | `--color-warning` | `#f0a323` | same |
 | `--color-error` | `#ef4f4f` | same |
 | `--color-info` | `#2fb3cc` | same |
 
-Semantic colour is applied as a **soft tint** (12% fill, 32% hairline, coloured text) for badges and alerts; solid fills are reserved for buttons and the `badge-solid` modifier.
+Semantic colour is applied as a **soft tint** (12% of the fill, a 30% hairline of the ink, ink text) for badges and alerts; solid fills are reserved for buttons and the `badge-solid` modifier. `--color-x-bg` is that tint.
 
 ### Border Colors
 
-See *Rules, washes and depth* above — borders are alpha hairlines so they cannot take a Tailwind opacity modifier; use `border-border-primary`, `border-border-strong`, etc.
+See *Rules, washes and depth* above — borders are alpha hairlines so they cannot take a Tailwind opacity modifier; use `border-border-primary`, `border-border-strong`, etc. `border-border-focus` is the exception.
 
 ### Theme System
 
-The application supports multiple UI themes with CSS custom property overrides. The default theme is **Discord Dark**, with **Purple Dusk** as an alternative light theme.
+There are two themes: **Graphite (dark)**, the `:root` tokens and the default, and **Purple Dusk (light)**, which overrides them on `[data-theme="purple-dusk"]`. The theme names say which is dark and which is light; the database keys are `discord-dark` and `purple-dusk`.
 
 #### Theme Architecture
 
-Themes work through CSS custom property overrides on the `html` element using the `data-theme` attribute:
-
 ```css
-/* Default theme (Discord Dark) - defined in :root */
-:root {
-  --color-bg-primary: #1d2022;
-  /* ... other variables */
+:root {                         /* Graphite (dark) */
+  color-scheme: dark;
+  --color-bg-primary: #0f1114;
 }
-
-/* Theme overrides applied via data-theme attribute */
-[data-theme="purple-dusk"] {
-  --color-bg-primary: #E8E3DF;
-  /* ... theme-specific overrides */
+[data-theme="purple-dusk"] {    /* Purple Dusk (light) */
+  color-scheme: light;
+  --color-bg-primary: #ebe6e2;
 }
 ```
 
-**Theme Resolution Hierarchy:**
-1. **User Preference** - Explicit user selection stored in database
-2. **Cookie** - Client-side preference for anonymous users
-3. **Admin Default** - System-wide default configured by SuperAdmin
-4. **System Default** - Fallback to Discord Dark theme
+`color-scheme` makes native controls, scrollbars and autofill follow the theme.
 
-#### Purple Dusk Theme
+**Which theme a page renders** (`IThemeService.GetCurrentThemeAsync`):
 
-A warm, light theme with beige backgrounds and purple/pink accent colors. Designed for users who prefer light themes while maintaining visual consistency.
+1. A signed-in user's saved preference (database).
+2. A choice saved in the `theme-preference` cookie.
+3. Otherwise nothing is saved, and the page follows the browser's `prefers-color-scheme`. The admin default (`Appearance:DefaultThemeId`, falling back to Graphite) is what the server renders and what applies when the browser states no preference or script is off.
 
-##### Background Colors
+**How it is wired:**
 
-| Variable | Hex Value | HSL | Usage |
-|----------|-----------|-----|-------|
-| `--color-bg-primary` | #E8E3DF | 30°, 16%, 89% | Main background |
-| `--color-bg-secondary` | #DAD4D0 | 24°, 14%, 84% | Cards, panels |
-| `--color-bg-tertiary` | #CCC5C0 | 25°, 12%, 78% | Elevated elements |
-| `--color-bg-hover` | #C0B8B2 | 24°, 13%, 72% | Hover states |
+- Every layout and standalone page puts `theme-root` on `<html>` (`TagHelpers/ThemeRootTagHelper.cs`) and `<partial name="_ThemeHead" />` early in `<head>`. The tag helper writes `data-theme` and `data-theme-saved`; the partial writes `<meta name="theme-color">` and a blocking script that applies the OS preference before first paint when nothing is saved. A database failure leaves the stylesheet default, so the error page still renders.
+- `_ThemeToggle` is the header button (admin top bar and portal header). `wwwroot/js/theme.js` (`ThemeManager`) switches theme without a reload, saves the choice (cookie, localStorage for other tabs, and `PUT /api/theme/preference` for a signed-in user), keeps `theme-color` in step, follows OS changes while nothing is saved, and dispatches `themechange` on `window` with `{ themeKey, saved }`.
+- The Profile page sets the same preference from a list of the theme names.
 
-##### Text Colors
+#### Purple Dusk (light)
 
-| Variable | Hex Value | HSL | Usage |
-|----------|-----------|-----|-------|
-| `--color-text-primary` | #4F214A | 305°, 41%, 22% | Primary text |
-| `--color-text-secondary` | #614978 | 274°, 24%, 38% | Secondary text |
-| `--color-text-tertiary` | #887A99 | 269°, 14%, 54% | Muted text |
-| `--color-text-placeholder` | #9A8DA8 | 266°, 15%, 61% | Placeholder text |
+Warm paper surfaces with a plum ink. Ember maps to plum and blue maps to rose, so every component keeps its meaning across themes. Inks and fills are the same colour except warning, whose fill is a light amber with dark text.
 
-##### Purple Accent (Primary)
-
-Maps to `accent-orange` CSS classes for seamless theme switching.
-
-| Variable | Hex Value | HSL | Usage |
-|----------|-----------|-----|-------|
-| `--color-accent-orange` | #614978 | 274°, 24%, 38% | Primary actions |
-| `--color-accent-orange-hover` | #7A5C8F | 270°, 22%, 46% | Hover state |
-| `--color-accent-orange-active` | #4F214A | 305°, 41%, 22% | Active state |
-| `--color-accent-orange-muted` | rgba(97, 73, 120, 0.2) | — | Subtle backgrounds |
-
-##### Pink Accent (Secondary)
-
-Maps to `accent-blue` CSS classes for seamless theme switching.
-
-| Variable | Hex Value | HSL | Usage |
-|----------|-----------|-----|-------|
-| `--color-accent-blue` | #D5345B | 347°, 67%, 52% | Secondary actions |
-| `--color-accent-blue-hover` | #E5476D | 347°, 74%, 59% | Hover state |
-| `--color-accent-blue-active` | #B82A4D | 347°, 63%, 44% | Active state |
-| `--color-accent-blue-muted` | rgba(213, 52, 91, 0.2) | — | Subtle backgrounds |
-
-##### Semantic Colors (Adjusted for Light Background)
-
-| Color | Hex Value | Purpose |
-|-------|-----------|---------|
-| Success | #059669 | Darker green for contrast |
-| Warning | #D97706 | Darker amber for contrast |
-| Error | #DC2626 | Darker red for contrast |
-| Info | #0891B2 | Darker cyan for contrast |
-
-##### Border Colors
-
-| Variable | Hex Value | Usage |
-|----------|-----------|-------|
-| `--color-border-primary` | #C0B8B2 | Default borders |
-| `--color-border-secondary` | #DAD4D0 | Subtle dividers |
-| `--color-border-focus` | #614978 | Focus rings |
-
-##### Glass Effect Overrides
-
-| Variable | Value | Usage |
-|----------|-------|-------|
-| `--color-glass-bg` | rgba(218, 212, 208, 0.6) | Glass background |
-| `--color-glass-border` | rgba(192, 184, 178, 0.8) | Glass border |
+| Token | Value |
+|-------|-------|
+| `--color-bg-primary` / `-secondary` / `-tertiary` / `-hover` / `-inset` | `#ebe6e2` / `#f6f3f0` / `#e2dcd7` / `#d7cfc9` / `#fbf9f8` |
+| `--color-text-primary` / `-secondary` / `-tertiary` / `-placeholder` | `#3f1a3b` / `#5d4672` / `#665a72` / `#6d5f7c` |
+| `--color-accent-orange` (plum) | `#614978`, fill hover `#563f6b`, active `#4f214a` |
+| `--color-accent-blue` (rose) | `#a8284b`, hover `#9e2547`, active `#8c2140` |
+| `--color-accent-purple` | `#6d28d9` |
+| `--color-success` / `-warning` / `-error` / `-info` | `#03684a` / `#a1360a` / `#b01c1c` / `#0b6178` |
+| `--color-warning-fill` | `#f0a323` with `--color-on-warning` text |
+| `--color-border-focus` | `#614978` |
 
 #### Contrast Requirements
 
-All theme color combinations meet WCAG 2.1 AA standards:
+`tests/DiscordBot.Tests/Bot/Styles/DesignTokenContrastTests.cs` reads the tokens out of `site.css` and checks, in both themes, that each of these reaches 4.5:1 (WCAG 2.1 AA for body text):
 
-| Combination | Contrast Ratio | Rating |
-|-------------|----------------|--------|
-| text-primary on bg-primary | 7.5:1 | AAA |
-| text-secondary on bg-primary | 4.6:1 | AA |
-| accent-orange (purple) on bg-primary | 4.5:1 | AA |
-| accent-blue (pink) on bg-primary | 4.8:1 | AA |
+- `text-primary`, `text-secondary`, `text-tertiary` on `bg-primary`, `bg-secondary`, `bg-tertiary` and `bg-inset`;
+- `text-placeholder` on `bg-inset`, `bg-primary` and `bg-secondary`;
+- every ink on those four surfaces, and on its own 12% tint over `bg-primary` and `bg-secondary` (badges, alerts);
+- `text-inverse` on every fill, hover and active state, and `on-warning` on the warning fill states.
+
+It also checks that the `theme-color` values in `Helpers/ThemeAppearance.cs` match each theme's `bg-primary`. A token change that breaks a pairing fails the build with the pair and its ratio. The Discord brand button (`--color-discord`) is Discord's colour and is not tuned.
 
 #### Using Theme Variables in Components
 
@@ -217,11 +187,11 @@ All theme color combinations meet WCAG 2.1 AA standards:
 
 To add a new theme:
 
-1. **Define color palette** - Create complete color definitions for all variables
+1. **Define color palette** - Create complete color definitions for all variables, including the `-fill` set and `color-scheme`
 2. **Add CSS overrides** - Add `[data-theme="theme-key"]` block in `site.css`
-3. **Create database record** - Add theme entity via migration or seeding
-4. **Test all components** - Verify all UI elements work with new colors
-5. **Verify accessibility** - Check contrast ratios meet WCAG AA standards
+3. **Create database record** - Add theme entity via migration (both providers), with "(dark)" or "(light)" in its name
+4. **Tell the chrome** - `Helpers/ThemeAppearance.cs` knows one dark and one light key; a third theme needs a mode there, and the toggle in `theme.js` switches between two
+5. **Verify accessibility** - Add the theme to `DesignTokenContrastTests` and check every component in it
 
 Example new theme definition:
 

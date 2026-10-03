@@ -75,4 +75,14 @@ public interface IThemeService
     /// <param name="cancellationToken">Cancellation token.</param>
     /// <returns>The theme key to use for rendering.</returns>
     Task<string> GetCurrentThemeKeyAsync(CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Resolves the theme to render for the current request, and whether it is the visitor's own choice.
+    /// Checks: authenticated user preference > cookie > system default. A <see cref="ThemeSource.User"/>
+    /// result is a saved choice; <see cref="ThemeSource.System"/> means none was saved, so the page
+    /// follows the browser's <c>prefers-color-scheme</c> and the system default only applies without script.
+    /// </summary>
+    /// <param name="cancellationToken">Cancellation token.</param>
+    /// <returns>The theme to render and where it came from.</returns>
+    Task<CurrentThemeDto> GetCurrentThemeAsync(CancellationToken cancellationToken = default);
 }

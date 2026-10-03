@@ -8,45 +8,47 @@
     window.Performance = window.Performance || {};
 
     const ChartUtils = {
-        // Default Chart.js theme configuration for dark mode
-        defaultOptions: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    labels: {
-                        boxWidth: 12,
-                        padding: 20
+        // Layout defaults. Colours come from the design tokens through chart-theme.js
+        // (Chart.defaults, and a repaint on theme change), so none are set here.
+        get defaultOptions() {
+            return {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: {
+                            boxWidth: 12,
+                            padding: 20
+                        }
+                    },
+                    tooltip: {
+                        borderWidth: 1,
+                        padding: 12
                     }
                 },
-                tooltip: {
-                    backgroundColor: '#1c2025',
-                    titleColor: '#e7e4df',
-                    bodyColor: '#a09c96',
-                    borderColor: '#2a2f36',
-                    borderWidth: 1,
-                    padding: 12
+                scales: {
+                    y: {
+                        grid: {}
+                    },
+                    x: {
+                        grid: { display: false }
+                    }
                 }
-            },
-            scales: {
-                y: {
-                    grid: { color: '#1c2025' }
-                },
-                x: {
-                    grid: { display: false }
-                }
-            }
+            };
         },
 
-        // Color palette
-        colors: {
-            primary: '#3d9ad6',
-            secondary: '#e6602b',
-            success: '#2fbf7f',
-            warning: '#f0a323',
-            error: '#ef4f4f',
-            info: '#3b82f6',
-            muted: 'rgba(47, 51, 54, 0.8)'
+        // Series and status colours for the active theme
+        get colors() {
+            const c = window.ChartTheme ? window.ChartTheme.colors() : null;
+            return {
+                primary: c ? c.secondary : '#3d9ad6',
+                secondary: c ? c.primary : '#e6602b',
+                success: c ? c.success : '#2fbf7f',
+                warning: c ? c.warning : '#f0a323',
+                error: c ? c.error : '#ef4f4f',
+                info: c ? c.info : '#2fb3cc',
+                muted: c ? c.track : 'rgba(47, 51, 54, 0.8)'
+            };
         },
 
         /**
@@ -75,6 +77,7 @@
          * Create a line chart with standard configuration
          */
         createLineChart: function(ctx, labels, datasets, options) {
+            if (window.ChartTheme) window.ChartTheme.ensureRegistered();
             const mergedOptions = this.mergeOptions(this.defaultOptions, options || {});
             return new Chart(ctx, {
                 type: 'line',
@@ -87,6 +90,7 @@
          * Create a bar chart with standard configuration
          */
         createBarChart: function(ctx, labels, datasets, options) {
+            if (window.ChartTheme) window.ChartTheme.ensureRegistered();
             const mergedOptions = this.mergeOptions(this.defaultOptions, options || {});
             return new Chart(ctx, {
                 type: 'bar',
@@ -101,15 +105,17 @@
         createGaugeChart: function(ctx, value, maxValue, thresholds, colorScheme) {
             const percentage = Math.min((value / maxValue) * 100, 100);
             const remaining = 100 - percentage;
-            const colors = colorScheme || ['#2fbf7f', '#f0a323', '#ef4f4f'];
+            const palette = this.colors;
+            const colors = colorScheme || [palette.success, palette.warning, palette.error];
             const gaugeColor = this.getThresholdColor(value, thresholds, colors);
 
+            if (window.ChartTheme) window.ChartTheme.ensureRegistered();
             return new Chart(ctx, {
                 type: 'doughnut',
                 data: {
                     datasets: [{
                         data: [percentage, remaining],
-                        backgroundColor: [gaugeColor, this.colors.muted],
+                        backgroundColor: [gaugeColor, palette.muted],
                         borderWidth: 0,
                         circumference: 180,
                         rotation: 270

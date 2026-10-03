@@ -19,10 +19,11 @@
 }
 
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" theme-root>
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <partial name="_ThemeHead" />
     <title>@ViewData["Title"]</title>
 
     <!-- Open Graph meta tags for social sharing -->
@@ -154,7 +155,7 @@
                         </div>
                     }
                     <h1 class="text-2xl font-bold text-text-primary mb-2">@Model.GuildName</h1>
-                    <span class="inline-block text-xs font-medium text-accent-primary bg-accent-primary/10 border border-accent-primary/30 px-3 py-1 rounded-full mb-4">
+                    <span class="inline-block text-xs font-medium text-accent-orange bg-accent-orange/10 border border-accent-orange/30 px-3 py-1 rounded-full mb-4">
                         Hall of Shame
                     </span>
                     <p class="text-text-secondary">

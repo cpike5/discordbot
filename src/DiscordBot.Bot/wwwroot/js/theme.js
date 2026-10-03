@@ -1,195 +1,200 @@
 /**
  * Theme Manager Module
- * Handles theme application, persistence, and synchronization.
+ * Applies, saves and follows the UI theme (UX decision D5).
  *
- * Theme persistence strategy:
- * - Cookie (theme-preference): Read by server for SSR
- * - localStorage (theme-preference): Fast client-side access
- *
- * Both are kept in sync for seamless UX across page loads.
+ * - Pages/Shared/_ThemeHead.cshtml picks the first-paint theme: a saved choice, otherwise
+ *   the OS `prefers-color-scheme`. It also defines window.ThemeConfig (dark/light keys and
+ *   the browser UI colours).
+ * - With no saved choice the page keeps following the OS while it is open.
+ * - A [data-theme-toggle] button switches between the dark and light theme and saves the
+ *   choice: in the theme-preference cookie (read by the server on the next request), in
+ *   localStorage (other open tabs follow), and for a signed-in user on the server
+ *   (PUT /api/theme/preference) when the button has data-theme-persist="true".
+ * - Every change dispatches `themechange` on window, with { themeKey, saved } in detail.
+ *   chart-theme.js redraws charts on it.
  */
 const ThemeManager = {
     COOKIE_NAME: 'theme-preference',
     STORAGE_KEY: 'theme-preference',
     COOKIE_MAX_AGE: 31536000, // 1 year in seconds
 
+    /** Dark/light keys and browser colours, from _ThemeHead (with the same defaults). */
+    get config() {
+        return window.ThemeConfig || {
+            dark: 'discord-dark',
+            light: 'purple-dusk',
+            colors: { 'discord-dark': '#0f1114', 'purple-dusk': '#ebe6e2' }
+        };
+    },
+
     /**
-     * Applies a theme immediately and persists the preference.
+     * Applies a theme and saves it as the visitor's choice.
      * @param {string} themeKey - The theme key (e.g., 'discord-dark', 'purple-dusk')
-     * @param {boolean} persistToServer - If true, also sends preference to server API (for authenticated users)
+     * @param {boolean} persistToServer - Also save it for the signed-in user
      */
     applyTheme(themeKey, persistToServer = false) {
-        if (!themeKey) {
-            console.warn('ThemeManager: No theme key provided');
-            return;
-        }
+        if (!themeKey) return;
 
-        // Apply to DOM immediately
-        document.documentElement.setAttribute('data-theme', themeKey);
-
-        // Persist to cookie (for SSR on next page load)
         this.setCookie(themeKey);
-
-        // Persist to localStorage (for JS access)
         try {
             localStorage.setItem(this.STORAGE_KEY, themeKey);
         } catch (e) {
-            console.warn('ThemeManager: localStorage not available', e);
+            // Blocked storage: the cookie still carries the choice
         }
 
-        // Dispatch custom event for other components to react
-        window.dispatchEvent(new CustomEvent('themechange', {
-            detail: { themeKey }
-        }));
+        this.render(themeKey, true);
 
-        // Optionally persist to server for authenticated users
         if (persistToServer) {
             this.persistToServer(themeKey);
         }
     },
 
     /**
-     * Gets the current theme from cookie or localStorage.
-     * @returns {string|null} The current theme key, or null if not set
-     */
-    getCurrentTheme() {
-        // Check cookie first (SSR source of truth)
-        const cookieTheme = this.getCookie();
-        if (cookieTheme) return cookieTheme;
-
-        // Fallback to localStorage
-        try {
-            return localStorage.getItem(this.STORAGE_KEY);
-        } catch (e) {
-            return null;
-        }
-    },
-
-    /**
-     * Gets the current theme from the DOM.
-     * @returns {string|null} The data-theme attribute value, or null if not set
-     */
-    getActiveTheme() {
-        return document.documentElement.getAttribute('data-theme');
-    },
-
-    /**
-     * Clears the theme preference, reverting to system default.
-     * @param {boolean} persistToServer - If true, also clears preference on server
+     * Forgets the saved choice and follows the OS preference again.
+     * @param {boolean} persistToServer - Also clear it for the signed-in user
      */
     clearTheme(persistToServer = false) {
-        document.documentElement.removeAttribute('data-theme');
-
-        // Clear cookie
         document.cookie = `${this.COOKIE_NAME}=; path=/; max-age=0; SameSite=Lax`;
-
-        // Clear localStorage
         try {
             localStorage.removeItem(this.STORAGE_KEY);
         } catch (e) {
-            console.warn('ThemeManager: localStorage not available', e);
+            // Nothing to clear
         }
 
-        // Dispatch custom event
-        window.dispatchEvent(new CustomEvent('themechange', {
-            detail: { themeKey: null }
-        }));
+        this.render(this.getSystemTheme() || this.config.dark, false);
 
         if (persistToServer) {
             this.clearServerPreference();
         }
     },
 
+    /** Switches between the dark and the light theme. */
+    toggle(persistToServer = false) {
+        const next = this.isLight() ? this.config.dark : this.config.light;
+        this.applyTheme(next, persistToServer);
+    },
+
     /**
-     * Sets the theme preference cookie.
-     * @param {string} themeKey - The theme key to persist
+     * Puts a theme on the page without saving anything: data-theme, the browser UI colour,
+     * toggle labels and the themechange event.
      */
+    render(themeKey, saved) {
+        const root = document.documentElement;
+        const changed = root.getAttribute('data-theme') !== themeKey;
+
+        root.setAttribute('data-theme', themeKey);
+        root.setAttribute('data-theme-saved', saved ? 'true' : 'false');
+        this.syncThemeColor(themeKey);
+        this.labelToggles();
+
+        if (changed) {
+            window.dispatchEvent(new CustomEvent('themechange', {
+                detail: { themeKey, saved }
+            }));
+        }
+    },
+
+    /** @returns {string|null} The data-theme attribute value, or null if not set */
+    getActiveTheme() {
+        return document.documentElement.getAttribute('data-theme');
+    },
+
+    /** @returns {boolean} Whether the visitor has chosen a theme (rather than following the OS) */
+    isSaved() {
+        return document.documentElement.getAttribute('data-theme-saved') === 'true';
+    },
+
+    /** @returns {boolean} Whether the light theme is showing */
+    isLight() {
+        return this.getActiveTheme() === this.config.light;
+    },
+
+    /** @returns {string|null} The theme matching the OS colour scheme, or null if it states none */
+    getSystemTheme() {
+        if (!window.matchMedia) return null;
+        if (window.matchMedia('(prefers-color-scheme: light)').matches) return this.config.light;
+        if (window.matchMedia('(prefers-color-scheme: dark)').matches) return this.config.dark;
+        return null;
+    },
+
+    /** Keeps <meta name="theme-color"> on the theme's canvas colour. */
+    syncThemeColor(themeKey) {
+        const meta = document.querySelector('meta[name="theme-color"]');
+        if (!meta) return;
+        const fromTokens = getComputedStyle(document.documentElement)
+            .getPropertyValue('--color-bg-primary').trim();
+        meta.setAttribute('content', fromTokens || this.config.colors[themeKey] || '#0f1114');
+    },
+
+    /** Names each toggle for the theme it switches to; the icon follows data-theme in CSS. */
+    labelToggles() {
+        const label = this.isLight() ? 'Switch to the dark theme' : 'Switch to the light theme';
+        document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+            button.setAttribute('aria-label', label);
+            button.setAttribute('title', label);
+        });
+    },
+
     setCookie(themeKey) {
         document.cookie = `${this.COOKIE_NAME}=${encodeURIComponent(themeKey)}; path=/; max-age=${this.COOKIE_MAX_AGE}; SameSite=Lax`;
     },
 
-    /**
-     * Gets the theme preference from cookie.
-     * @returns {string|null} The theme key from cookie, or null if not set
-     */
     getCookie() {
         const match = document.cookie.match(new RegExp(`(?:^|; )${this.COOKIE_NAME}=([^;]*)`));
         return match ? decodeURIComponent(match[1]) : null;
     },
 
     /**
-     * Persists the theme preference to the server via API.
-     * Called for authenticated users to save preference to database.
-     * @param {string} themeKey - The theme key to persist
+     * Saves the theme for the signed-in user. The cookie already carries the choice, so a
+     * failure here only means other devices won't see it; it is not worth a toast.
      */
     async persistToServer(themeKey) {
         try {
-            const response = await fetch('/api/theme/preference', {
-                method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'RequestVerificationToken': this.getAntiForgeryToken()
-                },
-                body: JSON.stringify({ themeKey })
-            });
-
-            if (!response.ok) {
-                console.warn('ThemeManager: Failed to persist theme to server', response.status);
+            if (window.ApiClient) {
+                await window.ApiClient.put('/api/theme/preference', { themeKey });
             }
         } catch (e) {
-            console.warn('ThemeManager: Error persisting theme to server', e);
+            console.warn('ThemeManager: could not save the theme to your account', e);
         }
     },
 
-    /**
-     * Clears the theme preference on the server.
-     */
     async clearServerPreference() {
         try {
-            const response = await fetch('/api/theme/preference', {
-                method: 'DELETE',
-                headers: {
-                    'RequestVerificationToken': this.getAntiForgeryToken()
-                }
-            });
-
-            if (!response.ok) {
-                console.warn('ThemeManager: Failed to clear server preference', response.status);
+            if (window.ApiClient) {
+                await window.ApiClient.del('/api/theme/preference');
             }
         } catch (e) {
-            console.warn('ThemeManager: Error clearing server preference', e);
+            console.warn('ThemeManager: could not clear the saved theme', e);
         }
     },
 
-    /**
-     * Gets the anti-forgery token from the page.
-     * @returns {string} The token value, or empty string if not found
-     */
-    getAntiForgeryToken() {
-        const tokenInput = document.querySelector('input[name="__RequestVerificationToken"]');
-        return tokenInput ? tokenInput.value : '';
-    },
-
-    /**
-     * Initializes the theme manager.
-     * Called on page load to ensure theme is applied (fallback for SSR).
-     */
     init() {
-        // The theme should already be set by SSR or blocking script.
-        // This is a safety net in case neither worked.
-        const domTheme = this.getActiveTheme();
-        const storedTheme = this.getCurrentTheme();
+        this.syncThemeColor(this.getActiveTheme());
+        this.labelToggles();
 
-        if (!domTheme && storedTheme) {
-            // DOM doesn't have theme but we have a stored preference
-            document.documentElement.setAttribute('data-theme', storedTheme);
+        document.querySelectorAll('[data-theme-toggle]').forEach(button => {
+            button.addEventListener('click', () => {
+                this.toggle(button.getAttribute('data-theme-persist') === 'true');
+            });
+        });
+
+        // With no saved choice, follow the OS when it switches (e.g. at sunset)
+        if (window.matchMedia) {
+            const light = window.matchMedia('(prefers-color-scheme: light)');
+            const follow = () => {
+                if (this.isSaved()) return;
+                const system = this.getSystemTheme();
+                if (system) this.render(system, false);
+            };
+            if (light.addEventListener) light.addEventListener('change', follow);
+            else if (light.addListener) light.addListener(follow);
         }
 
-        // Listen for storage events from other tabs
+        // Another tab saved or cleared a choice
         window.addEventListener('storage', (e) => {
-            if (e.key === this.STORAGE_KEY && e.newValue) {
-                document.documentElement.setAttribute('data-theme', e.newValue);
-            }
+            if (e.key !== this.STORAGE_KEY) return;
+            if (e.newValue) this.render(e.newValue, true);
+            else this.render(this.getSystemTheme() || this.config.dark, false);
         });
     }
 };
@@ -201,7 +206,4 @@ if (document.readyState === 'loading') {
     ThemeManager.init();
 }
 
-// Export for ES modules (if needed)
-if (typeof module !== 'undefined' && module.exports) {
-    module.exports = ThemeManager;
-}
+window.ThemeManager = ThemeManager;

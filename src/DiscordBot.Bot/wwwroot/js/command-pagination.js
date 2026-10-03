@@ -102,9 +102,9 @@
                 // Find results container and scroll to it
                 const resultsContainer = document.querySelector('.command-results, [data-results-container]');
                 if (resultsContainer) {
-                    resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    resultsContainer.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
                 } else {
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                    window.scrollTo({ top: 0, behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
                 }
             });
         } else if (state.scrollBehavior === 'maintain' && scrollPosition !== null) {

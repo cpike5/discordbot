@@ -1096,6 +1096,65 @@ Use `data-submit-guard="download"` for a form that does not navigate (a file exp
 
 ---
 
+## Theme Toggle and ThemeManager
+
+`<partial name="_ThemeToggle" model="@("topbar-icon-btn")" />` renders the header button that switches between Graphite (dark) and Purple Dusk (light). The model is extra classes for the button. It is already in `_Navbar` and the portal header; a new layout needs `theme-root` on `<html>`, `<partial name="_ThemeHead" />` in `<head>` and `theme.js`.
+
+`window.ThemeManager` (`wwwroot/js/theme.js`):
+
+| Member | Does |
+|--------|------|
+| `applyTheme(key, persistToServer)` | Shows the theme and saves it (cookie, localStorage, and `PUT /api/theme/preference` when `persistToServer`) |
+| `clearTheme(persistToServer)` | Forgets the saved choice and follows the OS again |
+| `toggle(persistToServer)` | Dark ↔ light |
+| `isSaved()`, `isLight()`, `getActiveTheme()`, `getSystemTheme()` | State |
+
+Every change dispatches `themechange` on `window` with `detail: { themeKey, saved }`. Listen for it rather than polling `data-theme`. The toggle is named for the theme it switches to ("Switch to the light theme").
+
+---
+
+## Chart Theme
+
+`wwwroot/js/chart-theme.js` (loaded by `_Layout`) points Chart.js at the design tokens: `Chart.defaults` text, grid, font and tooltip colours, and a plugin that repaints each chart's own axis, grid, legend, title and tooltip colours as it is created and again on `themechange`. Under `prefers-reduced-motion` chart animation is off. Charts therefore need no colours for their chrome; give them only series colours.
+
+```javascript
+const c = ChartTheme.colors();          // read fresh from the tokens
+new Chart(canvas, {
+    type: 'line',
+    data: { labels, datasets: [{ data, borderColor: c.secondary, backgroundColor: c.alpha('accent-blue', 0.15) }] }
+});
+
+// Recolour token-based datasets when the theme changes
+ChartTheme.onChange((chart, colors) => {
+    chart.data.datasets[0].borderColor = colors.secondary;
+});
+```
+
+`colors()` returns `text`, `textMuted`, `textSubtle`, `grid`, `border`, `surface`, `canvas`, `track`, the inks `primary` (ember), `secondary` (blue), `purple`, `success`, `warning`, `error`, `info`, a `series` array, `fills` for solid bars, and `alpha(token, a)`. A script that creates charts after loading Chart.js itself should call `ChartTheme.ensureRegistered()` first (`Performance.ChartUtils` does).
+
+---
+
+## Row Actions
+
+Put `row-actions` on the group of buttons in a table row, list item or card. They fade in on hover, but are never hover-only: they show whenever anything in the row has keyboard focus, and always on devices that cannot hover (touch). The row is a `tr`, `li`, `.table-row`, `.group` or `[data-row]`.
+
+```cshtml
+<tr class="table-row">
+    …
+    <td><div class="flex items-center justify-end gap-1 row-actions">…</div></td>
+</tr>
+```
+
+Do not hand-roll `opacity-0 group-hover:opacity-100` for actions.
+
+---
+
+## Status and Severity Badges
+
+`.status-badge` and `.severity-badge` (in `site.css`) are rounded tint pills. Status variants: `status-pending`, `status-acknowledged`, `status-actioned`, `status-dismissed` (flagged events), `online` / `offline` (portal header, with `status-badge-lg`), and `status-badge-connected|reconnecting|success|warning|error|secondary` (performance incidents). Severity variants: `severity-low|medium|high|critical` (moderation) and `severity-info|warning|critical` (alerts). `_StatusBadge` and `_SeverityBadge` render the flagged-event ones. `.btn-error` is an alias of `.btn-danger`.
+
+---
+
 ## ConfirmationModal Component
 
 Modal dialog for confirming user intent before executing an action. Renders as a `<form>` element with anti-forgery token support, making it suitable for actions that require a server-side POST.

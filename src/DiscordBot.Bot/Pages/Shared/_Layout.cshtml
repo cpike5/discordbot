@@ -1,23 +1,12 @@
-@inject DiscordBot.Core.Interfaces.IThemeService ThemeService
 <!DOCTYPE html>
-<html lang="en" data-theme="@(await ThemeService.GetCurrentThemeKeyAsync())">
+<html lang="en" theme-root>
 <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="theme-color" content="#0f1114" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <partial name="_ThemeHead" />
     <link rel="icon" type="image/svg+xml" href="~/images/logo.svg" />
     <partial name="_PwaHead" />
     <title>@ViewData["Title"] - Discord Bot Admin</title>
-    <!-- Blocking theme application script - runs before first paint to prevent flash -->
-    <script>
-        (function() {
-            try {
-                var match = document.cookie.match(/theme-preference=([^;]+)/);
-                var theme = match ? decodeURIComponent(match[1]) : localStorage.getItem('theme-preference');
-                if (theme) document.documentElement.setAttribute('data-theme', theme);
-            } catch (e) {}
-        })();
-    </script>
     <!-- Typefaces: Bricolage Grotesque (display), DM Sans (body), JetBrains Mono (data) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -100,6 +89,8 @@
     <script src="~/js/preview-popup.js" asp-append-version="true"></script>
     <!-- Theme Manager Module -->
     <script src="~/js/theme.js" asp-append-version="true"></script>
+    <!-- Chart.js colours from the design tokens, redrawn on theme change -->
+    <script src="~/js/chart-theme.js" asp-append-version="true"></script>
     <!-- Global SignalR connection for notifications (idempotent - safe to call on all pages) -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {

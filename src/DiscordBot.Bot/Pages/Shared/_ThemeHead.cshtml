@@ -1,0 +1,47 @@
+@using DiscordBot.Bot.Helpers
+@using System.Text.Json
+@*
+    Theme head tags for every layout and standalone page. Goes early in <head>, on a page whose
+    <html> carries the theme-root tag helper (which resolves the theme). See wwwroot/js/theme.js.
+
+    - theme-color: the browser UI colour for the resolved theme; theme.js keeps it in step.
+    - The blocking script runs before first paint. A saved choice (data-theme-saved="true") stands.
+      Otherwise a theme cookie the server could not read is honoured, and failing that the page
+      follows prefers-color-scheme (UX decision D5).
+*@
+@{
+    var current = ThemeAppearance.Current(Context);
+    var config = JsonSerializer.Serialize(new
+    {
+        dark = ThemeAppearance.DarkThemeKey,
+        light = ThemeAppearance.LightThemeKey,
+        colors = new Dictionary<string, string>
+        {
+            [ThemeAppearance.DarkThemeKey] = ThemeAppearance.BrowserColor(ThemeAppearance.DarkThemeKey),
+            [ThemeAppearance.LightThemeKey] = ThemeAppearance.BrowserColor(ThemeAppearance.LightThemeKey)
+        }
+    });
+}
+<meta name="theme-color" content="@ThemeAppearance.BrowserColor(current?.Theme.ThemeKey)" />
+<script>
+    window.ThemeConfig = @Html.Raw(config);
+    (function (config) {
+        var root = document.documentElement;
+        try {
+            if (root.getAttribute('data-theme-saved') === 'true') return;
+            var match = document.cookie.match(/(?:^|; )theme-preference=([^;]+)/);
+            var saved = match ? decodeURIComponent(match[1]) : null;
+            var key = saved === config.dark || saved === config.light ? saved : null;
+            if (key) {
+                root.setAttribute('data-theme-saved', 'true');
+            } else if (window.matchMedia) {
+                if (window.matchMedia('(prefers-color-scheme: light)').matches) key = config.light;
+                else if (window.matchMedia('(prefers-color-scheme: dark)').matches) key = config.dark;
+            }
+            if (!key) return;
+            root.setAttribute('data-theme', key);
+            var meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) meta.setAttribute('content', config.colors[key]);
+        } catch (e) { /* the server-rendered theme stands */ }
+    })(window.ThemeConfig);
+</script>

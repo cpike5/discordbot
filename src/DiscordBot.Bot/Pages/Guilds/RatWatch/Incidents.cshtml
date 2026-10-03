@@ -75,7 +75,7 @@
                             var isChecked = Model.ViewModel.Filters.Statuses.Count == 0 || Model.ViewModel.Filters.Statuses.Contains(status);
                             var badgeClass = status switch
                             {
-                                RatWatchStatus.Pending => "bg-warning text-white",
+                                RatWatchStatus.Pending => "bg-warning text-on-warning",
                                 RatWatchStatus.ClearedEarly => "bg-success text-white",
                                 RatWatchStatus.Voting => "bg-accent-blue text-white",
                                 RatWatchStatus.Guilty => "bg-error text-white",

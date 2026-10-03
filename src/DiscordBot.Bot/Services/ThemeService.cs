@@ -126,7 +126,7 @@ public class ThemeService : IThemeService
         var activeThemes = await _themeRepository.GetAllActiveAsync(cancellationToken);
         if (activeThemes.Any())
         {
-            _logger.LogWarning("Discord Dark theme not found, using first active theme");
+            _logger.LogWarning("Default dark theme (discord-dark) not found, using first active theme");
             return MapToDto(activeThemes.First());
         }
 
@@ -248,18 +248,28 @@ public class ThemeService : IThemeService
     /// <inheritdoc />
     public async Task<string> GetCurrentThemeKeyAsync(CancellationToken cancellationToken = default)
     {
-        _logger.LogDebug("Getting current theme key for SSR");
+        var current = await GetCurrentThemeAsync(cancellationToken);
+        return current.Theme.ThemeKey;
+    }
 
-        // 1. If user is authenticated, get from database
+    /// <inheritdoc />
+    public async Task<CurrentThemeDto> GetCurrentThemeAsync(CancellationToken cancellationToken = default)
+    {
+        _logger.LogDebug("Resolving current theme for SSR");
+
+        // 1. An authenticated user's saved preference
         var userId = _httpContextAccessor.HttpContext?.User?.FindFirstValue(ClaimTypes.NameIdentifier);
         if (!string.IsNullOrEmpty(userId))
         {
             var userTheme = await GetUserThemeAsync(userId, cancellationToken);
-            _logger.LogDebug("Authenticated user {UserId} theme: {ThemeKey}", userId, userTheme.Theme.ThemeKey);
-            return userTheme.Theme.ThemeKey;
+            if (userTheme.Source == ThemeSource.User)
+            {
+                _logger.LogDebug("Authenticated user {UserId} theme: {ThemeKey}", userId, userTheme.Theme.ThemeKey);
+                return userTheme;
+            }
         }
 
-        // 2. Check cookie for anonymous users or as fallback
+        // 2. A choice saved in the cookie (anonymous visitors, or a user with no stored preference)
         var cookieTheme = _httpContextAccessor.HttpContext?.Request.Cookies[IThemeService.ThemePreferenceCookieName];
         if (!string.IsNullOrEmpty(cookieTheme))
         {
@@ -268,16 +278,16 @@ public class ThemeService : IThemeService
             if (theme != null && theme.IsActive)
             {
                 _logger.LogDebug("Using cookie theme preference: {ThemeKey}", cookieTheme);
-                return theme.ThemeKey;
+                return new CurrentThemeDto { Theme = theme, Source = ThemeSource.User };
             }
 
             _logger.LogDebug("Cookie theme '{CookieTheme}' is invalid or inactive, falling back to default", cookieTheme);
         }
 
-        // 3. Return system default
+        // 3. Nothing saved: the system default
         var defaultTheme = await GetDefaultThemeAsync(cancellationToken);
         _logger.LogDebug("Using system default theme: {ThemeKey}", defaultTheme.ThemeKey);
-        return defaultTheme.ThemeKey;
+        return new CurrentThemeDto { Theme = defaultTheme, Source = ThemeSource.System };
     }
 
     private static ThemeDto MapToDto(Theme theme)

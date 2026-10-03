@@ -16,7 +16,7 @@ namespace DiscordBot.Bot.Services.Settings;
 /// </summary>
 public class AppearanceSettingsService : IAppearanceSettingsService
 {
-    /// <summary>Theme ID of the built-in system default ("Discord Dark").</summary>
+    /// <summary>Theme ID of the built-in system default ("Graphite (dark)").</summary>
     private const int SystemDefaultThemeId = 1;
 
     private readonly IThemeService _themeService;
@@ -117,7 +117,7 @@ public class AppearanceSettingsService : IAppearanceSettingsService
                     {
                         Key = "DefaultTheme",
                         DisplayName = "Default Theme",
-                        OldValue = previousDefault?.DisplayName ?? "Discord Dark",
+                        OldValue = previousDefault?.DisplayName ?? "Graphite (dark)",
                         NewValue = selectedTheme.DisplayName
                     }
                 })
@@ -187,7 +187,7 @@ public class AppearanceSettingsService : IAppearanceSettingsService
                     {
                         Key = "DefaultTheme",
                         DisplayName = "Default Theme",
-                        OldValue = previousDefault?.DisplayName ?? "Discord Dark",
+                        OldValue = previousDefault?.DisplayName ?? "Graphite (dark)",
                         NewValue = systemDefault.DisplayName
                     }
                 })

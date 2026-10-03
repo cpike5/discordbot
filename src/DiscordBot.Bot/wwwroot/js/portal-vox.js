@@ -786,7 +786,7 @@
             // Scroll the active letter button into view within the strip
             const activeBtn = voxEls.mobileLetterStrip.querySelector('.vox-mobile-letter-btn.active');
             if (activeBtn) {
-                activeBtn.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                activeBtn.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest', inline: 'center' });
             }
         }
 

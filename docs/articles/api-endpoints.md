@@ -141,6 +141,8 @@ The REST API provides programmatic access to bot status, guild management, and c
 | `/api/theme/available` | GET | List all active themes |
 | `/api/theme/current` | GET | Get user's current effective theme |
 | `/api/theme/user` | POST | Set user's theme preference |
+| `/api/theme/preference` | PUT | Save user's theme by key (header toggle) |
+| `/api/theme/preference` | DELETE | Clear user's saved theme (follow the OS again) |
 | `/api/theme/default` | POST | Set system default theme (SuperAdmin) |
 
 ---
@@ -4336,16 +4338,16 @@ Returns all active themes available for selection.
   {
     "id": 1,
     "themeKey": "discord-dark",
-    "displayName": "Discord Dark",
-    "description": "Default dark theme inspired by Discord's interface",
+    "displayName": "Graphite (dark)",
+    "description": "Dark graphite surfaces with an ember accent. The default theme.",
     "colorDefinition": "{\"bgPrimary\":\"#1d2022\",\"bgSecondary\":\"#262a2d\",...}",
     "isActive": true
   },
   {
     "id": 2,
     "themeKey": "purple-dusk",
-    "displayName": "Purple Dusk",
-    "description": "Light theme with warm beige backgrounds and purple/pink accents",
+    "displayName": "Purple Dusk (light)",
+    "description": "Light theme with warm paper surfaces and plum accents.",
     "colorDefinition": "{\"bgPrimary\":\"#E8E3DF\",\"bgSecondary\":\"#DAD4D0\",...}",
     "isActive": true
   }
@@ -4378,7 +4380,7 @@ Returns the current user's effective theme with its source.
   "theme": {
     "id": 1,
     "themeKey": "discord-dark",
-    "displayName": "Discord Dark",
+    "displayName": "Graphite (dark)",
     "description": "Default dark theme inspired by Discord's interface",
     "colorDefinition": "{...}",
     "isActive": true
@@ -4458,6 +4460,48 @@ When `themeId` is null, clears the user's preference and returns the default the
 **Response: 401 Unauthorized**
 
 Returned when the request is not authenticated.
+
+---
+
+### PUT /api/theme/preference
+
+Saves the current user's theme by key. The header theme toggle (`wwwroot/js/theme.js`) calls it, because it knows theme keys rather than ids. Also sets the `theme-preference` cookie the server renders from.
+
+**Authorization:** Authenticated users
+
+**Request Body:**
+
+```json
+{
+  "themeKey": "purple-dusk"
+}
+```
+
+**Response: 200 OK**
+
+```json
+{
+  "themeKey": "purple-dusk"
+}
+```
+
+**Response: 400 Bad Request** — unknown or inactive theme key, or the save failed (`ApiErrorDto`).
+
+**Response: 401 Unauthorized** — not signed in.
+
+---
+
+### DELETE /api/theme/preference
+
+Clears the current user's saved theme and deletes the `theme-preference` cookie. With nothing saved, pages follow the browser's `prefers-color-scheme`.
+
+**Authorization:** Authenticated users
+
+**Response: 204 No Content**
+
+**Response: 400 Bad Request** — the update failed (`ApiErrorDto`).
+
+**Response: 401 Unauthorized** — not signed in.
 
 ---
 
