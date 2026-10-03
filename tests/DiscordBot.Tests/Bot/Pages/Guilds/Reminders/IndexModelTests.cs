@@ -1,4 +1,3 @@
-using Discord.WebSocket;
 using DiscordBot.Bot.Pages.Guilds.Reminders;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Entities;
@@ -23,7 +22,7 @@ public class IndexModelTests
 {
     private readonly Mock<IReminderRepository> _mockReminderRepository;
     private readonly Mock<IGuildService> _mockGuildService;
-    private readonly Mock<DiscordSocketClient> _mockDiscordClient;
+    private readonly Mock<IDiscordUserResolver> _mockUserResolver;
     private readonly Mock<ILogger<IndexModel>> _mockLogger;
     private readonly IndexModel _indexModel;
 
@@ -31,7 +30,10 @@ public class IndexModelTests
     {
         _mockReminderRepository = new Mock<IReminderRepository>();
         _mockGuildService = new Mock<IGuildService>();
-        _mockDiscordClient = new Mock<DiscordSocketClient>(new DiscordSocketConfig());
+        _mockUserResolver = new Mock<IDiscordUserResolver>();
+        _mockUserResolver
+            .Setup(r => r.ResolveUsersAsync(It.IsAny<IEnumerable<ulong>>()))
+            .ReturnsAsync(new Dictionary<ulong, (string Username, string? AvatarUrl)>());
         _mockLogger = new Mock<ILogger<IndexModel>>();
 
         // Default happy-path setup — empty reminder list
@@ -53,7 +55,7 @@ public class IndexModelTests
         _indexModel = new IndexModel(
             _mockReminderRepository.Object,
             _mockGuildService.Object,
-            _mockDiscordClient.Object,
+            _mockUserResolver.Object,
             _mockLogger.Object);
 
         // Wire up a minimal PageContext so RazorPage helper methods work

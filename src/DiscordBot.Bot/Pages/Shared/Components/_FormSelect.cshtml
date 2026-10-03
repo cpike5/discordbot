@@ -44,6 +44,14 @@
             {
                 @:required
             }
+            @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Error)
+            {
+                @:aria-invalid="true"
+            }
+            @if (!string.IsNullOrEmpty(Model.HelpText) || !string.IsNullOrEmpty(Model.ValidationMessage))
+            {
+                @:aria-describedby="@(Model.Id)-message"
+            }
             @if (Model.IsDisabled)
             {
                 @:disabled
@@ -147,12 +155,12 @@
 
     @if (!string.IsNullOrEmpty(Model.HelpText) && Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.None)
     {
-        <p class="text-xs text-text-secondary">@Model.HelpText</p>
+        <p id="@(Model.Id)-message" class="text-xs text-text-secondary">@Model.HelpText</p>
     }
 
     @if (Model.ValidationState == DiscordBot.Bot.ViewModels.Components.ValidationState.Error && !string.IsNullOrEmpty(Model.ValidationMessage))
     {
-        <p class="flex items-center gap-1.5 text-xs text-error">
+        <p id="@(Model.Id)-message" class="flex items-center gap-1.5 text-xs text-error">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>

@@ -4863,3 +4863,126 @@
   background-color: var(--color-warning-fill);
   flex-shrink: 0;
 }
+
+/* Phase 8 — guild configuration and scheduling */
+
+/* A settings section whose master switch is off. The section is also inert (section-gate.js);
+   this is only the visual. */
+.section-gated {
+  opacity: 0.55;
+}
+
+/* Discord message replica used by the Welcome and Scheduled Messages previews. The hex values
+   copy Discord's own dark theme on purpose: the preview shows what the message looks like in
+   Discord, not in this portal, so it does not follow the portal's theme tokens. */
+.discord-preview {
+  background-color: #313338;
+  border-radius: 0.5rem;
+  padding: 1rem;
+  color: #dbdee1;
+  font-family: 'gg sans', 'Noto Sans', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+}
+.discord-preview-name {
+  color: #f2f3f5;
+  font-weight: 500;
+}
+.discord-preview-muted {
+  color: #b5bac1;
+}
+.discord-bot-badge {
+  background-color: #5865f2;
+  color: #fff;
+  font-size: 0.625rem;
+  line-height: 1;
+  padding: 0.1875rem 0.3125rem;
+  border-radius: 0.1875rem;
+  text-transform: uppercase;
+  font-weight: 600;
+  vertical-align: middle;
+}
+.discord-mention {
+  background-color: rgba(88, 101, 242, 0.3);
+  color: #c9cdfb;
+  padding: 0 2px;
+  border-radius: 3px;
+  font-weight: 500;
+}
+.discord-md-code {
+  background-color: #2b2d31;
+  border-radius: 3px;
+  padding: 0.1em 0.3em;
+  font-family: Consolas, 'Andale Mono WT', 'Andale Mono', 'Lucida Console', monospace;
+  font-size: 0.875em;
+}
+.discord-md-codeblock {
+  background-color: #2b2d31;
+  border: 1px solid #1e1f22;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  margin: 0.25rem 0;
+  overflow-x: auto;
+  font-family: Consolas, 'Andale Mono WT', 'Andale Mono', 'Lucida Console', monospace;
+  font-size: 0.8125rem;
+  white-space: pre;
+}
+.discord-md-quote {
+  border-left: 4px solid #4e5058;
+  padding-left: 0.75rem;
+  margin: 0.125rem 0;
+}
+.discord-md-h1 { font-size: 1.5rem; font-weight: 700; line-height: 1.2; margin: 0.25rem 0; }
+.discord-md-h2 { font-size: 1.25rem; font-weight: 700; line-height: 1.2; margin: 0.25rem 0; }
+.discord-md-h3 { font-size: 1.0625rem; font-weight: 700; line-height: 1.2; margin: 0.25rem 0; }
+.discord-md-link {
+  color: #00a8fc;
+  text-decoration: underline;
+  overflow-wrap: anywhere;
+}
+.discord-md-spoiler {
+  background-color: #1e1f22;
+  color: transparent;
+  border-radius: 3px;
+  cursor: pointer;
+}
+.discord-md-spoiler:hover,
+.discord-md-spoiler:focus {
+  background-color: #2b2d31;
+  color: inherit;
+}
+.discord-embed {
+  background-color: #2b2d31;
+  border-left: 4px solid #5865f2;
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem 0.75rem;
+  margin-top: 0.25rem;
+  max-width: 32rem;
+}
+.discord-embed-thumb {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #1e1f22;
+  color: #b5bac1;
+  font-size: 0.625rem;
+  line-height: 1.1;
+  text-align: center;
+  padding: 0.25rem;
+}
+
+/* Icon-only row actions (edit, pause, delete, cancel): a real button-sized target. On touch
+   devices it grows to 44px. Colour comes from the tone modifier. */
+.row-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  color: var(--color-text-secondary);
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+.row-action-btn:hover { background-color: var(--color-bg-hover); color: var(--color-text-primary); }
+.row-action-btn-danger:hover { background-color: var(--color-error-bg); color: var(--color-error); }
+.row-action-btn-accent:hover { background-color: var(--color-bg-hover); color: var(--color-accent-blue); }
+@media (pointer: coarse) {
+  .row-action-btn { min-width: 44px; min-height: 44px; }
+}

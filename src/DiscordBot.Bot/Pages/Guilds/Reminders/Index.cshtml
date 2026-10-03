@@ -1,140 +1,102 @@
 @page "{guildId:long}"
 @model DiscordBot.Bot.Pages.Guilds.Reminders.IndexModel
+@using DiscordBot.Bot.Helpers
 @using DiscordBot.Bot.ViewModels.Components
 @using DiscordBot.Core.Enums
 @{
     ViewData["Title"] = $"Reminders - {Model.ViewModel.GuildName}";
     Layout = "_GuildLayout";
+
+    var guildId = Model.ViewModel.GuildId;
+    var stats = Model.ViewModel.Stats;
+
+    static BadgeVariant StatusVariant(ReminderStatus status) => status switch
+    {
+        ReminderStatus.Pending => BadgeVariant.Blue,
+        ReminderStatus.Delivered => BadgeVariant.Success,
+        ReminderStatus.Failed => BadgeVariant.Error,
+        _ => BadgeVariant.Default
+    };
+
+    const string cancelIcon = "M6 18L18 6M6 6l12 12";
 }
 
-    <!-- Statistics Cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-6">
-        <!-- Total Reminders -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-text-secondary">Total Reminders</p>
-                    <p class="mt-2 text-3xl font-bold text-text-primary">@Model.ViewModel.Stats.TotalCount.ToString("N0")</p>
-                    <p class="mt-1 text-xs text-text-tertiary">All-time</p>
-                </div>
-                <div class="p-3 bg-accent-blue/10 rounded-lg">
-                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" />
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <!-- Pending Reminders -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-text-secondary">Pending</p>
-                    <p class="mt-2 text-3xl font-bold text-accent-blue">@Model.ViewModel.Stats.PendingCount.ToString("N0")</p>
-                    <p class="mt-1 text-xs text-text-tertiary">Awaiting delivery</p>
-                </div>
-                <div class="p-3 bg-accent-blue/10 rounded-lg">
-                    <svg class="w-6 h-6 text-accent-blue" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <!-- Delivered Today -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-text-secondary">Delivered Today</p>
-                    <p class="mt-2 text-3xl font-bold text-success">@Model.ViewModel.Stats.DeliveredTodayCount.ToString("N0")</p>
-                    <p class="mt-1 text-xs text-text-tertiary">Successfully sent</p>
-                </div>
-                <div class="p-3 bg-success/10 rounded-lg">
-                    <svg class="w-6 h-6 text-success" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
-            </div>
-        </div>
-
-        <!-- Failed -->
-        <div class="bg-bg-secondary border border-border-primary rounded-lg p-5">
-            <div class="flex items-center justify-between">
-                <div>
-                    <p class="text-sm font-medium text-text-secondary">Failed</p>
-                    @{
-                        var failedColor = Model.ViewModel.Stats.FailedCount > 0 ? "text-error" : "text-text-primary";
-                    }
-                    <p class="mt-2 text-3xl font-bold @failedColor">@Model.ViewModel.Stats.FailedCount.ToString("N0")</p>
-                    <p class="mt-1 text-xs text-text-tertiary">Needs attention</p>
-                </div>
-                <div class="p-3 @(Model.ViewModel.Stats.FailedCount > 0 ? "bg-error/10" : "bg-bg-tertiary") rounded-lg">
-                    <svg class="w-6 h-6 @(Model.ViewModel.Stats.FailedCount > 0 ? "text-error" : "text-text-tertiary")" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-            </div>
-        </div>
+@if (!string.IsNullOrEmpty(Model.ErrorMessage))
+{
+    <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
+        <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+            Type = EmptyStateType.Error,
+            Title = "Reminders unavailable",
+            Description = Model.ErrorMessage,
+            PrimaryActionText = "Try again",
+            PrimaryActionUrl = Url.Page("Index", new { guildId, status = (int?)Model.Status })
+        }' />
     </div>
+}
+else
+{
+    <!-- Statistics -->
+    <dl class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4 lg:gap-6 mb-6">
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-5">
+            <dt class="text-sm font-medium text-text-secondary">Total</dt>
+            <dd class="mt-2 text-2xl sm:text-3xl font-bold text-text-primary">@DisplayFormat.Number(stats.TotalCount)</dd>
+            <dd class="mt-1 text-xs text-text-secondary">All time</dd>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-5">
+            <dt class="text-sm font-medium text-text-secondary">Pending</dt>
+            <dd class="mt-2 text-2xl sm:text-3xl font-bold text-accent-blue">@DisplayFormat.Number(stats.PendingCount)</dd>
+            <dd class="mt-1 text-xs text-text-secondary">Waiting to be sent</dd>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-5">
+            <dt class="text-sm font-medium text-text-secondary">Delivered today</dt>
+            <dd class="mt-2 text-2xl sm:text-3xl font-bold text-success">@DisplayFormat.Number(stats.DeliveredTodayCount)</dd>
+            <dd class="mt-1 text-xs text-text-secondary">Sent successfully</dd>
+        </div>
+        <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 sm:p-5">
+            <dt class="text-sm font-medium text-text-secondary">Failed</dt>
+            <dd class="mt-2 text-2xl sm:text-3xl font-bold @(stats.FailedCount > 0 ? "text-error" : "text-text-primary")">@DisplayFormat.Number(stats.FailedCount)</dd>
+            <dd class="mt-1 text-xs text-text-secondary">@(stats.FailedCount > 0 ? "Could not be delivered" : "Nothing failed")</dd>
+        </div>
+    </dl>
 
     <!-- Filters -->
     <div class="bg-bg-secondary border border-border-primary rounded-lg p-4 mb-6">
-        <form method="get" class="flex flex-col sm:flex-row gap-4">
-            <input type="hidden" name="guildId" value="@Model.ViewModel.GuildId" />
-
-            <!-- Status Filter -->
-            <div class="flex-1">
-                <label for="status" class="block text-sm font-medium text-text-secondary mb-1">Status</label>
-                <select id="status" name="status"
-                        class="w-full px-3 py-2 bg-bg-primary border border-border-primary rounded-md text-text-primary focus:outline-none focus:ring-2 focus:ring-accent-blue"
-                        onchange="this.form.submit()">
-                    <option value="">All Statuses</option>
+        <form method="get" class="flex flex-col sm:flex-row sm:items-end gap-4">
+            <div class="flex-1 sm:max-w-xs">
+                <label for="status" class="form-label block mb-1.5">Status</label>
+                <select id="status" name="status" class="form-select">
+                    <option value="">All statuses</option>
                     <option value="@((int)ReminderStatus.Pending)" selected="@(Model.Status == ReminderStatus.Pending)">Pending</option>
                     <option value="@((int)ReminderStatus.Delivered)" selected="@(Model.Status == ReminderStatus.Delivered)">Delivered</option>
                     <option value="@((int)ReminderStatus.Failed)" selected="@(Model.Status == ReminderStatus.Failed)">Failed</option>
                     <option value="@((int)ReminderStatus.Cancelled)" selected="@(Model.Status == ReminderStatus.Cancelled)">Cancelled</option>
                 </select>
             </div>
-
-            <!-- Clear Filters -->
-            @if (Model.Status.HasValue)
-            {
-                <div class="flex items-end">
-                    <a asp-page="Index" asp-route-guildId="@Model.ViewModel.GuildId"
-                       class="px-4 py-2 text-sm font-medium text-text-secondary hover:text-text-primary transition-colors">
-                        Clear Filters
-                    </a>
-                </div>
-            }
+            <div class="flex items-center gap-2">
+                <button type="submit" class="btn btn-primary">Apply</button>
+                @if (Model.Status.HasValue)
+                {
+                    <a asp-page="Index" asp-route-guildId="@guildId" class="btn btn-secondary">Clear filters</a>
+                }
+            </div>
         </form>
     </div>
 
-    <!-- Reminders Table -->
     @if (Model.ViewModel.TotalCount > 0)
     {
-        <div class="bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
-            <div class="table-container overflow-x-auto">
-                <table class="w-full min-w-[900px]">
+        <!-- Desktop table -->
+        <div class="hidden md:block bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+            <div class="overflow-x-auto">
+                <table class="w-full">
+                    <caption class="sr-only">Reminders for @Model.ViewModel.GuildName</caption>
                     <thead class="bg-bg-tertiary border-b border-border-primary">
                         <tr>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                User
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Message
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Trigger Time
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Created
-                            </th>
-                            <th class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Status
-                            </th>
-                            <th class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">
-                                Actions
-                            </th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">User</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Message</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Due</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Created</th>
+                            <th scope="col" class="px-6 py-3 text-left text-xs font-semibold text-text-secondary uppercase tracking-wider">Status</th>
+                            <th scope="col" class="px-6 py-3 text-right text-xs font-semibold text-text-secondary uppercase tracking-wider">Actions</th>
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-border-primary">
@@ -145,77 +107,47 @@
                                     <div class="flex items-center gap-3">
                                         @if (!string.IsNullOrEmpty(reminder.AvatarUrl))
                                         {
-                                            <img src="@reminder.AvatarUrl" alt="" class="w-8 h-8 rounded-full" />
+                                            <img src="@reminder.AvatarUrl" alt="" class="w-8 h-8 rounded-full" loading="lazy" />
                                         }
                                         else
                                         {
-                                            <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center">
-                                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                                                </svg>
+                                            <div class="w-8 h-8 rounded-full bg-bg-tertiary flex items-center justify-center" aria-hidden="true">
+                                                <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
                                             </div>
                                         }
-                                        <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@reminder.UserId" data-context-guild-id="@Model.ViewModel.GuildId">@reminder.Username</span>
+                                        <span class="preview-trigger text-sm text-text-primary" data-preview-type="user" data-user-id="@reminder.UserId" data-context-guild-id="@guildId">@reminder.Username</span>
                                     </div>
                                 </td>
                                 <td class="px-6 py-4">
-                                    <span class="text-sm text-text-secondary max-w-[250px] truncate block" title="@reminder.Message">
-                                        @reminder.MessagePreview
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="text-sm text-text-primary" data-utc="@reminder.TriggerAtUtcIso" data-format="datetime-short"></span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    <span class="text-sm text-text-secondary" data-utc="@reminder.CreatedAtUtcIso" data-format="datetime-short"></span>
-                                </td>
-                                <td class="px-6 py-4">
-                                    @{
-                                        var statusClass = reminder.Status switch
-                                        {
-                                            ReminderStatus.Pending => "bg-accent-blue/20 text-accent-blue",
-                                            ReminderStatus.Delivered => "bg-success/20 text-success",
-                                            ReminderStatus.Failed => "bg-error/20 text-error",
-                                            ReminderStatus.Cancelled => "bg-bg-tertiary text-text-secondary",
-                                            _ => "bg-bg-tertiary text-text-tertiary"
-                                        };
-                                        var dotClass = reminder.Status switch
-                                        {
-                                            ReminderStatus.Pending => "bg-accent-blue",
-                                            ReminderStatus.Delivered => "bg-success",
-                                            ReminderStatus.Failed => "bg-error",
-                                            ReminderStatus.Cancelled => "bg-text-secondary",
-                                            _ => "bg-text-tertiary"
-                                        };
-                                    }
-                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold @statusClass">
-                                        <span class="w-1.5 h-1.5 rounded-full @dotClass mr-1.5"></span>
-                                        @reminder.StatusText
-                                    </span>
+                                    <span class="text-sm text-text-secondary max-w-[250px] truncate block" title="@reminder.Message">@reminder.MessagePreview</span>
                                     @if (reminder.Status == ReminderStatus.Failed && !string.IsNullOrEmpty(reminder.LastError))
                                     {
-                                        <span class="ml-2 cursor-help" title="@reminder.LastError">
-                                            <svg class="w-4 h-4 text-error inline" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                                            </svg>
-                                        </span>
+                                        <span class="text-xs text-error block mt-1 max-w-[250px] break-words">Last error: @reminder.LastError</span>
                                     }
+                                </td>
+                                <td class="px-6 py-4 text-sm text-text-primary whitespace-nowrap">@DisplayFormat.Time(reminder.TriggerAt, "datetime-short")</td>
+                                <td class="px-6 py-4 text-sm text-text-secondary whitespace-nowrap">@DisplayFormat.Time(reminder.CreatedAt, "datetime-short")</td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = reminder.StatusText, Variant = StatusVariant(reminder.Status), Style = BadgeStyle.Subtle, Size = BadgeSize.Small, IsPill = true }" />
                                 </td>
                                 <td class="px-6 py-4">
                                     <div class="flex items-center justify-end gap-1 row-actions">
                                         @if (reminder.CanCancel)
                                         {
-                                            <button
-                                                type="button"
-                                                data-reminder-id="@reminder.Id"
-                                                data-username="@reminder.Username"
-                                                onclick="showCancelModal(this.dataset.reminderId, this.dataset.username)"
-                                                class="p-2 text-text-secondary hover:text-error hover:bg-error/10 rounded-md transition-colors"
-                                                title="Cancel Reminder">
-                                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                </svg>
-                                            </button>
+                                            <form method="post" asp-page-handler="Cancel" asp-route-guildId="@guildId"
+                                                  asp-route-reminderId="@reminder.Id" asp-route-pageNumber="@Model.ViewModel.CurrentPage"
+                                                  asp-route-pageSize="@Model.ViewModel.PageSize" asp-route-status="@((int?)Model.Status)"
+                                                  data-submit-guard
+                                                  data-confirm-title="Cancel this reminder?"
+                                                  data-confirm-message="@($"The reminder for {reminder.Username} will not be sent.")"
+                                                  data-confirm-text="Cancel reminder"
+                                                  data-confirm-cancel="Keep reminder"
+                                                  data-confirm-variant="danger" class="inline">
+                                                <button type="submit" class="row-action-btn row-action-btn-danger"
+                                                        aria-label="Cancel the reminder for @reminder.Username" title="Cancel reminder">
+                                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@cancelIcon" /></svg>
+                                                </button>
+                                            </form>
                                         }
                                     </div>
                                 </td>
@@ -224,151 +156,100 @@
                     </tbody>
                 </table>
             </div>
-
-            <!-- Pagination -->
-            @if (Model.ViewModel.TotalPages > 1)
-            {
-                <div class="px-6 py-4 border-t border-border-primary flex flex-col sm:flex-row items-center justify-between gap-4">
-                    @{
-                        var firstItem = (Model.ViewModel.CurrentPage - 1) * Model.ViewModel.PageSize + 1;
-                        var lastItem = Math.Min(Model.ViewModel.CurrentPage * Model.ViewModel.PageSize, Model.ViewModel.TotalCount);
-                    }
-                    <p class="text-sm text-text-secondary">
-                        Showing <span class="font-medium text-text-primary">@firstItem</span> to
-                        <span class="font-medium text-text-primary">@lastItem</span> of
-                        <span class="font-medium text-text-primary">@Model.ViewModel.TotalCount</span> reminders
-                    </p>
-                    <div class="flex items-center gap-1">
-                        @if (Model.ViewModel.HasPreviousPage)
-                        {
-                            <a asp-page="Index"
-                               asp-route-guildId="@Model.ViewModel.GuildId"
-                               asp-route-pageNumber="@(Model.ViewModel.CurrentPage - 1)"
-                               asp-route-status="@Model.Status"
-                               class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
-                                Previous
-                            </a>
-                        }
-                        else
-                        {
-                            <button class="px-3 py-1.5 text-sm text-text-tertiary bg-bg-tertiary border border-border-primary rounded-md cursor-not-allowed" disabled>
-                                Previous
-                            </button>
-                        }
-
-                        <span class="px-3 py-1.5 text-sm text-white bg-accent-orange rounded-md">
-                            @Model.ViewModel.CurrentPage
-                        </span>
-
-                        @if (Model.ViewModel.HasNextPage)
-                        {
-                            <a asp-page="Index"
-                               asp-route-guildId="@Model.ViewModel.GuildId"
-                               asp-route-pageNumber="@(Model.ViewModel.CurrentPage + 1)"
-                               asp-route-status="@Model.Status"
-                               class="px-3 py-1.5 text-sm text-text-primary bg-bg-tertiary border border-border-primary rounded-md hover:bg-bg-hover transition-colors">
-                                Next
-                            </a>
-                        }
-                        else
-                        {
-                            <button class="px-3 py-1.5 text-sm text-text-tertiary bg-bg-tertiary border border-border-primary rounded-md cursor-not-allowed" disabled>
-                                Next
-                            </button>
-                        }
-                    </div>
-                </div>
-            }
         </div>
+
+        <!-- Mobile cards -->
+        <ul class="md:hidden space-y-4" role="list">
+            @foreach (var reminder in Model.ViewModel.Reminders)
+            {
+                <li class="bg-bg-secondary border border-border-primary rounded-lg p-4" data-row>
+                    <div class="flex items-start justify-between gap-3 mb-3">
+                        <div class="flex items-center gap-3 min-w-0">
+                            @if (!string.IsNullOrEmpty(reminder.AvatarUrl))
+                            {
+                                <img src="@reminder.AvatarUrl" alt="" class="w-9 h-9 rounded-full flex-shrink-0" loading="lazy" />
+                            }
+                            else
+                            {
+                                <div class="w-9 h-9 rounded-full bg-bg-tertiary flex items-center justify-center flex-shrink-0" aria-hidden="true">
+                                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" /></svg>
+                                </div>
+                            }
+                            <span class="preview-trigger font-medium text-text-primary break-words min-w-0" data-preview-type="user" data-user-id="@reminder.UserId" data-context-guild-id="@guildId">@reminder.Username</span>
+                        </div>
+                        <partial name="Shared/Components/_Badge" model="new BadgeViewModel { Text = reminder.StatusText, Variant = StatusVariant(reminder.Status), Style = BadgeStyle.Subtle, Size = BadgeSize.Small, IsPill = true }" />
+                    </div>
+
+                    <p class="text-sm text-text-secondary break-words mb-1">@reminder.Message</p>
+                    @if (reminder.Status == ReminderStatus.Failed && !string.IsNullOrEmpty(reminder.LastError))
+                    {
+                        <p class="text-xs text-error break-words mb-1">Last error: @reminder.LastError</p>
+                    }
+
+                    <dl class="grid grid-cols-2 gap-3 text-sm mt-3">
+                        <div>
+                            <dt class="text-text-secondary">Due</dt>
+                            <dd class="text-text-primary">@DisplayFormat.Time(reminder.TriggerAt, "datetime-short")</dd>
+                        </div>
+                        <div>
+                            <dt class="text-text-secondary">Created</dt>
+                            <dd class="text-text-primary">@DisplayFormat.Time(reminder.CreatedAt, "datetime-short")</dd>
+                        </div>
+                    </dl>
+
+                    @if (reminder.CanCancel)
+                    {
+                        <div class="mt-4 pt-3 border-t border-border-secondary">
+                            <form method="post" asp-page-handler="Cancel" asp-route-guildId="@guildId"
+                                  asp-route-reminderId="@reminder.Id" asp-route-pageNumber="@Model.ViewModel.CurrentPage"
+                                  asp-route-pageSize="@Model.ViewModel.PageSize" asp-route-status="@((int?)Model.Status)"
+                                  data-submit-guard
+                                  data-confirm-title="Cancel this reminder?"
+                                  data-confirm-message="@($"The reminder for {reminder.Username} will not be sent.")"
+                                  data-confirm-text="Cancel reminder"
+                                  data-confirm-cancel="Keep reminder"
+                                  data-confirm-variant="danger" class="flex">
+                                <button type="submit" class="btn btn-error btn-sm flex-1 justify-center min-h-[44px]">Cancel reminder</button>
+                            </form>
+                        </div>
+                    }
+                </li>
+            }
+        </ul>
+
+        @if (Model.ViewModel.TotalPages > 1)
+        {
+            <div class="mt-6">
+                <partial name="Shared/Components/_Pagination" model='new PaginationViewModel {
+                    CurrentPage = Model.ViewModel.CurrentPage,
+                    TotalPages = Model.ViewModel.TotalPages,
+                    TotalItems = Model.ViewModel.TotalCount,
+                    PageSize = Model.ViewModel.PageSize,
+                    BaseUrl = Url.Page(null, new { guildId, status = (int?)Model.Status, pageSize = Model.ViewModel.PageSize }) ?? string.Empty,
+                    Style = PaginationStyle.Full,
+                    ShowItemCount = true,
+                    PageParameterName = "pageNumber"
+                }' />
+            </div>
+        }
     }
     else
     {
-        <!-- Empty State -->
         <div class="bg-bg-secondary border border-border-primary rounded-lg p-8">
-            @{
-                var emptyTitle = Model.Status.HasValue ? "No Reminders Match Filter" : "No Reminders Yet";
-                var emptyDescription = Model.Status.HasValue
-                    ? "No reminders match the selected status filter. Try adjusting your filters."
-                    : "No reminders have been created in this server. Users can create reminders using the /remind command in Discord.";
-            }
             <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
                 Type = Model.Status.HasValue ? EmptyStateType.NoResults : EmptyStateType.FirstTime,
-                Title = emptyTitle,
-                Description = emptyDescription,
-                Size = EmptyStateSize.Default,
+                Title = Model.Status.HasValue ? "No reminders match this filter" : "No reminders yet",
+                Description = Model.Status.HasValue
+                    ? "No reminders have this status. Clear the filter to see all of them."
+                    : "Nobody has set a reminder in this server. Members create them with the /remind command in Discord.",
+                PrimaryActionText = Model.Status.HasValue ? "Clear filters" : null,
+                PrimaryActionUrl = Model.Status.HasValue ? Url.Page("Index", new { guildId }) : null,
                 IconSvgPath = "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"
             }' />
         </div>
     }
-
-<!-- Cancel Confirmation Modal -->
-<div id="cancel-modal" class="hidden fixed inset-0 z-50" role="alertdialog" aria-modal="true" aria-labelledby="modal-title">
-    <!-- Backdrop -->
-    <div class="fixed inset-0 bg-black/70 backdrop-blur-sm" onclick="hideCancelModal()" aria-hidden="true"></div>
-    <!-- Modal Dialog -->
-    <div class="fixed inset-0 flex items-center justify-center p-4">
-        <div class="bg-bg-tertiary border border-border-primary rounded-lg shadow-xl max-w-md w-full" role="document">
-            <!-- Modal Content -->
-            <div class="p-6">
-                <div class="flex items-start gap-4">
-                    <div class="flex-shrink-0 w-10 h-10 rounded-full bg-warning/20 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-warning" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <div class="flex-1">
-                        <h3 id="modal-title" class="text-lg font-semibold text-text-primary">Cancel Reminder</h3>
-                        <p class="mt-2 text-sm text-text-secondary">
-                            Are you sure you want to cancel the reminder for <span id="cancel-username" class="font-medium text-text-primary"></span>? This action cannot be undone.
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <!-- Modal Footer -->
-            <div class="flex justify-end gap-3 px-6 py-4 bg-bg-secondary border-t border-border-primary rounded-b-lg">
-                <button type="button" onclick="hideCancelModal()"
-                        class="px-4 py-2 bg-bg-tertiary hover:bg-bg-hover border border-border-primary text-text-primary font-medium text-sm rounded-md transition-colors">
-                    Keep Reminder
-                </button>
-                <form id="cancel-form" method="post" asp-page="Index" asp-page-handler="Cancel" asp-route-guildId="@Model.ViewModel.GuildId" class="inline-block">
-                    <input type="hidden" id="cancel-reminder-id" name="reminderId" value="" />
-                    <button type="submit"
-                            class="px-4 py-2 bg-error hover:bg-error-hover active:bg-error-active text-white font-medium text-sm rounded-md transition-colors">
-                        Cancel Reminder
-                    </button>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
+}
 
 @section Scripts {
-    <style>
-        .table-container {
-            overflow-x: auto;
-            -webkit-overflow-scrolling: touch;
-        }
-    </style>
-
-    <script>
-        function showCancelModal(reminderId, username) {
-            document.getElementById('cancel-reminder-id').value = reminderId;
-            document.getElementById('cancel-username').textContent = username;
-            document.getElementById('cancel-modal').classList.remove('hidden');
-            document.body.style.overflow = 'hidden';
-        }
-
-        function hideCancelModal() {
-            document.getElementById('cancel-modal').classList.add('hidden');
-            document.body.style.overflow = '';
-        }
-
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                if (!document.getElementById('cancel-modal').classList.contains('hidden')) {
-                    hideCancelModal();
-                }
-            }
-        });
-    </script>
+    <script src="~/js/confirm-forms.js" asp-append-version="true"></script>
 }
