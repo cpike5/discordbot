@@ -324,6 +324,8 @@ public class PortalSoundboardCategoriesController : PortalSoundboardControllerBa
             }
         }
 
+        // Read untracked with its Category loaded: clear the navigation or Update puts the old key back
+        sound.Category = null;
         sound.CategoryId = request.CategoryId;
         await _soundRepository.UpdateAsync(sound, cancellationToken);
 

@@ -1,6 +1,7 @@
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Bot.Interfaces;
+using DiscordBot.Bot.Services.Tts;
 using DiscordBot.Core.DTOs.Portal;
 using DiscordBot.Core.Entities;
 using DiscordBot.Core.Exceptions;
@@ -375,52 +376,10 @@ public class PortalTtsPresetsController : PortalTtsControllerBase
         // Wrap raw PCM as WAV for browser playback
         using (audioStream)
         {
-            var wavStream = WrapPcmAsWav(audioStream);
+            var wavStream = WavAudio.WrapPcm(audioStream);
             _logger.LogInformation("Successfully generated TTS preview for guild {GuildId}, WAV size: {Size} bytes",
                 guildId, wavStream.Length);
             return File(wavStream, "audio/wav", "tts-preview.wav");
         }
-    }
-
-    /// <summary>
-    /// Synthesizes speech from a TTS request, handling SSML, style, and plain text modes.
-    /// </summary>
-    /// <param name="request">The TTS request containing message and voice settings.</param>
-    /// <param name="cancellationToken">Cancellation token.</param>
-    /// <returns>A stream containing the synthesized PCM audio.</returns>
-
-    /// <summary>
-    /// Wraps raw PCM audio data in a WAV container for browser playback.
-    /// </summary>
-    /// <param name="pcmStream">The raw PCM audio stream.</param>
-    /// <param name="sampleRate">Sample rate in Hz (default: 48000).</param>
-    /// <param name="bitsPerSample">Bits per sample (default: 16).</param>
-    /// <param name="channels">Number of audio channels (default: 2 for stereo).</param>
-    /// <returns>A MemoryStream containing valid WAV data.</returns>
-    private static MemoryStream WrapPcmAsWav(Stream pcmStream, int sampleRate = 48000, int bitsPerSample = 16, int channels = 2)
-    {
-        var pcmData = new MemoryStream();
-        pcmStream.CopyTo(pcmData);
-        var dataLength = (int)pcmData.Length;
-
-        var wav = new MemoryStream(44 + dataLength);
-        using var writer = new BinaryWriter(wav, System.Text.Encoding.UTF8, leaveOpen: true);
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("RIFF"));
-        writer.Write(36 + dataLength);
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("WAVE"));
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("fmt "));
-        writer.Write(16);                                           // PCM chunk size
-        writer.Write((short)1);                                     // Audio format (PCM)
-        writer.Write((short)channels);
-        writer.Write(sampleRate);
-        writer.Write(sampleRate * channels * bitsPerSample / 8);    // Byte rate
-        writer.Write((short)(channels * bitsPerSample / 8));        // Block align
-        writer.Write((short)bitsPerSample);
-        writer.Write(System.Text.Encoding.ASCII.GetBytes("data"));
-        writer.Write(dataLength);
-        pcmData.Position = 0;
-        pcmData.CopyTo(wav);
-        wav.Position = 0;
-        return wav;
     }
 }

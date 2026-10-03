@@ -2564,6 +2564,8 @@ Dropdown component for selecting sort options with keyboard navigation and acces
 
 **Location:** `Pages/Shared/_SortDropdown.cshtml`
 
+**In-place sorting.** With `UseAjax = true`, `TargetSelector` and `PartialUrl`, the dropdown fires `sortchange` and `wwwroot/js/ajax-sort.js` fetches the partial and swaps it into the target. The old list stays on screen (dimmed, `aria-busy`) while it loads; a failure keeps it and shows an error toast with Retry, and the partial handler should answer an error status rather than 200 HTML. Each sort adds a history entry, the first entry is stamped, so Back and Forward re-render the list and the dropdown (`wrapper.sortDropdown.setSelected`). Anything that depends on the new markup listens for `ajaxsort:loaded` on the target (or `AjaxSort.configure({ onAfterLoad })`); render values the script would otherwise fill in (such as a select's options) on the server so they survive the swap. The partial is HTML, which `ApiClient` refuses as data, so this one request uses `fetch()`.
+
 ### Properties
 
 #### SortDropdownViewModel

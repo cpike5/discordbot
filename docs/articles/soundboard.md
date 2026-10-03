@@ -605,16 +605,15 @@ problem title "Portal disabled" and the detail "The member portal is switched of
 **Features:**
 
 1. **Sound Library Viewer**
-   - Table showing all uploaded sounds with metadata
-   - Columns: Name, File Size, Duration, Play Count, Uploaded By, Upload Date
-   - Sortable by any column
-   - Search/filter functionality
+   - Table (cards on phones) of the server's sounds: name, duration, size, plays, category
+   - Sort by name or date; the list re-renders in place and Back restores the sort
+   - Preview in the browser, download, delete (with a confirm)
+   - Category select per sound, and a Manage Categories panel (create, rename, delete). These use page handlers on the admin page, so they work while the member portal is switched off
 
 2. **Upload Sound**
-   - Drag-and-drop or file picker for audio files
-   - Validates format, size, and duration before upload
-   - Custom display name (optional, defaults to filename)
-   - Real-time validation feedback
+   - Drag-and-drop or file picker; several files at once, sent one request each
+   - The browser checks type, size and free slots first; each file shows its own progress and result
+   - The server checks again and names the reason when it refuses a file
 
 3. **Manage Sounds**
    - Delete individual sounds

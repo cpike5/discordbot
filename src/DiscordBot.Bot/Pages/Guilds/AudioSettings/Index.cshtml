@@ -2,7 +2,7 @@
 @model DiscordBot.Bot.Pages.Guilds.AudioSettings.IndexModel
 @using DiscordBot.Bot.ViewModels.Components
 @{
-    ViewData["Title"] = $"Audio - {Model.GuildName}";
+    ViewData["Title"] = $"Audio Settings - {Model.GuildName}";
     Layout = "_GuildLayout";
 }
 
@@ -63,19 +63,21 @@
         </div>
     }
 
-<div class="max-w-4xl mx-auto">
+<form id="audioSettingsForm" method="post" class="max-w-4xl mx-auto" data-unsaved-changes novalidate aria-describedby="saveStatus">
+    @Html.AntiForgeryToken()
+
     <!-- General Settings Section -->
-    <section class="settings-section mb-6">
+    <section class="settings-section mb-6" aria-labelledby="general-heading">
         <div class="settings-section-header">
             <div class="settings-section-title">
-                <div class="settings-section-icon">
+                <div class="settings-section-icon" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                 </div>
                 <div>
-                    <h2 class="text-lg font-semibold text-text-primary">General Settings</h2>
+                    <h2 id="general-heading" class="text-lg font-semibold text-text-primary">General Settings</h2>
                     <p class="text-xs text-text-tertiary">Core audio feature configuration</p>
                 </div>
             </div>
@@ -84,98 +86,87 @@
             <!-- Audio Enabled -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Audio Features Enabled</div>
-                    <div class="settings-row-description">Enable or disable all audio and soundboard features for this server</div>
+                    <label for="audioEnabled" id="audioEnabled-label" class="settings-row-title">Audio features enabled</label>
+                    <div id="audioEnabled-desc" class="settings-row-description">Turn all audio and soundboard features on or off for this server.</div>
                 </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="audioEnabled" @(Model.Settings.AudioEnabled ? "checked" : "") />
-                    <span class="toggle-switch-track"></span>
-                    <span class="toggle-switch-thumb"></span>
+                <label class="toggle">
+                    <input type="checkbox" id="audioEnabled" name="audioEnabled" class="toggle-input" role="switch" aria-describedby="audioEnabled-desc" @(Model.Settings.AudioEnabled ? "checked" : "") />
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </label>
             </div>
 
             <!-- Auto-leave Timeout -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Auto-leave Timeout</div>
-                    <div class="settings-row-description">Minutes of inactivity before the bot automatically leaves the voice channel. Set to 0 to stay indefinitely.</div>
+                    <label for="autoLeaveTimeout" class="settings-row-title">Auto-leave timeout</label>
+                    <div id="autoLeaveTimeout-desc" class="settings-row-description">Minutes of inactivity before the bot leaves the voice channel by itself, from 0 to 60. 0 means it stays until told to leave.</div>
+                    <p id="autoLeaveTimeout-error" class="settings-field-error hidden" role="alert"></p>
                 </div>
                 <div class="input-with-unit">
-                    <input type="number" id="autoLeaveTimeout" value="@Model.Settings.AutoLeaveTimeoutMinutes" min="0" max="60" class="settings-input" />
-                    <span class="input-unit">minutes</span>
+                    <input type="number" id="autoLeaveTimeout" name="autoLeaveTimeout" value="@Model.Settings.AutoLeaveTimeoutMinutes" min="0" max="60" step="1" inputmode="numeric" autocomplete="off" required
+                           data-label="the auto-leave timeout" data-unit="minutes" aria-describedby="autoLeaveTimeout-desc autoLeaveTimeout-error" class="settings-input" />
+                    <span class="input-unit" aria-hidden="true">minutes</span>
                 </div>
             </div>
 
             <!-- Queue Enabled -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Queue Mode</div>
-                    <div class="settings-row-description">When enabled, sounds queue up and play in order. When disabled, new sounds replace the currently playing sound.</div>
+                    <label for="queueEnabled" class="settings-row-title">Queue mode</label>
+                    <div id="queueEnabled-desc" class="settings-row-description">On: sounds queue up and play in order. Off: a new sound replaces the one that is playing.</div>
                 </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="queueEnabled" @(Model.Settings.QueueEnabled ? "checked" : "") />
-                    <span class="toggle-switch-track"></span>
-                    <span class="toggle-switch-thumb"></span>
+                <label class="toggle">
+                    <input type="checkbox" id="queueEnabled" name="queueEnabled" class="toggle-input" role="switch" aria-describedby="queueEnabled-desc" @(Model.Settings.QueueEnabled ? "checked" : "") />
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </label>
             </div>
 
             <!-- Enable Member Portal -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Member Portal</div>
-                    <div class="settings-row-description">Allow guild members to access the soundboard portal page. When disabled, only admins can access the portal.</div>
+                    <label for="enableMemberPortal" class="settings-row-title">Member portal</label>
+                    <div id="enableMemberPortal-desc" class="settings-row-description">Lets members of this server open the soundboard, TTS and VOX portal pages. When it is off, nobody can use the portal, administrators included, and its voice controls stop working. It does not depend on the audio switch above.</div>
                 </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="enableMemberPortal" @(Model.Settings.EnableMemberPortal ? "checked" : "") />
-                    <span class="toggle-switch-track"></span>
-                    <span class="toggle-switch-thumb"></span>
+                <label class="toggle">
+                    <input type="checkbox" id="enableMemberPortal" name="enableMemberPortal" class="toggle-input" role="switch" aria-describedby="enableMemberPortal-desc" @(Model.Settings.EnableMemberPortal ? "checked" : "") />
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </label>
             </div>
 
             <!-- Silent Playback -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Silent Playback</div>
-                    <div class="settings-row-description">Suppress "Now Playing" and "Sound Queued" confirmation messages for /play commands. Error messages are always shown regardless of this setting.</div>
+                    <label for="silentPlayback" class="settings-row-title">Silent playback</label>
+                    <div id="silentPlayback-desc" class="settings-row-description">Hide the "Now playing" and "Sound queued" replies to /play. Error replies are always shown.</div>
                 </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="silentPlayback" @(Model.Settings.SilentPlayback ? "checked" : "") />
-                    <span class="toggle-switch-track"></span>
-                    <span class="toggle-switch-thumb"></span>
+                <label class="toggle">
+                    <input type="checkbox" id="silentPlayback" name="silentPlayback" class="toggle-input" role="switch" aria-describedby="silentPlayback-desc" @(Model.Settings.SilentPlayback ? "checked" : "") />
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </label>
             </div>
 
-            <!-- Portal Links (shown when Member Portal is enabled) -->
-            <div class="settings-row portal-links-row" id="portalLinksRow" style="@(Model.Settings.EnableMemberPortal ? "" : "display: none;")">
+            <!-- Portal Links: shown while the portal is on (as saved) -->
+            <div class="settings-row portal-links-row" id="portalLinksRow" @(Model.Settings.EnableMemberPortal ? "" : "hidden")>
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Portal Links</div>
-                    <div class="settings-row-description">Open the member portal pages. These links open in a new tab using Discord OAuth authentication.</div>
+                    <div class="settings-row-title">Portal links</div>
+                    <div class="settings-row-description">Open the member portal pages. They open in a new tab and sign in with Discord.</div>
                 </div>
                 <div class="portal-link-buttons">
                     <a href="/Portal/Soundboard/@Model.GuildId" target="_blank" rel="noopener noreferrer" class="portal-link-btn">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
-                        </svg>
-                        Soundboard Portal
-                        <svg class="w-3 h-3 external-link-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        Soundboard portal<span class="sr-only"> (opens in a new tab)</span>
+                        <svg class="w-3 h-3 external-link-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                     </a>
                     <a href="/Portal/TTS/@Model.GuildId" target="_blank" rel="noopener noreferrer" class="portal-link-btn">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
-                        </svg>
-                        TTS Portal
-                        <svg class="w-3 h-3 external-link-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        TTS portal<span class="sr-only"> (opens in a new tab)</span>
+                        <svg class="w-3 h-3 external-link-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                     </a>
                     <a href="/Portal/VOX/@Model.GuildId" target="_blank" rel="noopener noreferrer" class="portal-link-btn">
-                        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 1 1 0-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 0 1-1.44-4.282m3.102.069a18.03 18.03 0 0 1-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 0 1 8.835 2.535M10.34 6.66a23.847 23.847 0 0 0 8.835-2.535m0 0A23.74 23.74 0 0 0 18.795 3m.38 1.125a23.91 23.91 0 0 1 1.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 0 0 1.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 0 1 0 3.46" />
-                        </svg>
-                        VOX Portal
-                        <svg class="w-3 h-3 external-link-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        VOX portal<span class="sr-only"> (opens in a new tab)</span>
+                        <svg class="w-3 h-3 external-link-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                         </svg>
                     </a>
@@ -185,278 +176,260 @@
             <!-- Sound Storage Path (Read-only) -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Sound Storage Path</div>
-                    <div class="settings-row-description">The folder where audio files for this server are stored</div>
+                    <div class="settings-row-title">Sound storage folder</div>
+                    <div class="settings-row-description">Where this server's audio files are kept on the bot's host. Set in the bot's configuration.</div>
                 </div>
                 <div class="readonly-field">
-                    <svg class="w-4 h-4 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-4 h-4 text-text-tertiary shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                     <code>@Model.SoundFolderPath</code>
                 </div>
             </div>
-
-            <!-- Save General Settings Button -->
-            <div class="mt-6 pt-4 border-t border-border-secondary flex justify-end">
-                <button type="button" onclick="window.audioSettings.saveGeneralSettings()" class="btn btn-primary">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Save General Settings
-                </button>
-            </div>
         </div>
     </section>
 
     <!-- Limits Section -->
-    <section class="settings-section mb-6">
+    <section class="settings-section mb-6" aria-labelledby="limits-heading">
         <div class="settings-section-header">
             <div class="settings-section-title">
-                <div class="settings-section-icon" style="background: var(--color-warning-bg); color: var(--color-warning);">
+                <div class="settings-section-icon settings-section-icon-warning" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
                 </div>
                 <div>
-                    <h2 class="text-lg font-semibold text-text-primary">Limits</h2>
+                    <h2 id="limits-heading" class="text-lg font-semibold text-text-primary">Limits</h2>
                     <p class="text-xs text-text-tertiary">Resource limits for audio files and storage</p>
                 </div>
             </div>
         </div>
         <div class="settings-section-body">
-            <!-- Max Duration -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Maximum Sound Duration</div>
-                    <div class="settings-row-description">The maximum length allowed for uploaded sound files (1-300 seconds)</div>
+                    <label for="maxDuration" class="settings-row-title">Maximum sound duration</label>
+                    <div id="maxDuration-desc" class="settings-row-description">The longest an uploaded sound may be, from 1 to 300 seconds.</div>
+                    <p id="maxDuration-error" class="settings-field-error hidden" role="alert"></p>
                 </div>
                 <div class="input-with-unit">
-                    <input type="number" id="maxDuration" value="@Model.Settings.MaxDurationSeconds" min="1" max="300" class="settings-input" />
-                    <span class="input-unit">seconds</span>
+                    <input type="number" id="maxDuration" name="maxDuration" value="@Model.Settings.MaxDurationSeconds" min="1" max="300" step="1" inputmode="numeric" autocomplete="off" required
+                           data-label="the maximum duration" data-unit="seconds" aria-describedby="maxDuration-desc maxDuration-error" class="settings-input" />
+                    <span class="input-unit" aria-hidden="true">seconds</span>
                 </div>
             </div>
 
-            <!-- Max File Size -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Maximum File Size</div>
-                    <div class="settings-row-description">The maximum file size allowed for uploaded audio files (1-50 MB)</div>
+                    <label for="maxFileSize" class="settings-row-title">Maximum file size</label>
+                    <div id="maxFileSize-desc" class="settings-row-description">The largest an uploaded audio file may be, from 1 to 50 MB.</div>
+                    <p id="maxFileSize-error" class="settings-field-error hidden" role="alert"></p>
                 </div>
                 <div class="input-with-unit">
-                    <input type="number" id="maxFileSize" value="@(Model.Settings.MaxFileSizeBytes / (1024 * 1024))" min="1" max="50" class="settings-input" />
-                    <span class="input-unit">MB</span>
+                    <input type="number" id="maxFileSize" name="maxFileSize" value="@(Model.Settings.MaxFileSizeBytes / (1024 * 1024))" min="1" max="50" step="1" inputmode="numeric" autocomplete="off" required
+                           data-label="the maximum file size" data-unit="MB" aria-describedby="maxFileSize-desc maxFileSize-error" class="settings-input" />
+                    <span class="input-unit" aria-hidden="true">MB</span>
                 </div>
             </div>
 
-            <!-- Max Sounds Per Guild -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Maximum Sounds</div>
-                    <div class="settings-row-description">The maximum number of sounds this server can store (1-500)</div>
+                    <label for="maxSounds" class="settings-row-title">Maximum sounds</label>
+                    <div id="maxSounds-desc" class="settings-row-description">How many sounds this server can store, from 1 to 500.</div>
+                    <p id="maxSounds-error" class="settings-field-error hidden" role="alert"></p>
                 </div>
                 <div class="input-with-unit">
-                    <input type="number" id="maxSounds" value="@Model.Settings.MaxSoundsPerGuild" min="1" max="500" class="settings-input" />
-                    <span class="input-unit">sounds</span>
+                    <input type="number" id="maxSounds" name="maxSounds" value="@Model.Settings.MaxSoundsPerGuild" min="1" max="500" step="1" inputmode="numeric" autocomplete="off" required
+                           data-label="the maximum number of sounds" data-unit="sounds" aria-describedby="maxSounds-desc maxSounds-error" class="settings-input" />
+                    <span class="input-unit" aria-hidden="true">sounds</span>
                 </div>
-            </div>
-
-            <!-- Save Limits Button -->
-            <div class="mt-6 pt-4 border-t border-border-secondary flex justify-end">
-                <button type="button" onclick="window.audioSettings.saveLimitSettings()" class="btn btn-primary">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Save Limit Settings
-                </button>
             </div>
         </div>
     </section>
 
     <!-- TTS Settings Section -->
-    <section class="settings-section mb-6">
+    <section class="settings-section mb-6" aria-labelledby="tts-heading">
         <div class="settings-section-header">
             <div class="settings-section-title">
-                <div class="settings-section-icon" style="background: var(--color-info-bg); color: var(--color-info);">
+                <div class="settings-section-icon settings-section-icon-info" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
                     </svg>
                 </div>
                 <div>
-                    <h2 class="text-lg font-semibold text-text-primary">TTS Settings</h2>
+                    <h2 id="tts-heading" class="text-lg font-semibold text-text-primary">TTS Settings</h2>
                     <p class="text-xs text-text-tertiary">Configure SSML and advanced TTS features</p>
                 </div>
             </div>
         </div>
         <div class="settings-section-body">
-            <!-- SSML Enabled -->
             <div class="settings-row">
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Enable SSML Mode</div>
-                    <div class="settings-row-description">Allow SSML (Speech Synthesis Markup Language) for advanced voice control including prosody, emphasis, and styles</div>
+                    <label for="ssmlEnabled" class="settings-row-title">Enable SSML mode</label>
+                    <div id="ssmlEnabled-desc" class="settings-row-description">Allow SSML (Speech Synthesis Markup Language) for finer voice control: pitch, pauses, emphasis and styles.</div>
                 </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="ssmlEnabled" @(Model.TtsSettings.SsmlEnabled ? "checked" : "") />
-                    <span class="toggle-switch-track"></span>
-                    <span class="toggle-switch-thumb"></span>
+                <label class="toggle">
+                    <input type="checkbox" id="ssmlEnabled" name="ssmlEnabled" class="toggle-input" role="switch" aria-describedby="ssmlEnabled-desc" aria-controls="strictValidationRow maxComplexityRow defaultStyleRow" @(Model.TtsSettings.SsmlEnabled ? "checked" : "") />
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </label>
             </div>
 
-            <!-- Strict SSML Validation (conditional) -->
-            <div class="settings-row ssml-conditional-field" id="strictValidationRow" style="@(Model.TtsSettings.SsmlEnabled ? "" : "display: none;")">
+            <div class="settings-row ssml-conditional-field" id="strictValidationRow" @(Model.TtsSettings.SsmlEnabled ? "" : "hidden")>
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Strict SSML Validation</div>
-                    <div class="settings-row-description">When enabled, invalid SSML will be rejected. When disabled, invalid SSML falls back to plain text.</div>
+                    <label for="strictSsmlValidation" class="settings-row-title">Strict SSML validation</label>
+                    <div id="strictSsmlValidation-desc" class="settings-row-description">On: invalid SSML is rejected. Off: invalid SSML is spoken as plain text instead.</div>
                 </div>
-                <label class="toggle-switch">
-                    <input type="checkbox" id="strictSsmlValidation" @(Model.TtsSettings.StrictSsmlValidation ? "checked" : "") />
-                    <span class="toggle-switch-track"></span>
-                    <span class="toggle-switch-thumb"></span>
+                <label class="toggle">
+                    <input type="checkbox" id="strictSsmlValidation" name="strictSsmlValidation" class="toggle-input" role="switch" aria-describedby="strictSsmlValidation-desc" @(Model.TtsSettings.StrictSsmlValidation ? "checked" : "") />
+                    <span class="toggle-slider" aria-hidden="true"></span>
                 </label>
             </div>
 
-            <!-- Max SSML Complexity (conditional) -->
-            <div class="settings-row ssml-conditional-field" id="maxComplexityRow" style="@(Model.TtsSettings.SsmlEnabled ? "" : "display: none;")">
+            <div class="settings-row ssml-conditional-field" id="maxComplexityRow" @(Model.TtsSettings.SsmlEnabled ? "" : "hidden")>
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Max SSML Complexity</div>
-                    <div class="settings-row-description">Maximum complexity score for SSML elements. Higher values allow more nested elements and prosody modifications (10-200).</div>
+                    <label for="maxSsmlComplexity" class="settings-row-title">Max SSML complexity</label>
+                    <div id="maxSsmlComplexity-desc" class="settings-row-description">A cap on how many nested elements and voice changes one message may use, from 10 to 200. Higher allows more.</div>
+                    <p id="maxSsmlComplexity-error" class="settings-field-error hidden" role="alert"></p>
                 </div>
                 <div class="input-with-unit">
-                    <input type="number" id="maxSsmlComplexity" value="@Model.TtsSettings.MaxSsmlComplexity" min="10" max="200" class="settings-input" />
+                    <input type="number" id="maxSsmlComplexity" name="maxSsmlComplexity" value="@Model.TtsSettings.MaxSsmlComplexity" min="10" max="200" step="1" inputmode="numeric" autocomplete="off" required
+                           data-label="the SSML complexity limit" data-unit="" aria-describedby="maxSsmlComplexity-desc maxSsmlComplexity-error" class="settings-input" />
                 </div>
             </div>
 
-            <!-- Default Style (conditional) -->
-            <div class="settings-row ssml-conditional-field" id="defaultStyleRow" style="@(Model.TtsSettings.SsmlEnabled ? "" : "display: none;")">
+            <div class="settings-row ssml-conditional-field" id="defaultStyleRow" @(Model.TtsSettings.SsmlEnabled ? "" : "hidden")>
                 <div class="settings-row-content">
-                    <div class="settings-row-title">Default Style</div>
-                    <div class="settings-row-description">Default speaking style for voices that support it (applies when no style is specified in SSML)</div>
+                    <label for="defaultStyle" class="settings-row-title">Default style</label>
+                    <div id="defaultStyle-desc" class="settings-row-description">The speaking style used when a message names none, for voices that support styles.</div>
+                    <p id="defaultStyle-error" class="settings-field-error hidden" role="alert"></p>
                 </div>
                 @{
                     var selectedStyle = Model.TtsSettings.DefaultStyle ?? "";
                 }
-                <select id="defaultStyle" class="settings-input" style="width: auto; min-width: 10rem;">
+                <select id="defaultStyle" name="defaultStyle" class="settings-input settings-select" aria-describedby="defaultStyle-desc defaultStyle-error">
                     <option value="" selected="@(string.IsNullOrEmpty(selectedStyle))">(None)</option>
-                    <option value="cheerful" selected="@(selectedStyle == "cheerful")">Cheerful</option>
-                    <option value="excited" selected="@(selectedStyle == "excited")">Excited</option>
-                    <option value="friendly" selected="@(selectedStyle == "friendly")">Friendly</option>
-                    <option value="sad" selected="@(selectedStyle == "sad")">Sad</option>
-                    <option value="angry" selected="@(selectedStyle == "angry")">Angry</option>
-                    <option value="whispering" selected="@(selectedStyle == "whispering")">Whispering</option>
-                    <option value="shouting" selected="@(selectedStyle == "shouting")">Shouting</option>
-                    <option value="newscast" selected="@(selectedStyle == "newscast")">Newscast</option>
+                    @foreach (var style in IndexModel.DefaultStyles)
+                    {
+                        <option value="@style" selected="@(selectedStyle == style)">@(char.ToUpperInvariant(style[0]) + style[1..])</option>
+                    }
                 </select>
-            </div>
-
-            <!-- Save TTS Settings Button -->
-            <div class="mt-6 pt-4 border-t border-border-secondary flex justify-end">
-                <button type="button" onclick="window.audioSettings.saveTtsSettings()" class="btn btn-primary">
-                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
-                    </svg>
-                    Save TTS Settings
-                </button>
             </div>
         </div>
     </section>
 
     <!-- Command Permissions Section -->
-    <section class="settings-section mb-6">
+    <section class="settings-section mb-6" aria-labelledby="permissions-heading">
         <div class="settings-section-header">
             <div class="settings-section-title">
-                <div class="settings-section-icon" style="background: var(--color-success-bg); color: var(--color-success);">
+                <div class="settings-section-icon settings-section-icon-success" aria-hidden="true">
                     <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
                     </svg>
                 </div>
                 <div>
-                    <h2 class="text-lg font-semibold text-text-primary">Command Permissions</h2>
-                    <p class="text-xs text-text-tertiary">Restrict audio commands to specific roles. Leave empty to allow everyone.</p>
+                    <h2 id="permissions-heading" class="text-lg font-semibold text-text-primary">Command Permissions</h2>
+                    <p class="text-xs text-text-tertiary">Limit audio commands to certain roles. Leave a command with no roles to let everyone use it.</p>
                 </div>
             </div>
         </div>
         <div class="settings-section-body">
+            @if (!Model.RolesAvailable)
+            {
+                <div class="mb-4">
+                    <partial name="Shared/Components/_Alert" model='new AlertViewModel {
+                        Variant = AlertVariant.Warning,
+                        Title = "Roles are not available",
+                        Message = "The bot cannot see this server right now, so its roles cannot be listed. Roles already chosen are kept when you save.",
+                        IsDismissible = false
+                    }' />
+                </div>
+            }
             @foreach (var command in IndexModel.SoundboardCommands)
             {
                 var restriction = Model.Settings.CommandRoleRestrictions
                     .FirstOrDefault(r => r.CommandName.Equals(command, StringComparison.OrdinalIgnoreCase));
                 var allowedRoleIds = restriction?.AllowedRoleIds ?? new List<ulong>();
+                var unknownRoleIds = allowedRoleIds.Where(id => Model.AvailableRoles.All(r => r.Id != id)).ToList();
+                var chosenNames = allowedRoleIds
+                    .Select(id => Model.AvailableRoles.FirstOrDefault(r => r.Id == id)?.Name ?? "Deleted role")
+                    .ToList();
 
-                <div class="command-permission-card" data-command="@command">
-                    <div class="command-name">
+                <fieldset class="command-permission-card" data-command="@command">
+                    <legend class="command-name">
                         @GetCommandIcon(command)
                         /@command
-                    </div>
-                    <p class="text-xs text-text-tertiary mb-3">@GetCommandDescription(command)</p>
-                    <div class="role-select" data-command="@command">
-                        <div class="role-select-trigger" tabindex="0" onclick="window.audioSettings.toggleRoleDropdown('@command')">
-                            <div class="role-tags" id="@(command)-tags">
-                                @if (allowedRoleIds.Count == 0)
+                    </legend>
+                    <p id="@(command)-desc" class="text-xs text-text-tertiary mb-3">@GetCommandDescription(command)</p>
+                    <details class="role-picker">
+                        <summary class="role-select-trigger" aria-describedby="@(command)-desc">
+                            <span class="role-tags" data-role-summary>
+                                @if (chosenNames.Count == 0)
                                 {
                                     <span class="role-select-placeholder">Everyone can use this command</span>
                                 }
                                 else
                                 {
-                                    @foreach (var roleId in allowedRoleIds)
+                                    @foreach (var roleName in chosenNames)
                                     {
-                                        var role = Model.AvailableRoles.FirstOrDefault(r => r.Id == roleId);
-                                        if (role != null)
-                                        {
-                                            <div class="role-tag" data-role-id="@roleId">
-                                                @role.Name
-                                                <span class="role-tag-remove" onclick="window.audioSettings.removeRole(event, '@command', '@roleId')">
-                                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                                                    </svg>
-                                                </span>
-                                            </div>
-                                        }
+                                        <span class="role-tag">@roleName</span>
                                     }
                                 }
-                            </div>
-                            <svg class="w-4 h-4 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            </span>
+                            <svg class="w-4 h-4 text-text-tertiary flex-shrink-0 role-picker-chevron" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
                             </svg>
-                        </div>
-                        <div class="role-select-dropdown" id="@(command)-dropdown">
+                        </summary>
+                        <div class="role-select-dropdown" role="group" aria-label="Roles allowed to use /@command">
                             @foreach (var role in Model.AvailableRoles)
                             {
                                 var isSelected = allowedRoleIds.Contains(role.Id);
-                                <div class="role-select-option @(isSelected ? "selected" : "")"
-                                     data-role-id="@role.Id"
-                                     data-role-name="@role.Name"
-                                     onclick="window.audioSettings.toggleRole('@command', '@role.Id', this.dataset.roleName)">
-                                    <span class="role-color" style="background: @(string.IsNullOrEmpty(role.Color) || role.Color == "0" ? "#99AAB5" : "#" + role.Color.TrimStart('#'));"></span>
-                                    <span class="text-sm text-text-primary">@role.Name</span>
-                                </div>
+                                <label class="role-select-option @(isSelected ? "selected" : "")">
+                                    <input type="checkbox" class="role-checkbox" name="roles-@command" data-command="@command" data-role-name="@role.Name" value="@role.Id" @(isSelected ? "checked" : "") />
+                                    <span class="role-color" style="background: @RoleColor(role.Color);" aria-hidden="true"></span>
+                                    <span class="text-sm text-text-primary break-words min-w-0">@role.Name</span>
+                                </label>
                             }
-                            @if (Model.AvailableRoles.Count == 0)
+                            @foreach (var roleId in unknownRoleIds)
+                            {
+                                <label class="role-select-option selected" title="This role no longer exists or the bot cannot see it. Untick it to remove it.">
+                                    <input type="checkbox" class="role-checkbox" name="roles-@command" data-command="@command" data-role-name="Deleted role" value="@roleId" checked />
+                                    <span class="role-color role-color-unknown" aria-hidden="true"></span>
+                                    <span class="text-sm text-text-secondary">Deleted role</span>
+                                </label>
+                            }
+                            @if (Model.AvailableRoles.Count == 0 && unknownRoleIds.Count == 0)
                             {
                                 <div class="px-4 py-2 text-sm text-text-tertiary">No roles available</div>
                             }
+                            <div class="role-select-footer">
+                                <button type="button" class="btn btn-secondary btn-sm" data-clear-roles="@command">Allow everyone</button>
+                            </div>
                         </div>
-                    </div>
-                </div>
+                    </details>
+                </fieldset>
             }
         </div>
     </section>
 
-    <!-- Action Buttons -->
-    <div class="flex items-center justify-between pt-4">
-        <button type="button" class="btn btn-secondary" onclick="window.audioSettings.resetToDefaults()">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+    <!-- Save bar: one Save for the whole page -->
+    <div class="settings-savebar" role="region" aria-label="Save settings">
+        <button type="button" id="resetDefaultsBtn" class="btn btn-secondary">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Reset to Defaults
+            <span class="settings-savebar-reset-label">Reset to defaults</span>
+        </button>
+        <p id="saveStatus" class="settings-savebar-status" role="status" aria-live="polite">
+            <span data-unsaved-indicator class="hidden inline-block px-2 py-0.5 rounded-full bg-warning text-on-warning font-semibold">Unsaved changes</span>
+            <span data-saved-note class="text-text-tertiary">All changes saved</span>
+        </p>
+        <button type="submit" id="saveSettingsBtn" class="btn btn-primary" data-loading-text="Saving…">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+            </svg>
+            Save changes
         </button>
     </div>
-</div>
-
-<!-- Hidden form with anti-forgery token -->
-<form method="post" id="audioSettingsForm">
-    @Html.AntiForgeryToken()
-    <input type="hidden" name="guildId" value="@Model.GuildId" />
 </form>
-
 
 @functions {
     private static string GetCommandDescription(string command)
@@ -472,6 +445,15 @@
         };
     }
 
+    /// <summary>A Discord role colour as CSS: only a well-formed hex colour is used, never raw text.</summary>
+    private static string RoleColor(string? color)
+    {
+        var hex = (color ?? string.Empty).TrimStart('#');
+        return hex.Length == 6 && hex.All(Uri.IsHexDigit) && hex != "000000"
+            ? "#" + hex
+            : "var(--color-text-tertiary)";
+    }
+
     private static Microsoft.AspNetCore.Html.IHtmlContent GetCommandIcon(string command)
     {
         var iconPath = command.ToLower() switch
@@ -483,13 +465,12 @@
             "stop" => "<path d=\"M5 3h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2z\" fill=\"currentColor\" />",
             _ => "<path stroke-linecap=\"round\" stroke-linejoin=\"round\" stroke-width=\"2\" d=\"M13 10V3L4 14h7v7l9-11h-7z\" />"
         };
-        return new Microsoft.AspNetCore.Html.HtmlString($"<svg class=\"w-3.5 h-3.5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\">{iconPath}</svg>");
+        return new Microsoft.AspNetCore.Html.HtmlString($"<svg class=\"w-3.5 h-3.5\" fill=\"none\" viewBox=\"0 0 24 24\" stroke=\"currentColor\" aria-hidden=\"true\">{iconPath}</svg>");
     }
 }
 
 @section Styles {
     <link rel="stylesheet" href="~/css/tab-panel.css" asp-append-version="true" />
-    <link rel="stylesheet" href="~/css/moderation.css" asp-append-version="true" />
     <style>
         /* Settings Section Styles */
         .settings-section {
@@ -515,6 +496,7 @@
         .settings-section-icon {
             width: 2rem;
             height: 2rem;
+            flex-shrink: 0;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -522,19 +504,24 @@
             color: var(--color-accent-blue);
             border-radius: 0.5rem;
         }
+        .settings-section-icon-warning { background: var(--color-warning-bg); color: var(--color-warning); }
+        .settings-section-icon-info { background: var(--color-info-bg); color: var(--color-info); }
+        .settings-section-icon-success { background: var(--color-success-bg); color: var(--color-success); }
 
         .settings-section-body {
             padding: 1.5rem;
         }
 
-        /* Settings Row */
+        /* Settings Row: label and description on the left, the control on the right; stacked on phones */
         .settings-row {
             display: flex;
             justify-content: space-between;
             align-items: flex-start;
+            gap: 1rem;
             padding: 1rem 0;
             border-bottom: 1px solid var(--color-border-secondary);
         }
+        .settings-row[hidden] { display: none; }
 
         .settings-row:first-child {
             padding-top: 0;
@@ -547,10 +534,11 @@
 
         .settings-row-content {
             flex: 1;
-            padding-right: 1rem;
+            min-width: 0;
         }
 
         .settings-row-title {
+            display: block;
             font-size: 0.875rem;
             font-weight: 500;
             color: var(--color-text-primary);
@@ -560,6 +548,23 @@
         .settings-row-description {
             font-size: 0.75rem;
             color: var(--color-text-tertiary);
+        }
+
+        .settings-field-error {
+            margin-top: 0.375rem;
+            font-size: 0.75rem;
+            color: var(--color-error);
+        }
+
+        @@media (max-width: 639px) {
+            .settings-section-header { padding: 0.875rem 1rem; }
+            .settings-section-body { padding: 1rem; }
+            .settings-row { flex-direction: column; align-items: stretch; }
+            .settings-row > .toggle { align-self: flex-start; }
+            .settings-row > .readonly-field { overflow-wrap: anywhere; }
+            .settings-input { width: 100%; }
+            .settings-select { width: 100% !important; min-width: 0; }
+            .input-with-unit { width: 100%; }
         }
 
         /* Input Styles */
@@ -573,11 +578,15 @@
             color: var(--color-text-primary);
             transition: border-color 0.2s, box-shadow 0.2s;
         }
+        .settings-select { width: auto; min-width: 10rem; }
 
         .settings-input:focus {
             outline: none;
             border-color: var(--color-border-focus);
             box-shadow: 0 0 0 2px var(--color-accent-blue-muted);
+        }
+        .settings-input.input-validation-error {
+            border-color: var(--color-error);
         }
 
         .input-with-unit {
@@ -602,11 +611,13 @@
             border-radius: 0.5rem;
             font-size: 0.875rem;
             color: var(--color-text-secondary);
+            min-width: 0;
         }
 
         .readonly-field code {
             font-family: ui-monospace, monospace;
             color: var(--color-text-primary);
+            overflow-wrap: anywhere;
         }
 
         /* Command Permission Card */
@@ -615,7 +626,8 @@
             border: 1px solid var(--color-border-secondary);
             border-radius: 0.5rem;
             padding: 1rem;
-            margin-bottom: 0.75rem;
+            margin: 0 0 0.75rem;
+            min-width: 0;
         }
 
         .command-permission-card:last-child {
@@ -636,16 +648,13 @@
             margin-bottom: 0.75rem;
         }
 
-        /* Role Select Styles */
-        .role-select {
-            position: relative;
-            width: 100%;
-        }
-
+        /* Role picker: a native <details>, so Enter/Space opens it and Tab walks the checkboxes */
+        .role-picker { width: 100%; }
         .role-select-trigger {
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 0.5rem;
             width: 100%;
             min-height: 2.5rem;
             padding: 0.5rem 0.75rem;
@@ -653,53 +662,34 @@
             border: 1px solid var(--color-border-primary);
             border-radius: 0.5rem;
             cursor: pointer;
+            list-style: none;
             transition: border-color 0.2s;
         }
-
-        .role-select-trigger:hover {
-            border-color: var(--color-border-focus);
+        .role-select-trigger::-webkit-details-marker { display: none; }
+        .role-select-trigger:hover { border-color: var(--color-border-focus); }
+        .role-select-trigger:focus-visible {
+            outline: 2px solid var(--color-border-focus);
+            outline-offset: 2px;
         }
-
-        .role-select-trigger:focus {
-            outline: none;
-            border-color: var(--color-border-focus);
-            box-shadow: 0 0 0 2px var(--color-accent-blue-muted);
-        }
+        .role-picker[open] .role-picker-chevron { transform: rotate(180deg); }
 
         .role-tags {
             display: flex;
             flex-wrap: wrap;
             gap: 0.375rem;
+            min-width: 0;
         }
 
         .role-tag {
             display: inline-flex;
             align-items: center;
-            gap: 0.25rem;
             padding: 0.125rem 0.5rem;
             background: var(--color-accent-blue-muted);
             color: var(--color-accent-blue);
             border-radius: 9999px;
             font-size: 0.75rem;
             font-weight: 500;
-        }
-
-        .role-tag-remove {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 1rem;
-            height: 1rem;
-            border-radius: 50%;
-            background: transparent;
-            color: var(--color-accent-blue);
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-
-        .role-tag-remove:hover {
-            background: var(--color-accent-blue);
-            color: white;
+            overflow-wrap: anywhere;
         }
 
         .role-select-placeholder {
@@ -708,22 +698,12 @@
         }
 
         .role-select-dropdown {
-            position: absolute;
-            top: calc(100% + 0.25rem);
-            left: 0;
-            right: 0;
+            margin-top: 0.25rem;
             background: var(--color-bg-secondary);
             border: 1px solid var(--color-border-primary);
             border-radius: 0.5rem;
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
-            z-index: 50;
-            max-height: 12rem;
+            max-height: 14rem;
             overflow-y: auto;
-            display: none;
-        }
-
-        .role-select-dropdown.open {
-            display: block;
         }
 
         .role-select-option {
@@ -734,13 +714,17 @@
             cursor: pointer;
             transition: background 0.15s;
         }
+        .role-select-option:hover { background: var(--color-bg-hover); }
+        .role-select-option.selected { background: var(--color-accent-blue-muted); }
+        .role-select-option:focus-within { outline: 2px solid var(--color-border-focus); outline-offset: -2px; }
+        .role-select-option input { flex-shrink: 0; width: 1rem; height: 1rem; accent-color: var(--color-accent-blue-fill); }
 
-        .role-select-option:hover {
-            background: var(--color-bg-hover);
-        }
-
-        .role-select-option.selected {
-            background: var(--color-accent-blue-muted);
+        .role-select-footer {
+            position: sticky;
+            bottom: 0;
+            padding: 0.5rem 0.75rem;
+            background: var(--color-bg-secondary);
+            border-top: 1px solid var(--color-border-secondary);
         }
 
         .role-color {
@@ -749,11 +733,7 @@
             border-radius: 50%;
             flex-shrink: 0;
         }
-
-        /* Validation error styles */
-        .input-error {
-            border-color: var(--color-error) !important;
-        }
+        .role-color-unknown { background: var(--color-text-tertiary); }
 
         /* Portal Link Buttons */
         .portal-link-buttons {
@@ -798,329 +778,46 @@
             padding: 1rem 1.5rem !important;
             border-top: 1px dashed var(--color-border-secondary);
         }
+        @@media (max-width: 639px) {
+            .portal-links-row { margin: -0.5rem -1rem; padding: 1rem !important; }
+        }
+
+        /* One Save for the page: stays in view at the bottom while editing */
+        .settings-savebar {
+            position: sticky;
+            bottom: 0;
+            z-index: 20;
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 0.75rem 1rem calc(0.75rem + var(--safe-bottom, 0px));
+            background: var(--color-bg-secondary);
+            border: 1px solid var(--color-border-primary);
+            border-radius: 0.5rem;
+            box-shadow: var(--shadow-md);
+        }
+        .settings-savebar-status {
+            flex: 1;
+            min-width: 8rem;
+            margin: 0;
+            font-size: 0.8125rem;
+            text-align: right;
+        }
+        @@media (max-width: 479px) {
+            .settings-savebar { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; padding: 0.5rem 0.75rem calc(0.5rem + var(--safe-bottom, 0px)); }
+            .settings-savebar-status { grid-column: 1 / -1; order: -1; text-align: center; min-width: 0; }
+            .settings-savebar .btn { justify-content: center; padding-inline: 0.5rem; min-width: 0; }
+            .settings-savebar .btn svg { display: none; }
+        }
     </style>
 }
 
 @section Scripts {
     <script>
-        // Guild ID for API calls (as string to preserve precision)
+        // Snowflakes go in as strings: a number loses its last digits
         window.guildId = '@Model.GuildId';
-
-        // Initialize audio settings module
-        window.audioSettings = {
-            // Toggle role dropdown
-            toggleRoleDropdown: function(command) {
-                const dropdown = document.getElementById(command + '-dropdown');
-                const isOpen = dropdown.classList.contains('open');
-
-                // Close all dropdowns first
-                document.querySelectorAll('.role-select-dropdown').forEach(d => d.classList.remove('open'));
-
-                if (!isOpen) {
-                    dropdown.classList.add('open');
-                }
-            },
-
-            // Toggle role selection
-            toggleRole: function(command, roleId, roleName) {
-                const option = document.querySelector(`[data-command="${command}"] .role-select-option[data-role-id="${roleId}"]`);
-                const tagsContainer = document.getElementById(command + '-tags');
-                const isSelected = option.classList.contains('selected');
-
-                if (isSelected) {
-                    // Remove role
-                    option.classList.remove('selected');
-                    const tag = tagsContainer.querySelector(`[data-role-id="${roleId}"]`);
-                    if (tag) tag.remove();
-                } else {
-                    // Add role
-                    option.classList.add('selected');
-                    // Remove placeholder if present
-                    const placeholder = tagsContainer.querySelector('.role-select-placeholder');
-                    if (placeholder) placeholder.remove();
-
-                    const tag = document.createElement('div');
-                    tag.className = 'role-tag';
-                    tag.setAttribute('data-role-id', roleId);
-                    tag.innerHTML = `${SafeHtml.escape(roleName)}
-                        <span class="role-tag-remove" onclick="window.audioSettings.removeRole(event, '${SafeHtml.escape(command)}', '${SafeHtml.escape(roleId)}')">
-                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                        </span>`;
-                    tagsContainer.appendChild(tag);
-                }
-
-                // Check if tags container is empty
-                if (tagsContainer.children.length === 0) {
-                    const placeholder = document.createElement('span');
-                    placeholder.className = 'role-select-placeholder';
-                    placeholder.textContent = 'Everyone can use this command';
-                    tagsContainer.appendChild(placeholder);
-                }
-
-                // Save the command permissions
-                this.saveCommandPermissions(command);
-            },
-
-            // Remove role
-            removeRole: function(event, command, roleId) {
-                event.stopPropagation();
-                const option = document.querySelector(`[data-command="${command}"] .role-select-option[data-role-id="${roleId}"]`);
-                if (option) option.classList.remove('selected');
-
-                const tagsContainer = document.getElementById(command + '-tags');
-                const tag = tagsContainer.querySelector(`[data-role-id="${roleId}"]`);
-                if (tag) tag.remove();
-
-                // Check if tags container is empty
-                if (tagsContainer.children.length === 0) {
-                    const placeholder = document.createElement('span');
-                    placeholder.className = 'role-select-placeholder';
-                    placeholder.textContent = 'Everyone can use this command';
-                    tagsContainer.appendChild(placeholder);
-                }
-
-                // Save the command permissions
-                this.saveCommandPermissions(command);
-            },
-
-            // Get anti-forgery token
-            getAntiForgeryToken: function() {
-                return document.querySelector('input[name="__RequestVerificationToken"]').value;
-            },
-
-            // Save general settings
-            saveGeneralSettings: async function() {
-                const data = {
-                    audioEnabled: document.getElementById('audioEnabled').checked,
-                    autoLeaveTimeoutMinutes: parseInt(document.getElementById('autoLeaveTimeout').value) || 0,
-                    queueEnabled: document.getElementById('queueEnabled').checked,
-                    enableMemberPortal: document.getElementById('enableMemberPortal').checked,
-                    silentPlayback: document.getElementById('silentPlayback').checked
-                };
-
-                // Validate auto-leave timeout
-                if (data.autoLeaveTimeoutMinutes < 0 || data.autoLeaveTimeoutMinutes > 60) {
-                    document.getElementById('autoLeaveTimeout').classList.add('input-error');
-                    quickActions.showToast('Auto-leave timeout must be between 0 and 60 minutes.', 'error');
-                    return;
-                }
-                document.getElementById('autoLeaveTimeout').classList.remove('input-error');
-
-                try {
-                    const response = await fetch(`?handler=SaveGeneral&guildId=${window.guildId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': this.getAntiForgeryToken()
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    const result = await response.json();
-                    quickActions.showToast(result.message, result.success ? 'success' : 'error');
-                } catch (error) {
-                    console.error('Error saving general settings:', error);
-                    quickActions.showToast('Failed to save settings. Please try again.', 'error');
-                }
-            },
-
-            // Save limit settings
-            saveLimitSettings: async function() {
-                const data = {
-                    maxDurationSeconds: parseInt(document.getElementById('maxDuration').value) || 30,
-                    maxFileSizeMB: parseInt(document.getElementById('maxFileSize').value) || 5,
-                    maxSoundsPerGuild: parseInt(document.getElementById('maxSounds').value) || 50
-                };
-
-                let hasErrors = false;
-
-                // Validate max duration
-                if (data.maxDurationSeconds < 1 || data.maxDurationSeconds > 300) {
-                    document.getElementById('maxDuration').classList.add('input-error');
-                    hasErrors = true;
-                } else {
-                    document.getElementById('maxDuration').classList.remove('input-error');
-                }
-
-                // Validate max file size
-                if (data.maxFileSizeMB < 1 || data.maxFileSizeMB > 50) {
-                    document.getElementById('maxFileSize').classList.add('input-error');
-                    hasErrors = true;
-                } else {
-                    document.getElementById('maxFileSize').classList.remove('input-error');
-                }
-
-                // Validate max sounds
-                if (data.maxSoundsPerGuild < 1 || data.maxSoundsPerGuild > 500) {
-                    document.getElementById('maxSounds').classList.add('input-error');
-                    hasErrors = true;
-                } else {
-                    document.getElementById('maxSounds').classList.remove('input-error');
-                }
-
-                if (hasErrors) {
-                    quickActions.showToast('Please fix the validation errors before saving.', 'error');
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`?handler=SaveLimits&guildId=${window.guildId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': this.getAntiForgeryToken()
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    const result = await response.json();
-                    quickActions.showToast(result.message, result.success ? 'success' : 'error');
-                } catch (error) {
-                    console.error('Error saving limit settings:', error);
-                    quickActions.showToast('Failed to save settings. Please try again.', 'error');
-                }
-            },
-
-            // Save TTS settings
-            saveTtsSettings: async function() {
-                const data = {
-                    ssmlEnabled: document.getElementById('ssmlEnabled').checked,
-                    strictSsmlValidation: document.getElementById('strictSsmlValidation').checked,
-                    maxSsmlComplexity: parseInt(document.getElementById('maxSsmlComplexity').value) || 50,
-                    defaultStyle: document.getElementById('defaultStyle').value || null
-                };
-
-                // Validate max SSML complexity
-                if (data.maxSsmlComplexity < 10 || data.maxSsmlComplexity > 200) {
-                    document.getElementById('maxSsmlComplexity').classList.add('input-error');
-                    quickActions.showToast('Max SSML complexity must be between 10 and 200.', 'error');
-                    return;
-                }
-                document.getElementById('maxSsmlComplexity').classList.remove('input-error');
-
-                try {
-                    const response = await fetch(`?handler=SaveTtsSettings&guildId=${window.guildId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': this.getAntiForgeryToken()
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    const result = await response.json();
-                    quickActions.showToast(result.message, result.success ? 'success' : 'error');
-                } catch (error) {
-                    console.error('Error saving TTS settings:', error);
-                    quickActions.showToast('Failed to save settings. Please try again.', 'error');
-                }
-            },
-
-            // Save command permissions
-            saveCommandPermissions: async function(command) {
-                const tagsContainer = document.getElementById(command + '-tags');
-                const tags = tagsContainer.querySelectorAll('.role-tag[data-role-id]');
-                const roleIds = Array.from(tags).map(tag => tag.getAttribute('data-role-id'));
-
-                const data = {
-                    commandName: command,
-                    roleIds: roleIds
-                };
-
-                try {
-                    const response = await fetch(`?handler=UpdateCommandRoles&guildId=${window.guildId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': this.getAntiForgeryToken()
-                        },
-                        body: JSON.stringify(data)
-                    });
-
-                    const result = await response.json();
-                    if (result.success) {
-                        quickActions.showToast(`/${command} permissions saved.`, 'success');
-                    } else {
-                        quickActions.showToast(result.message, 'error');
-                    }
-                } catch (error) {
-                    console.error('Error saving command permissions:', error);
-                    quickActions.showToast('Failed to save permissions. Please try again.', 'error');
-                }
-            },
-
-            // Reset to defaults
-            resetToDefaults: async function() {
-                const confirmed = await quickActions.confirm({
-                    title: 'Reset Audio Settings',
-                    message: 'Are you sure you want to reset all audio settings to their default values? This cannot be undone.',
-                    variant: 'danger',
-                    confirmText: 'Reset to Defaults'
-                });
-                if (!confirmed) {
-                    return;
-                }
-
-                try {
-                    const response = await fetch(`?handler=ResetToDefaults&guildId=${window.guildId}`, {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'RequestVerificationToken': this.getAntiForgeryToken()
-                        }
-                    });
-
-                    const result = await response.json();
-                    if (result.success) {
-                        quickActions.showToast('Audio settings have been reset to defaults.', 'success');
-                        // Reload the page to show updated values
-                        setTimeout(() => location.reload(), 1000);
-                    } else {
-                        quickActions.showToast(result.message, 'error');
-                    }
-                } catch (error) {
-                    console.error('Error resetting settings:', error);
-                    quickActions.showToast('Failed to reset settings. Please try again.', 'error');
-                }
-            }
-        };
-
-        // Close dropdowns when clicking outside
-        document.addEventListener('click', function(e) {
-            if (!e.target.closest('.role-select')) {
-                document.querySelectorAll('.role-select-dropdown').forEach(d => d.classList.remove('open'));
-            }
-        });
-
-        // Escape key to close dropdowns
-        document.addEventListener('keydown', function(e) {
-            if (e.key === 'Escape') {
-                document.querySelectorAll('.role-select-dropdown').forEach(d => d.classList.remove('open'));
-            }
-        });
-
-        // Toggle portal links visibility when Member Portal checkbox changes
-        document.getElementById('enableMemberPortal').addEventListener('change', function() {
-            const portalLinksRow = document.getElementById('portalLinksRow');
-            if (this.checked) {
-                portalLinksRow.style.display = '';
-            } else {
-                portalLinksRow.style.display = 'none';
-            }
-        });
-
-        // Toggle SSML conditional fields visibility when SSML enabled checkbox changes
-        document.getElementById('ssmlEnabled').addEventListener('change', function() {
-            const conditionalFields = document.querySelectorAll('.ssml-conditional-field');
-            conditionalFields.forEach(field => {
-                if (this.checked) {
-                    field.style.display = '';
-                } else {
-                    field.style.display = 'none';
-                }
-            });
-        });
+        window.audioSettingsConfig = { guildId: '@Model.GuildId' };
     </script>
+    <script src="~/js/audio-settings.js" asp-append-version="true"></script>
 }
