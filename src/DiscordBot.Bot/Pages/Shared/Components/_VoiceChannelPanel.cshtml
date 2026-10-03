@@ -147,7 +147,7 @@
     <div id="voice-panel-collapsible-body" class="voice-panel-collapsible-body">
 
     <!-- Voice Channel Status Section -->
-    <div class="px-4 py-3 border-b border-border-primary">
+    <div class="px-4 py-3 border-b border-border-primary voice-status-section">
         <div class="flex items-center justify-between mb-2 voice-status-head">
             <h3 class="text-sm font-semibold text-text-primary">Voice Channel</h3>
             <span id="connection-status-badge"
@@ -435,6 +435,11 @@
     @@media (max-width: 1023px) {
         /* The bar already says "Voice channel" and its state; do not say it twice */
         .voice-status-head {
+            display: none;
+        }
+
+        /* With the heading gone, a section holding nothing else (not connected, no note) is just padding */
+        .voice-status-section:not(:has(> :not(.voice-status-head):not(.hidden))) {
             display: none;
         }
 

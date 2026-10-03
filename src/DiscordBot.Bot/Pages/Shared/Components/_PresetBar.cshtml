@@ -323,12 +323,14 @@
     }
 
     @@media (pointer: coarse) {
-        /* 44px tap target around the small round control */
+        /* A 44px tap target inside the card's corner (the strip scrolls, so anything outside it is clipped) */
         .preset-custom .preset-button__delete {
             width: 2.75rem;
             height: 2.75rem;
-            top: -0.25rem;
-            right: -0.25rem;
+            top: 0;
+            right: 0;
+            background: transparent;
+            border-color: transparent;
         }
     }
 

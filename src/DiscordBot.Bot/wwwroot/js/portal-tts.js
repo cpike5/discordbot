@@ -672,7 +672,7 @@
      */
     function loadCustomPresets() {
         if (window.presetBar_loadCustomPresets) {
-            window.presetBar_loadCustomPresets('presetBar');
+            window.presetBar_loadCustomPresets('portalPresetBar');
         }
     }
 

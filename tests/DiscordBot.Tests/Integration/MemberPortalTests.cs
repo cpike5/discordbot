@@ -72,6 +72,33 @@ public class MemberPortalTests : IClassFixture<MemberPortalTests.AppFixture>
         }
     }
 
+    [Theory]
+    [InlineData("/Portal/Soundboard/{0}")]
+    [InlineData("/Portal/TTS/{0}")]
+    [InlineData("/Portal/VOX/{0}")]
+    public async Task DashboardHubScripts_AreLeftOutForMembers_ButKeptForAdmins(string urlFormat)
+    {
+        // The hub needs a dashboard role: for a member it would only log a 403 and retry
+        var url = string.Format(urlFormat, GuildId);
+
+        var memberHtml = await _app.Member.GetStringAsync(url);
+        var adminHtml = await _app.Host.Client.GetStringAsync(url);
+
+        memberHtml.Should().NotContain("dashboard-hub.js");
+        memberHtml.Should().Contain("voice-channel-panel.js");
+        adminHtml.Should().Contain("dashboard-hub.js");
+    }
+
+    [Fact]
+    public async Task TtsPage_TakesItsMessageLimitFromTheServer()
+    {
+        var html = await _app.Member.GetStringAsync($"/Portal/TTS/{GuildId}");
+
+        html.Should().Contain("data-max-length=\"500\"", "AzureSpeech:MaxTextLength defaults to 500 and is rendered into the page");
+        html.Should().Contain("maxlength=\"500\"");
+        html.Should().Contain("dir=\"auto\"", "right-to-left text must be able to flow right to left");
+    }
+
     [Fact]
     public async Task Member_CanReadVoiceStatusAndChannels_WithoutAnIdentityRole()
     {
