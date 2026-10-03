@@ -4851,6 +4851,7 @@
   .notification-item:focus-within .notification-actions {
     opacity: 1;
   }
+}
 
 /* Phase 7 — moderation screens */
 .tab-dirty-dot {
