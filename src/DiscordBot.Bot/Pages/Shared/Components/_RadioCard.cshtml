@@ -1,0 +1,49 @@
+@model DiscordBot.Bot.ViewModels.Components.RadioCardViewModel
+@{
+    var id = Model.ResolvedId;
+    var hasDescription = !string.IsNullOrEmpty(Model.Description);
+}
+
+<label class="radio-card @(Model.IsDisabled ? "radio-card-disabled" : "")" for="@id">
+    <input type="radio"
+           class="radio-card-input"
+           id="@id"
+           name="@Model.Name"
+           value="@Model.Value"
+           aria-labelledby="@(id)-title"
+           @if (hasDescription)
+           {
+               @:aria-describedby="@(id)-desc"
+           }
+           @if (Model.IsChecked)
+           {
+               @:checked
+           }
+           @if (Model.IsDisabled)
+           {
+               @:disabled
+           }
+           @if (Model.AdditionalAttributes != null)
+           {
+               foreach (var attr in Model.AdditionalAttributes)
+               {
+                   @Html.Raw($" {attr.Key}=\"{System.Net.WebUtility.HtmlEncode(attr.Value)}\"")
+               }
+           } />
+    <span class="radio-card-body">
+        <span class="radio-card-dot" aria-hidden="true"></span>
+        @if (!string.IsNullOrEmpty(Model.IconPath))
+        {
+            <svg class="w-5 h-5 flex-shrink-0 text-text-secondary mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@Model.IconPath" />
+            </svg>
+        }
+        <span class="min-w-0">
+            <span id="@(id)-title" class="radio-card-title block">@Model.Title</span>
+            @if (hasDescription)
+            {
+                <span id="@(id)-desc" class="radio-card-description block">@Model.Description</span>
+            }
+        </span>
+    </span>
+</label>

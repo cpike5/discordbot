@@ -158,9 +158,12 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 
 | Component | File | Purpose | ViewModel |
 |-----------|------|---------|-----------|
-| **Form Input** | `_FormInput.cshtml` | Text input fields (text, email, password, search, url, tel) | `FormInputViewModel` |
+| **Form Input** | `_FormInput.cshtml` | Text input fields with autocomplete, inputmode, min/max/step, aria-describedby | `FormInputViewModel` |
 | **Form Select** | `_FormSelect.cshtml` | Dropdown selection with option groups | `FormSelectViewModel` |
-| **Form Toggle** | `_FormToggle.cshtml` | Toggle/checkbox switch control | `FormToggleViewModel` |
+| **Form Toggle** | `_FormToggle.cshtml` | Switch (`role="switch"`); an unchecked switch posts `false` | `FormToggleViewModel` |
+| **Form Textarea** | `_FormTextarea.cshtml` | Multi-line text with label, help, validation | `FormTextareaViewModel` |
+| **Radio Card Group** | `_RadioCardGroup.cshtml` | Fieldset of radio cards (hidden but focusable radios) | `RadioCardGroupViewModel` |
+| **Radio Card** | `_RadioCard.cshtml` | One radio card, for custom layouts | `RadioCardViewModel` |
 | **Autocomplete Input** | `_AutocompleteInput.cshtml` | Text input with autocomplete suggestions | `AutocompleteInputViewModel` |
 
 ### Layout & Container Components
@@ -199,7 +202,7 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 |-----------|------|---------|-----------|
 | **Badge** | `_Badge.cshtml` | Small labeled tag/status indicator; `IsPill = true` for a fully rounded pill | `BadgeViewModel` |
 | **Rule Type Icon** | `_RuleTypeIcon.cshtml` | Rule type visual indicator | `RuleTypeIconViewModel` |
-| **Pagination** | `_Pagination.cshtml` | Page navigation with first/prev/next/last | `PaginationViewModel` |
+| **Pagination** | `_Pagination.cshtml` | Page navigation; disabled ends are spans, empty and single-page states handled | `PaginationViewModel` |
 | **Activity Feed** | `_ActivityFeed.cshtml` | List of activity/event items | `ActivityFeedViewModel` |
 | **Activity Feed Timeline** | `_ActivityFeedTimeline.cshtml` | Vertical timeline of activities | `ActivityFeedTimelineViewModel` |
 | **Audit Log Card** | `_AuditLogCard.cshtml` | Audit log entry display card | `AuditLogCardViewModel` |
@@ -216,9 +219,11 @@ All components are located in `Pages/Shared/Components/` unless noted otherwise.
 | **Loading Spinner** | `_LoadingSpinner.cshtml` | Loading indicator (simple/dots/pulse) | `LoadingSpinnerViewModel` |
 | **Skeleton** | `_Skeleton.cshtml` | Content placeholder during loading | `SkeletonViewModel` |
 | **Skeleton Card** | `_SkeletonCard.cshtml` | Card-shaped skeleton loader | `SkeletonCardViewModel` |
+| **Skeleton Table** | `_SkeletonTable.cshtml` | Placeholder rows for a table or list | `SkeletonTableViewModel` |
+| **Skeleton Lines** | `_SkeletonLines.cshtml` | Placeholder text lines | `SkeletonLinesViewModel` |
 | **Page Loading Overlay** | `_PageLoadingOverlay.cshtml` | Full-page loading overlay with backdrop | `PageLoadingOverlayViewModel` |
-| **Empty State** | `_EmptyState.cshtml` | No data/no results/error state display | `EmptyStateViewModel` |
-| **Confirmation Modal** | `_ConfirmationModal.cshtml` | Confirmation dialog with yes/no actions | `ConfirmationModalViewModel` |
+| **Empty State** | `_EmptyState.cshtml` | No data/no results/error state; configurable icon and action; script twin `wwwroot/js/empty-state.js` | `EmptyStateViewModel` |
+| **Confirmation Modal** | `_ConfirmationModal.cshtml` | Confirmation dialog; posts over fetch to its own action, handles JSON, redirect and failure | `ConfirmationModalViewModel` |
 | **Typed Confirmation Modal** | `_TypedConfirmationModal.cshtml` | Enhanced confirmation requiring text input | `TypedConfirmationModalViewModel` |
 | **Pause Modal** | `_PauseModal.cshtml` | Pause/resume action dialog | `PauseModalViewModel` |
 

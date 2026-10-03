@@ -1,0 +1,15 @@
+@model DiscordBot.Bot.ViewModels.Components.SkeletonLinesViewModel
+@* Placeholder text lines. Mirrored by Skeleton.lines() in wwwroot/js/skeleton.js. *@
+@{
+    var lines = Math.Max(1, Model.Lines);
+}
+
+<div class="@(Model.CssClass ?? "")">
+    <span class="sr-only" role="status">@Model.Label</span>
+    <div class="space-y-2" aria-hidden="true">
+        @for (var i = 0; i < lines; i++)
+        {
+            <div class="skeleton h-4 rounded @(i == lines - 1 && lines > 1 ? "w-2/3" : "w-full")"></div>
+        }
+    </div>
+</div>

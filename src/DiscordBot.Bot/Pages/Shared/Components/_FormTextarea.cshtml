@@ -1,0 +1,95 @@
+@model DiscordBot.Bot.ViewModels.Components.FormTextareaViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    var textareaClasses = $"form-textarea {FormFieldHelpers.ValidationClass(Model.ValidationState)}".Trim();
+    var messageId = FormFieldHelpers.MessageId(Model.Id, Model.ValidationState);
+    var ariaDescribedBy = FormFieldHelpers.DescribedBy(
+        Model.Id, Model.HelpText, Model.ValidationState, Model.ValidationMessage, Model.DescribedBy);
+    var hasMessage = Model.ValidationState != ValidationState.None && !string.IsNullOrEmpty(Model.ValidationMessage);
+}
+
+<div class="space-y-1.5">
+    @if (!string.IsNullOrEmpty(Model.Label))
+    {
+        <label for="@Model.Id" class="form-label block">
+            @Model.Label
+            @if (Model.IsRequired)
+            {
+                <span class="text-error" aria-hidden="true">*</span>
+            }
+        </label>
+    }
+
+    <textarea
+        id="@Model.Id"
+        name="@Model.Name"
+        rows="@Model.Rows"
+        class="@textareaClasses"
+        @if (!string.IsNullOrEmpty(Model.Placeholder))
+        {
+            @:placeholder="@Model.Placeholder"
+        }
+        @if (!string.IsNullOrEmpty(Model.Autocomplete))
+        {
+            @:autocomplete="@Model.Autocomplete"
+        }
+        @if (!string.IsNullOrEmpty(Model.Dir))
+        {
+            @:dir="@Model.Dir"
+        }
+        @if (Model.IsRequired)
+        {
+            @:required aria-required="true"
+        }
+        @if (Model.IsDisabled)
+        {
+            @:disabled
+        }
+        @if (Model.IsReadOnly)
+        {
+            @:readonly
+        }
+        @if (Model.MaxLength.HasValue)
+        {
+            @:maxlength="@Model.MaxLength.Value"
+        }
+        @if (!string.IsNullOrEmpty(ariaDescribedBy))
+        {
+            @:aria-describedby="@ariaDescribedBy"
+        }
+        @if (Model.ValidationState == ValidationState.Error)
+        {
+            @:aria-invalid="true"
+        }
+        @if (Model.AdditionalAttributes != null)
+        {
+            foreach (var attr in Model.AdditionalAttributes)
+            {
+                @Html.Raw($" {attr.Key}=\"{System.Net.WebUtility.HtmlEncode(attr.Value)}\"")
+            }
+        }
+    >@Model.Value</textarea>
+
+    @if (!string.IsNullOrEmpty(Model.HelpText) && Model.ValidationState == ValidationState.None)
+    {
+        <p id="@(Model.Id)-help" class="form-help">@Model.HelpText</p>
+    }
+
+    @if (hasMessage && Model.ValidationState == ValidationState.Error)
+    {
+        <p id="@messageId" class="form-error" role="alert">
+            <svg class="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            @Model.ValidationMessage
+        </p>
+    }
+    else if (hasMessage && Model.ValidationState == ValidationState.Warning)
+    {
+        <p id="@messageId" class="flex items-center gap-1.5 text-xs text-warning" role="alert">@Model.ValidationMessage</p>
+    }
+    else if (hasMessage && Model.ValidationState == ValidationState.Success)
+    {
+        <p id="@messageId" class="form-success">@Model.ValidationMessage</p>
+    }
+</div>

@@ -29,6 +29,10 @@ module.exports = {
   // JS templates) must survive purging.
   safelist: [
     { pattern: /^(badge|btn|alert|status|severity|card|page|form|toggle|topbar|sidebar|bot-status|hero-metric|table|kbd|section)-/ },
+    // Added at run time by ASP.NET tag helpers and jQuery validation, or composed by the
+    // Phase 3 partials and scripts (modal motion, radio cards, pagination, skeletons)
+    { pattern: /^(input-validation|field-validation|validation-summary|radio-card|pagination|qa|skeleton|empty-state)-/ },
+    { pattern: /^(pagination|skeleton|empty-state|radio-card)$/ },
     { pattern: /^(badge|btn|alert|card|status-indicator|status-glass|kbd|surface|section-label|page-eyebrow)$/ },
     // Colour pairs composed from a variant name (`bg-@color/10 text-@color` in
     // _QuickActionsCard and the confirmation modals, `bg-${color}/20` in quick-actions.js)

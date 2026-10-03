@@ -1,4 +1,5 @@
 // src/DiscordBot.Bot/Pages/Components.cshtml.cs
+using DiscordBot.Bot.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.RazorPages;
@@ -68,6 +69,19 @@ public class ComponentsModel : PageModel
     // Pagination
     public List<PaginationViewModel> PaginationStyles { get; set; } = new();
 
+    // Interaction primitives (UX plan Phase 3)
+    public List<FormInputViewModel> InputAttributeExamples { get; set; } = new();
+    public List<FormTextareaViewModel> TextareaStates { get; set; } = new();
+    public RadioCardGroupViewModel RadioCardsDefault { get; set; } = new();
+    public RadioCardGroupViewModel RadioCardsIcons { get; set; } = new();
+    public RadioCardGroupViewModel RadioCardsInvalid { get; set; } = new();
+    public List<FormToggleViewModel> ToggleStates { get; set; } = new();
+    public List<FormToggleViewModel> ToggleFormDemo { get; set; } = new();
+    public ConfirmationModalViewModel RedirectConfirmation { get; set; } = new();
+    public ConfirmationModalViewModel FailingConfirmation { get; set; } = new();
+    public List<(string Title, string Note, PaginationViewModel Model)> PaginationStates { get; set; } = new();
+    public List<(string Title, EmptyStateViewModel Model)> EmptyStateVariants { get; set; } = new();
+
     // NavTabs
     public NavTabsViewModel UnderlineTabs { get; set; } = default!;
     public NavTabsViewModel PillsTabs { get; set; } = default!;
@@ -77,6 +91,26 @@ public class ComponentsModel : PageModel
     public IActionResult OnPostShowcaseConfirm()
     {
         return new JsonResult(new { success = true, message = "Showcase confirmation received." });
+    }
+
+    /// <summary>
+    /// A handler that answers with a redirect and a TempData toast, like Users/Edit Reset Password
+    /// and LinkDiscord Unlink. The confirmation modal must not follow the redirect (that would spend
+    /// the toast); the page loads once and shows it.
+    /// </summary>
+    public IActionResult OnPostShowcaseRedirect()
+    {
+        TempData.SetSuccessToast("The redirecting handler finished. This toast came through TempData.");
+        return RedirectToPage();
+    }
+
+    /// <summary>A handler that fails, to show the modal's error state (it stays open, the button re-enables).</summary>
+    public IActionResult OnPostShowcaseFail()
+    {
+        return new JsonResult(new { success = false, message = "Showcase failure: this is how a failed action reads." })
+        {
+            StatusCode = StatusCodes.Status400BadRequest
+        };
     }
 
     public void OnGet()
@@ -92,6 +126,7 @@ public class ComponentsModel : PageModel
         InitializeCards();
         InitializeEmptyStates();
         InitializePagination();
+        InitializeInteractionPrimitives();
         InitializeNavTabs();
     }
 
@@ -521,6 +556,176 @@ public class ComponentsModel : PageModel
                 ShowPageSizeSelector = true,
                 BaseUrl = "/components"
             }
+        };
+    }
+
+    private void InitializeInteractionPrimitives()
+    {
+        InputAttributeExamples = new List<FormInputViewModel>
+        {
+            new() { Id = "attr-email", Name = "attr-email", Label = "Email (type=email, autocomplete=email)", Type = "email", Autocomplete = "email", Placeholder = "name@example.com", HelpText = "Shows the email keyboard on phones." },
+            new() { Id = "attr-new-password", Name = "attr-new-password", Label = "New password (autocomplete=new-password)", Type = "password", Autocomplete = "new-password", IsRequired = true, HelpText = "Stops browsers from filling the current password here." },
+            new() { Id = "attr-number", Name = "attr-number", Label = "Amount (number, min 0, max 1000, step 0.01)", Type = "number", Min = "0", Max = "1000", Step = "0.01", InputMode = "decimal", Value = "12.50", HelpText = "A decimal step passes through unchanged." },
+            new() { Id = "attr-numeric-id", Name = "attr-numeric-id", Label = "Server ID (text, inputmode=numeric)", Type = "text", InputMode = "numeric", Pattern = "[0-9]{17,20}", Placeholder = "123456789012345678", HelpText = "IDs are text, not numbers: they are too large for a number field." },
+            new() { Id = "attr-describedby", Name = "attr-describedby", Label = "Extra description (DescribedBy)", Type = "text", DescribedBy = "attr-describedby-note", HelpText = "Both this help text and the note below are read with the field." },
+            new() { Id = "attr-counter", Name = "attr-counter", Label = "With character count", Type = "text", MaxLength = 40, ShowCharacterCount = true, Value = "Starting text" },
+            new() { Id = "attr-required", Name = "attr-required", Label = "Required", IsRequired = true, Placeholder = "Required field" },
+            new() { Id = "attr-readonly", Name = "attr-readonly", Label = "Read only", Value = "Cannot be edited", IsReadOnly = true },
+            new() { Id = "attr-disabled", Name = "attr-disabled", Label = "Disabled", Value = "Disabled field", IsDisabled = true }
+        };
+
+        TextareaStates = new List<FormTextareaViewModel>
+        {
+            new() { Id = "ta-default", Name = "ta-default", Label = "Message", Placeholder = "Write something", HelpText = "Resizes vertically.", Dir = "auto" },
+            new() { Id = "ta-required", Name = "ta-required", Label = "Reason", IsRequired = true, Rows = 3, Value = "Needed for the audit log." },
+            new() { Id = "ta-error", Name = "ta-error", Label = "Description", ValidationState = ValidationState.Error, ValidationMessage = "Description is required.", Rows = 3 },
+            new() { Id = "ta-warning", Name = "ta-warning", Label = "Notes", ValidationState = ValidationState.Warning, ValidationMessage = "This is longer than most people read.", Value = "A long note.", Rows = 3 },
+            new() { Id = "ta-max", Name = "ta-max", Label = "Limited to 200 characters", MaxLength = 200, Rows = 3, HelpText = "The browser stops typing at the limit." },
+            new() { Id = "ta-readonly", Name = "ta-readonly", Label = "Read only", Value = "Cannot be edited.", IsReadOnly = true, Rows = 2 },
+            new() { Id = "ta-disabled", Name = "ta-disabled", Label = "Disabled", Value = "Disabled.", IsDisabled = true, Rows = 2 }
+        };
+
+        RadioCardsDefault = new RadioCardGroupViewModel
+        {
+            Name = "rc-mode",
+            Legend = "Purge mode",
+            HelpText = "Arrow keys move between cards; Tab leaves the group.",
+            SelectedValue = "recent",
+            IsRequired = true,
+            Options = new List<RadioCardViewModel>
+            {
+                new() { Value = "recent", Title = "Recent messages", Description = "The last 100 messages in a channel." },
+                new() { Value = "user", Title = "By user", Description = "Everything one member has posted." },
+                new() { Value = "all", Title = "Entire channel", Description = "Not available while the bot is offline.", IsDisabled = true }
+            }
+        };
+
+        RadioCardsIcons = new RadioCardGroupViewModel
+        {
+            Name = "rc-icons",
+            Legend = "Notification channel",
+            Columns = 3,
+            Options = new List<RadioCardViewModel>
+            {
+                new() { Value = "email", Title = "Email", Description = "A message to your inbox.", IconPath = "M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" },
+                new() { Value = "push", Title = "Push", Description = "A phone notification.", IconPath = "M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9" },
+                new() { Value = "none", Title = "None", Description = "Check the portal yourself.", IconPath = "M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" }
+            }
+        };
+
+        RadioCardsInvalid = new RadioCardGroupViewModel
+        {
+            Name = "rc-invalid",
+            Legend = "Retention period",
+            IsRequired = true,
+            ValidationMessage = "Choose how long to keep the data.",
+            Options = new List<RadioCardViewModel>
+            {
+                new() { Value = "30", Title = "30 days" },
+                new() { Value = "90", Title = "90 days" }
+            }
+        };
+
+        ToggleStates = new List<FormToggleViewModel>
+        {
+            new() { Id = "tg-on", Name = "tg-on", Label = "On", IsChecked = true },
+            new() { Id = "tg-off", Name = "tg-off", Label = "Off", IsChecked = false },
+            new() { Id = "tg-desc", Name = "tg-desc", Label = "With a description", Description = "Read as the switch's description by screen readers.", IsChecked = true },
+            new() { Id = "tg-disabled-on", Name = "tg-disabled-on", Label = "Disabled, on", IsChecked = true, IsDisabled = true },
+            new() { Id = "tg-disabled-off", Name = "tg-disabled-off", Label = "Disabled, off", IsDisabled = true }
+        };
+
+        ToggleFormDemo = new List<FormToggleViewModel>
+        {
+            new() { Id = "demo-notify", Name = "Notify", Label = "Notify me", Description = "Posts true when on, false when off.", IsChecked = true },
+            new() { Id = "demo-digest", Name = "Digest", Label = "Weekly digest", Description = "Starts off, so a plain checkbox would post nothing.", IsChecked = false }
+        };
+
+        // Redirect and failure paths of the static confirmation modal
+        RedirectConfirmation = new ConfirmationModalViewModel
+        {
+            Id = "showcase-redirect-modal",
+            Title = "Reset password",
+            Message = "This handler answers with a redirect and a TempData toast, like Users/Edit. The page reloads once and shows the toast.",
+            ConfirmText = "Reset password",
+            Variant = ConfirmationVariant.Warning,
+            FormHandler = "ShowcaseRedirect"
+        };
+
+        FailingConfirmation = new ConfirmationModalViewModel
+        {
+            Id = "showcase-fail-modal",
+            Title = "An action that fails",
+            Message = "The server answers with an error. The modal stays open, the button comes back, and an error toast explains.",
+            ConfirmText = "Try it",
+            Variant = ConfirmationVariant.Danger,
+            FormHandler = "ShowcaseFail"
+        };
+
+        const string demoUrl = "/Components?tab=pagination";
+        PaginationStates = new List<(string, string, PaginationViewModel)>
+        {
+            ("Middle page", "First, last, ellipses and the item range.",
+                new() { CurrentPage = 5, TotalPages = 12, TotalItems = 287, PageSize = 25, ShowItemCount = true, BaseUrl = demoUrl, AriaLabel = "Middle page example" }),
+            ("First page", "Previous and First are disabled spans, not links.",
+                new() { CurrentPage = 1, TotalPages = 4, TotalItems = 90, PageSize = 25, ShowItemCount = true, BaseUrl = demoUrl, AriaLabel = "First page example" }),
+            ("Last page", "Next and Last are disabled; the range ends at the total.",
+                new() { CurrentPage = 4, TotalPages = 4, TotalItems = 90, PageSize = 25, ShowItemCount = true, BaseUrl = demoUrl, AriaLabel = "Last page example" }),
+            ("Few pages", "Up to 7 pages show every number.",
+                new() { CurrentPage = 2, TotalPages = 5, TotalItems = 120, PageSize = 25, ShowItemCount = true, BaseUrl = demoUrl, AriaLabel = "Few pages example" }),
+            ("Page size selector", "A GET form that keeps the other filters in the address; no script text carries the URL.",
+                new() { CurrentPage = 1, TotalPages = 3, TotalItems = 62, PageSize = 25, ShowItemCount = true, ShowPageSizeSelector = true, BaseUrl = "/Components?search=a'b&role=admin", AriaLabel = "Page size example" }),
+            ("Single page", "One page of results: the count stays, there is nothing to navigate.",
+                new() { CurrentPage = 1, TotalPages = 1, TotalItems = 7, PageSize = 25, ShowItemCount = true, BaseUrl = demoUrl, AriaLabel = "Single page example" }),
+            ("No results", "Says so in words, never a range that ends before it starts.",
+                new() { CurrentPage = 1, TotalPages = 0, TotalItems = 0, PageSize = 25, ShowItemCount = true, ShowPageSizeSelector = true, BaseUrl = demoUrl, AriaLabel = "No results example" }),
+            ("Total unknown", "Callers that do not count items get \"Page X of Y\" instead of a made-up range.",
+                new() { CurrentPage = 2, TotalPages = 6, ShowItemCount = true, BaseUrl = demoUrl, AriaLabel = "Unknown total example" }),
+            ("Page past the end", "A stale link to page 9 of 4 shows the last page, not a range that runs backwards.",
+                new() { CurrentPage = 9, TotalPages = 4, TotalItems = 90, PageSize = 25, ShowItemCount = true, BaseUrl = demoUrl, AriaLabel = "Past the end example" })
+        };
+
+        EmptyStateVariants = new List<(string, EmptyStateViewModel)>
+        {
+            ("Custom icon", new EmptyStateViewModel
+            {
+                Type = EmptyStateType.NoData,
+                Size = EmptyStateSize.Compact,
+                Title = "Nothing scheduled",
+                Description = "Scheduled messages you create will appear here.",
+                IconSvgPath = "M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z",
+                PrimaryActionText = "Schedule a message",
+                PrimaryActionUrl = "#"
+            }),
+            ("Filtered empty: link action with no icon", new EmptyStateViewModel
+            {
+                Type = EmptyStateType.NoResults,
+                Size = EmptyStateSize.Compact,
+                Title = "No users match your filters",
+                Description = "Try different filters, or clear them to see everyone.",
+                PrimaryActionText = "Clear filters",
+                PrimaryActionUrl = "/Components",
+                PrimaryActionIconPath = ""
+            }),
+            ("Error with Retry (announced, data attribute hook)", new EmptyStateViewModel
+            {
+                Type = EmptyStateType.Error,
+                Size = EmptyStateSize.Compact,
+                Title = "Could not load the log",
+                Description = "Something went wrong while loading. Check your connection and try again.",
+                PrimaryActionText = "Retry",
+                PrimaryActionIconPath = "",
+                PrimaryActionAttributes = new Dictionary<string, string> { ["data-action"] = "retry-demo" },
+                Announce = true,
+                HeadingLevel = 4
+            }),
+            ("Offline", new EmptyStateViewModel
+            {
+                Type = EmptyStateType.Offline,
+                Size = EmptyStateSize.Compact,
+                Title = "You are offline",
+                Description = "Reconnect to see live data."
+            })
         };
     }
 

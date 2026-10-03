@@ -4,14 +4,18 @@
 }
 
 <div class="@cardClass">
+    @if (!string.IsNullOrEmpty(Model.Label))
+    {
+        <span class="sr-only" role="status">@Model.Label</span>
+    }
     @if (Model.ShowHeader)
     {
-        <div class="card-header">
+        <div class="card-header" aria-hidden="true">
             <div class="skeleton w-32 h-6 rounded"></div>
         </div>
     }
 
-    <div class="card-body">
+    <div class="card-body" aria-hidden="true">
         @if (Model.Type == DiscordBot.Bot.ViewModels.Components.SkeletonCardType.Stats)
         {
             <!-- Stats Card: Icon + Value + Label -->
@@ -85,6 +89,36 @@
                         <div class="skeleton w-20 h-4 rounded ml-auto"></div>
                     </div>
                 }
+            </div>
+        }
+        else if (Model.Type == DiscordBot.Bot.ViewModels.Components.SkeletonCardType.List)
+        {
+            <!-- List: Avatar + 2 lines, repeated -->
+            <div class="space-y-4">
+                @for (int i = 0; i < 4; i++)
+                {
+                    <div class="flex items-start gap-3">
+                        <div class="skeleton w-10 h-10 rounded-full flex-shrink-0"></div>
+                        <div class="flex-1 space-y-2">
+                            <div class="skeleton w-full h-4 rounded"></div>
+                            <div class="skeleton w-3/4 h-3 rounded"></div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+        else if (Model.Type == DiscordBot.Bot.ViewModels.Components.SkeletonCardType.Form)
+        {
+            <!-- Form: labelled fields and a button -->
+            <div class="space-y-4">
+                @for (int i = 0; i < 3; i++)
+                {
+                    <div class="space-y-2">
+                        <div class="skeleton w-24 h-4 rounded"></div>
+                        <div class="skeleton w-full h-10 rounded-md"></div>
+                    </div>
+                }
+                <div class="skeleton w-28 h-10 rounded-md"></div>
             </div>
         }
     </div>

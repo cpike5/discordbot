@@ -1,0 +1,22 @@
+@model DiscordBot.Bot.ViewModels.Components.SkeletonTableViewModel
+@* Rows of placeholder cells. Mirrored by Skeleton.table() in wwwroot/js/skeleton.js. *@
+@{
+    var widths = new[] { "w-32", "w-24", "w-20", "w-16" };
+    var rows = Math.Max(1, Model.Rows);
+    var columns = Math.Max(1, Model.Columns);
+}
+
+<div class="@(Model.CssClass ?? "")">
+    <span class="sr-only" role="status">@Model.Label</span>
+    <div class="space-y-3" aria-hidden="true">
+        @for (var r = 0; r < rows; r++)
+        {
+            <div class="flex items-center gap-4">
+                @for (var c = 0; c < columns; c++)
+                {
+                    <div class="skeleton h-4 rounded @widths[c % widths.Length]@(c == columns - 1 && columns > 1 ? " ml-auto" : "")"></div>
+                }
+            </div>
+        }
+    </div>
+</div>

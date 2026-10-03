@@ -905,6 +905,341 @@
     color: var(--color-text-primary);
   }
 
+  /* ---- Form control states and sizes (Phase 3) --------------------------- */
+  .form-textarea {
+    min-height: 5rem;
+    line-height: 1.5;
+    resize: vertical;
+  }
+  .form-input-sm { min-height: 1.875rem; padding: 0.25rem 0.625rem; font-size: 0.75rem; }
+  .form-input-lg { min-height: 2.75rem; padding: 0.625rem 1rem; font-size: 1rem; }
+  .form-input[readonly] { background-color: var(--color-bg-secondary); }
+
+  /* Invalid, warning and valid fields. The selectors name the element too, so a raw
+     <input asp-for> or one that jQuery validation marks at run time still turns red even when
+     it carries utility borders. Tag helpers and unobtrusive validation add these classes. */
+  input.input-validation-error,
+  select.input-validation-error,
+  textarea.input-validation-error,
+  .form-input.input-validation-error,
+  .form-select.input-validation-error,
+  .form-textarea.input-validation-error {
+    border-color: var(--color-error);
+  }
+  input.input-validation-error:focus,
+  select.input-validation-error:focus,
+  textarea.input-validation-error:focus,
+  .form-input.input-validation-error:focus,
+  .form-select.input-validation-error:focus,
+  .form-textarea.input-validation-error:focus {
+    border-color: var(--color-error);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(var(--color-error-rgb), 0.2);
+  }
+  input.input-validation-warning,
+  select.input-validation-warning,
+  textarea.input-validation-warning,
+  .form-input.input-validation-warning,
+  .form-select.input-validation-warning,
+  .form-textarea.input-validation-warning {
+    border-color: var(--color-warning);
+  }
+  input.input-validation-warning:focus,
+  select.input-validation-warning:focus,
+  textarea.input-validation-warning:focus,
+  .form-input.input-validation-warning:focus,
+  .form-select.input-validation-warning:focus,
+  .form-textarea.input-validation-warning:focus {
+    border-color: var(--color-warning);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(var(--color-warning-rgb), 0.2);
+  }
+  input.input-validation-success,
+  select.input-validation-success,
+  textarea.input-validation-success,
+  .form-input.input-validation-success,
+  .form-select.input-validation-success,
+  .form-textarea.input-validation-success {
+    border-color: var(--color-success);
+  }
+  input.input-validation-success:focus,
+  select.input-validation-success:focus,
+  textarea.input-validation-success:focus,
+  .form-input.input-validation-success:focus,
+  .form-select.input-validation-success:focus,
+  .form-textarea.input-validation-success:focus {
+    border-color: var(--color-success);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18), 0 0 0 3px rgba(var(--color-success-rgb), 0.2);
+  }
+  .field-validation-error {
+    display: block;
+    margin-top: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--color-error);
+  }
+  .field-validation-valid,
+  .validation-summary-valid {
+    display: none;
+  }
+  .validation-summary-errors {
+    padding: 0.75rem 1rem;
+    font-size: 0.8125rem;
+    color: var(--color-error);
+    background-color: rgba(var(--color-error-fill-rgb), 0.07);
+    border: 1px solid rgba(var(--color-error-rgb), 0.25);
+    border-left: 3px solid var(--color-error);
+    border-radius: var(--radius-md);
+  }
+  .validation-summary-errors ul {
+    margin: 0;
+    padding-left: 1.125rem;
+    list-style: disc;
+  }
+
+  /* Toggle: a disabled switch looks and acts disabled */
+  .toggle-input:disabled + .toggle-slider {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .toggle-disabled { cursor: not-allowed; }
+
+  /* ---- Radio cards -------------------------------------------------------- */
+  /* The radio itself is visually hidden (sr-only) but stays focusable; the card shows
+     focus, hover, selected and disabled. A dot marks the selection so colour is not the
+     only signal. */
+  .radio-card {
+    position: relative;
+    display: block;
+    cursor: pointer;
+  }
+  .radio-card-input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  .radio-card-body {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    height: 100%;
+    padding: 0.875rem 1rem;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-lg);
+    transition: border-color var(--transition-fast), background-color var(--transition-fast), box-shadow var(--transition-fast);
+  }
+  .radio-card:hover .radio-card-body {
+    background-color: var(--color-bg-tertiary);
+    border-color: var(--color-border-hover);
+  }
+  .radio-card-dot {
+    flex-shrink: 0;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-top: 0.125rem;
+    border: 2px solid var(--color-border-hover);
+    border-radius: 50%;
+    background-color: transparent;
+    box-shadow: inset 0 0 0 3px var(--color-bg-secondary);
+    transition: border-color var(--transition-fast), background-color var(--transition-fast);
+  }
+  .radio-card-input:checked + .radio-card-body {
+    background-color: rgba(var(--color-accent-orange-fill-rgb), 0.12);
+    border-color: var(--color-accent-orange);
+    box-shadow: inset 0 0 0 1px var(--color-accent-orange);
+  }
+  .radio-card-input:checked + .radio-card-body .radio-card-dot {
+    border-color: var(--color-accent-orange);
+    background-color: var(--color-accent-orange);
+  }
+  .radio-card-input:focus-visible + .radio-card-body {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+  }
+  .radio-card-input:disabled + .radio-card-body {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  .radio-card-disabled { cursor: not-allowed; }
+  .radio-card-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--color-text-primary);
+  }
+  .radio-card-description {
+    margin-top: 0.125rem;
+    font-size: 0.75rem;
+    color: var(--color-text-secondary);
+  }
+  .radio-card-group-invalid .radio-card-body {
+    border-color: var(--color-error);
+  }
+
+  /* ---- Pagination --------------------------------------------------------- */
+  .pagination {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.25rem;
+  }
+  .pagination-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    min-width: 2.25rem;
+    min-height: 2.25rem;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.8125rem;
+    line-height: 1.25;
+    color: var(--color-text-secondary);
+    text-decoration: none;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+  }
+  a.pagination-link:hover {
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-hover);
+  }
+  .pagination-link svg { width: 1rem; height: 1rem; flex-shrink: 0; }
+  .pagination-link[aria-current="page"] {
+    font-weight: 600;
+    color: #ffffff;
+    background-color: var(--color-accent-orange-fill);
+  }
+  .pagination-link[aria-disabled="true"] {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+  .pagination-link-boxed {
+    background-color: var(--color-bg-secondary);
+    border-color: var(--color-border-primary);
+  }
+  .pagination-ellipsis {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 1.5rem;
+    color: var(--color-text-tertiary);
+  }
+  .pagination-group {
+    display: inline-flex;
+    align-items: stretch;
+    overflow: hidden;
+    background-color: var(--color-bg-secondary);
+    border: 1px solid var(--color-border-primary);
+    border-radius: var(--radius-lg);
+  }
+  .pagination-group > .pagination-link,
+  .pagination-group > .pagination-ellipsis {
+    border-radius: 0;
+    border-right: 1px solid var(--color-border-primary);
+  }
+  .pagination-group > :last-child { border-right: 0; }
+  .pagination-summary {
+    font-size: 0.8125rem;
+    color: var(--color-text-secondary);
+  }
+  .pagination-summary strong {
+    font-weight: 500;
+    color: var(--color-text-primary);
+  }
+  @media (pointer: coarse) {
+    .pagination-link { min-width: 2.75rem; min-height: 2.75rem; }
+  }
+
+  /* ---- Modal motion (quick-actions.js) ------------------------------------ */
+  /* openDialog removes `hidden`, then adds .qa-open; closeDialog removes .qa-open and adds
+     `hidden` after the exit. Class toggles, because display:none cannot transition. */
+  .qa-modal-backdrop {
+    opacity: 0;
+    transition: opacity var(--transition-normal);
+  }
+  .qa-modal-panel {
+    opacity: 0;
+    transform: translateY(0.5rem) scale(0.98);
+    transition: opacity var(--transition-normal), transform var(--transition-smooth);
+  }
+  .qa-open .qa-modal-backdrop { opacity: 1; }
+  .qa-open .qa-modal-panel {
+    opacity: 1;
+    transform: none;
+  }
+  html.qa-scroll-lock {
+    overflow: hidden;
+    scrollbar-gutter: stable;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .qa-modal-backdrop,
+    .qa-modal-panel {
+      transition: none;
+      transform: none;
+    }
+  }
+
+  /* ---- Legacy toggle markup ----------------------------------------------- */
+  /* `.form-toggle` / `-input` / `-track` / `-thumb` used to be an inline <style> inside
+     _FormToggle, which now renders on the canonical `.toggle` classes. Three hand-written
+     toggles still use this markup (Settings command modules, llm-models.js, Privacy), so the
+     rules live here until those screens move to the partial (Phases 11 and 15). */
+  .form-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+  .form-toggle-input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+  }
+  .form-toggle-track {
+    position: relative;
+    display: inline-block;
+    width: 2.75rem;
+    height: 1.5rem;
+    background-color: var(--color-border-primary);
+    border-radius: 9999px;
+    flex-shrink: 0;
+    transition: background-color 0.2s ease-in-out;
+  }
+  .form-toggle-thumb {
+    position: absolute;
+    top: 0.125rem;
+    left: 0.125rem;
+    width: 1.25rem;
+    height: 1.25rem;
+    background-color: var(--color-text-primary);
+    border-radius: 50%;
+    transition: transform 0.2s ease-in-out, background-color 0.2s ease-in-out;
+  }
+  .form-toggle:hover .form-toggle-track {
+    background-color: var(--color-bg-hover);
+  }
+  .form-toggle:hover .form-toggle-input:checked + .form-toggle-track {
+    background-color: var(--color-accent-orange-fill-hover);
+  }
+  .form-toggle-input:focus-visible + .form-toggle-track {
+    outline: 2px solid var(--color-accent-blue);
+    outline-offset: 2px;
+  }
+  .form-toggle-input:checked + .form-toggle-track {
+    background-color: var(--color-accent-orange-fill);
+  }
+  .form-toggle-input:checked + .form-toggle-track .form-toggle-thumb {
+    transform: translateX(1.25rem);
+    background-color: #ffffff;
+  }
+  .form-toggle-input:disabled + .form-toggle-track {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
   /* ---- Legacy navigation classes (component gallery, prototypes) --------- */
   .navbar {
     display: flex;
@@ -4292,8 +4627,14 @@
   /* 16px text stops iOS zooming into a focused field */
   input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]):not([type="color"]):not([type="submit"]):not([type="button"]):not([type="reset"]),
   select,
-  textarea {
+  textarea,
+  .form-textarea,
+  .form-input-sm,
+  .form-input-lg {
     font-size: 1rem;
+  }
+  .form-input-sm {
+    min-height: 2.75rem;
   }
 
   /* 44px targets (WCAG 2.5.5) for the shared controls */

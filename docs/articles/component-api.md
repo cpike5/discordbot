@@ -62,6 +62,9 @@ Then in the view:
 | [Card](#card-component) | Content containers | Dashboard widgets, grouped content |
 | [FormInput](#forminput-component) | Text input fields | Forms, search bars |
 | [FormSelect](#formselect-component) | Dropdown selection | Forms, filters |
+| [FormTextarea](#formtextarea-component) | Multi-line text | Messages, reasons, descriptions |
+| [RadioCard](#radiocard-components) | Pick one by clicking a card | Modes, channels, presets |
+| [FormToggle](#formtoggle-component) | On/off switch | Settings, flags |
 | [Alert](#alert-component) | Persistent page-level state | Load failures, degraded services, validation summaries |
 | [Toasts](#toasts-and-the-tempdata-bridge) | Action results | Saved, deleted, failed to save (JS or `TempData.Set*Toast`) |
 | [ApiClient](#apiclient-javascript-api) | Requests from page scripts | Session expiry, plain-language errors, timeouts |
@@ -70,7 +73,9 @@ Then in the view:
 | [TypedConfirmationModal](#typedconfirmationmodal-component) | Text-verified confirmations | Irreversible destructive actions |
 | [quickActions JS API](#quickactions-javascript-api) | Promise-based dialogs | AJAX-gated confirms, dynamic alerts |
 | [LoadingSpinner](#loadingspinner-component) | Loading states | Async operations, page loads |
-| [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results |
+| [EmptyState](#emptystate-component) | No data feedback | Empty lists, search results, load errors (server and `EmptyState` JS twin) |
+| [Skeletons](#skeleton-components) | Loading placeholders | Regions that load after the page (`Skeleton.show` waits 300ms) |
+| [Unsaved changes](#unsaved-changes) | Leave-page protection | `data-unsaved-changes` on any editable form |
 | [Pagination](#pagination-component) | Data navigation | Tables, lists, search results |
 | [NavTabs](#navtabs-component) | Tabbed navigation | Page navigation, in-page tabs, AJAX content |
 | [SortDropdown](#sortdropdown-component) | Sort selection dropdown | Table headers, list sorting |
@@ -579,7 +584,7 @@ var dataCard = new CardViewModel
 
 ## FormInput Component
 
-Text input field with label, validation states, help text, icons, and character counting.
+Text input field with label, validation states, help text, icons, and character counting. A thin wrapper over the `.form-input` class (UX plan D3): the partial adds the label, the help and message paragraphs and the ARIA wiring; the look lives in `site.css`.
 
 ### Properties
 
@@ -588,7 +593,7 @@ Text input field with label, validation states, help text, icons, and character 
 | `Id` | `string` | `""` | Input element ID (required) |
 | `Name` | `string` | `""` | Input name attribute (required) |
 | `Label` | `string?` | `null` | Field label text |
-| `Type` | `string` | `"text"` | Input type: `text`, `email`, `password`, `search`, `url`, `tel` |
+| `Type` | `string` | `"text"` | Input type: `text`, `email`, `password`, `search`, `url`, `tel`, `number`, `date`... |
 | `Placeholder` | `string?` | `null` | Placeholder text |
 | `Value` | `string?` | `null` | Input value |
 | `HelpText` | `string?` | `null` | Help text below input |
@@ -601,8 +606,14 @@ Text input field with label, validation states, help text, icons, and character 
 | `IconLeft` | `string?` | `null` | SVG path for left icon |
 | `IconRight` | `string?` | `null` | SVG path for right icon |
 | `MaxLength` | `int?` | `null` | Maximum character length |
-| `ShowCharacterCount` | `bool` | `false` | Shows character counter |
-| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Custom HTML attributes |
+| `ShowCharacterCount` | `bool` | `false` | Shows the character count as of page load (it does not update while typing) |
+| `Autocomplete` | `string?` | `null` | `autocomplete` token: `email`, `username`, `current-password`, `new-password`, `one-time-code`, `off`... Passwords and sign-in names need one |
+| `InputMode` | `string?` | `null` | `inputmode` hint for the phone keyboard: `numeric`, `decimal`, `email`, `tel`, `url`, `search`. Use `numeric` on `type="text"` for IDs (Discord snowflakes are too large for a number field) |
+| `Min` / `Max` | `string?` | `null` | Bounds for `number` and date inputs (strings, so decimals and dates pass through) |
+| `Step` | `string?` | `null` | `step` for `number` (`1`, `0.01`, `any`) |
+| `Pattern` | `string?` | `null` | `pattern` regular expression |
+| `DescribedBy` | `string?` | `null` | Extra element IDs for `aria-describedby`, after the component's own help or message ID |
+| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Custom HTML attributes (values are HTML-encoded) |
 
 ### Enums
 
@@ -610,18 +621,20 @@ Text input field with label, validation states, help text, icons, and character 
 
 | Value | Padding | Font Size |
 |-------|---------|-----------|
-| `Small` | `py-1.5 px-3` | `text-xs` |
-| `Medium` | `py-2.5 px-3.5` | `text-sm` |
-| `Large` | `py-3 px-4` | `text-base` |
+| `Small` | `.form-input-sm` | `text-xs` |
+| `Medium` | `.form-input` | `text-sm` (16px under a coarse pointer) |
+| `Large` | `.form-input-lg` | `text-base` |
 
 #### ValidationState
 
 | Value | Description | Border Color |
 |-------|-------------|--------------|
 | `None` | No validation | Default border |
-| `Success` | Valid input | Green border |
-| `Warning` | Warning state | Amber border |
-| `Error` | Invalid input | Red border |
+| `Success` | Valid input | `.input-validation-success` (green border) |
+| `Warning` | Warning state | `.input-validation-warning` (amber border) |
+| `Error` | Invalid input | `.input-validation-error` (red border, red focus ring) |
+
+**Validation classes.** `.input-validation-error`, `-warning` and `-success` are the names ASP.NET tag helpers and jQuery unobtrusive validation add on their own, so server-rendered and live validation look the same. The selectors name the element (`input.input-validation-error`), so a raw `<input asp-for>` that carries utility borders turns red too. `.field-validation-error` colours a `<span asp-validation-for>`, and `.validation-summary-errors` styles the summary list. All are token-based and safelisted.
 
 ### Basic Usage
 
@@ -718,7 +731,8 @@ var idInput = new FormInputViewModel
 - Required inputs include `required` attribute
 - Validation messages use proper ARIA attributes
 - Focus states use blue outline for visibility
-- Help text uses `aria-describedby` association
+- `aria-describedby` points at the help text while the field has no state, at the message while it has one, then at any `DescribedBy` IDs; `aria-invalid="true"` on errors
+- The error message is `role="alert"`; the required asterisk is `aria-hidden` (the input has `required` and `aria-required`)
 
 ---
 
@@ -884,6 +898,74 @@ var validatedSelect = new FormSelectViewModel
 - Required selects include `required` attribute
 - Option groups use `<optgroup>` for semantic grouping
 - Disabled options use `disabled` attribute
+
+---
+
+## FormTextarea Component
+
+Multi-line text with the same label, help, validation and `aria-describedby` rules as `FormInput`, on `.form-textarea` (vertical resize, `min-height` of five rows' worth).
+
+**Partial:** `Components/_FormTextarea` - **ViewModel:** `FormTextareaViewModel`
+
+| Property | Type | Default | Description |
+|----------|------|---------|-------------|
+| `Id`, `Name`, `Label`, `Placeholder`, `Value`, `HelpText` | `string` | | As `FormInput` |
+| `Rows` | `int` | `4` | Visible rows |
+| `MaxLength` | `int?` | `null` | Browser-enforced limit |
+| `ValidationState` / `ValidationMessage` | | `None` | Same classes and message paragraphs as `FormInput` |
+| `IsRequired`, `IsDisabled`, `IsReadOnly` | `bool` | `false` | |
+| `Autocomplete` | `string?` | `null` | Free text rarely wants one |
+| `Dir` | `string?` | `null` | `auto` lets right-to-left text flow correctly in user-written content |
+| `DescribedBy` | `string?` | `null` | Extra `aria-describedby` IDs |
+| `AdditionalAttributes` | `Dictionary<string, string>?` | `null` | Encoded attributes |
+
+```razor
+<partial name="Components/_FormTextarea" model='new FormTextareaViewModel {
+    Id = "reason", Name = "Input.Reason", Label = "Reason", IsRequired = true, Rows = 3, Dir = "auto",
+    ValidationState = ModelState.IsValid ? ValidationState.None : ValidationState.Error,
+    ValidationMessage = "Give a reason." }' />
+```
+
+---
+
+## RadioCard Components
+
+Choose one option by clicking a card. The `<input type="radio">` is visually hidden (`.radio-card-input`, clipped, not `display:none`) so it stays in the tab order; the card draws hover, focus (a 2px ring from `:focus-visible`), selected and disabled, and a dot marks the selection so colour is not the only signal. Tab enters the group once, arrow keys move between cards and skip disabled ones.
+
+**Partials:** `Components/_RadioCardGroup` (a `<fieldset>` with a `<legend>`) and `Components/_RadioCard` (one card, for custom layouts) - **ViewModels:** `RadioCardGroupViewModel`, `RadioCardViewModel`
+
+| `RadioCardGroupViewModel` | Type | Description |
+|---------------------------|------|-------------|
+| `Name` | `string` | Shared radio name (the bound property) |
+| `Legend` | `string` | The group label; required for an accessible group |
+| `HelpText` | `string?` | Shown under the legend and described by `aria-describedby` |
+| `Options` | `List<RadioCardViewModel>` | `Value`, `Title`, `Description?`, `IconPath?`, `IsDisabled`, `Id?`, `AdditionalAttributes?` |
+| `SelectedValue` | `string?` | The checked card's `Value` |
+| `Columns` | `int` | 1-4 from `sm` up; one column on phones. Default 2 |
+| `IsRequired` | `bool` | Adds an asterisk to the legend |
+| `ValidationMessage` | `string?` | Turns the cards red (`.radio-card-group-invalid`) and announces the message |
+
+```razor
+<partial name="Components/_RadioCardGroup" model='new RadioCardGroupViewModel {
+    Name = "Input.Mode", Legend = "Purge mode", SelectedValue = Model.Input.Mode,
+    Options = new() {
+        new() { Value = "recent", Title = "Recent messages", Description = "The last 100 in a channel." },
+        new() { Value = "user",   Title = "By user" } } }' />
+```
+
+Each card's radio is named by its title (`aria-labelledby`) and described by its description. Use this instead of `display:none` radios (findings F-7).
+
+---
+
+## FormToggle Component
+
+Switch on the canonical `.toggle` classes. The checkbox has `role="switch"`, is named by its label and described by the description, and shows a focus ring on the track.
+
+**Partial:** `Components/_FormToggle` - **ViewModel:** `FormToggleViewModel` (`Id`, `Name`, `Label`, `Description`, `IsChecked`, `IsDisabled`, `PostsFalseWhenOff`, `AdditionalAttributes`)
+
+**Unchecked posts `false`.** A browser omits an unchecked checkbox, so a form cannot tell "turned off" from "not on the form", and a bound `bool` never becomes false. With `PostsFalseWhenOff` (the default) a hidden `false` input with the same name follows the checkbox; a checked toggle posts `true,false` and the model binder reads the first. It is not rendered while the toggle is disabled (a disabled field posts nothing). Set `PostsFalseWhenOff = false` for scripts that read `checked` themselves: the Settings page does, with `AdditionalAttributes["data-setting-toggle"] = "true"`.
+
+Legacy `.form-toggle*` markup (Settings command modules, `llm-models.js`, Privacy) is still styled from `site.css` until those screens move to the partial.
 
 ---
 
@@ -1209,7 +1291,7 @@ Do not hand-roll `opacity-0 group-hover:opacity-100` for actions.
 
 ## ConfirmationModal Component
 
-Modal dialog for confirming user intent before executing an action. Renders as a `<form>` element with anti-forgery token support, making it suitable for actions that require a server-side POST.
+Modal dialog for confirming user intent before executing an action. It carries a `<form>` with an anti-forgery token, posted over `fetch` by `quick-actions.js`. Open and close it with [`quickActions`](#quickactions-javascript-api); it gets motion, scroll lock, an `inert` background, a focus trap, Escape and focus return from the same layer as every other dialog.
 
 **Partial:** `Components/_ConfirmationModal`
 
@@ -1227,8 +1309,8 @@ Modal dialog for confirming user intent before executing an action. Renders as a
 | `ConfirmText` | `string` | `"Confirm"` | Label for the confirm button |
 | `CancelText` | `string` | `"Cancel"` | Label for the cancel button |
 | `Variant` | `ConfirmationVariant` | `Warning` | Visual severity of the dialog |
-| `FormAction` | `string?` | `null` | Form `action` attribute (URL to POST to on confirm) |
-| `FormHandler` | `string?` | `null` | Razor Pages handler name (e.g., `"Delete"` maps to `OnPostDelete`) |
+| `FormAction` | `string?` | `null` | URL to POST to, with its own query if it needs one (`/Admin/Users/Edit?userId=...`). Null or empty posts to the current page, query included |
+| `FormHandler` | `string?` | `null` | Razor Pages handler name (e.g., `"Delete"` maps to `OnPostDelete`). The partial writes it into the form's `action` as `handler=...`, because Razor Pages reads the handler from the query string, not the body |
 | `CustomIconPath` | `string?` | `null` | SVG path override for the dialog icon |
 
 ### Enums
@@ -1289,12 +1371,26 @@ var restartModal = new ConfirmationModalViewModel
 };
 ```
 
+### What happens on confirm
+
+The form is submitted by one delegated listener in `quick-actions.js` (B-8). It posts to the form's own `action` (handler included), with `redirect: 'manual'`, once per confirmation:
+
+| The handler answers | The modal |
+|---------------------|-----------|
+| JSON `{ success: true, message }` | Closes, shows a success toast, and fires a bubbling `quickactions:confirmed` event (`detail: { modalId, form, data }`) |
+| JSON error or a 4xx/5xx | Stays open, re-enables the button, shows the server's message (or plain text for the status) as an error toast |
+| A redirect (`RedirectToPage`) | Stays busy while the browser loads the current page once. The redirect is **not followed** by script: following it would run the target's GET and spend the TempData toast or one-time value (Users/Edit's generated password) meant for the page the user lands on |
+| Session expired | The "Sign in" toast from `ApiClient`; the modal stays open |
+
+Opt-outs on the `<form>`: `data-custom-submit` (a page script handles submit itself, as `settings.js` does for reset-category; the generic handler also stands down whenever a script already called `preventDefault`) and `data-submit-mode="navigate"` (a plain browser submit, with the busy state).
+
 ### Accessibility Notes
 
-- Modal uses `role="dialog"` with `aria-modal="true"` and `aria-labelledby` pointing to the title
-- Focus is trapped within the modal while open
-- Pressing `Escape` closes the modal and returns focus to the trigger element
-- Confirm button receives initial focus when the modal opens
+- `role="alertdialog"`, `aria-modal="true"`, `aria-labelledby` the title, `aria-describedby` the message
+- The page behind is `inert` and cannot scroll while it is open; Tab and Shift+Tab stay inside
+- The first focusable control (Cancel) receives focus; `Escape` closes (not while a request is in flight) and returns focus to the opener
+- Cancel and the backdrop are `data-modal-dismiss` controls; there are no inline handlers
+- Enter and exit use class toggles (`.qa-open`), skipped under `prefers-reduced-motion`
 
 ---
 
@@ -1380,9 +1476,11 @@ var removeModal = new TypedConfirmationModalViewModel
 ### Accessibility Notes
 
 - Confirm button is disabled until `RequiredText` matches exactly (case-sensitive)
-- Input field receives focus on modal open
-- Mismatch state is indicated visually; no submit is possible until text matches
+- Input field receives focus on modal open; the phrase is cleared and the button locked again whenever the modal reopens
+- No submit is possible until text matches
 - `Escape` dismisses and clears the typed input
+- It needs only `quick-actions.js` (both layouts load it). The partial no longer calls `settingsManager`; `settings.js` forwards its old `showTypedModal`/`hideTypedModal` to `quickActions`
+- Submission and outcomes are the same as [`ConfirmationModal`](#confirmationmodal-component)
 
 ---
 
@@ -1404,6 +1502,31 @@ The object is registered globally and available on all pages that include the sh
 | Display a non-dismissible alert before proceeding | `quickActions.alert()` Promise API |
 | Require text entry before an AJAX destructive action | `quickActions.typedConfirm()` Promise API |
 | Anti-forgery token required on the resulting request | Server-rendered partial (form includes token automatically) |
+
+### Dialog behaviour
+
+Every dialog, static or dynamic, goes through one core in `quick-actions.js`:
+
+- **Motion.** `hidden` is removed, then `.qa-open` is added, so `.qa-modal-backdrop` fades and `.qa-modal-panel` rises in; closing reverses it and adds `hidden` after about 180ms. Under `prefers-reduced-motion` both are immediate. Give the backdrop `qa-modal-backdrop` and the panel `qa-modal-panel` to get the motion.
+- **Scroll lock.** `html.qa-scroll-lock` (counted, so stacked dialogs lock once).
+- **`inert` background.** The siblings of the dialog and of each of its ancestors are made `inert` (the toast region is left live). Closing lifts `inert` before focus returns, because an element inside an inert subtree cannot take focus.
+- **Focus.** The trigger is remembered before anything becomes inert; focus goes to `initialFocus`, `[data-modal-initial-focus]` or the first control, is trapped, and returns to the trigger on close.
+- **Stacking.** A dialog opened from inside another gets a higher `z-index`; Escape closes only the top one, and closing it hands focus back inside the one below. Reopening a dialog that is still fading out cancels its removal; closing twice is harmless.
+
+#### openDialog(element, options) / closeDialog(element)
+
+Give any dialog element the same behaviour (a hand-rolled modal moves onto this instead of keeping its own trap).
+
+```typescript
+openDialog(element: HTMLElement, options?: {
+    initialFocus?: string | HTMLElement;   // selector or element
+    onClose?: () => void;                  // called once, as it starts closing
+    dismissOnEscape?: boolean;             // default true
+}): object | null
+closeDialog(element: HTMLElement): boolean // false when it was not open
+```
+
+The element should be `hidden`, carry `role="dialog"` or `role="alertdialog"` with `aria-modal="true"`, and mark its Cancel/close controls and backdrop with `data-modal-dismiss`.
 
 ### Modal Helpers
 
@@ -1593,10 +1716,64 @@ A page that uses a server-rendered modal for a form POST and JS API for an AJAX 
 
 ### Accessibility Notes
 
-- Promise-based dialogs use the same accessible modal structure as server-rendered modals (`role="dialog"`, `aria-modal`, `aria-labelledby`)
-- Focus is trapped within the dialog while open
-- `Escape` cancels (resolves `false` / resolves `void`)
-- Screen reader announcements are made when dialogs open and close
+- Promise-based dialogs use the same accessible structure as server-rendered modals (`role="alertdialog"`, `aria-modal`, `aria-labelledby`, `aria-describedby`)
+- Focus is trapped within the dialog while open, the page behind is `inert`, and focus returns to the opener
+- `Escape` and a backdrop click cancel (resolve `false` / resolve `void`); the Promise settles once
+- `typedConfirm` also accepts Enter once the phrase matches
+
+---
+
+## Skeleton Components
+
+Placeholders for a region that loads after the page, on the `.skeleton` class (a shimmer that stops under `prefers-reduced-motion`).
+
+| Partial | ViewModel | Use |
+|---------|-----------|-----|
+| `Components/_Skeleton` | `SkeletonViewModel` (`Type`: `Text`, `Title`, `Avatar`, `AvatarSmall`, `AvatarLarge`, `Button`, `Card`, `Rectangle`; `Width`, `Height`, `Rounded`, `Animate`, `CssClass`) | One shape |
+| `Components/_SkeletonCard` | `SkeletonCardViewModel` (`Type`: `Stats`, `Server`, `Activity`, `Table`, `List`, `Form`; `ShowHeader`, `Label`) | A card-shaped placeholder |
+| `Components/_SkeletonTable` | `SkeletonTableViewModel` (`Rows`, `Columns`, `Label`) | Table or list rows |
+| `Components/_SkeletonLines` | `SkeletonLinesViewModel` (`Lines`, `Label`) | Text lines, the last shorter |
+
+The shapes are `aria-hidden`. `Label` adds a visually hidden `role="status"` text ("Loading users"); how reliably a screen reader announces it varies, so pair it with the page's own status line. Leave it off when several cards share a region that announces itself.
+
+### Skeleton JavaScript
+
+`wwwroot/js/skeleton.js` (both layouts). A skeleton that flashes for 80ms is worse than none, so `Skeleton.show` draws nothing for 300ms and nothing at all if the data arrives first.
+
+```javascript
+const loading = Skeleton.show(panel, { kind: 'table', rows: 6, columns: 4, label: 'Loading users' });
+try {
+    const data = await ApiClient.get(url);
+    loading.hide();
+    render(panel, data);
+} catch (err) {
+    loading.hide();
+    EmptyState.error(panel, { onRetry: load });
+}
+```
+
+`show` marks the container `aria-busy="true"` while loading; once drawn, the skeleton replaces the container's content (stale content from an earlier load must not stay on screen) and adds visually hidden "Loading" text. Announcement of text inserted into a busy region varies between screen readers, so do not rely on it alone. Kinds: `lines` (`count`), `table` (`rows`, `columns`), `list` (`rows`), `card` (`type`, `showHeader`). Options: `delay` (ms, default 300, 0 draws at once) and `label`. `Skeleton.build(options)` makes the element without the delay.
+
+---
+
+## Unsaved Changes
+
+`wwwroot/js/unsaved-changes.js` (both layouts) warns before a page is left with edits not saved. Opt in with one attribute:
+
+```html
+<form method="post" data-unsaved-changes> ... </form>
+```
+
+A form is dirty when its controls differ from how they were at load, so typing the old value back clears it. Checkboxes and radios count only when checked; buttons, file inputs, disabled controls and the antiforgery token are ignored. Submitting is not a loss: a submit that nothing cancelled does not warn, while a fetch-based save (which calls `preventDefault`) keeps its protection.
+
+| Attribute | On | Effect |
+|-----------|----|--------|
+| `data-unsaved-changes` | `<form>` | Track it |
+| `data-unsaved-dirty-on-load` | `<form>` | Start dirty. Put it on a form the server re-rendered after failed validation: the input on screen is not saved yet |
+| `data-unsaved-ignore` | control or container | Do not count it (a search box beside the fields) |
+| `data-unsaved-indicator` | element inside the form | Shown (its `hidden` class removed) only while dirty |
+
+The form gets `data-dirty="true|false"` and fires a bubbling `unsavedchange` event (`detail.dirty`). API: `UnsavedChanges.markClean(form)` after a successful fetch save (takes the saved values as the new baseline), `isDirty(form?)`, `track(form)` / `untrack(form)` for forms inserted later, `init(scope)`. The `beforeunload` listener exists only while a tracked form is dirty, so clean pages keep the back/forward cache. The browser decides the wording of the leave-page prompt; a script cannot set it. The tracker core (`serialize`, `createTracker`, `createRegistry`, `handleBeforeUnload`) has no DOM dependency and is covered by `wwwroot/js/__tests__/unsaved-changes.test.js`.
 
 ---
 
@@ -1730,7 +1907,9 @@ var cardContent = isLoading
 
 ## EmptyState Component
 
-Placeholder component for empty lists, no search results, error states, and first-time user experiences.
+Placeholder component for empty lists, no search results, error states, and first-time user experiences. Buttons are `.btn btn-primary` and the icon tile is `.empty-state-icon`. For a region a script fills, use the [`EmptyState` JS twin](#emptystate-javascript-twin).
+
+An empty result has three different states, and each needs its own wording: **empty** ("No servers yet", an action to add one), **filtered-empty** ("No users match your filters" with a Clear filters action, never the first-time copy) and **error** ("Could not load this" with Retry, in plain language, never exception text).
 
 ### Properties
 
@@ -1745,7 +1924,12 @@ Placeholder component for empty lists, no search results, error states, and firs
 | `PrimaryActionOnClick` | `string?` | `null` | Primary button JavaScript handler |
 | `SecondaryActionText` | `string?` | `null` | Secondary button/link text |
 | `SecondaryActionUrl` | `string?` | `null` | Secondary link URL |
+| `PrimaryActionIconPath` | `string?` | `null` | SVG path for the action's icon. Null keeps the plus sign; `""` shows no icon (right for Retry and Clear filters) |
+| `PrimaryActionAttributes` | `Dictionary<string, string>?` | `null` | Extra attributes for the action (`data-*`, `id`), encoded. Prefer `data-action="..."` and a delegated listener to `PrimaryActionOnClick` |
 | `Size` | `EmptyStateSize` | `Default` | Component size |
+| `HeadingLevel` | `int` | `3` | Title tag `h1`-`h6`; follow the page's outline rather than skip a level |
+| `Announce` | `bool` | `false` | `role="status"`, for an empty state that appears after load (a filter result, a failed fetch) |
+| `Id` | `string?` | `null` | Element ID, so a script can replace or clear it |
 
 ### Enums
 
@@ -1861,12 +2045,36 @@ else
 - Buttons/links have proper focus states
 - Icon uses decorative `aria-hidden="true"`
 - Text content is fully accessible to screen readers
+- `Announce` makes a late-appearing state a polite live region
+
+### EmptyState JavaScript twin
+
+`wwwroot/js/empty-state.js` (both layouts) draws the same markup for regions a script fills. Text goes in as text, never as HTML; an action's `onClick` is a listener, and event-handler attribute names are refused.
+
+```javascript
+EmptyState.render(container, { type: 'noResults', title: 'No matches', description: '...',
+    action: { text: 'Add one', url: '/Admin/Users/Create' } });
+EmptyState.filtered(container, { noun: 'users', onClear: resetFilters });   // "No users match your filters" + Clear filters
+EmptyState.error(container, { onRetry: load });                             // plain text + Retry, role="status"
+const node = EmptyState.create(options);                                    // build without inserting
+```
+
+Options: `type` (`noData`, `noResults`, `firstTime`, `error`, `noPermission`, `offline`), `title`, `description`, `icon` (SVG path), `size` (`compact`, `default`, `large`), `headingLevel`, `announce`, `id`, and `action` / `secondary` as `{ text, url, onClick, iconPath, attributes }`. The partial and the twin share icons, size classes and structure; change both together.
 
 ---
 
 ## Pagination Component
 
-Navigation component for paginated data with page numbers, item counts, and page size selection.
+Navigation component for paginated data with page numbers, item counts, and page size selection. The state rules live on `PaginationViewModel` (`EffectivePage`, `IsEmpty`, `HasMultiplePages`, `FirstItem`, `LastItem`, `VisiblePages()`) and are unit tested; the partial only draws them.
+
+| State | What shows |
+|-------|------------|
+| Several pages | First, Previous, numbers with ellipses, Next, Last. On phones only the current page sits between Previous and Next |
+| First / last page | Previous (or Next) is a `<span aria-disabled="true">`, not a link |
+| One page | The item count stays ("Showing 1-7 of 7"); no navigation |
+| No items | "No results" (with `ShowItemCount`); never "Showing 1-0 of 0" |
+| `CurrentPage` past the end | Clamped to the last page; never "Showing 201 to 90" |
+| `TotalItems` left at 0 with several pages | "Page X of Y" instead of an invented range |
 
 ### Properties
 
@@ -1882,7 +2090,8 @@ Navigation component for paginated data with page numbers, item counts, and page
 | `ShowItemCount` | `bool` | `false` | Shows "Showing X-Y of Z" text |
 | `ShowFirstLast` | `bool` | `true` | Shows First/Last buttons |
 | `BaseUrl` | `string` | `""` | Base URL for page links |
-| `PageParameterName` | `string` | `"page"` | Query string parameter for page |
+| `PageParameterName` | `string` | `"page"` | Query string parameter for page. Pass `"pageNumber"` when the base URL comes from route values: Razor Pages reserves `page` for the page name |
+| `AriaLabel` | `string` | `"Pagination"` | Landmark name; give each pagination on a page its own |
 | `PageSizeParameterName` | `string` | `"pageSize"` | Query string parameter for page size |
 
 ### Enums
@@ -1993,11 +2202,11 @@ var customPagination = new PaginationViewModel
 
 ### Accessibility Notes
 
-- Uses `<nav>` with `aria-label="Pagination"`
-- Current page marked with `aria-current="page"`
-- Disabled buttons have `disabled` attribute
-- Page links use semantic `<a>` elements
-- Keyboard navigable
+- `<nav>` with `aria-label` (`AriaLabel`)
+- Current page is a `<span aria-current="page" aria-label="Page 3">`; other pages are `<a aria-label="Page 4">`
+- Previous/Next carry `rel="prev"` / `rel="next"` and an `aria-label`; at the ends they are `<span aria-disabled="true">` (not tabbable, not links)
+- Links are 36px, 44px under a coarse pointer
+- The page-size selector is a labelled `<select>` in a GET form that carries the other query values as hidden inputs and resets to page 1. It replaces an inline `onchange` that wrote the base URL (which holds filter values) into script text
 
 ---
 

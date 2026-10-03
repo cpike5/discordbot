@@ -230,38 +230,12 @@
     }
 
     /**
-     * Show a typed confirmation modal
+     * Show a typed confirmation modal. The modal is owned by quick-actions.js; these three
+     * names stay because Settings.cshtml and older callers use them.
      * @param {string} modalId - The modal element ID
      */
     function showTypedModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (!modal) return;
-
-        // Reset input and button state
-        const input = modal.querySelector('input[type="text"]');
-        const confirmBtn = modal.querySelector('button[type="submit"]');
-
-        if (input) {
-            input.value = '';
-        }
-        if (confirmBtn) {
-            confirmBtn.disabled = true;
-        }
-
-        modal.classList.remove('hidden');
-        document.body.classList.add('overflow-hidden');
-
-        // Focus the input
-        if (input) {
-            setTimeout(() => input.focus(), 100);
-        }
-
-        // Setup form submission handler
-        const form = modal.querySelector('form');
-        if (form && !form.dataset.handlerAttached) {
-            form.dataset.handlerAttached = 'true';
-            form.addEventListener('submit', handleTypedFormSubmit);
-        }
+        window.quickActions?.showConfirmationModal(modalId);
     }
 
     /**
@@ -269,88 +243,20 @@
      * @param {string} modalId - The modal element ID
      */
     function hideTypedModal(modalId) {
-        const modal = document.getElementById(modalId);
-        if (!modal) return;
-
-        modal.classList.add('hidden');
-        document.body.classList.remove('overflow-hidden');
-
-        // Reset input
-        const input = modal.querySelector('input[type="text"]');
-        if (input) {
-            input.value = '';
-        }
-
-        // Reset button
-        const confirmBtn = modal.querySelector('button[type="submit"]');
-        if (confirmBtn) {
-            confirmBtn.disabled = true;
-            const btnText = confirmBtn.querySelector('.confirm-btn-text');
-            const spinner = confirmBtn.querySelector('.confirm-btn-spinner');
-            if (btnText) btnText.classList.remove('hidden');
-            if (spinner) spinner.classList.add('hidden');
-        }
+        window.quickActions?.hideConfirmationModal(modalId);
     }
 
     /**
-     * Validate typed input and enable/disable confirm button
+     * Validate typed input and enable/disable confirm button.
+     * quick-actions.js does this for any `data-typed-input` on its own.
      * @param {HTMLInputElement} input - The input element
      */
     function validateTypedInput(input) {
         if (!input) return;
 
-        const requiredText = input.dataset.requiredText;
-        const confirmBtnId = input.dataset.confirmBtn;
-        const confirmBtn = document.getElementById(confirmBtnId);
-
+        const confirmBtn = document.getElementById(input.dataset.confirmBtn);
         if (confirmBtn) {
-            confirmBtn.disabled = input.value !== requiredText;
-        }
-    }
-
-    /**
-     * Handle typed confirmation form submission via AJAX
-     * @param {Event} e - The submit event
-     */
-    async function handleTypedFormSubmit(e) {
-        e.preventDefault();
-
-        const form = e.target;
-        const modal = form.closest('[role="alertdialog"]');
-        const confirmBtn = form.querySelector('button[type="submit"]');
-        const btnText = confirmBtn?.querySelector('.confirm-btn-text');
-        const spinner = confirmBtn?.querySelector('.confirm-btn-spinner');
-
-        // Show loading state
-        if (confirmBtn) confirmBtn.disabled = true;
-        if (btnText) btnText.classList.add('hidden');
-        if (spinner) spinner.classList.remove('hidden');
-
-        try {
-            const formData = new FormData(form);
-            const handler = formData.get('handler');
-
-            const { ok, data } = await window.ApiClient.postRaw(`?handler=${handler}`, formData);
-
-            if (ok && data.success) {
-                window.quickActions?.showToast(data.message, 'success');
-                if (modal) {
-                    hideTypedModal(modal.id);
-                }
-            } else {
-                window.quickActions?.showToast(data.message || 'Action failed.', 'error');
-                // Reset button state
-                if (confirmBtn) confirmBtn.disabled = false;
-                if (btnText) btnText.classList.remove('hidden');
-                if (spinner) spinner.classList.add('hidden');
-            }
-        } catch (error) {
-            console.error('Form submission error:', error);
-            window.quickActions?.showToast('An error occurred. Please try again.', 'error');
-            // Reset button state
-            if (confirmBtn) confirmBtn.disabled = false;
-            if (btnText) btnText.classList.remove('hidden');
-            if (spinner) spinner.classList.add('hidden');
+            confirmBtn.disabled = input.value !== input.dataset.requiredText;
         }
     }
 
@@ -753,6 +659,9 @@
             const form = modal.querySelector('form');
             if (form && !form.dataset.categoryHandler) {
                 form.dataset.categoryHandler = 'true';
+                // This script submits the reset itself (it needs the category), so
+                // quick-actions.js must not send a second request.
+                form.setAttribute('data-custom-submit', '');
                 // Bound once, but must use the module-level currentCategory (reassigned above on
                 // every call) rather than this closure's `category` - otherwise every reset after
                 // the first always resets whichever category opened the modal first.
@@ -803,6 +712,7 @@
             const form = modal.querySelector('form');
             if (form && !form.dataset.resetAllHandler) {
                 form.dataset.resetAllHandler = 'true';
+                form.setAttribute('data-custom-submit', '');
                 form.addEventListener('submit', async (e) => {
                     e.preventDefault();
                     await resetAll();
@@ -991,21 +901,6 @@
         if (currentCategory === 'BotControl') {
             startPolling();
         }
-
-        // Handle escape key to close modals
-        document.addEventListener('keydown', (e) => {
-            if (e.key === 'Escape') {
-                const openModal = document.querySelector('[role="alertdialog"]:not(.hidden)');
-                if (openModal) {
-                    // Try typed modal first, then quick actions modal
-                    if (openModal.id && typeof hideTypedModal === 'function') {
-                        hideTypedModal(openModal.id);
-                    } else if (window.quickActions) {
-                        window.quickActions.hideConfirmationModal(openModal.id);
-                    }
-                }
-            }
-        });
 
         // Clean up polling on page unload
         window.addEventListener('beforeunload', stopPolling);
