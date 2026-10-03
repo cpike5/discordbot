@@ -1,0 +1,17 @@
+@model DiscordBot.Bot.ViewModels.Pages.SettingsTabFooterViewModel
+@using DiscordBot.Bot.ViewModels.Components
+@* Footer of one Settings tab. settings.js fills [data-settings-error-message] when a save fails
+   and shows the block; the wrapper is a live region from the start so the message is announced. *@
+<div class="px-4 sm:px-6 py-4 border-t border-border-primary space-y-4">
+    <div data-settings-error="@Model.Category" role="alert" tabindex="-1" class="hidden">
+        <partial name="Shared/Components/_Alert" model='new AlertViewModel { Variant = AlertVariant.Error, Title = "These settings were not saved", Message = "" }' />
+    </div>
+    <div class="flex flex-wrap items-center justify-end gap-3">
+        <span data-unsaved-indicator class="hidden mr-auto text-sm text-warning">Unsaved changes</span>
+        @if (!string.IsNullOrEmpty(Model.ResetModalId))
+        {
+            <button type="button" class="btn btn-secondary" data-modal-open="@Model.ResetModalId">@Model.ResetText</button>
+        }
+        <button type="submit" class="btn btn-primary" data-settings-save="@Model.Category">@Model.SaveText</button>
+    </div>
+</div>

@@ -30,7 +30,7 @@ You are a domain expert for the **User Management & Identity** stream of a Disco
 
 ### Pages
 - **Account:** Login, ExternalLogin, Profile, Privacy, LinkDiscord, Logout, Lockout, AccessDenied
-- **Admin:** `Admin/Users/` (Index, Create, Edit, Details), `Admin/UserPurge.cshtml`
+- **Admin:** `Admin/Users/` (Index, Create, Edit, Details), `Admin/UserPurge.cshtml` (preview is a GET; the purge redirects, so a refresh never re-runs it; counts named by `Helpers/PurgeDisplay`). `UserManagementService` has no delete or unlock operation; the Users list offers disable/enable via `SetUserActiveStatusAsync`.
 - **Guild:** `Guilds/Members/` (Index, Moderation)
 
 ### Key Flows

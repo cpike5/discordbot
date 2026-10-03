@@ -1185,9 +1185,9 @@
 
   /* ---- Legacy toggle markup ----------------------------------------------- */
   /* `.form-toggle` / `-input` / `-track` / `-thumb` used to be an inline <style> inside
-     _FormToggle, which now renders on the canonical `.toggle` classes. Three hand-written
-     toggles still use this markup (Settings command modules, llm-models.js, Privacy), so the
-     rules live here until those screens move to the partial (Phases 11 and 15). */
+     _FormToggle, which now renders on the canonical `.toggle` classes. Settings (command
+     modules and the llm-models.js catalog) moved to the partial in Phase 11; only the Privacy
+     page still uses this markup, so the rules live here until Phase 15 moves it. */
   .form-toggle {
     display: flex;
     align-items: center;

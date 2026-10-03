@@ -1,4 +1,5 @@
 using DiscordBot.Bot.Extensions;
+using DiscordBot.Bot.Helpers;
 using DiscordBot.Bot.ViewModels.Pages;
 using DiscordBot.Core.DTOs;
 using DiscordBot.Core.Interfaces;
@@ -40,6 +41,13 @@ public class IndexModel : PaginatedPageModel
     public bool? DiscordLinkedFilter { get; set; }
 
     public UserListViewModel ViewModel { get; set; } = new();
+
+    /// <summary>True when any search term or filter is applied, so an empty list means "nothing matches".</summary>
+    public bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(SearchTerm)
+        || !string.IsNullOrEmpty(RoleFilter)
+        || ActiveFilter.HasValue
+        || DiscordLinkedFilter.HasValue;
 
     public async Task<IActionResult> OnGetAsync()
     {
@@ -91,7 +99,7 @@ public class IndexModel : PaginatedPageModel
         return Page();
     }
 
-    public async Task<IActionResult> OnPostToggleActiveAsync(string userId, bool isActive)
+    public async Task<IActionResult> OnPostToggleActiveAsync(string userId, bool isActive, string? returnUrl = null)
     {
         var currentUserId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(currentUserId))
@@ -108,7 +116,7 @@ public class IndexModel : PaginatedPageModel
 
         if (result.Succeeded)
         {
-            TempData.SetSuccessToast($"User {(isActive ? "enabled" : "disabled")} successfully");
+            TempData.SetSuccessToast(isActive ? "User enabled. They can sign in again." : "User disabled. They can no longer sign in.");
             _logger.LogInformation("User {UserId} {Action} user {TargetUserId}",
                 currentUserId, isActive ? "enabled" : "disabled", userId);
         }
@@ -119,6 +127,7 @@ public class IndexModel : PaginatedPageModel
                 userId, result.ErrorMessage);
         }
 
-        return RedirectToPage();
+        // Back to the same filtered, paged list the admin was looking at
+        return LocalRedirect(ReturnUrlHelper.Sanitize(returnUrl, Url.Page("Index") ?? "/Admin/Users"));
     }
 }

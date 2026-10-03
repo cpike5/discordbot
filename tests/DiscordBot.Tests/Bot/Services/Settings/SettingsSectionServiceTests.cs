@@ -41,6 +41,13 @@ public class SettingsSectionServiceTests
                 ConfiguredSlug = "anthropic/claude-sonnet-4"
             });
 
+        // The keys each category owns; a save keeps only the keys of the category it was asked for
+        SetupCategory(SettingCategory.General, "General:Foo", "General:Bar");
+        SetupCategory(SettingCategory.Advanced, "Advanced:Retention");
+        SetupCategory(
+            SettingCategory.AiModels,
+            "Assistant:Sampling:Model", "DmAssistant:Model", "FeatureRequests:RequirementsGatheringModel");
+
         _service = new SettingsSectionService(
             _mockSettingsService.Object,
             _mockCommandModuleConfigurationService.Object,
@@ -48,6 +55,13 @@ public class SettingsSectionServiceTests
             _mockLlmModelRepository.Object,
             _mockLlmModelResolver.Object,
             Mock.Of<ILogger<SettingsSectionService>>());
+    }
+
+    private void SetupCategory(SettingCategory category, params string[] keys)
+    {
+        _mockSettingsService
+            .Setup(s => s.GetSettingsByCategoryAsync(category, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(keys.Select(k => new SettingDto { Key = k, Category = category }).ToList());
     }
 
     [Fact]
@@ -74,8 +88,85 @@ public class SettingsSectionServiceTests
         // Assert
         result.Success.Should().BeTrue();
         result.RestartRequired.Should().BeTrue();
-        result.Message.Should().Contain("1 setting(s) updated");
+        result.Message.Should().Be("Saved 1 setting.");
+        result.ChangeCount.Should().Be(1);
         _mockAuditLogQueue.Verify(q => q.Enqueue(It.Is<AuditLogCreateDto>(d => d.Category == AuditLogCategory.Configuration)), Times.Once);
+    }
+
+    [Fact]
+    public async Task SaveCategoryAsync_SendsOnlyTheKeysOfThatCategory()
+    {
+        SettingsUpdateDto? sent = null;
+        _mockSettingsService
+            .Setup(s => s.UpdateSettingsAsync(It.IsAny<SettingsUpdateDto>(), "user-1", It.IsAny<CancellationToken>()))
+            .Callback<SettingsUpdateDto, string, CancellationToken>((dto, _, _) => sent = dto)
+            .ReturnsAsync(new SettingsUpdateResultDto { Success = true });
+
+        // A whole-page post: General's key, Advanced's key and one that belongs to nothing
+        var result = await _service.SaveCategoryAsync(
+            "General",
+            new Dictionary<string, string>
+            {
+                ["General:Foo"] = "a",
+                ["Advanced:Retention"] = "30",
+                ["Made:Up"] = "x"
+            },
+            "user-1");
+
+        result.Success.Should().BeTrue();
+        sent.Should().NotBeNull();
+        sent!.Settings.Keys.Should().BeEquivalentTo(new[] { "General:Foo" });
+    }
+
+    [Fact]
+    public async Task SaveCategoryAsync_WithUnknownCategory_FailsWithoutSaving()
+    {
+        var result = await _service.SaveCategoryAsync("Nope", new Dictionary<string, string>(), "user-1");
+
+        result.Success.Should().BeFalse();
+        result.StatusCode.Should().Be(400);
+        _mockSettingsService.Verify(
+            s => s.UpdateSettingsAsync(It.IsAny<SettingsUpdateDto>(), It.IsAny<string>(), It.IsAny<CancellationToken>()),
+            Times.Never);
+    }
+
+    [Fact]
+    public async Task SaveCategoryAsync_WhenNothingChanged_SaysSoAndCountsZero()
+    {
+        _mockSettingsService
+            .Setup(s => s.UpdateSettingsAsync(It.IsAny<SettingsUpdateDto>(), "user-1", It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new SettingsUpdateResultDto { Success = true });
+
+        var result = await _service.SaveCategoryAsync("General", new Dictionary<string, string> { ["General:Foo"] = "same" }, "user-1");
+
+        result.Success.Should().BeTrue();
+        result.ChangeCount.Should().Be(0);
+        result.Message.Should().StartWith("Nothing changed");
+        _mockAuditLogQueue.Verify(q => q.Enqueue(It.IsAny<AuditLogCreateDto>()), Times.Never);
+    }
+
+    [Theory]
+    [InlineData(0, "Nothing changed. These values were already saved.")]
+    [InlineData(1, "Saved 1 setting.")]
+    [InlineData(3, "Saved 3 settings.")]
+    public void SavedMessage_UsesTheRightPlural(int count, string expected)
+    {
+        SettingsSectionService.SavedMessage("Saved", count).Should().Be(expected);
+    }
+
+    [Fact]
+    public void SavedMessage_ForCommandModules_PluralisesTheNoun()
+    {
+        SettingsSectionService.SavedMessage("Saved", 2, "command module").Should().Be("Saved 2 command modules.");
+    }
+
+    [Theory]
+    [InlineData("AiModels", "AI Models")]
+    [InlineData("BotControl", "Bot Control")]
+    [InlineData("General", "General")]
+    public void CategoryLabel_ReadsAsTheTabName(string category, string expected)
+    {
+        SettingsSectionService.CategoryLabel(category).Should().Be(expected);
     }
 
     [Fact]
@@ -139,6 +230,8 @@ public class SettingsSectionServiceTests
 
         // Assert
         result.Success.Should().BeTrue();
+        result.ChangeCount.Should().Be(1);
+        result.Message.Should().Be("Saved 1 command module.");
         _mockAuditLogQueue.Verify(q => q.Enqueue(It.IsAny<AuditLogCreateDto>()), Times.Once);
     }
 

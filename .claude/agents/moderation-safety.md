@@ -35,7 +35,7 @@ You are a domain expert for the **Moderation & Safety** stream of a Discord bot 
 - `ModerationCasesController`, `ModerationConfigController`, `UserModerationController`, `ModTagsController`, `FlaggedEventsController`, `BulkPurgeController`
 
 ### Pages
-- `Guilds/Members/Moderation.cshtml`, `Guilds/FlaggedEvents/` (Index, Details), `Guilds/ModerationSettings/Index.cshtml`, `Admin/BulkPurge.cshtml`
+- `Guilds/Members/Moderation.cshtml`, `Guilds/FlaggedEvents/` (Index, Details), `Guilds/ModerationSettings/Index.cshtml`, `Admin/BulkPurge.cshtml` (criteria are a GET, the purge a redirecting POST; `purge.js` and the `BulkPurgeProgress` hub event drive the confirm and progress)
 
 ### Repositories (7)
 - `ModerationCaseRepository`, `ModNoteRepository`, `ModTagRepository`, `UserModTagRepository`, `WatchlistRepository`, `FlaggedEventRepository`, `GuildModerationConfigRepository`
