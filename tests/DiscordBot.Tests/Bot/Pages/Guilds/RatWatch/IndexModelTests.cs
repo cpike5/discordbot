@@ -7,6 +7,7 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
 using Microsoft.AspNetCore.Mvc.RazorPages;
+using Microsoft.AspNetCore.Mvc.ViewFeatures;
 using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.Logging;
 using Moq;
@@ -64,6 +65,7 @@ public class IndexModelTests
         var modelState = new ModelStateDictionary();
         var actionContext = new ActionContext(httpContext, new RouteData(), new PageActionDescriptor(), modelState);
         _indexModel.PageContext = new PageContext(actionContext);
+        _indexModel.TempData = new TempDataDictionary(httpContext, Mock.Of<ITempDataProvider>());
     }
 
     // -----------------------------------------------------------------
@@ -233,6 +235,111 @@ public class IndexModelTests
             r => r.GetAnalyticsSummaryAsync(guildId, null, null, It.IsAny<CancellationToken>()),
             Times.Once,
             "analytics summary must be fetched for the guild");
+    }
+
+    // -----------------------------------------------------------------
+    // Cancel / end vote: the watch must belong to the guild in the route
+    // -----------------------------------------------------------------
+
+    private const ulong RouteGuildId = 111UL;
+    private const ulong OtherGuildId = 222UL;
+
+    private static RatWatchDto WatchIn(ulong guildId, Guid id) => new() { Id = id, GuildId = guildId };
+
+    [Fact]
+    public async Task OnPostCancelAsync_ForAWatchInAnotherGuild_IsNotFound_AndCancelsNothing()
+    {
+        var id = Guid.NewGuid();
+        _mockRatWatchService.Setup(s => s.GetByIdAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(WatchIn(OtherGuildId, id));
+
+        var result = await _indexModel.OnPostCancelAsync(RouteGuildId, id);
+
+        result.Should().BeOfType<NotFoundResult>();
+        _mockRatWatchService.Verify(s => s.CancelWatchAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostCancelAsync_ForAnUnknownWatch_IsNotFound()
+    {
+        var result = await _indexModel.OnPostCancelAsync(RouteGuildId, Guid.NewGuid());
+
+        result.Should().BeOfType<NotFoundResult>();
+        _mockRatWatchService.Verify(s => s.CancelWatchAsync(It.IsAny<Guid>(), It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostCancelAsync_ForAWatchInThisGuild_Cancels()
+    {
+        var id = Guid.NewGuid();
+        _mockRatWatchService.Setup(s => s.GetByIdAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(WatchIn(RouteGuildId, id));
+        _mockRatWatchService.Setup(s => s.CancelWatchAsync(id, It.IsAny<string>(), It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var result = await _indexModel.OnPostCancelAsync(RouteGuildId, id);
+
+        result.Should().BeOfType<RedirectToPageResult>();
+        _mockRatWatchService.Verify(s => s.CancelWatchAsync(id, It.IsAny<string>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task OnPostEndVoteAsync_ForAWatchInAnotherGuild_IsNotFound_AndEndsNothing()
+    {
+        var id = Guid.NewGuid();
+        _mockRatWatchService.Setup(s => s.GetByIdAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(WatchIn(OtherGuildId, id));
+
+        var result = await _indexModel.OnPostEndVoteAsync(RouteGuildId, id);
+
+        result.Should().BeOfType<NotFoundResult>();
+        _mockRatWatchService.Verify(s => s.FinalizeVotingAsync(It.IsAny<Guid>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostEndVoteAsync_ForAWatchInThisGuild_EndsVoting()
+    {
+        var id = Guid.NewGuid();
+        _mockRatWatchService.Setup(s => s.GetByIdAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(WatchIn(RouteGuildId, id));
+        _mockRatWatchService.Setup(s => s.FinalizeVotingAsync(id, It.IsAny<CancellationToken>())).ReturnsAsync(true);
+
+        var result = await _indexModel.OnPostEndVoteAsync(RouteGuildId, id);
+
+        result.Should().BeOfType<RedirectToPageResult>();
+        _mockRatWatchService.Verify(s => s.FinalizeVotingAsync(id, It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    // -----------------------------------------------------------------
+    // Settings: the timezone must be one the server knows
+    // -----------------------------------------------------------------
+
+    [Fact]
+    public async Task OnPostUpdateSettingsAsync_WithAnUnknownTimezone_IsRefused_AndSavesNothing()
+    {
+        var result = await _indexModel.OnPostUpdateSettingsAsync(RouteGuildId, "Mars/Olympus_Mons", 24, 5, true, false);
+
+        result.Should().BeOfType<RedirectToPageResult>();
+        _indexModel.TempData["ToastError"].Should().BeOfType<string>().Which.Should().Contain("Unknown timezone");
+        _mockRatWatchService.Verify(s => s.UpdateGuildSettingsAsync(
+            It.IsAny<ulong>(), It.IsAny<Action<GuildRatWatchSettings>>(), It.IsAny<CancellationToken>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task OnPostUpdateSettingsAsync_WithAKnownTimezone_Saves()
+    {
+        await _indexModel.OnPostUpdateSettingsAsync(RouteGuildId, "UTC", 24, 5, true, false);
+
+        _mockRatWatchService.Verify(s => s.UpdateGuildSettingsAsync(
+            RouteGuildId, It.IsAny<Action<GuildRatWatchSettings>>(), It.IsAny<CancellationToken>()), Times.Once);
+    }
+
+    [Fact]
+    public async Task OnPostUpdateSettingsAsync_WithTheUnchangedStoredUnknownTimezone_StillSaves()
+    {
+        _mockRatWatchService
+            .Setup(s => s.GetGuildSettingsAsync(RouteGuildId, It.IsAny<CancellationToken>()))
+            .ReturnsAsync(new GuildRatWatchSettings { IsEnabled = true, Timezone = "Legacy/Unknown" });
+
+        await _indexModel.OnPostUpdateSettingsAsync(RouteGuildId, "Legacy/Unknown", 24, 5, true, false);
+
+        _mockRatWatchService.Verify(s => s.UpdateGuildSettingsAsync(
+            RouteGuildId, It.IsAny<Action<GuildRatWatchSettings>>(), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     // -----------------------------------------------------------------
