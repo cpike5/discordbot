@@ -1,14 +1,11 @@
-using DiscordBot.Bot.Configuration;
 using DiscordBot.Bot.Extensions;
 using DiscordBot.Bot.ViewModels.Components;
 using DiscordBot.Core.Configuration;
-using DiscordBot.Core.Entities;
 using DiscordBot.Core.Enums;
 using DiscordBot.Core.Interfaces;
 using DiscordBot.Core.Models.Llm;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Mvc.RazorPages;
 using Microsoft.Extensions.Options;
 using System.ComponentModel.DataAnnotations;
 
@@ -19,7 +16,7 @@ namespace DiscordBot.Bot.Pages.Guilds;
 /// </summary>
 [Authorize(Policy = "RequireAdmin")]
 [Authorize(Policy = "GuildAccess")]
-public class AssistantSettingsModel : PageModel
+public class AssistantSettingsModel : GuildPageModelBase
 {
     private readonly IAssistantGuildSettingsService _settingsService;
     private readonly IGuildService _guildService;
@@ -48,13 +45,9 @@ public class AssistantSettingsModel : PageModel
     public InputModel Input { get; set; } = new();
 
     /// <summary>
-    /// Guild information for display.
+    /// Guild display information.
     /// </summary>
     public GuildViewModel Guild { get; set; } = new();
-
-    public GuildBreadcrumbViewModel Breadcrumb { get; set; } = new();
-    public GuildHeaderViewModel Header { get; set; } = new();
-    public GuildNavBarViewModel Navigation { get; set; } = new();
 
     /// <summary>
     /// List of available text channels in the guild.
@@ -62,38 +55,35 @@ public class AssistantSettingsModel : PageModel
     public List<ChannelSelectItem> AvailableChannels { get; set; } = new();
 
     /// <summary>
-    /// The guild-scoped tools an admin can allow or deny, grouped by catalogue category.
+    /// The guild's tool allow-list, grouped by category, with the current selection.
     /// </summary>
     public List<ToolCategoryGroup> ToolCategories { get; set; } = new();
 
     /// <summary>
-    /// Whether this guild is running the house default tool set (nothing explicitly selected).
-    /// The UI has to say so: an empty checklist otherwise reads as "no tools".
+    /// Whether the guild has no saved tool selection and so uses the default set.
     /// </summary>
     public bool UsingDefaultToolSet { get; set; }
 
     /// <summary>
-    /// Default rate limit from configuration.
+    /// Gets the default rate limit from configuration.
     /// </summary>
     public int DefaultRateLimit { get; set; }
 
     /// <summary>
-    /// Rate limit window in minutes from configuration.
+    /// Gets the rate limit window in minutes from configuration.
     /// </summary>
     public int RateLimitWindowMinutes { get; set; }
 
     /// <summary>
-    /// Whether the assistant feature is globally enabled.
+    /// Whether the assistant is globally enabled (from the runtime settings).
     /// </summary>
     public bool GloballyEnabled { get; set; }
 
     /// <summary>
-    /// Input model for form binding.
+    /// Input model for form binding with validation attributes.
     /// </summary>
     public class InputModel
     {
-        public ulong GuildId { get; set; }
-
         [Display(Name = "Enable AI Assistant")]
         public bool IsEnabled { get; set; }
 
@@ -101,25 +91,19 @@ public class AssistantSettingsModel : PageModel
         public List<string> AllowedChannelIds { get; set; } = new();
 
         [Display(Name = "Rate Limit Override")]
-        [Range(1, 100, ErrorMessage = "Rate limit must be between 1 and 100")]
+        [Range(1, 100, ErrorMessage = "The rate limit must be a whole number from 1 to 100.")]
         public int? RateLimitOverride { get; set; }
 
-        /// <summary>
-        /// Tool names ticked in the checklist. An empty selection means the house default set, not
-        /// "no tools" - see <see cref="UsingDefaultToolSet"/>.
-        /// </summary>
         [Display(Name = "Enabled Tools")]
         public List<string> EnabledTools { get; set; } = new();
     }
 
-    /// <summary>One catalogue category and the tools filed under it.</summary>
     public class ToolCategoryGroup
     {
         public string Category { get; set; } = string.Empty;
         public List<ToolSelectItem> Tools { get; set; } = new();
     }
 
-    /// <summary>One tool row in the checklist.</summary>
     public class ToolSelectItem
     {
         public string Name { get; set; } = string.Empty;
@@ -128,9 +112,6 @@ public class AssistantSettingsModel : PageModel
         public bool IsSelected { get; set; }
     }
 
-    /// <summary>
-    /// View model for guild display.
-    /// </summary>
     public class GuildViewModel
     {
         public ulong Id { get; set; }
@@ -138,9 +119,6 @@ public class AssistantSettingsModel : PageModel
         public string? IconUrl { get; set; }
     }
 
-    /// <summary>
-    /// Model for channel selection.
-    /// </summary>
     public class ChannelSelectItem
     {
         public ulong Id { get; set; }
@@ -148,13 +126,15 @@ public class AssistantSettingsModel : PageModel
         public int Position { get; set; }
         public string Type { get; set; } = "Text";
         public bool IsSelected { get; set; }
+
+        /// <summary>True for a saved channel the bot can no longer see (deleted, or not visible to it).</summary>
+        public bool IsMissing { get; set; }
     }
 
     public async Task<IActionResult> OnGetAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("User accessing assistant settings page for guild {GuildId}", guildId);
 
-        // Get guild info
         var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
         if (guild == null)
         {
@@ -162,106 +142,47 @@ public class AssistantSettingsModel : PageModel
             return NotFound();
         }
 
-        Guild = new GuildViewModel
-        {
-            Id = guild.Id,
-            Name = guild.Name,
-            IconUrl = guild.IconUrl
-        };
-
-        // Populate guild layout ViewModels
-        Breadcrumb = new GuildBreadcrumbViewModel
-        {
-            Items = new List<BreadcrumbItem>
-            {
-                new() { Label = "Home", Url = "/" },
-                new() { Label = "Servers", Url = "/Guilds" },
-                new() { Label = guild.Name, Url = $"/Guilds/Details/{guild.Id}" },
-                new() { Label = "AI Assistant Settings", IsCurrent = true }
-            }
-        };
-
-        Header = new GuildHeaderViewModel
-        {
-            GuildId = guild.Id,
-            GuildName = guild.Name,
-            GuildIconUrl = guild.IconUrl,
-            PageTitle = "AI Assistant Settings",
-            PageDescription = $"Configure AI assistant for {guild.Name}",
-            Actions = new List<HeaderAction>
-            {
-                new()
-                {
-                    Label = "View Metrics",
-                    Url = $"/Guilds/AssistantMetrics/{guildId}",
-                    Style = HeaderActionStyle.Link,
-                    Icon = "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-                }
-            }
-        };
-
-        Navigation = new GuildNavBarViewModel
-        {
-            GuildId = guild.Id,
-            ActiveTab = "assistant",
-            Tabs = GuildNavigationConfig.GetTabs().ToList()
-        };
-
-        // Get assistant settings
         var settings = await _settingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
-        var allowedChannels = settings.GetAllowedChannelIdsList();
 
-        // Get available channels
-        AvailableChannels = GetTextChannels(guildId, allowedChannels);
-
-        // Tool allow-list checklist
-        var enabledTools = settings.GetEnabledToolsList();
-        UsingDefaultToolSet = enabledTools.Count == 0;
-        ToolCategories = BuildToolCategories(enabledTools);
-
-        // Load configuration defaults
-        DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
-        RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;
-
-        // Read GloballyEnabled from settings service (respects runtime changes from Settings page)
-        GloballyEnabled = await _globalSettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
-
-        // Populate form
         Input = new InputModel
         {
-            GuildId = guildId,
             IsEnabled = settings.IsEnabled,
-            AllowedChannelIds = allowedChannels.Select(id => id.ToString()).ToList(),
+            AllowedChannelIds = settings.GetAllowedChannelIdsList().Select(id => id.ToString()).ToList(),
             RateLimitOverride = settings.RateLimitOverride,
-            EnabledTools = enabledTools
+            EnabledTools = settings.GetEnabledToolsList()
         };
 
+        await LoadPageAsync(guild.Id, guild.Name, guild.IconUrl, cancellationToken);
         return Page();
     }
 
-    public async Task<IActionResult> OnPostAsync(CancellationToken cancellationToken)
+    public async Task<IActionResult> OnPostAsync(ulong guildId, CancellationToken cancellationToken)
     {
         _logger.LogInformation("POST received for assistant settings - GuildId={GuildId}, IsEnabled={IsEnabled}",
-            Input.GuildId, Input.IsEnabled);
+            guildId, Input.IsEnabled);
+
+        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
+        if (guild == null)
+        {
+            return NotFound();
+        }
 
         if (!ModelState.IsValid)
         {
-            _logger.LogWarning("ModelState is invalid for guild {GuildId}. Errors: {Errors}",
-                Input.GuildId,
+            _logger.LogWarning("Assistant settings for guild {GuildId} are invalid. Errors: {Errors}",
+                guildId,
                 string.Join("; ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage)));
 
-            await LoadViewModelAsync(Input.GuildId, cancellationToken);
+            // What the user ticked and typed is shown again, not what is saved
+            await LoadPageAsync(guild.Id, guild.Name, guild.IconUrl, cancellationToken);
             return Page();
         }
 
-        // Get current settings
-        var settings = await _settingsService.GetOrCreateSettingsAsync(Input.GuildId, cancellationToken);
+        var settings = await _settingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
 
-        // Update settings
         settings.IsEnabled = Input.IsEnabled;
         settings.RateLimitOverride = Input.RateLimitOverride;
 
-        // Parse channel IDs
         var channelIds = new List<ulong>();
         foreach (var channelIdStr in Input.AllowedChannelIds ?? new List<string>())
         {
@@ -277,38 +198,86 @@ public class AssistantSettingsModel : PageModel
         // today's members of that set. See ToolCatalog.NormalizeSelection.
         settings.SetEnabledToolsList(ToolCatalog.NormalizeSelection(Input.EnabledTools, ToolScopes.Guild));
 
-        // Save settings
         await _settingsService.UpdateSettingsAsync(settings, cancellationToken);
 
-        _logger.LogInformation("Successfully updated assistant settings for guild {GuildId}", Input.GuildId);
-        TempData.SetSuccessToast("Assistant settings saved successfully.");
+        _logger.LogInformation("Successfully updated assistant settings for guild {GuildId}", guildId);
+        TempData.SetSuccessToast("Assistant settings saved.");
 
-        return RedirectToPage("AssistantSettings", new { guildId = Input.GuildId });
+        return RedirectToPage("AssistantSettings", new { guildId });
     }
 
     /// <summary>
-    /// Gets text channels from the Discord guild using the channel resolver.
+    /// Everything the view needs besides <see cref="Input"/>: layout chrome, the channel list, the
+    /// tool checklist and the configuration defaults. Shared by GET and every failed POST. The
+    /// selection shown is always <see cref="Input"/>'s, so a failed save keeps what was ticked.
     /// </summary>
+    private async Task LoadPageAsync(ulong guildId, string guildName, string? guildIconUrl, CancellationToken cancellationToken)
+    {
+        Guild = new GuildViewModel { Id = guildId, Name = guildName, IconUrl = guildIconUrl };
+
+        var selectedChannels = (Input.AllowedChannelIds ?? new List<string>())
+            .Select(id => ulong.TryParse(id, out var parsed) ? parsed : (ulong?)null)
+            .Where(id => id.HasValue)
+            .Select(id => id!.Value)
+            .ToList();
+        AvailableChannels = GetTextChannels(guildId, selectedChannels);
+
+        var enabledTools = Input.EnabledTools ?? new List<string>();
+        UsingDefaultToolSet = enabledTools.Count == 0;
+        ToolCategories = BuildToolCategories(enabledTools);
+
+        DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
+        RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;
+
+        // Read GloballyEnabled from settings service (respects runtime changes from Settings page)
+        GloballyEnabled = await _globalSettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
+
+        PopulateGuildLayout(guildId, guildName, guildIconUrl, "assistant",
+            "AI Assistant Settings", $"Configure AI assistant for {guildName}");
+        Header.Actions = new List<HeaderAction>
+        {
+            new()
+            {
+                Label = "View Metrics",
+                Url = $"/Guilds/AssistantMetrics/{guildId}",
+                Style = HeaderActionStyle.Link,
+                Icon = "M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+            }
+        };
+    }
+
     private List<ChannelSelectItem> GetTextChannels(ulong guildId, List<ulong> selectedChannelIds)
     {
-        return _channelResolver.GetTextChannels(guildId)
-            .Where(c => c.Type == Core.Enums.ChannelDisplayType.Text || c.Type == Core.Enums.ChannelDisplayType.Announcement)
+        var channels = _channelResolver.GetTextChannels(guildId)
+            .Where(c => c.Type == ChannelDisplayType.Text || c.Type == ChannelDisplayType.Announcement)
             .Select(c => new ChannelSelectItem
             {
                 Id = c.Id,
                 Name = c.Name,
                 Position = c.Position,
-                Type = c.Type == Core.Enums.ChannelDisplayType.Announcement ? "Announcement" : "Text",
+                Type = c.Type == ChannelDisplayType.Announcement ? "Announcement" : "Text",
                 IsSelected = selectedChannelIds.Contains(c.Id)
             })
             .ToList();
+
+        // A saved channel the bot cannot see any more is still listed (and ticked), so saving the
+        // page does not quietly drop it; the admin can untick it on purpose.
+        var visible = channels.Select(c => c.Id).ToHashSet();
+        channels.AddRange(selectedChannelIds
+            .Where(id => !visible.Contains(id))
+            .Distinct()
+            .Select(id => new ChannelSelectItem
+            {
+                Id = id,
+                Name = $"Unknown channel ({id})",
+                Type = "Not found",
+                IsSelected = true,
+                IsMissing = true
+            }));
+
+        return channels;
     }
 
-    /// <summary>
-    /// Builds the grouped checklist from the tool catalogue, ticking whatever the guild has saved.
-    /// When the guild has saved nothing, the house default set is shown ticked so the page reflects
-    /// what the assistant will actually advertise.
-    /// </summary>
     private static List<ToolCategoryGroup> BuildToolCategories(List<string> enabledTools)
     {
         var selected = enabledTools.Count > 0
@@ -329,36 +298,5 @@ public class AssistantSettingsModel : PageModel
                 }).ToList()
             })
             .ToList();
-    }
-
-    /// <summary>
-    /// Loads the view model for redisplay after validation error.
-    /// </summary>
-    private async Task LoadViewModelAsync(ulong guildId, CancellationToken cancellationToken)
-    {
-        var guild = await _guildService.GetGuildByIdAsync(guildId, cancellationToken);
-        if (guild != null)
-        {
-            Guild = new GuildViewModel
-            {
-                Id = guild.Id,
-                Name = guild.Name,
-                IconUrl = guild.IconUrl
-            };
-        }
-
-        var settings = await _settingsService.GetOrCreateSettingsAsync(guildId, cancellationToken);
-        var allowedChannels = settings.GetAllowedChannelIdsList();
-        AvailableChannels = GetTextChannels(guildId, allowedChannels);
-
-        var enabledTools = Input.EnabledTools ?? settings.GetEnabledToolsList();
-        UsingDefaultToolSet = enabledTools.Count == 0;
-        ToolCategories = BuildToolCategories(enabledTools);
-
-        DefaultRateLimit = _assistantOptions.Value.RateLimits.DefaultRateLimit;
-        RateLimitWindowMinutes = _assistantOptions.Value.RateLimits.RateLimitWindowMinutes;
-
-        // Read GloballyEnabled from settings service (respects runtime changes from Settings page)
-        GloballyEnabled = await _globalSettingsService.GetSettingValueAsync<bool>("Assistant:GloballyEnabled", cancellationToken);
     }
 }

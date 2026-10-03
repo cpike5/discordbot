@@ -44,9 +44,28 @@ public record DashboardWidgetViewModel
     public string DisabledLabel { get; init; } = "Disabled";
 
     /// <summary>
-    /// HTML content for the widget body
+    /// Path of the partial that renders the widget body, for example
+    /// <c>~/Pages/Guilds/Widgets/_RemindersBody.cshtml</c>. The body is Razor, not a string of
+    /// HTML built in C#, so every value in it is encoded by the view engine.
     /// </summary>
-    public string? BodyContent { get; init; }
+    public string? BodyPartial { get; init; }
+
+    /// <summary>
+    /// The model passed to <see cref="BodyPartial"/>.
+    /// </summary>
+    public object? BodyModel { get; init; }
+
+    /// <summary>
+    /// True when this widget's data could not be loaded. The widget then shows a plain-language
+    /// error with a retry link instead of its body or its empty state, so a failure never reads
+    /// as "nothing here yet".
+    /// </summary>
+    public bool LoadFailed { get; init; }
+
+    /// <summary>
+    /// Where the retry link on a failed widget goes (normally the current page).
+    /// </summary>
+    public string? RetryUrl { get; init; }
 
     /// <summary>
     /// Optional EmptyStateViewModel for no-data state

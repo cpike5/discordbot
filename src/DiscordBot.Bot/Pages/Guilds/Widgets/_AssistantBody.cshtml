@@ -1,0 +1,18 @@
+@model DiscordBot.Bot.Pages.Guilds.DetailsModel
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    const string stat = "~/Pages/Guilds/Widgets/_WidgetStat.cshtml";
+    var channelCoverage = Model.AssistantChannelCount == 0
+        ? "All channels"
+        : DisplayFormat.Plural(Model.AssistantChannelCount, "channel");
+    var rateLimit = Model.AssistantIsRateLimitOverride
+        ? $"{DisplayFormat.Number(Model.AssistantRateLimit)} per {DisplayFormat.Plural(Model.AssistantRateLimitWindowMinutes, "minute")}"
+        : "Default";
+}
+
+<div class="grid grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+    <partial name="@stat" model='new WidgetStatViewModel { Label = "Service", Value = "On", Compact = true, Tone = "success" }' />
+    <partial name="@stat" model='new WidgetStatViewModel { Label = "Channels", Value = channelCoverage, Compact = true }' />
+    <partial name="@stat" model='new WidgetStatViewModel { Label = "Rate limit", Value = rateLimit, Compact = true }' />
+</div>

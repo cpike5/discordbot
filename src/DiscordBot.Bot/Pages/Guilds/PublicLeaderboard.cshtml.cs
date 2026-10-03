@@ -108,6 +108,13 @@ public class PublicLeaderboardModel : PageModel
     public string? ErrorMessage { get; private set; }
 
     /// <summary>
+    /// Which page the visitor gets. The leaderboard is a standalone public page, so a missing board
+    /// or a refused member is shown in the page's own shell with a plain explanation, not as a bare
+    /// browser 404 or 403 body.
+    /// </summary>
+    public LeaderboardAvailability Availability { get; private set; } = LeaderboardAvailability.Available;
+
+    /// <summary>
     /// Handles GET requests to display the public leaderboard.
     /// </summary>
     /// <param name="guildId">The guild's Discord snowflake ID from route parameter.</param>
@@ -135,7 +142,7 @@ public class PublicLeaderboardModel : PageModel
             if (guild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found", guildId);
-                return NotFound();
+                return Unavailable(StatusCodes.Status404NotFound);
             }
 
             GuildName = guild.Name;
@@ -143,8 +150,9 @@ public class PublicLeaderboardModel : PageModel
 
             if (settings == null || !settings.IsEnabled)
             {
+                // Same answer as an unknown server: a visitor learns nothing about which servers exist
                 _logger.LogWarning("Rat Watch not enabled for guild {GuildId}", guildId);
-                return NotFound("Rat Watch is not enabled for this server");
+                return Unavailable(StatusCodes.Status404NotFound);
             }
 
             IsLeaderboardPublic = settings.PublicLeaderboardEnabled;
@@ -178,7 +186,9 @@ public class PublicLeaderboardModel : PageModel
             if (socketGuild == null)
             {
                 _logger.LogWarning("Guild {GuildId} not found in Discord client", guildId);
-                return NotFound();
+                ErrorMessage = "The bot is not connected to this server right now, so membership cannot be checked. Try again in a moment.";
+                Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
+                return Page();
             }
 
             var guildUser = socketGuild.GetUser(applicationUser.DiscordUserId.Value);
@@ -186,7 +196,9 @@ public class PublicLeaderboardModel : PageModel
             {
                 _logger.LogDebug("User {DiscordUserId} is not a member of guild {GuildId}",
                     applicationUser.DiscordUserId.Value, guildId);
-                return Forbid();
+                Availability = LeaderboardAvailability.NotAMember;
+                Response.StatusCode = StatusCodes.Status403Forbidden;
+                return Page();
             }
 
             // User is authenticated and authorized
@@ -244,9 +256,17 @@ public class PublicLeaderboardModel : PageModel
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to load public leaderboard for guild {GuildId}", guildId);
-            ErrorMessage = "Failed to load leaderboard. Please try again.";
+            ErrorMessage = "The leaderboard could not be loaded. Try again in a moment.";
+            Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
         }
 
+        return Page();
+    }
+
+    private IActionResult Unavailable(int statusCode)
+    {
+        Availability = LeaderboardAvailability.NotAvailable;
+        Response.StatusCode = statusCode;
         return Page();
     }
 
@@ -297,6 +317,19 @@ public class PublicLeaderboardModel : PageModel
 /// <summary>
 /// Public leaderboard entry DTO (privacy-focused).
 /// </summary>
+/// <summary>What the public leaderboard page can say instead of the board.</summary>
+public enum LeaderboardAvailability
+{
+    /// <summary>The page shows the board, the landing prompt, or a load error.</summary>
+    Available,
+
+    /// <summary>No such leaderboard (unknown server, or Rat Watch is off there).</summary>
+    NotAvailable,
+
+    /// <summary>The visitor is signed in but is not a member of the server.</summary>
+    NotAMember
+}
+
 public record PublicLeaderboardEntryDto
 {
     public int Rank { get; init; }

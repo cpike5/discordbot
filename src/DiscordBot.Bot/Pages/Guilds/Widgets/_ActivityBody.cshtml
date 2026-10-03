@@ -1,0 +1,71 @@
+@model DiscordBot.Bot.Pages.Guilds.DetailsModel
+@using DiscordBot.Bot.Helpers
+@using DiscordBot.Bot.ViewModels.Components
+@{
+    var logs = Model.ViewModel.RecentCommandLogs;
+    var guildId = Model.ViewModel.Id;
+    static BadgeViewModel Outcome(bool success) => new()
+    {
+        Text = success ? "Success" : "Failed",
+        Variant = success ? BadgeVariant.Success : BadgeVariant.Error,
+        Style = BadgeStyle.Subtle,
+        Size = BadgeSize.Small
+    };
+}
+
+<!-- Desktop table -->
+<div class="overflow-x-auto hidden md:block">
+    <table class="min-w-full divide-y divide-border-primary">
+        <caption class="sr-only">Recent command activity</caption>
+        <thead class="bg-bg-tertiary">
+            <tr>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Command</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">User</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Time</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Response</th>
+                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">Status</th>
+            </tr>
+        </thead>
+        <tbody class="divide-y divide-border-primary">
+            @foreach (var cmd in logs)
+            {
+                <tr class="hover:bg-bg-tertiary/50 transition-colors">
+                    <td class="px-6 py-4 whitespace-nowrap"><span class="text-sm font-medium text-text-primary font-mono">/@cmd.CommandName</span></td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">
+                        <span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guildId">@cmd.Username</span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">@DisplayFormat.Time(cmd.ExecutedAt, "datetime-short")</td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-text-secondary">@DisplayFormat.Number(cmd.ResponseTimeMs) ms</td>
+                    <td class="px-6 py-4 whitespace-nowrap"><partial name="Shared/Components/_Badge" model="Outcome(cmd.Success)" /></td>
+                </tr>
+            }
+        </tbody>
+    </table>
+</div>
+
+<!-- Mobile cards -->
+<ul class="md:hidden divide-y divide-border-primary" role="list">
+    @foreach (var cmd in logs)
+    {
+        <li class="py-3">
+            <div class="flex items-center justify-between gap-3 mb-2">
+                <span class="text-sm font-medium text-text-primary font-mono break-all">/@cmd.CommandName</span>
+                <partial name="Shared/Components/_Badge" model="Outcome(cmd.Success)" />
+            </div>
+            <dl class="space-y-1 text-sm">
+                <div class="flex justify-between gap-3">
+                    <dt class="text-text-secondary">User</dt>
+                    <dd class="text-text-primary text-right break-words min-w-0"><span class="preview-trigger" data-preview-type="user" data-user-id="@cmd.UserId" data-context-guild-id="@guildId">@cmd.Username</span></dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-text-secondary">Time</dt>
+                    <dd class="text-text-primary">@DisplayFormat.Time(cmd.ExecutedAt, "datetime-short")</dd>
+                </div>
+                <div class="flex justify-between gap-3">
+                    <dt class="text-text-secondary">Response</dt>
+                    <dd class="text-text-primary">@DisplayFormat.Number(cmd.ResponseTimeMs) ms</dd>
+                </div>
+            </dl>
+        </li>
+    }
+</ul>

@@ -1,33 +1,35 @@
 @model DiscordBot.Bot.ViewModels.Components.DashboardWidgetViewModel
+@using DiscordBot.Bot.ViewModels.Components
 @{
     var colSpanClass = Model.ColSpan == 2 ? "md:col-span-2" : "md:col-span-1";
 }
 
-<div class="@colSpanClass bg-bg-secondary border border-border-primary rounded-lg overflow-hidden">
+<section class="@colSpanClass bg-bg-secondary border border-border-primary rounded-lg overflow-hidden min-w-0">
     <!-- Widget Header -->
-    <div class="px-4 sm:px-6 py-4 @(!string.IsNullOrEmpty(Model.BodyContent) || Model.EmptyState != null ? "" : "")">
-        <div class="flex items-center justify-between">
-            <div class="flex items-center gap-2">
+    <div class="px-4 sm:px-6 py-4">
+        <div class="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <div class="flex items-center gap-2 min-w-0">
                 @if (!string.IsNullOrEmpty(Model.IconSvgPath))
                 {
-                    <svg class="w-5 h-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg class="w-5 h-5 text-text-tertiary flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="@Model.IconSvgPath" />
                     </svg>
                 }
-                <h3 class="text-lg font-semibold text-text-primary">@Model.Title</h3>
-                @if (Model.IsEnabled.HasValue)
+                <h2 class="text-lg font-semibold text-text-primary">@Model.Title</h2>
+                @if (Model.IsEnabled.HasValue && !Model.LoadFailed)
                 {
                     @if (Model.IsEnabled.Value)
                     {
                         <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-success/20 text-success">
-                            <span class="w-1.5 h-1.5 rounded-full bg-success mr-1"></span>
+                            <span class="w-1.5 h-1.5 rounded-full bg-success mr-1" aria-hidden="true"></span>
                             @Model.EnabledLabel
                         </span>
                     }
                     else
                     {
-                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-error/20 text-error">
-                            <span class="w-1.5 h-1.5 rounded-full bg-error mr-1"></span>
+                        @* Off is a setting, not a fault, so it is not red *@
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-bg-tertiary text-text-secondary">
+                            <span class="w-1.5 h-1.5 rounded-full bg-text-tertiary mr-1" aria-hidden="true"></span>
                             @Model.DisabledLabel
                         </span>
                     }
@@ -59,13 +61,25 @@
 
     <!-- Widget Body -->
     <div class="px-4 sm:px-6 pb-4 sm:pb-6">
-        @if (Model.EmptyState != null && string.IsNullOrEmpty(Model.BodyContent))
+        @if (Model.LoadFailed)
+        {
+            <partial name="Shared/Components/_EmptyState" model='new EmptyStateViewModel {
+                Type = EmptyStateType.Error,
+                Title = "Could not load this widget",
+                Description = "Something went wrong while reading this data. The rest of the page is fine.",
+                PrimaryActionText = "Try again",
+                PrimaryActionUrl = Model.RetryUrl,
+                Size = EmptyStateSize.Compact,
+                HeadingLevel = 3
+            }' />
+        }
+        else if (Model.EmptyState != null)
         {
             <partial name="Shared/Components/_EmptyState" model="Model.EmptyState" />
         }
-        else if (!string.IsNullOrEmpty(Model.BodyContent))
+        else if (!string.IsNullOrEmpty(Model.BodyPartial))
         {
-            @Html.Raw(Model.BodyContent)
+            <partial name="@Model.BodyPartial" model="Model.BodyModel" />
         }
     </div>
-</div>
+</section>
